@@ -1,0 +1,3 @@
+[submodule "3rdparties/ctypes"]
+	path = 3rdparties/ctypes
+	url = https://github.com/xeechou/ctypes
