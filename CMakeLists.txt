@@ -69,6 +69,8 @@ include_directories(${COMPOSITOR_INCLUDE_DIRS})
 include_directories(${TRDPTY_INCLUDE_DIRS})
 
 #####################################################################
+#message("3rdparty includes: ${TRDPTY_INCLUDE_DIRS}")
+#message("3rdparty lib: ${TRDPTY_LIBRARIES}")
 
 #test the features in this
 add_executable(test_weston-desktop

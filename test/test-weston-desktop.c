@@ -263,7 +263,7 @@ main()
     struct weston_pointer *p = weston_pointer_create(&seat);
     weston_seat_init_pointer(&seat);
 //    struct weston_keyboard *k =  weston_keyboard_create();
-    //mystrious i
+    //keybindings is a list. Every time you press key, we need to run through the list
     weston_compositor_add_key_binding(context->compositor, KEY_0, 0, log_on_key, NULL);
 
     weston_compositor_wake(context->compositor);
