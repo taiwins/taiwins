@@ -9,7 +9,7 @@ project(taiwins
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
+  set(CMAKE_BUILD_TYPE Debug)
 endif()
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
@@ -52,11 +52,14 @@ set(COMPOSITOR_LIBRARIES
   ${Libweston_LIBRARIES}
   ${Libweston-Desktop_LIBRARIES}
   ${Waylandserver_LIBRARIES}
+  ${XKBCOMMON_LIBRARIES}
   )
 set(COMPOSITOR_INCLUDE_DIRS
   ${Libweston_INCLUDE_DIRS}
   ${Libweston-Desktop_INCLUDE_DIRS}
-  ${Waylandserver_INCLUDE_DIRS})
+  ${Waylandserver_INCLUDE_DIRS}
+  ${XKBCOMMON_INCLUDE_DIRS}
+  )
 
 set(TRDPTY_INCLUDE_DIRS
   ${CTYPES_INCLUDE_DIR}
@@ -70,7 +73,7 @@ include_directories(${TRDPTY_INCLUDE_DIRS})
 
 #####################################################################
 #message("3rdparty includes: ${TRDPTY_INCLUDE_DIRS}")
-#message("3rdparty lib: ${TRDPTY_LIBRARIES}")
+message("3rdparty lib: ${TRDPTY_LIBRARIES}")
 
 #test the features in this
 add_executable(test_weston-desktop
