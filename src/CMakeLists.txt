@@ -9,5 +9,5 @@ add_executable(taiwins
 
 target_link_libraries(taiwins
   ${COMPOSITOR_LIBRARIES}
-  ${THRDPTY_LIBRARIES}
+  ${TRDPTY_LIBRARIES}
   )
