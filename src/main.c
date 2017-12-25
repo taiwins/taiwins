@@ -93,9 +93,10 @@ int main(int argc, char *argv[])
 		goto setup_err;
 	//yep, we need to setup backend
 	tw_setup_backend(compositor);
+	fprintf(stderr, "backend registred\n");
 
 	weston_compositor_wake(compositor);
-//	wl_display_run(display);
+	wl_display_run(display);
 	weston_compositor_destroy(compositor);
 	return 0;
 setup_err:

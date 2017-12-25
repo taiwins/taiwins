@@ -65,14 +65,14 @@ set(TRDPTY_INCLUDE_DIRS
   ${CTYPES_INCLUDE_DIR}
   )
 set(TRDPTY_LIBRARIES
-  ${CTYPES_LIBRARIES}
+  "${CTYPES_LIBRARIES}"
   )
 
 include_directories(${COMPOSITOR_INCLUDE_DIRS})
 include_directories(${TRDPTY_INCLUDE_DIRS})
 
 #####################################################################
-#message("3rdparty includes: ${TRDPTY_INCLUDE_DIRS}")
+message("3rdparty includes: ${TRDPTY_INCLUDE_DIRS}")
 message("3rdparty lib: ${TRDPTY_LIBRARIES}")
 
 #test the features in this
@@ -82,7 +82,7 @@ add_executable(test_weston-desktop
 
 target_link_libraries(test_weston-desktop
   ${COMPOSITOR_LIBRARIES}
-  ${THRDPTY_LIBRARIES}
+  ${THDPTY_LIBRARIES}
   )
 
 add_subdirectory(src)
