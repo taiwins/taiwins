@@ -40,9 +40,13 @@ find_package(PkgConfig)
 #include all the wayland protocols
 find_package(XKBCommon REQUIRED)
 find_package(LibInput REQUIRED)
-pkg_check_modules(Waylandserver wayland-server REQUIRED)
+#pkg_check_modules(Waylandserver wayland-server REQUIRED)
 pkg_check_modules(Libweston libweston-3 REQUIRED)
 pkg_check_modules(Libweston-Desktop libweston-desktop-3 REQUIRED)
+find_package(Wayland REQUIRED)
+#find_package(WaylandProtocols)
+
+
 
 #####################################################################
 ################# setup the project variables #######################
@@ -51,14 +55,14 @@ add_subdirectory("3rdparties/ctypes")
 set(COMPOSITOR_LIBRARIES
   ${Libweston_LIBRARIES}
   ${Libweston-Desktop_LIBRARIES}
-  ${Waylandserver_LIBRARIES}
+  ${WAYLAND_SERVER_LIBRARIES}
   ${XKBCOMMON_LIBRARIES}
   )
 set(COMPOSITOR_INCLUDE_DIRS
   ${Libweston_INCLUDE_DIRS}
   ${Libweston-Desktop_INCLUDE_DIRS}
-  ${Waylandserver_INCLUDE_DIRS}
   ${XKBCOMMON_INCLUDE_DIRS}
+  ${WAYLAND_SERVER_INCLUDE_DIR}
   )
 
 set(TRDPTY_INCLUDE_DIRS
@@ -68,21 +72,23 @@ set(TRDPTY_LIBRARIES
   "${CTYPES_LIBRARIES}"
   )
 
+set(CLIENT_INCLUDE_DIRS
+  ${XKBCOMMON_INCLUDE_DIRS}
+  ${WAYLAND_CLIENT_INCLUDE_DIR}
+  )
+set(CLIENT_LIBRARIES
+  ${XKBCOMMON_LIBRARIES}
+  ${WAYLAND_CLIENT_LIBRARIES}
+  )
+
+
 include_directories(${COMPOSITOR_INCLUDE_DIRS})
 include_directories(${TRDPTY_INCLUDE_DIRS})
+
 
 #####################################################################
 message("3rdparty includes: ${TRDPTY_INCLUDE_DIRS}")
 message("3rdparty lib: ${TRDPTY_LIBRARIES}")
 
-#test the features in this
-add_executable(test_weston-desktop
-  test/test-weston-desktop.c
-  )
-
-target_link_libraries(test_weston-desktop
-  ${COMPOSITOR_LIBRARIES}
-  ${THDPTY_LIBRARIES}
-  )
-
 add_subdirectory(src)
+add_subdirectory(test)

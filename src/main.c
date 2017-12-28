@@ -18,6 +18,11 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include "backend.h"
 
+//this is a really bad idea
+struct tw_resources {
+
+};
+
 //remove this two later
 static struct weston_seat g_seat;
 struct weston_seat *seat0;
@@ -60,7 +65,6 @@ bool setup_input(struct weston_compositor *compositor)
 	weston_seat_init_keyboard(seat0, compositor->xkb_info->keymap); //if something goes wrong
 //	weston_seat_update_keymap(seat0, compositor->xkb_info->keymap);
 //	struct weston_keyboard *keyboard = weston_seat_get_keyboard(seat0);
-
 
 	//you can also do this
 //	weston_seat_init_pointer(seat0);

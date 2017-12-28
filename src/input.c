@@ -4,6 +4,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <sequential.h>
 #include <tree.h>
+#include <unistd.h>
 
 extern struct weston_seat *seat0;
 
@@ -25,7 +26,10 @@ extern struct weston_seat *seat0;
 struct tw_keypress {
 	list_t command;
 	xkb_keysym_t keysym;
+	uint32_t kc_linux;
+	enum weston_keyboard_modifier modifier;
 };
+
 #define list2keypress(ptr)	container_of(ptr, struct tw_keypress, command)
 
 //yoo, I should define bunch of hotkey function.
@@ -38,7 +42,19 @@ struct tw_keymap_tree {
 	struct vtree_node node;
 	//also a function should be here
 	shortcut_func_t keyfun;
-} root;
+};
+static struct tw_keymap_tree root_keybinding = {
+	.keysym = 0,
+	.node = {
+		.children = {
+			.elemsize = sizeof(struct vtree_node*),
+			.len = 0,
+			.alloc_len = 0
+		},
+		.parent = NULL,
+	},
+	.keyfun = NULL
+};
 
 //static struct tw_keymap_tree *root;
 #define node2treekeymap(ptr)	container_of(ptr, struct tw_keymap_tree, node)
@@ -57,7 +73,13 @@ kc_xkb2linux(uint32_t kc_xkb)
 	return kc_xkb-8;
 }
 
-//
+/**
+ *
+ * @brief insert the keybing seq in the tree (C-x, C-r, C-c)
+ *
+ * The depth of the tree shouldn't be over something like 3. We also need a
+ * cache of keysyms in order to update the
+ */
 void
 update_tw_keymap_tree(struct tw_keymap_tree *root, struct list_t *keyseq)
 {
@@ -73,7 +95,7 @@ run_keybinding(struct weston_keyboard *keyboard,
 	       uint32_t time, uint32_t key,
 	       void *data)
 {
-	static struct tw_keymap_tree *keybinding_tree = &root;
+	static struct tw_keymap_tree *keybinding_tree = &root_keybinding;
 
 	xkb_keycode_t keycode = kc_linux2xkb(key);
 	xkb_keysym_t  keysym  = xkb_state_key_get_one_sym(keyboard->xkb_state.state,
@@ -86,7 +108,7 @@ run_keybinding(struct weston_keyboard *keyboard,
 		struct tw_keymap_tree *binding = node2treekeymap(node);
 		if (binding->keysym == keysym && binding->keyfun) {
 			//set back to origin;
-			keybinding_tree = &root;
+			keybinding_tree = &root_keybinding;
 			binding->keyfun();
 			hit = true;
 			break;
@@ -99,8 +121,9 @@ run_keybinding(struct weston_keyboard *keyboard,
 	//unregistered keybinding, it could happen. But in this case, we
 	//shouldn't pass the key to the clients anyway
 	if (!hit) {
-		keybinding_tree = &root;
+		keybinding_tree = &root_keybinding;
 	}
+
 }
 
 
