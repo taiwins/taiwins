@@ -11,7 +11,9 @@ target_link_libraries(test_weston-desktop
 
 
 add_executable(test_xkbcommon
-  test-xkbcommon.c)
+  test-xkbcommon.c
+  buffer.c
+  )
 
 target_link_libraries(test_xkbcommon
   ${CLIENT_LIBRARIES}
