@@ -42,7 +42,8 @@ void handle_keymap(void *data, struct wl_keyboard *wl_keyboard,
 	//now it is the time to creat a context
 	seat0->kctxt = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	void *addr = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
-	seat0->kmap = xkb_keymap_new_from_buffer(seat0->kctxt, addr, size, format, XKB_KEYMAP_COMPILE_NO_FLAGS);
+	printf("%s\n", addr);
+	seat0->kmap = xkb_keymap_new_from_string(seat0->kctxt, addr, XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS);
 	munmap(addr, size);
 	seat0->kstate = xkb_state_new(seat0->kmap);
 }
@@ -72,10 +73,41 @@ void handle_modifiers(void *data,
 	xkb_state_update_mask(seat0->kstate, mods_depressed, mods_latched, mods_locked, 0, 0, 0);
 }
 
+void handle_keyboard_enter(void *data,
+			   struct wl_keyboard *wl_keyboard,
+			   uint32_t serial,
+			   struct wl_surface *surface,
+			   struct wl_array *keys)
+{
+	fprintf(stderr, "keyboard got focus\n");
+}
+
+void handle_keyboard_leave(void *data,
+		    struct wl_keyboard *wl_keyboard,
+		    uint32_t serial,
+		    struct wl_surface *surface)
+{
+	fprintf(stderr, "keyboard lost focus\n");
+}
+
+void handle_repeat_info(void *data,
+			    struct wl_keyboard *wl_keyboard,
+			    int32_t rate,
+			    int32_t delay)
+{
+
+}
+
+
+
 
 struct wl_keyboard_listener keyboard_listener = {
 	.key = handle_key,
 	.modifiers = handle_modifiers,
+	.enter = handle_keyboard_enter,
+	.leave = handle_keyboard_leave,
+	.keymap = handle_keymap,
+	.repeat_info = handle_repeat_info,
 };
 
 
@@ -85,14 +117,16 @@ void seat_capabilities(void *data,
 		       uint32_t capabilities)
 {
 	struct seat *seat0 = (struct seat *)data;
-	if (capabilities == WL_SEAT_CAPABILITY_KEYBOARD) {
+	if (capabilities & WL_SEAT_CAPABILITY_KEYBOARD) {
 		seat0->keyboard = wl_seat_get_keyboard(wl_seat);
 		fprintf(stderr, "got a keyboard\n");
 		wl_keyboard_add_listener(seat0->keyboard, &keyboard_listener, seat0);
-	} else if (capabilities == WL_SEAT_CAPABILITY_POINTER) {
+	}
+	if (capabilities & WL_SEAT_CAPABILITY_POINTER) {
 		seat0->pointer = wl_seat_get_pointer(wl_seat);
 		fprintf(stderr, "got a mouse\n");
-	} else if (capabilities == WL_SEAT_CAPABILITY_TOUCH) {
+	}
+	if (capabilities & WL_SEAT_CAPABILITY_TOUCH) {
 		seat0->touch = wl_seat_get_touch(wl_seat);
 		fprintf(stderr, "got a touchpad\n");
 	}
@@ -157,6 +191,9 @@ int main(int argc, char *argv[])
 
 	struct wl_registry *registry = wl_display_get_registry(display);
 	wl_registry_add_listener(registry, &registry_listener, NULL);
+	wl_display_dispatch(display);
+	wl_display_roundtrip(display);
+	while(wl_display_dispatch(display) != -1);
 
 	wl_display_disconnect(display);
 	return 0;
