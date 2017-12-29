@@ -8,6 +8,48 @@
 
 extern struct weston_seat *seat0;
 
+enum tw_modifier_mask {
+	TW_NOMOD = 0,
+	TW_ALT = 1,
+	TW_CTRL = 2,
+	TW_SUPER = 4
+};
+
+static uint32_t
+modifier_mask_from_xkb_state(struct xkb_state *state)
+{
+	uint32_t mask = TW_NOMOD;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_ALT;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_CTRL;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_SUPER;
+	return mask;
+}
+
+static uint32_t
+modifier_mask_from_weston_mod(enum weston_keyboard_modifier mod)
+{
+	uint32_t mask;
+	switch (mod) {
+	case MODIFIER_ALT:
+		mask |= TW_ALT;
+		break;
+	case MODIFIER_CTRL:
+		mask |= TW_CTRL;
+		break;
+	case MODIFIER_SUPER:
+		mask |= TW_SUPER;
+		break;
+	case MODIFIER_SHIFT:
+		//don't need shift
+		break;
+	}
+	return mask;
+}
+
+
 /**
  * thanks to the knowledge by archwiki, the xkbcommon is the library that does
  * all the mapping, it has
@@ -24,13 +66,11 @@ extern struct weston_seat *seat0;
  *
  */
 struct tw_keypress {
-	list_t command;
-	xkb_keysym_t keysym;
-	uint32_t kc_linux;
+//	list_t command;
+	xkb_keycode_t keycode;
 	enum weston_keyboard_modifier modifier;
+	uint32_t kc_linux;
 };
-
-#define list2keypress(ptr)	container_of(ptr, struct tw_keypress, command)
 
 //yoo, I should define bunch of hotkey function.
 typedef void (*shortcut_func_t)(void);
@@ -39,12 +79,14 @@ typedef void (*shortcut_func_t)(void);
 struct tw_keymap_tree {
 	//struct list_t *keyseq;
 	xkb_keysym_t keysym;
+	uint32_t modifier;
 	struct vtree_node node;
 	//also a function should be here
 	shortcut_func_t keyfun;
 };
 static struct tw_keymap_tree root_keybinding = {
 	.keysym = 0,
+	.modifier = 0,
 	.node = {
 		.children = {
 			.elemsize = sizeof(struct vtree_node*),
@@ -81,13 +123,36 @@ kc_xkb2linux(uint32_t kc_xkb)
  * cache of keysyms in order to update the
  */
 void
-update_tw_keymap_tree(struct tw_keymap_tree *root, struct list_t *keyseq)
+update_tw_keymap_tree(struct tw_keymap_tree *root, vector_t *keyseq, const struct weston_keyboard *keyboard)
 {
-	struct tw_keypress *ks = list2keypress(keyseq);
-//	list_for_each(keysym, ks, command) {
+	//TODO we should use xkb_keysym_from_name(const char *name, enum xkb_keysym_flags flags) instead of from keystate
+	//create a face key_state, we need to use it to create keysym
+	struct xkb_state *state = xkb_state_new(keyboard->xkb_info->keymap);
+	struct tw_keymap_tree *tree = root;
+//	struct tw_keypress *ks = deref(type, ptr)
+	for (int i = 0; i < keyseq->len; i++) {
+		const struct tw_keypress *keypress = (struct tw_keypress *)vector_at(keyseq, i);
+		uint32_t modifier = modifier_mask_from_weston_mod(keypress->modifier);
+		xkb_keysym_t keysym = xkb_state_key_get_one_sym(state, keypress->keycode);
+		bool hit = false;
+		for (int j = 0; j < tree->node.children.len; j++) {
+			struct vtree_node *node = deref(struct vtree_node **,
+							vector_at(&tree->node.children, j));
+			struct tw_keymap_tree *binding = node2treekeymap(node);
+			if (binding->keysym == keysym && binding->modifier == modifier) {
+				hit = true;
+				break;
+			}
+		}
+		if (!hit) { //create new keybind
 
-//	}
+		} else //this one alread in the tree
+			continue;
+	}
+
+	xkb_state_unref(state);
 }
+
 
 
 void
@@ -100,12 +165,18 @@ run_keybinding(struct weston_keyboard *keyboard,
 	xkb_keycode_t keycode = kc_linux2xkb(key);
 	xkb_keysym_t  keysym  = xkb_state_key_get_one_sym(keyboard->xkb_state.state,
 							  keycode);
+	//we need a mask here, because
+	uint32_t modifier_mask = modifier_mask_from_xkb_state(keyboard->xkb_state.state);
 	//search the key in the children
+	//well, this is basically not a very good news, we only get the key, not modifiers, have to get it from the state
 	bool hit = false;
 	for (int i = 0; i < keybinding_tree->node.children.len; i++) {
 		struct vtree_node *node = deref(struct vtree_node **,
 						vector_at(&keybinding_tree->node.children, i));
 		struct tw_keymap_tree *binding = node2treekeymap(node);
+		//you need to run all the sub keybindings
+		if (modifier_mask != keybinding_tree->modifier)
+			continue;
 		if (binding->keysym == keysym && binding->keyfun) {
 			//set back to origin;
 			keybinding_tree = &root_keybinding;
@@ -113,6 +184,7 @@ run_keybinding(struct weston_keyboard *keyboard,
 			hit = true;
 			break;
 		} else if (binding->keysym == keysym && !binding->keyfun) {
+			//in the branch, we don't
 			keybinding_tree = binding;
 			hit = true;
 			break;

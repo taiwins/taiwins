@@ -58,7 +58,13 @@ void handle_key(void *data,
 		uint32_t key,
 		uint32_t state)
 {
-	fprintf(stderr, "got a key %d\n", key);
+	//keycode of C and c is the same
+	char keysym_name[64];
+	struct seat *seat0 = (struct seat *)data;
+	xkb_keysym_t keysym = xkb_state_key_get_one_sym(seat0->kstate, key+8);
+	xkb_keysym_get_name(keysym, keysym_name, sizeof(keysym_name));
+	//a and ctrl-a is the same
+	fprintf(stderr, "got a key %d for the code %d with name %s\n", keysym, key+8, keysym_name);
 	//now it is time to decode
 }
 static
@@ -70,10 +76,11 @@ void handle_modifiers(void *data,
 		      uint32_t mods_locked,
 		      uint32_t group)
 {
+	fprintf(stderr, "We pressed a modifier\n");
 	//I guess this serial number is different for each event
 	struct seat *seat0 = (struct seat *)data;
 	//wayland uses layout group. you need to know what xkb_matched_layout is
-	xkb_state_update_mask(seat0->kstate, mods_depressed, mods_latched, mods_locked, 0, 0, 0);
+	xkb_state_update_mask(seat0->kstate, mods_depressed, mods_latched, mods_locked, 0, 0, group);
 }
 static
 void handle_keyboard_enter(void *data,
