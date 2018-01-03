@@ -6,15 +6,15 @@ add_executable(test_weston-desktop
 
 target_link_libraries(test_weston-desktop
   ${COMPOSITOR_LIBRARIES}
-  ${THDPTY_LIBRARIES}
+  ${TRDPTY_LIBRARIES}
   )
 
 
 add_executable(test_xkbcommon
   test-xkbcommon.c
-  buffer.c
   )
 
 target_link_libraries(test_xkbcommon
   ${CLIENT_LIBRARIES}
+  ${TRDPTY_LIBRARIES}
   )

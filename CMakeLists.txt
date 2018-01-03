@@ -40,12 +40,10 @@ find_package(PkgConfig)
 #include all the wayland protocols
 find_package(XKBCommon REQUIRED)
 find_package(LibInput REQUIRED)
-#pkg_check_modules(Waylandserver wayland-server REQUIRED)
 pkg_check_modules(Libweston libweston-3 REQUIRED)
 pkg_check_modules(Libweston-Desktop libweston-desktop-3 REQUIRED)
 find_package(Wayland REQUIRED)
-#find_package(WaylandProtocols)
-
+find_package(Cairo REQUIRED)
 
 
 #####################################################################
@@ -69,16 +67,18 @@ set(TRDPTY_INCLUDE_DIRS
   ${CTYPES_INCLUDE_DIR}
   )
 set(TRDPTY_LIBRARIES
-  "${CTYPES_LIBRARIES}"
+  ${CTYPES_LIBRARIES}
   )
 
 set(CLIENT_INCLUDE_DIRS
   ${XKBCOMMON_INCLUDE_DIRS}
   ${WAYLAND_CLIENT_INCLUDE_DIR}
+  ${CAIRO_INCLUDE_DIRS}
   )
 set(CLIENT_LIBRARIES
   ${XKBCOMMON_LIBRARIES}
   ${WAYLAND_CLIENT_LIBRARIES}
+  ${CAIRO_LIBRARIES}
   )
 
 

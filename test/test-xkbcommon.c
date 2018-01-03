@@ -18,7 +18,9 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <wayland-client.h>
+#include <cairo.h>
 
+#include <buffer.h>
 
 struct seat {
 	struct wl_seat *s;
@@ -99,6 +101,8 @@ void handle_keyboard_leave(void *data,
 {
 	fprintf(stderr, "keyboard lost focus\n");
 }
+
+//you must have this
 static
 void handle_repeat_info(void *data,
 			    struct wl_keyboard *wl_keyboard,
@@ -169,7 +173,6 @@ static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 {
     //struct display *d = data;
-
     //	d->formats |= (1 << format);
     fprintf(stderr, "Format %d\n", format);
 }
@@ -247,55 +250,41 @@ struct wl_shell_surface_listener pingpong = {
 	.popup_done = handle_popup_done
 };
 
-
-
-
-
-#define WIDTH 400
-#define HEIGHT 200
-void *shm_data;
-
-//struct wl_buffer *buffer;
-
-extern int os_create_anonymous_file(off_t size);
-
 static struct wl_buffer *
-create_buffer() {
-    struct wl_shm_pool *pool;
-    int stride = WIDTH * 4; // 4 bytes per pixel
-    int size = stride * HEIGHT;
-    int fd;
-    struct wl_buffer *buff;
+create_buffer(int WIDTH, int HEIGHT)
+{
+	struct wl_shm_pool *pool;
+	int stride = WIDTH * 4; // rgba pixels, weston seems have another idea...
+	int size = stride * HEIGHT;
+	struct wl_buffer *buff;
 
-    fd = os_create_anonymous_file(size);
-    if (fd < 0) {
-	fprintf(stderr, "creating a buffer file for %d B failed: %m\n",
-		size);
-	exit(1);
-    }
-
-    shm_data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (shm_data == MAP_FAILED) {
-	fprintf(stderr, "mmap failed: %m\n");
-	close(fd);
-	exit(1);
-    }
-
-    pool = wl_shm_create_pool(shm, fd, size);
-    buff = wl_shm_pool_create_buffer(pool, 0,
-					  WIDTH, HEIGHT,
-					  stride,
-					  WL_SHM_FORMAT_XRGB8888);
-    //wl_buffer_add_listener(buffer, &buffer_listener, buffer);
-    wl_shm_pool_destroy(pool);
-    return buff;
+	struct anonymous_buff_t *buffer = malloc(sizeof(*buffer));
+	if ( anonymous_buff_new(buffer, size) < 0) {
+		fprintf(stderr, "creating a buffer file for %d failed\n",
+			size);
+		exit(1);
+	}
+	void *shm_data = anonymous_buff_alloc(buffer, size, PROT_READ | PROT_WRITE, MAP_SHARED);
+	if (!shm_data) {
+		fprintf(stderr, "come on man...\n");
+		anonymous_buff_close_file(buffer);
+		return NULL;
+	}
+	fprintf(stderr, "the fd is %d\n", buffer->fd);
+	pool = wl_shm_create_pool(shm, buffer->fd, size);
+	buff = wl_shm_pool_create_buffer(pool, 0,
+					 WIDTH, HEIGHT,
+					 stride,
+					 WL_SHM_FORMAT_XRGB8888);
+	wl_shm_pool_destroy(pool);
+	wl_buffer_set_user_data(buff, buffer);
+	return buff;
 }
 
 int main(int argc, char *argv[])
 {
 	struct wl_display *display = wl_display_connect(NULL);
 	if (!display) {
-
 		return -1;
 	}
 
@@ -313,11 +302,13 @@ int main(int argc, char *argv[])
 	struct wl_shell_surface *shell_surface = wl_shell_get_shell_surface(gshell, surface);
 	wl_shell_surface_add_listener(shell_surface, &pingpong, NULL);
 	wl_shell_surface_set_toplevel(shell_surface);
-	struct wl_buffer *buffer = create_buffer();
+	struct wl_buffer *buffer = create_buffer(400, 200);
+	//init cario surface
+//	cairo_create(cairo_surface_t *target)
+
 	wl_surface_attach(surface, buffer, 0, 0);
 	wl_surface_commit(surface);
-	//create a buffer and attach to it, so we can see something
-//	wl_surface_attach(surface, struct wl_buffer *buffer, int32_t x, int32_t y)
+	//allright, now we just need to create that stupid input struct
 
 
 	while(wl_display_dispatch(display) != -1);
