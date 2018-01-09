@@ -21,6 +21,7 @@
 #include <cairo.h>
 
 #include <buffer.h>
+#include "input_data.h"
 
 struct seat {
 	struct wl_seat *s;
@@ -60,14 +61,11 @@ void handle_key(void *data,
 		uint32_t key,
 		uint32_t state)
 {
-	//keycode of C and c is the same
-	char keysym_name[64];
+	if (!state) //lets hope the server side has this as well
+		return;
 	struct seat *seat0 = (struct seat *)data;
-	xkb_keysym_t keysym = xkb_state_key_get_one_sym(seat0->kstate, key+8);
-	xkb_keysym_get_name(keysym, keysym_name, sizeof(keysym_name));
-	//a and ctrl-a is the same
-	fprintf(stderr, "got a key %d for the code %d with name %s\n", keysym, key+8, keysym_name);
-	//now it is time to decode
+	run_keybinding_wayland(seat0->kstate, time, key, data);
+
 }
 static
 void handle_modifiers(void *data,
@@ -135,6 +133,20 @@ void seat_capabilities(void *data,
 		seat0->keyboard = wl_seat_get_keyboard(wl_seat);
 		fprintf(stderr, "got a keyboard\n");
 		wl_keyboard_add_listener(seat0->keyboard, &keyboard_listener, seat0);
+		//now add those damn short cuts
+		update_tw_keymap_tree(&kp_q,  func_quit);
+		update_tw_keymap_tree(&kp_of, func_of);
+		update_tw_keymap_tree(&kp_cf, func_cf);
+		update_tw_keymap_tree(&kp_lb, func_lb);
+		update_tw_keymap_tree(&kp_bl, func_bl);
+		update_tw_keymap_tree(&kp_audiodw, func_audiodw);
+		update_tw_keymap_tree(&kp_audioup, func_audioup);
+		update_tw_keymap_tree(&kp_audiopl, func_audio);
+		update_tw_keymap_tree(&kp_audiops, func_audio);
+		update_tw_keymap_tree(&kp_audionx, func_audio);
+		update_tw_keymap_tree(&kp_audiopv, func_audio);
+		update_tw_keymap_tree(&kp_ro, func_ro);
+		debug_keybindtree();
 	}
 	if (capabilities & WL_SEAT_CAPABILITY_POINTER) {
 		seat0->pointer = wl_seat_get_pointer(wl_seat);
@@ -280,6 +292,11 @@ create_buffer(int WIDTH, int HEIGHT)
 	wl_buffer_set_user_data(buff, buffer);
 	return buff;
 }
+
+
+//TODO:
+// 1. read a bunch of key configure, or make up some keysequences
+// 2. add the configure into the
 
 int main(int argc, char *argv[])
 {
