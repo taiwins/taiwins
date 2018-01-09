@@ -12,6 +12,8 @@ target_link_libraries(test_weston-desktop
 
 add_executable(test_xkbcommon
   test-xkbcommon.c
+  input.c
+  input_data.c
   )
 
 target_link_libraries(test_xkbcommon
