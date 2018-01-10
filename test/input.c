@@ -97,10 +97,9 @@ update_tw_keymap_tree(const vector_t *keyseq, const shortcut_func_t func)
 		xkb_keysym_get_name(keysym, keysym_name, sizeof(keysym_name));
 		//TODO checking the hash table
 		bool hit = false;
-		for (int j = 0; j < tree->node.children.len; j++) {
+		for (int j = 0; j < vtree_nchilds(&tree->node); j++) {
 			//bindings contains the tree node, for every compound data structures, you need
-			struct tw_keymap_tree *binding =
-				(struct tw_keymap_tree *)vector_at(&tree->node.children, j);
+			struct tw_keymap_tree *binding = (struct tw_keymap_tree *)vtree_ithchild(&tree->node, j);
 			if (binding->keysym == keysym && binding->modifier == modifiers) {
 				hit = true;
 				tree = binding;
@@ -116,8 +115,7 @@ update_tw_keymap_tree(const vector_t *keyseq, const shortcut_func_t func)
 //			fprintf(stderr, "insert the symbol %s with modifier %d\n", keysym_name, modifiers);
 			if (i == keyseq->len-1)
 				tmpkey.keyfun = func;
-			vtree_node_add_child(&tree->node, &tmpkey.node);
-			tree = (struct tw_keymap_tree *)vector_at(&tree->node.children, tree->node.children.len-1);
+			tree = (struct tw_keymap_tree *)vtree_node_add_child(&tree->node, &tmpkey.node);
 		}
 	}
 }
@@ -153,9 +151,8 @@ run_keybinding(struct weston_keyboard *keyboard,
 	uint32_t modifier_mask = modifier_mask_from_xkb_state(keyboard->xkb_state.state);
 
 	bool hit = false;
-	for (int i = 0; i < tree->node.children.len; i++) {
-		struct tw_keymap_tree *binding =
-			(struct tw_keymap_tree *)cvector_at(&tree->node.children, i);
+	for (int i = 0; i < vtree_nchilds(&tree->node); i++) {
+		struct tw_keymap_tree *binding = vtree_ithchild(&tree->node, i);
 		if (modifier_mask != binding->modifier)
 			continue;
 		if (binding->keysym == keysym && binding->keyfun) {
@@ -190,9 +187,8 @@ run_keybinding_wayland(struct xkb_state *state,
 	fprintf(stderr, "%s key with modifier %d\n", keyname, modifier_mask);
 
 	bool hit = false;
-	for (int i = 0; i < tree->node.children.len; i++) {
-		struct tw_keymap_tree *binding =
-			(struct tw_keymap_tree *)cvector_at(&tree->node.children, i);
+	for (int i = 0; i < vtree_nchilds(&tree->node); i++) {
+		struct tw_keymap_tree *binding = vtree_ithchild(&tree->node, i);
 		if (modifier_mask != binding->modifier)
 			continue;
 		if (binding->keysym == keysym && binding->keyfun) {
