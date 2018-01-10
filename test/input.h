@@ -49,6 +49,7 @@ struct tw_keymap_tree {
 };
 
 
+
 void update_tw_keymap_tree(const vector_t *keyseq, const shortcut_func_t func);
 
 void
