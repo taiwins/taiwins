@@ -13,6 +13,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <search.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
@@ -123,18 +124,22 @@ struct wl_keyboard_listener keyboard_listener = {
 };
 
 
+
+
+
 static
 void seat_capabilities(void *data,
 		       struct wl_seat *wl_seat,
 		       uint32_t capabilities)
 {
+	void *keytable = NULL;
 	struct seat *seat0 = (struct seat *)data;
 	if (capabilities & WL_SEAT_CAPABILITY_KEYBOARD) {
 		seat0->keyboard = wl_seat_get_keyboard(wl_seat);
 		fprintf(stderr, "got a keyboard\n");
 		wl_keyboard_add_listener(seat0->keyboard, &keyboard_listener, seat0);
 		//now add those damn short cuts
-		update_tw_keymap_tree(&kp_q,  func_quit);
+		update_tw_keymap_tree(&kp_q,  func_quit );
 		update_tw_keymap_tree(&kp_of, func_of);
 		update_tw_keymap_tree(&kp_cf, func_cf);
 		update_tw_keymap_tree(&kp_lb, func_lb);
@@ -146,7 +151,7 @@ void seat_capabilities(void *data,
 		update_tw_keymap_tree(&kp_audionx, func_audio);
 		update_tw_keymap_tree(&kp_audiopv, func_audio);
 		update_tw_keymap_tree(&kp_ro, func_ro);
-		debug_keybindtree();
+//		debug_keybindtree();
 	}
 	if (capabilities & WL_SEAT_CAPABILITY_POINTER) {
 		seat0->pointer = wl_seat_get_pointer(wl_seat);

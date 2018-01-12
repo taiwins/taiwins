@@ -1,11 +1,12 @@
 #ifndef TW_INPUT_H
 #define TW_INPUT_H
 
+#include <search.h>
 #include <unistd.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
-#include <tree.h>
+
 #include <sequential.h>
 
 #ifdef __cplusplus
@@ -30,27 +31,21 @@ extern "C" {
  *
  */
 struct tw_keypress {
-//	list_t command;
-	xkb_keycode_t keycode;
 	xkb_keysym_t keysym;
-	uint32_t modifiers; //can have multiple modifiers
+	uint32_t modifiers; //the weston modifier
 };
+
+
+//int compare_keypress(const void *a, const void *b);
+//void print_keypress (const void *nodep, VISIT value, int level);
 
 //yoo, I should define bunch of hotkey function.
 typedef void (*shortcut_func_t)(void);
 
 
-//at the layer, you only need to know one key
-struct tw_keymap_tree {
-	xkb_keysym_t keysym;
-	uint32_t modifier;
-	struct vtree_node node;
-	shortcut_func_t keyfun;
-};
-
-
-
 void update_tw_keymap_tree(const vector_t *keyseq, const shortcut_func_t func);
+
+void update_tw_keybindings(const vector_t *keyseq);
 
 void
 run_keybinding_wayland(struct xkb_state *state, uint32_t time, uint32_t key,
