@@ -1,15 +1,26 @@
+#include <search.h>
 #include <stdbool.h>
+#include <math.h>
 #include <compositor.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
-#include <sequential.h>
-#include <tree.h>
 #include <unistd.h>
 
-#include "input.h"
+#include <sequential.h>
+#include <tree.h>
+#include <hash.h>
 
+#include "input.h"
 extern struct weston_seat *seat0;
+//at the layer, you only need to know one key
+struct tw_keymap_tree {
+	xkb_keysym_t keysym;
+	uint32_t modifier;
+	struct vtree_node node;
+	shortcut_func_t keyfun;
+};
+
 
 enum tw_modifier_mask {
 	TW_NOMOD = 0,
@@ -61,9 +72,63 @@ static struct tw_keymap_tree keybinding_root = {
 	.keyfun = NULL
 };
 
-//static struct tw_keymap_tree *root;
-#define node2treekeymap(ptr)	container_of(ptr, struct tw_keymap_tree, node)
 
+static hash_cmp_val
+compare_keypress(const void *a, const void *b)
+{
+	const struct tw_keypress *ta = (const struct tw_keypress *)a;
+	const struct tw_keypress *tb = (const struct tw_keypress *)b;
+	if (tb->keysym == 0) //XKB_KEY_NoSymbol
+		return hash_empty;
+	uint64_t code_a = (uint64_t) ta->modifiers << 32 | ta->keysym;
+	uint64_t code_b = (uint64_t) tb->modifiers << 32 | ta->keysym;
+	return (code_a == code_b) ? hash_eq : hash_neq;
+}
+
+static uint64_t
+hash_keypress1(const void *key)
+{
+	const struct tw_keypress *press = (const struct tw_keypress *)key;
+	uint64_t code = (uint64_t)press->modifiers << 32 | press->keysym;
+	return code % 5871;
+}
+
+static uint64_t
+hash_keypress0(const void *key)
+{
+	const struct tw_keypress *press = (const struct tw_keypress *)key;
+	uint64_t code = (uint64_t)press->modifiers << 32 | press->keysym;
+	double hash_val = (sqrt(5)-1) / 2 * code;
+	return floor(8192 * (hash_val - floor(hash_val)));
+}
+
+static dhashtab_t taiwins_key_shortcuts = {
+	.data = {0},
+	.cmp = compare_keypress,
+	.hash0 = hash_keypress0,
+	.hash1 = hash_keypress1
+};
+
+
+/*
+void
+print_keypress (const void *nodep, VISIT value, int level)
+{
+	char keysym_name[64];
+	const struct tw_keypress *keypress = (const struct tw_keypress *)nodep;
+	switch (value) {
+	case preorder:
+		break;
+	case leaf:
+	case postorder:
+		xkb_keysym_get_name(keypress->keysym, keysym_name, sizeof(keysym_name));
+		fprintf(stderr, "%s with code %d and %d \n", keysym_name, keypress->keysym, keypress->modifiers);
+		break;
+	case endorder:
+		break;
+	}
+}
+*/
 
 static uint32_t
 kc_linux2xkb(uint32_t kc_linux)
@@ -82,8 +147,7 @@ kc_xkb2linux(uint32_t kc_xkb)
  *
  * @brief insert the keybing seq in the tree (C-x, C-r, C-c)
  *
- * The depth of the tree shouldn't be over something like 3. We also need a
- * cache of keysyms in order to update the cache, which requires the hash table
+ * The depth of the tree shouldn't be over something like 3.
  */
 void
 update_tw_keymap_tree(const vector_t *keyseq, const shortcut_func_t func)
@@ -92,10 +156,11 @@ update_tw_keymap_tree(const vector_t *keyseq, const shortcut_func_t func)
 	struct tw_keymap_tree *tree = &keybinding_root;
 	for (int i = 0; i < keyseq->len; i++) {
 		const struct tw_keypress *keypress = (struct tw_keypress *)cvector_at(keyseq, i);
+		//TODO test it
 		uint32_t modifiers = modifier_mask_from_weston_mod(keypress->modifiers);
 		xkb_keysym_t keysym = keypress->keysym;
 		xkb_keysym_get_name(keysym, keysym_name, sizeof(keysym_name));
-		//TODO checking the hash table
+
 		bool hit = false;
 		for (int j = 0; j < vtree_nchilds(&tree->node); j++) {
 			//bindings contains the tree node, for every compound data structures, you need
