@@ -102,33 +102,18 @@ hash_keypress0(const void *key)
 	return floor(8192 * (hash_val - floor(hash_val)));
 }
 
-static dhashtab_t taiwins_key_shortcuts = {
-	.data = {0},
+static dhashtab_t taiwins_keybindings = {
+	.data = {
+		.elemsize = sizeof(struct tw_keypress),
+		.len = 0,
+		.alloc_len = 0,
+		.elems = NULL
+	},
 	.cmp = compare_keypress,
 	.hash0 = hash_keypress0,
 	.hash1 = hash_keypress1
 };
 
-
-/*
-void
-print_keypress (const void *nodep, VISIT value, int level)
-{
-	char keysym_name[64];
-	const struct tw_keypress *keypress = (const struct tw_keypress *)nodep;
-	switch (value) {
-	case preorder:
-		break;
-	case leaf:
-	case postorder:
-		xkb_keysym_get_name(keypress->keysym, keysym_name, sizeof(keysym_name));
-		fprintf(stderr, "%s with code %d and %d \n", keysym_name, keypress->keysym, keypress->modifiers);
-		break;
-	case endorder:
-		break;
-	}
-}
-*/
 
 static uint32_t
 kc_linux2xkb(uint32_t kc_linux)
@@ -168,7 +153,6 @@ update_tw_keymap_tree(const vector_t *keyseq, const shortcut_func_t func)
 			if (binding->keysym == keysym && binding->modifier == modifiers) {
 				hit = true;
 				tree = binding;
-
 				break;
 			}
 		}
@@ -185,6 +169,24 @@ update_tw_keymap_tree(const vector_t *keyseq, const shortcut_func_t func)
 	}
 }
 
+
+void
+update_tw_keypress_cache(const vector_t *keyseq, struct weston_compositor *compositor)
+{
+	for (int i = 0; i < keyseq->len; i++) {
+		const struct tw_keypress *keypress = (struct tw_keypress *)cvector_at(keyseq, i);
+		uint32_t modifiers = keypress->modifiers;
+		uint32_t keycode = keypress->keycode;
+		if (dhash_search(&taiwins_keybindings, keypress))
+			continue;
+		else {
+			char name[64];
+			xkb_keysym_get_name(keypress->keysym, name, sizeof(name));
+//			weston_compositor_add_key_binding(compositor, keycode, modifiers, run_keybinding, NULL);
+			fprintf(stderr, "updating keymap cache keysym %s with code %d and modifier %d\n", name, keycode, modifiers);
+		}
+	}
+}
 
 static void
 debug_keypress(const void *data)
@@ -239,7 +241,7 @@ run_keybinding(struct weston_keyboard *keyboard,
 void
 run_keybinding_wayland(struct xkb_state *state,
 		       uint32_t time, uint32_t key,
-	void *data)
+		       void *data)
 {
 	//NOTE xkb itself doesn't have mechnism to detect key up or down
 	static struct tw_keymap_tree *tree = &keybinding_root;
@@ -249,7 +251,7 @@ run_keybinding_wayland(struct xkb_state *state,
 							  keycode);
 	uint32_t modifier_mask = modifier_mask_from_xkb_state(state);
 	xkb_keysym_get_name( keysym, keyname, sizeof(keyname));
-	fprintf(stderr, "%s key with modifier %d\n", keyname, modifier_mask);
+	fprintf(stderr, "%s key with code %d and modifier %d\n", keyname, keycode-8, modifier_mask);
 
 	bool hit = false;
 	for (int i = 0; i < vtree_nchilds(&tree->node); i++) {

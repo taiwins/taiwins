@@ -8,6 +8,7 @@
 struct tw_keypress kp_quit[1] = {
 	{
 		.keysym = XKB_KEY_q,
+		.keycode = KEY_Q,
 		.modifiers = MODIFIER_SUPER,
 	},
 };
@@ -23,10 +24,12 @@ vector_t kp_q = {
 struct tw_keypress kp_emacs_openfile[2] = {
 	{
 		.keysym = XKB_KEY_x,
+		.keycode = KEY_X,
 		.modifiers = MODIFIER_CTRL,
 	},
 	{
 		.keysym = XKB_KEY_f,
+		.keycode = KEY_F,
 		.modifiers = MODIFIER_CTRL,
 	}
 };
@@ -42,10 +45,12 @@ vector_t kp_of = {
 struct tw_keypress kp_emacs_closewin[2] = {
 	{
 		.keysym = XKB_KEY_x,
+		.keycode = KEY_X,
 		.modifiers = MODIFIER_CTRL,
 	},
 	{
 		.keysym = XKB_KEY_c,
+		.keycode = KEY_C,
 		.modifiers = MODIFIER_CTRL,
 	}
 };
@@ -61,10 +66,12 @@ vector_t kp_cf = {
 struct tw_keypress kp_emacs_lastbuff[2] = {
 	{
 		.keysym = XKB_KEY_x,
+		.keycode = KEY_X,
 		.modifiers = MODIFIER_CTRL,
 	},
 	{
-		.keysym = XKB_KEY_b
+		.keysym = XKB_KEY_b,
+		.keycode = KEY_B,
 	}
 };
 
@@ -78,10 +85,12 @@ vector_t kp_lb = {
 struct tw_keypress kp_emacs_bufflist[2] = {
 	{
 		.keysym = XKB_KEY_x,
+		.keycode = KEY_X,
 		.modifiers = MODIFIER_CTRL,
 	},
 	{
 		.keysym = XKB_KEY_b,
+		.keycode = KEY_B,
 		.modifiers = MODIFIER_CTRL,
 	}
 };
@@ -89,10 +98,12 @@ struct tw_keypress kp_emacs_bufflist[2] = {
 struct tw_keypress kp_emacs_readonly[2] = {
 	{
 		.keysym = XKB_KEY_x,
+		.keycode = KEY_X,
 		.modifiers = MODIFIER_CTRL,
 	},
 	{
 		.keysym = XKB_KEY_q,
+		.keycode = KEY_Q,
 		.modifiers = MODIFIER_CTRL,
 	}
 };
@@ -119,17 +130,20 @@ vector_t kp_ro = {
 struct tw_keypress kp_x86audioup[] = {
 	{
 		.keysym = XKB_KEY_XF86AudioRaiseVolume,
+		.keycode = KEY_VOLUMEUP,
 	}
 };
 struct tw_keypress kp_x86audiodw[] = {
 	{
 		.keysym = XKB_KEY_XF86AudioLowerVolume,
+		.keycode = KEY_VOLUMEDOWN,
 	}
 };
 
 struct tw_keypress kp_x86audioplay[] = {
 	{
 		.keysym = XKB_KEY_XF86AudioPlay,
+		.keycode = KEY_PLAY,
 	}
 };
 
@@ -137,18 +151,21 @@ struct tw_keypress kp_x86audioplay[] = {
 struct tw_keypress kp_x86audiopause[] = {
 	{
 		.keysym = XKB_KEY_XF86AudioPause,
+		.keycode = KEY_PAUSE,
 	}
 };
 
 struct tw_keypress kp_x86audionext[] = {
 	{
 		.keysym = XKB_KEY_XF86AudioNext,
+		.keycode = KEY_NEXT,
 	}
 };
 
 struct tw_keypress kp_x86audioprev[] = {
 	{
 		.keysym = XKB_KEY_XF86AudioPrev,
+		.keycode = KEY_PREVIOUS,
 	}
 };
 
