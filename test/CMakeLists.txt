@@ -19,4 +19,5 @@ add_executable(test_xkbcommon
 target_link_libraries(test_xkbcommon
   ${CLIENT_LIBRARIES}
   ${TRDPTY_LIBRARIES}
+  m
   )

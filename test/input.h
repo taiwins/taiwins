@@ -6,7 +6,8 @@
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
-
+#include <linux/input.h>
+#include <compositor.h>
 #include <sequential.h>
 
 #ifdef __cplusplus
@@ -32,7 +33,10 @@ extern "C" {
  */
 struct tw_keypress {
 	xkb_keysym_t keysym;
-	uint32_t modifiers; //the weston modifier
+	//used in weston_compositor_add_keybindings, because there is no
+	//implementation transfer(keysym to keycode)
+	uint32_t keycode; //the linux keycode
+	enum weston_keyboard_modifier modifiers; //the weston modifier
 };
 
 
@@ -45,11 +49,16 @@ typedef void (*shortcut_func_t)(void);
 
 void update_tw_keymap_tree(const vector_t *keyseq, const shortcut_func_t func);
 
-void update_tw_keybindings(const vector_t *keyseq);
+void update_tw_keypress_cache(const vector_t *keyseq, struct weston_compositor *compositor);
 
 void
 run_keybinding_wayland(struct xkb_state *state, uint32_t time, uint32_t key,
 		       void *data);
+void
+run_keybinding(struct weston_keyboard *keyboard,
+	       uint32_t time, uint32_t key,
+	       void *data);
+
 
 void debug_keybindtree(void);
 

@@ -132,7 +132,7 @@ void seat_capabilities(void *data,
 		       struct wl_seat *wl_seat,
 		       uint32_t capabilities)
 {
-	void *keytable = NULL;
+//	void *keytable = NULL;
 	struct seat *seat0 = (struct seat *)data;
 	if (capabilities & WL_SEAT_CAPABILITY_KEYBOARD) {
 		seat0->keyboard = wl_seat_get_keyboard(wl_seat);
@@ -140,17 +140,29 @@ void seat_capabilities(void *data,
 		wl_keyboard_add_listener(seat0->keyboard, &keyboard_listener, seat0);
 		//now add those damn short cuts
 		update_tw_keymap_tree(&kp_q,  func_quit );
+		update_tw_keypress_cache(&kp_q, NULL);
 		update_tw_keymap_tree(&kp_of, func_of);
+		update_tw_keypress_cache(&kp_of, NULL);
 		update_tw_keymap_tree(&kp_cf, func_cf);
+		update_tw_keypress_cache(&kp_cf, NULL);
 		update_tw_keymap_tree(&kp_lb, func_lb);
+		update_tw_keypress_cache(&kp_lb, NULL);
 		update_tw_keymap_tree(&kp_bl, func_bl);
+		update_tw_keypress_cache(&kp_bl, NULL);
 		update_tw_keymap_tree(&kp_audiodw, func_audiodw);
+		update_tw_keypress_cache(&kp_audiodw, NULL);
 		update_tw_keymap_tree(&kp_audioup, func_audioup);
+		update_tw_keypress_cache(&kp_audioup, NULL);
 		update_tw_keymap_tree(&kp_audiopl, func_audio);
+		update_tw_keypress_cache(&kp_audiopl, NULL);
 		update_tw_keymap_tree(&kp_audiops, func_audio);
+		update_tw_keypress_cache(&kp_audiops, NULL);
 		update_tw_keymap_tree(&kp_audionx, func_audio);
+		update_tw_keypress_cache(&kp_audionx, NULL);
 		update_tw_keymap_tree(&kp_audiopv, func_audio);
+		update_tw_keypress_cache(&kp_audiopv, NULL);
 		update_tw_keymap_tree(&kp_ro, func_ro);
+		update_tw_keypress_cache(&kp_ro, NULL);
 //		debug_keybindtree();
 	}
 	if (capabilities & WL_SEAT_CAPABILITY_POINTER) {
