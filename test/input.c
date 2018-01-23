@@ -81,7 +81,7 @@ compare_keypress(const void *a, const void *b)
 	if (tb->keysym == 0) //XKB_KEY_NoSymbol
 		return hash_empty;
 	uint64_t code_a = (uint64_t) ta->modifiers << 32 | ta->keysym;
-	uint64_t code_b = (uint64_t) tb->modifiers << 32 | ta->keysym;
+	uint64_t code_b = (uint64_t) tb->modifiers << 32 | tb->keysym;
 	return (code_a == code_b) ? hash_eq : hash_neq;
 }
 
@@ -181,6 +181,7 @@ update_tw_keypress_cache(const vector_t *keyseq, struct weston_compositor *compo
 			continue;
 		else {
 			char name[64];
+			dhash_insert(&taiwins_keybindings, keypress);
 			xkb_keysym_get_name(keypress->keysym, name, sizeof(name));
 //			weston_compositor_add_key_binding(compositor, keycode, modifiers, run_keybinding, NULL);
 			fprintf(stderr, "updating keymap cache keysym %s with code %d and modifier %d\n", name, keycode, modifiers);
