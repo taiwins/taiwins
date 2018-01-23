@@ -16,6 +16,13 @@ add_executable(test_xkbcommon
   input_data.c
   )
 
+add_executable(test_hash
+  testhash.c
+  )
+target_link_libraries(test_hash
+  ${TRDPTY_LIBRARIES}
+  )
+
 target_link_libraries(test_xkbcommon
   ${CLIENT_LIBRARIES}
   ${TRDPTY_LIBRARIES}
