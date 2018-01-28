@@ -86,8 +86,8 @@ tawins_quit(struct weston_compositor *c)
 	}
 }
 
-
-
+//todo: cursor, loading weston-terminal using keyboard (for this, do we need the
+//the new protocol or something, ), but right now just show the cursor
 int main(int argc, char *argv[])
 {
 	weston_log_set_handler(tw_log, tw_log);
