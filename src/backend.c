@@ -6,6 +6,7 @@
 #include <string.h>
 #include <linux/input.h>
 #include <wayland-server.h>
+
 #include <compositor.h>
 #include <compositor-drm.h>
 #include <compositor-wayland.h>
@@ -27,7 +28,9 @@ struct tw_backend {
 		const struct weston_windowed_output_api *window;
 	} api;
 	struct wl_listener output_pending_listener;
-
+	struct weston_layer layer_background;
+	struct weston_surface *surface_background;
+	struct weston_view *view_background;
 };
 
 
@@ -122,7 +125,23 @@ tw_setup_backend(struct weston_compositor *compositor)
 	wl_signal_add(&compositor->output_pending_signal, &b->output_pending_listener);
 	weston_pending_output_coldplug(compositor);
 	compositor->vt_switching = 1;
-//	compositor->
+
+	//okay, create the cursor and background so we can show something
+//	weston_layer_init(&b->compositor->cursor_layer, b->compositor);
+//	weston_layer_set_position(&b->compositor->cursor_layer, WESTON_LAYER_POSITION_CURSOR);
+	weston_layer_init(&b->layer_background, b->compositor);
+	weston_layer_set_position(&b->layer_background, WESTON_LAYER_POSITION_BACKGROUND);
+	//I guess you will need to create a surface for cursor as well
+
+	b->surface_background = weston_surface_create(b->compositor);
+	weston_surface_set_size(b->surface_background, 1000, 1000);
+	weston_surface_set_color(b->surface_background, 0.0f, 0.24f, 0.5f, 1.0f);
+	b->view_background = weston_view_create(b->surface_background);
+	weston_layer_entry_insert(&b->layer_background.view_list, &b->view_background->layer_link);
+
+
+
+	//TODO: clean, tmp code
 
 	return true;
 }
