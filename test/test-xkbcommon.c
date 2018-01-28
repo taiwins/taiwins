@@ -163,6 +163,18 @@ void seat_capabilities(void *data,
 		update_tw_keypress_cache(&kp_audiopv, NULL);
 		update_tw_keymap_tree(&kp_ro, func_ro);
 		update_tw_keypress_cache(&kp_ro, NULL);
+		//just for the sake of testing, we try to insert all those
+		//keybindings again, there shouldn't be any change
+		update_tw_keypress_cache(&kp_q, NULL);
+		update_tw_keypress_cache(&kp_of, NULL);
+		update_tw_keypress_cache(&kp_cf, NULL);
+		update_tw_keypress_cache(&kp_lb, NULL);
+		update_tw_keypress_cache(&kp_bl, NULL);
+		update_tw_keypress_cache(&kp_audiodw, NULL);
+		update_tw_keypress_cache(&kp_audionx, NULL);
+		update_tw_keypress_cache(&kp_audiopl, NULL);
+		update_tw_keypress_cache(&kp_audiops, NULL);
+		update_tw_keypress_cache(&kp_audiopv, NULL);
 //		debug_keybindtree();
 	}
 	if (capabilities & WL_SEAT_CAPABILITY_POINTER) {
