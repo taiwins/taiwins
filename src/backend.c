@@ -129,6 +129,8 @@ tw_setup_backend(struct weston_compositor *compositor)
 	//okay, create the cursor and background so we can show something
 //	weston_layer_init(&b->compositor->cursor_layer, b->compositor);
 //	weston_layer_set_position(&b->compositor->cursor_layer, WESTON_LAYER_POSITION_CURSOR);
+	//after we create a cursor, we need to get the surface
+//	weston_surface_
 	weston_layer_init(&b->layer_background, b->compositor);
 	weston_layer_set_position(&b->layer_background, WESTON_LAYER_POSITION_BACKGROUND);
 	//I guess you will need to create a surface for cursor as well

@@ -19,10 +19,18 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <wayland-client.h>
+#include <wayland-cursor.h>
+
 #include <cairo.h>
 
 #include <buffer.h>
 #include "input_data.h"
+
+////shell with the input
+static struct wl_shell *gshell;
+static struct wl_compositor *gcompositor;
+struct wl_shm *shm;
+
 
 struct seat {
 	struct wl_seat *s;
@@ -124,6 +132,29 @@ struct wl_keyboard_listener keyboard_listener = {
 };
 
 
+void pointer_enter(void *data,
+		   struct wl_pointer *wl_pointer,
+		   uint32_t serial,
+		   struct wl_surface *surface,
+		   wl_fixed_t surface_x,
+		   wl_fixed_t surface_y)
+{
+	struct wl_surface *psurface = (struct wl_surface *)data;
+	wl_pointer_set_cursor(wl_pointer, serial, psurface, surface_x, surface_y);
+}
+
+void pointer_leave(void *data,
+		   struct wl_pointer *wl_pointer,
+		   uint32_t serial,
+		   struct wl_surface *surface)
+{
+
+}
+
+static
+struct wl_pointer_listener pointer_listener = {
+	.enter = pointer_enter,
+};
 
 
 
@@ -180,6 +211,16 @@ void seat_capabilities(void *data,
 	if (capabilities & WL_SEAT_CAPABILITY_POINTER) {
 		seat0->pointer = wl_seat_get_pointer(wl_seat);
 		fprintf(stderr, "got a mouse\n");
+		//okay, load the cursor stuff
+		struct wl_cursor_theme *theme = wl_cursor_theme_load("DMZ-Black", 32, shm);
+		wl_cursor_theme_print_cursor_names(theme);
+		struct wl_cursor *plus = wl_cursor_theme_get_cursor(theme, "plus");
+		struct wl_buffer *first = wl_cursor_image_get_buffer(plus->images[0]);
+		struct wl_surface *surface = wl_compositor_create_surface(gcompositor);
+		wl_surface_attach(surface, first, 0, 0);
+		wl_pointer_set_user_data(seat0->pointer, surface);
+		wl_pointer_add_listener(seat0->pointer, &pointer_listener, surface);
+//		wl_cursor_theme_destroy(theme);
 	}
 	if (capabilities & WL_SEAT_CAPABILITY_TOUCH) {
 		seat0->touch = wl_seat_get_touch(wl_seat);
@@ -200,13 +241,6 @@ struct wl_seat_listener seat_listener = {
 	.capabilities = seat_capabilities,
 	.name = seat_name,
 };
-
-
-
-////shell with the input
-static struct wl_shell *gshell;
-static struct wl_compositor *gcompositor;
-struct wl_shm *shm;
 
 
 
