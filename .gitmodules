@@ -1,6 +1,3 @@
 [submodule "3rdparties/ctypes"]
 	path = 3rdparties/ctypes
 	url = https://github.com/xeechou/ctypes
-[submodule "3rdparties/cursor"]
-	path = 3rdparties/cursor
-	url = https://github.com/keeferrourke/capitaine-cursors.git
