@@ -67,7 +67,7 @@ bool setup_input(struct weston_compositor *compositor)
 //	struct weston_keyboard *keyboard = weston_seat_get_keyboard(seat0);
 
 	//you can also do this
-//	weston_seat_init_pointer(seat0);
+	weston_seat_init_pointer(seat0);
 //	weston_seat_init_touch(seat0);
 	return true;
 }
