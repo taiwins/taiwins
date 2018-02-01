@@ -140,7 +140,15 @@ void pointer_enter(void *data,
 		   wl_fixed_t surface_y)
 {
 	struct wl_surface *psurface = (struct wl_surface *)data;
+	struct wl_buffer *first = wl_surface_get_user_data(psurface);
+	fprintf(stderr, "pointer enterred\n");
+	wl_surface_attach(psurface, first, 0, 0);
+	wl_surface_damage(psurface, 0, 0, 32, 32);
+	wl_surface_commit(psurface);
 	wl_pointer_set_cursor(wl_pointer, serial, psurface, surface_x, surface_y);
+	wl_surface_damage(surface, surface_x, surface_y, 32, 32);
+	wl_surface_commit(surface);
+
 }
 
 void pointer_leave(void *data,
@@ -148,12 +156,33 @@ void pointer_leave(void *data,
 		   uint32_t serial,
 		   struct wl_surface *surface)
 {
-
+	fprintf(stderr, "cursor left, things to do maybe just grey out the window\n");
 }
+
+void pointer_frame(void *data,
+		   struct wl_pointer *wl_pointer)
+{
+	fprintf(stderr, "a pointer frame is done.\n");
+}
+
+void pointer_motion(void *data,
+		    struct wl_pointer *wl_pointer,
+		    uint32_t serial,
+		    wl_fixed_t surface_x,
+		    wl_fixed_t surface_y)
+{
+	fprintf(stderr, "pointer motion\n");
+	struct wl_surface *psurface = (struct wl_surface *)data;
+	wl_pointer_set_cursor(wl_pointer, serial, psurface, surface_x, surface_y);
+}
+
 
 static
 struct wl_pointer_listener pointer_listener = {
 	.enter = pointer_enter,
+	.leave = pointer_leave,
+	.motion = pointer_motion,
+	.frame = pointer_frame,
 };
 
 
@@ -217,7 +246,7 @@ void seat_capabilities(void *data,
 		struct wl_cursor *plus = wl_cursor_theme_get_cursor(theme, "plus");
 		struct wl_buffer *first = wl_cursor_image_get_buffer(plus->images[0]);
 		struct wl_surface *surface = wl_compositor_create_surface(gcompositor);
-		wl_surface_attach(surface, first, 0, 0);
+		wl_surface_set_user_data(surface, first);
 		wl_pointer_set_user_data(seat0->pointer, surface);
 		wl_pointer_add_listener(seat0->pointer, &pointer_listener, surface);
 //		wl_cursor_theme_destroy(theme);
