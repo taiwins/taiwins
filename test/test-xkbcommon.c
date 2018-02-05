@@ -139,16 +139,16 @@ void pointer_enter(void *data,
 		   wl_fixed_t surface_x,
 		   wl_fixed_t surface_y)
 {
-	struct wl_surface *psurface = (struct wl_surface *)data;
-	struct wl_buffer *first = wl_surface_get_user_data(psurface);
+	bool cursor_set = false;
 	fprintf(stderr, "pointer enterred\n");
-	wl_surface_attach(psurface, first, 0, 0);
-	wl_surface_damage(psurface, 0, 0, 32, 32);
-	wl_surface_commit(psurface);
-	wl_pointer_set_cursor(wl_pointer, serial, psurface, surface_x, surface_y);
-	wl_surface_damage(surface, surface_x, surface_y, 32, 32);
-	wl_surface_commit(surface);
-
+	if (!cursor_set) {
+		struct wl_surface *psurface = (struct wl_surface *)data;
+		struct wl_buffer *first = wl_surface_get_user_data(psurface);
+		wl_pointer_set_cursor(wl_pointer, serial, psurface, 0, 0);
+		wl_surface_attach(psurface, first, 0, 0);
+		wl_surface_damage(psurface, 0, 0, 32, 32);
+		wl_surface_commit(psurface);
+	}
 }
 
 void pointer_leave(void *data,
@@ -171,9 +171,7 @@ void pointer_motion(void *data,
 		    wl_fixed_t surface_x,
 		    wl_fixed_t surface_y)
 {
-	fprintf(stderr, "pointer motion\n");
-	struct wl_surface *psurface = (struct wl_surface *)data;
-	wl_pointer_set_cursor(wl_pointer, serial, psurface, surface_x, surface_y);
+
 }
 
 
@@ -249,6 +247,8 @@ void seat_capabilities(void *data,
 		wl_surface_set_user_data(surface, first);
 		wl_pointer_set_user_data(seat0->pointer, surface);
 		wl_pointer_add_listener(seat0->pointer, &pointer_listener, surface);
+		//showing the cursor image
+
 //		wl_cursor_theme_destroy(theme);
 	}
 	if (capabilities & WL_SEAT_CAPABILITY_TOUCH) {
