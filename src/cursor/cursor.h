@@ -1,4 +1,5 @@
 /*
+ * Copyright © 2018 xeechou@gmail.com
  * Copyright © 2012 Intel Corporation
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
@@ -20,8 +21,8 @@
  * OF THIS SOFTWARE.
  */
 
-#ifndef WAYLAND_CURSOR_H
-#define WAYLAND_CURSOR_H
+#ifndef TW_CURSOR_H
+#define TW_CURSOR_H
 
 #include <stdint.h>
 
@@ -29,9 +30,9 @@
 extern "C" {
 #endif
 
-struct wl_cursor_theme;
+struct tw_cursor_theme;
 
-struct wl_cursor_image {
+struct tw_cursor_image {
 	uint32_t width;		/* actual width */
 	uint32_t height;	/* actual height */
 	uint32_t hotspot_x;	/* hot spot x (must be inside image) */
@@ -39,32 +40,32 @@ struct wl_cursor_image {
 	uint32_t delay;		/* animation delay to next frame (ms) */
 };
 
-struct wl_cursor {
+struct tw_cursor {
 	unsigned int image_count;
-	struct wl_cursor_image **images;
+	struct tw_cursor_image **images;
 	char *name;
 };
 
 struct wl_shm;
 
-struct wl_cursor_theme *
-wl_cursor_theme_load(const char *name, int size, struct wl_shm *shm);
+struct tw_cursor_theme *
+tw_cursor_theme_load(const char *name, int size, struct wl_shm *shm);
 
 void
-wl_cursor_theme_destroy(struct wl_cursor_theme *theme);
+tw_cursor_theme_destroy(struct tw_cursor_theme *theme);
 
-struct wl_cursor *
-wl_cursor_theme_get_cursor(struct wl_cursor_theme *theme,
+struct tw_cursor *
+tw_cursor_theme_get_cursor(struct tw_cursor_theme *theme,
 			   const char *name);
 
 struct wl_buffer *
-wl_cursor_image_get_buffer(struct wl_cursor_image *image);
+tw_cursor_image_get_buffer(struct tw_cursor_image *image);
 
 int
-wl_cursor_frame(struct wl_cursor *cursor, uint32_t time);
+tw_cursor_frame(struct tw_cursor *cursor, uint32_t time);
 
 void
-wl_cursor_theme_print_cursor_names(const struct wl_cursor_theme *theme);
+tw_cursor_theme_print_cursor_names(const struct tw_cursor_theme *theme);
 
 #ifdef  __cplusplus
 }
