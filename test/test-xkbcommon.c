@@ -19,7 +19,7 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <wayland-client.h>
-#include <wayland-cursor.h>
+#include "cursor/cursor.h"
 
 #include <cairo.h>
 
@@ -239,17 +239,17 @@ void seat_capabilities(void *data,
 		seat0->pointer = wl_seat_get_pointer(wl_seat);
 		fprintf(stderr, "got a mouse\n");
 		//okay, load the cursor stuff
-		struct wl_cursor_theme *theme = wl_cursor_theme_load("DMZ-Black", 32, shm);
-		wl_cursor_theme_print_cursor_names(theme);
-		struct wl_cursor *plus = wl_cursor_theme_get_cursor(theme, "plus");
-		struct wl_buffer *first = wl_cursor_image_get_buffer(plus->images[0]);
+		struct tw_cursor_theme *theme = tw_cursor_theme_load("Vanilla-DMZ", 32, shm);
+		tw_cursor_theme_print_cursor_names(theme);
+		struct tw_cursor *plus = tw_cursor_theme_get_cursor(theme, "plus");
+		struct wl_buffer *first = tw_cursor_image_get_buffer(plus->images[0]);
 		struct wl_surface *surface = wl_compositor_create_surface(gcompositor);
 		wl_surface_set_user_data(surface, first);
 		wl_pointer_set_user_data(seat0->pointer, surface);
 		wl_pointer_add_listener(seat0->pointer, &pointer_listener, surface);
 		//showing the cursor image
 
-//		wl_cursor_theme_destroy(theme);
+//		tw_cursor_theme_destroy(theme);
 	}
 	if (capabilities & WL_SEAT_CAPABILITY_TOUCH) {
 		seat0->touch = wl_seat_get_touch(wl_seat);

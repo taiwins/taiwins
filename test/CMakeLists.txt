@@ -30,6 +30,6 @@ target_link_libraries(test_hash
 target_link_libraries(test_xkbcommon
   ${CLIENT_LIBRARIES}
   ${TRDPTY_LIBRARIES}
-  wayland-cursor
+  twcursor
   m
   )
