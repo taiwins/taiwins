@@ -94,3 +94,4 @@ message("3rdparty lib: ${TRDPTY_LIBRARIES}")
 
 add_subdirectory(src)
 add_subdirectory(test)
+add_subdirectory(protocols)

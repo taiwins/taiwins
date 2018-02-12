@@ -1,0 +1,16 @@
+<protocol name="taiwins_desktop">
+
+  <interface name="taiwins_shell" version="1">
+    <description summary="create desktop widgets and helpers">
+      Traditional user interfaces can rely on this interface to define the
+      foundations of typical desktops. Currently it's possible to set up
+      background, panels and locking surfaces.
+    </description>
+
+    <request name="set_background">
+      <arg name="output" type="object" interface="wl_output"/>
+      <arg name="surface" type="object" interface="wl_surface"/>
+    </request>
+  </interface>
+
+</protocol>

@@ -1,4 +1,7 @@
-include_directories(${COMPOSITOR_INCLUDE_DIRS})
+include_directories(
+  ${COMPOSITOR_INCLUDE_DIRS}
+  ${PROTOCOLS_INCLUDE_DIR}
+  )
 
 
 add_executable(taiwins
@@ -8,6 +11,7 @@ add_executable(taiwins
   )
 
 target_link_libraries(taiwins
+  proto_server_libraries
   ${COMPOSITOR_LIBRARIES}
   ${TRDPTY_LIBRARIES}
   )
