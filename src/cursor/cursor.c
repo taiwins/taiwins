@@ -186,7 +186,9 @@ tw_pointer_assign_cursor_img(struct weston_pointer *pointer, struct tw_cursor_im
 	buffer->width = _img->width;
 	buffer->height = _img->height;
 	//this could be a setup function, but yeah, actually the sprite get
-	//destroyed at wl_pointer_set_cursor. Or weston_background does the weston_view_create thing?
+	//destroyed at wl_pointer_set_cursor. In the implementation of
+	//`wl_pointer_set_cursor`. It calls `pointer_unmap_sprite` which will
+	//delete the sprite, in that case, we will have nothing left.
 }
 
 
