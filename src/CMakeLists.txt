@@ -3,6 +3,14 @@ include_directories(
   ${PROTOCOLS_INCLUDE_DIR}
   )
 
+add_library(twshell
+  shell.c
+  )
+
+target_link_libraries(twshell
+  proto_server_libraries
+  ${COMPOSITOR_LIBRARIES}
+  )
 
 add_executable(taiwins
   main.c
@@ -10,8 +18,10 @@ add_executable(taiwins
   backend.c
   )
 
+
+
 target_link_libraries(taiwins
-  proto_server_libraries
   ${COMPOSITOR_LIBRARIES}
   ${TRDPTY_LIBRARIES}
+  twshell
   )
