@@ -23,17 +23,19 @@
 
 #include "xcursor.h"
 #include "cursor.h"
-#include <wayland-client.h>
+//#include <wayland-client.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
 
+#include <compositor.h>
+#include <wayland-server.h>
+
 #include "os-compatibility.h"
 
 struct shm_pool {
-	struct wl_shm_pool *pool;
 	int fd;
 	unsigned int size;
 	unsigned int used;
@@ -45,7 +47,7 @@ shm_pool_create(struct wl_shm *shm, int size)
 {
 	struct shm_pool *pool;
 
-	pool = malloc(sizeof *pool);
+	pool = (struct shm_pool *)malloc(sizeof *pool);
 	if (!pool)
 		return NULL;
 
@@ -59,7 +61,7 @@ shm_pool_create(struct wl_shm *shm, int size)
 	if (pool->data == MAP_FAILED)
 		goto err_close;
 
-	pool->pool = wl_shm_create_pool(shm, pool->fd, size);
+//	pool->pool = wl_shm_create_pool(shm, pool->fd, size);
 	pool->size = size;
 	pool->used = 0;
 
@@ -78,10 +80,8 @@ shm_pool_resize(struct shm_pool *pool, int size)
 	if (ftruncate(pool->fd, size) < 0)
 		return 0;
 
-	wl_shm_pool_resize(pool->pool, size);
-
 	munmap(pool->data, pool->size);
-
+	//this is like realloc
 	pool->data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED,
 			  pool->fd, 0);
 	pool->size = size;
@@ -108,16 +108,16 @@ static void
 shm_pool_destroy(struct shm_pool *pool)
 {
 	munmap(pool->data, pool->size);
-	wl_shm_pool_destroy(pool->pool);
 	close(pool->fd);
 	free(pool);
 }
 
 
+
 struct tw_cursor_theme {
 	unsigned int cursor_count;
 	struct tw_cursor **cursors;
-	struct wl_shm *shm;
+	/* the pool has the data */
 	struct shm_pool *pool;
 	char *name;
 	int size;
@@ -126,7 +126,6 @@ struct tw_cursor_theme {
 struct cursor_image {
 	struct tw_cursor_image image;
 	struct tw_cursor_theme *theme;
-	struct wl_buffer *buffer;
 	int offset; /* data offset of this image in the shm pool */
 };
 
@@ -140,9 +139,9 @@ struct cursor {
  * \param image The cursor image
  * \return An shm buffer for the cursor image. The user should not destroy
  * the returned buffer.
- */
+
 struct wl_buffer *
-tw_cursor_image_get_buffer(struct tw_cursor_image *_img)
+tw_cursor_image_get_surface(struct tw_cursor_image *_img)
 {
 	struct cursor_image *image = (struct cursor_image *) _img;
 	struct tw_cursor_theme *theme = image->theme;
@@ -158,14 +157,44 @@ tw_cursor_image_get_buffer(struct tw_cursor_image *_img)
 
 	return image->buffer;
 }
+*/
+
+
+/** Assign the buffer to the weston_pointer
+ *
+ * \param pointer The weston pointer
+ * \param image The cursor image
+ */
+void
+tw_pointer_assign_cursor_img(struct weston_pointer *pointer, struct tw_cursor_image *_img)
+{
+	struct cursor_image *image = (struct cursor_image *) _img;
+	struct weston_compositor *compositor = pointer->seat->compositor;
+	if (!pointer->sprite) {
+		struct weston_surface *surface = weston_surface_create(compositor);
+		struct weston_view *view = weston_view_create(surface);
+		struct weston_renderer *renderer = compositor->renderer;
+		pointer->sprite = view;
+		weston_buffer *buffer = (struct weston_buffer*) malloc(sizeof(*buffer));
+		weston_buffer_reference(&surface->buffer_ref, buffer);
+		weston_layer_entry_insert(&compositor->cursor_layer.view_list, &pointer->sprite->layer_link);
+	}
+	struct weston_surface *surface = pointer->sprite->surface;
+	struct weston_buffer *buffer = surface->buffer_ref.buffer;
+	//TODO, we need to make a destroy signal for surface this surface
+	buffer->legacy_buffer = image->theme->pool->data + image->offset;
+	buffer->width = _img->width;
+	buffer->height = _img->height;
+	//this could be a setup function, but yeah, actually the sprite get
+	//destroyed at wl_pointer_set_cursor. Or weston_background does the weston_view_create thing?
+}
+
+
 
 static void
 tw_cursor_image_destroy(struct tw_cursor_image *_img)
 {
 	struct cursor_image *image = (struct cursor_image *) _img;
-
-	if (image->buffer)
-		wl_buffer_destroy(image->buffer);
 
 	free(image);
 }
@@ -186,11 +215,13 @@ static struct tw_cursor *
 tw_cursor_create_from_xcursor_images(XcursorImages *images,
 				     struct tw_cursor_theme *theme)
 {
+	//we have cursor.cursor which is exposed, cursor->cursor.images is just
+	//metadata
 	struct cursor *cursor;
 	struct cursor_image *image;
 	int i, size;
 
-	cursor = malloc(sizeof *cursor);
+	cursor = (struct cursor *)malloc(sizeof *cursor);
 	if (!cursor)
 		return NULL;
 
@@ -206,11 +237,10 @@ tw_cursor_create_from_xcursor_images(XcursorImages *images,
 	cursor->total_delay = 0;
 
 	for (i = 0; i < images->nimage; i++) {
-		image = malloc(sizeof *image);
+		image = (struct cursor_image *)malloc(sizeof *image);
 		cursor->cursor.images[i] = (struct tw_cursor_image *) image;
 
 		image->theme = theme;
-		image->buffer = NULL;
 
 		image->image.width = images->images[i]->width;
 		image->image.height = images->images[i]->height;
@@ -265,11 +295,11 @@ load_callback(XcursorImages *images, void *data)
  * tw_cursor_theme_destroy() or %NULL on error.
  */
 struct tw_cursor_theme *
-tw_cursor_theme_load(const char *name, int size, struct wl_shm *shm)
+tw_cursor_theme_load(const char *name, int size)
 {
 	struct tw_cursor_theme *theme;
 
-	theme = malloc(sizeof *theme);
+	theme = (struct tw_cursor_theme *)malloc(sizeof *theme);
 	if (!theme)
 		return NULL;
 
@@ -280,14 +310,6 @@ tw_cursor_theme_load(const char *name, int size, struct wl_shm *shm)
 	theme->size = size;
 	theme->cursor_count = 0;
 	theme->cursors = NULL;
-
-	theme->pool =
-		shm_pool_create(shm, size * size * 4);
-	if (!theme->pool) {
-		free(theme->name);
-		free(theme);
-		return NULL;
-	}
 
 	xcursor_load_theme(name, size, load_callback, theme);
 
@@ -307,7 +329,6 @@ tw_cursor_theme_destroy(struct tw_cursor_theme *theme)
 		tw_cursor_destroy(theme->cursors[i]);
 
 	shm_pool_destroy(theme->pool);
-
 	free(theme->cursors);
 	free(theme);
 }

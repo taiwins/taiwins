@@ -141,8 +141,6 @@ tw_setup_backend(struct weston_compositor *compositor)
 	b->view_background = weston_view_create(b->surface_background);
 	weston_layer_entry_insert(&b->layer_background.view_list, &b->view_background->layer_link);
 
-
-
 	//TODO: clean, tmp code
 
 	return true;
