@@ -56,8 +56,8 @@ bool setup_input(struct weston_compositor *compositor)
 	//change every shit below!
 	//TODO this is temporary code, we need to change this with libinput
 	if (wl_list_empty(&compositor->seat_list)) {
-		//eh, fuck... we have no idea how to clean this mess
-		//NOTE this will call the seat_created signal
+		//this will append the seat to the list of compositor and call
+		//the seat_create_signal
 		weston_seat_init(&g_seat, compositor, "seat0");
 	}
 	seat0 = wl_container_of(compositor->seat_list.next, seat0, link);
@@ -65,7 +65,6 @@ bool setup_input(struct weston_compositor *compositor)
 	weston_seat_init_keyboard(seat0, compositor->xkb_info->keymap); //if something goes wrong
 //	weston_seat_update_keymap(seat0, compositor->xkb_info->keymap);
 //	struct weston_keyboard *keyboard = weston_seat_get_keyboard(seat0);
-
 	//you can also do this
 	weston_seat_init_pointer(seat0);
 //	weston_seat_init_touch(seat0);

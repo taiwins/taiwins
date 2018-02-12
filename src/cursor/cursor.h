@@ -46,10 +46,14 @@ struct tw_cursor {
 	char *name;
 };
 
-struct wl_shm;
+//struct wl_shm;
+struct tw_cursor_theme *
+tw_cursor_theme_load(const char *name, int size);
 
+/*
 struct tw_cursor_theme *
 tw_cursor_theme_load(const char *name, int size, struct wl_shm *shm);
+*/
 
 void
 tw_cursor_theme_destroy(struct tw_cursor_theme *theme);
@@ -59,7 +63,7 @@ tw_cursor_theme_get_cursor(struct tw_cursor_theme *theme,
 			   const char *name);
 
 struct wl_buffer *
-tw_cursor_image_get_buffer(struct tw_cursor_image *image);
+tw_cursor_image_get_surface(struct tw_cursor_image *image);
 
 int
 tw_cursor_frame(struct tw_cursor *cursor, uint32_t time);
