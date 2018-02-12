@@ -1,5 +1,8 @@
 #test the features in this
-include_directories(${CLIENT_INCLUDE_DIRS})
+include_directories(
+  ${CLIENT_INCLUDE_DIRS}
+  ${PROTOCOLS_INCLUDE_DIR}
+  )
 
 add_subdirectory(cursor)
 include_directories(cursor)
