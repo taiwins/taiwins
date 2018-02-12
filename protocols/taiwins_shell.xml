@@ -11,6 +11,21 @@
       <arg name="output" type="object" interface="wl_output"/>
       <arg name="surface" type="object" interface="wl_surface"/>
     </request>
+
+    <event name="configure">
+      <description summary="send expect configuration to client">
+	expected size from the server, the clients are expected to attach same
+	dimension of buffer to the surface. Common usage like background, for
+	example, it will be the same dimension of output. For commander, it will
+	have longer width than height if vertical and vice versa.
+      </description>
+      <arg name="surface" type="object" interface="wl_surface"/>
+      <arg name="scale" type="uint"/>
+      <arg name="edges" type="uint"/>
+      <arg name="width" type="int"/>
+      <arg name="height" type="int"/>
+    </event>
+
   </interface>
 
 </protocol>

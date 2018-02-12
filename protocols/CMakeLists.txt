@@ -19,4 +19,5 @@ add_library(proto_server_libraries STATIC
   ${proto_twshell_server}
   )
 
-set(PROTOCOLS_INCLUDE_DIR ${CMAKE_BINARY_DIR}/protocols PARENT_SCOPE)
+set(PROTOCOLS_INCLUDE_DIR ${CMAKE_BINARY_DIR}/protocols CACHE PATH "protocols include directory")
+message("protocols include dir: ${PROTOCOLS_INCLUDE_DIR}")
