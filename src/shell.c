@@ -99,7 +99,7 @@ bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 
 
 void
-announce_shell(struct weston_compositor *compositor)
+announce_shell(struct weston_compositor *ec)
 {
 	//I can make the static shell
 	weston_layer_init(&oneshell.background_layer, ec);
@@ -109,5 +109,5 @@ announce_shell(struct weston_compositor *compositor)
 	weston_layer_set_position(&oneshell.command_layer, WESTON_LAYER_POSITION_UI);
 
 
-	wl_global_create(compositor->wl_display, &taiwins_shell_interface, TWSHELL_VERSION, &oneshell, bind_shell);
+	wl_global_create(ec->wl_display, &taiwins_shell_interface, TWSHELL_VERSION, &oneshell, bind_shell);
 }

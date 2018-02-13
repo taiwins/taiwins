@@ -56,6 +56,7 @@ set(COMPOSITOR_LIBRARIES
   ${WAYLAND_SERVER_LIBRARIES}
   ${XKBCOMMON_LIBRARIES}
   )
+
 set(COMPOSITOR_INCLUDE_DIRS
   ${Libweston_INCLUDE_DIRS}
   ${Libweston-Desktop_INCLUDE_DIRS}
@@ -92,6 +93,7 @@ include_directories(${TRDPTY_INCLUDE_DIRS})
 message("3rdparty includes: ${TRDPTY_INCLUDE_DIRS}")
 message("3rdparty lib: ${TRDPTY_LIBRARIES}")
 
+add_subdirectory(protocols)
 add_subdirectory(src)
 add_subdirectory(test)
-add_subdirectory(protocols)
+add_subdirectory(clients)
