@@ -5,7 +5,9 @@ include_directories(
   )
 
 add_executable(shell-taiwins
-  shell.c)
+  shell.c
+  client.c
+  )
 
 target_link_libraries(shell-taiwins
   ${CLIENT_LIBRARIES}

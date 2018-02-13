@@ -363,12 +363,12 @@ create_buffer(int WIDTH, int HEIGHT)
 	struct wl_buffer *buff;
 
 	struct anonymous_buff_t *buffer = malloc(sizeof(*buffer));
-	if ( anonymous_buff_new(buffer, size) < 0) {
+	if ( anonymous_buff_new(buffer, size, PROT_READ | PROT_WRITE, MAP_SHARED) < 0) {
 		fprintf(stderr, "creating a buffer file for %d failed\n",
 			size);
 		exit(1);
 	}
-	void *shm_data = anonymous_buff_alloc(buffer, size, PROT_READ | PROT_WRITE, MAP_SHARED);
+	void *shm_data = anonymous_buff_alloc_addr(buffer, size);
 	if (!shm_data) {
 		fprintf(stderr, "come on man...\n");
 		anonymous_buff_close_file(buffer);
