@@ -16,8 +16,8 @@ struct tw_keypress kp_quit[1] = {
 vector_t kp_q = {
 	.elems = kp_quit,
 	.elemsize = sizeof(struct tw_keypress),
-	.len = num(kp_quit),
-	.alloc_len = num(kp_quit),
+	.len = numof(kp_quit),
+	.alloc_len = numof(kp_quit),
 };
 
 
@@ -37,8 +37,8 @@ struct tw_keypress kp_emacs_openfile[2] = {
 vector_t kp_of = {
 	.elems = kp_emacs_openfile,
 	.elemsize = sizeof(struct tw_keypress),
-	.len = num(kp_emacs_openfile),
-	.alloc_len = num(kp_emacs_openfile),
+	.len = numof(kp_emacs_openfile),
+	.alloc_len = numof(kp_emacs_openfile),
 };
 
 
@@ -58,8 +58,8 @@ struct tw_keypress kp_emacs_closewin[2] = {
 vector_t kp_cf = {
 	.elems = kp_emacs_closewin,
 	.elemsize = sizeof(struct tw_keypress),
-	.len = num(kp_emacs_closewin),
-	.alloc_len = num(kp_emacs_closewin),
+	.len = numof(kp_emacs_closewin),
+	.alloc_len = numof(kp_emacs_closewin),
 };
 
 
@@ -78,8 +78,8 @@ struct tw_keypress kp_emacs_lastbuff[2] = {
 vector_t kp_lb = {
 	.elems = kp_emacs_lastbuff,
 	.elemsize = sizeof(struct tw_keypress),
-	.len = num(kp_emacs_lastbuff),
-	.alloc_len = num(kp_emacs_lastbuff),
+	.len = numof(kp_emacs_lastbuff),
+	.alloc_len = numof(kp_emacs_lastbuff),
 };
 
 struct tw_keypress kp_emacs_bufflist[2] = {
@@ -114,15 +114,15 @@ struct tw_keypress kp_emacs_readonly[2] = {
 vector_t kp_bl = {
 	.elems = kp_emacs_bufflist,
 	.elemsize = sizeof(struct tw_keypress),
-	.len = num(kp_emacs_bufflist),
-	.alloc_len = num(kp_emacs_bufflist),
+	.len = numof(kp_emacs_bufflist),
+	.alloc_len = numof(kp_emacs_bufflist),
 };
 
 vector_t kp_ro = {
 	.elems = kp_emacs_readonly,
 	.elemsize = sizeof(struct tw_keypress),
-	.len = num(kp_emacs_readonly),
-	.alloc_len = num(kp_emacs_readonly),
+	.len = numof(kp_emacs_readonly),
+	.alloc_len = numof(kp_emacs_readonly),
 
 };
 
@@ -176,44 +176,44 @@ struct tw_keypress kp_x86audioprev[] = {
 vector_t kp_audioup = {
 	.elems = kp_x86audioup,
 	.elemsize = sizeof(struct tw_keypress),
-	.len = num(kp_x86audioup),
-	.alloc_len = num(kp_x86audioup)
+	.len = numof(kp_x86audioup),
+	.alloc_len = numof(kp_x86audioup)
 };
 
 vector_t kp_audiodw = {
 	.elems = kp_x86audiodw,
 	.elemsize = sizeof(struct tw_keypress),
-	.len = num(kp_x86audiodw),
-	.alloc_len = num(kp_x86audiodw)
+	.len = numof(kp_x86audiodw),
+	.alloc_len = numof(kp_x86audiodw)
 };
 
 
 vector_t kp_audiopl = {
 	.elems = kp_x86audioplay,
 	.elemsize = sizeof(struct tw_keypress),
-	.len = num(kp_x86audioplay),
-	.alloc_len = num(kp_x86audioplay)
+	.len = numof(kp_x86audioplay),
+	.alloc_len = numof(kp_x86audioplay)
 };
 
 vector_t kp_audiops = {
 	.elems = kp_x86audiopause,
 	.elemsize = sizeof(struct tw_keypress),
-	.len = num(kp_x86audiopause),
-	.alloc_len = num(kp_x86audiopause)
+	.len = numof(kp_x86audiopause),
+	.alloc_len = numof(kp_x86audiopause)
 };
 
 vector_t kp_audionx = {
 	.elems = kp_x86audionext,
 	.elemsize = sizeof(struct tw_keypress),
-	.len = num(kp_x86audionext),
-	.alloc_len = num(kp_x86audionext)
+	.len = numof(kp_x86audionext),
+	.alloc_len = numof(kp_x86audionext)
 };
 
 vector_t kp_audiopv = {
 	.elems = kp_x86audioprev,
 	.elemsize = sizeof(struct tw_keypress),
-	.len = num(kp_x86audioprev),
-	.alloc_len = num(kp_x86audioprev)
+	.len = numof(kp_x86audioprev),
+	.alloc_len = numof(kp_x86audioprev)
 };
 
 
