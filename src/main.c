@@ -92,6 +92,9 @@ int main(int argc, char *argv[])
 {
 	weston_log_set_handler(tw_log, tw_log);
 	struct wl_display *display = wl_display_create();
+	if (wl_display_add_socket(display, NULL) == -1)
+		goto connect_err;
+
 	struct weston_compositor *compositor = weston_compositor_create(display, NULL);
 	if (!setup_input(compositor))
 		goto setup_err;
@@ -107,5 +110,7 @@ int main(int argc, char *argv[])
 	return 0;
 setup_err:
 	weston_compositor_destroy(compositor);
+connect_err:
+	wl_display_destroy(display);
 	return -1;
 }
