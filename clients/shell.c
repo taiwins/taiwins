@@ -85,7 +85,7 @@ static void shell_configure_surface(void *data,
 		wl_surface_commit(output->background.wl_surface);
 		if (output->background.wl_buffer) {
 			shm_pool_buffer_release(output->background.wl_buffer);
-			output->background.wl_surface = new_buffer;
+			output->background.wl_buffer = new_buffer;
 
 		}
 	} else {
@@ -153,6 +153,7 @@ int main(int argc, char **argv)
 	//TODO change to wl_display_connect_to_fd
 	struct wl_display *display = wl_display_connect(NULL);
 	if (!display) {
+		fprintf(stderr, "couldn't connect to wayland display\n");
 		return -1;
 	}
 	struct wl_registry *registry = wl_display_get_registry(display);

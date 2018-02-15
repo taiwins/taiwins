@@ -16,6 +16,7 @@ add_executable(taiwins
   main.c
   input.c
   backend.c
+  shell.c
   )
 
 

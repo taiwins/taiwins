@@ -17,6 +17,7 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include "backend.h"
+#include "shell.h"
 
 //this is a really bad idea
 struct tw_resources {
@@ -99,6 +100,8 @@ int main(int argc, char *argv[])
 	fprintf(stderr, "backend registred\n");
 
 	weston_compositor_wake(compositor);
+	//okay, now it is a good time to anonce the shell
+	announce_shell(compositor);
 	wl_display_run(display);
 	weston_compositor_destroy(compositor);
 	return 0;
