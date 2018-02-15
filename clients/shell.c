@@ -73,16 +73,37 @@ static void shell_configure_surface(void *data,
 {
 	int32_t w = scale *(width - edges);
 	int32_t h = scale *(height - edges);
-//	struct desktop_shell *twshell = data;
+
 	struct output_widgets *output = (struct output_widgets *)wl_surface_get_user_data(surface);
 	if (surface == output->background.wl_surface) {
-		output->background.wl_buffer = shm_pool_alloc_buffer(&output->pool, w, h);
-		//TODO do the actual copy
+		void *buffer_addr = NULL;
+		struct wl_buffer *new_buffer = shm_pool_alloc_buffer(&output->pool, w, h);
+		buffer_addr = shm_pool_buffer_access(new_buffer);
+		//TODO, copy the content to it
+		wl_surface_attach(output->background.wl_surface, new_buffer, 0, 0);
+		wl_surface_damage(output->background.wl_surface, 0, 0, w, h);
+		wl_surface_commit(output->background.wl_surface);
+		if (output->background.wl_buffer) {
+			shm_pool_buffer_release(output->background.wl_buffer);
+			output->background.wl_surface = new_buffer;
 
+		}
 	} else {
 
 	}
 }
+/* if (output->background.wl_buffer[0]) */
+/*	shm_pool_buffer_release(output->background.wl_buffer[0]); */
+/* swap(output->background.wl_buffer[0], */
+/*      output->background.wl_buffer[1]); */
+/* if (!output->background.wl_buffer[0]) */
+/*	output->background.wl_buffer[0] = shm_pool_alloc_buffer(&output->pool, w, h); */
+/* else if (shm_pool_buffer_size(output->background.wl_buffer[0]) != w * h * 4) { */
+/*	shm_pool_buffer_release(output->background.wl_buffer[0]); */
+/*	output->background.wl_buffer[0] = shm_pool_alloc_buffer(&output->pool, w, h); */
+/* } */
+/* buffer_addr = shm_pool_buffer_access(output->background.wl_buffer[0]); */
+
 
 
 static struct taiwins_shell_listener taiwins_listener = {

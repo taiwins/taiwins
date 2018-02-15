@@ -2,11 +2,11 @@
 include_directories(
   ${CLIENT_INCLUDE_DIRS}
   ${PROTOCOLS_INCLUDE_DIR}
-  ${WAYLAND_CURSOR_INCLUDE_DIR}
+#  ${WAYLAND_CURSOR_INCLUDE_DIR}
   )
 
-#add_subdirectory(cursor)
-#include_directories(cursor)
+add_subdirectory(cursor)
+include_directories(cursor)
 
 add_executable(test_weston-desktop
   test-weston-desktop.c
@@ -34,6 +34,6 @@ target_link_libraries(test_hash
 target_link_libraries(test_xkbcommon
   ${CLIENT_LIBRARIES}
   ${TRDPTY_LIBRARIES}
-  ${WAYLAND_CURSOR_LIBRARIES}
+  twcursor
   m
   )

@@ -7,6 +7,7 @@ include_directories(
 add_executable(shell-taiwins
   shell.c
   client.c
+  buffer.c
   )
 
 target_link_libraries(shell-taiwins

@@ -19,7 +19,8 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <wayland-client.h>
-#include <wayland-cursor.h>
+//#include <wayland-cursor.h>
+#include "cursor.h"
 
 #include <cairo.h>
 
@@ -30,6 +31,8 @@
 static struct wl_shell *gshell;
 static struct wl_compositor *gcompositor;
 struct wl_shm *shm;
+
+bool QUIT = false;
 
 
 struct seat {
@@ -43,6 +46,7 @@ struct seat {
 	struct xkb_context *kctxt;
 	struct xkb_keymap *kmap;
 	struct xkb_state  *kstate;
+	struct wl_cursor_theme *cursor_theme;
 } seat0;
 
 //struct wl_seat *seat0;
@@ -70,6 +74,8 @@ void handle_key(void *data,
 		uint32_t key,
 		uint32_t state)
 {
+	if (key == KEY_ESC)
+		QUIT = true;
 	if (!state) //lets hope the server side has this as well
 		return;
 	struct seat *seat0 = (struct seat *)data;
@@ -240,6 +246,7 @@ void seat_capabilities(void *data,
 		fprintf(stderr, "got a mouse\n");
 		//okay, load the cursor stuff
 		struct wl_cursor_theme *theme = wl_cursor_theme_load("Vanilla-DMZ", 32, shm);
+		seat0->cursor_theme = theme;
 //		tw_cursor_theme_print_cursor_names(theme);
 		struct wl_cursor *plus = wl_cursor_theme_get_cursor(theme, "plus");
 		struct wl_buffer *first = wl_cursor_image_get_buffer(plus->images[0]);
@@ -368,7 +375,7 @@ create_buffer(int WIDTH, int HEIGHT)
 			size);
 		exit(1);
 	}
-	void *shm_data = anonymous_buff_alloc_addr(buffer, size);
+	void *shm_data = anonymous_buff_alloc_by_addr(buffer, size);
 	if (!shm_data) {
 		fprintf(stderr, "come on man...\n");
 		anonymous_buff_close_file(buffer);
@@ -420,7 +427,17 @@ int main(int argc, char *argv[])
 	//allright, now we just need to create that stupid input struct
 
 
-	while(wl_display_dispatch(display) != -1);
+	while(wl_display_dispatch(display) != -1 && !QUIT);
+	struct anonymous_buff_t *anon_buffer = wl_buffer_get_user_data(buffer);
+	anonymous_buff_close_file(anon_buffer);
+	struct wl_pointer *pointer = seat0.pointer;
+	struct wl_surface *pointer_surface = wl_pointer_get_user_data(pointer);
+	wl_cursor_theme_destroy(seat0.cursor_theme);
+//	struct wl_buffer *pointer_buffer = wl_surface_get_user_data(pointer_surface);
+//	wl_buffer_destroy(pointer_buffer);
+	//you don't need to free wl_buffer for the pointer
+	wl_surface_destroy(pointer_surface);
+	wl_surface_destroy(surface);
 
 	wl_display_disconnect(display);
 	return 0;

@@ -228,6 +228,21 @@ void wl_globals_release(struct wl_globals *globals)
 	if (globals->inputs.wl_pointer) {
 		wl_pointer_destroy(globals->inputs.wl_pointer);
 	}
+	if (globals->inputs.cursor_theme) {
+		//there is no need to destroy the cursor wl_buffer or wl_cursor,
+		//it gets cleaned up automatically
+		wl_cursor_theme_destroy(globals->inputs.cursor_theme);
+		wl_surface_destroy(globals->inputs.cursor_surface);
+		globals->inputs.cursor_theme = NULL;
+		globals->inputs.cursor = NULL;
+		globals->inputs.cursor_buffer = NULL;
+		globals->inputs.cursor_surface = NULL;
+	}
+}
+
+void wl_globals_init(struct wl_globals *globals)
+{
+
 }
 
 
@@ -245,62 +260,7 @@ int wl_globals_announce(struct wl_globals *globals,
 	} else if (strcmp(interface, wl_shm_interface.name) == 0)  {
 		globals->shm = wl_registry_bind(wl_registry, name, &wl_shm_interface, version);
 		wl_shm_add_listener(globals->shm, &shm_listener, NULL);
-	} else if (strcmp(interface, wl_output_interface.name) == 0) {
 	} else
 		return 0;
 	return 1;
-}
-
-
-
-int shm_pool_create(struct shm_pool *pool, struct wl_shm *shm, int size)
-{
-	if (anonymous_buff_new(&pool->file, size, PROT_READ | PROT_WRITE, MAP_SHARED))
-		return 0;
-	pool->pool = wl_shm_create_pool(shm, pool->file.fd, size);
-	return size;
-}
-
-int shm_pool_resize(struct shm_pool *pool, off_t newsize)
-{
-	wl_shm_pool_resize(pool->pool, newsize);
-	struct wl_buffer_node *n, *v;
-	list_for_each_safe(n, v, &pool->wl_buffers, link) {
-		n->addr = (char *)pool->file.addr + n->offset;
-	}
-}
-
-struct wl_buffer *
-shm_pool_alloc_buffer(struct shm_pool *pool, int width, int height)
-{
-	size_t size = width * height * 4;
-	size_t origin_size = pool->file.size;
-	off_t offset = anonymous_buff_alloc_offset(&pool->file, size);
-	if (pool->file.size > origin_size)
-		shm_pool_resize(pool, pool->file.size);
-	if (!offset)
-		return NULL;
-	struct wl_buffer *wl_buffer = wl_shm_pool_create_buffer(pool->pool, offset,
-								width, height,
-								width *4,
-								WL_SHM_FORMAT_ARGB8888);
-	struct wl_buffer_node *n = (struct wl_buffer_node *)malloc(sizeof(*n));
-	n->offset = offset;
-	n->wl_buffer = wl_buffer;
-	n->addr = (char *)pool->file.addr + offset;
-	list_append(&pool->wl_buffers, &n->link);
-	wl_buffer_set_user_data(wl_buffer, n);
-	return wl_buffer;
-}
-
-void shm_pool_destroy(struct shm_pool *pool)
-{
-	struct wl_buffer_node *n, *v;
-	list_for_each_safe(n, v, &pool->wl_buffers, link) {
-		wl_buffer_destroy(n->wl_buffer);
-		list_remove(&n->link);
-		free(n);
-	}
-	wl_shm_pool_destroy(pool->pool);
-	anonymous_buff_close_file(&pool->file);
 }
