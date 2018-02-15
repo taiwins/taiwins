@@ -77,6 +77,7 @@ static void shell_configure_surface(void *data,
 	struct output_widgets *output = (struct output_widgets *)wl_surface_get_user_data(surface);
 	if (surface == output->background.wl_surface) {
 		void *buffer_addr = NULL;
+		//TODO there is the dilemma: do we want the double buffer here ?
 		struct wl_buffer *new_buffer = shm_pool_alloc_buffer(&output->pool, w, h);
 		buffer_addr = shm_pool_buffer_access(new_buffer);
 		//TODO, copy the content to it
@@ -86,7 +87,6 @@ static void shell_configure_surface(void *data,
 		if (output->background.wl_buffer) {
 			shm_pool_buffer_release(output->background.wl_buffer);
 			output->background.wl_buffer = new_buffer;
-
 		}
 	} else {
 
