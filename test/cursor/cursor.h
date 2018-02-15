@@ -21,8 +21,8 @@
  * OF THIS SOFTWARE.
  */
 
-#ifndef TW_CURSOR_H
-#define TW_CURSOR_H
+#ifndef WL_CURSOR_H
+#define WL_CURSOR_H
 
 #include <stdint.h>
 
@@ -30,9 +30,9 @@
 extern "C" {
 #endif
 
-struct tw_cursor_theme;
+struct wl_cursor_theme;
 
-struct tw_cursor_image {
+struct wl_cursor_image {
 	uint32_t width;		/* actual width */
 	uint32_t height;	/* actual height */
 	uint32_t hotspot_x;	/* hot spot x (must be inside image) */
@@ -40,32 +40,32 @@ struct tw_cursor_image {
 	uint32_t delay;		/* animation delay to next frame (ms) */
 };
 
-struct tw_cursor {
+struct wl_cursor {
 	unsigned int image_count;
-	struct tw_cursor_image **images;
+	struct wl_cursor_image **images;
 	char *name;
 };
 
 struct wl_shm;
 
-struct tw_cursor_theme *
-tw_cursor_theme_load(const char *name, int size, struct wl_shm *shm);
+struct wl_cursor_theme *
+wl_cursor_theme_load(const char *name, int size, struct wl_shm *shm);
 
 void
-tw_cursor_theme_destroy(struct tw_cursor_theme *theme);
+wl_cursor_theme_destroy(struct wl_cursor_theme *theme);
 
-struct tw_cursor *
-tw_cursor_theme_get_cursor(struct tw_cursor_theme *theme,
+struct wl_cursor *
+wl_cursor_theme_get_cursor(struct wl_cursor_theme *theme,
 			   const char *name);
 
 struct wl_buffer *
-tw_cursor_image_get_buffer(struct tw_cursor_image *image);
+wl_cursor_image_get_buffer(struct wl_cursor_image *image);
 
 int
-tw_cursor_frame(struct tw_cursor *cursor, uint32_t time);
+wl_cursor_frame(struct wl_cursor *cursor, uint32_t time);
 
 void
-tw_cursor_theme_print_cursor_names(const struct tw_cursor_theme *theme);
+wl_cursor_theme_print_cursor_names(const struct wl_cursor_theme *theme);
 
 #ifdef  __cplusplus
 }

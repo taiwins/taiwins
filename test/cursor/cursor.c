@@ -114,9 +114,9 @@ shm_pool_destroy(struct shm_pool *pool)
 }
 
 
-struct tw_cursor_theme {
+struct wl_cursor_theme {
 	unsigned int cursor_count;
-	struct tw_cursor **cursors;
+	struct wl_cursor **cursors;
 	struct wl_shm *shm;
 	struct shm_pool *pool;
 	char *name;
@@ -124,14 +124,14 @@ struct tw_cursor_theme {
 };
 
 struct cursor_image {
-	struct tw_cursor_image image;
-	struct tw_cursor_theme *theme;
+	struct wl_cursor_image image;
+	struct wl_cursor_theme *theme;
 	struct wl_buffer *buffer;
 	int offset; /* data offset of this image in the shm pool */
 };
 
 struct cursor {
-	struct tw_cursor cursor;
+	struct wl_cursor cursor;
 	uint32_t total_delay; /* length of the animation in ms */
 };
 
@@ -142,10 +142,10 @@ struct cursor {
  * the returned buffer.
  */
 struct wl_buffer *
-tw_cursor_image_get_buffer(struct tw_cursor_image *_img)
+wl_cursor_image_get_buffer(struct wl_cursor_image *_img)
 {
 	struct cursor_image *image = (struct cursor_image *) _img;
-	struct tw_cursor_theme *theme = image->theme;
+	struct wl_cursor_theme *theme = image->theme;
 
 	if (!image->buffer) {
 		image->buffer =
@@ -160,7 +160,7 @@ tw_cursor_image_get_buffer(struct tw_cursor_image *_img)
 }
 
 static void
-tw_cursor_image_destroy(struct tw_cursor_image *_img)
+wl_cursor_image_destroy(struct wl_cursor_image *_img)
 {
 	struct cursor_image *image = (struct cursor_image *) _img;
 
@@ -171,20 +171,20 @@ tw_cursor_image_destroy(struct tw_cursor_image *_img)
 }
 
 static void
-tw_cursor_destroy(struct tw_cursor *cursor)
+wl_cursor_destroy(struct wl_cursor *cursor)
 {
 	unsigned int i;
 
 	for (i = 0; i < cursor->image_count; i++)
-		tw_cursor_image_destroy(cursor->images[i]);
+		wl_cursor_image_destroy(cursor->images[i]);
 
 	free(cursor->name);
 	free(cursor);
 }
 
-static struct tw_cursor *
-tw_cursor_create_from_xcursor_images(XcursorImages *images,
-				     struct tw_cursor_theme *theme)
+static struct wl_cursor *
+wl_cursor_create_from_xcursor_images(XcursorImages *images,
+				     struct wl_cursor_theme *theme)
 {
 	struct cursor *cursor;
 	struct cursor_image *image;
@@ -207,7 +207,7 @@ tw_cursor_create_from_xcursor_images(XcursorImages *images,
 
 	for (i = 0; i < images->nimage; i++) {
 		image = malloc(sizeof *image);
-		cursor->cursor.images[i] = (struct tw_cursor_image *) image;
+		cursor->cursor.images[i] = (struct wl_cursor_image *) image;
 
 		image->theme = theme;
 		image->buffer = NULL;
@@ -232,15 +232,15 @@ tw_cursor_create_from_xcursor_images(XcursorImages *images,
 static void
 load_callback(XcursorImages *images, void *data)
 {
-	struct tw_cursor_theme *theme = data;
-	struct tw_cursor *cursor;
+	struct wl_cursor_theme *theme = data;
+	struct wl_cursor *cursor;
 
-	if (tw_cursor_theme_get_cursor(theme, images->name)) {
+	if (wl_cursor_theme_get_cursor(theme, images->name)) {
 		XcursorImagesDestroy(images);
 		return;
 	}
 
-	cursor = tw_cursor_create_from_xcursor_images(images, theme);
+	cursor = wl_cursor_create_from_xcursor_images(images, theme);
 
 	if (cursor) {
 		theme->cursor_count++;
@@ -262,12 +262,12 @@ load_callback(XcursorImages *images, void *data)
  * \param shm The compositor's shm interface.
  *
  * \return An object representing the theme that should be destroyed with
- * tw_cursor_theme_destroy() or %NULL on error.
+ * wl_cursor_theme_destroy() or %NULL on error.
  */
-struct tw_cursor_theme *
-tw_cursor_theme_load(const char *name, int size, struct wl_shm *shm)
+struct wl_cursor_theme *
+wl_cursor_theme_load(const char *name, int size, struct wl_shm *shm)
 {
-	struct tw_cursor_theme *theme;
+	struct wl_cursor_theme *theme;
 
 	theme = malloc(sizeof *theme);
 	if (!theme)
@@ -299,12 +299,12 @@ tw_cursor_theme_load(const char *name, int size, struct wl_shm *shm)
  * \param theme The cursor theme to be destroyed
  */
 void
-tw_cursor_theme_destroy(struct tw_cursor_theme *theme)
+wl_cursor_theme_destroy(struct wl_cursor_theme *theme)
 {
 	unsigned int i;
 
 	for (i = 0; i < theme->cursor_count; i++)
-		tw_cursor_destroy(theme->cursors[i]);
+		wl_cursor_destroy(theme->cursors[i]);
 
 	shm_pool_destroy(theme->pool);
 
@@ -319,8 +319,8 @@ tw_cursor_theme_destroy(struct tw_cursor_theme *theme)
  * \return The theme's cursor of the given name or %NULL if there is no
  * such cursor
  */
-struct tw_cursor *
-tw_cursor_theme_get_cursor(struct tw_cursor_theme *theme,
+struct wl_cursor *
+wl_cursor_theme_get_cursor(struct wl_cursor_theme *theme,
 			   const char *name)
 {
 	unsigned int i;
@@ -342,7 +342,7 @@ tw_cursor_theme_get_cursor(struct tw_cursor_theme *theme,
  * given time in the cursor animation.
  */
 int
-tw_cursor_frame(struct tw_cursor *_cursor, uint32_t time)
+wl_cursor_frame(struct wl_cursor *_cursor, uint32_t time)
 {
 	struct cursor *cursor = (struct cursor *) _cursor;
 	uint32_t t;
@@ -364,7 +364,7 @@ tw_cursor_frame(struct tw_cursor *_cursor, uint32_t time)
  * for the debugging purpose, I am keeping this function
  */
 void
-tw_cursor_theme_print_cursor_names(const struct tw_cursor_theme *theme)
+wl_cursor_theme_print_cursor_names(const struct wl_cursor_theme *theme)
 {
 	unsigned int i;
 	for (i = 0; i < theme->cursor_count; i++) {
