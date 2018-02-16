@@ -19,8 +19,9 @@
  * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
  * OF THIS SOFTWARE.
  */
-
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 
 #include <sys/types.h>
 #include <unistd.h>
