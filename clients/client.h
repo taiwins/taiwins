@@ -55,6 +55,8 @@ int wl_globals_announce(struct wl_globals *globals,
 			const char *interface,
 			uint32_t version);
 
+void wl_globals_init(struct wl_globals *globals);
+
 /******************************************************************************
  *
  * a wl_buffer managerment solution, using a pool based approach
@@ -62,6 +64,7 @@ int wl_globals_announce(struct wl_globals *globals,
  *****************************************************************************/
 struct shm_pool {
 	struct anonymous_buff_t file;
+	struct wl_shm *shm;
 	struct wl_shm_pool *pool;
 	list_t wl_buffers;
 };

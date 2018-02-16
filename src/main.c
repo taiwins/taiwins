@@ -36,24 +36,20 @@ tw_log(const char *format, va_list args)
 
 bool setup_input(struct weston_compositor *compositor)
 {
-	//setup keyboard input
-	struct xkb_context *ctxt = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-	if (!ctxt)
-		return false;
-	compositor->xkb_context = ctxt;
-	//a static rule now. have to change it later,
-	compositor->xkb_names = (struct xkb_rule_names) {
-		.rules = NULL,
-		.model = "pc105",
-		.layout = "us",
-		.options = "ctrl:swap_lalt_lctl"
-	};
-	compositor->xkb_info = (struct weston_xkb_info *)zalloc(sizeof(struct weston_xkb_info));
+	if (!compositor->xkb_names.layout) {
+		compositor->xkb_names = (struct xkb_rule_names) {
+			.rules = NULL,
+			.model = "pc105",
+			.layout = "us",
+			.options = "ctrl:swap_lalt_lctl"
+		};
+		compositor->xkb_info = (struct weston_xkb_info *)zalloc(sizeof(struct weston_xkb_info));
+		compositor->xkb_info->keymap = xkb_keymap_new_from_names(compositor->xkb_context,
+									 &compositor->xkb_names,
+									 XKB_KEYMAP_COMPILE_NO_FLAGS);
+	}
 	//later on we can have
 	//xkb_keymap_new_from_string(context, string, format, flag) or from_file
-	compositor->xkb_info->keymap = xkb_keymap_new_from_names(compositor->xkb_context,
-								 &compositor->xkb_names,
-								 XKB_KEYMAP_COMPILE_NO_FLAGS);
 	//change every shit below!
 	//TODO this is temporary code, we need to change this with libinput
 	if (wl_list_empty(&compositor->seat_list)) {
@@ -96,10 +92,9 @@ int main(int argc, char *argv[])
 		goto connect_err;
 
 	struct weston_compositor *compositor = weston_compositor_create(display, NULL);
-	if (!setup_input(compositor))
-		goto setup_err;
 	//yep, we need to setup backend
 	tw_setup_backend(compositor);
+	setup_input(compositor);
 	fprintf(stderr, "backend registred\n");
 
 	weston_compositor_wake(compositor);

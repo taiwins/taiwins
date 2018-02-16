@@ -17,9 +17,13 @@ struct wl_buffer_node {
 int
 shm_pool_create(struct shm_pool *pool, struct wl_shm *shm, int size)
 {
-	if (anonymous_buff_new(&pool->file, size, PROT_READ | PROT_WRITE, MAP_SHARED))
+	pool->shm = shm;
+	list_init(&pool->wl_buffers);
+	if (anonymous_buff_new(&pool->file, size, PROT_READ | PROT_WRITE, MAP_SHARED) < 0) {
 		return 0;
+	}
 	pool->pool = wl_shm_create_pool(shm, pool->file.fd, size);
+
 	return size;
 }
 
@@ -68,8 +72,6 @@ shm_pool_alloc_buffer(struct shm_pool *pool, size_t width, size_t height)
 	off_t offset = anonymous_buff_alloc_by_offset(&pool->file, size);
 	if (pool->file.size > origin_size)
 		shm_pool_resize(pool, pool->file.size);
-	if (!offset)
-		return NULL;
 	struct wl_buffer *wl_buffer = wl_shm_pool_create_buffer(pool->pool, offset,
 								width, height,
 								width *4,

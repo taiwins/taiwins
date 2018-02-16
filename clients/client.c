@@ -221,6 +221,13 @@ static struct wl_seat_listener seat_listener = {
 	.name = seat_name,
 };
 
+void
+wl_globals_init(struct wl_globals *globals)
+{
+	//do this first, so all the pointers are null
+	*globals = (struct wl_globals){0};
+}
+
 
 void wl_globals_release(struct wl_globals *globals)
 {
@@ -240,10 +247,6 @@ void wl_globals_release(struct wl_globals *globals)
 	}
 }
 
-void wl_globals_init(struct wl_globals *globals)
-{
-
-}
 
 
 int wl_globals_announce(struct wl_globals *globals,
