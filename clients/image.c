@@ -30,13 +30,15 @@ load_image(const char *path, const enum wl_shm_format wlformat,
 	cairo_format_t format = translate_wl_shm_format(wlformat);
 	if (format == CAIRO_FORMAT_INVALID)
 		return NULL;
-	cairo_t *pngcr, *memcr;
+	cairo_t *memcr;
 	cairo_surface_t *pngsurface = cairo_image_surface_create_from_png(path);
 	int stride = cairo_format_stride_for_width(format, width);
 	cairo_surface_t *memsurface = cairo_image_surface_create_for_data(data, format, width, height, stride);
 	memcr = cairo_create(memsurface);
+	//lol, I need to scale before I set the source
+	cairo_scale(memcr, (double)width / cairo_image_surface_get_width(pngsurface) ,
+		    (double)height / cairo_image_surface_get_height(pngsurface));
 	cairo_set_source_surface(memcr, pngsurface, 0, 0);
-	//well, that should do it
 	cairo_paint(memcr);
 	return data;
 }
