@@ -10,6 +10,7 @@
 #include <wayland-client.h>
 #include <sequential.h>
 #include "client.h"
+#include "image.h"
 
 struct output_widgets;
 struct desktop_shell;
@@ -107,6 +108,10 @@ static void shell_configure_surface(void *data,
 		//TODO there is the dilemma: do we want the double buffer here ?
 		struct wl_buffer *new_buffer = shm_pool_alloc_buffer(&output->pool, w, h);
 		buffer_addr = shm_pool_buffer_access(new_buffer);
+		if (load_image("/home/developer/.wallpaper/wallpaper.png", WL_SHM_FORMAT_ARGB8888, w, h,
+			       (unsigned char *)buffer_addr) != buffer_addr) {
+			fprintf(stderr, "failed to load image somehow\n");
+		}
 		//TODO, copy the content to it
 		wl_surface_attach(output->background.wl_surface, new_buffer, 0, 0);
 		wl_surface_damage(output->background.wl_surface, 0, 0, w, h);

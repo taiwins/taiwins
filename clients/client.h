@@ -16,6 +16,11 @@
 #include <sequential.h>
 #include <buffer.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 /**
  * struct for one application, it should normally contains those
  */
@@ -95,6 +100,9 @@ size_t shm_pool_buffer_size(struct wl_buffer *wl_buffer);
 
 void shm_pool_destroy(struct shm_pool *pool);
 
+#ifdef __cplusplus
+}
+#endif
 
 
 

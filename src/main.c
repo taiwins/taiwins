@@ -59,11 +59,11 @@ bool setup_input(struct weston_compositor *compositor)
 	}
 	seat0 = wl_container_of(compositor->seat_list.next, seat0, link);
 	//we already updated keyboard state here
-	weston_seat_init_keyboard(seat0, compositor->xkb_info->keymap); //if something goes wrong
+//	weston_seat_init_keyboard(seat0, compositor->xkb_info->keymap); //if something goes wrong
 //	weston_seat_update_keymap(seat0, compositor->xkb_info->keymap);
 //	struct weston_keyboard *keyboard = weston_seat_get_keyboard(seat0);
 	//you can also do this
-	weston_seat_init_pointer(seat0);
+//	weston_seat_init_pointer(seat0);
 //	weston_seat_init_touch(seat0);
 	return true;
 }
@@ -92,9 +92,9 @@ int main(int argc, char *argv[])
 		goto connect_err;
 
 	struct weston_compositor *compositor = weston_compositor_create(display, NULL);
-	//yep, we need to setup backend
+	//yep, we need to setup backend,
 	tw_setup_backend(compositor);
-	setup_input(compositor);
+	//it seems that we don't need to setup the input, maybe in other cases
 	fprintf(stderr, "backend registred\n");
 
 	weston_compositor_wake(compositor);

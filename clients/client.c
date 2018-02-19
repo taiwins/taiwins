@@ -20,8 +20,21 @@
 static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 {
-//	struct wl_globals *globals = (struct wl_globals *)data;
-	fprintf(stderr, "Format %d\n", format);
+	switch (format) {
+	case WL_SHM_FORMAT_ARGB8888:
+		fprintf(stderr, "shm format Format argb8888\n");
+		break;
+	case WL_SHM_FORMAT_RGB888:
+		fprintf(stderr, "shm format Format rgb888\n");
+		break;
+	case WL_SHM_FORMAT_RGBA8888:
+		fprintf(stderr, "shm format Format rgba888\n");
+		break;
+	default:
+		fprintf(stderr, "I don't know this format%X\n", format);
+		break;
+	}
+//	fprintf(stderr, "shm format Format %d\n", format);
 }
 
 static struct wl_shm_listener shm_listener = {
