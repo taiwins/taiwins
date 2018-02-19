@@ -26,6 +26,7 @@ extern "C" {
  */
 struct wl_globals {
 	struct wl_shm *shm;
+	enum wl_shm_format buffer_format;
 	struct wl_compositor *compositor;
 	struct wl_inputs {
 		struct wl_seat *wl_seat;
@@ -44,6 +45,7 @@ struct wl_globals {
 		struct wl_surface *cursor_surface;
 		struct wl_buffer *cursor_buffer;
 		//TODO an extra key-handling function with data
+		struct wl_surface *inhabit_surface;
 	} inputs;
 };
 
@@ -61,6 +63,7 @@ int wl_globals_announce(struct wl_globals *globals,
 			uint32_t version);
 
 void wl_globals_init(struct wl_globals *globals);
+
 
 /******************************************************************************
  *

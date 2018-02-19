@@ -20,21 +20,26 @@
 static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 {
+	struct wl_globals *globals = (struct wl_globals *)data;
+	if (globals->buffer_format == WL_SHM_FORMAT_ARGB8888 ||
+		globals->buffer_format == WL_SHM_FORMAT_RGB888 ||
+		globals->buffer_format == WL_SHM_FORMAT_RGBA8888)
+		return;
+	//it maynot be a good idea, it is just that we are given a choice
 	switch (format) {
 	case WL_SHM_FORMAT_ARGB8888:
-		fprintf(stderr, "shm format Format argb8888\n");
+		globals->buffer_format = format;
 		break;
 	case WL_SHM_FORMAT_RGB888:
-		fprintf(stderr, "shm format Format rgb888\n");
+		globals->buffer_format = format;
 		break;
 	case WL_SHM_FORMAT_RGBA8888:
-		fprintf(stderr, "shm format Format rgba888\n");
+		globals->buffer_format = format;
 		break;
 	default:
 		fprintf(stderr, "I don't know this format%X\n", format);
 		break;
 	}
-//	fprintf(stderr, "shm format Format %d\n", format);
 }
 
 static struct wl_shm_listener shm_listener = {
@@ -109,7 +114,7 @@ void handle_keyboard_enter(void *data,
 			   struct wl_surface *surface,
 			   struct wl_array *keys)
 {
-	fprintf(stderr, "keyboard got focus\n");
+//	fprintf(stderr, "keyboard got focus\n");
 }
 static
 void handle_keyboard_leave(void *data,
@@ -117,7 +122,7 @@ void handle_keyboard_leave(void *data,
 		    uint32_t serial,
 		    struct wl_surface *surface)
 {
-	fprintf(stderr, "keyboard lost focus\n");
+//	fprintf(stderr, "keyboard lost focus\n");
 }
 
 
@@ -143,7 +148,8 @@ pointer_enter(void *data,
 {
 	static bool cursor_set = false;
 	struct wl_globals *globals = (struct wl_globals *)data;
-	fprintf(stderr, "pointer enterred\n");
+	globals->inputs.inhabit_surface = surface;
+//	fprintf(stderr, "pointer enterred\n");
 	if (!cursor_set) {
 		struct wl_surface *csurface = globals->inputs.cursor_surface;
 		struct wl_buffer *cbuffer = globals->inputs.cursor_buffer;
@@ -160,6 +166,8 @@ pointer_leave(void *data,
 	      uint32_t serial,
 	      struct wl_surface *surface)
 {
+	struct wl_globals *globals = (struct wl_globals *)data;
+	globals->inputs.inhabit_surface = NULL;
 	fprintf(stderr, "cursor left, things to do maybe just grey out the window\n");
 }
 
@@ -239,6 +247,7 @@ wl_globals_init(struct wl_globals *globals)
 {
 	//do this first, so all the pointers are null
 	*globals = (struct wl_globals){0};
+	globals->buffer_format = WL_SHM_FORMAT_XRGB2101010;
 }
 
 
@@ -257,6 +266,7 @@ void wl_globals_release(struct wl_globals *globals)
 		globals->inputs.cursor = NULL;
 		globals->inputs.cursor_buffer = NULL;
 		globals->inputs.cursor_surface = NULL;
+		globals->inputs.inhabit_surface = NULL;
 	}
 }
 
@@ -275,7 +285,7 @@ int wl_globals_announce(struct wl_globals *globals,
 		globals->compositor = wl_registry_bind(wl_registry, name, &wl_compositor_interface, version);
 	} else if (strcmp(interface, wl_shm_interface.name) == 0)  {
 		globals->shm = wl_registry_bind(wl_registry, name, &wl_shm_interface, version);
-		wl_shm_add_listener(globals->shm, &shm_listener, NULL);
+		wl_shm_add_listener(globals->shm, &shm_listener, globals);
 	} else
 		return 0;
 	return 1;

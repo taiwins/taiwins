@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon.h>
@@ -45,7 +46,6 @@ output_init(struct output_widgets *w)
 	wl_surface_set_user_data(w->background.wl_surface, w);
 
 	taiwins_shell_set_background(shell, w->output, w->background.wl_surface);
-	//TODO get the damn image and
 	w->inited = true;
 }
 
@@ -105,17 +105,19 @@ static void shell_configure_surface(void *data,
 	struct output_widgets *output = (struct output_widgets *)wl_surface_get_user_data(surface);
 	if (surface == output->background.wl_surface) {
 		void *buffer_addr = NULL;
-		//TODO there is the dilemma: do we want the double buffer here ?
+
 		struct wl_buffer *new_buffer = shm_pool_alloc_buffer(&output->pool, w, h);
 		buffer_addr = shm_pool_buffer_access(new_buffer);
-		if (load_image("/home/developer/.wallpaper/wallpaper.png", WL_SHM_FORMAT_ARGB8888, w, h,
+		char imgpath[100];
+		sprintf(imgpath, "%s/.wallpaper/wallpaper.png", getenv("HOME"));
+		if (load_image(imgpath, WL_SHM_FORMAT_ARGB8888, w, h,
 			       (unsigned char *)buffer_addr) != buffer_addr) {
 			fprintf(stderr, "failed to load image somehow\n");
 		}
-		//TODO, copy the content to it
 		wl_surface_attach(output->background.wl_surface, new_buffer, 0, 0);
 		wl_surface_damage(output->background.wl_surface, 0, 0, w, h);
 		wl_surface_commit(output->background.wl_surface);
+		//TODO maybe using the double buffer?
 		if (output->background.wl_buffer) {
 			shm_pool_buffer_release(output->background.wl_buffer);
 			output->background.wl_buffer = new_buffer;
@@ -195,14 +197,13 @@ int main(int argc, char **argv)
 	wl_registry_add_listener(registry, &registry_listener, &oneshell);
 	wl_display_dispatch(display);
 	wl_display_roundtrip(display);
-	{
+	{	//initialize the output
 		struct output_widgets *w, *next;
 		list_for_each_safe(w, next, &oneshell.outputs, link) {
 			if (!w->inited)
 				output_init(w);
 		}
 	}
-
 	while(wl_display_dispatch(display) != -1);
 
 	wl_registry_destroy(registry);
