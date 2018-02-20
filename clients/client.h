@@ -50,9 +50,12 @@ struct wl_globals {
 };
 
 struct app_surface {
+	struct wl_output *wl_output;
 	struct wl_surface *wl_surface;
 	struct wl_buffer  *wl_buffer;
 };
+
+//void app_surface_init(struct wl_compositor *p)
 
 
 /* here you need a data structure that glues the anonoymous_buff and wl_buffer wl_shm_pool */

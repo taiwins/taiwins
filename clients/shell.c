@@ -20,6 +20,7 @@ struct output_widgets {
 	struct desktop_shell *shell;
 	struct wl_output *output;
 	struct app_surface background;
+	struct app_surface panel;
 	struct shm_pool pool;
 
 	list_t link;
@@ -40,12 +41,18 @@ static void
 output_init(struct output_widgets *w)
 {
 	struct taiwins_shell *shell = w->shell->shell;
+	//arriere-plan
 	w->background = (struct app_surface){0};
 	w->background.wl_surface = wl_compositor_create_surface(w->shell->globals.compositor);
-	//this maynot be a good idea
+	w->background.wl_output = w->output;
 	wl_surface_set_user_data(w->background.wl_surface, w);
-
 	taiwins_shell_set_background(shell, w->output, w->background.wl_surface);
+	//panel
+	w->panel = (struct app_surface){0};
+	w->panel.wl_surface = wl_compositor_create_surface(w->shell->globals.compositor);
+	w->panel.wl_output = w->output;
+	wl_surface_set_user_data(w->panel.wl_surface, w);
+	taiwins_shell_set_panel(shell, w->output, w->panel.wl_surface);
 	w->inited = true;
 }
 
@@ -99,15 +106,17 @@ static void shell_configure_surface(void *data,
 				    int32_t width,
 				    int32_t height)
 {
+	struct output_widgets *output = (struct output_widgets *)wl_surface_get_user_data(surface);
 	int32_t w = scale *(width - edges);
 	int32_t h = scale *(height - edges);
 
-	struct output_widgets *output = (struct output_widgets *)wl_surface_get_user_data(surface);
-	if (surface == output->background.wl_surface) {
-		void *buffer_addr = NULL;
+	void *buffer_addr = NULL;
+	struct wl_buffer *new_buffer = shm_pool_alloc_buffer(&output->pool, w, h);
+	buffer_addr = shm_pool_buffer_access(new_buffer);
 
-		struct wl_buffer *new_buffer = shm_pool_alloc_buffer(&output->pool, w, h);
-		buffer_addr = shm_pool_buffer_access(new_buffer);
+
+	if (surface == output->background.wl_surface) {
+		printf("background surface buffer %p, wl_buffer: %p\n", buffer_addr, new_buffer);
 		char imgpath[100];
 		sprintf(imgpath, "%s/.wallpaper/wallpaper.png", getenv("HOME"));
 		if (load_image(imgpath, WL_SHM_FORMAT_ARGB8888, w, h,
@@ -122,8 +131,16 @@ static void shell_configure_surface(void *data,
 			shm_pool_buffer_release(output->background.wl_buffer);
 			output->background.wl_buffer = new_buffer;
 		}
-	} else {
-
+	} else if (surface == output->panel.wl_surface) {
+		printf("panel surface buffer %p, wl_buffer: %p\n", buffer_addr, new_buffer);
+		memset(buffer_addr, 255, w*h*4);
+		wl_surface_attach(output->panel.wl_surface, new_buffer, 0, 0);
+		wl_surface_damage(output->panel.wl_surface, 0, 0, w, h);
+		wl_surface_commit(output->panel.wl_surface);
+		if (output->panel.wl_buffer) {
+			shm_pool_buffer_release(output->panel.wl_buffer);
+			output->panel.wl_buffer = new_buffer;
+		}
 	}
 }
 /* if (output->background.wl_buffer[0]) */
