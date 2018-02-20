@@ -11,7 +11,7 @@
 #include <wayland-client.h>
 #include <sequential.h>
 #include "client.h"
-#include "image.h"
+#include "ui.h"
 
 struct output_widgets;
 struct desktop_shell;

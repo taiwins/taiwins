@@ -1,5 +1,5 @@
-#ifndef TW_IMAGE_H
-#define TW_IMAGE_H
+#ifndef TW_UI_H
+#define TW_UI_H
 
 
 //doesnt support jpeg in this way, but there is a cairo-jpeg project
@@ -13,6 +13,8 @@ extern "C" {
 
 unsigned char *load_image(const char *path, const enum wl_shm_format wlformat,
 	   int width, int height, unsigned char *data);
+
+
 
 #ifdef __cplusplus
 }
