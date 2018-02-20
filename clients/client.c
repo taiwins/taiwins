@@ -153,7 +153,7 @@ pointer_enter(void *data,
 	if (!cursor_set) {
 		struct wl_surface *csurface = globals->inputs.cursor_surface;
 		struct wl_buffer *cbuffer = globals->inputs.cursor_buffer;
-		wl_pointer_set_cursor(wl_pointer, serial, csurface, 0, 0);
+		wl_pointer_set_cursor(wl_pointer, serial, csurface, 16, 16);
 		wl_surface_attach(csurface, cbuffer, 0, 0);
 		wl_surface_damage(csurface, 0, 0, 32, 32);
 		wl_surface_commit(csurface);
