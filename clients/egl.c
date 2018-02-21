@@ -1,8 +1,10 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
+#include <GL/gl.h>
 #include <wayland-egl.h>
 #include <stdbool.h>
 #include "egl.h"
+#include "client.h"
 
 static const EGLint egl_context_attribs[] = {
 	EGL_CONTEXT_MAJOR_VERSION, 3,
@@ -72,6 +74,7 @@ egl_env_init(struct egl_env *env, struct wl_display *d)
 		fprintf(stderr, "no egl context created\n");
 		return false;
 	}
+	env->config = egl_cfg;
 	return true;
 }
 
@@ -81,4 +84,52 @@ egl_env_end(struct egl_env *env)
 {
 	eglDestroyContext(env->egl_display, env->egl_context);
 	eglTerminate(env->egl_display);
+}
+
+
+
+struct eglapp_surface {
+	struct app_surface app;
+	struct wl_egl_window *eglwin;
+	EGLSurface eglsurface;
+	//now we can
+
+};
+
+
+#define NK_SHADER_VERSION "#version 330 core"
+
+void
+eglapp_launch(struct eglapp_surface *app, struct egl_env *env, struct wl_compositor *compositor)
+{
+	app->app.wl_surface = wl_compositor_create_surface(compositor);
+	app->eglwin = wl_egl_window_create(app->app.wl_surface, 100, 100);
+	app->eglsurface = eglCreateWindowSurface(env->egl_display, env->config, (EGLNativeWindowType)app->eglwin, NULL);
+	if (eglMakeCurrent(env->egl_display, app->eglsurface, app->eglsurface, env->egl_context)) {
+		fprintf(stderr, "failed to launch the window\n");
+	}
+	//adding the shaders
+	static const GLchar *vertex_shader =
+		NK_SHADER_VERSION
+		"uniform mat4 ProjMtx;\n"
+		"in vec2 Position;\n"
+		"in vec2 TexCoord;\n"
+		"in vec4 Color;\n"
+		"out vec2 Frag_UV;\n"
+		"out vec4 Frag_Color;\n"
+		"void main() {\n"
+		"   Frag_UV = TexCoord;\n"
+		"   Frag_Color = Color;\n"
+		"   gl_Position = ProjMtx * vec4(Position.xy, 0, 1);\n"
+		"}\n";
+	static const GLchar *fragment_shader =
+		NK_SHADER_VERSION
+		"precision mediump float;\n"
+		"uniform sampler2D Texture;\n"
+		"in vec2 Frag_UV;\n"
+		"in vec4 Frag_Color;\n"
+		"out vec4 Out_Color;\n"
+		"void main(){\n"
+		"   Out_Color = Frag_Color * texture(Texture, Frag_UV.st);\n"
+		"}\n";
 }
