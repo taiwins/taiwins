@@ -44,11 +44,13 @@ pkg_check_modules(Libweston libweston-3 REQUIRED)
 pkg_check_modules(Libweston-Desktop libweston-desktop-3 REQUIRED)
 find_package(Wayland REQUIRED)
 find_package(Cairo REQUIRED)
+find_package(OpenGL REQUIRED COMPONENTS EGL)
 
 
 #####################################################################
 ################# setup the project variables #######################
 add_subdirectory("3rdparties/ctypes")
+add_subdirectory("3rdparties/nuklear")
 
 set(COMPOSITOR_LIBRARIES
   ${Libweston_LIBRARIES}
@@ -66,6 +68,7 @@ set(COMPOSITOR_INCLUDE_DIRS
 
 set(TRDPTY_INCLUDE_DIRS
   ${CTYPES_INCLUDE_DIR}
+  ${NUKLEAR_INCLUDE_DIR}
   )
 set(TRDPTY_LIBRARIES
   ${CTYPES_LIBRARIES}
@@ -76,11 +79,14 @@ set(CLIENT_INCLUDE_DIRS
   ${WAYLAND_CLIENT_INCLUDE_DIR}
   ${CAIRO_INCLUDE_DIRS}
   ${WAYLAND_CURSOR_INCLUDE_DIR}
+  ${WAYLAND_EGL_INCLUDE_DIR}
   )
 set(CLIENT_LIBRARIES
   ${XKBCOMMON_LIBRARIES}
   ${WAYLAND_CLIENT_LIBRARIES}
   ${CAIRO_LIBRARIES}
+  ${WAYLAND_EGL_LIBRARIES}
+  OpenGL::EGL
 #  ${WAYLAND_CURSOR_LIBRARIES}
   )
 

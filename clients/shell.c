@@ -198,7 +198,7 @@ static struct wl_registry_listener registry_listener = {
 
 
 
-
+#include "egl.h"
 
 int main(int argc, char **argv)
 {
@@ -221,6 +221,11 @@ int main(int argc, char **argv)
 				output_init(w);
 		}
 	}
+	struct egl_context egl_ctxt = {0};
+	egl_ctxt.wl_display = display;
+	if (!egl_context_init(&egl_ctxt))
+		return -1;
+
 	while(wl_display_dispatch(display) != -1);
 
 	wl_registry_destroy(registry);
