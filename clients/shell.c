@@ -73,14 +73,13 @@ static void
 output_distroy(struct output_widgets *o)
 {
 	wl_output_release(o->output);
-	wl_output_destroy(o->output);
 }
 
 
 static void
-desktop_shell_init(struct desktop_shell *shell)
+desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 {
-	wl_globals_init(&shell->globals);
+	wl_globals_init(&shell->globals, display);
 	list_init(&shell->outputs);
 	shell->shell = NULL;
 }
@@ -94,6 +93,7 @@ desktop_shell_release(struct desktop_shell *shell)
 		list_remove(&w->link);
 		output_distroy(w);
 	}
+	wl_globals_release(&shell->globals);
 }
 
 
@@ -197,19 +197,17 @@ static struct wl_registry_listener registry_listener = {
 };
 
 
-
-#include "egl.h"
-
 int main(int argc, char **argv)
 {
 	struct desktop_shell oneshell;
-	desktop_shell_init(&oneshell);
 	//TODO change to wl_display_connect_to_fd
 	struct wl_display *display = wl_display_connect(NULL);
 	if (!display) {
 		fprintf(stderr, "couldn't connect to wayland display\n");
 		return -1;
 	}
+	desktop_shell_init(&oneshell, display);
+
 	struct wl_registry *registry = wl_display_get_registry(display);
 	wl_registry_add_listener(registry, &registry_listener, &oneshell);
 	wl_display_dispatch(display);
@@ -221,13 +219,9 @@ int main(int argc, char **argv)
 				output_init(w);
 		}
 	}
-	struct egl_context egl_ctxt = {0};
-	egl_ctxt.wl_display = display;
-	if (!egl_context_init(&egl_ctxt))
-		return -1;
 
 	while(wl_display_dispatch(display) != -1);
-
+	desktop_shell_release(&oneshell);
 	wl_registry_destroy(registry);
 	wl_display_disconnect(display);
 	return 0;

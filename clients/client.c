@@ -243,23 +243,25 @@ static struct wl_seat_listener seat_listener = {
 };
 
 void
-wl_globals_init(struct wl_globals *globals)
+wl_globals_init(struct wl_globals *globals, struct wl_display *display)
 {
 	//do this first, so all the pointers are null
 	*globals = (struct wl_globals){0};
+	globals->display = display;
 	globals->buffer_format = WL_SHM_FORMAT_XRGB2101010;
+	egl_env_init(&globals->eglenv, display);
+
 }
 
 
 void wl_globals_release(struct wl_globals *globals)
 {
-	free(globals->inputs.name);
 	if (globals->inputs.wl_pointer) {
 		wl_pointer_destroy(globals->inputs.wl_pointer);
 	}
 	if (globals->inputs.cursor_theme) {
 		//there is no need to destroy the cursor wl_buffer or wl_cursor,
-		//it gets cleaned up automatically
+		//it gets cleaned up automatically in theme_destroy
 		wl_cursor_theme_destroy(globals->inputs.cursor_theme);
 		wl_surface_destroy(globals->inputs.cursor_surface);
 		globals->inputs.cursor_theme = NULL;
@@ -268,6 +270,7 @@ void wl_globals_release(struct wl_globals *globals)
 		globals->inputs.cursor_surface = NULL;
 		globals->inputs.inhabit_surface = NULL;
 	}
+	egl_env_end(&globals->eglenv);
 }
 
 
@@ -286,7 +289,9 @@ int wl_globals_announce(struct wl_globals *globals,
 	} else if (strcmp(interface, wl_shm_interface.name) == 0)  {
 		globals->shm = wl_registry_bind(wl_registry, name, &wl_shm_interface, version);
 		wl_shm_add_listener(globals->shm, &shm_listener, globals);
-	} else
+	} else {
+		fprintf(stderr, "announcing global %s\n", interface);
 		return 0;
+	}
 	return 1;
 }

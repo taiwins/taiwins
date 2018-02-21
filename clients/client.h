@@ -12,9 +12,14 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
+#include <wayland-egl.h>
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
 
 #include <sequential.h>
 #include <buffer.h>
+
+#include "egl.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,6 +33,8 @@ struct wl_globals {
 	struct wl_shm *shm;
 	enum wl_shm_format buffer_format;
 	struct wl_compositor *compositor;
+	struct wl_display *display;
+	struct egl_env eglenv;
 	struct wl_inputs {
 		struct wl_seat *wl_seat;
 		struct wl_keyboard *wl_keyboard;
@@ -65,7 +72,8 @@ int wl_globals_announce(struct wl_globals *globals,
 			const char *interface,
 			uint32_t version);
 
-void wl_globals_init(struct wl_globals *globals);
+void wl_globals_init(struct wl_globals *globals, struct wl_display *display);
+void wl_globals_release(struct wl_globals *globals);
 
 
 /******************************************************************************
