@@ -15,6 +15,7 @@ struct egl_env {
 	EGLDisplay egl_display;
 	EGLContext egl_context;
 	struct wl_display *wl_display;
+	EGLConfig config;
 };
 
 bool egl_env_init(struct egl_env *env, struct wl_display *disp);
