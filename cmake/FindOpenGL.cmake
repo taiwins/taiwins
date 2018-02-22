@@ -159,11 +159,11 @@ else()
     # or hpux32 depending on if we're doing a 64 bit build.
     if(CMAKE_SIZEOF_VOID_P EQUAL 4)
       set(_OPENGL_LIB_PATH
-        /opt/graphics/OpenGL/lib/hpux32/)
+	/opt/graphics/OpenGL/lib/hpux32/)
     else()
       set(_OPENGL_LIB_PATH
-        /opt/graphics/OpenGL/lib/hpux64/
-        /opt/graphics/OpenGL/lib/pa20_64)
+	/opt/graphics/OpenGL/lib/hpux64/
+	/opt/graphics/OpenGL/lib/pa20_64)
     endif()
   elseif(CMAKE_SYSTEM_NAME STREQUAL Haiku)
     set(_OPENGL_LIB_PATH
@@ -198,13 +198,13 @@ else()
   find_library(OPENGL_opengl_LIBRARY
     NAMES OpenGL
     PATHS /usr/X11R6/lib
-          ${_OPENGL_LIB_PATH}
+	  ${_OPENGL_LIB_PATH}
   )
 
   find_library(OPENGL_glx_LIBRARY
     NAMES GLX
     PATHS /usr/X11R6/lib
-          ${_OPENGL_LIB_PATH}
+	  ${_OPENGL_LIB_PATH}
   )
 
   find_library(OPENGL_egl_LIBRARY
@@ -215,9 +215,9 @@ else()
   find_library(OPENGL_glu_LIBRARY
     NAMES GLU MesaGLU
     PATHS ${OPENGL_gl_LIBRARY}
-          /opt/graphics/OpenGL/lib
-          /usr/openwin/lib
-          /usr/shlib /usr/X11R6/lib
+	  /opt/graphics/OpenGL/lib
+	  /usr/openwin/lib
+	  /usr/shlib /usr/X11R6/lib
   )
 
   if(NOT DEFINED OpenGL_GL_PREFERENCE)
@@ -227,9 +227,9 @@ else()
     # A preference has been explicitly specified.
     if(NOT OpenGL_GL_PREFERENCE MATCHES "^(GLVND|LEGACY)$")
       message(FATAL_ERROR
-        "OpenGL_GL_PREFERENCE value '${OpenGL_GL_PREFERENCE}' not recognized.  "
-        "Allowed values are 'GLVND' and 'LEGACY'."
-        )
+	"OpenGL_GL_PREFERENCE value '${OpenGL_GL_PREFERENCE}' not recognized.  "
+	"Allowed values are 'GLVND' and 'LEGACY'."
+	)
     endif()
   elseif(OpenGL_FIND_COMPONENTS)
     # No preference was explicitly specified, but the caller did request
@@ -251,9 +251,9 @@ else()
     find_library(OPENGL_gl_LIBRARY
       NAMES GL MesaGL
       PATHS /opt/graphics/OpenGL/lib
-            /usr/openwin/lib
-            /usr/shlib /usr/X11R6/lib
-            ${_OPENGL_LIB_PATH}
+	    /usr/openwin/lib
+	    /usr/shlib /usr/X11R6/lib
+	    ${_OPENGL_LIB_PATH}
       )
   endif()
 
@@ -267,14 +267,14 @@ else()
   # default where glx is always available."
   if((NOT OPENGL_USE_EGL AND
       NOT OPENGL_opengl_LIBRARY AND
-          OPENGL_glx_LIBRARY AND
+	  OPENGL_glx_LIBRARY AND
       NOT OPENGL_gl_LIBRARY) OR
      (NOT OPENGL_USE_EGL AND
       NOT OPENGL_glx_LIBRARY AND
       NOT OPENGL_gl_LIBRARY) OR
      (NOT OPENGL_USE_EGL AND
-          OPENGL_opengl_LIBRARY AND
-          OPENGL_glx_LIBRARY) OR
+	  OPENGL_opengl_LIBRARY AND
+	  OPENGL_glx_LIBRARY) OR
      (    OPENGL_USE_EGL))
     list(APPEND _OpenGL_REQUIRED_VARS OPENGL_opengl_LIBRARY)
   endif()
@@ -290,8 +290,8 @@ else()
       NOT OPENGL_glx_LIBRARY AND
       NOT OPENGL_gl_LIBRARY) OR
      (NOT OPENGL_USE_EGL AND
-          OPENGL_opengl_LIBRARY AND
-          OPENGL_glx_LIBRARY) OR
+	  OPENGL_opengl_LIBRARY AND
+	  OPENGL_glx_LIBRARY) OR
      (OPENGL_USE_GLX AND OPENGL_USE_EGL))
     list(APPEND _OpenGL_REQUIRED_VARS OPENGL_glx_LIBRARY)
   endif()
@@ -304,11 +304,11 @@ else()
   # Old-style "libGL" library: used as a fallback when GLVND isn't available.
   if((NOT OPENGL_USE_EGL AND
       NOT OPENGL_opengl_LIBRARY AND
-          OPENGL_glx_LIBRARY AND
-          OPENGL_gl_LIBRARY) OR
+	  OPENGL_glx_LIBRARY AND
+	  OPENGL_gl_LIBRARY) OR
      (NOT OPENGL_USE_EGL AND
       NOT OPENGL_glx_LIBRARY AND
-          OPENGL_gl_LIBRARY))
+	  OPENGL_gl_LIBRARY))
     list(APPEND _OpenGL_REQUIRED_VARS OPENGL_gl_LIBRARY)
   endif()
 
@@ -321,9 +321,9 @@ else()
   find_library(OPENGL_glu_LIBRARY
     NAMES GLU MesaGLU
     PATHS ${OPENGL_gl_LIBRARY}
-          /opt/graphics/OpenGL/lib
-          /usr/openwin/lib
-          /usr/shlib /usr/X11R6/lib
+	  /opt/graphics/OpenGL/lib
+	  /usr/openwin/lib
+	  /usr/shlib /usr/X11R6/lib
   )
 endif ()
 
@@ -365,9 +365,10 @@ if(OPENGL_EGL_INCLUDE_DIR)
   set(OPENGL_EGL_INCLUDE_DIRS ${OPENGL_EGL_INCLUDE_DIR})
 endif()
 
-include(${CMAKE_CURRENT_LIST_DIR}/FindPackageHandleStandardArgs.cmake)
+include(FindPackageHandleStandardArgs)
+
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(OpenGL REQUIRED_VARS ${_OpenGL_REQUIRED_VARS}
-                                  HANDLE_COMPONENTS)
+				  HANDLE_COMPONENTS)
 unset(_OpenGL_REQUIRED_VARS)
 
 # OpenGL:: targets
@@ -378,14 +379,14 @@ if(OPENGL_FOUND)
     if(IS_ABSOLUTE "${OPENGL_opengl_LIBRARY}")
       add_library(OpenGL::OpenGL UNKNOWN IMPORTED)
       set_target_properties(OpenGL::OpenGL PROPERTIES IMPORTED_LOCATION
-                            "${OPENGL_opengl_LIBRARY}")
+			    "${OPENGL_opengl_LIBRARY}")
     else()
       add_library(OpenGL::OpenGL INTERFACE IMPORTED)
       set_target_properties(OpenGL::OpenGL PROPERTIES IMPORTED_LIBNAME
-                            "${OPENGL_opengl_LIBRARY}")
+			    "${OPENGL_opengl_LIBRARY}")
     endif()
     set_target_properties(OpenGL::OpenGL PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                          "${OPENGL_INCLUDE_DIR}")
+			  "${OPENGL_INCLUDE_DIR}")
   endif()
 
   # ::GLX is a GLVND library, and thus Linux-only: we don't bother checking
@@ -394,16 +395,16 @@ if(OPENGL_FOUND)
     if(IS_ABSOLUTE "${OPENGL_glx_LIBRARY}")
       add_library(OpenGL::GLX UNKNOWN IMPORTED)
       set_target_properties(OpenGL::GLX PROPERTIES IMPORTED_LOCATION
-                            "${OPENGL_glx_LIBRARY}")
+			    "${OPENGL_glx_LIBRARY}")
     else()
       add_library(OpenGL::GLX INTERFACE IMPORTED)
       set_target_properties(OpenGL::GLX PROPERTIES IMPORTED_LIBNAME
-                            "${OPENGL_glx_LIBRARY}")
+			    "${OPENGL_glx_LIBRARY}")
     endif()
     set_target_properties(OpenGL::GLX PROPERTIES INTERFACE_LINK_LIBRARIES
-                          OpenGL::OpenGL)
+			  OpenGL::OpenGL)
     set_target_properties(OpenGL::GLX PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                          "${OPENGL_GLX_INCLUDE_DIR}")
+			  "${OPENGL_GLX_INCLUDE_DIR}")
   endif()
 
   if(OPENGL_gl_LIBRARY AND NOT TARGET OpenGL::GL)
@@ -411,20 +412,20 @@ if(OPENGL_FOUND)
     if(IS_ABSOLUTE "${OPENGL_gl_LIBRARY}")
       add_library(OpenGL::GL UNKNOWN IMPORTED)
       if(OPENGL_gl_LIBRARY MATCHES "/([^/]+)\\.framework$")
-        set(_gl_fw "${OPENGL_gl_LIBRARY}/${CMAKE_MATCH_1}")
-        if(EXISTS "${_gl_fw}.tbd")
-          string(APPEND _gl_fw ".tbd")
-        endif()
-        set_target_properties(OpenGL::GL PROPERTIES
-          IMPORTED_LOCATION "${_gl_fw}")
+	set(_gl_fw "${OPENGL_gl_LIBRARY}/${CMAKE_MATCH_1}")
+	if(EXISTS "${_gl_fw}.tbd")
+	  string(APPEND _gl_fw ".tbd")
+	endif()
+	set_target_properties(OpenGL::GL PROPERTIES
+	  IMPORTED_LOCATION "${_gl_fw}")
       else()
-        set_target_properties(OpenGL::GL PROPERTIES
-          IMPORTED_LOCATION "${OPENGL_gl_LIBRARY}")
+	set_target_properties(OpenGL::GL PROPERTIES
+	  IMPORTED_LOCATION "${OPENGL_gl_LIBRARY}")
       endif()
     else()
       add_library(OpenGL::GL INTERFACE IMPORTED)
       set_target_properties(OpenGL::GL PROPERTIES
-        IMPORTED_LIBNAME "${OPENGL_gl_LIBRARY}")
+	IMPORTED_LIBNAME "${OPENGL_gl_LIBRARY}")
     endif()
     set_target_properties(OpenGL::GL PROPERTIES
       INTERFACE_INCLUDE_DIRECTORIES "${OPENGL_INCLUDE_DIR}")
@@ -433,11 +434,11 @@ if(OPENGL_FOUND)
     # target using GLVND OpenGL+GLX.
     add_library(OpenGL::GL INTERFACE IMPORTED)
     set_target_properties(OpenGL::GL PROPERTIES INTERFACE_LINK_LIBRARIES
-                          OpenGL::OpenGL)
+			  OpenGL::OpenGL)
     set_property(TARGET OpenGL::GL APPEND PROPERTY INTERFACE_LINK_LIBRARIES
-                 OpenGL::GLX)
+		 OpenGL::GLX)
     set_target_properties(OpenGL::GL PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                          "${OPENGL_INCLUDE_DIR}")
+			  "${OPENGL_INCLUDE_DIR}")
   endif()
 
   # ::EGL is a GLVND library, and thus Linux-only: we don't bother checking
@@ -449,37 +450,37 @@ if(OPENGL_FOUND)
     if(IS_ABSOLUTE "${OPENGL_egl_LIBRARY}")
       add_library(OpenGL::EGL UNKNOWN IMPORTED)
       set_target_properties(OpenGL::EGL PROPERTIES IMPORTED_LOCATION
-                            "${OPENGL_egl_LIBRARY}")
+			    "${OPENGL_egl_LIBRARY}")
     else()
       add_library(OpenGL::EGL INTERFACE IMPORTED)
       set_target_properties(OpenGL::EGL PROPERTIES IMPORTED_LIBNAME
-                            "${OPENGL_egl_LIBRARY}")
+			    "${OPENGL_egl_LIBRARY}")
     endif()
     set_target_properties(OpenGL::EGL PROPERTIES INTERFACE_LINK_LIBRARIES
-                          OpenGL::OpenGL)
+			  OpenGL::OpenGL)
     # Note that EGL's include directory is different from OpenGL/GLX's!
     set_target_properties(OpenGL::EGL PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                          "${OPENGL_EGL_INCLUDE_DIR}")
+			  "${OPENGL_EGL_INCLUDE_DIR}")
   endif()
 
   if(OPENGL_GLU_FOUND AND NOT TARGET OpenGL::GLU)
     if(IS_ABSOLUTE "${OPENGL_glu_LIBRARY}")
       add_library(OpenGL::GLU UNKNOWN IMPORTED)
       if(OPENGL_glu_LIBRARY MATCHES "/([^/]+)\\.framework$")
-        set(_glu_fw "${OPENGL_glu_LIBRARY}/${CMAKE_MATCH_1}")
-        if(EXISTS "${_glu_fw}.tbd")
-          string(APPEND _glu_fw ".tbd")
-        endif()
-        set_target_properties(OpenGL::GLU PROPERTIES
-          IMPORTED_LOCATION "${_glu_fw}")
+	set(_glu_fw "${OPENGL_glu_LIBRARY}/${CMAKE_MATCH_1}")
+	if(EXISTS "${_glu_fw}.tbd")
+	  string(APPEND _glu_fw ".tbd")
+	endif()
+	set_target_properties(OpenGL::GLU PROPERTIES
+	  IMPORTED_LOCATION "${_glu_fw}")
       else()
-        set_target_properties(OpenGL::GLU PROPERTIES
-          IMPORTED_LOCATION "${OPENGL_glu_LIBRARY}")
+	set_target_properties(OpenGL::GLU PROPERTIES
+	  IMPORTED_LOCATION "${OPENGL_glu_LIBRARY}")
       endif()
     else()
       add_library(OpenGL::GLU INTERFACE IMPORTED)
       set_target_properties(OpenGL::GLU PROPERTIES
-        IMPORTED_LIBNAME "${OPENGL_glu_LIBRARY}")
+	IMPORTED_LIBNAME "${OPENGL_glu_LIBRARY}")
     endif()
     set_target_properties(OpenGL::GLU PROPERTIES
       INTERFACE_LINK_LIBRARIES OpenGL::GL)

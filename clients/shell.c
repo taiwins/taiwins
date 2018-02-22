@@ -219,7 +219,6 @@ int main(int argc, char **argv)
 				output_init(w);
 		}
 	}
-
 	while(wl_display_dispatch(display) != -1);
 	desktop_shell_release(&oneshell);
 	wl_registry_destroy(registry);

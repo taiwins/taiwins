@@ -22,6 +22,10 @@ bool egl_env_init(struct egl_env *env, struct wl_display *disp);
 
 void egl_env_end(struct egl_env *env);
 
+struct eglapp_surface;
+void
+eglapp_launch(struct eglapp_surface *app, struct egl_env *env, struct wl_compositor *compositor);
+
 
 #ifdef __cplusplus
 }

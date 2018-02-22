@@ -44,7 +44,7 @@ pkg_check_modules(Libweston libweston-3 REQUIRED)
 pkg_check_modules(Libweston-Desktop libweston-desktop-3 REQUIRED)
 find_package(Wayland REQUIRED)
 find_package(Cairo REQUIRED)
-find_package(OpenGL REQUIRED COMPONENTS EGL)
+find_package(OpenGL REQUIRED COMPONENTS EGL OpenGL)
 
 
 #####################################################################
@@ -87,6 +87,7 @@ set(CLIENT_LIBRARIES
   ${CAIRO_LIBRARIES}
   ${WAYLAND_EGL_LIBRARIES}
   OpenGL::EGL
+  OpenGL::OpenGL
 #  ${WAYLAND_CURSOR_LIBRARIES}
   )
 
