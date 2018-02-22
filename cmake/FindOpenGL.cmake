@@ -170,7 +170,14 @@ else()
       /boot/develop/lib/x86)
     set(_OPENGL_INCLUDE_PATH
       /boot/develop/headers/os/opengl)
+  else()
+    set(_OPENGL_LIB_PATH
+      /usr/lib/
+      /usr/lib/x86_64-linux-gnu)
+    set(_OPENGL_INCLUDE_PATH
+      /usr/include)
   endif()
+
 
   # The first line below is to make sure that the proper headers
   # are used on a Linux machine with the NVidia drivers installed.
@@ -254,29 +261,25 @@ else()
 	    /usr/openwin/lib
 	    /usr/shlib /usr/X11R6/lib
 	    ${_OPENGL_LIB_PATH}
-      )
+	    )
   endif()
-
   # FPHSA cannot handle "this OR that is required", so we conditionally set what
   # it must look for.  First clear any previous config we might have done:
   set(_OpenGL_REQUIRED_VARS)
 
-  # now we append the libraries as appropriate.  The complicated logic
-  # basically comes down to "use libOpenGL when we can, and add in specific
-  # context mechanisms when requested, or we need them to preserve the previous
-  # default where glx is always available."
-  if((NOT OPENGL_USE_EGL AND
-      NOT OPENGL_opengl_LIBRARY AND
-	  OPENGL_glx_LIBRARY AND
-      NOT OPENGL_gl_LIBRARY) OR
-     (NOT OPENGL_USE_EGL AND
-      NOT OPENGL_glx_LIBRARY AND
-      NOT OPENGL_gl_LIBRARY) OR
-     (NOT OPENGL_USE_EGL AND
-	  OPENGL_opengl_LIBRARY AND
-	  OPENGL_glx_LIBRARY) OR
-     (    OPENGL_USE_EGL))
+  #we are here try to modify the variable, trying to use opengl as possible, if
+  #not we use gl
+  if (OPENGL_USE_OPENGL AND
+      OPENGL_opengl_LIBRARY)
     list(APPEND _OpenGL_REQUIRED_VARS OPENGL_opengl_LIBRARY)
+  elseif (OPENGL_USE_OPENGL AND
+      NOT OPENGL_opengl_LIBRARY AND
+      OPENGL_gl_LIBRARY)
+    list(APPEND _OpenGL_REQUIRED_VARS OPENGL_gl_LIBRARY)
+  elseif (OPENGL_USE_OPENGL)
+    list(APPEND _OpenGL_REQUIRED_VARS OPENGL_opengl_LIBRARY)
+  elseif (OPENGL_USE_GL)
+    list(APPEND _OpenGL_REQUIRED_VARS OPENGL_gl_LIBRARY)
   endif()
 
   # GLVND GLX library.  Preferred when available.
@@ -299,17 +302,6 @@ else()
   # GLVND EGL library.
   if(OPENGL_USE_EGL)
     list(APPEND _OpenGL_REQUIRED_VARS OPENGL_egl_LIBRARY)
-  endif()
-
-  # Old-style "libGL" library: used as a fallback when GLVND isn't available.
-  if((NOT OPENGL_USE_EGL AND
-      NOT OPENGL_opengl_LIBRARY AND
-	  OPENGL_glx_LIBRARY AND
-	  OPENGL_gl_LIBRARY) OR
-     (NOT OPENGL_USE_EGL AND
-      NOT OPENGL_glx_LIBRARY AND
-	  OPENGL_gl_LIBRARY))
-    list(APPEND _OpenGL_REQUIRED_VARS OPENGL_gl_LIBRARY)
   endif()
 
   # We always need the 'gl.h' include dir.
@@ -367,8 +359,7 @@ endif()
 
 include(FindPackageHandleStandardArgs)
 
-FIND_PACKAGE_HANDLE_STANDARD_ARGS(OpenGL REQUIRED_VARS ${_OpenGL_REQUIRED_VARS}
-				  HANDLE_COMPONENTS)
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(OpenGL DEFAULT_MSG ${_OpenGL_REQUIRED_VARS})
 unset(_OpenGL_REQUIRED_VARS)
 
 # OpenGL:: targets
@@ -429,7 +420,9 @@ if(OPENGL_FOUND)
     endif()
     set_target_properties(OpenGL::GL PROPERTIES
       INTERFACE_INCLUDE_DIRECTORIES "${OPENGL_INCLUDE_DIR}")
-  elseif(NOT TARGET OpenGL::GL AND TARGET OpenGL::OpenGL AND TARGET OpenGL::GLX)
+  endif()
+  #This step is dangerous I think, I am making OpenGL::GL and OpenGL:OpenGL the same thing
+  if(NOT TARGET OpenGL::GL AND TARGET OpenGL::OpenGL)
     # A legacy GL library is not available, but we can provide the legacy GL
     # target using GLVND OpenGL+GLX.
     add_library(OpenGL::GL INTERFACE IMPORTED)
@@ -438,7 +431,12 @@ if(OPENGL_FOUND)
     set_property(TARGET OpenGL::GL APPEND PROPERTY INTERFACE_LINK_LIBRARIES
 		 OpenGL::GLX)
     set_target_properties(OpenGL::GL PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-			  "${OPENGL_INCLUDE_DIR}")
+      "${OPENGL_INCLUDE_DIR}")
+    # or vice versa
+  elseif (NOT TARGET OpenGL::OpenGL AND TARGET OpenGL::GL)
+    add_library(OpenGL::OpenGL INTERFACE IMPORTED)
+    set_target_properties(OpenGL::OpenGL PROPERTIES INTERFACE_LINK_LIBRARIES
+      OpenGL::GL)
   endif()
 
   # ::EGL is a GLVND library, and thus Linux-only: we don't bother checking
@@ -446,7 +444,7 @@ if(OPENGL_FOUND)
   # Note we test for OpenGL::OpenGL as a target.  When this module is updated to
   # support GLES, we would additionally want to check for the hypothetical GLES
   # target and enable EGL if either ::GLES or ::OpenGL is created.
-  if(TARGET OpenGL::OpenGL AND OpenGL_EGL_FOUND AND NOT TARGET OpenGL::EGL)
+  if(OpenGL_EGL_FOUND AND NOT TARGET OpenGL::EGL)
     if(IS_ABSOLUTE "${OPENGL_egl_LIBRARY}")
       add_library(OpenGL::EGL UNKNOWN IMPORTED)
       set_target_properties(OpenGL::EGL PROPERTIES IMPORTED_LOCATION
@@ -460,8 +458,11 @@ if(OPENGL_FOUND)
 			  OpenGL::OpenGL)
     # Note that EGL's include directory is different from OpenGL/GLX's!
     set_target_properties(OpenGL::EGL PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-			  "${OPENGL_EGL_INCLUDE_DIR}")
+      "${OPENGL_EGL_INCLUDE_DIR}")
+    #mirror the OpenGL library to GL library as well
   endif()
+
+
 
   if(OPENGL_GLU_FOUND AND NOT TARGET OpenGL::GLU)
     if(IS_ABSOLUTE "${OPENGL_glu_LIBRARY}")
