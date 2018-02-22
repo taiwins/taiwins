@@ -1,10 +1,17 @@
+#include <assert.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
+#ifndef GL_GLEXT_PROTOTYPES
+#define GL_GLEXT_PROTOTYPES
+#endif
 #include <GL/gl.h>
+#include <GL/glext.h>
 #include <wayland-egl.h>
 #include <stdbool.h>
 #include "egl.h"
 #include "client.h"
+
+#define NK_SHADER_VERSION "#version 330 core"
 
 static const EGLint egl_context_attribs[] = {
 	EGL_CONTEXT_MAJOR_VERSION, 3,
@@ -75,6 +82,7 @@ egl_env_init(struct egl_env *env, struct wl_display *d)
 		return false;
 	}
 	env->config = egl_cfg;
+	//now we can try to create a program and see if I need
 	return true;
 }
 
@@ -87,28 +95,18 @@ egl_env_end(struct egl_env *env)
 }
 
 
-
-struct eglapp_surface {
-	struct app_surface app;
-	struct wl_egl_window *eglwin;
-	EGLSurface eglsurface;
-	//now we can
-
-};
-
-
-#define NK_SHADER_VERSION "#version 330 core"
-
+//okay, I can only create program after creating a window
 void
 eglapp_launch(struct eglapp_surface *app, struct egl_env *env, struct wl_compositor *compositor)
 {
+	GLint status;
+
 	app->app.wl_surface = wl_compositor_create_surface(compositor);
 	app->eglwin = wl_egl_window_create(app->app.wl_surface, 100, 100);
 	app->eglsurface = eglCreateWindowSurface(env->egl_display, env->config, (EGLNativeWindowType)app->eglwin, NULL);
 	if (eglMakeCurrent(env->egl_display, app->eglsurface, app->eglsurface, env->egl_context)) {
 		fprintf(stderr, "failed to launch the window\n");
 	}
-	//adding the shaders
 	static const GLchar *vertex_shader =
 		NK_SHADER_VERSION
 		"uniform mat4 ProjMtx;\n"
@@ -132,4 +130,28 @@ eglapp_launch(struct eglapp_surface *app, struct egl_env *env, struct wl_composi
 		"void main(){\n"
 		"   Out_Color = Frag_Color * texture(Texture, Frag_UV.st);\n"
 		"}\n";
+	app->glprog = glCreateProgram();
+	app->vs = glCreateShader(GL_VERTEX_SHADER);
+	app->fs = glCreateShader(GL_FRAGMENT_SHADER);
+//	fprintf(stderr, "the gl program with id %u %u %u\n", prog, vert_shdr, frag_shdr);
+	assert(glGetError() == GL_NO_ERROR);
+//	fprintf(stderr, "the error number %d\n", error);
+	//compile shader
+	glShaderSource(app->vs, 1, &vertex_shader, 0);
+	glShaderSource(app->fs, 1, &fragment_shader, 0);
+	glCompileShader(app->vs);
+	glCompileShader(app->fs);
+	glGetShaderiv(app->vs, GL_COMPILE_STATUS, &status);
+	assert(status == GL_TRUE);
+	glGetShaderiv(app->fs, GL_COMPILE_STATUS, &status);
+	assert(status == GL_TRUE);
+	//link shader into program
+	glAttachShader(app->glprog, app->vs);
+	glAttachShader(app->glprog, app->fs);
+	glLinkProgram(app->glprog);
+	glGetProgramiv(app->glprog, GL_LINK_STATUS, &status);
+	assert(status == GL_TRUE);
+	//creating uniforms
+
+	//adding the shaders
 }

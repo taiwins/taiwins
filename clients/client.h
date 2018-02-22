@@ -5,6 +5,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <GL/gl.h>
+//hopefully this shit is declared
+#include <GL/glext.h>
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
 
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon.h>
@@ -61,6 +66,20 @@ struct app_surface {
 	struct wl_surface *wl_surface;
 	struct wl_buffer  *wl_buffer;
 };
+
+//I am not sure to put it here, it depends where it get implemented
+struct eglapp_surface {
+	struct app_surface app;
+	struct wl_egl_window *eglwin;
+	EGLSurface eglsurface;
+	//now we can add all those fancy opengl stuff
+	GLuint glprog, vs, fs;
+	GLuint vao, vbo;
+	//uniforms
+	GLuint uniform_tex;
+
+};
+
 
 //void app_surface_init(struct wl_compositor *p)
 
