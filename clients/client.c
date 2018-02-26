@@ -69,9 +69,11 @@ handle_key(void *data,
 	xkb_keycode_t keycode = kc_linux2xkb(key);
 	xkb_keysym_t  keysym  = xkb_state_key_get_one_sym(globals->inputs.kstate,
 							  keycode);
-	//you cannot assume they are app surface. They could be the panel or
+	//every surface it self is an app_surface, in thise case
 	struct wl_surface *focused = globals->inputs.focused_surface;
-
+	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
+	if (appsurf->keycb)
+		appsurf->keycb(appsurf, keysym);
 	//and we know if this surface is app_surface, no, you couldn't assume that right.
 }
 
@@ -205,11 +207,29 @@ pointer_frame(void *data,
 	fprintf(stderr, "a pointer frame is done.\n");
 }
 
+
+static void
+pointer_button(void *data,
+	       struct wl_pointer *wl_pointer,
+	       uint32_t serial,
+	       uint32_t time,
+	       uint32_t button,
+	       uint32_t state)
+{
+	struct wl_globals *globals = (struct wl_globals *)data;
+	struct wl_surface *focused = globals->inputs.focused_surface;
+	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
+
+}
+
+
+
 static struct wl_pointer_listener pointer_listener = {
 	.enter = pointer_enter,
 	.leave = pointer_leave,
 	.motion = pointer_motion,
 	.frame = pointer_frame,
+	.button = pointer_button,
 };
 
 
@@ -225,8 +245,8 @@ seat_name(void *data, struct wl_seat *wl_seat, const char *name)
 
 
 
-static
-void seat_capabilities(void *data,
+static void
+seat_capabilities(void *data,
 		       struct wl_seat *wl_seat,
 		       uint32_t capabilities)
 {

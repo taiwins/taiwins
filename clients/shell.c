@@ -45,13 +45,17 @@ output_init(struct output_widgets *w)
 	w->background = (struct app_surface){0};
 	w->background.wl_surface = wl_compositor_create_surface(w->shell->globals.compositor);
 	w->background.wl_output = w->output;
-	wl_surface_set_user_data(w->background.wl_surface, w);
+	w->background.keycb = NULL;
+	wl_surface_set_user_data(w->background.wl_surface, &w->background);
+	w->background.type = APP_BACKGROUND;
 	taiwins_shell_set_background(shell, w->output, w->background.wl_surface);
 	//panel
 	w->panel = (struct app_surface){0};
 	w->panel.wl_surface = wl_compositor_create_surface(w->shell->globals.compositor);
 	w->panel.wl_output = w->output;
-	wl_surface_set_user_data(w->panel.wl_surface, w);
+	w->panel.keycb = NULL;
+	wl_surface_set_user_data(w->panel.wl_surface, &w->panel);
+	w->panel.type = APP_PANEL;
 	taiwins_shell_set_panel(shell, w->output, w->panel.wl_surface);
 	w->inited = true;
 }
@@ -106,7 +110,14 @@ static void shell_configure_surface(void *data,
 				    int32_t width,
 				    int32_t height)
 {
-	struct output_widgets *output = (struct output_widgets *)wl_surface_get_user_data(surface);
+	struct output_widgets *output;
+	//damn it, we need a hack
+	struct app_surface *appsurf = (struct app_surface *)wl_surface_get_user_data(surface);
+	if (appsurf->type == APP_BACKGROUND)
+		output = container_of(appsurf, struct output_widgets, background);
+	else if (appsurf->type == APP_PANEL)
+		output = container_of(appsurf, struct output_widgets, panel);
+
 	int32_t w = scale *(width - edges);
 	int32_t h = scale *(height - edges);
 
@@ -115,7 +126,7 @@ static void shell_configure_surface(void *data,
 	buffer_addr = shm_pool_buffer_access(new_buffer);
 
 
-	if (surface == output->background.wl_surface) {
+	if (appsurf->type == APP_BACKGROUND) {
 		printf("background surface buffer %p, wl_buffer: %p\n", buffer_addr, new_buffer);
 		char imgpath[100];
 		sprintf(imgpath, "%s/.wallpaper/wallpaper.png", getenv("HOME"));
@@ -131,7 +142,7 @@ static void shell_configure_surface(void *data,
 			shm_pool_buffer_release(output->background.wl_buffer);
 			output->background.wl_buffer = new_buffer;
 		}
-	} else if (surface == output->panel.wl_surface) {
+	} else if (appsurf->type == APP_PANEL) {
 		printf("panel surface buffer %p, wl_buffer: %p\n", buffer_addr, new_buffer);
 		memset(buffer_addr, 255, w*h*4);
 		wl_surface_attach(output->panel.wl_surface, new_buffer, 0, 0);
