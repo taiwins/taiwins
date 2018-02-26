@@ -57,29 +57,9 @@ struct wl_globals {
 		struct wl_surface *cursor_surface;
 		struct wl_buffer *cursor_buffer;
 		//TODO an extra key-handling function with data
-		struct wl_surface *inhabit_surface;
+		struct wl_surface *focused_surface;
 	} inputs;
 };
-
-struct app_surface {
-	struct wl_output *wl_output;
-	struct wl_surface *wl_surface;
-	struct wl_buffer  *wl_buffer;
-};
-
-//I am not sure to put it here, it depends where it get implemented
-struct eglapp_surface {
-	struct app_surface app;
-	struct wl_egl_window *eglwin;
-	EGLSurface eglsurface;
-	//now we can add all those fancy opengl stuff
-	GLuint glprog, vs, fs;
-	GLuint vao, vbo;
-	//uniforms
-	GLuint uniform_tex;
-
-};
-
 
 //void app_surface_init(struct wl_compositor *p)
 

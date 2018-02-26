@@ -14,6 +14,7 @@
 #include <buffer.h>
 
 #include "client.h"
+#include "ui.h"
 
 
 
@@ -47,6 +48,15 @@ static struct wl_shm_listener shm_listener = {
 };
 
 
+static uint32_t
+kc_linux2xkb(uint32_t kc_linux)
+{
+	//this should only work on x11, but very weird it works all the time
+	return kc_linux+8;
+}
+
+
+
 static void
 handle_key(void *data,
 	   struct wl_keyboard *wl_keyboard,
@@ -55,7 +65,14 @@ handle_key(void *data,
 	   uint32_t key,
 	   uint32_t state)
 {
-	//TODO call user specific key function
+	struct wl_globals *globals = (struct wl_globals *)data;
+	xkb_keycode_t keycode = kc_linux2xkb(key);
+	xkb_keysym_t  keysym  = xkb_state_key_get_one_sym(globals->inputs.kstate,
+							  keycode);
+	//you cannot assume they are app surface. They could be the panel or
+	struct wl_surface *focused = globals->inputs.focused_surface;
+
+	//and we know if this surface is app_surface, no, you couldn't assume that right.
 }
 
 
@@ -98,8 +115,8 @@ void handle_modifiers(void *data,
 }
 
 //you must have this
-static
-void handle_repeat_info(void *data,
+static void
+handle_repeat_info(void *data,
 			    struct wl_keyboard *wl_keyboard,
 			    int32_t rate,
 			    int32_t delay)
@@ -107,17 +124,18 @@ void handle_repeat_info(void *data,
 
 }
 
-static
-void handle_keyboard_enter(void *data,
+static void
+handle_keyboard_enter(void *data,
 			   struct wl_keyboard *wl_keyboard,
 			   uint32_t serial,
 			   struct wl_surface *surface,
 			   struct wl_array *keys)
 {
+	//this job is done by pointer
 //	fprintf(stderr, "keyboard got focus\n");
 }
-static
-void handle_keyboard_leave(void *data,
+static void
+handle_keyboard_leave(void *data,
 		    struct wl_keyboard *wl_keyboard,
 		    uint32_t serial,
 		    struct wl_surface *surface)
@@ -126,15 +144,15 @@ void handle_keyboard_leave(void *data,
 }
 
 
-
 static
 struct wl_keyboard_listener keyboard_listener = {
-//	.key = handle_key,
+	.key = handle_key,
 	.modifiers = handle_modifiers,
 	.enter = handle_keyboard_enter,
 	.leave = handle_keyboard_leave,
 	.keymap = handle_keymap,
 	.repeat_info = handle_repeat_info,
+
 };
 
 /* this may not be true for all case, how do you implement drag and drop? */
@@ -148,7 +166,7 @@ pointer_enter(void *data,
 {
 	static bool cursor_set = false;
 	struct wl_globals *globals = (struct wl_globals *)data;
-	globals->inputs.inhabit_surface = surface;
+	globals->inputs.focused_surface = surface;
 //	fprintf(stderr, "pointer enterred\n");
 	if (!cursor_set) {
 		struct wl_surface *csurface = globals->inputs.cursor_surface;
@@ -167,7 +185,7 @@ pointer_leave(void *data,
 	      struct wl_surface *surface)
 {
 	struct wl_globals *globals = (struct wl_globals *)data;
-	globals->inputs.inhabit_surface = NULL;
+	globals->inputs.focused_surface = NULL;
 	fprintf(stderr, "cursor left, things to do maybe just grey out the window\n");
 }
 
@@ -268,7 +286,7 @@ void wl_globals_release(struct wl_globals *globals)
 		globals->inputs.cursor = NULL;
 		globals->inputs.cursor_buffer = NULL;
 		globals->inputs.cursor_surface = NULL;
-		globals->inputs.inhabit_surface = NULL;
+		globals->inputs.focused_surface = NULL;
 	}
 	egl_env_end(&globals->eglenv);
 }

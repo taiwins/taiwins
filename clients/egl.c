@@ -11,7 +11,43 @@
 #include "egl.h"
 #include "client.h"
 
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_STANDARD_IO
+#define NK_INCLUDE_STANDARD_VARARGS
+#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_DEFAULT_FONT
+#define NK_IMPLEMENTATION
+#include "../3rdparties/nuklear/nuklear.h"
+
 #define NK_SHADER_VERSION "#version 330 core"
+
+//I am not sure to put it here, it depends where it get implemented
+struct eglapp {
+	struct app_surface app;
+	struct nk_buffer cmds;
+	struct nk_draw_null_texture null;
+	struct nk_context ctx;
+	struct nk_font_atlas atlas;
+	struct nk_vec2 fb_scale;
+	struct wl_egl_window *eglwin;
+	EGLSurface eglsurface;
+	unsigned int text[256];
+	//now we can add all those fancy opengl stuff
+	int width, height;
+	GLuint glprog, vs, fs;//actually, we can evider vs, fs
+	GLuint vao, vbo, ebo;
+	//uniforms
+	GLint uniform_tex;
+	GLint uniform_proj;
+	GLuint font_tex;
+	GLint attrib_pos;
+	GLint attrib_uv;
+	GLint attrib_col;
+
+};
+
 
 static const EGLint egl_context_attribs[] = {
 	EGL_CONTEXT_MAJOR_VERSION, 3,
@@ -95,9 +131,15 @@ egl_env_end(struct egl_env *env)
 }
 
 
+struct egl_nk_vertex {
+	float position[2];
+	float uv[2];
+	nk_byte col[4];
+};
+
 //okay, I can only create program after creating a window
 void
-eglapp_launch(struct eglapp_surface *app, struct egl_env *env, struct wl_compositor *compositor)
+eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *compositor)
 {
 	GLint status;
 
@@ -152,6 +194,163 @@ eglapp_launch(struct eglapp_surface *app, struct egl_env *env, struct wl_composi
 	glGetProgramiv(app->glprog, GL_LINK_STATUS, &status);
 	assert(status == GL_TRUE);
 	//creating uniforms
+	app->uniform_tex = glGetUniformLocation(app->glprog, "Texture");
+	app->uniform_proj = glGetUniformLocation(app->glprog, "ProjMtx");
+	app->attrib_pos = glGetAttribLocation(app->glprog, "Position");
+	app->attrib_uv = glGetAttribLocation(app->glprog, "TexCoord");
+	app->attrib_col = glGetAttribLocation(app->glprog, "Color");
+	assert(app->attrib_pos >= 0);
+	assert(app->attrib_pos >= 0);
+	assert(app->attrib_uv  >= 0);
 
-	//adding the shaders
+	{
+		//setup vab, vbo
+		GLsizei vs = sizeof(struct egl_nk_vertex);
+		size_t vp = offsetof(struct egl_nk_vertex, position);
+		size_t vt = offsetof(struct egl_nk_vertex, uv);
+		size_t vc = offsetof(struct egl_nk_vertex, col);
+
+		glGenBuffers(1, &app->vbo);
+		glGenBuffers(1, &app->ebo);
+		glGenVertexArrays(1, &app->vao);
+
+		glBindVertexArray(app->vao);
+		glBindBuffer(GL_ARRAY_BUFFER, app->vbo);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->ebo);
+
+		glVertexAttribPointer(app->attrib_pos, 2, GL_FLOAT, GL_FALSE,
+				      vs, (void *)vp);
+		glVertexAttribPointer(app->attrib_uv, 2, GL_FLOAT, GL_FALSE,
+				      vs, (void *)vt);
+		glVertexAttribPointer(app->attrib_col, 4, GL_FLOAT, GL_FALSE,
+				      vs, (void *)vc);
+	}
+	glBindVertexArray(0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+
+NK_INTERN void
+nk_egl_upload_atlas(struct eglapp *app, const void *image, int width, int height)
+{
+	glGenTextures(1, &app->font_tex);
+	glBindTexture(GL_TEXTURE_2D, app->font_tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)width, (GLsizei)height,
+		     0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+}
+
+void
+app_dispose(struct eglapp *app)
+{
+	glDeleteBuffers(1, &app->vbo);
+	glDeleteBuffers(1, &app->ebo);
+	glDeleteVertexArrays(1, &app->vao);
+	glDeleteTextures(1, &app->font_tex);
+	glDeleteShader(app->vs);
+	glDeleteShader(app->fs);
+	glDeleteProgram(app->glprog);
+}
+
+
+NK_API void
+nk_egl_render(struct eglapp *app, enum nk_anti_aliasing AA, int max_vertex_buffer,
+	int max_element_buffer)
+{
+	struct nk_buffer vbuf, ebuf;
+	GLfloat ortho[4][4] = {
+		{ 2.0f,  0.0f,  0.0f, 0.0f},
+		{ 0.0f, -2.0f,  0.0f, 0.0f},
+		{ 0.0f,  0.0f, -1.0f, 0.0f},
+		{-1.0f,  1.0f,  0.0f, 1.0f},
+	};
+	ortho[0][0] /= (GLfloat)app->width;
+	ortho[1][1] /= (GLfloat)app->height;
+
+	//setup the global state
+	glEnable(GL_BLEND);
+	glBlendEquation(GL_FUNC_ADD);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_SCISSOR_TEST);
+	glActiveTexture(GL_TEXTURE0);
+
+	glUseProgram(app->glprog);
+	glUniform1i(app->uniform_tex, 0);
+	glUniformMatrix4fv(app->uniform_proj, 1, GL_FALSE, &ortho[0][0]);
+	//about this, we need to test
+	glViewport(0, 0, app->width, app->height);
+	{
+		//convert the command queue
+		const struct nk_draw_command *cmd;
+		void *vertices = NULL;
+		void *elements = NULL;
+		const nk_draw_index *offset = NULL;
+
+		glBindVertexArray(app->vao);
+		glBindBuffer(GL_ARRAY_BUFFER, app->vbo);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->ebo);
+
+		glBufferData(GL_ARRAY_BUFFER, max_vertex_buffer,
+			     NULL, GL_STREAM_DRAW);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, max_element_buffer,
+			     NULL, GL_STREAM_DRAW);
+		{
+		//convert
+		struct nk_convert_config config;
+		static const struct nk_draw_vertex_layout_element vertex_layout[] = {
+			{NK_VERTEX_POSITION, NK_FORMAT_FLOAT,
+			 NK_OFFSETOF(struct egl_nk_vertex, position)},
+			{NK_VERTEX_TEXCOORD, NK_FORMAT_FLOAT,
+			 NK_OFFSETOF(struct egl_nk_vertex, uv)},
+			{NK_VERTEX_COLOR, NK_FORMAT_R8G8B8A8,
+			 NK_OFFSETOF(struct egl_nk_vertex, col)},
+			{NK_VERTEX_LAYOUT_END}
+		};
+		nk_memset(&config, 0, sizeof(config));
+		config.vertex_layout = vertex_layout;
+		config.vertex_size = sizeof(struct egl_nk_vertex);
+		config.vertex_alignment = NK_ALIGNOF(struct egl_nk_vertex);
+		config.null = app->null;
+		config.circle_segment_count = 2;;
+		config.curve_segment_count = 22;
+		config.arc_segment_count = 2;;
+		config.global_alpha = 1.0f;
+		config.shape_AA = AA;
+		config.line_AA = AA;
+
+		nk_buffer_init_fixed(&vbuf, vertices, (size_t)max_vertex_buffer);
+		nk_buffer_init_fixed(&ebuf, elements, (size_t)max_element_buffer);
+		nk_convert(&app->ctx, &app->cmds, &vbuf, &ebuf, &config);
+		}
+		glUnmapBuffer(GL_ARRAY_BUFFER);
+		glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+
+		nk_draw_foreach(cmd, &app->ctx, &app->cmds) {
+			if (!cmd->elem_count)
+				continue;
+			glBindTexture(GL_TEXTURE_2D, (GLuint)cmd->texture.id);
+			glScissor(
+				(GLint)(cmd->clip_rect.x * app->fb_scale.x),
+				(GLint)((app->height -
+					 (GLint)(cmd->clip_rect.y + cmd->clip_rect.h)) *
+					app->fb_scale.y),
+				(GLint)(cmd->clip_rect.w * app->fb_scale.x),
+				(GLint)(cmd->clip_rect.h * app->fb_scale.y));
+			glDrawElements(GL_TRIANGLES, (GLsizei)cmd->elem_count,
+				       GL_UNSIGNED_SHORT, offset);
+			offset += cmd->elem_count;
+		}
+		nk_clear(&app->ctx);
+	}
+	glUseProgram(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+	glDisable(GL_BLEND);
+	glDisable(GL_SCISSOR_TEST);
 }
