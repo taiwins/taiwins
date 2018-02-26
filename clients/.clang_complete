@@ -1,4 +1,5 @@
 -I../3rdparties/ctypes/src
+-I../3rdparties/nuklear
 -I/usr/include/libweston-3
 -I/usr/local/include/libweston-3
 -I../build/protocols
