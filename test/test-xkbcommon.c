@@ -168,7 +168,7 @@ void pointer_leave(void *data,
 void pointer_frame(void *data,
 		   struct wl_pointer *wl_pointer)
 {
-	fprintf(stderr, "a pointer frame is done.\n");
+//	fprintf(stderr, "a pointer frame is done.\n");
 }
 
 void pointer_motion(void *data,
@@ -177,7 +177,17 @@ void pointer_motion(void *data,
 		    wl_fixed_t surface_x,
 		    wl_fixed_t surface_y)
 {
+	fprintf(stderr, "we have the pointer at position <%d,%d>\n", surface_x, surface_y);
+}
 
+void pointer_button(void *data,
+		    struct wl_pointer *wl_pointer,
+		    uint32_t serial,
+		    uint32_t time,
+		    uint32_t button,
+		    uint32_t state)
+{
+	fprintf(stderr, "the state of the button is %d, with button %d\n", state, button);
 }
 
 
@@ -187,6 +197,7 @@ struct wl_pointer_listener pointer_listener = {
 	.leave = pointer_leave,
 	.motion = pointer_motion,
 	.frame = pointer_frame,
+	.button = pointer_button,
 };
 
 
