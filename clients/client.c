@@ -17,6 +17,8 @@
 #include "ui.h"
 
 
+////////////////////////////wayland listeners///////////////////////////
+
 
 static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
@@ -188,7 +190,7 @@ pointer_leave(void *data,
 {
 	struct wl_globals *globals = (struct wl_globals *)data;
 	globals->inputs.focused_surface = NULL;
-	fprintf(stderr, "cursor left, things to do maybe just grey out the window\n");
+//	fprintf(stderr, "cursor left, things to do maybe just grey out the window\n");
 }
 
 
@@ -199,12 +201,24 @@ pointer_motion(void *data,
 	       wl_fixed_t surface_x,
 	       wl_fixed_t surface_y)
 {
+	struct wl_globals *globals = (struct wl_globals *)data;
+	struct wl_surface *focused = globals->inputs.focused_surface;
+	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
+	if (!appsurf)
+		return;
+	appsurf->px = surface_x;
+	appsurf->py = surface_y;
 }
+
 static void
 pointer_frame(void *data,
 	      struct wl_pointer *wl_pointer)
 {
-	fprintf(stderr, "a pointer frame is done.\n");
+	struct wl_globals *globals = (struct wl_globals *)data;
+	struct wl_surface *focused = globals->inputs.focused_surface;
+	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
+	if (appsurf->pointron)
+		appsurf->pointron(appsurf);
 }
 
 
@@ -219,19 +233,42 @@ pointer_button(void *data,
 	struct wl_globals *globals = (struct wl_globals *)data;
 	struct wl_surface *focused = globals->inputs.focused_surface;
 	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
-
+	if (appsurf->pointrbtn)
+		appsurf->pointrbtn(appsurf, (state) ? true : false);
 }
 
+static void
+pointer_axis(void *data,
+	     struct wl_pointer *wl_pointer,
+	     uint32_t time,
+	     uint32_t axis,
+	     wl_fixed_t value) {}
 
+static void
+pointer_axis_src(void *data,
+		 struct wl_pointer *wl_pointer, uint32_t src) {}
 
+static void
+pointer_axis_stop(void *data,
+		  struct wl_pointer *wl_pointer,
+		  uint32_t time, uint32_t axis) {}
+
+static void
+pointer_axis_discret(void *data, struct wl_pointer *wl_pointer,
+		     uint32_t axis, int32_t discrete) {}
+
+//make all of the them available, so we don't crash
 static struct wl_pointer_listener pointer_listener = {
 	.enter = pointer_enter,
 	.leave = pointer_leave,
 	.motion = pointer_motion,
 	.frame = pointer_frame,
 	.button = pointer_button,
+	.axis  = pointer_axis,
+	.axis_source = pointer_axis_src,
+	.axis_stop = pointer_axis_stop,
+	.axis_discrete = pointer_axis_discret,
 };
-
 
 
 static void
@@ -279,6 +316,9 @@ static struct wl_seat_listener seat_listener = {
 	.capabilities = seat_capabilities,
 	.name = seat_name,
 };
+
+
+//wl_globals functions
 
 void
 wl_globals_init(struct wl_globals *globals, struct wl_display *display)

@@ -32,7 +32,7 @@ struct output_widgets {
 struct desktop_shell {
 	struct wl_globals globals;
 	struct taiwins_shell *shell;
-	//right now we only have one output
+	//right now we only have one output, but we still keep the info
 	list_t outputs;
 };
 
