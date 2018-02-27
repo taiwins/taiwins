@@ -37,8 +37,11 @@ struct app_surface {
 	//callbacks for wl_pointer and cursor
 	void (*keycb)(struct app_surface *surf, xkb_keysym_t keysym);
 	//run this function at the frame callback
-	void (*pointron)(struct app_surface *surf);
-	void (*pointrbtn)(struct app_surface *surf, bool press);
+	void (*pointron)(struct app_surface *surf, uint32_t sx, uint32_t sy);
+	//left is true, right is false
+	void (*pointrbtn)(struct app_surface *surf, bool btn);
+	//axis events with direction (0->x, y->1)
+	void (*pointraxis)(struct app_surface *surf, bool pos, int direction);
 
 
 };
