@@ -31,6 +31,7 @@ extern "C" {
 #endif
 
 
+
 /**
  * struct for one application, it should normally contains those
  */
@@ -56,8 +57,11 @@ struct wl_globals {
 		struct wl_cursor_theme *cursor_theme;
 		struct wl_surface *cursor_surface;
 		struct wl_buffer *cursor_buffer;
-		//TODO an extra key-handling function with data
 		struct wl_surface *focused_surface;
+		uint32_t cursor_events;
+		uint32_t cx, cy;
+		uint32_t axis;
+		bool axis_pos;
 	} inputs;
 };
 
