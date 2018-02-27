@@ -45,7 +45,6 @@ struct eglapp {
 	GLint attrib_pos;
 	GLint attrib_uv;
 	GLint attrib_col;
-
 };
 
 
