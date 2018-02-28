@@ -1,3 +1,4 @@
+#include <time.h>
 #include <assert.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -8,6 +9,8 @@
 #include <GL/glext.h>
 #include <wayland-egl.h>
 #include <stdbool.h>
+#include <cairo/cairo.h>
+
 #include "egl.h"
 #include "client.h"
 
@@ -23,9 +26,63 @@
 
 #define NK_SHADER_VERSION "#version 330 core"
 
+
+//this is a cached
+struct eglapp_icon {
+	//you need to know the size of it
+	cairo_surface_t *isurf;
+	cairo_t *ctxt;
+	const cairo_surface_t * (*get_icon_surf)(struct eglapp_icon *);
+	//you need to have a triggle on linux
+};
+
+
+
+//sample functions of calendar icons
+static const cairo_surface_t *
+calendar_icon(struct eglapp_icon *icon)
+{
+	static const char * daysoftheweek[] = {"sun", "mon", "tus", "wed", "thu", "fri", "sat"};
+	char formatedtime[20];
+	cairo_text_extents_t extent;
+	time_t epochs = time(NULL);
+	struct tm *tim = localtime(&epochs);
+
+	sprintf(formatedtime, "%s %2d:%2d",
+		daysoftheweek[tim->tm_wday], tim->tm_hour, tim->tm_min);
+
+	if (!icon->isurf) {
+		icon->isurf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+							 strlen(formatedtime) * 4, 16);
+		icon->ctxt = cairo_create(icon->isurf);
+	}
+	//clean the source
+	cairo_set_source_rgba(icon->ctxt, 1.0, 1.0f, 1.0f, 0.0f);
+	cairo_paint(icon->ctxt);
+	cairo_set_source_rgba(icon->ctxt, 0, 0, 0, 1.0);
+	cairo_select_font_face(icon->ctxt, "sans",
+			       CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+	cairo_set_font_size(icon->ctxt, 12);
+	cairo_text_extents(icon->ctxt, formatedtime, &extent);
+	cairo_move_to(icon->ctxt, strlen(formatedtime) * 4 - extent.width/2 , 16 - extent.height/2);
+	cairo_show_text(icon->ctxt, formatedtime);
+	return icon->isurf;
+}
+
+
+static const cairo_surface_t *
+battery_icon(struct eglapp_icon *icon)
+{
+
+}
+
 //I am not sure to put it here, it depends where it get implemented
 struct eglapp {
+	//we need to have an icon as well,
 	struct app_surface app;
+	//app specific
+	struct eglapp_icon icon;
+
 	struct nk_buffer cmds;
 	struct nk_draw_null_texture null;
 	struct nk_context ctx;
@@ -46,6 +103,7 @@ struct eglapp {
 	GLint attrib_uv;
 	GLint attrib_col;
 };
+
 
 
 static const EGLint egl_context_attribs[] = {

@@ -2,7 +2,7 @@
 #include <cairo/cairo.h>
 #include <wayland-client.h>
 
-static cairo_format_t
+cairo_format_t
 translate_wl_shm_format(enum wl_shm_format format)
 {
 	switch (format) {
