@@ -10,6 +10,8 @@
 #include <wayland-egl.h>
 #include <stdbool.h>
 #include <cairo/cairo.h>
+#include <librsvg/rsvg.h>
+#include <librsvg/rsvg-cairo.h>
 
 #include "egl.h"
 #include "client.h"
@@ -33,10 +35,20 @@ struct eglapp_icon {
 	cairo_surface_t *isurf;
 	cairo_t *ctxt;
 	const cairo_surface_t * (*get_icon_surf)(struct eglapp_icon *);
-	//you need to have a triggle on linux
+	//you need to have a triggle on linux, use the inotify apis
+	//cairo loading icon from lua
+	//now you need t
 };
 
-
+const cairo_surface_t *
+icon_from_svg(struct eglapp_icon *icon, const char *file)
+{
+	//create
+	RsvgHandle *handle = rsvg_handle_new_from_file(file, NULL);
+	rsvg_handle_render_cairo(handle, icon->ctxt);
+	rsvg_handle_close(handle);
+	return icon->isurf;
+}
 
 //sample functions of calendar icons
 static const cairo_surface_t *
@@ -68,7 +80,6 @@ calendar_icon(struct eglapp_icon *icon)
 	cairo_show_text(icon->ctxt, formatedtime);
 	return icon->isurf;
 }
-
 
 static const cairo_surface_t *
 battery_icon(struct eglapp_icon *icon)
