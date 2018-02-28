@@ -46,6 +46,10 @@ struct app_surface {
 
 };
 
+cairo_format_t
+translate_wl_shm_format(enum wl_shm_format format);
+
+
 static inline struct app_surface *
 app_surface_from_wl_surface(struct wl_surface *s)
 {
