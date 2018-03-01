@@ -11,7 +11,6 @@
 #include <stdbool.h>
 #include <cairo/cairo.h>
 #include <librsvg/rsvg.h>
-#include <librsvg/rsvg-cairo.h>
 
 #include "egl.h"
 #include "client.h"
@@ -28,6 +27,7 @@
 
 #define NK_SHADER_VERSION "#version 330 core"
 
+//eglapp->loadlua
 
 //this is a cached
 struct eglapp_icon {
@@ -46,9 +46,10 @@ icon_from_svg(struct eglapp_icon *icon, const char *file)
 	//create
 	RsvgHandle *handle = rsvg_handle_new_from_file(file, NULL);
 	rsvg_handle_render_cairo(handle, icon->ctxt);
-	rsvg_handle_close(handle);
+	rsvg_handle_close(handle, NULL);
 	return icon->isurf;
 }
+
 
 //sample functions of calendar icons
 static const cairo_surface_t *
@@ -93,6 +94,7 @@ struct eglapp {
 	struct app_surface app;
 	//app specific
 	struct eglapp_icon icon;
+	lua_State *L;
 
 	struct nk_buffer cmds;
 	struct nk_draw_null_texture null;
@@ -421,4 +423,27 @@ nk_egl_render(struct eglapp *app, enum nk_anti_aliasing AA, int max_vertex_buffe
 	glBindVertexArray(0);
 	glDisable(GL_BLEND);
 	glDisable(GL_SCISSOR_TEST);
+}
+
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+
+void egl_load_svg(lua_State *L)
+{
+
+}
+
+bool
+eglapp_loadLuamodule(struct eglapp *app, const char *script)
+{
+	int status;
+
+	app->L = luaL_newstate();
+	luaL_openlibs(app->L);
+	status = luaL_loadfile(app->L, script);
+	if (status)
+		return false;
+	//then register the lua functions
+
 }
