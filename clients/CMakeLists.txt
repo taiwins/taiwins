@@ -3,6 +3,9 @@ include_directories(
   ${PROTOCOLS_INCLUDE_DIR}
   )
 
+#message("client library include: " ${CLIENT_INCLUDE_DIRS})
+#message("client library: " ${CLIENT_LIBRARIES})
+
 add_executable(shell-taiwins
   shell.c
   client.c
