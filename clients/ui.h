@@ -10,6 +10,7 @@
 //doesnt support jpeg in this way, but there is a cairo-jpeg project
 #include <cairo/cairo.h>
 #include <wayland-client.h>
+#include <sequential.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,10 +26,17 @@ enum APP_SURFACE_TYPE {
 	APP_WIDGET,
 };
 
+struct bbox {
+	unsigned x; unsigned int y; unsigned int w; unsigned int h;
+};
+
+
 //this is the root structure by all the surfaces in the shell, others should
 //extend on it. And wl_surface's usr data should point to it
 struct app_surface {
-	unsigned int px, py;
+	//you will always need this
+	unsigned int px, py; //anchor
+	unsigned int w, h; //size
 
 	enum APP_SURFACE_TYPE type;
 	struct wl_output *wl_output;
@@ -57,7 +65,47 @@ app_surface_from_wl_surface(struct wl_surface *s)
 }
 
 
+//they have a list of the widget on the panel
+struct shell_panel {
+	struct app_surface panelsurf;
+	enum wl_shm_format format;
+	//in this case, you will also have a list of widgets
+	vector_t widgets;
+};
 
+struct eglapp;
+struct eglapp_icon;
+
+void eglapp_init_with_funcs(struct eglapp *app,
+			    void (*update_icon)(struct eglapp_icon *),
+			    void (*draw_widget)(struct eglapp));
+void eglapp_init_with_script(struct eglapp *app, const char *script);
+
+//TODO, we should probably remove this later.
+void eglapp_update_icon(struct eglapp *app);
+
+
+void eglapp_destroy(struct eglapp *app);
+struct eglapp *
+eglapp_addtolist(struct shell_panel *panel);
+
+
+//sample function
+void calendar_icon(struct eglapp_icon *icon);
+
+
+
+struct tw_event {
+	void *data;
+	int (*cb)(void *);
+};
+
+
+//struct tw_event _queue {
+
+//};
+
+//then every app surface defines its own callbacks
 
 
 #ifdef __cplusplus

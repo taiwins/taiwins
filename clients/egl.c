@@ -11,7 +11,10 @@
 #include <stdbool.h>
 #include <cairo/cairo.h>
 #include <librsvg/rsvg.h>
-#include <librsvg/rsvg-cairo.h>
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+
 
 #include "egl.h"
 #include "client.h"
@@ -28,16 +31,14 @@
 
 #define NK_SHADER_VERSION "#version 330 core"
 
+//eglapp->loadlua
 
 //this is a cached
 struct eglapp_icon {
 	//you need to know the size of it
 	cairo_surface_t *isurf;
 	cairo_t *ctxt;
-	const cairo_surface_t * (*get_icon_surf)(struct eglapp_icon *);
-	//you need to have a triggle on linux, use the inotify apis
-	//cairo loading icon from lua
-	//now you need t
+	void (*update_icon)(struct eglapp_icon *);
 };
 
 const cairo_surface_t *
@@ -46,46 +47,13 @@ icon_from_svg(struct eglapp_icon *icon, const char *file)
 	//create
 	RsvgHandle *handle = rsvg_handle_new_from_file(file, NULL);
 	rsvg_handle_render_cairo(handle, icon->ctxt);
-	rsvg_handle_close(handle);
+	rsvg_handle_close(handle, NULL);
 	return icon->isurf;
 }
 
+//there is no way you can update the icon here on the panel
 //sample functions of calendar icons
-static const cairo_surface_t *
-calendar_icon(struct eglapp_icon *icon)
-{
-	static const char * daysoftheweek[] = {"sun", "mon", "tus", "wed", "thu", "fri", "sat"};
-	char formatedtime[20];
-	cairo_text_extents_t extent;
-	time_t epochs = time(NULL);
-	struct tm *tim = localtime(&epochs);
 
-	sprintf(formatedtime, "%s %2d:%2d",
-		daysoftheweek[tim->tm_wday], tim->tm_hour, tim->tm_min);
-
-	if (!icon->isurf) {
-		icon->isurf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
-							 strlen(formatedtime) * 4, 16);
-		icon->ctxt = cairo_create(icon->isurf);
-	}
-	//clean the source
-	cairo_set_source_rgba(icon->ctxt, 1.0, 1.0f, 1.0f, 0.0f);
-	cairo_paint(icon->ctxt);
-	cairo_set_source_rgba(icon->ctxt, 0, 0, 0, 1.0);
-	cairo_select_font_face(icon->ctxt, "sans",
-			       CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-	cairo_set_font_size(icon->ctxt, 12);
-	cairo_text_extents(icon->ctxt, formatedtime, &extent);
-	cairo_move_to(icon->ctxt, strlen(formatedtime) * 4 - extent.width/2 , 16 - extent.height/2);
-	cairo_show_text(icon->ctxt, formatedtime);
-	return icon->isurf;
-}
-
-static const cairo_surface_t *
-battery_icon(struct eglapp_icon *icon)
-{
-
-}
 
 //I am not sure to put it here, it depends where it get implemented
 struct eglapp {
@@ -93,6 +61,12 @@ struct eglapp {
 	struct app_surface app;
 	//app specific
 	struct eglapp_icon icon;
+	lua_State *L;
+	struct bbox bbox;
+
+	void (*draw_widget)(struct eglapp);
+
+	struct shell_panel *panel;
 
 	struct nk_buffer cmds;
 	struct nk_draw_null_texture null;
@@ -114,6 +88,122 @@ struct eglapp {
 	GLint attrib_uv;
 	GLint attrib_col;
 };
+
+void
+calendar_icon(struct eglapp_icon *icon)
+{
+	struct eglapp *app = container_of(icon, struct eglapp, icon);
+	static const char * daysoftheweek[] = {"sun", "mon", "tus", "wed", "thu", "fri", "sat"};
+	char formatedtime[20];
+	cairo_text_extents_t extent;
+	time_t epochs = time(NULL);
+	struct tm *tim = localtime(&epochs);
+	int w = min(app->bbox.w, strlen(formatedtime) * 5);
+	int h = app->bbox.h;
+
+	sprintf(formatedtime, "%s %2d:%2d",
+		daysoftheweek[tim->tm_wday], tim->tm_hour, tim->tm_min);
+
+	if (!icon->isurf) {
+		icon->isurf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
+		icon->ctxt = cairo_create(icon->isurf);
+	}
+	//clean the source
+	cairo_set_source_rgba(icon->ctxt, 1.0, 1.0f, 1.0f, 0.0f);
+	cairo_paint(icon->ctxt);
+	cairo_set_source_rgba(icon->ctxt, 0, 0, 0, 1.0);
+	cairo_select_font_face(icon->ctxt, "sans",
+			       CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+	cairo_set_font_size(icon->ctxt, 12);
+	cairo_text_extents(icon->ctxt, formatedtime, &extent);
+	fprintf(stderr, "the font rendered size (%f, %f)\n", extent.width, extent.height);
+	cairo_move_to(icon->ctxt, w - extent.width/2 , h - extent.height/2);
+	cairo_show_text(icon->ctxt, formatedtime);
+	cairo_paint(icon->ctxt);
+}
+
+
+
+void
+eglapp_init_with_funcs(struct eglapp *app,
+		       void (*update_icon)(struct eglapp_icon *),
+		       void (*draw_widget)(struct eglapp))
+{
+	int icon_width;
+	//call update icon for the first time, so we know how big it is
+	update_icon(&app->icon);
+	icon_width = cairo_image_surface_get_width(app->icon.isurf);
+	app->app.px = app->bbox.w - icon_width;
+	app->app.py = 0;
+	app->app.w  = icon_width;
+	app->app.h  = app->bbox.h;
+
+	app->icon.update_icon = update_icon;
+	app->draw_widget = draw_widget;
+	//TODO, temp code again, you need to remove this
+	eglapp_update_icon(app);
+}
+
+
+void
+eglapp_init_with_script(struct eglapp *app,
+	const char *script)
+{
+	int status = 0;
+
+	app->L = luaL_newstate();
+	luaL_openlibs(app->L);
+	status += luaL_loadfile(app->L, script);
+	status += lua_pcall(app->L, 0, 0, 0);
+	if (status)
+		return;
+
+	//register globals
+	void *ptr = lua_newuserdata(app->L, sizeof(void *));
+	*(struct eglapp **)ptr = app;
+	lua_setglobal(app->L, "application");
+
+}
+
+
+void
+eglapp_destroy(struct eglapp *app)
+{
+	cairo_destroy(app->icon.ctxt);
+	cairo_surface_destroy(app->icon.isurf);
+}
+
+static void
+_free_eglapp(void *app)
+{
+	eglapp_destroy((struct eglapp *)app);
+}
+
+struct eglapp*
+eglapp_addtolist(struct shell_panel *panel)
+{
+	struct bbox box;
+	vector_t *widgets = &panel->widgets;
+	struct eglapp *lastapp, *newapp;
+
+	if (!widgets->elems)
+		vector_init(widgets, sizeof(struct eglapp), _free_eglapp);
+	lastapp = (struct eglapp *)vector_at(widgets, widgets->len-1);
+	if (!lastapp) {
+		box = (struct bbox) { .x=0, .y=0,
+				      .w=panel->panelsurf.w,
+				      .h=panel->panelsurf.h};
+	} else {
+		box = (struct bbox) { .x=0, .y=0,
+				      .w=lastapp->app.px,
+				      .h=lastapp->app.h};
+	}
+	newapp = (struct eglapp *)vector_newelem(widgets);
+	memset(newapp, 0, sizeof(*newapp));
+	newapp->panel = panel;
+	newapp->bbox = box;
+	return newapp;
+}
 
 
 
@@ -147,8 +237,6 @@ debug_egl_config_attribs(EGLDisplay dsp, EGLConfig cfg)
 	fprintf(stderr, "\tcfg %p can %s bound to the rgba buffer", cfg,
 		yes ? "" : "not");
 }
-
-
 
 bool
 egl_env_init(struct egl_env *env, struct wl_display *d)
@@ -422,3 +510,68 @@ nk_egl_render(struct eglapp *app, enum nk_anti_aliasing AA, int max_vertex_buffe
 	glDisable(GL_BLEND);
 	glDisable(GL_SCISSOR_TEST);
 }
+
+
+//this is also a callback
+void
+eglapp_update_icon(struct eglapp *app)
+{
+	struct shell_panel *panel = app->panel;
+	void *buffer = shm_pool_buffer_access(panel->panelsurf.wl_buffer);
+	//you don't event know the size of it
+	cairo_format_t format = translate_wl_shm_format(panel->format);
+	int stride = cairo_format_stride_for_width(format, panel->panelsurf.w);
+	cairo_surface_t *psurface = cairo_image_surface_create_for_data(
+		(unsigned char *)buffer, format, panel->panelsurf.w, panel->panelsurf.h, stride);
+	cairo_t *context = cairo_create(psurface);
+	cairo_move_to(context, app->app.px, app->app.py);
+	cairo_set_source_surface(context, app->icon.isurf, 0, 0);
+	cairo_paint(context);
+	wl_surface_attach(app->panel->panelsurf.wl_surface, app->panel->panelsurf.wl_buffer, 0, 0);
+	wl_surface_damage_buffer(app->panel->panelsurf.wl_surface, app->app.px, app->app.py,
+				 app->app.w, app->app.h);
+	wl_surface_commit(app->panel->panelsurf.wl_surface);
+
+	cairo_destroy(context);
+	cairo_surface_destroy(psurface);
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////Lua C callbacks////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
+
+//lua uses this to render svg to the surface, so lua can use it
+static int
+egl_load_svg(lua_State *L)
+{
+	struct eglapp **ptr, *app;
+	const char *string;
+	//lua call this with (eglapp, function)
+	int nargs = lua_gettop(L);
+	ptr = lua_touserdata(L, -2);
+	string = lua_tostring(L, -1);
+
+	app = *ptr;
+	RsvgHandle *handle = rsvg_handle_new_from_file(string, NULL);
+	rsvg_handle_render_cairo(handle, app->icon.ctxt);
+	rsvg_handle_close(handle, NULL);
+
+	return 0;
+	//then afterwords, we should have panel to use it.
+}
+
+//it can be a callback
+
+//this function is used for lua code to actively update the icon
+static int
+lua_eglapp_update_icon(lua_State *L)
+{
+	struct eglapp **ptr, *app;
+	const char *string;
+	ptr = lua_touserdata(L, -1);
+	app = *ptr;
+	eglapp_update_icon(app);
+}
+
+//create an example application, calendar
