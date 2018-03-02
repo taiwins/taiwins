@@ -37,3 +37,11 @@ target_link_libraries(test_xkbcommon
   twcursor
   m
   )
+
+add_executable(test_cairo
+  cairo_tutorial.c
+  )
+
+target_link_libraries(test_cairo
+  ${CLIENT_LIBRARIES}
+  )
