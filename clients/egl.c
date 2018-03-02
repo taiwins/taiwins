@@ -118,7 +118,7 @@ calendar_icon(struct eglapp_icon *icon)
 	cairo_text_extents(icon->ctxt, formatedtime, &extent);
 	fprintf(stderr, "the font rendered size (%f, %f) and (%d, %d)\n",
 		extent.width, extent.height, w, h);
-	cairo_move_to(icon->ctxt, w - extent.width/2 , h - extent.height/2);
+	cairo_move_to(icon->ctxt, w/2 - extent.width/2 , h/2 );
 	cairo_show_text(icon->ctxt, formatedtime);
 //	cairo_paint(icon->ctxt);
 }
