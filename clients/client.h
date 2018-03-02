@@ -38,7 +38,7 @@ struct tw_event {
 
 
 struct tw_event_queue {
-	vector_t event_queue;
+	queue_t event_queue;
 };
 
 extern struct tw_event_queue *the_event_queue;
