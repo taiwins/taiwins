@@ -20,14 +20,12 @@ struct output_widgets {
 	struct desktop_shell *shell;
 	struct wl_output *output;
 	struct app_surface background;
-	struct app_surface panel;
+	struct shell_panel panel;
 	struct shm_pool pool;
 
 	list_t link;
 	bool inited;
 };
-
-
 
 struct desktop_shell {
 	struct wl_globals globals;
@@ -36,6 +34,19 @@ struct desktop_shell {
 	list_t outputs;
 };
 
+static void
+shell_panel_init(struct shell_panel *panel, struct output_widgets *w)
+{
+	struct app_surface *s = &panel->panelsurf;
+	panel->panelsurf = (struct app_surface){0};
+	s->wl_surface = wl_compositor_create_surface(w->shell->globals.compositor);
+	s->keycb = NULL;
+	wl_surface_set_user_data(s->wl_surface, s);
+	s->wl_output = w->output;
+	s->type = APP_PANEL;
+	panel->widgets = (vector_t){0};
+	panel->format = WL_SHM_FORMAT_ARGB8888;
+}
 
 static void
 output_init(struct output_widgets *w)
@@ -50,13 +61,8 @@ output_init(struct output_widgets *w)
 	w->background.type = APP_BACKGROUND;
 	taiwins_shell_set_background(shell, w->output, w->background.wl_surface);
 	//panel
-	w->panel = (struct app_surface){0};
-	w->panel.wl_surface = wl_compositor_create_surface(w->shell->globals.compositor);
-	w->panel.wl_output = w->output;
-	w->panel.keycb = NULL;
-	wl_surface_set_user_data(w->panel.wl_surface, &w->panel);
-	w->panel.type = APP_PANEL;
-	taiwins_shell_set_panel(shell, w->output, w->panel.wl_surface);
+	shell_panel_init(&w->panel, w);
+	taiwins_shell_set_panel(shell, w->output, w->panel.panelsurf.wl_surface);
 	w->inited = true;
 }
 
@@ -102,13 +108,14 @@ desktop_shell_release(struct desktop_shell *shell)
 
 
 
-static void shell_configure_surface(void *data,
-				    struct taiwins_shell *taiwins_shell,
-				    struct wl_surface *surface,
-				    uint32_t scale,
-				    uint32_t edges,
-				    int32_t width,
-				    int32_t height)
+static void
+shell_configure_surface(void *data,
+			struct taiwins_shell *taiwins_shell,
+			struct wl_surface *surface,
+			uint32_t scale,
+			uint32_t edges,
+			int32_t width,
+			int32_t height)
 {
 	struct output_widgets *output;
 	//damn it, we need a hack
@@ -124,7 +131,10 @@ static void shell_configure_surface(void *data,
 	void *buffer_addr = NULL;
 	struct wl_buffer *new_buffer = shm_pool_alloc_buffer(&output->pool, w, h);
 	buffer_addr = shm_pool_buffer_access(new_buffer);
-
+	appsurf->w = w;
+	appsurf->h = h;
+	appsurf->px = 0;
+	appsurf->py = 0;
 
 	if (appsurf->type == APP_BACKGROUND) {
 		printf("background surface buffer %p, wl_buffer: %p\n", buffer_addr, new_buffer);
@@ -138,21 +148,26 @@ static void shell_configure_surface(void *data,
 		wl_surface_damage(output->background.wl_surface, 0, 0, w, h);
 		wl_surface_commit(output->background.wl_surface);
 		//TODO maybe using the double buffer?
-		if (output->background.wl_buffer) {
+		if (output->background.wl_buffer)
 			shm_pool_buffer_release(output->background.wl_buffer);
-			output->background.wl_buffer = new_buffer;
-		}
+		output->background.wl_buffer = new_buffer;
+
 	} else if (appsurf->type == APP_PANEL) {
+		struct shell_panel *panel = container_of(appsurf, struct shell_panel, panelsurf);
+		panel->format = WL_SHM_FORMAT_ARGB8888;
 		printf("panel surface buffer %p, wl_buffer: %p\n", buffer_addr, new_buffer);
 		memset(buffer_addr, 255, w*h*4);
-		wl_surface_attach(output->panel.wl_surface, new_buffer, 0, 0);
-		wl_surface_damage(output->panel.wl_surface, 0, 0, w, h);
-		wl_surface_commit(output->panel.wl_surface);
-		if (output->panel.wl_buffer) {
-			shm_pool_buffer_release(output->panel.wl_buffer);
-			output->panel.wl_buffer = new_buffer;
-		}
+		wl_surface_attach(output->panel.panelsurf.wl_surface, new_buffer, 0, 0);
+		wl_surface_damage(output->panel.panelsurf.wl_surface, 0, 0, w, h);
+		wl_surface_commit(output->panel.panelsurf.wl_surface);
+		if (output->panel.panelsurf.wl_buffer)
+			shm_pool_buffer_release(output->panel.panelsurf.wl_buffer);
+		output->panel.panelsurf.wl_buffer = new_buffer;
+		struct eglapp *app;
+		app = eglapp_addtolist(&output->panel);
+		eglapp_init_with_funcs(app, calendar_icon, NULL);
 	}
+
 }
 /* if (output->background.wl_buffer[0]) */
 /*	shm_pool_buffer_release(output->background.wl_buffer[0]); */
@@ -230,6 +245,10 @@ int main(int argc, char **argv)
 				output_init(w);
 		}
 	}
+
+	//also, you need to create some kind of event_queue for the shell, and
+	//launch a thread to read this event queue, a event should have a
+	//listener, call the listener
 	while(wl_display_dispatch(display) != -1);
 	desktop_shell_release(&oneshell);
 	wl_registry_destroy(registry);
