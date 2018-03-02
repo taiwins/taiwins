@@ -437,3 +437,34 @@ int wl_globals_announce(struct wl_globals *globals,
 	}
 	return 1;
 }
+
+
+
+void
+tw_event_queue_init(struct tw_event_queue *q)
+{
+	vector_init(&q->event_queue, sizeof(struct tw_event), NULL);
+}
+void
+tw_event_queue_destroy(struct tw_event_queue *q)
+{
+	vector_destroy(&q->event_queue);
+}
+
+void
+tw_event_queue_append_event(struct tw_event_queue *q, void *data, int (*cb)(void *))
+{
+	struct tw_event *event = (struct tw_event *)vector_newelem(&q->event_queue);
+	event->cb = cb;
+	event->data = data;
+}
+
+void
+tw_event_queue_dispatch(struct tw_event_queue *q)
+{
+	for (int i = 0; i < q->event_queue.len; i++) {
+		struct tw_event *event = (struct tw_event *)vector_at(&q->event_queue, i);
+		event->cb(event);
+	}
+	q->event_queue.len = 0;
+}
