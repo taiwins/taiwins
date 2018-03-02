@@ -16,7 +16,6 @@
 extern "C" {
 #endif
 
-
 unsigned char *load_image(const char *path, const enum wl_shm_format wlformat,
 	   int width, int height, unsigned char *data);
 
@@ -24,6 +23,7 @@ enum APP_SURFACE_TYPE {
 	APP_BACKGROUND,
 	APP_PANEL,
 	APP_WIDGET,
+	APP_LOCKER,
 };
 
 struct bbox {
@@ -50,8 +50,6 @@ struct app_surface {
 	void (*pointrbtn)(struct app_surface *surf, bool btn);
 	//axis events with direction (0->x, y->1)
 	void (*pointraxis)(struct app_surface *surf, bool pos, int direction);
-
-
 };
 
 cairo_format_t
@@ -63,50 +61,6 @@ app_surface_from_wl_surface(struct wl_surface *s)
 {
 	return (struct app_surface *)wl_surface_get_user_data(s);
 }
-
-
-//they have a list of the widget on the panel
-struct shell_panel {
-	struct app_surface panelsurf;
-	enum wl_shm_format format;
-	//in this case, you will also have a list of widgets
-	vector_t widgets;
-};
-
-struct eglapp;
-struct eglapp_icon;
-
-void eglapp_init_with_funcs(struct eglapp *app,
-			    void (*update_icon)(struct eglapp_icon *),
-			    void (*draw_widget)(struct eglapp));
-void eglapp_init_with_script(struct eglapp *app, const char *script);
-
-//TODO, we should probably remove this later.
-void eglapp_update_icon(struct eglapp *app);
-
-
-void eglapp_destroy(struct eglapp *app);
-struct eglapp *
-eglapp_addtolist(struct shell_panel *panel);
-
-
-//sample function
-void calendar_icon(struct eglapp_icon *icon);
-
-
-
-struct tw_event {
-	void *data;
-	int (*cb)(void *);
-};
-
-
-//struct tw_event _queue {
-
-//};
-
-//then every app surface defines its own callbacks
-
 
 #ifdef __cplusplus
 }

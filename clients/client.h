@@ -31,6 +31,21 @@ extern "C" {
 #endif
 
 
+struct tw_event {
+	void *data;
+	int (*cb)(void *);
+};
+
+
+struct tw_event_queue {
+	queue_t event_queue;
+};
+
+extern struct tw_event_queue *the_event_queue;
+void tw_event_queue_init(struct tw_event_queue *q);
+void tw_event_queue_destroy(struct tw_event_queue *q);
+void tw_event_queue_append_event(struct tw_event_queue *q, void *data, int (*cb)(void *));
+void tw_event_queue_dispatch(struct tw_event_queue *q);
 
 /**
  * struct for one application, it should normally contains those
@@ -63,6 +78,7 @@ struct wl_globals {
 		uint32_t axis;
 		bool axis_pos;
 	} inputs;
+
 };
 
 //void app_surface_init(struct wl_compositor *p)

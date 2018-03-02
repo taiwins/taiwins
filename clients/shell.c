@@ -11,7 +11,7 @@
 #include <wayland-client.h>
 #include <sequential.h>
 #include "client.h"
-#include "ui.h"
+#include "shellui.h"
 
 struct output_widgets;
 struct desktop_shell;
@@ -32,7 +32,11 @@ struct desktop_shell {
 	struct taiwins_shell *shell;
 	//right now we only have one output, but we still keep the info
 	list_t outputs;
+	//the event queue
+	struct tw_event_queue event_queue;
 };
+
+struct tw_event_queue *the_event_queue = NULL;
 
 static void
 shell_panel_init(struct shell_panel *panel, struct output_widgets *w)
@@ -89,9 +93,12 @@ output_distroy(struct output_widgets *o)
 static void
 desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 {
+	the_event_queue = &shell->event_queue;
+	tw_event_queue_init(the_event_queue);
 	wl_globals_init(&shell->globals, display);
 	list_init(&shell->outputs);
 	shell->shell = NULL;
+	//the global is here
 }
 
 static void
@@ -104,6 +111,7 @@ desktop_shell_release(struct desktop_shell *shell)
 		output_distroy(w);
 	}
 	wl_globals_release(&shell->globals);
+	tw_event_queue_destroy(the_event_queue);
 }
 
 
@@ -249,9 +257,11 @@ int main(int argc, char **argv)
 	//also, you need to create some kind of event_queue for the shell, and
 	//launch a thread to read this event queue, a event should have a
 	//listener, call the listener
-	while(wl_display_dispatch(display) != -1);
+	while(wl_display_dispatch(display) != -1)
+		tw_event_queue_dispatch(the_event_queue);
 	desktop_shell_release(&oneshell);
 	wl_registry_destroy(registry);
 	wl_display_disconnect(display);
+//	desktop_shell_release(oneshell);
 	return 0;
 }

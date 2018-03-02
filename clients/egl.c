@@ -15,8 +15,8 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
-
 #include "egl.h"
+#include "shellui.h"
 #include "client.h"
 
 #define NK_INCLUDE_FIXED_TYPES
@@ -33,13 +33,6 @@
 
 //eglapp->loadlua
 
-//this is a cached
-struct eglapp_icon {
-	//you need to know the size of it
-	cairo_surface_t *isurf;
-	cairo_t *ctxt;
-	void (*update_icon)(struct eglapp_icon *);
-};
 
 const cairo_surface_t *
 icon_from_svg(struct eglapp_icon *icon, const char *file)
@@ -55,6 +48,7 @@ icon_from_svg(struct eglapp_icon *icon, const char *file)
 //sample functions of calendar icons
 
 
+//here is the problem, you have alot nk structures, so you don't want ot expose them outside
 //I am not sure to put it here, it depends where it get implemented
 struct eglapp {
 	//we need to have an icon as well,
@@ -120,7 +114,6 @@ calendar_icon(struct eglapp_icon *icon)
 		extent.width, extent.height, w, h);
 	cairo_move_to(icon->ctxt, w/2 - extent.width/2 , h/2 + extent.height/2 );
 	cairo_show_text(icon->ctxt, formatedtime);
-//	cairo_paint(icon->ctxt);
 }
 
 
