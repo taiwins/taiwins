@@ -30,6 +30,19 @@
 extern "C" {
 #endif
 
+/*
+struct tw_event {
+	void *data;
+	int (*cb)(void *);
+};
+
+
+struct tw_event_queue {
+	queue_t event_queue;
+};
+
+extern struct tw_event_queue event_queue
+*/
 
 
 /**
