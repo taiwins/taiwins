@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <pthread.h>
 
 #include <linux/input.h>
 #include <xkbcommon/xkbcommon.h>
@@ -247,9 +248,11 @@ pointer_frame(void *data,
 	//events goes in the order
 	if ((event & POINTER_AXIS) && appsurf->pointraxis)
 		appsurf->pointraxis(appsurf,
-				    globals->inputs.axis_pos, globals->inputs.axis);
+				    globals->inputs.axis_pos, globals->inputs.axis,
+				    globals->inputs.cx, globals->inputs.cy);
 	else if ((event & POINTER_BTN) && appsurf->pointrbtn)
-		appsurf->pointrbtn(appsurf, event & POINTER_BTN_LEFT);
+		appsurf->pointrbtn(appsurf, event & POINTER_BTN_LEFT,
+				   globals->inputs.cx, globals->inputs.cy); //well, you never know
 	else if ((event & POINTER_MOTION) && appsurf->pointron)
 		appsurf->pointron(appsurf, globals->inputs.cx, globals->inputs.cy);
 
@@ -444,6 +447,7 @@ void
 tw_event_queue_init(struct tw_event_queue *q)
 {
 	queue_init(&q->event_queue, sizeof(struct tw_event), NULL);
+	pthread_mutex_init(&q->mutex, NULL);
 }
 void
 tw_event_queue_destroy(struct tw_event_queue *q)
@@ -455,15 +459,32 @@ void
 tw_event_queue_append_event(struct tw_event_queue *q, void *data, int (*cb)(void *))
 {
 	struct tw_event event = {.data = data, .cb=cb};
+	pthread_mutex_lock(&q->mutex);
 	queue_append(&q->event_queue, &event);
+	pthread_mutex_unlock(&q->mutex);
 }
+
+static inline bool
+tw_event_queue_empty(struct tw_event_queue *q)
+{
+	bool empty = false;
+	pthread_mutex_lock(&q->mutex);
+	empty = queue_empty(&q->event_queue);
+	pthread_mutex_unlock(&q->mutex);
+	return empty;
+}
+
 
 void
 tw_event_queue_dispatch(struct tw_event_queue *q)
 {
-	while (!queue_empty(&q->event_queue)) {
+	while (!tw_event_queue_empty(q)) {
+
+		pthread_mutex_lock(&q->mutex);
 		struct tw_event event = *(struct tw_event *)queue_top(&q->event_queue);
 		queue_pop(&q->event_queue);
+		pthread_mutex_unlock(&q->mutex);
+
 		event.cb(&event);
 	}
 }

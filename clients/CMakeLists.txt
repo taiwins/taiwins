@@ -12,6 +12,7 @@ add_executable(shell-taiwins
   buffer.c
   ui.c
   egl.c
+  icon.c
   )
 
 target_link_libraries(shell-taiwins

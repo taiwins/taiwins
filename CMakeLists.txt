@@ -36,8 +36,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 ###################### find packages ################################
 include(GNUInstallDirs)
 find_package(PkgConfig)
-#the wayland protocols is now standard, you need find the wayland-protocols, and
-#include all the wayland protocols
 find_package(XKBCommon REQUIRED)
 find_package(LibInput REQUIRED)
 pkg_check_modules(Libweston libweston-3 REQUIRED)
@@ -47,6 +45,8 @@ find_package(Cairo REQUIRED)
 find_package(OpenGL REQUIRED COMPONENTS EGL OpenGL)
 find_package(Lua REQUIRED)
 find_package(LibRSVG REQUIRED)
+set(CMAKE_THREAD_PREFER_PTHREAD)
+find_package(Threads REQUIRED)
 
 
 #####################################################################
@@ -98,6 +98,7 @@ set(CLIENT_LIBRARIES
   OpenGL::OpenGL
   ${LUA_LIBRARIES}
   ${LibRSVG_LIBRARIES}
+  Threads::Threads
   )
 list(REMOVE_DUPLICATES CLIENT_LIBRARIES)
 

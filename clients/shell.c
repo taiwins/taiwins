@@ -13,8 +13,19 @@
 #include "client.h"
 #include "shellui.h"
 
-struct output_widgets;
-struct desktop_shell;
+//here we define the one queue, it is here
+
+struct desktop_shell {
+	struct wl_globals globals;
+	struct taiwins_shell *shell;
+	//right now we only have one output, but we still keep the info
+	list_t outputs;
+	//the event queue
+	struct tw_event_queue event_queue;
+	bool quit;
+} oneshell; //singleton
+
+struct tw_event_queue *the_event_queue = &oneshell.event_queue;
 
 struct output_widgets {
 	struct desktop_shell *shell;
@@ -27,16 +38,20 @@ struct output_widgets {
 	bool inited;
 };
 
-struct desktop_shell {
-	struct wl_globals globals;
-	struct taiwins_shell *shell;
-	//right now we only have one output, but we still keep the info
-	list_t outputs;
-	//the event queue
-	struct tw_event_queue event_queue;
-};
-
-struct tw_event_queue *the_event_queue = NULL;
+static void
+panel_search_icon(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy)
+{
+	struct shell_panel *panel = container_of(surf, struct shell_panel, panelsurf);
+	for (int i = 0; i < panel->widgets.len; i++) {
+		struct eglapp_icon *icon = icon_from_eglapp(
+			(struct eglapp *)vector_at(&panel->widgets, i));
+		struct app_surface *appsurf = appsurface_from_icon(icon);
+		if (bbox_contain_point(&icon->box, cx, cy) && appsurf->pointrbtn) {
+			appsurf->pointrbtn(appsurf, btn, cx, cy);
+			break;
+		}
+	}
+}
 
 static void
 shell_panel_init(struct shell_panel *panel, struct output_widgets *w)
@@ -45,11 +60,16 @@ shell_panel_init(struct shell_panel *panel, struct output_widgets *w)
 	panel->panelsurf = (struct app_surface){0};
 	s->wl_surface = wl_compositor_create_surface(w->shell->globals.compositor);
 	s->keycb = NULL;
+	s->pointron = NULL;
+	s->pointraxis = NULL;
+	s->pointrbtn = panel_search_icon;
 	wl_surface_set_user_data(s->wl_surface, s);
 	s->wl_output = w->output;
 	s->type = APP_PANEL;
 	panel->widgets = (vector_t){0};
+	//TODO DO change this...
 	panel->format = WL_SHM_FORMAT_ARGB8888;
+
 }
 
 static void
@@ -90,29 +110,6 @@ output_distroy(struct output_widgets *o)
 }
 
 
-static void
-desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
-{
-	the_event_queue = &shell->event_queue;
-	tw_event_queue_init(the_event_queue);
-	wl_globals_init(&shell->globals, display);
-	list_init(&shell->outputs);
-	shell->shell = NULL;
-	//the global is here
-}
-
-static void
-desktop_shell_release(struct desktop_shell *shell)
-{
-	taiwins_shell_destroy(shell->shell);
-	struct output_widgets *w, *next;
-	list_for_each_safe(w, next, &shell->outputs, link) {
-		list_remove(&w->link);
-		output_distroy(w);
-	}
-	wl_globals_release(&shell->globals);
-	tw_event_queue_destroy(the_event_queue);
-}
 
 
 
@@ -161,8 +158,8 @@ shell_configure_surface(void *data,
 		output->background.wl_buffer = new_buffer;
 
 	} else if (appsurf->type == APP_PANEL) {
-		struct shell_panel *panel = container_of(appsurf, struct shell_panel, panelsurf);
-		panel->format = WL_SHM_FORMAT_ARGB8888;
+//		struct shell_panel *panel = container_of(appsurf, struct shell_panel, panelsurf);
+
 		printf("panel surface buffer %p, wl_buffer: %p\n", buffer_addr, new_buffer);
 		memset(buffer_addr, 255, w*h*4);
 		wl_surface_attach(output->panel.panelsurf.wl_surface, new_buffer, 0, 0);
@@ -174,6 +171,9 @@ shell_configure_surface(void *data,
 		struct eglapp *app;
 		app = eglapp_addtolist(&output->panel);
 		eglapp_init_with_funcs(app, calendar_icon, NULL);
+		struct eglapp *another;
+		another = eglapp_addtolist(&output->panel);
+		eglapp_init_with_funcs(another, calendar_icon, NULL);
 	}
 
 }
@@ -207,7 +207,8 @@ void announce_globals(void *data,
 
 	if (strcmp(interface, taiwins_shell_interface.name) == 0) {
 		fprintf(stderr, "shell registé\n");
-		twshell->shell = wl_registry_bind(wl_registry, name, &taiwins_shell_interface, version);
+		twshell->shell = (struct taiwins_shell *)
+			wl_registry_bind(wl_registry, name, &taiwins_shell_interface, version);
 		taiwins_shell_add_listener(twshell->shell, &taiwins_listener, twshell);
 	} else if (!strcmp(interface, wl_output_interface.name)) {
 		struct output_widgets *output = malloc(sizeof(*output));
@@ -231,10 +232,48 @@ static struct wl_registry_listener registry_listener = {
 };
 
 
+//options.
+
+//1) make it static, adding all the inotify entry all at once before we can use
+//it.  if we decide to go this way, when to add the thread? Obviously, it it
+//after all the registeration of the widgets , but it should also before the
+//widgets because if not, you will need the inotify when you run the widgets.
+
+//so it has to be dynamiclly. The the widgets well registre all the inotify
+//entry, but it will cause a aabb lock problem
+
+static void
+desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
+{
+	tw_event_queue_init(the_event_queue);
+	wl_globals_init(&shell->globals, display);
+	list_init(&shell->outputs);
+	shell->shell = NULL;
+	shell->quit = false;
+	//now we can create the thread
+//	pthread_create(pthread_t *__restrict __newthread, const pthread_attr_t *__restrict __attr, void *(*__start_routine)(void *), void *__restrict __arg)
+	//the global is here
+}
+
+
+
+static void
+desktop_shell_release(struct desktop_shell *shell)
+{
+	taiwins_shell_destroy(shell->shell);
+	struct output_widgets *w, *next;
+	list_for_each_safe(w, next, &shell->outputs, link) {
+		list_remove(&w->link);
+		output_distroy(w);
+	}
+	wl_globals_release(&shell->globals);
+	tw_event_queue_destroy(the_event_queue);
+	shell->quit = true;
+}
+
+
 int main(int argc, char **argv)
 {
-	struct desktop_shell oneshell;
-	//TODO change to wl_display_connect_to_fd
 	struct wl_display *display = wl_display_connect(NULL);
 	if (!display) {
 		fprintf(stderr, "couldn't connect to wayland display\n");
