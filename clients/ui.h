@@ -27,8 +27,27 @@ enum APP_SURFACE_TYPE {
 };
 
 struct bbox {
-	unsigned x; unsigned int y; unsigned int w; unsigned int h;
+	unsigned int x;
+	unsigned int y;
+	unsigned int w;
+	unsigned int h;
 };
+
+static inline bool
+bbox_contain_point(const struct bbox *box, unsigned int x, unsigned int y)
+{
+	return ((x >= box->x) &&
+		(x < box->x + box->w) &&
+		(y >= box->y) &&
+		(y < box->y + box->h));
+}
+
+static inline bool
+bboxs_intersect(const struct bbox *ba, const struct bbox *bb)
+{
+	return (ba->x < bb->x+bb->w) && (ba->x+ba->w > bb->x) &&
+		(ba->y < bb->y+bb->h) && (ba->y + ba->h > bb->y);
+}
 
 
 //this is the root structure by all the surfaces in the shell, others should
@@ -47,9 +66,9 @@ struct app_surface {
 	//run this function at the frame callback
 	void (*pointron)(struct app_surface *surf, uint32_t sx, uint32_t sy);
 	//left is true, right is false
-	void (*pointrbtn)(struct app_surface *surf, bool btn);
+	void (*pointrbtn)(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy);
 	//axis events with direction (0->x, y->1)
-	void (*pointraxis)(struct app_surface *surf, bool pos, int direction);
+	void (*pointraxis)(struct app_surface *surf, bool pos, int direction, uint32_t sx, uint32_t sy);
 };
 
 cairo_format_t

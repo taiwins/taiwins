@@ -34,15 +34,6 @@
 //eglapp->loadlua
 
 
-const cairo_surface_t *
-icon_from_svg(struct eglapp_icon *icon, const char *file)
-{
-	//create
-	RsvgHandle *handle = rsvg_handle_new_from_file(file, NULL);
-	rsvg_handle_render_cairo(handle, icon->ctxt);
-	rsvg_handle_close(handle, NULL);
-	return icon->isurf;
-}
 
 //there is no way you can update the icon here on the panel
 //sample functions of calendar icons
@@ -52,11 +43,12 @@ icon_from_svg(struct eglapp_icon *icon, const char *file)
 //I am not sure to put it here, it depends where it get implemented
 struct eglapp {
 	//we need to have an icon as well,
-	struct app_surface app;
+	struct app_surface surface;
 	//app specific
 	struct eglapp_icon icon;
+	//a temperary info mation, useless after app initialized
+	struct bbox available_place;
 	lua_State *L;
-	struct bbox bbox;
 
 	void (*draw_widget)(struct eglapp);
 
@@ -83,37 +75,35 @@ struct eglapp {
 	GLint attrib_col;
 };
 
-void
-calendar_icon(struct eglapp_icon *icon)
+struct app_surface *
+appsurface_from_icon(struct eglapp_icon *icon)
 {
 	struct eglapp *app = container_of(icon, struct eglapp, icon);
-	static const char * daysoftheweek[] = {"sun", "mon", "tus", "wed", "thu", "fri", "sat"};
-	char formatedtime[20];
-	cairo_text_extents_t extent;
-	time_t epochs = time(NULL);
-	struct tm *tim = localtime(&epochs);
-	int w = min(app->bbox.w, strlen(formatedtime) * 5);
-	int h = app->bbox.h;
+	return &app->surface;
+}
 
-	sprintf(formatedtime, "%s %2d:%2d",
-		daysoftheweek[tim->tm_wday], tim->tm_hour, tim->tm_min);
+struct eglapp *
+eglapp_from_icon(struct eglapp_icon *i)
+{
+	return container_of(i, struct eglapp, icon);
+}
 
-	if (!icon->isurf) {
-		icon->isurf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
-		icon->ctxt = cairo_create(icon->isurf);
-	}
-	//clean the source
-	cairo_set_source_rgba(icon->ctxt, 1.0, 1.0f, 1.0f, 0.0f);
-	cairo_paint(icon->ctxt);
-	cairo_set_source_rgba(icon->ctxt, 0, 0, 0, 1.0);
-	cairo_select_font_face(icon->ctxt, "sans",
-			       CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-	cairo_set_font_size(icon->ctxt, 12);
-	cairo_text_extents(icon->ctxt, formatedtime, &extent);
-	fprintf(stderr, "the font rendered size (%f, %f) and (%d, %d)\n",
-		extent.width, extent.height, w, h);
-	cairo_move_to(icon->ctxt, w/2 - extent.width/2 , h/2 + extent.height/2 );
-	cairo_show_text(icon->ctxt, formatedtime);
+struct eglapp_icon *
+icon_from_eglapp(struct eglapp *app)
+{
+	return &app->icon;
+}
+struct app_surface *
+appsurface_from_app(struct eglapp *app)
+{
+	return &app->surface;
+}
+struct bbox *
+icon_get_available_space(struct eglapp_icon *icon)
+{
+	struct eglapp *app = container_of(icon, struct eglapp, icon);
+	return &app->available_place;
+
 }
 
 
@@ -124,13 +114,16 @@ eglapp_init_with_funcs(struct eglapp *app,
 		       void (*draw_widget)(struct eglapp))
 {
 	int icon_width;
-	//call update icon for the first time, so we know how big it is
+	struct eglapp_icon *icon = &app->icon;
+	//call updating the first time, so we know how big it is
 	update_icon(&app->icon);
-	icon_width = cairo_image_surface_get_width(app->icon.isurf);
-	app->app.px = app->bbox.w - icon_width;
-	app->app.py = 0;
-	app->app.w  = icon_width;
-	app->app.h  = app->bbox.h;
+	//update geometry info so later on we know where to put it
+	icon_width = cairo_image_surface_get_width(icon->isurf);
+	icon->box.x = app->available_place.w - icon_width;
+	icon->box.y = 0;
+	icon->box.w = icon_width;
+	icon->box.h = app->available_place.h;
+	app->available_place = icon->box;
 
 	app->icon.update_icon = update_icon;
 	app->draw_widget = draw_widget;
@@ -156,7 +149,6 @@ eglapp_init_with_script(struct eglapp *app,
 	void *ptr = lua_newuserdata(app->L, sizeof(void *));
 	*(struct eglapp **)ptr = app;
 	lua_setglobal(app->L, "application");
-
 }
 
 
@@ -183,19 +175,21 @@ eglapp_addtolist(struct shell_panel *panel)
 	if (!widgets->elems)
 		vector_init(widgets, sizeof(struct eglapp), _free_eglapp);
 	lastapp = (struct eglapp *)vector_at(widgets, widgets->len-1);
+	//decide where to put the icon
 	if (!lastapp) {
 		box = (struct bbox) { .x=0, .y=0,
 				      .w=panel->panelsurf.w,
 				      .h=panel->panelsurf.h};
 	} else {
 		box = (struct bbox) { .x=0, .y=0,
-				      .w=lastapp->app.px,
-				      .h=lastapp->app.h};
+				      .w=lastapp->icon.box.x,
+				      .h=panel->panelsurf.h};
 	}
 	newapp = (struct eglapp *)vector_newelem(widgets);
 	memset(newapp, 0, sizeof(*newapp));
+	newapp->available_place = box;
+	newapp->icon.box = (struct bbox){0};
 	newapp->panel = panel;
-	newapp->bbox = box;
 	return newapp;
 }
 
@@ -293,8 +287,9 @@ eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *com
 {
 	GLint status;
 
-	app->app.wl_surface = wl_compositor_create_surface(compositor);
-	app->eglwin = wl_egl_window_create(app->app.wl_surface, 100, 100);
+	app->surface.wl_surface = wl_compositor_create_surface(compositor);
+	//I need to insert some call before creating window, otherwise, we wouldn't know where it goes, we will see
+	app->eglwin = wl_egl_window_create(app->surface.wl_surface, 100, 100);
 	app->eglsurface = eglCreateWindowSurface(env->egl_display, env->config, (EGLNativeWindowType)app->eglwin, NULL);
 	if (eglMakeCurrent(env->egl_display, app->eglsurface, app->eglsurface, env->egl_context)) {
 		fprintf(stderr, "failed to launch the window\n");
@@ -403,6 +398,8 @@ app_dispose(struct eglapp *app)
 	glDeleteShader(app->vs);
 	glDeleteShader(app->fs);
 	glDeleteProgram(app->glprog);
+	cairo_destroy(app->icon.ctxt);
+	cairo_surface_destroy(app->icon.isurf);
 }
 
 
@@ -519,12 +516,12 @@ eglapp_update_icon(struct eglapp *app)
 		(unsigned char *)buffer, format, panel->panelsurf.w, panel->panelsurf.h, stride);
 	cairo_t *context = cairo_create(psurface);
 //	cairo_move_to(context, app->app.px, app->app.py);
-//	fprintf(stderr, "the app coordinate is %d %d\n", app->app.px, app->app.py);
-	cairo_set_source_surface(context, app->icon.isurf, app->app.px, app->app.py);
-	cairo_paint(context);
 
-	wl_surface_damage_buffer(app->panel->panelsurf.wl_surface, app->app.px, app->app.py,
-				 app->app.w, app->app.h);
+	cairo_set_source_surface(context, app->icon.isurf, app->icon.box.x, app->icon.box.y);
+	cairo_paint(context);
+	fprintf(stderr, "the app coordinate is %d %d\n", app->icon.box.x, app->icon.box.y);
+	wl_surface_damage_buffer(app->panel->panelsurf.wl_surface, app->icon.box.x, app->icon.box.y,
+				 app->icon.box.w, app->icon.box.h);
 	wl_surface_commit(app->panel->panelsurf.wl_surface);
 
 //	cairo_surface_write_to_png(psurface, "/tmp/debug.png");

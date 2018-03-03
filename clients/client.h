@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <pthread.h>
 #include <GL/gl.h>
 //hopefully this shit is declared
 #include <GL/glext.h>
@@ -39,6 +40,7 @@ struct tw_event {
 
 struct tw_event_queue {
 	queue_t event_queue;
+	pthread_mutex_t mutex;
 };
 
 extern struct tw_event_queue *the_event_queue;

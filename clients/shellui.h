@@ -15,14 +15,22 @@ struct shell_panel {
 	vector_t widgets;
 };
 
-struct eglapp;
-
 struct eglapp_icon {
 	//you need to know the size of it
 	cairo_surface_t *isurf;
 	cairo_t *ctxt;
 	void (*update_icon)(struct eglapp_icon *);
+	struct bbox box; //the location of the icon in the panel
 };
+struct eglapp;
+//because you don't want to expose it, so we will have to create a lot help functions
+
+struct eglapp *eglapp_from_icon(struct eglapp_icon *icon);
+struct app_surface *appsurface_from_icon(struct eglapp_icon *icon);
+struct bbox *icon_get_available_space(struct eglapp_icon *app);
+struct eglapp_icon *icon_from_eglapp(struct eglapp *app);
+struct app_surface *appsurface_from_app(struct eglapp *app);
+
 
 void eglapp_init_with_funcs(struct eglapp *app,
 			    void (*update_icon)(struct eglapp_icon *),

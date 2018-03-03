@@ -45,3 +45,10 @@ add_executable(test_cairo
 target_link_libraries(test_cairo
   ${CLIENT_LIBRARIES}
   )
+
+
+add_executable(test_queue
+  test_queue.c)
+
+target_link_libraries(test_queue
+  ${TRDPTY_LIBRARIES})
