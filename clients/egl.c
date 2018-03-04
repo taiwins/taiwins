@@ -81,24 +81,16 @@ egl_env_init(struct egl_env *env, struct wl_display *d)
 	EGLConfig egl_cfg;
 	EGLint *context_attribute = NULL;
 	env->egl_display = eglGetDisplay((EGLNativeDisplayType)env->wl_display);
-	if (env->egl_display == EGL_NO_DISPLAY) {
-		fprintf(stderr, "cannot create egl display\n");
-	} else {
-		fprintf(stderr, "egl display created\n");
-	}
-	if (eglInitialize(env->egl_display, &major, &minor) != EGL_TRUE) {
-		fprintf(stderr, "there is a problem initialize the egl\n");
-		return false;
-	}
+	assert(env->egl_display);
+	assert(eglInitialize(env->egl_display, &major, &minor) == EGL_TRUE);
 	eglGetConfigs(env->egl_display, NULL, 0, &n);
 	fprintf(stderr, "egl has %d configures\n", n);
-
-	if (!eglChooseConfig(env->egl_display, egl_config_attribs, &egl_cfg, 1, &n)) {
-		fprintf(stderr, "couldn't choose opengl configure\n");
-		return false;
-	}
+	assert(eglChooseConfig(env->egl_display, egl_config_attribs, &egl_cfg, 1, &n));
 	eglBindAPI(EGL_OPENGL_API);
-	env->egl_context = eglCreateContext(env->egl_display, egl_cfg, EGL_NO_CONTEXT, egl_context_attribs);
+	env->egl_context = eglCreateContext(env->egl_display,
+					    egl_cfg,
+					    EGL_NO_CONTEXT,
+					    egl_context_attribs);
 	if (env->egl_context == EGL_NO_CONTEXT) {
 		fprintf(stderr, "no egl context created\n");
 		return false;
@@ -138,14 +130,15 @@ struct eglapp {
 	void (*draw_widget)(struct eglapp *);
 
 	struct shell_panel *panel;
+	const struct egl_env *eglenv;
+	struct wl_egl_window *eglwin;
+	EGLSurface eglsurface;
 
 	struct nk_buffer cmds;
 	struct nk_draw_null_texture null;
 	struct nk_context ctx;
 	struct nk_font_atlas atlas;
 	struct nk_vec2 fb_scale;
-	struct wl_egl_window *eglwin;
-	EGLSurface eglsurface;
 	unsigned int text[NK_EGLAPP_TEXT_MAX];
 	unsigned int text_len;
 	//now we can add all those fancy opengl stuff
@@ -203,6 +196,18 @@ icon_get_available_space(struct eglapp_icon *icon)
  *
  * ===============================================================
  */
+NK_API void
+nk_egl_char_callback(struct eglapp *win, unsigned int codepoint);
+NK_API void
+nk_eglapp_new_frame(struct eglapp *app);
+NK_API void
+nk_eglapp_render(struct eglapp *app, enum nk_anti_aliasing AA, int max_vertex_buffer,
+		 int max_element_buffer);
+
+NK_API void nk_eglapp_font_stash_begin(struct eglapp *app, struct nk_font_atlas **atlas);
+NK_API void nk_eglapp_font_stash_end(struct eglapp *app);
+
+
 
 #ifndef NK_EGLAPP_DOUBLE_CLICK_LO
 #define NK_EGLAPP_DOUBLE_CLICK_LO 0.02
@@ -212,7 +217,8 @@ icon_get_available_space(struct eglapp_icon *icon)
 #define NK_EGLAPP_DOUBLE_CLICK_HI 0.2
 #endif
 
-
+#define MAX_VERTEX_BUFFER 512 * 1024
+#define MAX_ELEMENT_BUFFER 128 * 1024
 
 
 void static
@@ -265,6 +271,7 @@ eglapp_init_with_funcs(struct eglapp *app,
 		       void (*update_icon)(struct eglapp_icon *),
 		       void (*draw_widget)(struct eglapp *))
 {
+	//step 1, get the icon
 	int icon_width;
 	struct eglapp_icon *icon = &app->icon;
 	//call updating the first time, so we know how big it is
@@ -287,6 +294,8 @@ eglapp_init_with_funcs(struct eglapp *app,
 	app->surface.pointron = eglapp_cursor_motion_cb;
 	app->surface.pointrbtn = eglapp_cursor_button_cb;
 	app->surface.pointraxis = eglapp_cursor_axis_cb;
+
+
 }
 
 void
@@ -311,6 +320,7 @@ eglapp_init_with_script(struct eglapp *app,
 	app->surface.pointron = eglapp_cursor_motion_cb;
 	app->surface.pointrbtn = eglapp_cursor_button_cb;
 	app->surface.pointraxis = eglapp_cursor_axis_cb;
+
 }
 
 
@@ -408,12 +418,17 @@ void
 eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *compositor)
 {
 	GLint status, loglen;
+	app->eglenv = env;
 
 	app->surface.wl_surface = wl_compositor_create_surface(compositor);
 	//I need to insert some call before creating window, otherwise, we wouldn't know where it goes, we will see
 	app->eglwin = wl_egl_window_create(app->surface.wl_surface, 100, 100);
+	app->width = 100;
+	app->height = 100;
+
 	app->eglsurface = eglCreateWindowSurface(env->egl_display, env->config, (EGLNativeWindowType)app->eglwin, NULL);
-	if (eglMakeCurrent(env->egl_display, app->eglsurface, app->eglsurface, env->egl_context)) {
+	//TODO damn it you need to create a view with taiwins_shell_set_widget()
+	if (!eglMakeCurrent(env->egl_display, app->eglsurface, app->eglsurface, env->egl_context)) {
 		fprintf(stderr, "failed to launch the window\n");
 	}
 	static const GLchar *vertex_shader =
@@ -481,7 +496,6 @@ eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *com
 	assert(app->attrib_pos >= 0);
 	assert(app->attrib_pos >= 0);
 	assert(app->attrib_uv  >= 0);
-
 	{
 		//setup vab, vbo
 		GLsizei vs = sizeof(struct egl_nk_vertex);
@@ -508,11 +522,19 @@ eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *com
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	//call the frame for the first time
+	{
+		struct nk_font_atlas *atlas;
+		nk_eglapp_font_stash_begin(app, &atlas);
+		nk_eglapp_font_stash_end(app);
+	}
+	nk_eglapp_new_frame(app);
+
 }
 
 
 NK_INTERN void
-nk_egl_upload_atlas(struct eglapp *app, const void *image, int width, int height)
+nk_eglapp_upload_atlas(struct eglapp *app, const void *image, int width, int height)
 {
 	glGenTextures(1, &app->font_tex);
 	glBindTexture(GL_TEXTURE_2D, app->font_tex);
@@ -522,9 +544,29 @@ nk_egl_upload_atlas(struct eglapp *app, const void *image, int width, int height
 		     0, GL_RGBA, GL_UNSIGNED_BYTE, image);
 }
 
+NK_API void
+nk_eglapp_font_stash_begin(struct eglapp *app, struct nk_font_atlas **atlas)
+{
+    nk_font_atlas_init_default(&app->atlas);
+    nk_font_atlas_begin(&app->atlas);
+    *atlas = &app->atlas;
+}
 
 NK_API void
-nk_egl_render(struct eglapp *app, enum nk_anti_aliasing AA, int max_vertex_buffer,
+nk_eglapp_font_stash_end(struct eglapp *app)
+{
+    const void *image; int w, h;
+    image = nk_font_atlas_bake(&app->atlas, &w, &h, NK_FONT_ATLAS_RGBA32);
+    nk_eglapp_upload_atlas(app, image, w, h);
+    nk_font_atlas_end(&app->atlas, nk_handle_id((int)app->font_tex), &app->null);
+    if (app->atlas.default_font)
+	nk_style_set_font(&app->ctx, &app->atlas.default_font->handle);
+}
+
+
+
+NK_API void
+nk_eglapp_render(struct eglapp *app, enum nk_anti_aliasing AA, int max_vertex_buffer,
 	int max_element_buffer)
 {
 	struct nk_buffer vbuf, ebuf;
@@ -634,20 +676,31 @@ nk_egl_char_callback(struct eglapp *win, unsigned int codepoint)
 
 
 NK_API void
-nk_egl_new_frame(struct eglapp *app)
+nk_eglapp_new_frame(struct eglapp *app)
 {
 	struct nk_context *ctx = &app->ctx;
-	struct wl_egl_window *win = app->eglwin;
 
 	nk_input_begin(ctx);
 	for (int i = 0; i < app->text_len; i++)
 		nk_input_unicode(ctx, app->text[i]);
 	nk_input_end(ctx);
-	//okay, now we can draw it
+	if (nk_begin(ctx, "eglapp", nk_rect(0,0, app->width, app->height),
+		     NK_WINDOW_BORDER)) {
+		//TODO, change the draw function to app->draw_widget(app);
+		enum {EASY, HARD};
+		nk_layout_row_static(ctx, 30, 80, 1);
+		if (nk_button_label(ctx, "button")) {
+			fprintf(stderr, "button pressed\n");
+		}
+	    }
+	nk_end(ctx);
+	glViewport(0, 0, app->width, app->height);
+	glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+	nk_eglapp_render(app, NK_ANTI_ALIASING_ON,
+		      MAX_VERTEX_BUFFER, MAX_ELEMENT_BUFFER);
+	eglSwapBuffers(app->eglenv->egl_display, app->eglsurface);
 }
-
-
-
 
 
 ///////////////////////////////////////////////////////////////////////////////////
