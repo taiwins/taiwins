@@ -20,6 +20,10 @@ struct eglapp_icon {
 	cairo_surface_t *isurf;
 	cairo_t *ctxt;
 	void (*update_icon)(struct eglapp_icon *);
+	//usually when you click it, we should be able to start the application
+//	void (*pointron)(struct app_surface *surf);
+	//left is true, right is false
+//	void (*pointrbtn)(struct app_surface *surf);
 	struct bbox box; //the location of the icon in the panel
 };
 struct eglapp;
@@ -34,7 +38,7 @@ struct app_surface *appsurface_from_app(struct eglapp *app);
 
 void eglapp_init_with_funcs(struct eglapp *app,
 			    void (*update_icon)(struct eglapp_icon *),
-			    void (*draw_widget)(struct eglapp));
+			    void (*draw_widget)(struct eglapp *));
 void eglapp_init_with_script(struct eglapp *app, const char *script);
 
 void
