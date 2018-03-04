@@ -11,6 +11,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
+#include <wayland-util.h>
 
 #include <sequential.h>
 #include <buffer.h>
@@ -227,8 +228,8 @@ pointer_motion(void *data,
 	       wl_fixed_t surface_y)
 {
 	struct wl_globals *globals = (struct wl_globals *)data;
-	globals->inputs.cx = surface_x/256; //why I need to do that
-	globals->inputs.cy = surface_y/256; //why I need to do that
+	globals->inputs.cx = wl_fixed_to_int(surface_x);
+	globals->inputs.cy = wl_fixed_to_int(surface_y);
 //	fprintf(stderr, "the mostion is (%d, %d)\n", surface_x/256, surface_x/256);
 
 	globals->inputs.cursor_events |= POINTER_MOTION;
@@ -297,7 +298,7 @@ pointer_axis(void *data,
 	struct wl_globals *globals = (struct wl_globals *)data;
 	//in the surface coordinates, (0, 0) sits on top left, so we need to
 	//reverse it
-	globals->inputs.axis_pos = (value < 0);
+	globals->inputs.axis_pos = wl_fixed_to_int(value);
 	globals->inputs.axis = axis;
 
 	globals->inputs.cursor_events |= POINTER_AXIS;

@@ -54,6 +54,7 @@ panel_click_on_icon(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy
 			eglapp_launch(app, &oneshell.eglenv, oneshell.globals.compositor);
 			break;
 		}
+		//TODO else, we should close application if we can, same as background
 	}
 }
 
@@ -77,16 +78,22 @@ shell_panel_init(struct shell_panel *panel, struct output_widgets *w)
 }
 
 static void
+shell_background_init(struct app_surface *background, struct output_widgets *w)
+{
+	w->background = (struct app_surface){0};
+	background->wl_surface = wl_compositor_create_surface(w->shell->globals.compositor);
+	background->wl_output = w->output;
+//	background->keycb = NULL;
+	wl_surface_set_user_data(background->wl_surface, background);
+	background->type = APP_BACKGROUND;
+}
+
+static void
 output_init(struct output_widgets *w)
 {
 	struct taiwins_shell *shell = w->shell->shell;
 	//arriere-plan
-	w->background = (struct app_surface){0};
-	w->background.wl_surface = wl_compositor_create_surface(w->shell->globals.compositor);
-	w->background.wl_output = w->output;
-	w->background.keycb = NULL;
-	wl_surface_set_user_data(w->background.wl_surface, &w->background);
-	w->background.type = APP_BACKGROUND;
+	shell_background_init(&w->background, w);
 	taiwins_shell_set_background(shell, w->output, w->background.wl_surface);
 	//panel
 	shell_panel_init(&w->panel, w);

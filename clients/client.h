@@ -76,7 +76,7 @@ struct wl_globals {
 		struct wl_buffer *cursor_buffer;
 		struct wl_surface *focused_surface;
 		uint32_t cursor_events;
-		uint32_t cx, cy;
+		uint32_t cx, cy; //current coordinate of the cursor
 		uint32_t axis;
 		bool axis_pos;
 	} inputs;

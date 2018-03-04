@@ -68,7 +68,7 @@ struct app_surface {
 	//left is true, right is false
 	void (*pointrbtn)(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy);
 	//axis events with direction (0->x, y->1)
-	void (*pointraxis)(struct app_surface *surf, bool pos, int direction, uint32_t sx, uint32_t sy);
+	void (*pointraxis)(struct app_surface *surf, int pos, int direction, uint32_t sx, uint32_t sy);
 };
 
 cairo_format_t
