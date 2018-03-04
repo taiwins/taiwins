@@ -249,9 +249,8 @@ eglapp_cursor_button_cb(struct app_surface *surf, bool btn, uint32_t sx, uint32_
 }
 
 static void
-eglapp_cursor_axis_cb(struct app_surface *surf, bool pos, int direction, uint32_t sx, uint32_t sy)
+eglapp_cursor_axis_cb(struct app_surface *surf, int speed, int direction, uint32_t sx, uint32_t sy)
 {
-	int speed = (pos) ? 1 : -1;
 	struct eglapp *app = container_of(surf, struct eglapp, surface);
 	struct nk_context *ctx = &app->ctx;
 	nk_input_begin(ctx);
