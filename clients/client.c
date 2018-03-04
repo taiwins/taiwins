@@ -3,6 +3,8 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <pthread.h>
+#include <sys/inotify.h>
+#include <poll.h>
 
 #include <linux/input.h>
 #include <xkbcommon/xkbcommon.h>
@@ -450,10 +452,12 @@ tw_event_queue_init(struct tw_event_queue *q)
 {
 	queue_init(&q->event_queue, sizeof(struct tw_event), NULL);
 	pthread_mutex_init(&q->mutex, NULL);
+	q->quit = false;
 }
 void
 tw_event_queue_destroy(struct tw_event_queue *q)
 {
+	q->quit = true;
 	queue_destroy(&q->event_queue);
 }
 
@@ -489,4 +493,82 @@ tw_event_queue_dispatch(struct tw_event_queue *q)
 
 		event.cb(&event);
 	}
+}
+
+
+
+//the thread function
+void *
+tw_event_producer_run(void *event_producer)
+{
+	struct tw_event_source *es, *next;
+	char buff[4096];
+	struct tw_event_producer *producer = (struct tw_event_producer *)event_producer;
+	while (!the_event_queue->quit) {
+		int poll_num = poll(&producer->pollfd, 1, -1);
+		char *ptr;
+		ssize_t len;
+		const struct inotify_event *event;
+		if (poll_num > 0 && (producer->pollfd.events & POLLIN)) {
+			//okay, we gonna read the event
+			len = read(producer->inotify_fd, buff, sizeof(buff));
+			if (len <= 0)
+				continue;
+			for (ptr = buff; ptr < buff+len;
+			     ptr += sizeof(struct inotify_event) + event->len) {
+				//finally, we can process the event, which is
+				//just adding to another shit
+				event = (const struct inotify_event *)ptr;
+				list_for_each_safe(es, next, &producer->head, node) {
+					if (es->wd == event->wd) {
+						tw_event_queue_append_event(the_event_queue,
+									    es->event.data, es->event.cb);
+						break;
+					}
+				}
+			}
+
+		} else {
+			//it maybe a timeout, we can call the time out event
+		}
+	}
+	//now it does the clean up, so we dont need a destructor
+	close(producer->inotify_fd);
+	list_for_each_safe(es, next, &producer->head, node)
+		free(es);
+	return NULL;
+}
+
+bool
+tw_event_producer_start(struct tw_event_producer *producer)
+{
+	list_init(&producer->head);
+	int fd = inotify_init1(IN_NONBLOCK);
+	if (fd == -1)
+		return false;
+	producer->inotify_fd = fd;
+	producer->pollfd.fd = fd;
+	producer->pollfd.events = POLLIN;
+	//we need to also create something for the poll
+	//at the end, we shall call the pthread_create
+	pthread_create(&producer->thread, NULL, tw_event_producer_run, producer);
+
+	return true;
+}
+
+
+bool
+tw_event_producer_add_source(struct tw_event_producer *producer, const char *file, long timeout,
+			  struct tw_event *event, uint32_t mask)
+{
+	int fd = inotify_add_watch(producer->inotify_fd, file, mask);
+	if (fd == -1)
+		return false;
+	struct tw_event_source *event_source =
+		(struct tw_event_source *)malloc(sizeof(struct tw_event_source));
+	producer->timeout = min(producer->timeout, timeout);
+	event_source->event = *event;
+	event_source->wd = fd;
+	list_append(&producer->head, &event_source->node);
+	return true;
 }

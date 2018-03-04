@@ -26,6 +26,7 @@ struct eglapp_icon {
 //	void (*pointrbtn)(struct app_surface *surf);
 	struct bbox box; //the location of the icon in the panel
 };
+struct egl_env;
 struct eglapp;
 //because you don't want to expose it, so we will have to create a lot help functions
 
@@ -39,7 +40,8 @@ struct app_surface *appsurface_from_app(struct eglapp *app);
 void eglapp_init_with_funcs(struct eglapp *app,
 			    void (*update_icon)(struct eglapp_icon *),
 			    void (*draw_widget)(struct eglapp *));
-void eglapp_init_with_script(struct eglapp *app, const char *script);
+void eglapp_init_with_script(struct eglapp *app,
+			     const char *script);
 
 void
 eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *compositor);
@@ -57,10 +59,6 @@ eglapp_addtolist(struct shell_panel *panel);
 
 //sample function
 void calendar_icon(struct eglapp_icon *icon);
-
-
-
-
 
 #ifdef __cplusplus
 }

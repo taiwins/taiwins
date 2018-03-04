@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <pthread.h>
+#include <poll.h>
 #include <GL/gl.h>
 //hopefully this shit is declared
 #include <GL/glext.h>
@@ -31,16 +32,36 @@
 extern "C" {
 #endif
 
-
 struct tw_event {
 	void *data;
 	int (*cb)(void *);
 };
 
+struct tw_event_source {
+	int wd;
+	struct tw_event event;
+	list_t node;
+	//for time-based event
+	long duration;
+	long progress;
+};
 
+
+//consumer
 struct tw_event_queue {
 	queue_t event_queue;
 	pthread_mutex_t mutex;
+	//quiting the consumer cause the producer to quit as well
+	bool quit;
+
+};
+//producer
+struct tw_event_producer {
+	pthread_t thread;
+	long timeout;
+	int inotify_fd;
+	struct pollfd pollfd;
+	list_t head;
 };
 
 extern struct tw_event_queue *the_event_queue;
@@ -48,6 +69,14 @@ void tw_event_queue_init(struct tw_event_queue *q);
 void tw_event_queue_destroy(struct tw_event_queue *q);
 void tw_event_queue_append_event(struct tw_event_queue *q, void *data, int (*cb)(void *));
 void tw_event_queue_dispatch(struct tw_event_queue *q);
+
+extern struct tw_event_producer *the_event_producer;
+void *tw_event_producer_run(void *event_producer);
+bool tw_event_producer_start(struct tw_event_producer *producer);
+/** add an file based event if file is provided, or time based event if timeout is provided
+ */
+bool tw_event_producer_add_source(struct tw_event_producer *producer, const char *file, long timeout,
+			       struct tw_event *event, uint32_t mask);
 
 /**
  * struct for one application, it should normally contains those

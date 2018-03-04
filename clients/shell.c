@@ -7,6 +7,10 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include <sys/inotify.h>
+#include <poll.h>
+//damn it, you need to poll that thing as well
+
 #include <wayland-taiwins-shell-client-protocol.h>
 #include <wayland-client.h>
 #include <sequential.h>
@@ -14,8 +18,8 @@
 #include "shellui.h"
 #include "egl.h"
 
-//here we define the one queue, it is here
 
+//here we define the one queue
 struct desktop_shell {
 	struct wl_globals globals;
 	struct taiwins_shell *shell;
@@ -24,10 +28,12 @@ struct desktop_shell {
 	list_t outputs;
 	//the event queue
 	struct tw_event_queue event_queue;
+	struct tw_event_producer event_producer;
 	bool quit;
 } oneshell; //singleton
 
 struct tw_event_queue *the_event_queue = &oneshell.event_queue;
+struct tw_event_producer *the_event_producer = &oneshell.event_producer;
 
 struct output_widgets {
 	struct desktop_shell *shell;
@@ -243,6 +249,8 @@ static struct wl_registry_listener registry_listener = {
 };
 
 
+
+
 //options.
 
 //1) make it static, adding all the inotify entry all at once before we can use
@@ -262,9 +270,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	shell->shell = NULL;
 	shell->quit = false;
 	egl_env_init(&shell->eglenv, display);
-	//now we can create the thread
-//	pthread_create(pthread_t *__restrict __newthread, const pthread_attr_t *__restrict __attr, void *(*__start_routine)(void *), void *__restrict __arg)
-	//the global is here
+	tw_event_producer_start(&shell->event_producer);
 }
 
 
@@ -283,6 +289,9 @@ desktop_shell_release(struct desktop_shell *shell)
 	egl_env_end(&shell->eglenv);
 	shell->quit = true;
 }
+
+
+
 
 
 int main(int argc, char **argv)
