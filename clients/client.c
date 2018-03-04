@@ -227,8 +227,9 @@ pointer_motion(void *data,
 	       wl_fixed_t surface_y)
 {
 	struct wl_globals *globals = (struct wl_globals *)data;
-	globals->inputs.cx = surface_x;
-	globals->inputs.cy = surface_y;
+	globals->inputs.cx = surface_x/256; //why I need to do that
+	globals->inputs.cy = surface_y/256; //why I need to do that
+//	fprintf(stderr, "the mostion is (%d, %d)\n", surface_x/256, surface_x/256);
 
 	globals->inputs.cursor_events |= POINTER_MOTION;
 }

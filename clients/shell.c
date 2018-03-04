@@ -12,12 +12,14 @@
 #include <sequential.h>
 #include "client.h"
 #include "shellui.h"
+#include "egl.h"
 
 //here we define the one queue, it is here
 
 struct desktop_shell {
 	struct wl_globals globals;
 	struct taiwins_shell *shell;
+	struct egl_env eglenv;
 	//right now we only have one output, but we still keep the info
 	list_t outputs;
 	//the event queue
@@ -39,15 +41,17 @@ struct output_widgets {
 };
 
 static void
-panel_search_icon(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy)
+panel_click_on_icon(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy)
 {
 	struct shell_panel *panel = container_of(surf, struct shell_panel, panelsurf);
+	fprintf(stderr, "clicked on button (%d, %d)\n", cx, cy);
 	for (int i = 0; i < panel->widgets.len; i++) {
-		struct eglapp_icon *icon = icon_from_eglapp(
-			(struct eglapp *)vector_at(&panel->widgets, i));
+		struct eglapp *app = (struct eglapp *)vector_at(&panel->widgets, i);
+		struct eglapp_icon *icon = icon_from_eglapp(app);
 		struct app_surface *appsurf = appsurface_from_icon(icon);
 		if (bbox_contain_point(&icon->box, cx, cy) && appsurf->pointrbtn) {
-			appsurf->pointrbtn(appsurf, btn, cx, cy);
+
+			eglapp_launch(app, &oneshell.eglenv, oneshell.globals.compositor);
 			break;
 		}
 	}
@@ -62,7 +66,7 @@ shell_panel_init(struct shell_panel *panel, struct output_widgets *w)
 	s->keycb = NULL;
 	s->pointron = NULL;
 	s->pointraxis = NULL;
-	s->pointrbtn = panel_search_icon;
+	s->pointrbtn = panel_click_on_icon;
 	wl_surface_set_user_data(s->wl_surface, s);
 	s->wl_output = w->output;
 	s->type = APP_PANEL;
@@ -250,6 +254,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	list_init(&shell->outputs);
 	shell->shell = NULL;
 	shell->quit = false;
+	egl_env_init(&shell->eglenv, display);
 	//now we can create the thread
 //	pthread_create(pthread_t *__restrict __newthread, const pthread_attr_t *__restrict __attr, void *(*__start_routine)(void *), void *__restrict __arg)
 	//the global is here
@@ -268,6 +273,7 @@ desktop_shell_release(struct desktop_shell *shell)
 	}
 	wl_globals_release(&shell->globals);
 	tw_event_queue_destroy(the_event_queue);
+	egl_env_end(&shell->eglenv);
 	shell->quit = true;
 }
 
