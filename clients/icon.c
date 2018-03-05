@@ -7,6 +7,8 @@
 int update_icon_event(void *data)
 {
 	struct eglapp *app = (struct eglapp *)data;
+	struct eglapp_icon *icon = icon_from_eglapp(app);
+	icon->update_icon(icon);
 	eglapp_update_icon(app);
 	return 0;
 };
@@ -34,11 +36,11 @@ calendar_icon(struct eglapp_icon *icon)
 	struct tm *tim = localtime(&epochs);
 	sprintf(formatedtime, "%s %2d:%2d:%2d",
 		daysoftheweek[tim->tm_wday], tim->tm_hour, tim->tm_min, tim->tm_sec);
+//	fprintf(stderr, "%s\n", formatedtime);
 	int w = min(avail_sp->w, strlen(formatedtime) * avail_sp->h / 2);
 	int h = avail_sp->h;
 	//TODO find a way to choose the right font size
-
-	if (!icon->isurf) {
+	if (icon->ctxt == NULL) {
 		icon->isurf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
 		icon->ctxt = cairo_create(icon->isurf);
 	}
@@ -50,8 +52,9 @@ calendar_icon(struct eglapp_icon *icon)
 			       CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 	cairo_set_font_size(icon->ctxt, 12);
 	cairo_text_extents(icon->ctxt, formatedtime, &extent);
-	fprintf(stderr, "the font rendered size (%f, %f) and (%d, %d)\n",
-		extent.width, extent.height, w, h);
+//	fprintf(stderr, "the font rendered size (%f, %f) and (%d, %d)\n",
+//		extent.width, extent.height, w, h);
 	cairo_move_to(icon->ctxt, w/2 - extent.width/2 , h/2 + extent.height/2 );
 	cairo_show_text(icon->ctxt, formatedtime);
+//	cairo_surface_write_to_png(icon->isurf, "/tmp/debug.png");
 }
