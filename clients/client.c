@@ -398,7 +398,6 @@ wl_globals_init(struct wl_globals *globals, struct wl_display *display)
 	*globals = (struct wl_globals){0};
 	globals->display = display;
 	globals->buffer_format = WL_SHM_FORMAT_XRGB2101010;
-	egl_env_init(&globals->eglenv, display);
 
 }
 
@@ -419,7 +418,6 @@ void wl_globals_release(struct wl_globals *globals)
 		globals->inputs.cursor_surface = NULL;
 		globals->inputs.focused_surface = NULL;
 	}
-	egl_env_end(&globals->eglenv);
 }
 
 
@@ -530,7 +528,7 @@ tw_event_producer_run(void *event_producer)
 	struct tw_event_producer *producer = (struct tw_event_producer *)event_producer;
 	while (!the_event_queue->quit) {
 //		fprintf(stderr, "call poll now with timeout %d\n", producer->timeout);
-		int poll_num = poll(&producer->pollfd, 1, producer->timeout);
+		int poll_num = poll(&producer->pollfd, 1, 1000);
 //		fprintf(stderr, "returned from poll\n");
 		if (poll_num > 0 && (producer->pollfd.events & POLLIN))
 			//okay, we gonna read the event

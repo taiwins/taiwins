@@ -383,6 +383,7 @@ eglapp_dispose(struct eglapp *app)
 void
 eglapp_update_icon(struct eglapp *app)
 {
+//	wl_surface_frame(struct wl_surface *wl_surface)
 	struct shell_panel *panel = app->panel;
 	void *buffer = shm_pool_buffer_access(panel->panelsurf.wl_buffer);
 	//you don't event know the size of it
@@ -392,13 +393,22 @@ eglapp_update_icon(struct eglapp *app)
 		(unsigned char *)buffer, format, panel->panelsurf.w, panel->panelsurf.h, stride);
 	cairo_t *context = cairo_create(psurface);
 //	cairo_move_to(context, app->app.px, app->app.py);
-
+	cairo_set_source_rgb(context, 1.0f, 1.0f, 1.0f);
+	cairo_move_to(context, app->icon.box.x, app->icon.box.y);
 	cairo_set_source_surface(context, app->icon.isurf, app->icon.box.x, app->icon.box.y);
 	cairo_paint(context);
 	fprintf(stderr, "the app coordinate is %d %d\n", app->icon.box.x, app->icon.box.y);
+	struct wl_callback *callback = wl_surface_frame(panel->panelsurf.wl_surface);
+	wl_callback_add_listener(callback, &app->panel->update_cb, app->panel);
+
+	wl_surface_attach(app->panel->panelsurf.wl_surface, app->panel->panelsurf.wl_buffer, 0, 0);
 	wl_surface_damage_buffer(app->panel->panelsurf.wl_surface, app->icon.box.x, app->icon.box.y,
 				 app->icon.box.w, app->icon.box.h);
+	//this will take effect on next callback done.
+	//whole process:  dispatch->attach->damage->commit->return->dispatch->frame
+	//you cannot gurantee the the drawing is done before frame
 	wl_surface_commit(app->panel->panelsurf.wl_surface);
+
 //	cairo_surface_write_to_png(psurface, "/tmp/debug.png");
 	cairo_destroy(context);
 	cairo_surface_destroy(psurface);

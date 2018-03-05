@@ -34,7 +34,7 @@ calendar_icon(struct eglapp_icon *icon)
 	cairo_text_extents_t extent;
 	time_t epochs = time(NULL);
 	struct tm *tim = localtime(&epochs);
-	sprintf(formatedtime, "%s %2d:%2d:%2d",
+	sprintf(formatedtime, "%s %02d:%02d:%02d",
 		daysoftheweek[tim->tm_wday], tim->tm_hour, tim->tm_min, tim->tm_sec);
 //	fprintf(stderr, "%s\n", formatedtime);
 	int w = min(avail_sp->w, strlen(formatedtime) * avail_sp->h / 2);
