@@ -491,7 +491,7 @@ tw_event_queue_dispatch(struct tw_event_queue *q)
 		queue_pop(&q->event_queue);
 		pthread_mutex_unlock(&q->mutex);
 
-		event.cb(&event);
+		event.cb(event.data);
 	}
 }
 
@@ -529,9 +529,9 @@ tw_event_producer_run(void *event_producer)
 	struct tw_event_source *es, *next;
 	struct tw_event_producer *producer = (struct tw_event_producer *)event_producer;
 	while (!the_event_queue->quit) {
-		fprintf(stderr, "call poll now with timeout %d\n", producer->timeout);
+//		fprintf(stderr, "call poll now with timeout %d\n", producer->timeout);
 		int poll_num = poll(&producer->pollfd, 1, producer->timeout);
-		fprintf(stderr, "returned from poll\n");
+//		fprintf(stderr, "returned from poll\n");
 		if (poll_num > 0 && (producer->pollfd.events & POLLIN))
 			//okay, we gonna read the event
 			produce_events(producer);

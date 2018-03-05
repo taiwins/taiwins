@@ -403,6 +403,8 @@ eglapp_update_icon(struct eglapp *app)
 //	cairo_surface_write_to_png(psurface, "/tmp/debug.png");
 	cairo_destroy(context);
 	cairo_surface_destroy(psurface);
+	cairo_destroy(app->icon.ctxt);
+	cairo_surface_destroy(app->icon.isurf);
 }
 
 #define NK_SHADER_VERSION "#version 330 core\n"
