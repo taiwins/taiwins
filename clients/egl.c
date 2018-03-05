@@ -399,12 +399,9 @@ eglapp_update_icon(struct eglapp *app)
 	wl_surface_damage_buffer(app->panel->panelsurf.wl_surface, app->icon.box.x, app->icon.box.y,
 				 app->icon.box.w, app->icon.box.h);
 	wl_surface_commit(app->panel->panelsurf.wl_surface);
-
 //	cairo_surface_write_to_png(psurface, "/tmp/debug.png");
 	cairo_destroy(context);
 	cairo_surface_destroy(psurface);
-	cairo_destroy(app->icon.ctxt);
-	cairo_surface_destroy(app->icon.isurf);
 }
 
 #define NK_SHADER_VERSION "#version 330 core\n"
