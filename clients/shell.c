@@ -185,12 +185,20 @@ shell_configure_surface(void *data,
 		if (output->panel.panelsurf.wl_buffer)
 			shm_pool_buffer_release(output->panel.panelsurf.wl_buffer);
 		output->panel.panelsurf.wl_buffer = new_buffer;
+
 		struct eglapp *app;
 		app = eglapp_addtolist(&output->panel);
 		eglapp_init_with_funcs(app, calendar_icon, NULL);
+		struct tw_event update_icon = {.data = app,
+					       .cb = update_icon_event,
+		};
+		tw_event_producer_add_source(the_event_producer, NULL, 1000, &update_icon, IN_MODIFY);
 		struct eglapp *another;
 		another = eglapp_addtolist(&output->panel);
 		eglapp_init_with_funcs(another, calendar_icon, NULL);
+		update_icon.data = another;
+		tw_event_producer_add_source(the_event_producer, NULL, 1000, &update_icon, IN_MODIFY);
+
 	}
 
 }

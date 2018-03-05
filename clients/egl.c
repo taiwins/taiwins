@@ -285,6 +285,7 @@ eglapp_init_with_funcs(struct eglapp *app,
 	app->available_place = icon->box;
 	app->width = 50;
 	app->width = 50;
+	//callbacks
 	app->icon.update_icon = update_icon;
 	app->draw_widget = draw_widget;
 	//TODO, temp code again, you need to remove this
@@ -364,8 +365,6 @@ eglapp_addtolist(struct shell_panel *panel)
 	newapp->panel = panel;
 	return newapp;
 }
-
-
 
 void
 eglapp_dispose(struct eglapp *app)
