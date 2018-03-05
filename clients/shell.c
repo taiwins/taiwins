@@ -46,6 +46,8 @@ struct output_widgets {
 	bool inited;
 };
 
+
+
 static void
 panel_click_on_icon(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy)
 {
@@ -65,6 +67,21 @@ panel_click_on_icon(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy
 }
 
 static void
+shell_panel_update(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
+{
+	fprintf(stderr, "we should have update here\n");
+	//the callback_data is time
+	struct shell_panel *panel = (struct shell_panel *)data;
+	/* wl_surface_attach(panel->panelsurf.wl_surface, panel->panelsurf.wl_buffer, 0, 0); */
+	/* wl_surface_damage_buffer(panel->panelsurf.wl_surface, */
+	/*			 panel->dirty_area.x, panel->dirty_area.y, */
+	/*			 panel->dirty_area.w, panel->dirty_area.h); */
+	/* wl_surface_commit(panel->panelsurf.wl_surface); */
+	//the callback is done, we need to distroy it
+	wl_callback_destroy(wl_callback);
+}
+
+static void
 shell_panel_init(struct shell_panel *panel, struct output_widgets *w)
 {
 	struct app_surface *s = &panel->panelsurf;
@@ -80,6 +97,7 @@ shell_panel_init(struct shell_panel *panel, struct output_widgets *w)
 	panel->widgets = (vector_t){0};
 	//TODO DO change this...
 	panel->format = WL_SHM_FORMAT_ARGB8888;
+	panel->update_cb.done = shell_panel_update;
 
 }
 
@@ -277,7 +295,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	list_init(&shell->outputs);
 	shell->shell = NULL;
 	shell->quit = false;
-	egl_env_init(&shell->eglenv, display);
+//	egl_env_init(&shell->eglenv, display);
 	tw_event_producer_start(&shell->event_producer);
 }
 
@@ -294,7 +312,7 @@ desktop_shell_release(struct desktop_shell *shell)
 	}
 	wl_globals_release(&shell->globals);
 	tw_event_queue_destroy(the_event_queue);
-	egl_env_end(&shell->eglenv);
+//	egl_env_end(&shell->eglenv);
 	shell->quit = true;
 }
 

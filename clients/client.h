@@ -86,7 +86,6 @@ struct wl_globals {
 	enum wl_shm_format buffer_format;
 	struct wl_compositor *compositor;
 	struct wl_display *display;
-	struct egl_env eglenv;
 	struct wl_inputs {
 		struct wl_seat *wl_seat;
 		struct wl_keyboard *wl_keyboard;

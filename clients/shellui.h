@@ -13,6 +13,7 @@ struct shell_panel {
 	enum wl_shm_format format;
 	//in this case, you will also have a list of widgets
 	vector_t widgets;
+	struct wl_callback_listener update_cb;
 };
 
 struct eglapp_icon {
