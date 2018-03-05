@@ -26,6 +26,11 @@ struct eglapp_icon {
 //	void (*pointrbtn)(struct app_surface *surf);
 	struct bbox box; //the location of the icon in the panel
 };
+
+//the function work with
+int update_icon_event(void *data);
+
+
 struct egl_env;
 struct eglapp;
 //because you don't want to expose it, so we will have to create a lot help functions
@@ -36,7 +41,7 @@ struct bbox *icon_get_available_space(struct eglapp_icon *app);
 struct eglapp_icon *icon_from_eglapp(struct eglapp *app);
 struct app_surface *appsurface_from_app(struct eglapp *app);
 
-
+//later on you will need to use these function to build apps
 void eglapp_init_with_funcs(struct eglapp *app,
 			    void (*update_icon)(struct eglapp_icon *),
 			    void (*draw_widget)(struct eglapp *));

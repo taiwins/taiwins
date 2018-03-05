@@ -4,6 +4,14 @@
 #include "shellui.h"
 #include "client.h"
 
+int update_icon_event(void *data)
+{
+	struct eglapp *app = (struct eglapp *)data;
+	eglapp_update_icon(app);
+	return 0;
+};
+
+
 const cairo_surface_t *
 icon_from_svg(struct eglapp_icon *icon, const char *file)
 {
@@ -24,8 +32,8 @@ calendar_icon(struct eglapp_icon *icon)
 	cairo_text_extents_t extent;
 	time_t epochs = time(NULL);
 	struct tm *tim = localtime(&epochs);
-	sprintf(formatedtime, "%s %2d:%2d",
-		daysoftheweek[tim->tm_wday], tim->tm_hour, tim->tm_min);
+	sprintf(formatedtime, "%s %2d:%2d:%2d",
+		daysoftheweek[tim->tm_wday], tim->tm_hour, tim->tm_min, tim->tm_sec);
 	int w = min(avail_sp->w, strlen(formatedtime) * avail_sp->h / 2);
 	int h = avail_sp->h;
 	//TODO find a way to choose the right font size

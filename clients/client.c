@@ -495,41 +495,55 @@ tw_event_queue_dispatch(struct tw_event_queue *q)
 	}
 }
 
-
+static int
+produce_events(struct tw_event_producer *producer)
+{
+	char *ptr;
+	size_t len;
+	char buff[4096];
+	struct tw_event_source *es, *next;
+	const struct inotify_event *event;
+	//I think I can read as much I want
+	len = read(producer->inotify_fd, buff, sizeof(buff));
+	if (len <= 0)
+		return -1;
+	for (ptr = buff; ptr < buff+len;
+	     ptr += sizeof(struct inotify_event) + event->len) {
+		event = (const struct inotify_event *)ptr;
+		list_for_each_safe(es, next, &producer->head, node) {
+			if (es->wd == event->wd) {
+				//the_event_queue is a global
+				tw_event_queue_append_event(the_event_queue,
+							    es->event.data, es->event.cb);
+				break;
+			}
+		}
+	}
+	return 0;
+}
 
 //the thread function
 void *
 tw_event_producer_run(void *event_producer)
 {
 	struct tw_event_source *es, *next;
-	char buff[4096];
 	struct tw_event_producer *producer = (struct tw_event_producer *)event_producer;
 	while (!the_event_queue->quit) {
-		int poll_num = poll(&producer->pollfd, 1, -1);
-		char *ptr;
-		ssize_t len;
-		const struct inotify_event *event;
-		if (poll_num > 0 && (producer->pollfd.events & POLLIN)) {
+		fprintf(stderr, "call poll now with timeout %d\n", producer->timeout);
+		int poll_num = poll(&producer->pollfd, 1, producer->timeout);
+		fprintf(stderr, "returned from poll\n");
+		if (poll_num > 0 && (producer->pollfd.events & POLLIN))
 			//okay, we gonna read the event
-			len = read(producer->inotify_fd, buff, sizeof(buff));
-			if (len <= 0)
-				continue;
-			for (ptr = buff; ptr < buff+len;
-			     ptr += sizeof(struct inotify_event) + event->len) {
-				//finally, we can process the event, which is
-				//just adding to another shit
-				event = (const struct inotify_event *)ptr;
-				list_for_each_safe(es, next, &producer->head, node) {
-					if (es->wd == event->wd) {
-						tw_event_queue_append_event(the_event_queue,
-									    es->event.data, es->event.cb);
-						break;
-					}
-				}
+			produce_events(producer);
+		else if (poll_num == 0) { //timeout events
+			list_for_each_safe(es, next, &producer->head, node) {
+				if (es->wd == -1 && es->progress + producer->timeout >= es->duration) {
+					tw_event_queue_append_event(the_event_queue,
+								    es->event.data, es->event.cb);
+					es->progress += producer->timeout - es->duration;
+				} else
+					es->progress += producer->timeout;
 			}
-
-		} else {
-			//it maybe a timeout, we can call the time out event
 		}
 	}
 	//now it does the clean up, so we dont need a destructor
@@ -549,8 +563,7 @@ tw_event_producer_start(struct tw_event_producer *producer)
 	producer->inotify_fd = fd;
 	producer->pollfd.fd = fd;
 	producer->pollfd.events = POLLIN;
-	//we need to also create something for the poll
-	//at the end, we shall call the pthread_create
+	producer->timeout = 60000; //initially set to one minute
 	pthread_create(&producer->thread, NULL, tw_event_producer_run, producer);
 
 	return true;
@@ -561,14 +574,21 @@ bool
 tw_event_producer_add_source(struct tw_event_producer *producer, const char *file, long timeout,
 			  struct tw_event *event, uint32_t mask)
 {
-	int fd = inotify_add_watch(producer->inotify_fd, file, mask);
-	if (fd == -1)
-		return false;
+	int fd;
+	if (file) {
+		fd = inotify_add_watch(producer->inotify_fd, file, mask);
+		if (fd == -1)
+			return false;
+		timeout = producer->timeout + 1;
+	} else
+		fd = -1;
 	struct tw_event_source *event_source =
 		(struct tw_event_source *)malloc(sizeof(struct tw_event_source));
 	producer->timeout = min(producer->timeout, timeout);
 	event_source->event = *event;
 	event_source->wd = fd;
+	event_source->duration = timeout;
+	event_source->progress = 0;
 	list_append(&producer->head, &event_source->node);
 	return true;
 }
