@@ -47,6 +47,13 @@ find_package(Lua REQUIRED)
 find_package(LibRSVG REQUIRED)
 set(CMAKE_THREAD_PREFER_PTHREAD)
 find_package(Threads REQUIRED)
+find_package(NVEGL)
+
+if(NVEGL_FOUND)
+  message("we are building with nvidia support")
+  add_definitions(-D_WITH_NVIDIA)
+endif(NVEGL_FOUND)
+
 
 
 #####################################################################
@@ -86,6 +93,7 @@ set(CLIENT_INCLUDE_DIRS
   ${WAYLAND_EGL_INCLUDE_DIR}
   ${LUA_INCLUDE_DIR}
   ${LibRSVG_INCLUDE_DIRS}
+  ${NVEGL_INCLUDE_DIRS}
   )
 list(REMOVE_DUPLICATES CLIENT_INCLUDE_DIRS)
 
@@ -98,10 +106,10 @@ set(CLIENT_LIBRARIES
   OpenGL::OpenGL
   ${LUA_LIBRARIES}
   ${LibRSVG_LIBRARIES}
+#  ${NVEGL_LIBRARIES}
   Threads::Threads
   )
 list(REMOVE_DUPLICATES CLIENT_LIBRARIES)
-
 
 include_directories(${COMPOSITOR_INCLUDE_DIRS})
 include_directories(${TRDPTY_INCLUDE_DIRS})
