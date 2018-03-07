@@ -1,10 +1,18 @@
 #include <time.h>
 #include <assert.h>
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
+
+#ifdef _WITH_NVIDIA
+#include <eglexternalplatform.h>
+#endif
+
 #ifndef GL_GLEXT_PROTOTYPES
 #define GL_GLEXT_PROTOTYPES
 #endif
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#include <dlfcn.h>
+
+
 #include <GL/gl.h>
 #include <GL/glext.h>
 #include <wayland-egl.h>
@@ -68,6 +76,14 @@ debug_egl_config_attribs(EGLDisplay dsp, EGLConfig cfg)
 		yes ? "" : "not");
 }
 
+#ifdef _WITH_NVIDIA
+//we need this entry to load the platform library
+extern EGLBoolean loadEGLExternalPlatform(int major, int minor,
+					  const EGLExtDriver *driver,
+					  EGLExtPlatform *platform);
+#endif
+
+
 bool
 egl_env_init(struct egl_env *env, struct wl_display *d)
 {
@@ -80,7 +96,31 @@ egl_env_init(struct egl_env *env, struct wl_display *d)
 	EGLint n;
 	EGLConfig egl_cfg;
 	EGLint *context_attribute = NULL;
+
+#ifdef __WITH_NVIDIA
+
+	struct EGLExtPlatform platform;
+	struct EGLExtDriver nv_dirver;
+	nv_dirver.getProcAddress = (PEGLEXTFNGETPROCADDRESS)eglGetProcAddress("getProcAddress");
+	nv_dirver.setError = (PEGLEXTFNSETERROR)eglGetProcAddress("setError");
+	nv_dirver.debugMessage = (PEGLEXTFNDEBUGMESSAGE)eglGetProcAddress("debugMessage");
+	nv_dirver.streamSwapInterval = (PEGLEXTFNSTREAMSWAPINTERVAL)eglGetProcAddress("streamSwapInterval");
+	platform.platform = EGL_EXT_platform_wayland;
+
+	EGLBoolean result = loadEGLExternalPlatform(1, 4, &nv_dirver, &platform);
+	if (!result) {
+		fprintf(stderr, "the platform data is %p\n", platform.data);
+	}
+	PFNEGLGETPLATFORMDISPLAYEXTPROC eglGetPlatformDisplayEXT =
+		(PFNEGLGETPLATFORMDISPLAYEXTPROC)
+		eglGetProcAddress("eglGetPlatformDisplayEXT");
+	env->egl_display = eglGetPlatformDisplay(EGL_PLATFORM_WAYLAND_EXT,
+						 (EGLNativeDisplayType)env->wl_display, 0);
+#else
 	env->egl_display = eglGetDisplay((EGLNativeDisplayType)env->wl_display);
+#endif
+	const char *egl_extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
+	fprintf(stderr, "egl_extensions%s\n", egl_extensions);
 	assert(env->egl_display);
 	assert(eglInitialize(env->egl_display, &major, &minor) == EGL_TRUE);
 	eglGetConfigs(env->egl_display, NULL, 0, &n);
@@ -383,7 +423,6 @@ eglapp_dispose(struct eglapp *app)
 void
 eglapp_update_icon(struct eglapp *app)
 {
-//	wl_surface_frame(struct wl_surface *wl_surface)
 	struct shell_panel *panel = app->panel;
 	void *buffer = shm_pool_buffer_access(panel->panelsurf.wl_buffer);
 	//you don't event know the size of it
