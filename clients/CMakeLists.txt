@@ -14,11 +14,13 @@ add_executable(shell-taiwins
   egl.c
   icon.c
   )
+#message("the NVEGL libraries are ${NVEGL_LIBRARIES}")
 
 target_link_libraries(shell-taiwins
   ${CLIENT_LIBRARIES}
   ${TRDPTY_LIBRARIES}
   ${WAYLAND_CURSOR_LIBRARIES}
+  ${NVEGL_LIBRARIES}
   m
   proto_client_libraries
   )
