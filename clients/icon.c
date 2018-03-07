@@ -45,7 +45,7 @@ calendar_icon(struct eglapp_icon *icon)
 		icon->ctxt = cairo_create(icon->isurf);
 	}
 	//clean the source
-	cairo_set_source_rgba(icon->ctxt, 1.0, 1.0f, 1.0f, 0.0f);
+	cairo_set_source_rgba(icon->ctxt, 1.0, 1.0f, 1.0f, 1.0f);
 	cairo_paint(icon->ctxt);
 	cairo_set_source_rgba(icon->ctxt, 0, 0, 0, 1.0);
 	cairo_select_font_face(icon->ctxt, "sans",
