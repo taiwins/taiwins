@@ -58,6 +58,7 @@ struct app_surface {
 	unsigned int w, h; //size
 
 	enum APP_SURFACE_TYPE type;
+	struct shm_pool *pool;
 	struct wl_output *wl_output;
 	struct wl_surface *wl_surface;
 	struct wl_buffer  *wl_buffer;

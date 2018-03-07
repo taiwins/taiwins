@@ -52,9 +52,22 @@ shm_pool_resize(struct shm_pool *pool, off_t newsize)
 	return newsize;
 }
 
+//this is totally awesome
+static void
+app_buffer_release(void *data, struct wl_buffer *buffer)
+{
+	shm_pool_buffer_release(buffer);
+	fprintf(stderr, "the buffer %p is released\n", buffer);
+}
+
+static struct wl_buffer_listener buffer_listener = {
+	.release = app_buffer_release
+};
+
 struct wl_buffer *
 shm_pool_alloc_buffer(struct shm_pool *pool, size_t width, size_t height)
 {
+	fprintf(stderr, "allocated buffer at %d, %d\n", width, height);
 	size_t size = width * height * 4;
 	//firstly, search if we have a free one
 	{
@@ -84,7 +97,8 @@ shm_pool_alloc_buffer(struct shm_pool *pool, size_t width, size_t height)
 	node_buffer->height = height;
 	node_buffer->inuse = true;
 	list_append(&pool->wl_buffers, &node_buffer->link);
-	wl_buffer_set_user_data(wl_buffer, node_buffer);
+	wl_buffer_add_listener(wl_buffer, &buffer_listener, node_buffer);
+
 	return wl_buffer;
 }
 
