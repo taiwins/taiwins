@@ -295,7 +295,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	list_init(&shell->outputs);
 	shell->shell = NULL;
 	shell->quit = false;
-//	egl_env_init(&shell->eglenv, display);
+	egl_env_init(&shell->eglenv, display);
 	tw_event_producer_start(&shell->event_producer);
 }
 
@@ -312,7 +312,7 @@ desktop_shell_release(struct desktop_shell *shell)
 	}
 	wl_globals_release(&shell->globals);
 	tw_event_queue_destroy(the_event_queue);
-//	egl_env_end(&shell->eglenv);
+	egl_env_end(&shell->eglenv);
 	shell->quit = true;
 }
 
