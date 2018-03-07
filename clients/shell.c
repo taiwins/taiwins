@@ -69,7 +69,7 @@ panel_click_on_icon(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy
 static void
 shell_panel_update(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
 {
-	fprintf(stderr, "we should have update here\n");
+//	fprintf(stderr, "we should have update here\n");
 	//the callback_data is time
 	struct shell_panel *panel = (struct shell_panel *)data;
 	/* wl_surface_attach(panel->panelsurf.wl_surface, panel->panelsurf.wl_buffer, 0, 0); */
@@ -160,6 +160,7 @@ shell_configure_surface(void *data,
 	struct output_widgets *output;
 	//damn it, we need a hack
 	struct app_surface *appsurf = (struct app_surface *)wl_surface_get_user_data(surface);
+
 	if (appsurf->type == APP_BACKGROUND)
 		output = container_of(appsurf, struct output_widgets, background);
 	else if (appsurf->type == APP_PANEL)
@@ -167,6 +168,7 @@ shell_configure_surface(void *data,
 
 	int32_t w = scale *(width - edges);
 	int32_t h = scale *(height - edges);
+	appsurf->pool = &output->pool;
 
 	void *buffer_addr = NULL;
 	struct wl_buffer *new_buffer = shm_pool_alloc_buffer(&output->pool, w, h);
@@ -188,8 +190,8 @@ shell_configure_surface(void *data,
 		wl_surface_damage(output->background.wl_surface, 0, 0, w, h);
 		wl_surface_commit(output->background.wl_surface);
 		//TODO maybe using the double buffer?
-		if (output->background.wl_buffer)
-			shm_pool_buffer_release(output->background.wl_buffer);
+//		if (output->background.wl_buffer)
+//			shm_pool_buffer_release(output->background.wl_buffer);
 		output->background.wl_buffer = new_buffer;
 
 	} else if (appsurf->type == APP_PANEL) {
