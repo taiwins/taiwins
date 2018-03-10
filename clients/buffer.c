@@ -11,6 +11,10 @@ struct wl_buffer_node {
 	bool inuse;
 	int width;
 	int height;
+	void *userdata;
+	void (*release)(void *, struct wl_buffer *);
+
+
 };
 
 
@@ -54,20 +58,32 @@ shm_pool_resize(struct shm_pool *pool, off_t newsize)
 
 //this is totally awesome
 static void
-app_buffer_release(void *data, struct wl_buffer *buffer)
+shm_buffer_release(void *data, struct wl_buffer *buffer)
 {
+	struct wl_buffer_node *node = (struct wl_buffer_node *)data;
 	shm_pool_buffer_release(buffer);
-	fprintf(stderr, "the buffer %p is released\n", buffer);
+	if (node->userdata &&  node->release)
+		node->release(node->userdata, buffer);
 }
 
 static struct wl_buffer_listener buffer_listener = {
-	.release = app_buffer_release
+	.release = shm_buffer_release
 };
+
+void
+shm_pool_buffer_assign_release(struct wl_buffer *wl_buffer,
+			       void (*cb)(void *, struct wl_buffer *),
+			       void *data)
+{
+	struct wl_buffer_node *node = wl_buffer_get_user_data(wl_buffer);
+	node->userdata = data;
+	node->release = cb;
+}
 
 struct wl_buffer *
 shm_pool_alloc_buffer(struct shm_pool *pool, size_t width, size_t height)
 {
-	fprintf(stderr, "allocated buffer at %d, %d\n", width, height);
+//	fprintf(stderr, "allocated buffer at %d, %d\n", width, height);
 	size_t size = width * height * 4;
 	//firstly, search if we have a free one
 	{
