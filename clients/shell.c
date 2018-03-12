@@ -6,6 +6,7 @@
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
+#include <cairo/cairo.h>
 
 #include <sys/inotify.h>
 #include <poll.h>
@@ -27,13 +28,19 @@ struct desktop_shell {
 	//right now we only have one output, but we still keep the info
 	list_t outputs;
 	//the event queue
-	struct tw_event_queue event_queue;
-	struct tw_event_producer event_producer;
+	struct tw_event_queue client_event_queue;
 	bool quit;
 } oneshell; //singleton
 
-struct tw_event_queue *the_event_queue = &oneshell.event_queue;
-struct tw_event_producer *the_event_producer = &oneshell.event_producer;
+struct tw_event_queue *the_event_processor = &oneshell.client_event_queue;
+
+//they have a list of the widget on the panel
+struct shell_panel {
+	struct app_surface panelsurf;
+	enum wl_shm_format format;
+	//in this case, you will also have a list of widgets
+	vector_t widgets;
+};
 
 struct output_widgets {
 	struct desktop_shell *shell;
@@ -46,10 +53,8 @@ struct output_widgets {
 	bool inited;
 };
 
-
-
 static void
-panel_click_on_icon(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy)
+shell_panel_click(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy)
 {
 	struct shell_panel *panel = container_of(surf, struct shell_panel, panelsurf);
 	fprintf(stderr, "clicked on button (%d, %d)\n", cx, cy);
@@ -67,18 +72,36 @@ panel_click_on_icon(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy
 }
 
 static void
-shell_panel_update(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
+shell_panel_paintbbox(struct app_surface *surf, const struct bbox *bbox, const void *data, enum wl_shm_format f)
 {
-//	fprintf(stderr, "we should have update here\n");
-	//the callback_data is time
-	struct shell_panel *panel = (struct shell_panel *)data;
-	/* wl_surface_attach(panel->panelsurf.wl_surface, panel->panelsurf.wl_buffer, 0, 0); */
-	/* wl_surface_damage_buffer(panel->panelsurf.wl_surface, */
-	/*			 panel->dirty_area.x, panel->dirty_area.y, */
-	/*			 panel->dirty_area.w, panel->dirty_area.h); */
-	/* wl_surface_commit(panel->panelsurf.wl_surface); */
-	//the callback is done, we need to distroy it
-	wl_callback_destroy(wl_callback);
+	//not free to paint
+	if (surf->committed[1])
+		return;
+	//create cairo resources
+	struct shell_panel *panel = container_of(surf, struct shell_panel, panelsurf);
+	cairo_format_t format = translate_wl_shm_format(panel->format);
+	cairo_surface_t *panelsurf = cairo_image_surface_create_for_data(
+		(unsigned char *)shm_pool_buffer_access(surf->wl_buffer[1]),
+		format, surf->w, surf->h,
+		cairo_format_stride_for_width(format, surf->w));
+	cairo_t *context = cairo_create(panelsurf);
+
+	cairo_format_t subformat = translate_wl_shm_format(f);
+	cairo_surface_t *subsurf = cairo_image_surface_create_for_data(
+		(unsigned char *)data,
+		subformat, bbox->w, bbox->h,
+		cairo_format_stride_for_width(subformat, bbox->w));
+	//paint
+	cairo_rectangle(context, bbox->x, bbox->y, bbox->w, bbox->h);
+	cairo_set_source_rgba(context, 1.0f, 1.0f, 1.0f, 1.0f);
+	cairo_paint(context);
+	cairo_set_source_surface(context, subsurf, bbox->x, bbox->y);
+	cairo_paint(context);
+	surf->dirty[1] = true;
+	//destroy cairo handles
+	cairo_destroy(context);
+	cairo_surface_destroy(subsurf);
+	cairo_surface_destroy(panelsurf);
 }
 
 static void
@@ -87,18 +110,24 @@ shell_panel_init(struct shell_panel *panel, struct output_widgets *w)
 	struct app_surface *s = &panel->panelsurf;
 	panel->panelsurf = (struct app_surface){0};
 	s->wl_surface = wl_compositor_create_surface(w->shell->globals.compositor);
+	//cbs
 	s->keycb = NULL;
 	s->pointron = NULL;
 	s->pointraxis = NULL;
-	s->pointrbtn = panel_click_on_icon;
+	s->pointrbtn = shell_panel_click;
+	s->paint_subsurface = shell_panel_paintbbox;
+
 	wl_surface_set_user_data(s->wl_surface, s);
 	s->wl_output = w->output;
 	s->type = APP_PANEL;
 	panel->widgets = (vector_t){0};
 	//TODO DO change this...
 	panel->format = WL_SHM_FORMAT_ARGB8888;
-	panel->update_cb.done = shell_panel_update;
-
+	//setup state
+	s->dirty[0] = false;
+	s->dirty[1] = false;
+	s->committed[0] = false;
+	s->committed[1] = false;
 }
 
 static void
@@ -107,9 +136,12 @@ shell_background_init(struct app_surface *background, struct output_widgets *w)
 	w->background = (struct app_surface){0};
 	background->wl_surface = wl_compositor_create_surface(w->shell->globals.compositor);
 	background->wl_output = w->output;
-//	background->keycb = NULL;
 	wl_surface_set_user_data(background->wl_surface, background);
 	background->type = APP_BACKGROUND;
+	background->dirty[0] = false;
+	background->dirty[1] = false;
+	background->committed[0] = false;
+	background->committed[1] = false;
 }
 
 static void
@@ -192,32 +224,35 @@ shell_configure_surface(void *data,
 		//TODO maybe using the double buffer?
 //		if (output->background.wl_buffer)
 //			shm_pool_buffer_release(output->background.wl_buffer);
-		output->background.wl_buffer = new_buffer;
+		output->background.wl_buffer[0] = new_buffer;
 
 	} else if (appsurf->type == APP_PANEL) {
-//		struct shell_panel *panel = container_of(appsurf, struct shell_panel, panelsurf);
-
-		printf("panel surface buffer %p, wl_buffer: %p\n", buffer_addr, new_buffer);
+		fprintf(stderr, "we should setup the data like %d\n", w*h*4);
+		//double buffer, set the data then release the second buffer for widgets
+		struct wl_buffer *b1 = shm_pool_alloc_buffer(&output->pool, w, h);
+		//buffer initialize
+		void *b1d = shm_pool_buffer_access(b1);
+		appsurf->wl_buffer[0] = new_buffer;
+		appsurf->wl_buffer[1] = b1;
+		//a total hack
+		appsurf->dirty[1] = true;
 		memset(buffer_addr, 255, w*h*4);
-		wl_surface_attach(output->panel.panelsurf.wl_surface, new_buffer, 0, 0);
-		wl_surface_damage(output->panel.panelsurf.wl_surface, 0, 0, w, h);
-		wl_surface_commit(output->panel.panelsurf.wl_surface);
-		if (output->panel.panelsurf.wl_buffer)
-			shm_pool_buffer_release(output->panel.panelsurf.wl_buffer);
-		output->panel.panelsurf.wl_buffer = new_buffer;
+		memset(b1d, 255, w*h*4);
+		shm_pool_buffer_set_release(appsurf->wl_buffer[1], appsurface_buffer_release, appsurf);
+		shm_pool_buffer_set_release(appsurf->wl_buffer[0], appsurface_buffer_release, appsurf);
+		appsurface_fadc(appsurf);
 
-		struct eglapp *app;
-		app = eglapp_addtolist(&output->panel);
+		struct eglapp *app = eglapp_addtolist(&output->panel.panelsurf, &output->panel.widgets);
 		eglapp_init_with_funcs(app, calendar_icon, NULL);
 		struct tw_event update_icon = {.data = app,
 					       .cb = update_icon_event,
 		};
-		tw_event_producer_add_source(the_event_producer, NULL, 1000, &update_icon, IN_MODIFY);
-		struct eglapp *another;
-		another = eglapp_addtolist(&output->panel);
-		eglapp_init_with_funcs(another, calendar_icon, NULL);
-		update_icon.data = another;
-		tw_event_producer_add_source(the_event_producer, NULL, 1000, &update_icon, IN_MODIFY);
+		tw_event_queue_add_source(the_event_processor, NULL, 1000, &update_icon, IN_MODIFY);
+		/* struct eglapp *another; */
+		/* another = eglapp_addtolist(&output->panel); */
+		/* eglapp_init_with_funcs(another, calendar_icon, NULL); */
+		/* update_icon.data = another; */
+		/* tw_event_producer_add_source(the_event_producer, NULL, 1000, &update_icon, IN_MODIFY); */
 
 	}
 
@@ -292,13 +327,12 @@ static struct wl_registry_listener registry_listener = {
 static void
 desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 {
-	tw_event_queue_init(the_event_queue);
 	wl_globals_init(&shell->globals, display);
 	list_init(&shell->outputs);
 	shell->shell = NULL;
 	shell->quit = false;
 	egl_env_init(&shell->eglenv, display);
-	tw_event_producer_start(&shell->event_producer);
+	tw_event_queue_start(&shell->client_event_queue);
 }
 
 
@@ -313,11 +347,10 @@ desktop_shell_release(struct desktop_shell *shell)
 		output_distroy(w);
 	}
 	wl_globals_release(&shell->globals);
-	tw_event_queue_destroy(the_event_queue);
 	egl_env_end(&shell->eglenv);
 	shell->quit = true;
+	shell->client_event_queue.quit = true;
 }
-
 
 
 
@@ -343,11 +376,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	//also, you need to create some kind of event_queue for the shell, and
-	//launch a thread to read this event queue, a event should have a
-	//listener, call the listener
-	while(wl_display_dispatch(display) != -1)
-		tw_event_queue_dispatch(the_event_queue);
+	while(wl_display_dispatch(display) != -1);
 	desktop_shell_release(&oneshell);
 	wl_registry_destroy(registry);
 	wl_display_disconnect(display);

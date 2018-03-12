@@ -32,50 +32,28 @@
 extern "C" {
 #endif
 
+//this is accessible API
 struct tw_event {
 	void *data;
 	int (*cb)(void *);
 };
 
-struct tw_event_source {
-	int wd;
-	struct tw_event event;
-	list_t node;
-	//for time-based event
-	long duration;
-	long progress;
-};
-
-
-//consumer
+//client side event processor
 struct tw_event_queue {
-	queue_t event_queue;
-	pthread_mutex_t mutex;
-	//quiting the consumer cause the producer to quit as well
-	bool quit;
-
-};
-//producer
-struct tw_event_producer {
 	pthread_t thread;
 	long timeout;
 	int inotify_fd;
 	struct pollfd pollfd;
 	list_t head;
+	bool quit;
 };
 
-extern struct tw_event_queue *the_event_queue;
-void tw_event_queue_init(struct tw_event_queue *q);
-void tw_event_queue_destroy(struct tw_event_queue *q);
-void tw_event_queue_append_event(struct tw_event_queue *q, void *data, int (*cb)(void *));
-void tw_event_queue_dispatch(struct tw_event_queue *q);
-
-extern struct tw_event_producer *the_event_producer;
-void *tw_event_producer_run(void *event_producer);
-bool tw_event_producer_start(struct tw_event_producer *producer);
+extern struct tw_event_queue *the_event_processor;
+void *tw_event_queue_run(void *event_queue);
+bool tw_event_queue_start(struct tw_event_queue *queue);
 /** add an file based event if file is provided, or time based event if timeout is provided
  */
-bool tw_event_producer_add_source(struct tw_event_producer *producer, const char *file, long timeout,
+bool tw_event_queue_add_source(struct tw_event_queue *queue, const char *file, long timeout,
 			       struct tw_event *event, uint32_t mask);
 
 /**
@@ -151,12 +129,10 @@ struct wl_buffer *shm_pool_alloc_buffer(struct shm_pool *pool, size_t width, siz
  */
 void shm_pool_buffer_release(struct wl_buffer *wl_buffer);
 
-/** access or activate the buffer, if the buffer is previously released, we will
- * activate it again
- *
- * use this to avoid shm_pool_alloc_buffer process if you wish to manage the
- * buffers yourself
- */
+void shm_pool_buffer_set_release(struct wl_buffer *wl_buffer,
+				    void (*cb)(void *, struct wl_buffer *),
+				    void *data);
+
 void *shm_pool_buffer_access(struct wl_buffer *wl_buffer);
 
 size_t shm_pool_buffer_size(struct wl_buffer *wl_buffer);

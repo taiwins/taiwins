@@ -13,14 +13,14 @@ is dying, the shell need to know. When one minute passes, shell need to update
 the panel.
 
 
-#### client-side-event-processor
+### client-side-event-processor
 This dude does two things, `poll` on the `inotify` file, and then timeout and
 execute it(the execute I mean create a event for the main thread). The previous
 design was to have a queue and let the main process to clean out the queue. But
 we are stuck in the main process if there is nothing to dispatch. So it was
 kinda awkward.
 
-#### app-surface
+### app-surface
 This struct was designed for all the wayland client which requires a
 `wl_surface`. It is double-buffered, has simple input handlers. Now it also has
 children, the children occupies part of its surface. This is not a very obvious
@@ -33,3 +33,10 @@ Actually this is necessary in a general the UI designs, when we are in parent UI
 and want to access one of the children UI, we need an access point, like a
 button, and this buffer can inhabit inside its parent or itself, since we
 chooses the later, we need to let the parent know how to access it.
+
+#### double-buffering
+`app-surface` is double buffered, so it should have double commit
+states. Because it is damagable, it should also be marked dirty when necessary.
+Okay, it doesn't even have a backspace key, it is killing me dude. So at home,
+you can you this keyboard, it feel differently when you type, yes that is what
+they said, it is really like the rubbel dump keyboard.

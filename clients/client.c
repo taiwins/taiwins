@@ -389,6 +389,71 @@ static struct wl_seat_listener seat_listener = {
 };
 
 
+static void
+app_surface_done(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
+{
+	wl_callback_destroy(wl_callback);
+}
+
+
+static struct wl_callback_listener app_surface_done_listener = {
+	.done = app_surface_done
+};
+
+void
+appsurface_swap_dbuffer(struct app_surface *surf)
+{
+	struct wl_buffer *tmp = surf->wl_buffer[0];
+	bool tmpcommit  = surf->committed[0];
+	bool tmpdirty = surf->dirty[0];
+
+	surf->wl_buffer[0] = surf->wl_buffer[1];
+	surf->committed[0] = surf->committed[1];
+	surf->dirty[0] = surf->dirty[1];
+
+	surf->wl_buffer[1] = tmp;
+	surf->committed[1] = tmpcommit;
+	surf->dirty[1] = tmpdirty;
+}
+
+//it must have at least one buffer libre.
+void
+appsurface_fadc(struct app_surface *surf)
+{
+	//if b2 is not free, we shouldn't do anything.
+	if(surf->committed[1] && !surf->dirty[1])
+		return;
+	wl_surface_attach(surf->wl_surface, surf->wl_buffer[1], 0, 0);
+	wl_surface_damage(surf->wl_surface, surf->px, surf->py, surf->w, surf->h);
+	wl_surface_commit(surf->wl_surface);
+	surf->committed[1] = true;
+	//this way we should guarentee that all the committed surface is clean now.
+	surf->dirty[1] = false;
+	struct wl_callback *callback = wl_surface_frame(surf->wl_surface);
+	wl_callback_add_listener(callback, &app_surface_done_listener, surf);
+	//if b1 is not free, then we have no change issues.
+	if (!surf->committed[0])
+		appsurface_swap_dbuffer(surf);
+}
+
+void appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer)
+{
+//	fprintf(stderr, "buffer %p  released.\n", wl_buffer);
+	struct app_surface *appsurf = (struct app_surface *)data;
+
+	if (wl_buffer == appsurf->wl_buffer[0] && appsurf->committed[1]) {
+		appsurf->committed[0] = false;
+		appsurface_swap_dbuffer(appsurf);
+	} else if (wl_buffer == appsurf->wl_buffer[1]) {
+		appsurf->committed[1] = false;
+	}
+	//other cases:
+	//0) b1 free and b2 free. You don't need to do anything
+	//1) b2 free and b1 not. nothing to do
+	//2) b2 free and b1 free. nothing to do
+}
+
+
 //wl_globals functions
 
 void
@@ -445,56 +510,66 @@ int wl_globals_announce(struct wl_globals *globals,
 
 
 
-void
-tw_event_queue_init(struct tw_event_queue *q)
-{
-	queue_init(&q->event_queue, sizeof(struct tw_event), NULL);
-	pthread_mutex_init(&q->mutex, NULL);
-	q->quit = false;
-}
-void
-tw_event_queue_destroy(struct tw_event_queue *q)
-{
-	q->quit = true;
-	queue_destroy(&q->event_queue);
-}
+/* void */
+/* tw_event_queue_init(struct tw_event_queue *q) */
+/* { */
+/*	queue_init(&q->event_queue, sizeof(struct tw_event), NULL); */
+/*	pthread_mutex_init(&q->mutex, NULL); */
+/*	q->quit = false; */
+/* } */
+/* void */
+/* tw_event_queue_destroy(struct tw_event_queue *q) */
+/* { */
+/*	q->quit = true; */
+/*	queue_destroy(&q->event_queue); */
+/* } */
 
-void
-tw_event_queue_append_event(struct tw_event_queue *q, void *data, int (*cb)(void *))
-{
-	struct tw_event event = {.data = data, .cb=cb};
-	pthread_mutex_lock(&q->mutex);
-	queue_append(&q->event_queue, &event);
-	pthread_mutex_unlock(&q->mutex);
-}
+/* void */
+/* tw_event_queue_append_event(struct tw_event_queue *q, void *data, int (*cb)(void *)) */
+/* { */
+/*	struct tw_event event = {.data = data, .cb=cb}; */
+/*	pthread_mutex_lock(&q->mutex); */
+/*	queue_append(&q->event_queue, &event); */
+/*	pthread_mutex_unlock(&q->mutex); */
+/* } */
 
-static inline bool
-tw_event_queue_empty(struct tw_event_queue *q)
-{
-	bool empty = false;
-	pthread_mutex_lock(&q->mutex);
-	empty = queue_empty(&q->event_queue);
-	pthread_mutex_unlock(&q->mutex);
-	return empty;
-}
+/* static inline bool */
+/* tw_event_queue_empty(struct tw_event_queue *q) */
+/* { */
+/*	bool empty = false; */
+/*	pthread_mutex_lock(&q->mutex); */
+/*	empty = queue_empty(&q->event_queue); */
+/*	pthread_mutex_unlock(&q->mutex); */
+/*	return empty; */
+/* } */
 
 
-void
-tw_event_queue_dispatch(struct tw_event_queue *q)
-{
-	while (!tw_event_queue_empty(q)) {
+/* void */
+/* tw_event_queue_dispatch(struct tw_event_queue *q) */
+/* { */
+/*	while (!tw_event_queue_empty(q)) { */
 
-		pthread_mutex_lock(&q->mutex);
-		struct tw_event event = *(struct tw_event *)queue_top(&q->event_queue);
-		queue_pop(&q->event_queue);
-		pthread_mutex_unlock(&q->mutex);
+/*		pthread_mutex_lock(&q->mutex); */
+/*		struct tw_event event = *(struct tw_event *)queue_top(&q->event_queue); */
+/*		queue_pop(&q->event_queue); */
+/*		pthread_mutex_unlock(&q->mutex); */
 
-		event.cb(event.data);
-	}
-}
+/*		event.cb(event.data); */
+/*	} */
+/* } */
+
+//this should not
+struct tw_event_source {
+	int wd;
+	struct tw_event event;
+	list_t node;
+	//for time-based event
+	long duration;
+	long progress;
+};
 
 static int
-produce_events(struct tw_event_producer *producer)
+process_events(struct tw_event_queue *queue)
 {
 	char *ptr;
 	size_t len;
@@ -502,17 +577,16 @@ produce_events(struct tw_event_producer *producer)
 	struct tw_event_source *es, *next;
 	const struct inotify_event *event;
 	//I think I can read as much I want
-	len = read(producer->inotify_fd, buff, sizeof(buff));
+	len = read(queue->inotify_fd, buff, sizeof(buff));
 	if (len <= 0)
 		return -1;
 	for (ptr = buff; ptr < buff+len;
 	     ptr += sizeof(struct inotify_event) + event->len) {
 		event = (const struct inotify_event *)ptr;
-		list_for_each_safe(es, next, &producer->head, node) {
+		list_for_each_safe(es, next, &queue->head, node) {
 			if (es->wd == event->wd) {
-				//the_event_queue is a global
-				tw_event_queue_append_event(the_event_queue,
-							    es->event.data, es->event.cb);
+				//run the event
+				es->event.cb(es->event.data);
 				break;
 			}
 		}
@@ -520,73 +594,86 @@ produce_events(struct tw_event_producer *producer)
 	return 0;
 }
 
-//the thread function
-void *
-tw_event_producer_run(void *event_producer)
+static int
+process_timeout_event(struct tw_event_queue *queue)
 {
+	int processed = 0;
 	struct tw_event_source *es, *next;
-	struct tw_event_producer *producer = (struct tw_event_producer *)event_producer;
-	while (!the_event_queue->quit) {
-//		fprintf(stderr, "call poll now with timeout %d\n", producer->timeout);
-		int poll_num = poll(&producer->pollfd, 1, 1000);
-//		fprintf(stderr, "returned from poll\n");
-		if (poll_num > 0 && (producer->pollfd.events & POLLIN))
-			//okay, we gonna read the event
-			produce_events(producer);
-		else if (poll_num == 0) { //timeout events
-			list_for_each_safe(es, next, &producer->head, node) {
-				if (es->wd == -1 && es->progress + producer->timeout >= es->duration) {
-					tw_event_queue_append_event(the_event_queue,
-								    es->event.data, es->event.cb);
-					es->progress += producer->timeout - es->duration;
-				} else
-					es->progress += producer->timeout;
-			}
+	list_for_each_safe(es, next, &queue->head, node) {
+		if (es->wd == -1 && es->progress + queue->timeout >= es->duration) {
+			es->progress += queue->timeout - es->duration;
+			es->event.cb(es->event.data);
+			processed = 1;
+		} else {
+			es->progress += queue->timeout;
+			processed = 0;
 		}
 	}
+	return processed;
+}
+
+//the thread function
+void *
+tw_event_queue_run(void *event_queue)
+{
+	struct tw_event_queue *queue = (struct tw_event_queue *)event_queue;
+	//poll->produce-event-or-timeout
+	while (!queue->quit) {
+		int poll_num = poll(&queue->pollfd, 1, 100);
+		if (poll_num > 0 && (queue->pollfd.events & POLLIN)) {
+			process_events(queue);
+		}
+		else if (poll_num == 0)
+			process_timeout_event(queue);
+		fprintf(stderr, "one with one polling\n");
+	}
 	//now it does the clean up, so we dont need a destructor
-	close(producer->inotify_fd);
-	list_for_each_safe(es, next, &producer->head, node)
+	struct tw_event_source *es, *next;
+
+	close(queue->inotify_fd);
+	list_for_each_safe(es, next, &queue->head, node)
 		free(es);
 	return NULL;
 }
 
 bool
-tw_event_producer_start(struct tw_event_producer *producer)
+tw_event_queue_start(struct tw_event_queue *queue)
 {
-	list_init(&producer->head);
+	list_init(&queue->head);
 	int fd = inotify_init1(IN_NONBLOCK);
 	if (fd == -1)
 		return false;
-	producer->inotify_fd = fd;
-	producer->pollfd.fd = fd;
-	producer->pollfd.events = POLLIN;
-	producer->timeout = 60000; //initially set to one minute
-	pthread_create(&producer->thread, NULL, tw_event_producer_run, producer);
-
+	queue->quit = false;
+	queue->inotify_fd = fd;
+	queue->pollfd.fd = fd;
+	queue->pollfd.events = POLLIN;
+	queue->timeout = 60000; //initially set to one minute
+	pthread_create(&queue->thread, NULL, tw_event_queue_run, queue);
 	return true;
 }
 
 
 bool
-tw_event_producer_add_source(struct tw_event_producer *producer, const char *file, long timeout,
+tw_event_queue_add_source(struct tw_event_queue *queue, const char *file, long timeout,
 			  struct tw_event *event, uint32_t mask)
 {
 	int fd;
 	if (file) {
-		fd = inotify_add_watch(producer->inotify_fd, file, mask);
+		fd = inotify_add_watch(queue->inotify_fd, file, mask);
 		if (fd == -1)
 			return false;
-		timeout = producer->timeout + 1;
+		timeout = queue->timeout + 1;
 	} else
 		fd = -1;
 	struct tw_event_source *event_source =
 		(struct tw_event_source *)malloc(sizeof(struct tw_event_source));
-	producer->timeout = min(producer->timeout, timeout);
+	queue->timeout = min(queue->timeout, timeout);
 	event_source->event = *event;
 	event_source->wd = fd;
 	event_source->duration = timeout;
 	event_source->progress = 0;
-	list_append(&producer->head, &event_source->node);
+	list_append(&queue->head, &event_source->node);
+	//TODO call the event for the first time
+	event->cb(event->data);
 	return true;
 }

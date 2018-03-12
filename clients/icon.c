@@ -4,12 +4,19 @@
 #include "shellui.h"
 #include "client.h"
 
-int update_icon_event(void *data)
+int
+update_icon_event(void *data)
 {
+	printf("update icon\n");
 	struct eglapp *app = (struct eglapp *)data;
 	struct eglapp_icon *icon = icon_from_eglapp(app);
+	struct app_surface *panel = app->surface.parent;
 	icon->update_icon(icon);
-	eglapp_update_icon(app);
+	panel->paint_subsurface(panel, &icon->box,
+				cairo_image_surface_get_data(icon->isurf),
+				WL_SHM_FORMAT_ARGB8888);
+	//I just did it
+	appsurface_fadc(panel);
 	return 0;
 };
 
@@ -28,7 +35,7 @@ icon_from_svg(struct eglapp_icon *icon, const char *file)
 void
 calendar_icon(struct eglapp_icon *icon)
 {
-	const struct bbox *avail_sp = icon_get_available_space(icon);
+	const struct bbox *avail_sp = &icon->box;
 	static const char * daysoftheweek[] = {"sun", "mon", "tus", "wed", "thu", "fri", "sat"};
 	char formatedtime[20];
 	cairo_text_extents_t extent;
@@ -39,6 +46,7 @@ calendar_icon(struct eglapp_icon *icon)
 //	fprintf(stderr, "%s\n", formatedtime);
 	int w = min(avail_sp->w, strlen(formatedtime) * avail_sp->h / 2);
 	int h = avail_sp->h;
+
 	//TODO find a way to choose the right font size
 	if (icon->ctxt == NULL) {
 		icon->isurf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);

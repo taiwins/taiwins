@@ -56,26 +56,37 @@ shm_pool_resize(struct shm_pool *pool, off_t newsize)
 	return newsize;
 }
 
+
+bool
+shm_pool_buffer_inuse(struct wl_buffer *wl_buffer)
+{
+	struct wl_buffer_node *node = (struct wl_buffer_node *)
+		wl_buffer_get_user_data(wl_buffer);
+	return node->inuse;
+}
+
 //this is totally awesome
 static void
 shm_buffer_release(void *data, struct wl_buffer *buffer)
 {
+//	fprintf(stderr, "wl_buffer %p is released\n", buffer);
 	struct wl_buffer_node *node = (struct wl_buffer_node *)data;
-	shm_pool_buffer_release(buffer);
 	if (node->userdata &&  node->release)
 		node->release(node->userdata, buffer);
 }
+
 
 static struct wl_buffer_listener buffer_listener = {
 	.release = shm_buffer_release
 };
 
 void
-shm_pool_buffer_assign_release(struct wl_buffer *wl_buffer,
+shm_pool_buffer_set_release(struct wl_buffer *wl_buffer,
 			       void (*cb)(void *, struct wl_buffer *),
 			       void *data)
 {
-	struct wl_buffer_node *node = wl_buffer_get_user_data(wl_buffer);
+	struct wl_buffer_node *node = (struct wl_buffer_node *)
+		wl_buffer_get_user_data(wl_buffer);
 	node->userdata = data;
 	node->release = cb;
 }
@@ -133,6 +144,8 @@ shm_pool_buffer_access(struct wl_buffer *wl_buffer)
 		node->inuse = true;
 	return node->addr;
 }
+
+
 
 
 size_t
