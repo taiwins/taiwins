@@ -1,3 +1,4 @@
+#define NK_IMPLEMENTATION
 #include <time.h>
 #include <assert.h>
 
@@ -23,19 +24,11 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
+
 #include "egl.h"
 #include "shellui.h"
 #include "client.h"
 
-#define NK_INCLUDE_FIXED_TYPES
-#define NK_INCLUDE_STANDARD_IO
-#define NK_INCLUDE_STANDARD_VARARGS
-#define NK_INCLUDE_DEFAULT_ALLOCATOR
-#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
-#define NK_INCLUDE_FONT_BAKING
-#define NK_INCLUDE_DEFAULT_FONT
-#define NK_IMPLEMENTATION
-#include "../3rdparties/nuklear/nuklear.h"
 
 /*
  * ==============================================================
@@ -154,47 +147,10 @@ egl_env_end(struct egl_env *env)
  *
  * ===============================================================
  */
-#ifndef NK_EGLAPP_TEXT_MAX
-#define NK_EGLAPP_TEXT_MAX 256
-#endif
 
-struct eglapp {
-	//we need to have an icon as well,
-	struct app_surface surface;
-	//app specific
-	struct eglapp_icon icon;
-	//a temperary info mation, useless after app initialized
-	struct bbox available_place;
-	lua_State *L;
 
-	void (*draw_widget)(struct eglapp *);
 
-	struct shell_panel *panel;
-	const struct egl_env *eglenv;
-	struct wl_egl_window *eglwin;
-	EGLSurface eglsurface;
 
-	struct nk_buffer cmds;
-	struct nk_draw_null_texture null;
-	struct nk_context ctx;
-	struct nk_font_atlas atlas;
-	struct nk_vec2 fb_scale;
-	unsigned int text[NK_EGLAPP_TEXT_MAX];
-	unsigned int text_len;
-	//now we can add all those fancy opengl stuff
-	GLuint glprog, vs, fs;//actually, we can evider vs, fs
-	GLuint vao, vbo, ebo;
-	//uniforms
-	GLint uniform_tex;
-	GLint uniform_proj;
-	GLuint font_tex;
-	GLint attrib_pos;
-	GLint attrib_uv;
-	GLint attrib_col;
-
-	int width, height;
-	int cx, cy; //cursor location
-};
 
 struct app_surface *
 appsurface_from_icon(struct eglapp_icon *icon)
@@ -219,90 +175,21 @@ appsurface_from_app(struct eglapp *app)
 {
 	return &app->surface;
 }
-struct bbox *
-icon_get_available_space(struct eglapp_icon *icon)
-{
-	struct eglapp *app = container_of(icon, struct eglapp, icon);
-	return &app->available_place;
-
-}
 
 
-
-/*
- * ==============================================================
- *
- *                          IMPLEMENTATION
- *
- * ===============================================================
- */
-NK_API void
-nk_egl_char_callback(struct eglapp *win, unsigned int codepoint);
-NK_API void
-nk_eglapp_new_frame(struct eglapp *app);
-NK_API void
-nk_eglapp_render(struct eglapp *app, enum nk_anti_aliasing AA, int max_vertex_buffer,
-		 int max_element_buffer);
-
-NK_API void nk_eglapp_font_stash_begin(struct eglapp *app, struct nk_font_atlas **atlas);
-NK_API void nk_eglapp_font_stash_end(struct eglapp *app);
-
-
-
-#ifndef NK_EGLAPP_DOUBLE_CLICK_LO
-#define NK_EGLAPP_DOUBLE_CLICK_LO 0.02
-#endif
-
-#ifndef NK_EGLAPP_DOUBLE_CLICK_HI
-#define NK_EGLAPP_DOUBLE_CLICK_HI 0.2
-#endif
-
-#define MAX_VERTEX_BUFFER 512 * 1024
-#define MAX_ELEMENT_BUFFER 128 * 1024
-
-
-void static
-eglapp_key_cb(struct app_surface *surf, xkb_keysym_t keysym)
-{
-	struct eglapp *app = container_of(surf, struct eglapp, surface);
-	struct nk_context *ctx = &app->ctx;
-	//maybe you will need to call the render here as well
-//	nk_input_begin(ctx);
-	//now we need a key translation library...
-	nk_input_key(ctx, NK_KEY_LEFT, true);
-//	nk_input_end(ctx);
-}
 
 static void
-eglapp_cursor_motion_cb(struct app_surface *surf, uint32_t sx, uint32_t sy)
-{
-	struct eglapp *app = container_of(surf, struct eglapp, surface);
-	struct nk_context *ctx = &app->ctx;
-//	nk_input_begin(ctx);
-	//now we need a key translation library...
-	nk_input_motion(ctx, sx, sy);
-//	nk_input_end(ctx);
-}
+eglapp_key_cb(struct app_surface *surf, xkb_keysym_t keysym);
 
 static void
-eglapp_cursor_button_cb(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy)
-{
-	struct eglapp *app = container_of(surf, struct eglapp, surface);
-	struct nk_context *ctx = &app->ctx;
-	nk_input_begin(ctx);
-	nk_input_button(ctx, (btn) ? NK_BUTTON_LEFT : NK_BUTTON_RIGHT, sx, sy, true);
-	nk_input_end(ctx);
-}
+eglapp_cursor_motion_cb(struct app_surface *surf, uint32_t sx, uint32_t sy);
+static void
+eglapp_cursor_button_cb(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy);
 
 static void
-eglapp_cursor_axis_cb(struct app_surface *surf, int speed, int direction, uint32_t sx, uint32_t sy)
-{
-	struct eglapp *app = container_of(surf, struct eglapp, surface);
-	struct nk_context *ctx = &app->ctx;
-	nk_input_begin(ctx);
-	nk_input_scroll(ctx, nk_vec2(speed * direction, speed *(1-direction)));
-	nk_input_end(ctx);
-}
+eglapp_cursor_axis_cb(struct app_surface *surf, int speed, int direction, uint32_t sx, uint32_t sy);
+
+
 
 
 
@@ -311,32 +198,31 @@ eglapp_init_with_funcs(struct eglapp *app,
 		       void (*update_icon)(struct eglapp_icon *),
 		       void (*draw_widget)(struct eglapp *))
 {
-	//step 1, get the icon
-	int icon_width;
+
 	struct eglapp_icon *icon = &app->icon;
-	//call updating the first time, so we know how big it is
+	struct app_surface *appsurf = &app->surface;
+	//get around with the
 	update_icon(&app->icon);
-	//update geometry info so later on we know where to put it
-	icon_width = cairo_image_surface_get_width(icon->isurf);
-	icon->box.x = app->available_place.w - icon_width;
-	icon->box.y = 0;
-	icon->box.w = icon_width;
-	icon->box.h = app->panel->panelsurf.h;
-	app->available_place = icon->box;
+	unsigned int icon_width = cairo_image_surface_get_width(icon->isurf);
+	unsigned int icon_right = icon->box.w;
+	icon->box = (struct bbox) {
+		.x = icon_right - icon_width,
+		.y = 0,
+		.w = icon_width,
+		.h = icon->box.h,
+	};
 	app->width = 50;
 	app->width = 50;
 	//callbacks
 	app->icon.update_icon = update_icon;
 	app->draw_widget = draw_widget;
 	//TODO, temp code again, you need to remove this
-	eglapp_update_icon(app);
 	//setup callbacks
 	app->surface.keycb = eglapp_key_cb;
 	app->surface.pointron = eglapp_cursor_motion_cb;
 	app->surface.pointrbtn = eglapp_cursor_button_cb;
 	app->surface.pointraxis = eglapp_cursor_axis_cb;
-
-
+	app->surface.paint_subsurface = NULL;
 }
 
 void
@@ -379,30 +265,38 @@ _free_eglapp(void *app)
 }
 
 struct eglapp*
-eglapp_addtolist(struct shell_panel *panel)
+//eglapp_addtolist(struct shell_panel *panel)
+eglapp_addtolist(struct app_surface *panel, vector_t *widgets)
 {
 	struct bbox box;
-	vector_t *widgets = &panel->widgets;
 	struct eglapp *lastapp, *newapp;
+	struct app_surface *eglsurf;
 
 	if (!widgets->elems)
 		vector_init(widgets, sizeof(struct eglapp), _free_eglapp);
 	lastapp = (struct eglapp *)vector_at(widgets, widgets->len-1);
 	//decide where to put the icon
 	if (!lastapp) {
-		box = (struct bbox) { .x=0, .y=0,
-				      .w=panel->panelsurf.w,
-				      .h=panel->panelsurf.h};
+		box = (struct bbox) {
+			.x=0, .y=0,
+			.w = panel->w,
+			.h = panel->h
+		};
 	} else {
-		box = (struct bbox) { .x=0, .y=0,
-				      .w=lastapp->icon.box.x,
-				      .h=panel->panelsurf.h};
+		box = (struct bbox) {
+			.x = 0, .y = 0,
+			.w = lastapp->surface.px,
+			.h= panel->h
+		};
 	}
 	newapp = (struct eglapp *)vector_newelem(widgets);
 	memset(newapp, 0, sizeof(*newapp));
-	newapp->available_place = box;
-	newapp->icon.box = (struct bbox){0};
-	newapp->panel = panel;
+	//setup appsurf
+	eglsurf = &newapp->surface;
+	eglsurf->parent = panel;
+	//we do the same thing, now we have place holders
+	newapp->icon.box = box;
+
 	return newapp;
 }
 
@@ -420,40 +314,86 @@ eglapp_dispose(struct eglapp *app)
 	cairo_surface_destroy(app->icon.isurf);
 }
 
+
+
+
+/*
+ * ==============================================================
+ *
+ *                          IMPLEMENTATION
+ *
+ * ===============================================================
+ */
+#ifndef NK_EGLAPP_DOUBLE_CLICK_LO
+#define NK_EGLAPP_DOUBLE_CLICK_LO 0.02
+#endif
+
+#ifndef NK_EGLAPP_DOUBLE_CLICK_HI
+#define NK_EGLAPP_DOUBLE_CLICK_HI 0.2
+#endif
+
+#define MAX_VERTEX_BUFFER 512 * 1024
+#define MAX_ELEMENT_BUFFER 128 * 1024
+
+
 void
-eglapp_update_icon(struct eglapp *app)
+eglapp_key_cb(struct app_surface *surf, xkb_keysym_t keysym)
 {
-	struct shell_panel *panel = app->panel;
-	panel->panelsurf.wl_buffer =
-		shm_pool_alloc_buffer(panel->panelsurf.pool, panel->panelsurf.w, panel->panelsurf.h);
-	void *buffer = shm_pool_buffer_access(panel->panelsurf.wl_buffer);
-	//you don't event know the size of it
-	cairo_format_t format = translate_wl_shm_format(panel->format);
-	int stride = cairo_format_stride_for_width(format, panel->panelsurf.w);
-	cairo_surface_t *psurface = cairo_image_surface_create_for_data(
-		(unsigned char *)buffer, format, panel->panelsurf.w, panel->panelsurf.h, stride);
-	cairo_t *context = cairo_create(psurface);
-	cairo_rectangle(context, app->icon.box.x, app->icon.box.y, app->icon.box.w, app->icon.box.h);
-	cairo_set_source_rgba(context, 1.0f, 1.0f, 1.0f, 1.0f);
-	cairo_paint(context);
-	cairo_set_source_surface(context, app->icon.isurf, app->icon.box.x, app->icon.box.y);
-	cairo_paint(context);
-//	fprintf(stderr, "the app coordinate is %d %d\n", app->icon.box.x, app->icon.box.y);
-
-	wl_surface_attach(app->panel->panelsurf.wl_surface, app->panel->panelsurf.wl_buffer, 0, 0);
-	wl_surface_damage_buffer(app->panel->panelsurf.wl_surface, app->icon.box.x, app->icon.box.y,
-				 app->icon.box.w, app->icon.box.h);
-	//this will take effect on next callback done.
-	//whole process:  dispatch->attach->damage->commit->return->dispatch->frame
-	//you cannot gurantee the the drawing is done before frame
-	wl_surface_commit(app->panel->panelsurf.wl_surface);
-	struct wl_callback *callback = wl_surface_frame(panel->panelsurf.wl_surface);
-	wl_callback_add_listener(callback, &app->panel->update_cb, app->panel);
-
-
-	cairo_destroy(context);
-	cairo_surface_destroy(psurface);
+	struct eglapp *app = container_of(surf, struct eglapp, surface);
+	struct nk_context *ctx = &app->ctx;
+	//maybe you will need to call the render here as well
+//	nk_input_begin(ctx);
+	//now we need a key translation library...
+	nk_input_key(ctx, NK_KEY_LEFT, true);
+//	nk_input_end(ctx);
 }
+
+void
+eglapp_cursor_motion_cb(struct app_surface *surf, uint32_t sx, uint32_t sy)
+{
+	struct eglapp *app = container_of(surf, struct eglapp, surface);
+	struct nk_context *ctx = &app->ctx;
+//	nk_input_begin(ctx);
+	//now we need a key translation library...
+	nk_input_motion(ctx, sx, sy);
+//	nk_input_end(ctx);
+}
+
+void
+eglapp_cursor_button_cb(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy)
+{
+	struct eglapp *app = container_of(surf, struct eglapp, surface);
+	struct nk_context *ctx = &app->ctx;
+	nk_input_begin(ctx);
+	nk_input_button(ctx, (btn) ? NK_BUTTON_LEFT : NK_BUTTON_RIGHT, sx, sy, true);
+	nk_input_end(ctx);
+}
+
+void
+eglapp_cursor_axis_cb(struct app_surface *surf, int speed, int direction, uint32_t sx, uint32_t sy)
+{
+	struct eglapp *app = container_of(surf, struct eglapp, surface);
+	struct nk_context *ctx = &app->ctx;
+	nk_input_begin(ctx);
+	nk_input_scroll(ctx, nk_vec2(speed * direction, speed *(1-direction)));
+	nk_input_end(ctx);
+}
+
+
+
+NK_API void
+nk_egl_char_callback(struct eglapp *win, unsigned int codepoint);
+NK_API void
+nk_eglapp_new_frame(struct eglapp *app);
+NK_API void
+nk_eglapp_render(struct eglapp *app, enum nk_anti_aliasing AA, int max_vertex_buffer,
+		 int max_element_buffer);
+
+NK_API void nk_eglapp_font_stash_begin(struct eglapp *app, struct nk_font_atlas **atlas);
+NK_API void nk_eglapp_font_stash_end(struct eglapp *app);
+
+
+
 
 #define NK_SHADER_VERSION "#version 330 core\n"
 struct egl_nk_vertex {
@@ -757,36 +697,35 @@ nk_eglapp_new_frame(struct eglapp *app)
 ///////////////////////////////////////////////////////////////////////////////////
 
 //lua uses this to render svg to the surface, so lua can use it
-static int
-egl_load_svg(lua_State *L)
-{
-	struct eglapp **ptr, *app;
-	const char *string;
-	//lua call this with (eglapp, function)
-	int nargs = lua_gettop(L);
-	ptr = lua_touserdata(L, -2);
-	string = lua_tostring(L, -1);
+/* static int */
+/* egl_load_svg(lua_State *L) */
+/* { */
+/*	struct eglapp **ptr, *app; */
+/*	const char *string; */
+/*	//lua call this with (eglapp, function) */
+/*	int nargs = lua_gettop(L); */
+/*	ptr = lua_touserdata(L, -2); */
+/*	string = lua_tostring(L, -1); */
 
-	app = *ptr;
-	RsvgHandle *handle = rsvg_handle_new_from_file(string, NULL);
-	rsvg_handle_render_cairo(handle, app->icon.ctxt);
-	rsvg_handle_close(handle, NULL);
+/*	app = *ptr; */
+/*	RsvgHandle *handle = rsvg_handle_new_from_file(string, NULL); */
+/*	rsvg_handle_render_cairo(handle, app->icon.ctxt); */
+/*	rsvg_handle_close(handle, NULL); */
 
-	return 0;
-	//then afterwords, we should have panel to use it.
-}
+/*	return 0; */
+/*	//then afterwords, we should have panel to use it. */
+/* } */
 
 //it can be a callback
 
 //this function is used for lua code to actively update the icon
-static int
-lua_eglapp_update_icon(lua_State *L)
-{
-	struct eglapp **ptr, *app;
-//	const char *string;
-	ptr = lua_touserdata(L, -1);
-	app = *ptr;
-	eglapp_update_icon(app);
-}
+/* static int */
+/* lua_eglapp_update_icon(lua_State *L) */
+/* { */
+/*	struct eglapp **ptr, *app; */
+/* //	const char *string; */
+/*	ptr = lua_touserdata(L, -1); */
+/*	app = *ptr; */
+/* } */
 
 //create an example application, calendar

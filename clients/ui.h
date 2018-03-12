@@ -55,7 +55,6 @@ bboxs_intersect(const struct bbox *ba, const struct bbox *bb)
 struct app_surface {
 	//if it has parent, the px, py, w and h means where it occupies the parent.
 	struct app_surface *parent;
-	struct bbox place_holders;
 
 	unsigned int px, py; //anchor
 	unsigned int w, h; //size
@@ -64,10 +63,13 @@ struct app_surface {
 	struct shm_pool *pool;
 	struct wl_output *wl_output;
 	struct wl_surface *wl_surface;
-	struct wl_buffer  *wl_buffer;
+	struct wl_buffer  *wl_buffer[2];
+	bool dirty[2];
+	bool committed[2];
 	//frame-attach-damage-commit, it get called at buffer-release or
-	//children updates.
-//	void (*fadc)(struct app_surface *surf);
+	//use to update its places
+	void (*paint_subsurface)(struct app_surface *surf, const struct bbox *, const void *,
+				 enum wl_shm_format);
 	//callbacks for wl_pointer and cursor
 	void (*keycb)(struct app_surface *surf, xkb_keysym_t keysym);
 	//run this function at the frame callback
@@ -78,9 +80,9 @@ struct app_surface {
 	void (*pointraxis)(struct app_surface *surf, int pos, int direction, uint32_t sx, uint32_t sy);
 };
 //it must have at least one buffer libre.
-void app_surface_fadc(struct app_surface *surf);
+void appsurface_fadc(struct app_surface *surf);
 
-void app_surface_buffer_release(void *data, wl_buffer *wl_buffer);
+void appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer);
 
 
 cairo_format_t
