@@ -19,7 +19,6 @@
 #include "shellui.h"
 #include "egl.h"
 
-
 //here we define the one queue
 struct desktop_shell {
 	struct wl_globals globals;
@@ -71,12 +70,14 @@ shell_panel_click(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy)
 	}
 }
 
-static void
+static int
 shell_panel_paintbbox(struct app_surface *surf, const struct bbox *bbox, const void *data, enum wl_shm_format f)
 {
 	//not free to paint
-	if (surf->committed[1])
-		return;
+	if (surf->committed[1]) {
+//		fprintf(stderr, "trying to paint committed surface\n");
+		return 0;
+	}
 	//create cairo resources
 	struct shell_panel *panel = container_of(surf, struct shell_panel, panelsurf);
 	cairo_format_t format = translate_wl_shm_format(panel->format);
@@ -102,6 +103,8 @@ shell_panel_paintbbox(struct app_surface *surf, const struct bbox *bbox, const v
 	cairo_destroy(context);
 	cairo_surface_destroy(subsurf);
 	cairo_surface_destroy(panelsurf);
+
+	return 1;
 }
 
 static void
@@ -227,7 +230,6 @@ shell_configure_surface(void *data,
 		output->background.wl_buffer[0] = new_buffer;
 
 	} else if (appsurf->type == APP_PANEL) {
-		fprintf(stderr, "we should setup the data like %d\n", w*h*4);
 		//double buffer, set the data then release the second buffer for widgets
 		struct wl_buffer *b1 = shm_pool_alloc_buffer(&output->pool, w, h);
 		//buffer initialize
@@ -332,7 +334,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	shell->shell = NULL;
 	shell->quit = false;
 	egl_env_init(&shell->eglenv, display);
-	tw_event_queue_start(&shell->client_event_queue);
+	tw_event_queue_start(&shell->client_event_queue, display);
 }
 
 

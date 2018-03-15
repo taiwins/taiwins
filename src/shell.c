@@ -81,6 +81,7 @@ set_background(struct wl_client *client,
 static void
 panel_committed(struct weston_surface *surface, int sx, int sy)
 {
+//	fprintf(stderr, "a new panel surface attached.\n");
 	//now by default, we just put it on the top left
 	struct twshell *shell = (struct twshell *)surface->committed_private;
 	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
