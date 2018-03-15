@@ -3,4 +3,4 @@
 ### project under development.
 ![current progress](imgs/screenshot.png)
 
-currently on [shell implementation](docs/taiwins_shell.md)
+currently on [shell implementation](docs/taiwins-shell.md)
