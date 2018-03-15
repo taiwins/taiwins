@@ -68,7 +68,7 @@ struct app_surface {
 	bool committed[2];
 	//frame-attach-damage-commit, it get called at buffer-release or
 	//use to update its places
-	void (*paint_subsurface)(struct app_surface *surf, const struct bbox *, const void *,
+	int (*paint_subsurface)(struct app_surface *surf, const struct bbox *, const void *,
 				 enum wl_shm_format);
 	//callbacks for wl_pointer and cursor
 	void (*keycb)(struct app_surface *surf, xkb_keysym_t keysym);
@@ -79,7 +79,7 @@ struct app_surface {
 	//axis events with direction (0->x, y->1)
 	void (*pointraxis)(struct app_surface *surf, int pos, int direction, uint32_t sx, uint32_t sy);
 };
-//it must have at least one buffer libre.
+
 void appsurface_fadc(struct app_surface *surf);
 
 void appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer);

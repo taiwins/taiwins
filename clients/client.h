@@ -40,6 +40,7 @@ struct tw_event {
 
 //client side event processor
 struct tw_event_queue {
+	struct wl_display *wl_display;
 	pthread_t thread;
 	long timeout;
 	int inotify_fd;
@@ -50,7 +51,7 @@ struct tw_event_queue {
 
 extern struct tw_event_queue *the_event_processor;
 void *tw_event_queue_run(void *event_queue);
-bool tw_event_queue_start(struct tw_event_queue *queue);
+bool tw_event_queue_start(struct tw_event_queue *queue, struct wl_display *display);
 /** add an file based event if file is provided, or time based event if timeout is provided
  */
 bool tw_event_queue_add_source(struct tw_event_queue *queue, const char *file, long timeout,

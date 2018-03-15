@@ -7,16 +7,15 @@
 int
 update_icon_event(void *data)
 {
-	printf("update icon\n");
+//	printf("update icon\n");
 	struct eglapp *app = (struct eglapp *)data;
 	struct eglapp_icon *icon = icon_from_eglapp(app);
 	struct app_surface *panel = app->surface.parent;
 	icon->update_icon(icon);
-	panel->paint_subsurface(panel, &icon->box,
-				cairo_image_surface_get_data(icon->isurf),
-				WL_SHM_FORMAT_ARGB8888);
-	//I just did it
-	appsurface_fadc(panel);
+	if (panel->paint_subsurface(panel, &icon->box,
+				    cairo_image_surface_get_data(icon->isurf),
+				    WL_SHM_FORMAT_ARGB8888))
+		appsurface_fadc(panel);
 	return 0;
 };
 

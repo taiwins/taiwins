@@ -81,6 +81,7 @@ handle_key(void *data,
 	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
 	if (appsurf->keycb)
 		appsurf->keycb(appsurf, keysym);
+//	fprintf(stderr, "key keyprinting didn't work\n");
 	//and we know if this surface is app_surface, no, you couldn't assume that right.
 }
 
@@ -360,6 +361,7 @@ seat_capabilities(void *data,
 {
 	struct wl_globals *globals = (struct wl_globals *)data;
 	if (capabilities & WL_SEAT_CAPABILITY_KEYBOARD) {
+		fprintf(stderr, "got a keyboard\n");
 		globals->inputs.wl_keyboard = wl_seat_get_keyboard(wl_seat);
 		wl_keyboard_add_listener(globals->inputs.wl_keyboard, &keyboard_listener, globals);
 	}
@@ -388,11 +390,14 @@ static struct wl_seat_listener seat_listener = {
 	.name = seat_name,
 };
 
-
+static bool COMMITTED = false;
 static void
 app_surface_done(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
 {
-	wl_callback_destroy(wl_callback);
+	COMMITTED = false;
+//	struct app_surface *appsurf = (struct app_surface *)data;
+	if (wl_callback)
+		wl_callback_destroy(wl_callback);
 }
 
 
@@ -421,31 +426,40 @@ void
 appsurface_fadc(struct app_surface *surf)
 {
 	//if b2 is not free, we shouldn't do anything.
-	if(surf->committed[1] && !surf->dirty[1])
+	if(surf->committed[1] || !surf->dirty[1]) {
 		return;
+	}
 	wl_surface_attach(surf->wl_surface, surf->wl_buffer[1], 0, 0);
-	wl_surface_damage(surf->wl_surface, surf->px, surf->py, surf->w, surf->h);
+	struct wl_callback *callback = wl_surface_frame(surf->wl_surface);
+	wl_callback_add_listener(callback, &app_surface_done_listener, surf);
+	wl_surface_damage(surf->wl_surface, 900, surf->py, 100, surf->h);
 	wl_surface_commit(surf->wl_surface);
 	surf->committed[1] = true;
 	//this way we should guarentee that all the committed surface is clean now.
 	surf->dirty[1] = false;
-	struct wl_callback *callback = wl_surface_frame(surf->wl_surface);
-	wl_callback_add_listener(callback, &app_surface_done_listener, surf);
 	//if b1 is not free, then we have no change issues.
-	if (!surf->committed[0])
-		appsurface_swap_dbuffer(surf);
+	appsurface_swap_dbuffer(surf);
+	COMMITTED = true;
+//	if (!surf->committed[0])
+//		appsurface_swap_dbuffer(surf);
+
 }
 
 void appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer)
 {
-//	fprintf(stderr, "buffer %p  released.\n", wl_buffer);
+	fprintf(stderr, "buffer %p  released.\n", wl_buffer);
 	struct app_surface *appsurf = (struct app_surface *)data;
 
-	if (wl_buffer == appsurf->wl_buffer[0] && appsurf->committed[1]) {
+	if (wl_buffer == appsurf->wl_buffer[0]) {
+		if (COMMITTED)
+//			fprintf(stderr, "we have framebuffer released before done\n");
 		appsurf->committed[0] = false;
-		appsurface_swap_dbuffer(appsurf);
-	} else if (wl_buffer == appsurf->wl_buffer[1]) {
+		if (appsurf->committed[1])
+			appsurface_swap_dbuffer(appsurf);
+	}
+	else if (wl_buffer == appsurf->wl_buffer[1]) {
 		appsurf->committed[1] = false;
+//		appsurf->dirty[1] = false;
 	}
 	//other cases:
 	//0) b1 free and b2 free. You don't need to do anything
@@ -525,7 +539,7 @@ int wl_globals_announce(struct wl_globals *globals,
 /* } */
 
 /* void */
-/* tw_event_queue_append_event(struct tw_event_queue *q, void *data, int (*cb)(void *)) */
+/* tw_event_queue_append_event(struct tw_event_queue ppp*q, void *data, int (*cb)(void *)) */
 /* { */
 /*	struct tw_event event = {.data = data, .cb=cb}; */
 /*	pthread_mutex_lock(&q->mutex); */
@@ -619,13 +633,15 @@ tw_event_queue_run(void *event_queue)
 	struct tw_event_queue *queue = (struct tw_event_queue *)event_queue;
 	//poll->produce-event-or-timeout
 	while (!queue->quit) {
-		int poll_num = poll(&queue->pollfd, 1, 100);
+		//you will need a queue since you can have
+		//1) more than one event happen at the same time
+		//2) events get lost if they can't be processed or queued at the same time.
+		int poll_num = poll(&queue->pollfd, 1, 1000);
 		if (poll_num > 0 && (queue->pollfd.events & POLLIN)) {
 			process_events(queue);
-		}
-		else if (poll_num == 0)
+		} else if (poll_num == 0)
 			process_timeout_event(queue);
-		fprintf(stderr, "one with one polling\n");
+		wl_display_flush(queue->wl_display);
 	}
 	//now it does the clean up, so we dont need a destructor
 	struct tw_event_source *es, *next;
@@ -637,8 +653,9 @@ tw_event_queue_run(void *event_queue)
 }
 
 bool
-tw_event_queue_start(struct tw_event_queue *queue)
+tw_event_queue_start(struct tw_event_queue *queue, struct wl_display *display)
 {
+	queue->wl_display = display;
 	list_init(&queue->head);
 	int fd = inotify_init1(IN_NONBLOCK);
 	if (fd == -1)
