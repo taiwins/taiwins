@@ -27,6 +27,7 @@ updating local buffer but no committing. **proxy events** will push all those
 events and send it to the server.
 
 | executing type | local events   | proxy events   |
+| ----           | ------         | ------         |
 | arriving type  | inotify events | timeout events |
 
 Unfortunately, right now we have to process them differently, `inotify event`
