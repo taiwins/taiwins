@@ -37,6 +37,3 @@ chooses the later, we need to let the parent know how to access it.
 #### double-buffering
 `app-surface` is double buffered, so it should have double commit
 states. Because it is damagable, it should also be marked dirty when necessary.
-Okay, it doesn't even have a backspace key, it is killing me dude. So at home,
-you can you this keyboard, it feel differently when you type, yes that is what
-they said, it is really like the rubbel dump keyboard.
