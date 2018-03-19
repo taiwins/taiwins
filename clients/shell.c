@@ -19,6 +19,9 @@
 #include "shellui.h"
 #include "egl.h"
 
+struct taiwins_shell *shelloftaiwins;
+
+
 //here we define the one queue
 struct desktop_shell {
 	struct wl_globals globals;
@@ -292,6 +295,7 @@ void announce_globals(void *data,
 		twshell->shell = (struct taiwins_shell *)
 			wl_registry_bind(wl_registry, name, &taiwins_shell_interface, version);
 		taiwins_shell_add_listener(twshell->shell, &taiwins_listener, twshell);
+		shelloftaiwins = twshell->shell;
 	} else if (!strcmp(interface, wl_output_interface.name)) {
 		struct output_widgets *output = malloc(sizeof(*output));
 		struct wl_output *wl_output = wl_registry_bind(wl_registry, name, &wl_output_interface, version);

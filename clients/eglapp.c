@@ -28,6 +28,8 @@
 #include "egl.h"
 #include "shellui.h"
 #include "client.h"
+#include <wayland-taiwins-shell-client-protocol.h>
+
 
 
 /*
@@ -94,6 +96,10 @@ eglapp_init_with_funcs(struct eglapp *app,
 		.w = icon_width,
 		.h = icon->box.h,
 	};
+	//the anchor point of the app
+	app->surface.px = icon->box.x + icon->box.w / 2;
+	app->surface.py = 0;
+
 	app->width = 50;
 	app->width = 50;
 	//callbacks
@@ -180,6 +186,7 @@ eglapp_addtolist(struct app_surface *panel, vector_t *widgets)
 	//setup appsurf
 	eglsurf = &newapp->surface;
 	eglsurf->parent = panel;
+	newapp->surface.wl_output = panel->wl_output;
 	//we do the same thing, now we have place holders
 	newapp->icon.box = box;
 
@@ -285,6 +292,18 @@ struct egl_nk_vertex {
 	nk_byte col[4];
 };
 
+static void eglapp_find_launch_point(struct eglapp *app, int *x, int *y)
+{
+	struct app_surface *panel = app->surface.parent;
+	//rightmost
+	if (app->surface.px + app->surface.w / 2 > panel->w)
+		*x = panel->w - app->surface.w;
+	else
+		*x = (int)(app->surface.px - app->surface.w/2) < 0 ?
+			0 : app->surface.px - app->surface.w;
+	*y = panel-> h + 10;
+}
+
 //okay, I can only create program after creating a window
 void
 eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *compositor)
@@ -296,10 +315,10 @@ eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *com
 	//wl_egl_window_create was implemented
 	app->eglwin = wl_egl_window_create(app->surface.wl_surface, 100, 100);
 	assert(app->eglwin);
-	app->width = 100;
-	app->height = 100;
+	int x, y;
+	eglapp_find_launch_point(app, &x, &y);
 	//I should create the view here
-
+	taiwins_shell_set_widget(shelloftaiwins, app->surface.wl_surface, app->surface.wl_output, x, y);
 	app->eglsurface = eglCreateWindowSurface(env->egl_display, env->config,
 						 (EGLNativeWindowType)app->eglwin, NULL);
 	assert(app->eglsurface);
