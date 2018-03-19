@@ -9,6 +9,11 @@ struct twshell {
 	struct weston_compositor *ec;
 	struct weston_layer background_layer;
 	struct weston_layer ui_layer;
+
+	struct weston_position panel_position;
+	struct weston_position current_widget_pos;
+//	struct weston_position backgrou
+
 };
 
 static struct twshell oneshell;
@@ -17,7 +22,7 @@ static struct twshell oneshell;
  * configure a static surface for its location, the location is determined,
  * output.x + x, output.y + y
  */
-void
+static void
 setup_static_view(struct weston_view *view, struct weston_layer *layer, int x, int y)
 {
 	//delete all the other view in the layer, rightnow we assume we only
@@ -40,6 +45,72 @@ setup_static_view(struct weston_view *view, struct weston_layer *layer, int x, i
 		weston_layer_entry_insert(&layer->view_list, &view->layer_link);
 		weston_compositor_schedule_repaint(view->surface->compositor);
 	}
+}
+
+static void
+setup_ui_view(struct weston_view *uiview, struct weston_layer *uilayer, int x, int y)
+{
+	//on the ui layer, we only have one view per wl_surface
+	struct weston_surface *surface = uiview->surface;
+	struct weston_output *output = uiview->output;
+
+	struct weston_view *v, *next;
+
+	wl_list_for_each_safe(v, next, &surface->views, surface_link) {
+		if (v->output == uiview->output && v != uiview) {
+			weston_view_unmap(v);
+			v->surface->committed = NULL;
+			weston_surface_set_label_func(v->surface, NULL);
+		}
+	}
+	weston_view_set_position(uiview, output->x + x, output->y + y);
+	uiview->surface->is_mapped = true;
+	uiview->is_mapped = true;
+	if (wl_list_empty(&uiview->layer_link.link)) {
+		weston_layer_entry_insert(&uilayer->view_list, &uiview->layer_link);
+		weston_compositor_schedule_repaint(surface->compositor);
+	}
+}
+
+static void
+widget_committed(struct weston_surface *surface, int sx, int sy)
+{
+	struct twshell *shell = (struct twshell *)surface->committed_private;
+	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
+	setup_ui_view(view, &shell->ui_layer, shell->current_widget_pos.x, shell->current_widget_pos.y);
+}
+
+static void
+setup_shell_widget(struct wl_client *client,
+			   struct wl_resource *resource,
+			   struct wl_resource *surface,
+			   struct wl_resource *output,
+			   uint32_t x,
+			   uint32_t y)
+{
+
+	struct weston_view *view, *next;
+	struct weston_surface *wd_surface =
+		(struct weston_surface *)wl_resource_get_user_data(surface);
+	struct weston_output *ws_output = weston_output_from_resource(output);
+	wd_surface->output = ws_output;
+
+
+	//this is very fack
+	if (wd_surface->committed) {
+		wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT, "surface already have a role");
+		return;
+	}
+	wd_surface->committed = widget_committed;
+	wd_surface->committed_private = &oneshell;
+	wl_list_for_each_safe(view, next, &wd_surface->views, surface_link)
+		weston_view_destroy(view);
+
+	view = weston_view_create(wd_surface);
+	view->output = ws_output;
+	oneshell.current_widget_pos.x = x;
+	oneshell.current_widget_pos.y = y;
+	//it won't work if we don't commit right?
 }
 
 static void
@@ -84,7 +155,8 @@ panel_committed(struct weston_surface *surface, int sx, int sy)
 	//now by default, we just put it on the top left
 	struct twshell *shell = (struct twshell *)surface->committed_private;
 	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
-	setup_static_view(view, &shell->ui_layer, 0, 0);
+	setup_ui_view(view, &shell->ui_layer, 0, 0);
+//	setup_static_view(view, &shell->ui_layer, 0, 0);
 }
 
 
@@ -105,6 +177,7 @@ set_panel(struct wl_client *client,
 	}
 	pn_surface->committed = panel_committed;
 	pn_surface->committed_private = &oneshell;
+	//destroy all the views, I am not sure if right
 	wl_list_for_each_safe(view, next, &pn_surface->views, surface_link)
 		weston_view_destroy(view);
 	view = weston_view_create(pn_surface);
@@ -120,6 +193,7 @@ set_panel(struct wl_client *client,
 static struct taiwins_shell_interface shell_impl = {
 	.set_background = set_background,
 	.set_panel = set_panel,
+	.set_widget = setup_shell_widget,
 };
 
 static void

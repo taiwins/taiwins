@@ -18,6 +18,9 @@
 #define NK_INCLUDE_DEFAULT_FONT
 #include "../3rdparties/nuklear/nuklear.h"
 
+#include <wayland-taiwins-shell-client-protocol.h>
+extern struct taiwins_shell *shelloftaiwins;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -97,7 +100,6 @@ void eglapp_destroy(struct eglapp *app);
 
 struct eglapp *
 eglapp_addtolist(struct app_surface *panel, vector_t *widgets);
-
 
 //sample function
 void calendar_icon(struct eglapp_icon *icon);
