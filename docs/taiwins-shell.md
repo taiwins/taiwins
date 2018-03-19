@@ -119,4 +119,7 @@ Widget sit on the `WESTON_LAYER_POSITION_UI` layer, where panel also sits. So
 in that sense we cannot remove all the all the views in the panel anymore. When
 we click on the icon, one widget should appear, itself need to decide where it
 should appear, because compositor has no idea about that. In that case, there
-need to be a `wl_request` to draw the app.
+need to be a `wl_request` to draw the app. Normally you will draw the EGL stuff
+on a `wl_shell_surface` provided by the wayland api. what we need to do is
+similar `taiwins_add_widget_surface`. We may need some changes since you only
+want one widgets at a time.
