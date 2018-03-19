@@ -76,13 +76,16 @@ This structure is now complex and prone to changes, we have to find a way to
 re-design it.
 
 ## app-surface
+
 This struct was designed for all the wayland client which requires a
-`wl_surface`. It is double-buffered, has simple input handlers. Now it also has
-children and the children occupies part of its surface. This is not a very
-obvious design, since every `wl_surface` should be independent, so how come it
-occupies other people's buffer. In the `taiwins-shell` case, this is caused by
-panel has widgets hook on it and the widgets has icons that occupy the panel,
-the widget itself also has a `wl_surface` if you click on the icon.
+`wl_surface`. Right now we have three different types of `app-surface`:
+background, panel and widgets. It is double-buffered, has simple input
+handlers. Now it also has children and the children occupies part of its
+surface. This is not a very obvious design, since every `wl_surface` should be
+independent, so how come it occupies other people's buffer. In the
+`taiwins-shell` case, this is caused by panel has widgets hook on it and the
+widgets has icons that occupy the panel, the widget itself also has a
+`wl_surface` if you click on the icon.
 
 Actually a solution to this overlapping is necessary in a general the UI
 designs, when we are in parent UI and want to access one of the children UI, we
@@ -90,4 +93,15 @@ need an access point, like a button, and this buffer can inhabit inside its
 parent or itself, since we chooses the later, we need to let the parent know how
 to access it.
 
-### commit-events
+### panel
+The panel is the most tricky one, it reflexes the hierarchy structure, the
+widgets are hooked on it. It has commit events every time when the widget has
+updates on icons. It is almost the entire reason that I had this
+`client-side-event-processor`.
+
+### widgets
+Widget sit on the `WESTON_LAYER_POSITION_UI` layer, where panel also sits. So
+in that sense we cannot remove all the all the views in the panel anymore. When
+we click on the icon, one widget should appear, itself need to decide where it
+should appear, because compositor has no idea about that. This is not really
+hard, as we can provide a function to decide.
