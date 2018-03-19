@@ -77,9 +77,6 @@ static void
 eglapp_cursor_axis_cb(struct app_surface *surf, int speed, int direction, uint32_t sx, uint32_t sy);
 
 
-
-
-
 void
 eglapp_init_with_funcs(struct eglapp *app,
 		       void (*update_icon)(struct eglapp_icon *),
@@ -135,6 +132,11 @@ eglapp_init_with_script(struct eglapp *app,
 	app->surface.pointraxis = eglapp_cursor_axis_cb;
 }
 
+void
+eglapp_decide_location(struct eglapp *app)
+{
+
+}
 
 void
 eglapp_destroy(struct eglapp *app)
@@ -150,7 +152,6 @@ _free_eglapp(void *app)
 }
 
 struct eglapp*
-//eglapp_addtolist(struct shell_panel *panel)
 eglapp_addtolist(struct app_surface *panel, vector_t *widgets)
 {
 	struct bbox box;
@@ -198,9 +199,6 @@ eglapp_dispose(struct eglapp *app)
 	cairo_destroy(app->icon.ctxt);
 	cairo_surface_destroy(app->icon.isurf);
 }
-
-
-
 
 /*
  * ==============================================================
@@ -300,10 +298,11 @@ eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *com
 	assert(app->eglwin);
 	app->width = 100;
 	app->height = 100;
+	//I should create the view here
+
 	app->eglsurface = eglCreateWindowSurface(env->egl_display, env->config,
 						 (EGLNativeWindowType)app->eglwin, NULL);
 	assert(app->eglsurface);
-	return;
 	if (!eglMakeCurrent(env->egl_display, app->eglsurface, app->eglsurface, env->egl_context)) {
 		fprintf(stderr, "failed to launch the window\n");
 	}
@@ -333,10 +332,9 @@ eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *com
 	app->glprog = glCreateProgram();
 	app->vs = glCreateShader(GL_VERTEX_SHADER);
 	app->fs = glCreateShader(GL_FRAGMENT_SHADER);
-//	fprintf(stderr, "the gl program with id %u %u %u\n", app->glprog, app->vs, app->fs);
+	/* fprintf(stderr, "the gl program with id %u %u %u\n", */
+	/*	app->glprog, app->vs, app->fs); */
 	assert(glGetError() == GL_NO_ERROR);
-//	fprintf(stderr, "the error number %d\n", );
-	//compile shader
 	glShaderSource(app->vs, 1, &vertex_shader, 0);
 	glShaderSource(app->fs, 1, &fragment_shader, 0);
 	glCompileShader(app->vs);

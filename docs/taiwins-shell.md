@@ -91,7 +91,22 @@ Actually a solution to this overlapping is necessary in a general the UI
 designs, when we are in parent UI and want to access one of the children UI, we
 need an access point, like a button, and this buffer can inhabit inside its
 parent or itself, since we chooses the later, we need to let the parent know how
-to access it.
+to access it. The current solution towards the problem is by three callbacks.
+
+ - the parent provide a `paint_subsurface` callbacks for the children.
+ - But it has no pointers to the children. This causes a problem because:
+ - the second children my need to know the first children to decide where it
+   sits as well. There are several solution of arrange children.
+   - vector or list. It may or may not have random access.
+   - quad-tree or binary-tree depends on if the application is 1D or 2D. (Damn
+	 it, Je aurait du choisir C++)
+ - Now we don't have any other choices except making methods in
+   `app_surface`. The APIs exposed should be,
+   - `find_subapp_at_xy`
+   - `n_subapp`: number of subapps.
+   - `add_new_subapp`, in panel's case, it is creating new subapp.
+   I cannot provide an random access method or iterating method because we don't
+   know how the layout of subapps.
 
 ### panel
 The panel is the most tricky one, it reflexes the hierarchy structure, the
@@ -103,5 +118,5 @@ updates on icons. It is almost the entire reason that I had this
 Widget sit on the `WESTON_LAYER_POSITION_UI` layer, where panel also sits. So
 in that sense we cannot remove all the all the views in the panel anymore. When
 we click on the icon, one widget should appear, itself need to decide where it
-should appear, because compositor has no idea about that. This is not really
-hard, as we can provide a function to decide.
+should appear, because compositor has no idea about that. In that case, there
+need to be a `wl_request` to draw the app.

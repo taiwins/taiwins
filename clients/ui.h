@@ -50,26 +50,35 @@ bboxs_intersect(const struct bbox *ba, const struct bbox *bb)
 }
 
 
-//this is the root structure by all the surfaces in the shell, others should
-//extend on it. And wl_surface's usr data should point to it
 struct app_surface {
-	//if it has parent, the px, py, w and h means where it occupies the parent.
+	/**
+	 * the parent pointer. It is only in the sub_surfaces, so the parent has
+	 * no information about where the subclasses are. TODO you need to
+	 * change the subclasses into list and expose the bbox information
+	*/
 	struct app_surface *parent;
-
+	/**
+	 * app tree management
+	 */
+	struct app_surface * (*find_subapp_at_xy)(int x, int y);
+	int (*n_subapp)(void);
+	/* the callback is for sub-struct calling */
+	int (*paint_subsurface)(struct app_surface *surf, const struct bbox *, const void *,
+				 enum wl_shm_format);
+	struct app_surface * (*add_subapp)(struct app_surface *surf);
+	//geometry information
 	unsigned int px, py; //anchor
 	unsigned int w, h; //size
-
 	enum APP_SURFACE_TYPE type;
+	//buffer management
 	struct shm_pool *pool;
 	struct wl_output *wl_output;
 	struct wl_surface *wl_surface;
 	struct wl_buffer  *wl_buffer[2];
 	bool dirty[2];
 	bool committed[2];
-	//frame-attach-damage-commit, it get called at buffer-release or
-	//use to update its places
-	int (*paint_subsurface)(struct app_surface *surf, const struct bbox *, const void *,
-				 enum wl_shm_format);
+
+	//input management
 	//callbacks for wl_pointer and cursor
 	void (*keycb)(struct app_surface *surf, xkb_keysym_t keysym);
 	//run this function at the frame callback
