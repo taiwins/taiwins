@@ -421,6 +421,7 @@ eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *com
 		nk_eglapp_font_stash_begin(app, &atlas);
 		nk_eglapp_font_stash_end(app);
 	}
+	nk_init_default(&app->ctx, 0);
 	nk_eglapp_new_frame(app);
 }
 
