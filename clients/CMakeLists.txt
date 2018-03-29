@@ -9,6 +9,7 @@ include_directories(
 add_executable(shell-taiwins
   shell.c
   client.c
+  appsurf.c
   buffer.c
   ui.c
   egl.c
