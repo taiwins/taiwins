@@ -88,28 +88,8 @@ egl_env_init(struct egl_env *env, struct wl_display *d)
 	EGLConfig egl_cfg;
 	EGLint *context_attribute = NULL;
 
-/* #ifdef __WITH_NVIDIA */
-
-/*	struct EGLExtPlatform platform; */
-/*	struct EGLExtDriver nv_dirver; */
-/*	nv_dirver.getProcAddress = (PEGLEXTFNGETPROCADDRESS)eglGetProcAddress("getProcAddress"); */
-/*	nv_dirver.setError = (PEGLEXTFNSETERROR)eglGetProcAddress("setError"); */
-/*	nv_dirver.debugMessage = (PEGLEXTFNDEBUGMESSAGE)eglGetProcAddress("debugMessage"); */
-/*	nv_dirver.streamSwapInterval = (PEGLEXTFNSTREAMSWAPINTERVAL)eglGetProcAddress("streamSwapInterval"); */
-/*	platform.platform = EGL_EXT_platform_wayland; */
-
-/*	EGLBoolean result = loadEGLExternalPlatform(1, 4, &nv_dirver, &platform); */
-/*	if (!result) { */
-/*		fprintf(stderr, "the platform data is %p\n", platform.data); */
-/*	} */
-/*	PFNEGLGETPLATFORMDISPLAYEXTPROC eglGetPlatformDisplayEXT = */
-/*		(PFNEGLGETPLATFORMDISPLAYEXTPROC) */
-/*		eglGetProcAddress("eglGetPlatformDisplayEXT"); */
-/*	env->egl_display = eglGetPlatformDisplay(EGL_PLATFORM_WAYLAND_EXT, */
-/*						 (EGLNativeDisplayType)env->wl_display, 0); */
-/* #else */
 	env->egl_display = eglGetDisplay((EGLNativeDisplayType)env->wl_display);
-//#endif
+
 	const char *egl_extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
 	fprintf(stderr, "egl_extensions%s\n", egl_extensions);
 	assert(env->egl_display);

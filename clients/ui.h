@@ -79,7 +79,7 @@ struct app_surface {
 	bool committed[2];
 
 	//input management
-	//callbacks for wl_pointer and cursor
+	//virtual functions
 	void (*keycb)(struct app_surface *surf, xkb_keysym_t keysym);
 	//run this function at the frame callback
 	void (*pointron)(struct app_surface *surf, uint32_t sx, uint32_t sy);
