@@ -40,6 +40,7 @@ struct eglapp_icon {
 #endif
 
 struct eglapp {
+
 	//we need to have an icon as well,
 	struct app_surface surface;
 	struct eglapp_icon icon;
@@ -50,24 +51,28 @@ struct eglapp {
 	struct wl_egl_window *eglwin;
 	EGLSurface eglsurface;
 
+	//device attributes
 	struct nk_buffer cmds;
 	struct nk_draw_null_texture null;
+	//now we can add all those fancy opengl stuff
+	GLuint glprog, vs, fs;//actually, we can evider vs, fs
+	GLuint vao, vbo, ebo;
+	GLuint font_tex;
+	GLint attrib_pos;
+	GLint attrib_uv;
+	GLint attrib_col;
+	//uniforms
+	GLint uniform_tex;
+	GLint uniform_proj;
+
+	//nuklear attributes
 	struct nk_context ctx;
 	struct nk_font_atlas atlas;
 	struct nk_vec2 fb_scale;
 	unsigned int text[NK_EGLAPP_TEXT_MAX];
 	unsigned int text_len;
-	//now we can add all those fancy opengl stuff
-	GLuint glprog, vs, fs;//actually, we can evider vs, fs
-	GLuint vao, vbo, ebo;
-	//uniforms
-	GLint uniform_tex;
-	GLint uniform_proj;
-	GLuint font_tex;
-	GLint attrib_pos;
-	GLint attrib_uv;
-	GLint attrib_col;
 
+	//appsurface has its own width and height, I shouldn't need this
 	int width, height;
 	int cx, cy; //cursor location
 };
