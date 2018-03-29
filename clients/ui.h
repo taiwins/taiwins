@@ -89,6 +89,36 @@ struct app_surface {
 	void (*pointraxis)(struct app_surface *surf, int pos, int direction, uint32_t sx, uint32_t sy);
 };
 
+/**
+ * /brief initialize the appsurface to a default state
+ *
+ * no input, no subapp, no buffer, but has a wl_surface
+ */
+void appsurface_init(struct app_surface *surf, struct app_surface *parent,
+		     enum APP_SURFACE_TYPE type, struct wl_compositor *compositor);
+
+/**
+ * /brief assign wl_buffers to the appsurface, thus it initialize the double
+ * buffer state and commit state
+ *
+ */
+void appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm);
+
+/**
+ * /brief assign all the callbacks for subapps, if not used, the function will
+ * stay unavailable
+ */
+void appsurface_initfor_subapps(struct app_surface *surf,
+				struct app_surface *(*find_subapp)(int, int),
+				int (*n_subapp)(void),
+				int (*paint)(struct app_surface *,
+					     const struct bbox *, const void *,
+					     enum wl_shm_format),
+				struct app_surface *(*add)(struct app_surface *));
+
+
+
+
 void appsurface_fadc(struct app_surface *surf);
 
 void appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer);

@@ -222,8 +222,9 @@ eglapp_dispose(struct eglapp *app)
 #define NK_EGLAPP_DOUBLE_CLICK_HI 0.2
 #endif
 
-#define MAX_VERTEX_BUFFER 512 * 1024
-#define MAX_ELEMENT_BUFFER 128 * 1024
+//have a small limited vertex buffer is certainly great
+#define MAX_VERTEX_BUFFER 512 * 128
+#define MAX_ELEMENT_BUFFER 128 * 128
 
 
 void
@@ -312,6 +313,7 @@ eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *com
 	app->eglenv = env;
 
 	app->surface.wl_surface = wl_compositor_create_surface(compositor);
+	wl_surface_set_user_data(app->surface.wl_surface, &app->surface);
 	//wl_egl_window_create was implemented
 	app->eglwin = wl_egl_window_create(app->surface.wl_surface, 100, 100);
 	assert(app->eglwin);
@@ -325,6 +327,9 @@ eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *com
 	if (!eglMakeCurrent(env->egl_display, app->eglsurface, app->eglsurface, env->egl_context)) {
 		fprintf(stderr, "failed to launch the window\n");
 	}
+	//now we can do the opengl stuff
+	nk_buffer_init_default(&app->cmds);
+
 	static const GLchar *vertex_shader =
 		NK_SHADER_VERSION
 		"uniform mat4 ProjMtx;\n"
@@ -351,8 +356,6 @@ eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *com
 	app->glprog = glCreateProgram();
 	app->vs = glCreateShader(GL_VERTEX_SHADER);
 	app->fs = glCreateShader(GL_FRAGMENT_SHADER);
-	/* fprintf(stderr, "the gl program with id %u %u %u\n", */
-	/*	app->glprog, app->vs, app->fs); */
 	assert(glGetError() == GL_NO_ERROR);
 	glShaderSource(app->vs, 1, &vertex_shader, 0);
 	glShaderSource(app->fs, 1, &fragment_shader, 0);
@@ -368,11 +371,6 @@ eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *com
 	assert(status == GL_TRUE);
 	glGetShaderiv(app->fs, GL_COMPILE_STATUS, &status);
 	glGetShaderiv(app->fs, GL_INFO_LOG_LENGTH, &loglen);
-	/* if (status != GL_TRUE) { */
-	/*	char err_msg[loglen]; */
-	/*	glGetShaderInfoLog(app->fs, loglen, NULL, err_msg); */
-	/*	fprintf(stderr, "fragment shader compile fails: %s\n", err_msg); */
-	/* } */
 	assert(status == GL_TRUE);
 	//link shader into program
 	glAttachShader(app->glprog, app->vs);
@@ -416,12 +414,10 @@ eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *com
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	//call the frame for the first time
-	{
-		struct nk_font_atlas *atlas;
-		nk_eglapp_font_stash_begin(app, &atlas);
-		nk_eglapp_font_stash_end(app);
-	}
+	struct nk_font_atlas *atlas;
 	nk_init_default(&app->ctx, 0);
+	nk_eglapp_font_stash_begin(app, &atlas);
+	nk_eglapp_font_stash_end(app);
 	nk_eglapp_new_frame(app);
 }
 
@@ -451,8 +447,10 @@ nk_eglapp_font_stash_end(struct eglapp *app)
     image = nk_font_atlas_bake(&app->atlas, &w, &h, NK_FONT_ATLAS_RGBA32);
     nk_eglapp_upload_atlas(app, image, w, h);
     nk_font_atlas_end(&app->atlas, nk_handle_id((int)app->font_tex), &app->null);
-    if (app->atlas.default_font)
+    if (app->atlas.default_font) {
+	    //we should have here though
 	nk_style_set_font(&app->ctx, &app->atlas.default_font->handle);
+    }
 }
 
 
@@ -500,6 +498,8 @@ nk_eglapp_render(struct eglapp *app, enum nk_anti_aliasing AA, int max_vertex_bu
 			     NULL, GL_STREAM_DRAW);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, max_element_buffer,
 			     NULL, GL_STREAM_DRAW);
+		vertices = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+		elements = glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
 		{
 		//convert
 		struct nk_convert_config config;
@@ -580,10 +580,20 @@ nk_eglapp_new_frame(struct eglapp *app)
 		     NK_WINDOW_BORDER)) {
 		//TODO, change the draw function to app->draw_widget(app);
 		enum {EASY, HARD};
+		static int op = EASY;
+		static int property = 20;
 		nk_layout_row_static(ctx, 30, 80, 1);
 		if (nk_button_label(ctx, "button")) {
 			fprintf(stderr, "button pressed\n");
 		}
+		nk_layout_row_dynamic(ctx, 30, 2);
+		if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
+		if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
+
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_property_int(ctx, "Compression:", 0, &property, 100, 10, 1);
+		nk_label(ctx, "background:", NK_TEXT_LEFT);
+		nk_layout_row_dynamic(ctx, 25, 1);
 	    }
 	nk_end(ctx);
 	glViewport(0, 0, app->width, app->height);
