@@ -22,7 +22,7 @@ appsurface_init(struct app_surface *appsurf, struct app_surface *parent,
 }
 
 void
-appsurface_init_buffer(struct app_surface *surf, const struct shm_pool *shm,
+appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
 		       const struct bbox *bbox)
 {
 	surf->px = bbox->x; surf->py = bbox->y;
@@ -33,6 +33,7 @@ appsurface_init_buffer(struct app_surface *surf, const struct shm_pool *shm,
 		surf->wl_buffer[i] = shm_pool_alloc_buffer(shm, surf->w, surf->h);
 		surf->dirty[i] = false;
 		surf->committed[i] = false;
+		shm_pool_wl_buffer_set_release(surf->wl_buffer[i], appsurface_buffer_release, surf);
 	}
 }
 
@@ -53,11 +54,24 @@ appsurface_initfor_subapps(struct app_surface *surf,
 }
 
 
-static bool COMMITTED = false;
+void appsurface_init_input(struct app_surface *surf,
+			   void (*keycb)(struct app_surface *surf, xkb_keysym_t keysym),
+			   void (*pointron)(struct app_surface *surf, uint32_t sx, uint32_t sy),
+			   void (*pointrbtn)(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy),
+			   void (*pointraxis)(struct app_surface *surf, int pos, int direction, uint32_t sx, uint32_t sy))
+{
+	surf->keycb = keycb;
+	surf->pointron = pointron;
+	surf->pointrbtn = pointrbtn;
+	surf->pointraxis = pointraxis;
+}
+
+
+
 static void
 app_surface_done(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
 {
-	COMMITTED = false;
+
 //	struct app_surface *appsurf = (struct app_surface *)data;
 	if (wl_callback)
 		wl_callback_destroy(wl_callback);
@@ -68,7 +82,7 @@ static struct wl_callback_listener app_surface_done_listener = {
 	.done = app_surface_done
 };
 
-void
+static void
 appsurface_swap_dbuffer(struct app_surface *surf)
 {
 	struct wl_buffer *tmp = surf->wl_buffer[0];
@@ -95,27 +109,24 @@ appsurface_fadc(struct app_surface *surf)
 	wl_surface_attach(surf->wl_surface, surf->wl_buffer[1], 0, 0);
 	struct wl_callback *callback = wl_surface_frame(surf->wl_surface);
 	wl_callback_add_listener(callback, &app_surface_done_listener, surf);
-	wl_surface_damage(surf->wl_surface, 900, surf->py, 100, surf->h);
+	wl_surface_damage(surf->wl_surface, 0, 0, surf->w, surf->h);
 	wl_surface_commit(surf->wl_surface);
 	surf->committed[1] = true;
 	//this way we should guarentee that all the committed surface is clean now.
 	surf->dirty[1] = false;
 	//if b1 is not free, then we have no change issues.
 	appsurface_swap_dbuffer(surf);
-	COMMITTED = true;
-//	if (!surf->committed[0])
-//		appsurface_swap_dbuffer(surf);
-
 }
 
-void appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer)
+void
+appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer)
 {
 	fprintf(stderr, "buffer %p  released.\n", wl_buffer);
 	struct app_surface *appsurf = (struct app_surface *)data;
+	fprintf(stderr, "the type of the surface is %s\n",
+		(appsurf->type == APP_BACKGROUND) ? "background" : "panel");
 
 	if (wl_buffer == appsurf->wl_buffer[0]) {
-		if (COMMITTED)
-//			fprintf(stderr, "we have framebuffer released before done\n");
 		appsurf->committed[0] = false;
 		if (appsurf->committed[1])
 			appsurface_swap_dbuffer(appsurf);

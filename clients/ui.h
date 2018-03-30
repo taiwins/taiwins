@@ -50,6 +50,14 @@ bboxs_intersect(const struct bbox *ba, const struct bbox *bb)
 }
 
 
+
+struct app_style {
+	int32_t background;
+	int32_t foreground;
+};
+
+
+
 struct app_surface {
 	/**
 	 * the parent pointer. It is only in the sub_surfaces, so the parent has
@@ -103,7 +111,7 @@ void appsurface_init(struct app_surface *surf, struct app_surface *parent,
  * buffer state and commit state
  *
  */
-void appsurface_init_buffer(struct app_surface *surf, const struct shm_pool *shm,
+void appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
 			    const struct bbox *bbox);
 
 /**
@@ -117,8 +125,14 @@ void appsurface_initfor_subapps(struct app_surface *surf,
 					     const struct bbox *, const void *,
 					     enum wl_shm_format),
 				struct app_surface *(*add)(struct app_surface *));
-
-
+/**
+ * /brief init all the input callbacks, zero is acceptable
+ */
+void appsurface_init_input(struct app_surface *surf,
+			   void (*keycb)(struct app_surface *surf, xkb_keysym_t keysym),
+			   void (*pointron)(struct app_surface *surf, uint32_t sx, uint32_t sy),
+			   void (*pointrbtn)(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy),
+			   void (*pointraxis)(struct app_surface *surf, int pos, int direction, uint32_t sx, uint32_t sy));
 
 
 void appsurface_fadc(struct app_surface *surf);
