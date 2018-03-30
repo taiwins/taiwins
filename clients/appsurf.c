@@ -3,6 +3,20 @@
 
 
 void
+appsurface_destroy(struct app_surface *surf)
+{
+	for (int i = 0; i < 2; i++) {
+		//the wl_buffer itself is destroyed at shm_pool destructor
+		if (surf->wl_buffer[i]) {
+			shm_pool_buffer_free(surf->wl_buffer[i]);
+			surf->committed[i] = false;
+			surf->dirty[i] = false;
+		}
+	}
+	wl_surface_destroy(surf->wl_surface);
+}
+
+void
 appsurface_init(struct app_surface *appsurf, struct app_surface *parent,
 		enum APP_SURFACE_TYPE type, struct wl_compositor *compositor,
 		struct wl_output *output)
@@ -121,10 +135,10 @@ appsurface_fadc(struct app_surface *surf)
 void
 appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer)
 {
-	fprintf(stderr, "buffer %p  released.\n", wl_buffer);
+//	fprintf(stderr, "buffer %p  released.\n", wl_buffer);
 	struct app_surface *appsurf = (struct app_surface *)data;
-	fprintf(stderr, "the type of the surface is %s\n",
-		(appsurf->type == APP_BACKGROUND) ? "background" : "panel");
+//	fprintf(stderr, "the type of the surface is %s\n",
+//		(appsurf->type == APP_BACKGROUND) ? "background" : "panel");
 
 	if (wl_buffer == appsurf->wl_buffer[0]) {
 		appsurf->committed[0] = false;
@@ -139,4 +153,11 @@ appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer)
 	//0) b1 free and b2 free. You don't need to do anything
 	//1) b2 free and b1 not. nothing to do
 	//2) b2 free and b1 free. nothing to do
+}
+
+void
+appsurface_assign_shouldquit(struct app_surface *surf,
+			     void (*quit)(struct app_surface *))
+{
+	surf->defocused = quit;
 }

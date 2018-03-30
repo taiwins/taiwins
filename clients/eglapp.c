@@ -304,6 +304,14 @@ static void eglapp_find_launch_point(struct eglapp *app, int *x, int *y)
 			0 : app->surface.px - app->surface.w;
 	*y = panel-> h + 10;
 }
+void
+eglapp_quit(struct app_surface *surface)
+{
+	fprintf(stderr, "eglapp should quit now\n");
+	struct eglapp *app = container_of(surface, struct eglapp, surface);
+	wl_egl_window_destroy(app->eglwin);
+	wl_surface_destroy(surface->wl_surface);
+}
 
 //okay, I can only create program after creating a window
 void
@@ -313,12 +321,14 @@ eglapp_launch(struct eglapp *app, struct egl_env *env, struct wl_compositor *com
 	app->eglenv = env;
 
 	app->surface.wl_surface = wl_compositor_create_surface(compositor);
+	appsurface_assign_shouldquit(&app->surface, eglapp_quit);
 	wl_surface_set_user_data(app->surface.wl_surface, &app->surface);
 	//wl_egl_window_create was implemented
 	app->eglwin = wl_egl_window_create(app->surface.wl_surface, 100, 100);
 	assert(app->eglwin);
 	int x, y;
 	eglapp_find_launch_point(app, &x, &y);
+	fprintf(stderr, "the launch point is %d, %d\n", x, y);
 	//I should create the view here
 	taiwins_shell_set_widget(shelloftaiwins, app->surface.wl_surface, app->surface.wl_output, x, y);
 	app->eglsurface = eglCreateWindowSurface(env->egl_display, env->config,

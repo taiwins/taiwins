@@ -87,7 +87,6 @@ struct app_surface {
 	bool committed[2];
 
 	//input management
-	//virtual functions
 	void (*keycb)(struct app_surface *surf, xkb_keysym_t keysym);
 	//run this function at the frame callback
 	void (*pointron)(struct app_surface *surf, uint32_t sx, uint32_t sy);
@@ -95,6 +94,8 @@ struct app_surface {
 	void (*pointrbtn)(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy);
 	//axis events with direction (0->x, y->1)
 	void (*pointraxis)(struct app_surface *surf, int pos, int direction, uint32_t sx, uint32_t sy);
+	//things to do when input occuped by other surfaces
+	void (*defocused)(struct app_surface *surf);
 };
 
 /**
@@ -105,7 +106,7 @@ struct app_surface {
 void appsurface_init(struct app_surface *surf, struct app_surface *parent,
 		     enum APP_SURFACE_TYPE type, struct wl_compositor *compositor,
 		     struct wl_output *output);
-
+void appsurface_destroy(struct app_surface *surf);
 /**
  * /brief assign wl_buffers to the appsurface, thus it initialize the double
  * buffer state and commit state
@@ -113,7 +114,6 @@ void appsurface_init(struct app_surface *surf, struct app_surface *parent,
  */
 void appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
 			    const struct bbox *bbox);
-
 /**
  * /brief assign all the callbacks for subapps, if not used, the function will
  * stay unavailable
@@ -134,6 +134,8 @@ void appsurface_init_input(struct app_surface *surf,
 			   void (*pointrbtn)(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy),
 			   void (*pointraxis)(struct app_surface *surf, int pos, int direction, uint32_t sx, uint32_t sy));
 
+void appsurface_assign_shouldquit(struct app_surface *surf,
+				  void (*quit)(struct app_surface *));
 
 void appsurface_fadc(struct app_surface *surf);
 
