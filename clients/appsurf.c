@@ -22,7 +22,7 @@ appsurface_init(struct app_surface *appsurf, struct app_surface *parent,
 }
 
 void
-appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
+appsurface_init_buffer(struct app_surface *surf, const struct shm_pool *shm,
 		       const struct bbox *bbox)
 {
 	surf->px = bbox->x; surf->py = bbox->y;

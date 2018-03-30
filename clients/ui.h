@@ -95,14 +95,16 @@ struct app_surface {
  * no input, no subapp, no buffer, but has a wl_surface
  */
 void appsurface_init(struct app_surface *surf, struct app_surface *parent,
-		     enum APP_SURFACE_TYPE type, struct wl_compositor *compositor);
+		     enum APP_SURFACE_TYPE type, struct wl_compositor *compositor,
+		     struct wl_output *output);
 
 /**
  * /brief assign wl_buffers to the appsurface, thus it initialize the double
  * buffer state and commit state
  *
  */
-void appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm);
+void appsurface_init_buffer(struct app_surface *surf, const struct shm_pool *shm,
+			    const struct bbox *bbox);
 
 /**
  * /brief assign all the callbacks for subapps, if not used, the function will
