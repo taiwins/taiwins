@@ -55,6 +55,11 @@ struct output_widgets {
 	bool inited;
 };
 
+
+
+/******************************************************************************/
+/**************************** panneaux fonctions ******************************/
+/******************************************************************************/
 static void
 shell_panel_click(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy)
 {
@@ -83,7 +88,7 @@ shell_panel_paintbbox(struct app_surface *surf, const struct bbox *bbox, const v
 	}
 	//create cairo resources
 	struct shell_panel *panel = container_of(surf, struct shell_panel, panelsurf);
-	cairo_format_t format = translate_wl_shm_format(panel->format);
+	cairo_format_t format = translate_wl_shm_format(surf->pool->format);
 	cairo_surface_t *panelsurf = cairo_image_surface_create_for_data(
 		(unsigned char *)shm_pool_buffer_access(surf->wl_buffer[1]),
 		format, surf->w, surf->h,
@@ -114,40 +119,31 @@ static void
 shell_panel_init(struct shell_panel *panel, struct output_widgets *w)
 {
 	struct app_surface *s = &panel->panelsurf;
-	panel->panelsurf = (struct app_surface){0};
-	s->wl_surface = wl_compositor_create_surface(w->shell->globals.compositor);
-	//cbs
-	s->keycb = NULL;
-	s->pointron = NULL;
-	s->pointraxis = NULL;
-	s->pointrbtn = shell_panel_click;
-	s->paint_subsurface = shell_panel_paintbbox;
+	appsurface_init(s, NULL, APP_PANEL, w->shell->globals.compositor, w->output);
+	appsurface_init_input(s, NULL, NULL, shell_panel_click, NULL);
+	appsurface_initfor_subapps(s, NULL, NULL, shell_panel_paintbbox, NULL);
 
-	wl_surface_set_user_data(s->wl_surface, s);
-	s->wl_output = w->output;
-	s->type = APP_PANEL;
 	panel->widgets = (vector_t){0};
-	//TODO DO change this...
-	panel->format = WL_SHM_FORMAT_ARGB8888;
-	//setup state
-	s->dirty[0] = false;
-	s->dirty[1] = false;
-	s->committed[0] = false;
-	s->committed[1] = false;
 }
 
+/******************************************************************************/
+/************************** arriere-plan fonctions ****************************/
+/******************************************************************************/
 static void
-shell_background_init(struct app_surface *background, struct output_widgets *w)
+shell_background_load(struct app_surface *background)
 {
-	w->background = (struct app_surface){0};
-	background->wl_surface = wl_compositor_create_surface(w->shell->globals.compositor);
-	background->wl_output = w->output;
-	wl_surface_set_user_data(background->wl_surface, background);
-	background->type = APP_BACKGROUND;
-	background->dirty[0] = false;
-	background->dirty[1] = false;
-	background->committed[0] = false;
-	background->committed[1] = false;
+	if (background->committed[1])
+		return;
+	void *buffer1 = shm_pool_buffer_access(background->wl_buffer[1]);
+	printf("background surface wl_buffer %p, buffer: %p\n", background->wl_buffer[1],
+	       buffer1);
+	char imgpath[100];
+	sprintf(imgpath, "%s/.wallpaper/wallpaper.png", getenv("HOME"));
+	if (load_image(imgpath, WL_SHM_FORMAT_ARGB8888, background->w, background->h,
+		       (unsigned char *)buffer1) != buffer1) {
+		fprintf(stderr, "failed to load image somehow\n");
+	}
+	background->dirty[1] = true;
 }
 
 static void
@@ -155,7 +151,7 @@ output_init(struct output_widgets *w)
 {
 	struct taiwins_shell *shell = w->shell->shell;
 	//arriere-plan
-	shell_background_init(&w->background, w);
+	appsurface_init(&w->background, NULL, APP_BACKGROUND, w->shell->globals.compositor, w->output);
 	taiwins_shell_set_background(shell, w->output, w->background.wl_surface);
 	//panel
 	shell_panel_init(&w->panel, w);
@@ -167,7 +163,7 @@ static void
 output_create(struct output_widgets *w, struct wl_output *wl_output, struct desktop_shell *twshell)
 {
 	w->shell = twshell;
-	shm_pool_create(&w->pool, twshell->globals.shm, 4096);
+	shm_pool_create(&w->pool, twshell->globals.shm, 4096, WL_SHM_FORMAT_ARGB8888);
 	w->inited = false;
 	w->output = wl_output;
 	wl_output_set_user_data(wl_output, w);
@@ -181,8 +177,6 @@ output_distroy(struct output_widgets *o)
 {
 	wl_output_release(o->output);
 }
-
-
 
 
 
@@ -206,45 +200,26 @@ shell_configure_surface(void *data,
 
 	int32_t w = scale *(width - edges);
 	int32_t h = scale *(height - edges);
-	appsurf->pool = &output->pool;
 
-	void *buffer_addr = NULL;
-	struct wl_buffer *new_buffer = shm_pool_alloc_buffer(&output->pool, w, h);
-	buffer_addr = shm_pool_buffer_access(new_buffer);
-	appsurf->w = w;
-	appsurf->h = h;
-	appsurf->px = 0;
-	appsurf->py = 0;
+	struct bbox bounding = {
+		.w = scale * (width - edges),
+		.h = scale * (height - edges),
+		.x = 0,
+		.y = 0,
+	};
+	appsurface_init_buffer(appsurf, &output->pool, &bounding);
+	void *buffer0 = shm_pool_buffer_access(appsurf->wl_buffer[0]);
+	void *buffer1 = shm_pool_buffer_access(appsurf->wl_buffer[1]);
 
 	if (appsurf->type == APP_BACKGROUND) {
-		printf("background surface buffer %p, wl_buffer: %p\n", buffer_addr, new_buffer);
-		char imgpath[100];
-		sprintf(imgpath, "%s/.wallpaper/wallpaper.png", getenv("HOME"));
-		if (load_image(imgpath, WL_SHM_FORMAT_ARGB8888, w, h,
-			       (unsigned char *)buffer_addr) != buffer_addr) {
-			fprintf(stderr, "failed to load image somehow\n");
-		}
-		wl_surface_attach(output->background.wl_surface, new_buffer, 0, 0);
-		wl_surface_damage(output->background.wl_surface, 0, 0, w, h);
-		wl_surface_commit(output->background.wl_surface);
-		//TODO maybe using the double buffer?
-//		if (output->background.wl_buffer)
-//			shm_pool_buffer_release(output->background.wl_buffer);
-		output->background.wl_buffer[0] = new_buffer;
+		shell_background_load(appsurf);
+		appsurface_fadc(appsurf);
 
 	} else if (appsurf->type == APP_PANEL) {
-		//double buffer, set the data then release the second buffer for widgets
-		struct wl_buffer *b1 = shm_pool_alloc_buffer(&output->pool, w, h);
-		//buffer initialize
-		void *b1d = shm_pool_buffer_access(b1);
-		appsurf->wl_buffer[0] = new_buffer;
-		appsurf->wl_buffer[1] = b1;
-		//a total hack
+		memset(buffer0, 255, w*h*4);
+		memset(buffer1, 255, w*h*4);
+
 		appsurf->dirty[1] = true;
-		memset(buffer_addr, 255, w*h*4);
-		memset(b1d, 255, w*h*4);
-		shm_pool_buffer_set_release(appsurf->wl_buffer[1], appsurface_buffer_release, appsurf);
-		shm_pool_buffer_set_release(appsurf->wl_buffer[0], appsurface_buffer_release, appsurf);
 		appsurface_fadc(appsurf);
 
 		struct eglapp *app = eglapp_addtolist(&output->panel.panelsurf, &output->panel.widgets);
@@ -262,19 +237,6 @@ shell_configure_surface(void *data,
 	}
 
 }
-/* if (output->background.wl_buffer[0]) */
-/*	shm_pool_buffer_release(output->background.wl_buffer[0]); */
-/* swap(output->background.wl_buffer[0], */
-/*      output->background.wl_buffer[1]); */
-/* if (!output->background.wl_buffer[0]) */
-/*	output->background.wl_buffer[0] = shm_pool_alloc_buffer(&output->pool, w, h); */
-/* else if (shm_pool_buffer_size(output->background.wl_buffer[0]) != w * h * 4) { */
-/*	shm_pool_buffer_release(output->background.wl_buffer[0]); */
-/*	output->background.wl_buffer[0] = shm_pool_alloc_buffer(&output->pool, w, h); */
-/* } */
-/* buffer_addr = shm_pool_buffer_access(output->background.wl_buffer[0]); */
-
-
 
 static struct taiwins_shell_listener taiwins_listener = {
 	.configure = shell_configure_surface
