@@ -39,7 +39,6 @@ struct tw_event_queue *the_event_processor = &oneshell.client_event_queue;
 //they have a list of the widget on the panel
 struct shell_panel {
 	struct app_surface panelsurf;
-	enum wl_shm_format format;
 	//in this case, you will also have a list of widgets
 	vector_t widgets;
 };
@@ -126,6 +125,14 @@ shell_panel_init(struct shell_panel *panel, struct output_widgets *w)
 	panel->widgets = (vector_t){0};
 }
 
+static void
+shell_panel_destroy(struct shell_panel *panel)
+{
+	struct app_surface *s = &panel->panelsurf;
+	appsurface_destroy(s);
+	vector_destroy(&panel->widgets);
+}
+
 /******************************************************************************/
 /************************** arriere-plan fonctions ****************************/
 /******************************************************************************/
@@ -176,6 +183,9 @@ static void
 output_distroy(struct output_widgets *o)
 {
 	wl_output_release(o->output);
+	appsurface_destroy(&o->background);
+	shell_panel_destroy(&o->panel);
+	shm_pool_destroy(&o->pool);
 }
 
 
