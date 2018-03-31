@@ -4,6 +4,7 @@
 #include "shellui.h"
 #include "client.h"
 
+//I have to change this function
 int
 update_icon_event(void *data)
 {

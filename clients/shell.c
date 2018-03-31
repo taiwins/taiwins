@@ -36,13 +36,6 @@ struct desktop_shell {
 
 struct tw_event_queue *the_event_processor = &oneshell.client_event_queue;
 
-//they have a list of the widget on the panel
-struct shell_panel {
-	struct app_surface panelsurf;
-	//in this case, you will also have a list of widgets
-	vector_t widgets;
-};
-
 struct output_widgets {
 	struct desktop_shell *shell;
 	struct wl_output *output;
@@ -73,7 +66,6 @@ shell_panel_click(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy)
 			eglapp_launch(app, &oneshell.eglenv, oneshell.globals.compositor);
 			break;
 		}
-		//TODO else, we should close application if we can, same as background
 	}
 }
 

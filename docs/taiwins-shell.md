@@ -33,9 +33,8 @@ events and send it to the server.
 
 Unfortunately, right now we have to process them differently, `inotify event`
 and `timeout event` can be distinguished by the return value from `poll`. But
-`proxy event` and `local events` only different by its nature(I mean there is no
-way you can distinguish it self). More likely, the
-event queue are.
+`proxy event` and `local events` only different by its nature (I mean there is
+no way you can distinguish it self). More likely, the event queue are.
 
 	poll()
 	for event in local_events:
@@ -115,11 +114,26 @@ updates on icons. It is almost the entire reason that I had this
 `client-side-event-processor`.
 
 ### widgets
-Widget sit on the `WESTON_LAYER_POSITION_UI` layer, where panel also sits. So
+Widget sits on the `WESTON_LAYER_POSITION_UI` layer, where panel also sits. So
 in that sense we cannot remove all the all the views in the panel anymore. When
 we click on the icon, one widget should appear, itself need to decide where it
 should appear, because compositor has no idea about that. In that case, there
 need to be a `wl_request` to draw the app. Normally you will draw the EGL stuff
 on a `wl_shell_surface` provided by the wayland api. what we need to do is
-similar `taiwins_add_widget_surface`. We may need some changes since you only
-want one widgets at a time.
+similar `taiwins_set_widget(widget, x, y)`. The widgets are implemented with
+**Immediate UI** methods, that is, we are taking advantage of the opengl drawing
+method to draw every frame. With it we don't need to create the graphic resource
+for every widgets. But at the same time, we have to take care all that `EGL`,
+`OpenGL` setup.
+
+### eglapp and eglenv
+Creating EGL context is not really hard. Only problem is that we can only
+compile `OpenGL` programs after the creating a `wl_surface`, which means if we
+want wl_surface for every widget, we have to allocate the `OpenGL` resources for
+all the widgets while essentially we need just create a `weston_view` and
+destroy the `weston_view` at the server. With this setup, It seems that I break
+the tree structure of the `appsurface`. `shell_panel` will have two `appsurface`,
+one for itself, one for the active widget, and the `find_subapp_at_xy` becomes
+directly `find_widget_at_xy`. `n_subapp` becomes `n_widgets`, and at last,
+`add_new_app` becomes `add_new_widget`. What represents the widgets really
+becomes just active icons.

@@ -26,6 +26,53 @@ extern struct taiwins_shell *shelloftaiwins;
 extern "C" {
 #endif
 
+struct shell_widget;
+
+
+//they have a list of the widget on the panel
+struct shell_panel {
+	struct app_surface panelsurf;
+	//in this case, you will also have a list of widgets
+	vector_t widgets;
+
+	//egl things
+	const struct egl_env *eglenv;
+	struct wl_egl_window *eglwin;
+	EGLSurface eglsurface;
+	//device attributes
+	struct nk_buffer cmds;
+	struct nk_draw_null_texture null;
+	//now we can add all those fancy opengl stuff
+	GLuint glprog, vs, fs;//actually, we can evider vs, fs
+	GLuint vao, vbo, ebo;
+	GLuint font_tex;
+	GLint attrib_pos;
+	GLint attrib_uv;
+	GLint attrib_col;
+	//uniforms
+	GLint uniform_tex;
+	GLint uniform_proj;
+
+	//nuklear attributes
+	struct nk_context ctx;
+	struct nk_font_atlas atlas;
+	struct nk_vec2 fb_scale;
+	unsigned int text[NK_EGLAPP_TEXT_MAX];
+	unsigned int text_len;
+
+	//appsurface has its own width and height, I shouldn't need this
+	int width, height;
+	int cx, cy; //cursor location
+
+
+};
+
+//panel widget apis
+struct shell_widget *find_widget_at_xy(int xy, int y);
+int n_widgets(void);
+int paint_widget_icon(struct app_surface *surf, const struct bbox *, const void *,
+		      enum wl_shm_format);
+struct shell_widget *add_widget(struct app_surface *surf);
 
 struct eglapp_icon {
 	//you need to know the size of it
@@ -38,6 +85,16 @@ struct eglapp_icon {
 #ifndef NK_EGLAPP_TEXT_MAX
 #define NK_EGLAPP_TEXT_MAX 256
 #endif
+
+struct shell_widget {
+	struct eglapp_icon icon;
+	//for native app, the function is defined as following.
+	void (*draw_widget)(struct shell_widget *);
+	//or, we will need a lua function to do it.
+	lua_State *L;
+};
+//this will call the lua state of the widget
+void draw_lua_widget(struct shell_widget *widget);
 
 struct eglapp {
 
@@ -78,7 +135,7 @@ struct eglapp {
 };
 
 
-//the function work with
+//the function that we used for events. We should have it later
 int update_icon_event(void *data);
 
 
