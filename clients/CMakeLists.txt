@@ -13,8 +13,9 @@ add_executable(shell-taiwins
   buffer.c
   ui.c
   egl.c
-  eglapp.c
+  shellui_gl.c
   icon.c
+  shellui.c
   )
 #message("the NVEGL libraries are ${NVEGL_LIBRARIES}")
 

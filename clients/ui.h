@@ -6,6 +6,12 @@
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
+#include <EGL/egl.h>
+#include <GL/gl.h>
+#include <wayland-egl.h>
+#include <stdio.h>
+#include <stdbool.h>
+
 
 //doesnt support jpeg in this way, but there is a cairo-jpeg project
 #include <cairo/cairo.h>
@@ -151,6 +157,23 @@ app_surface_from_wl_surface(struct wl_surface *s)
 {
 	return (struct app_surface *)wl_surface_get_user_data(s);
 }
+
+
+//maybe move this to wl_globals later
+struct egl_env {
+	EGLDisplay egl_display;
+	EGLContext egl_context;
+	struct wl_display *wl_display;
+	EGLConfig config;
+};
+
+struct eglapp;
+
+
+bool egl_env_init(struct egl_env *env, struct wl_display *disp);
+
+void egl_env_end(struct egl_env *env);
+
 
 #ifdef __cplusplus
 }

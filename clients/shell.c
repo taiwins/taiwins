@@ -36,7 +36,7 @@ struct desktop_shell {
 
 struct tw_event_queue *the_event_processor = &oneshell.client_event_queue;
 
-struct output_widgets {
+struct shell_output {
 	struct desktop_shell *shell;
 	struct wl_output *output;
 	struct app_surface background;
@@ -57,64 +57,27 @@ shell_panel_click(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy)
 {
 	struct shell_panel *panel = container_of(surf, struct shell_panel, panelsurf);
 	fprintf(stderr, "clicked on button (%d, %d)\n", cx, cy);
-	for (int i = 0; i < panel->widgets.len; i++) {
-		struct eglapp *app = (struct eglapp *)vector_at(&panel->widgets, i);
-		struct eglapp_icon *icon = icon_from_eglapp(app);
-		struct app_surface *appsurf = appsurface_from_icon(icon);
-		if (bbox_contain_point(&icon->box, cx, cy) && appsurf->pointrbtn) {
-
-			eglapp_launch(app, &oneshell.eglenv, oneshell.globals.compositor);
-			break;
-		}
-	}
+	struct shell_widget *w = shell_panel_find_widget_at_xy(panel, cy, cy);
+	if (w)
+		shell_widget_launch(w);
 }
 
-static int
-shell_panel_paintbbox(struct app_surface *surf, const struct bbox *bbox, const void *data, enum wl_shm_format f)
-{
-	//not free to paint
-	if (surf->committed[1]) {
-//		fprintf(stderr, "trying to paint committed surface\n");
-		return 0;
-	}
-	//create cairo resources
-	struct shell_panel *panel = container_of(surf, struct shell_panel, panelsurf);
-	cairo_format_t format = translate_wl_shm_format(surf->pool->format);
-	cairo_surface_t *panelsurf = cairo_image_surface_create_for_data(
-		(unsigned char *)shm_pool_buffer_access(surf->wl_buffer[1]),
-		format, surf->w, surf->h,
-		cairo_format_stride_for_width(format, surf->w));
-	cairo_t *context = cairo_create(panelsurf);
-
-	cairo_format_t subformat = translate_wl_shm_format(f);
-	cairo_surface_t *subsurf = cairo_image_surface_create_for_data(
-		(unsigned char *)data,
-		subformat, bbox->w, bbox->h,
-		cairo_format_stride_for_width(subformat, bbox->w));
-	//paint
-	cairo_rectangle(context, bbox->x, bbox->y, bbox->w, bbox->h);
-	cairo_set_source_rgba(context, 1.0f, 1.0f, 1.0f, 1.0f);
-	cairo_paint(context);
-	cairo_set_source_surface(context, subsurf, bbox->x, bbox->y);
-	cairo_paint(context);
-	surf->dirty[1] = true;
-	//destroy cairo handles
-	cairo_destroy(context);
-	cairo_surface_destroy(subsurf);
-	cairo_surface_destroy(panelsurf);
-
-	return 1;
-}
 
 static void
-shell_panel_init(struct shell_panel *panel, struct output_widgets *w)
+shell_panel_init(struct shell_panel *panel, struct shell_output *w)
 {
 	struct app_surface *s = &panel->panelsurf;
 	appsurface_init(s, NULL, APP_PANEL, w->shell->globals.compositor, w->output);
 	appsurface_init_input(s, NULL, NULL, shell_panel_click, NULL);
-	appsurface_initfor_subapps(s, NULL, NULL, shell_panel_paintbbox, NULL);
-
+	//widget setup is quit complicated
+	appsurface_init(&panel->widget_surface, NULL, APP_WIDGET,
+			w->shell->globals.compositor, w->output);
+	panel_setup_widget_input(panel);
+	panel->eglenv = &w->shell->eglenv;
+	shell_panel_compile_widgets(panel);
+	shell_panel_init_nklear(panel);
 	panel->widgets = (vector_t){0};
+
 }
 
 static void
@@ -122,7 +85,7 @@ shell_panel_destroy(struct shell_panel *panel)
 {
 	struct app_surface *s = &panel->panelsurf;
 	appsurface_destroy(s);
-	vector_destroy(&panel->widgets);
+	shell_panel_destroy_widgets(panel);
 }
 
 /******************************************************************************/
@@ -146,7 +109,7 @@ shell_background_load(struct app_surface *background)
 }
 
 static void
-output_init(struct output_widgets *w)
+output_init(struct shell_output *w)
 {
 	struct taiwins_shell *shell = w->shell->shell;
 	//arriere-plan
@@ -159,7 +122,7 @@ output_init(struct output_widgets *w)
 }
 
 static void
-output_create(struct output_widgets *w, struct wl_output *wl_output, struct desktop_shell *twshell)
+output_create(struct shell_output *w, struct wl_output *wl_output, struct desktop_shell *twshell)
 {
 	w->shell = twshell;
 	shm_pool_create(&w->pool, twshell->globals.shm, 4096, WL_SHM_FORMAT_ARGB8888);
@@ -172,7 +135,7 @@ output_create(struct output_widgets *w, struct wl_output *wl_output, struct desk
 
 
 static void
-output_distroy(struct output_widgets *o)
+output_distroy(struct shell_output *o)
 {
 	wl_output_release(o->output);
 	appsurface_destroy(&o->background);
@@ -191,14 +154,16 @@ shell_configure_surface(void *data,
 			int32_t width,
 			int32_t height)
 {
-	struct output_widgets *output;
+	struct shell_output *output;
 	//damn it, we need a hack
 	struct app_surface *appsurf = (struct app_surface *)wl_surface_get_user_data(surface);
 
 	if (appsurf->type == APP_BACKGROUND)
-		output = container_of(appsurf, struct output_widgets, background);
-	else if (appsurf->type == APP_PANEL)
-		output = container_of(appsurf, struct output_widgets, panel);
+		output = container_of(appsurf, struct shell_output, background);
+	else if (appsurf->type == APP_PANEL) {
+		struct shell_panel *p = container_of(appsurf, struct shell_panel, panelsurf);
+		output = container_of(p, struct shell_output, panel);
+	}
 
 	int32_t w = scale *(width - edges);
 	int32_t h = scale *(height - edges);
@@ -223,9 +188,10 @@ shell_configure_surface(void *data,
 
 		appsurf->dirty[1] = true;
 		appsurface_fadc(appsurf);
-
-		struct eglapp *app = eglapp_addtolist(&output->panel.panelsurf, &output->panel.widgets);
-		eglapp_init_with_funcs(app, calendar_icon, NULL);
+		struct shell_panel *p = container_of(appsurf, struct shell_panel, panelsurf);
+		//now create a new widget
+		struct shell_widget *app = shell_panel_add_widget(p);
+		shell_widget_init_with_funcs(app, calendar_icon, NULL);
 		struct tw_event update_icon = {.data = app,
 					       .cb = update_icon_event,
 		};
@@ -261,7 +227,7 @@ void announce_globals(void *data,
 		taiwins_shell_add_listener(twshell->shell, &taiwins_listener, twshell);
 		shelloftaiwins = twshell->shell;
 	} else if (!strcmp(interface, wl_output_interface.name)) {
-		struct output_widgets *output = malloc(sizeof(*output));
+		struct shell_output *output = malloc(sizeof(*output));
 		struct wl_output *wl_output = wl_registry_bind(wl_registry, name, &wl_output_interface, version);
 		output_create(output, wl_output, twshell);
 		list_append(&twshell->outputs, &output->link);
@@ -280,9 +246,6 @@ static struct wl_registry_listener registry_listener = {
 	.global = announce_globals,
 	.global_remove = announce_global_remove
 };
-
-
-
 
 //options.
 
@@ -311,7 +274,7 @@ static void
 desktop_shell_release(struct desktop_shell *shell)
 {
 	taiwins_shell_destroy(shell->shell);
-	struct output_widgets *w, *next;
+	struct shell_output *w, *next;
 	list_for_each_safe(w, next, &shell->outputs, link) {
 		list_remove(&w->link);
 		output_distroy(w);
@@ -339,13 +302,12 @@ int main(int argc, char **argv)
 	wl_display_dispatch(display);
 	wl_display_roundtrip(display);
 	{	//initialize the output
-		struct output_widgets *w, *next;
+		struct shell_output *w, *next;
 		list_for_each_safe(w, next, &oneshell.outputs, link) {
 			if (!w->inited)
 				output_init(w);
 		}
 	}
-
 	while(wl_display_dispatch(display) != -1);
 	desktop_shell_release(&oneshell);
 	wl_registry_destroy(registry);

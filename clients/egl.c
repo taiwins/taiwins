@@ -23,8 +23,7 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
-
-#include "egl.h"
+#include "ui.h"
 #include "shellui.h"
 #include "client.h"
 
@@ -114,6 +113,10 @@ egl_env_end(struct egl_env *env)
 	eglDestroyContext(env->egl_display, env->egl_context);
 	eglTerminate(env->egl_display);
 }
+
+
+
+
 
 ///////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////Lua C callbacks////////////////////////////////////
