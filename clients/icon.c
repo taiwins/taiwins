@@ -9,14 +9,12 @@ int
 update_icon_event(void *data)
 {
 //	printf("update icon\n");
-	struct eglapp *app = (struct eglapp *)data;
-	struct eglapp_icon *icon = icon_from_eglapp(app);
-	struct app_surface *panel = app->surface.parent;
+	struct shell_widget *widget = (struct shell_widget *)data;
+	struct eglapp_icon *icon = &widget->icon;
+	struct shell_panel *panel = widget->panel;
 	icon->update_icon(icon);
-	if (panel->paint_subsurface(panel, &icon->box,
-				    cairo_image_surface_get_data(icon->isurf),
-				    WL_SHM_FORMAT_ARGB8888))
-		appsurface_fadc(panel);
+	if (shell_panel_paint_widget(panel, widget))
+		appsurface_fadc(&panel->panelsurf);
 	return 0;
 };
 
