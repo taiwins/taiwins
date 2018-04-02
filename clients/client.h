@@ -82,6 +82,7 @@ struct wl_globals {
 		struct wl_surface *cursor_surface;
 		struct wl_buffer *cursor_buffer;
 		struct wl_surface *focused_surface;
+		struct wl_surface *defocused_surface;
 		uint32_t cursor_events;
 		uint32_t cx, cy; //current coordinate of the cursor
 		uint32_t axis;
@@ -114,9 +115,11 @@ struct shm_pool {
 	struct wl_shm *shm;
 	struct wl_shm_pool *pool;
 	list_t wl_buffers;
+	enum wl_shm_format format;
 };
 
-int shm_pool_create(struct shm_pool *pool, struct wl_shm *shm, int size);
+//we should also add format
+int shm_pool_create(struct shm_pool *pool, struct wl_shm *shm, int size, enum wl_shm_format format);
 
 /** allocated a peice of buffer
  *
@@ -128,9 +131,9 @@ struct wl_buffer *shm_pool_alloc_buffer(struct shm_pool *pool, size_t width, siz
 /** declare this buffer is not in use anymore, so when we need a new one we can
  * reuse it
  */
-void shm_pool_buffer_release(struct wl_buffer *wl_buffer);
+void shm_pool_buffer_free(struct wl_buffer *wl_buffer);
 
-void shm_pool_buffer_set_release(struct wl_buffer *wl_buffer,
+void shm_pool_wl_buffer_set_release(struct wl_buffer *wl_buffer,
 				    void (*cb)(void *, struct wl_buffer *),
 				    void *data);
 
