@@ -49,7 +49,6 @@ appsurface_initfor_subapps(struct app_surface *surf,
 	surf->n_subapp = n_subapp;
 	surf->paint_subsurface = paint;
 	surf->add_subapp = add;
-
 }
 
 
