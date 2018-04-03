@@ -88,6 +88,21 @@ shell_panel_destroy(struct shell_panel *panel)
 	shell_panel_destroy_widgets(panel);
 }
 
+void
+shell_panel_show_widget(struct shell_panel *panel, int x, int y)
+{
+	struct shell_output *w = container_of(panel, struct shell_output, panel);
+	struct app_surface *surf = &panel->panelsurf;
+	taiwins_shell_set_widget(w->shell->shell, surf->wl_surface, w->output, x, y);
+}
+void shell_panel_hide_widget(struct shell_panel *panel)
+{
+	struct shell_output *w = container_of(panel, struct shell_output, panel);
+	struct app_surface *surf = &panel->panelsurf;
+	taiwins_shell_hide_widget(w->shell->shell, surf->wl_surface);
+}
+
+
 /******************************************************************************/
 /************************** arriere-plan fonctions ****************************/
 /******************************************************************************/

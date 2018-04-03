@@ -344,5 +344,6 @@ void
 shell_widget_launch(struct shell_widget *app)
 {
 	struct shell_panel *panel = app->panel;
+	//figure out where to launch the widget
 	nk_egl_new_frame(panel);
 }
