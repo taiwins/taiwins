@@ -79,6 +79,11 @@ int shell_panel_paint_widget(struct shell_panel *panel, struct shell_widget *wid
 struct shell_widget *shell_panel_add_widget(struct shell_panel *surf);
 void shell_panel_destroy_widgets(struct shell_panel *panel);
 
+//panel_shell_ralated functions, the contructor and destructor are static, so we
+//don't define them here
+void shell_panel_show_widget(struct shell_panel *panel, int x, int y);
+void shell_panel_hide_widget(struct shell_panel *panel);
+
 
 struct eglapp_icon {
 	//you need to know the size of it

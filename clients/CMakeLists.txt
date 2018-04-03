@@ -5,14 +5,22 @@ include_directories(
 
 #message("client library include: " ${CLIENT_INCLUDE_DIRS})
 #message("client library: " ${CLIENT_LIBRARIES})
+add_library(taiwins_client
+  client.c
+  appsurf.c
+  ui.c
+  egl.c
+  buffer.c
+  )
+
+target_link_libraries(taiwins_client
+  ${CLIENT_LIBRARIES}
+  ${WAYLAND_CURSOR_LIBRARIES}
+  ${TRDPTY_LIBRARIES}
+  )
 
 add_executable(shell-taiwins
   shell.c
-  client.c
-  appsurf.c
-  buffer.c
-  ui.c
-  egl.c
   shellui_gl.c
   icon.c
   shellui.c
@@ -26,4 +34,5 @@ target_link_libraries(shell-taiwins
   ${NVEGL_LIBRARIES}
   m
   proto_client_libraries
+  taiwins_client
   )

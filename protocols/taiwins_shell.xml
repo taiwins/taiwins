@@ -17,6 +17,10 @@
       <arg name= "x" type="uint"/>
       <arg name= "y" type="uint"/>
     </request>
+    <request name="hide_widget">
+      <description summary="destroy the widget view at the server side"/>
+      <arg name="surface" type="object" interface="wl_surface"/>
+    </request>
 
     <request name="set_panel">
       <description summary="show panel for the output">

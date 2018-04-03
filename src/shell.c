@@ -82,11 +82,11 @@ widget_committed(struct weston_surface *surface, int sx, int sy)
 
 static void
 setup_shell_widget(struct wl_client *client,
-			   struct wl_resource *resource,
-			   struct wl_resource *surface,
-			   struct wl_resource *output,
-			   uint32_t x,
-			   uint32_t y)
+		   struct wl_resource *resource,
+		   struct wl_resource *surface,
+		   struct wl_resource *output,
+		   uint32_t x,
+		   uint32_t y)
 {
 
 	struct weston_view *view, *next;
@@ -94,9 +94,7 @@ setup_shell_widget(struct wl_client *client,
 		(struct weston_surface *)wl_resource_get_user_data(surface);
 	struct weston_output *ws_output = weston_output_from_resource(output);
 	wd_surface->output = ws_output;
-
-
-	//this is very fack
+	//this is very fake
 	if (wd_surface->committed) {
 		wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT, "surface already have a role");
 		return;
@@ -105,13 +103,29 @@ setup_shell_widget(struct wl_client *client,
 	wd_surface->committed_private = &oneshell;
 	wl_list_for_each_safe(view, next, &wd_surface->views, surface_link)
 		weston_view_destroy(view);
-
+	//create the view for it
 	view = weston_view_create(wd_surface);
 	view->output = ws_output;
 	oneshell.current_widget_pos.x = x;
 	oneshell.current_widget_pos.y = y;
 	//it won't work if we don't commit right?
 }
+
+static void
+hide_shell_widget(struct wl_client *client,
+		  struct wl_resource *resource,
+		  struct wl_resource *surface)
+{
+	struct weston_view *view, *next;
+	struct weston_surface *wd_surface =
+		(struct weston_surface *)wl_resource_get_user_data(surface);
+	wd_surface->committed = NULL;
+	wd_surface->committed_private = NULL;
+	wl_list_for_each_safe(view, next, &wd_surface->views, surface_link)
+		weston_view_destroy(view);
+}
+
+
 
 static void
 background_committed(struct weston_surface *surface, int sx, int sy)
@@ -194,6 +208,7 @@ static struct taiwins_shell_interface shell_impl = {
 	.set_background = set_background,
 	.set_panel = set_panel,
 	.set_widget = setup_shell_widget,
+	.hide_widget = hide_shell_widget,
 };
 
 static void
