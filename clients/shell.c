@@ -57,7 +57,7 @@ shell_panel_click(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy)
 {
 	struct shell_panel *panel = container_of(surf, struct shell_panel, panelsurf);
 	fprintf(stderr, "clicked on button (%d, %d)\n", cx, cy);
-	struct shell_widget *w = shell_panel_find_widget_at_xy(panel, cy, cy);
+	struct shell_widget *w = shell_panel_find_widget_at_xy(panel, cx, cy);
 	if (w)
 		shell_widget_launch(w);
 }
@@ -92,13 +92,13 @@ void
 shell_panel_show_widget(struct shell_panel *panel, int x, int y)
 {
 	struct shell_output *w = container_of(panel, struct shell_output, panel);
-	struct app_surface *surf = &panel->panelsurf;
+	struct app_surface *surf = &panel->widget_surface;
 	taiwins_shell_set_widget(w->shell->shell, surf->wl_surface, w->output, x, y);
 }
 void shell_panel_hide_widget(struct shell_panel *panel)
 {
 	struct shell_output *w = container_of(panel, struct shell_output, panel);
-	struct app_surface *surf = &panel->panelsurf;
+	struct app_surface *surf = &panel->widget_surface;
 	taiwins_shell_hide_widget(w->shell->shell, surf->wl_surface);
 }
 

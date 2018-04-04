@@ -51,21 +51,6 @@ appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
 	}
 }
 
-void
-appsurface_initfor_subapps(struct app_surface *surf,
-			   struct app_surface *(*find_subapp)(int, int),
-			   int (*n_subapp)(void),
-			   int (*paint)(struct app_surface *,
-					const struct bbox *, const void *,
-					enum wl_shm_format),
-			   struct app_surface *(*add)(struct app_surface *))
-{
-	surf->find_subapp_at_xy = find_subapp;
-	surf->n_subapp = n_subapp;
-	surf->paint_subsurface = paint;
-	surf->add_subapp = add;
-}
-
 
 void appsurface_init_input(struct app_surface *surf,
 			   void (*keycb)(struct app_surface *surf, xkb_keysym_t keysym),
