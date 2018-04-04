@@ -18,7 +18,8 @@ shell_widget_init_with_funcs(struct shell_widget *app,
 		       void (*draw_widget)(struct shell_widget *))
 {
 	struct eglapp_icon *icon = &app->icon;
-	//get around with the
+	//this is a very awkward part, because we have to run the icon for the
+	//first time to figure out the size it occupies
 	update_icon(&app->icon);
 	unsigned int icon_width = cairo_image_surface_get_width(icon->isurf);
 	unsigned int icon_right = icon->box.w;
@@ -88,7 +89,7 @@ shell_panel_compile_widgets(struct shell_panel *panel)
 	GLint status, loglen;
 	struct app_surface *widget_surface = &panel->widget_surface;
 
-	panel->eglwin = wl_egl_window_create(widget_surface->wl_surface, 100, 100);
+	panel->eglwin = wl_egl_window_create(widget_surface->wl_surface, 50, 50);
 	assert(panel->eglwin);
 	panel->eglsurface = eglCreateWindowSurface(panel->eglenv->egl_display, panel->eglenv->config,
 						   (EGLNativeWindowType)panel->eglwin, NULL);

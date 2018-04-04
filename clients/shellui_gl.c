@@ -49,8 +49,6 @@ widget_cursor_button_cb(struct app_surface *surf, bool btn, uint32_t sx, uint32_
 static void
 widget_cursor_axis_cb(struct app_surface *surf, int speed, int direction, uint32_t sx, uint32_t sy);
 
-static void widget_should_close(struct app_surface *surf);
-
 void
 panel_setup_widget_input(struct shell_panel *panel)
 {
@@ -60,7 +58,6 @@ panel_setup_widget_input(struct shell_panel *panel)
 			      widget_cursor_motion_cb,
 			      widget_cursor_button_cb,
 			      widget_cursor_axis_cb);
-	appsurface_assign_shouldquit(widget_surf, widget_should_close);
 }
 
 /*
@@ -126,12 +123,6 @@ widget_cursor_axis_cb(struct app_surface *surf, int speed, int direction, uint32
 	nk_input_end(ctx);
 }
 
-void
-widget_should_close(struct app_surface *surf)
-{
-	struct shell_panel *p = container_of(surf, struct shell_panel, widget_surface);
-	shell_panel_hide_widget(p);
-}
 
 
 NK_API void
@@ -350,12 +341,37 @@ nk_egl_new_frame(struct shell_panel *app)
 	eglSwapBuffers(app->eglenv->egl_display, app->eglsurface);
 }
 
+struct point2d
+widget_find_anchor(struct shell_widget *app)
+{
+	struct point2d point;
+	int x = app->icon.box.x + app->icon.box.w/2;
+	int y = app->icon.box.y;
+	int ww = app->width;
+	int wh = app->height;
+
+	struct shell_panel *panel = app->panel;
+	unsigned int pw = panel->panelsurf.w;
+	unsigned int ph = panel->panelsurf.h;
+
+	if (x + ww/2 >= pw) {
+		point.x = pw - ww;
+	} else if (x - ww/2 < 0) {
+		point.x = 0;
+	} else
+		point.x = x - ww/2;
+	point.y = 16;
+	return point;
+}
+
 void
 shell_widget_launch(struct shell_widget *app)
 {
 	struct shell_panel *panel = app->panel;
 	panel->active_one = app;
 	//figure out where to launch the widget
-	shell_panel_show_widget(panel, 0, 16);
+	struct point2d p = widget_find_anchor(app);
+	shell_panel_show_widget(panel, p.x, p.y);
+	wl_egl_window_resize(panel->eglwin, app->width, app->height, 0, 0);
 	nk_egl_new_frame(panel);
 }

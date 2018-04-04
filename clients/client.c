@@ -218,8 +218,6 @@ pointer_leave(void *data,
 {
 	struct wl_globals *globals = (struct wl_globals *)data;
 	globals->inputs.focused_surface = NULL;
-	globals->inputs.defocused_surface = surface;
-
 	globals->inputs.cursor_events = POINTER_LEAVE;
 }
 
@@ -252,16 +250,7 @@ pointer_frame(void *data,
 	struct wl_surface *focused = globals->inputs.focused_surface;
 	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
 
-	struct wl_surface *defocused = globals->inputs.defocused_surface;
-	struct app_surface *defocused_app = (defocused) ? app_surface_from_wl_surface(defocused) : NULL;
-
 	uint32_t event = globals->inputs.cursor_events;
-	//deal with defocused first, it should only be called once
-	if (event & POINTER_BTN && defocused && defocused_app->defocused) {
-		defocused_app->defocused(defocused_app);
-		globals->inputs.defocused_surface = NULL;
-	}
-
 	//events goes in the order
 	if ((event & POINTER_AXIS) && appsurf->pointraxis)
 		appsurf->pointraxis(appsurf,

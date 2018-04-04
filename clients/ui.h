@@ -32,12 +32,18 @@ enum APP_SURFACE_TYPE {
 	APP_LOCKER,
 };
 
+struct point2d {
+	unsigned int x;
+	unsigned int y;
+};
+
 struct bbox {
 	unsigned int x;
 	unsigned int y;
 	unsigned int w;
 	unsigned int h;
 };
+
 
 static inline bool
 bbox_contain_point(const struct bbox *box, unsigned int x, unsigned int y)
@@ -91,8 +97,6 @@ struct app_surface {
 	void (*pointrbtn)(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy);
 	//axis events with direction (0->x, y->1)
 	void (*pointraxis)(struct app_surface *surf, int pos, int direction, uint32_t sx, uint32_t sy);
-	//things to do when input occuped by other surfaces
-	void (*defocused)(struct app_surface *surf);
 };
 
 /**
@@ -119,9 +123,6 @@ void appsurface_init_input(struct app_surface *surf,
 			   void (*pointron)(struct app_surface *surf, uint32_t sx, uint32_t sy),
 			   void (*pointrbtn)(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy),
 			   void (*pointraxis)(struct app_surface *surf, int pos, int direction, uint32_t sx, uint32_t sy));
-
-void appsurface_assign_shouldquit(struct app_surface *surf,
-				  void (*quit)(struct app_surface *));
 
 void appsurface_fadc(struct app_surface *surf);
 
