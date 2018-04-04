@@ -82,7 +82,6 @@ struct wl_globals {
 		struct wl_surface *cursor_surface;
 		struct wl_buffer *cursor_buffer;
 		struct wl_surface *focused_surface;
-		struct wl_surface *defocused_surface;
 		uint32_t cursor_events;
 		uint32_t cx, cy; //current coordinate of the cursor
 		uint32_t axis;

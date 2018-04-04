@@ -138,10 +138,3 @@ appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer)
 	//1) b2 free and b1 not. nothing to do
 	//2) b2 free and b1 free. nothing to do
 }
-
-void
-appsurface_assign_shouldquit(struct app_surface *surf,
-			     void (*quit)(struct app_surface *))
-{
-	surf->defocused = quit;
-}

@@ -1,6 +1,7 @@
 #include <compositor.h>
 #include <wayland-taiwins-shell-server-protocol.h>
 #include <helpers.h>
+#include <linux/input.h>
 
 #include "weston.h"
 #include "shell.h"
@@ -12,8 +13,8 @@ struct twshell {
 
 	struct weston_position panel_position;
 	struct weston_position current_widget_pos;
-//	struct weston_position backgrou
-
+	//the widget is the global view
+	struct weston_surface *the_widget_surface;
 };
 
 static struct twshell oneshell;
@@ -94,6 +95,7 @@ setup_shell_widget(struct wl_client *client,
 		(struct weston_surface *)wl_resource_get_user_data(surface);
 	struct weston_output *ws_output = weston_output_from_resource(output);
 	wd_surface->output = ws_output;
+	oneshell.the_widget_surface = wd_surface;
 	//this is very fake
 	if (wd_surface->committed) {
 		wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT, "surface already have a role");
@@ -112,17 +114,45 @@ setup_shell_widget(struct wl_client *client,
 }
 
 static void
-hide_shell_widget(struct wl_client *client,
-		  struct wl_resource *resource,
-		  struct wl_resource *surface)
+_hide_shell_widget(struct weston_surface *wd_surface)
 {
 	struct weston_view *view, *next;
-	struct weston_surface *wd_surface =
-		(struct weston_surface *)wl_resource_get_user_data(surface);
 	wd_surface->committed = NULL;
 	wd_surface->committed_private = NULL;
 	wl_list_for_each_safe(view, next, &wd_surface->views, surface_link)
 		weston_view_destroy(view);
+}
+
+static void
+hide_shell_widget(struct wl_client *client,
+		  struct wl_resource *resource,
+		  struct wl_resource *surface)
+{
+	struct weston_surface *wd_surface =
+		(struct weston_surface *)wl_resource_get_user_data(surface);
+	_hide_shell_widget(wd_surface);
+}
+
+static void
+shell_widget_should_close_on_keyboard(struct weston_keyboard *keyboard,
+					   uint32_t time, uint32_t key,
+					   void *data)
+{
+	if (keyboard->focus != oneshell.the_widget_surface &&
+	    oneshell.the_widget_surface)
+		_hide_shell_widget(oneshell.the_widget_surface);
+}
+
+static void
+shell_widget_should_close_on_cursor(struct weston_pointer *pointer,
+				    uint32_t time, uint32_t button,
+				    void *data)
+{
+	struct weston_view *view = pointer->focus;
+	struct weston_surface *surface = view->surface;
+	if (surface != oneshell.the_widget_surface &&
+		oneshell.the_widget_surface)
+		_hide_shell_widget(oneshell.the_widget_surface);
 }
 
 
@@ -145,7 +175,6 @@ set_background(struct wl_client *client,
 	struct weston_surface *bg_surface =
 		(struct weston_surface *)wl_resource_get_user_data(surface);
 	struct weston_view *view, *next;
-
 
 	if (bg_surface->committed) {
 		wl_resource_post_error(surface, WL_DISPLAY_ERROR_INVALID_OBJECT, "surface already has a role");
@@ -227,6 +256,13 @@ bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 }
 
 
+static void
+add_shell_bindings(struct weston_compositor *ec)
+{
+	weston_compositor_add_key_binding(ec, KEY_ESC, 0, shell_widget_should_close_on_keyboard, NULL);
+	weston_compositor_add_button_binding(ec, BTN_LEFT, 0, shell_widget_should_close_on_cursor, NULL);
+	weston_compositor_add_button_binding(ec, BTN_RIGHT, 0, shell_widget_should_close_on_cursor, NULL);
+}
 
 void
 announce_shell(struct weston_compositor *ec)
@@ -234,10 +270,12 @@ announce_shell(struct weston_compositor *ec)
 	//I can make the static shell
 	weston_layer_init(&oneshell.background_layer, ec);
 	weston_layer_set_position(&oneshell.background_layer, WESTON_LAYER_POSITION_BACKGROUND);
+	oneshell.the_widget_surface = NULL;
 
 	weston_layer_init(&oneshell.ui_layer, ec);
 	weston_layer_set_position(&oneshell.ui_layer, WESTON_LAYER_POSITION_UI);
 
-
 	wl_global_create(ec->wl_display, &taiwins_shell_interface, TWSHELL_VERSION, &oneshell, bind_shell);
+	add_shell_bindings(ec);
+
 }
