@@ -71,15 +71,6 @@ struct app_surface {
 	 * change the subclasses into list and expose the bbox information
 	*/
 	struct app_surface *parent;
-	/**
-	 * app tree management
-	 */
-	struct app_surface * (*find_subapp_at_xy)(int x, int y);
-	int (*n_subapp)(void);
-	/* the callback is for sub-struct calling */
-	int (*paint_subsurface)(struct app_surface *surf, const struct bbox *, const void *,
-				 enum wl_shm_format);
-	struct app_surface * (*add_subapp)(struct app_surface *surf);
 	//geometry information
 	unsigned int px, py; //anchor
 	unsigned int w, h; //size
@@ -120,17 +111,6 @@ void appsurface_destroy(struct app_surface *surf);
  */
 void appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
 			    const struct bbox *bbox);
-/**
- * /brief assign all the callbacks for subapps, if not used, the function will
- * stay unavailable
- */
-void appsurface_initfor_subapps(struct app_surface *surf,
-				struct app_surface *(*find_subapp)(int, int),
-				int (*n_subapp)(void),
-				int (*paint)(struct app_surface *,
-					     const struct bbox *, const void *,
-					     enum wl_shm_format),
-				struct app_surface *(*add)(struct app_surface *));
 /**
  * /brief init all the input callbacks, zero is acceptable
  */

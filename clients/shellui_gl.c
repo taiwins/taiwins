@@ -49,6 +49,8 @@ widget_cursor_button_cb(struct app_surface *surf, bool btn, uint32_t sx, uint32_
 static void
 widget_cursor_axis_cb(struct app_surface *surf, int speed, int direction, uint32_t sx, uint32_t sy);
 
+static void widget_should_close(struct app_surface *surf);
+
 void
 panel_setup_widget_input(struct shell_panel *panel)
 {
@@ -58,6 +60,7 @@ panel_setup_widget_input(struct shell_panel *panel)
 			      widget_cursor_motion_cb,
 			      widget_cursor_button_cb,
 			      widget_cursor_axis_cb);
+	appsurface_assign_shouldquit(widget_surf, widget_should_close);
 }
 
 /*
@@ -121,6 +124,13 @@ widget_cursor_axis_cb(struct app_surface *surf, int speed, int direction, uint32
 	nk_input_begin(ctx);
 	nk_input_scroll(ctx, nk_vec2(speed * direction, speed *(1-direction)));
 	nk_input_end(ctx);
+}
+
+void
+widget_should_close(struct app_surface *surf)
+{
+	struct shell_panel *p = container_of(surf, struct shell_panel, widget_surface);
+	shell_panel_hide_widget(p);
 }
 
 
@@ -344,6 +354,8 @@ void
 shell_widget_launch(struct shell_widget *app)
 {
 	struct shell_panel *panel = app->panel;
+	panel->active_one = app;
 	//figure out where to launch the widget
+	shell_panel_show_widget(panel, 0, 16);
 	nk_egl_new_frame(panel);
 }
