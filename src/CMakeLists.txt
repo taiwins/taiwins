@@ -17,8 +17,8 @@ add_executable(taiwins
   input.c
   backend.c
   shell.c
+  desktop.c
   )
-
 
 
 target_link_libraries(taiwins

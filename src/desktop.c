@@ -2,6 +2,8 @@
 #include <libweston-desktop.h>
 #include <sequential.h>
 
+#include "weston.h"
+
 //the jobs here are mainly, get to what
 struct taiwins_deskop {
 	struct weston_layer *actived_workspace;
@@ -33,9 +35,23 @@ static struct weston_desktop_api taiwins_desktop =  {
 	.surface_removed = tw_surface_removed,
 };
 
+static void
+_free_workspace(void *data)
+{
+	struct weston_layer *workspace = (struct weston_layer *)data;
+	while(workspace->view_list.link.next != &workspace->view_list.link) {
+		struct wl_list *link = workspace->view_list.link.next;
+		struct weston_view *view = container_of(link, struct weston_view, layer_link.link);
+		struct weston_surface *surf = view->surface;
+		weston_surface_destroy(surf);
+		//close this application!!!! By close the surface?
+		//we could get into a segment fault for this
+	}
+}
 
 bool
-taiwins_desktop_init(struct weston_compositor *compositor)
+taiwins_desktop_init(struct taiwins_deskop *desktop, struct weston_compositor *compositor)
 {
-//	vector_init(vector_t *v, size_t esize, freefun f)
+
+	vector_init(&desktop->workspaces, sizeof(struct weston_layer), _free_workspace);
 }
