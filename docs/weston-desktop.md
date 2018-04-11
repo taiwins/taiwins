@@ -30,3 +30,26 @@ boxes(x,y,w,h).
 
 
 ### weston-renderer implementation
+todo
+
+## Taiwins-desktop implementation
+Because of the design of the Libweston rendering pipeline, we have to find a way
+to limit the number of the layers in the list. In other words, do not insert
+the layer when it is not shown.
+
+### tiling and floating
+Be cause the nature of the tiling layer and floating layer, to represent
+correctly a workspace, we need at least three layers, the floating layers that
+doesn't show, the tiling layer and the shown floating layer. Why is that?
+Because the tiling layer occupies the entire screen all the time, so the
+floating layer gets cut into **two**, the one **above** and the one
+**below**. There are cases when only one layer showing as well. Later.
+
+### layout-ing algorithm
+Another piece of problem is that when we launch the application, we have no idea
+where to put them, the size of the it and many other parameters. We address this
+problem with a launcher problem, how we can do that? The details are not really
+interesting I guess, but the idea is using a `shared_memory` with server. When
+we launch the program, we decide the parameters with the `launcher`, the
+`launcher` writes them into the buffer, so when the program really gets
+created. The server can decide it by read the buffer.
