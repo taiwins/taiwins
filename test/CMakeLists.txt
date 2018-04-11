@@ -52,3 +52,11 @@ add_executable(test_queue
 
 target_link_libraries(test_queue
   ${TRDPTY_LIBRARIES})
+
+
+add_executable(test_pixman
+  test-pixman.c
+  )
+
+target_link_libraries(test_pixman
+  ${CLIENT_LIBARARIES})

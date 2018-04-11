@@ -35,6 +35,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 ###################### find packages ################################
 include(GNUInstallDirs)
+find_package(Pixman REQUIRED)
 find_package(PkgConfig)
 find_package(XKBCommon REQUIRED)
 find_package(LibInput REQUIRED)
@@ -47,12 +48,12 @@ find_package(Lua REQUIRED)
 find_package(LibRSVG REQUIRED)
 set(CMAKE_THREAD_PREFER_PTHREAD)
 find_package(Threads REQUIRED)
-find_package(NVEGL)
+#find_package(NVEGL)
 
-if(NVEGL_FOUND)
-  message("we are building with nvidia support")
-  add_definitions(-D_WITH_NVIDIA)
-endif(NVEGL_FOUND)
+#if(NVEGL_FOUND)
+#  message("we are building with nvidia support")
+#  add_definitions(-D_WITH_NVIDIA)
+#endif(NVEGL_FOUND)
 
 
 
@@ -66,6 +67,7 @@ set(COMPOSITOR_LIBRARIES
   ${Libweston-Desktop_LIBRARIES}
   ${WAYLAND_SERVER_LIBRARIES}
   ${XKBCOMMON_LIBRARIES}
+  ${PIXMAN_LIBRARIES}
   )
 list(REMOVE_DUPLICATES COMPOSITOR_LIBRARIES)
 
@@ -74,6 +76,7 @@ set(COMPOSITOR_INCLUDE_DIRS
   ${Libweston-Desktop_INCLUDE_DIRS}
   ${XKBCOMMON_INCLUDE_DIRS}
   ${WAYLAND_SERVER_INCLUDE_DIR}
+  ${PIXMAN_INCLUDE_DIRS}
   )
 list(REMOVE_DUPLICATES COMPOSITOR_INCLUDE_DIRS)
 
@@ -93,7 +96,7 @@ set(CLIENT_INCLUDE_DIRS
   ${WAYLAND_EGL_INCLUDE_DIR}
   ${LUA_INCLUDE_DIR}
   ${LibRSVG_INCLUDE_DIRS}
-  ${NVEGL_INCLUDE_DIRS}
+  ${PIXMAN_INCLUDE_DIRS}
   )
 list(REMOVE_DUPLICATES CLIENT_INCLUDE_DIRS)
 
@@ -102,12 +105,14 @@ set(CLIENT_LIBRARIES
   ${WAYLAND_CLIENT_LIBRARIES}
   ${CAIRO_LIBRARIES}
   ${WAYLAND_EGL_LIBRARIES}
-  OpenGL::EGL
-  OpenGL::OpenGL
+  # OpenGL::EGL
+  # OpenGL::OpenGL
+  ${OPENGL_LIBRARIES}
+  ${OPENGL_egl_LIBRARY}
   ${LUA_LIBRARIES}
   ${LibRSVG_LIBRARIES}
-#  ${NVEGL_LIBRARIES}
   Threads::Threads
+  ${PIXMAN_LIBRARIES}
   )
 list(REMOVE_DUPLICATES CLIENT_LIBRARIES)
 
