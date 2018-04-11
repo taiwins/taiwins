@@ -360,7 +360,7 @@ widget_find_anchor(struct shell_widget *app)
 		point.x = 0;
 	} else
 		point.x = x - ww/2;
-	point.y = 16;
+	point.y = 10;
 	return point;
 }
 
