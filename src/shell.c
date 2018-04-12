@@ -3,11 +3,12 @@
 #include <helpers.h>
 #include <linux/input.h>
 
-#include "weston.h"
+#include "taiwins.h"
 #include "shell.h"
 
 struct twshell {
 	struct weston_compositor *ec;
+	//you probably don't want to have the layer
 	struct weston_layer background_layer;
 	struct weston_layer ui_layer;
 
@@ -17,7 +18,21 @@ struct twshell {
 	struct weston_surface *the_widget_surface;
 };
 
+
 static struct twshell oneshell;
+
+struct weston_layer *
+twshell_get_ui_layer(void)
+{
+	return &oneshell.ui_layer;
+}
+
+struct weston_layer *
+twshell_get_background_layer(void)
+{
+	return &oneshell.background_layer;
+}
+
 
 /**
  * configure a static surface for its location, the location is determined,
@@ -253,6 +268,7 @@ bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 							  TWSHELL_VERSION, id);
 	//TODO verify the client that from which is from wl_client_create, but rightnow we just do this
 	wl_resource_set_implementation(resource, &shell_impl, data, unbind_shell);
+//	wl_resource_add_destroy_listener(resource, NULL);
 }
 
 
@@ -277,5 +293,4 @@ announce_shell(struct weston_compositor *ec)
 
 	wl_global_create(ec->wl_display, &taiwins_shell_interface, TWSHELL_VERSION, &oneshell, bind_shell);
 	add_shell_bindings(ec);
-
 }

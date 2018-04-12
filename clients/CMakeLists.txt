@@ -36,3 +36,18 @@ target_link_libraries(shell-taiwins
   proto_client_libraries
   taiwins_client
   )
+
+
+
+add_executable(shell-launcher
+  launcher.c
+  )
+
+target_link_libraries(shell-launcher
+  ${CLIENT_LIBRARIES}
+  ${TRDPTY_LIBRARIES}
+  ${WAYLAND_CURSOR_LIBRARIES}
+  m
+  proto_client_libraries
+  taiwins_client
+  )
