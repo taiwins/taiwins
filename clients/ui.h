@@ -37,6 +37,11 @@ struct point2d {
 	unsigned int y;
 };
 
+struct app_style {
+	int32_t background;
+	int32_t foreground;
+};
+
 struct bbox {
 	unsigned int x;
 	unsigned int y;
@@ -61,13 +66,21 @@ bboxs_intersect(const struct bbox *ba, const struct bbox *bb)
 		(ba->y < bb->y+bb->h) && (ba->y + ba->h > bb->y);
 }
 
+static inline int
+font_pt2px(int pt_size, int ppi)
+{
+	if (ppi < 0)
+		ppi = 96;
+	return (int) (ppi / 72.0 * pt_size);
+}
 
-
-struct app_style {
-	int32_t background;
-	int32_t foreground;
-};
-
+static inline int
+font_px2pt(int px_size, int ppi)
+{
+	if (ppi < 0)
+		ppi = 96;
+	return (int) (72.0 * px_size / ppi);
+}
 
 
 struct app_surface {

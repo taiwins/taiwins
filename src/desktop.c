@@ -1,21 +1,32 @@
 #include <compositor.h>
 #include <libweston-desktop.h>
 #include <sequential.h>
+#include <wayland-server.h>
 
-#include "weston.h"
+#include "taiwins.h"
+#include "shell.h"
+
+static struct taiwins_launcher onelauncher;
+
+struct taiwins_launcher *
+twshell_acquire_launcher(void)
+{
+	return &onelauncher;
+}
+
+void set_launcher(struct wl_client *client,
+		  struct wl_resource *resource,
+		  struct wl_resource *surface,
+		  struct wl_resource *buffer)
+{
+	struct taiwins_launcher *launcher = twshell_acquire_launcher();
+	struct wl_shm_buffer *wl_buffer = wl_shm_buffer_get(buffer);
+	launcher->decision_buffer = wl_buffer;
+}
 
 
-struct workspace {
-	/* a workspace have three layers,
-	 * - the hiden layer that you won't be able to see, because it is covered by
-	 shown float but we don't insert the third layer to
-	 * the compositors since they are hiden for floating views. The postions
-	 * of the two layers change when user interact with windows.
-	 */
-	struct weston_layer hiden_float_layout;
-	struct weston_layer tile_layout;
-	struct weston_layer shown_float_layout;
-};
+//the application has to sit on the ui layer. So it has to follow the
+//taiwins_shell protocol
 
 //if you call weston_layer_set_position, you will insert the layer into
 //compositors layer_list, so we only do that when workspace is active.
@@ -25,7 +36,6 @@ workspace_init(struct workspace *wp, struct weston_compositor *compositor)
 	weston_layer_init(&wp->tile_layout, compositor);
 	weston_layer_init(&wp->shown_float_layout, compositor);
 	weston_layer_init(&wp->hiden_float_layout, compositor);
-
 }
 
 

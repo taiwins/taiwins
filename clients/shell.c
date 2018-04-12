@@ -304,7 +304,8 @@ desktop_shell_release(struct desktop_shell *shell)
 
 
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
 	struct wl_display *display = wl_display_connect(NULL);
 	if (!display) {

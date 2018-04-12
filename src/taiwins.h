@@ -1,5 +1,5 @@
-#ifndef TW_WESTON_H
-#define TW_WESTON_H
+#ifndef TAIWINS_H
+#define TAIWINS_H
 
 #include <wayland-server.h>
 #include <compositor.h>
@@ -8,12 +8,14 @@
 extern "C" {
 #endif
 
+//at some point you will want a compositor or server struct
 
 static inline struct weston_surface *
 weston_surface_from_resource(struct wl_resource *wl_surface)
 {
 	return (struct weston_surface *)wl_resource_get_user_data(wl_surface);
 }
+
 
 
 #ifdef  __cplusplus
