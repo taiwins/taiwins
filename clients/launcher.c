@@ -55,35 +55,13 @@ static struct wl_registry_listener registry_listener = {
 };
 
 
-
-static void
-wl_fatal_error(void *data, struct wl_display *wl_display, void *object_id, uint32_t code,
-		    const char *message)
-{
-	struct desktop_launcher *launcher = (struct desktop_launcher *)data;
-	fprintf(stderr, "I need to quit, because I lost my display, error code %d, %s\n",
-		code, message);
-	launcher->quit = true;
-}
-
-static void
-wl_delete_id(void *data, struct wl_display *wl_display, uint32_t id)
-{
-
-}
-
-static struct wl_display_listener displayer_listener = {
-	.error = wl_fatal_error,
-	.delete_id = wl_delete_id,
-};
-
 static void
 desktop_launcher_init(struct desktop_launcher *launcher, struct wl_display *wl_display)
 {
 	wl_globals_init(&launcher->globals, wl_display);
 	launcher->shell = NULL;
 	launcher->quit = false;
-	wl_display_add_listener(wl_display, &displayer_listener, launcher);
+	wl_display_set_user_data(wl_display, launcher);
 }
 
 

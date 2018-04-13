@@ -6,12 +6,25 @@
 #include "taiwins.h"
 #include "shell.h"
 
-static struct taiwins_launcher onelauncher;
+struct workspace {
+	/* a workspace have three layers,
+	 * - the hiden layer that you won't be able to see, because it is covered by
+	 shown float but we don't insert the third layer to
+	 * the compositors since they are hiden for floating views. The postions
+	 * of the two layers change when user interact with windows.
+	 */
+	struct weston_layer hiden_float_layout;
+	struct weston_layer tile_layout;
+	struct weston_layer shown_float_layout;
+	//the wayland-buffer
+};
 
-struct taiwins_launcher *
+static struct desktop thedesktop;
+
+struct launcher *
 twshell_acquire_launcher(void)
 {
-	return &onelauncher;
+	return &thedesktop.launcher;
 }
 
 void set_launcher(struct wl_client *client,
@@ -19,7 +32,7 @@ void set_launcher(struct wl_client *client,
 		  struct wl_resource *surface,
 		  struct wl_resource *buffer)
 {
-	struct taiwins_launcher *launcher = twshell_acquire_launcher();
+	struct launcher *launcher = twshell_acquire_launcher();
 	struct wl_shm_buffer *wl_buffer = wl_shm_buffer_get(buffer);
 	launcher->decision_buffer = wl_buffer;
 }
@@ -39,16 +52,10 @@ workspace_init(struct workspace *wp, struct weston_compositor *compositor)
 }
 
 
-//the jobs here are mainly, get to what
-struct taiwins_deskop {
-	struct workspace *actived_workspace[2];
-	vector_t workspaces;
-	struct weston_compositor *compositor;
-};
 
 
 static void
-switch_workspace(struct taiwins_deskop *d, struct workspace *to)
+switch_workspace(struct desktop *d, struct workspace *to)
 {
 	struct workspace *wp = d->actived_workspace[0];
 	weston_layer_unset_position(&wp->tile_layout);
@@ -63,14 +70,14 @@ switch_workspace(struct taiwins_deskop *d, struct workspace *to)
 }
 
 static void
-switch_to_recent_workspace(struct taiwins_deskop *d)
+switch_to_recent_workspace(struct desktop *d)
 {
 	struct workspace *wp = d->actived_workspace[1];
 	switch_workspace(d, wp);
 }
 
 static bool
-switch_layer(struct taiwins_deskop *d)
+switch_layer(struct desktop *d)
 {
 	uint32_t tpos, fpos;
 	struct workspace *wp = d->actived_workspace[0];
@@ -83,7 +90,7 @@ switch_layer(struct taiwins_deskop *d)
 }
 
 static void
-switch_layer_refresh(struct taiwins_deskop *d)
+switch_layer_refresh(struct desktop *d)
 {
 	switch_layer(d);
 	weston_compositor_schedule_repaint(d->compositor);
@@ -113,7 +120,7 @@ twdesk_surface_removed(struct weston_desktop_surface *surface,
 }
 
 
-static struct weston_desktop_api taiwins_desktop =  {
+static struct weston_desktop_api desktop =  {
 	.surface_added = twdesk_surface_added,
 	.surface_removed = twdesk_surface_removed,
 };
@@ -132,9 +139,24 @@ _free_workspace(void *data)
 	}
 }
 
-bool
-taiwins_desktop_init(struct taiwins_deskop *desktop, struct weston_compositor *compositor)
+static void
+unbind_desktop(struct wl_resource *r)
 {
 
-	vector_init(&desktop->workspaces, sizeof(struct weston_layer), _free_workspace);
+}
+
+static void
+bind_desktop(struct wl_client *client, void *data, uint32_t version, uint32_t id)
+{
+	struct wl_resource *resource = wl_resource_create(client, &taiwins_launcher_interface,
+							  TWDESKP_VERSION, id);
+	wl_resource_set_implementation(resource, NULL, data, unbind_desktop);
+}
+
+bool
+announce_desktop(struct weston_compositor *compositor)
+{
+	vector_init(&thedesktop.workspaces, sizeof(struct weston_layer), _free_workspace);
+	wl_global_create(compositor->wl_display, &taiwins_launcher_interface, TWDESKP_VERSION, &thedesktop, bind_desktop);
+	return true;
 }
