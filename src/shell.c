@@ -22,13 +22,13 @@ struct twshell {
 static struct twshell oneshell;
 
 struct weston_layer *
-twshell_get_ui_layer(void)
+get_shell_ui_layer(void)
 {
 	return &oneshell.ui_layer;
 }
 
 struct weston_layer *
-twshell_get_background_layer(void)
+get_shell_background_layer(void)
 {
 	return &oneshell.background_layer;
 }
@@ -272,7 +272,7 @@ bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 }
 
 
-static void
+void
 add_shell_bindings(struct weston_compositor *ec)
 {
 	weston_compositor_add_key_binding(ec, KEY_ESC, 0, shell_widget_should_close_on_keyboard, NULL);

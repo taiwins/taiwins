@@ -43,8 +43,11 @@
       <arg name="width" type="int"/>
       <arg name="height" type="int"/>
     </event>
-    <!-- launcher related functions -->
-    <!-- actually, I probably need a new interface, server side can share some APIs -->
+
+  </interface>
+
+    <!-- launcher interface -->
+  <interface name="taiwins_launcher" version="1">
     <request name="set_launcher">
       <description summary="registre the launcher."/>
       <arg name="surface" type="object" interface="wl_surface"/>
