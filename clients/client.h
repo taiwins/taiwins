@@ -57,6 +57,16 @@ bool tw_event_queue_start(struct tw_event_queue *queue, struct wl_display *displ
 bool tw_event_queue_add_source(struct tw_event_queue *queue, const char *file, long timeout,
 			       struct tw_event *event, uint32_t mask);
 
+//we need also the modifier enum
+enum modifier_mask {
+	TW_NOMOD = 0,
+	TW_ALT = 1,
+	TW_CTRL = 2,
+	TW_SUPER = 4,
+	TW_SHIFT = 8,
+};
+
+
 /**
  * struct for one application, it should normally contains those
  */

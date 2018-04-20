@@ -125,6 +125,9 @@ setup_shell_widget(struct wl_client *client,
 	view->output = ws_output;
 	oneshell.current_widget_pos.x = x;
 	oneshell.current_widget_pos.y = y;
+	struct weston_seat *seat0 = wl_container_of(oneshell.ec->seat_list.next, seat0, link);
+	weston_view_activate(view, seat0, WESTON_ACTIVATE_FLAG_CLICKED);
+;
 	//it won't work if we don't commit right?
 }
 
@@ -287,6 +290,7 @@ announce_shell(struct weston_compositor *ec)
 	weston_layer_init(&oneshell.background_layer, ec);
 	weston_layer_set_position(&oneshell.background_layer, WESTON_LAYER_POSITION_BACKGROUND);
 	oneshell.the_widget_surface = NULL;
+	oneshell.ec = ec;
 
 	weston_layer_init(&oneshell.ui_layer, ec);
 	weston_layer_set_position(&oneshell.ui_layer, WESTON_LAYER_POSITION_UI);

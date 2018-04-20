@@ -15,11 +15,12 @@
 #include "ui.h"
 
 struct desktop_launcher {
-	struct taiwins_shell *shell;
+	struct taiwins_launcher *interface;
 	struct wl_globals globals;
 	struct app_surface launcher_surface;
 	struct wl_buffer *decision_buffer;
 
+	char chars[256];
 	bool quit;
 };
 
@@ -33,11 +34,11 @@ void announce_globals(void *data,
 {
 	struct desktop_launcher *launcher = (struct desktop_launcher *)data;
 
-	if (strcmp(interface, taiwins_shell_interface.name) == 0) {
+	if (strcmp(interface, taiwins_launcher_interface.name) == 0) {
 		fprintf(stderr, "shell registé\n");
-		launcher->shell = (struct taiwins_shell *)
-			wl_registry_bind(wl_registry, name, &taiwins_shell_interface, version);
-//		taiwins_shell_add_listener(twshell->shell, &taiwins_listener, twshell);
+		launcher->interface = (struct taiwins_launcher *)
+			wl_registry_bind(wl_registry, name, &taiwins_launcher_interface, version);
+//		taiwins_launcher_add_listener(launcher->interface, NULL, launcher);
 	} else
 		wl_globals_announce(&launcher->globals, wl_registry, name, interface, version);
 }
@@ -59,7 +60,7 @@ static void
 desktop_launcher_init(struct desktop_launcher *launcher, struct wl_display *wl_display)
 {
 	wl_globals_init(&launcher->globals, wl_display);
-	launcher->shell = NULL;
+	launcher->interface = NULL;
 	launcher->quit = false;
 	wl_display_set_user_data(wl_display, launcher);
 }
@@ -68,7 +69,7 @@ desktop_launcher_init(struct desktop_launcher *launcher, struct wl_display *wl_d
 static void
 desktop_launcher_release(struct desktop_launcher *launcher)
 {
-	taiwins_shell_destroy(launcher->shell);
+	taiwins_launcher_destroy(launcher->interface);
 	wl_globals_release(&launcher->globals);
 	launcher->quit = true;
 }
@@ -95,4 +96,21 @@ main(int argc, char *argv[])
 	wl_registry_destroy(registry);
 	wl_display_disconnect(display);
 	return 0;
+}
+
+
+//draw the text here
+static void
+_draw(struct desktop_launcher *launcher)
+{
+	//create cairo_surface on the fly, as we uses the double buffer
+	struct app_surface *surf = &launcher->launcher_surface;
+	//we should have free
+	if (surf->committed[1])
+		return;
+	void *data = shm_pool_buffer_access(surf->wl_buffer[1]);
+	cairo_format_t pixel_format = translate_wl_shm_format(launcher->globals.buffer_format);
+	//this is a disaster
+	cairo_surface_t *cairo_surf = cairo_image_surface_create_for_data(data, pixel_format, surf->w, surf->h,
+									  cairo_format_stride_for_width(pixel_format, surf->w));
 }

@@ -39,7 +39,7 @@
  */
 
 static void
-widget_key_cb(struct app_surface *surf, xkb_keysym_t keysym);
+widget_key_cb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier);
 
 static void
 widget_cursor_motion_cb(struct app_surface *surf, uint32_t sx, uint32_t sy);
@@ -81,7 +81,7 @@ panel_setup_widget_input(struct shell_panel *panel)
 
 
 void
-widget_key_cb(struct app_surface *surf, xkb_keysym_t keysym)
+widget_key_cb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier)
 {
 	struct shell_panel *p = container_of(surf, struct shell_panel, widget_surface);
 	struct nk_context *ctx = &p->ctx;
