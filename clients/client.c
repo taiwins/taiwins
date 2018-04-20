@@ -24,30 +24,23 @@
 
 ////////////////////////////wayland listeners///////////////////////////
 
-
+//okay, this is when we chose the best format
 static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 {
+	//the priority of the format ARGB8888 > RGBA8888 > RGB888
 	struct wl_globals *globals = (struct wl_globals *)data;
-	if (globals->buffer_format == WL_SHM_FORMAT_ARGB8888 ||
-		globals->buffer_format == WL_SHM_FORMAT_RGB888 ||
-		globals->buffer_format == WL_SHM_FORMAT_RGBA8888)
-		return;
-	//it maynot be a good idea, it is just that we are given a choice
-	switch (format) {
-	case WL_SHM_FORMAT_ARGB8888:
-		globals->buffer_format = format;
-		break;
-	case WL_SHM_FORMAT_RGB888:
-		globals->buffer_format = format;
-		break;
-	case WL_SHM_FORMAT_RGBA8888:
-		globals->buffer_format = format;
-		break;
-	default:
-		fprintf(stderr, "I don't know this format%X\n", format);
-		break;
-	}
+	if (format == WL_SHM_FORMAT_ARGB8888)
+		globals->buffer_format = WL_SHM_FORMAT_ARGB8888;
+
+	else if (format == WL_SHM_FORMAT_RGBA8888 &&
+		 globals->buffer_format != WL_SHM_FORMAT_ARGB8888)
+		globals->buffer_format = WL_SHM_FORMAT_RGBA8888;
+
+	else if (format == WL_SHM_FORMAT_RGB888 &&
+		 globals->buffer_format != WL_SHM_FORMAT_ARGB8888 &&
+		 globals->buffer_format != WL_SHM_FORMAT_RGBA8888)
+		globals->buffer_format = WL_SHM_FORMAT_RGB888;
 }
 
 static struct wl_shm_listener shm_listener = {
@@ -63,6 +56,21 @@ kc_linux2xkb(uint32_t kc_linux)
 }
 
 
+static uint32_t
+modifier_mask_from_xkb_state(struct xkb_state *state)
+{
+	uint32_t mask = TW_NOMOD;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_ALT;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_CTRL;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_SUPER;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_SHIFT;
+	return mask;
+}
+
 
 static void
 handle_key(void *data,
@@ -76,35 +84,17 @@ handle_key(void *data,
 	xkb_keycode_t keycode = kc_linux2xkb(key);
 	xkb_keysym_t  keysym  = xkb_state_key_get_one_sym(globals->inputs.kstate,
 							  keycode);
+	modifier_mask_from_xkb_state(globals->inputs.kstate);
+	/* char keyname[100]; */
+	/* xkb_keysym_get_name(keysym, keyname, 100); */
+	/* fprintf(stderr, "the key pressed is %s\n", keyname); */
 	//every surface it self is an app_surface, in thise case
 	struct wl_surface *focused = globals->inputs.focused_surface;
 	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
+	//I suppose the modifier key is called as well
 	if (appsurf->keycb)
-		appsurf->keycb(appsurf, keysym);
-//	fprintf(stderr, "key keyprinting didn't work\n");
-	//and we know if this surface is app_surface, no, you couldn't assume that right.
-}
-
-
-static void
-handle_keymap(void *data, struct wl_keyboard *wl_keyboard,
-	      uint32_t format,
-	      int32_t fd,
-	      uint32_t size)
-{
-	struct wl_globals *globals = (struct wl_globals *)data;
-
-	if (globals->inputs.kcontext)
-		xkb_context_unref(globals->inputs.kcontext);
-	void *addr = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
-	globals->inputs.kcontext = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-//	printf("%s\n", addr);
-	globals->inputs.keymap = xkb_keymap_new_from_string(globals->inputs.kcontext,
-							    (const char *)addr,
-							    XKB_KEYMAP_FORMAT_TEXT_V1,
-							    XKB_KEYMAP_COMPILE_NO_FLAGS);
-	globals->inputs.kstate = xkb_state_new(globals->inputs.keymap);
-	munmap(addr, size);
+		appsurf->keycb(appsurf, keysym,
+			       modifier_mask_from_xkb_state(globals->inputs.kstate));
 }
 
 static
@@ -122,7 +112,35 @@ void handle_modifiers(void *data,
 	//wayland uses layout group. you need to know what xkb_matched_layout is
 	xkb_state_update_mask(globals->inputs.kstate,
 			      mods_depressed, mods_latched, mods_locked, 0, 0, group);
+	//every surface it self is an app_surface, in thise case
+//	struct wl_surface *focused = globals->inputs.focused_surface;
+//	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
+//	if (appsurf->modcb)
+//		appsurf->modcb(appsurf, );
 }
+
+
+
+static void
+handle_keymap(void *data, struct wl_keyboard *wl_keyboard,
+	      uint32_t format,
+	      int32_t fd,
+	      uint32_t size)
+{
+	struct wl_globals *globals = (struct wl_globals *)data;
+
+	if (globals->inputs.kcontext)
+		xkb_context_unref(globals->inputs.kcontext);
+	void *addr = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+	globals->inputs.kcontext = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+	globals->inputs.keymap = xkb_keymap_new_from_string(globals->inputs.kcontext,
+							    (const char *)addr,
+							    XKB_KEYMAP_FORMAT_TEXT_V1,
+							    XKB_KEYMAP_COMPILE_NO_FLAGS);
+	globals->inputs.kstate = xkb_state_new(globals->inputs.keymap);
+	munmap(addr, size);
+}
+
 
 //you must have this
 static void
@@ -142,7 +160,7 @@ handle_keyboard_enter(void *data,
 			   struct wl_array *keys)
 {
 	//this job is done by pointer
-//	fprintf(stderr, "keyboard got focus\n");
+	fprintf(stderr, "keyboard got focus\n");
 }
 static void
 handle_keyboard_leave(void *data,
@@ -150,7 +168,7 @@ handle_keyboard_leave(void *data,
 		    uint32_t serial,
 		    struct wl_surface *surface)
 {
-//	fprintf(stderr, "keyboard lost focus\n");
+	fprintf(stderr, "keyboard lost focus\n");
 }
 
 
@@ -233,7 +251,6 @@ pointer_motion(void *data,
 	globals->inputs.cx = wl_fixed_to_int(surface_x);
 	globals->inputs.cy = wl_fixed_to_int(surface_y);
 //	fprintf(stderr, "the mostion is (%d, %d)\n", surface_x/256, surface_x/256);
-
 	globals->inputs.cursor_events |= POINTER_MOTION;
 }
 
@@ -401,8 +418,7 @@ wl_globals_init(struct wl_globals *globals, struct wl_display *display)
 	//do this first, so all the pointers are null
 	*globals = (struct wl_globals){0};
 	globals->display = display;
-	globals->buffer_format = WL_SHM_FORMAT_XRGB2101010;
-
+	globals->buffer_format = 0xFFFFFFFF;
 }
 
 
