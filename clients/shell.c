@@ -128,6 +128,7 @@ static void
 output_init(struct shell_output *w)
 {
 	struct taiwins_shell *shell = w->shell->shell;
+	shm_pool_create(&w->pool, w->shell->globals.shm, 4096, w->shell->globals.buffer_format);
 	//arriere-plan
 	appsurface_init(&w->background, NULL, APP_BACKGROUND, w->shell->globals.compositor, w->output);
 	taiwins_shell_set_background(shell, w->output, w->background.wl_surface);
@@ -141,7 +142,7 @@ static void
 output_create(struct shell_output *w, struct wl_output *wl_output, struct desktop_shell *twshell)
 {
 	w->shell = twshell;
-	shm_pool_create(&w->pool, twshell->globals.shm, 4096, WL_SHM_FORMAT_ARGB8888);
+	//we don't have the buffer format here
 	w->inited = false;
 	w->output = wl_output;
 	wl_output_set_user_data(wl_output, w);
