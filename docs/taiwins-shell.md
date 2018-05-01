@@ -137,3 +137,8 @@ one for itself, one for the active widget, and the `find_subapp_at_xy` becomes
 directly `find_widget_at_xy`. `n_subapp` becomes `n_widgets`, and at last,
 `add_new_app` becomes `add_new_widget`. What represents the widgets really
 becomes just active icons.
+
+### buffer format
+We are facing the problem of choosing buffer format for applications. Cairo
+doesn't like OpenGL's RGBA, if we want to use cairo's image, we have to put the
+image format into BGRA, as it follows that order.

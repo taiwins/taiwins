@@ -30,17 +30,22 @@ shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 {
 	//the priority of the format ARGB8888 > RGBA8888 > RGB888
 	struct wl_globals *globals = (struct wl_globals *)data;
-	if (format == WL_SHM_FORMAT_ARGB8888)
+	//we have to use ARGB because cairo uses this format
+	if (format == WL_SHM_FORMAT_ARGB8888) {
 		globals->buffer_format = WL_SHM_FORMAT_ARGB8888;
-
+//		fprintf(stderr, "we choosed argb8888 for the application\n");
+	}
 	else if (format == WL_SHM_FORMAT_RGBA8888 &&
-		 globals->buffer_format != WL_SHM_FORMAT_ARGB8888)
+		 globals->buffer_format != WL_SHM_FORMAT_ARGB8888) {
 		globals->buffer_format = WL_SHM_FORMAT_RGBA8888;
-
+//		fprintf(stderr, "we choosed rgba8888 for the application\n");
+	}
 	else if (format == WL_SHM_FORMAT_RGB888 &&
 		 globals->buffer_format != WL_SHM_FORMAT_ARGB8888 &&
-		 globals->buffer_format != WL_SHM_FORMAT_RGBA8888)
+		 globals->buffer_format != WL_SHM_FORMAT_RGBA8888) {
 		globals->buffer_format = WL_SHM_FORMAT_RGB888;
+//		fprintf(stderr, "we choosed rgb888 for the application\n");
+	}
 }
 
 static struct wl_shm_listener shm_listener = {
