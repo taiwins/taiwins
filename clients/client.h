@@ -26,7 +26,7 @@
 #include <sequential.h>
 #include <buffer.h>
 
-#include "egl.h"
+#include "ui.h"
 
 #ifdef __cplusplus
 extern "C" {
