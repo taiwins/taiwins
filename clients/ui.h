@@ -22,49 +22,17 @@
 extern "C" {
 #endif
 
-unsigned char *load_image(const char *path, const enum wl_shm_format wlformat,
-	   int width, int height, unsigned char *data);
-
-enum APP_SURFACE_TYPE {
-	APP_BACKGROUND,
-	APP_PANEL,
-	APP_WIDGET,
-	APP_LOCKER,
-};
-
-struct point2d {
-	unsigned int x;
-	unsigned int y;
-};
+//////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////Application style definition/////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
 
 struct app_style {
 	int32_t background;
 	int32_t foreground;
+	int32_t fnt_pt;
+	//other stuff like
+	//button color, something like button color for example
 };
-
-struct bbox {
-	unsigned int x;
-	unsigned int y;
-	unsigned int w;
-	unsigned int h;
-};
-
-
-static inline bool
-bbox_contain_point(const struct bbox *box, unsigned int x, unsigned int y)
-{
-	return ((x >= box->x) &&
-		(x < box->x + box->w) &&
-		(y >= box->y) &&
-		(y < box->y + box->h));
-}
-
-static inline bool
-bboxs_intersect(const struct bbox *ba, const struct bbox *bb)
-{
-	return (ba->x < bb->x+bb->w) && (ba->x+ba->w > bb->x) &&
-		(ba->y < bb->y+bb->h) && (ba->y + ba->h > bb->y);
-}
 
 static inline int
 font_pt2px(int pt_size, int ppi)
@@ -82,6 +50,53 @@ font_px2pt(int px_size, int ppi)
 	return (int) (72.0 * px_size / ppi);
 }
 
+
+
+unsigned char *load_image(const char *path, const enum wl_shm_format wlformat,
+	   int width, int height, unsigned char *data);
+
+//////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////geometry definition////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+struct point2d {
+	unsigned int x;
+	unsigned int y;
+};
+
+
+struct bbox {
+	unsigned int x;
+	unsigned int y;
+	unsigned int w;
+	unsigned int h;
+};
+
+static inline bool
+bbox_contain_point(const struct bbox *box, unsigned int x, unsigned int y)
+{
+	return ((x >= box->x) &&
+		(x < box->x + box->w) &&
+		(y >= box->y) &&
+		(y < box->y + box->h));
+}
+
+static inline bool
+bboxs_intersect(const struct bbox *ba, const struct bbox *bb)
+{
+	return (ba->x < bb->x+bb->w) && (ba->x+ba->w > bb->x) &&
+		(ba->y < bb->y+bb->h) && (ba->y + ba->h > bb->y);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////APPSURFACE/////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+
+enum APP_SURFACE_TYPE {
+	APP_BACKGROUND,
+	APP_PANEL,
+	APP_WIDGET,
+	APP_LOCKER,
+};
 
 struct app_surface {
 	/**
@@ -153,6 +168,10 @@ app_surface_from_wl_surface(struct wl_surface *s)
 	return (struct app_surface *)wl_surface_get_user_data(s);
 }
 
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////EGLAPP///////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
 
 //maybe move this to wl_globals later
 struct egl_env {

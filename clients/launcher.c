@@ -25,6 +25,11 @@ struct desktop_launcher {
 };
 
 
+struct taiwins_launcher_listener launcher_impl = {
+	.application_configure = NULL,
+};
+
+
 static
 void announce_globals(void *data,
 		      struct wl_registry *wl_registry,
@@ -103,6 +108,7 @@ main(int argc, char *argv[])
 static void
 _draw(struct desktop_launcher *launcher)
 {
+	//create the surface and destroy it in the end
 	//create cairo_surface on the fly, as we uses the double buffer
 	struct app_surface *surf = &launcher->launcher_surface;
 	//we should have free
