@@ -23,6 +23,29 @@ translate_wl_shm_format(enum wl_shm_format format)
 	}
 }
 
+size_t
+stride_of_wl_shm_format(enum wl_shm_format format)
+{
+	switch(format) {
+	case WL_SHM_FORMAT_ARGB8888:
+		return 4;
+		break;
+	case WL_SHM_FORMAT_RGB888:
+		return 3;
+		break;
+	case WL_SHM_FORMAT_RGB565:
+		return 2;
+		break;
+	case WL_SHM_FORMAT_RGBA8888:
+		return 4;
+		break;
+	case WL_SHM_FORMAT_ABGR1555:
+		return 2;
+	default:
+		return 0;
+	}
+}
+
 /** load image to texture and free all the context */
 unsigned char *
 load_image(const char *path, const enum wl_shm_format wlformat,

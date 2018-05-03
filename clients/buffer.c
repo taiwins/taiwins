@@ -13,8 +13,6 @@ struct wl_buffer_node {
 	int height;
 	void *userdata;
 	void (*release)(void *, struct wl_buffer *);
-
-
 };
 
 
@@ -92,11 +90,13 @@ shm_pool_wl_buffer_set_release(struct wl_buffer *wl_buffer,
 	node->release = cb;
 }
 
+//the solution here should be actually change the width into width * stride
 struct wl_buffer *
 shm_pool_alloc_buffer(struct shm_pool *pool, size_t width, size_t height)
 {
+	//we are actually bounded to WL_SHM_FORMAT_ARGB8888
 //	fprintf(stderr, "allocated buffer at %d, %d\n", width, height);
-	size_t size = width * height * 4;
+	size_t size = width * height;
 	//firstly, search if we have a free one
 	{
 		struct wl_buffer_node *v, *n;
@@ -115,7 +115,7 @@ shm_pool_alloc_buffer(struct shm_pool *pool, size_t width, size_t height)
 		shm_pool_resize(pool, pool->file.size);
 	struct wl_buffer *wl_buffer = wl_shm_pool_create_buffer(pool->pool, offset,
 								width, height,
-								width *4,
+								width,
 								pool->format);
 	struct wl_buffer_node *node_buffer = (struct wl_buffer_node *)malloc(sizeof(*node_buffer));
 	node_buffer->offset = offset;

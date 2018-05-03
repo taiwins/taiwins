@@ -161,6 +161,9 @@ void appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer);
 cairo_format_t
 translate_wl_shm_format(enum wl_shm_format format);
 
+size_t
+stride_of_wl_shm_format(enum wl_shm_format format);
+
 
 static inline struct app_surface *
 app_surface_from_wl_surface(struct wl_surface *s)

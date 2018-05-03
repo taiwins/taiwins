@@ -41,10 +41,11 @@ appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
 {
 	surf->px = bbox->x; surf->py = bbox->y;
 	surf->w  = bbox->w; surf->h  = bbox->h;
+	size_t stride = stride_of_wl_shm_format(shm->format);
 	surf->pool = shm;
 
 	for (int i = 0; i < 2; i++) {
-		surf->wl_buffer[i] = shm_pool_alloc_buffer(shm, surf->w, surf->h);
+		surf->wl_buffer[i] = shm_pool_alloc_buffer(shm, surf->w * stride, surf->h);
 		surf->dirty[i] = false;
 		surf->committed[i] = false;
 		shm_pool_wl_buffer_set_release(surf->wl_buffer[i], appsurface_buffer_release, surf);
