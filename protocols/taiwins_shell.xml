@@ -54,12 +54,22 @@
       <!-- the second param is the launcher informaiton shared with server -->
       <arg name="buffer" type="object" interface="wl_buffer"/>
     </request>
-
     <event name="application_configure">
+      <description summary="dynamically emit the application configure">
+	After launching application, we could still change the preference of the
+	application, when it becomes floating, tiled, scale, size change, etc.
+      </description>
       <arg name="app_name" type="string"/>
       <arg name="floating" type="uint"/>
       <arg name="scale" type="fixed"/>
     </event>
+
+    <enum name="conf">
+      <entry name="stride" value="4"
+	     summary="given wl_surface has another role"/>
+      <entry name="num_decisions" value="100"
+	     summary="xdg_shell was destroyed before children"/>
+    </enum>
   </interface>
 
   <!-- <interface name="taiwins_launcher" version="1"> -->

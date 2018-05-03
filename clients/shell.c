@@ -56,7 +56,6 @@ static void
 shell_panel_click(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy)
 {
 	struct shell_panel *panel = container_of(surf, struct shell_panel, panelsurf);
-	struct shell_output *output = container_of(panel, struct shell_output, panel);
 	fprintf(stderr, "clicked on button (%d, %d)\n", cx, cy);
 	struct shell_widget *w = shell_panel_find_widget_at_xy(panel, cx, cy);
 	if (w)

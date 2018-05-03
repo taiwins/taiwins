@@ -26,11 +26,14 @@ struct weston_layer *get_shell_background_layer(void);
 
 
 //wayland-desktop implementation, you can seperate this from  the shell
+#define DECISION_STRIDE TAIWINS_LAUNCHER_CONF_STRIDE
+#define NUM_DECISIONS TAIWINS_LAUNCHER_CONF_NUM_DECISIONS
+
 struct taiwins_decision_key {
 	char app_name[128];
 	bool floating;
 	int  scale;
-};
+} __attribute__ ((aligned (DECISION_STRIDE)));
 
 //we have to make either taiwins_shell and launcher a api to the other
 struct launcher {

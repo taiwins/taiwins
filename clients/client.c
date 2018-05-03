@@ -89,7 +89,7 @@ handle_key(void *data,
 	xkb_keycode_t keycode = kc_linux2xkb(key);
 	xkb_keysym_t  keysym  = xkb_state_key_get_one_sym(globals->inputs.kstate,
 							  keycode);
-	modifier_mask_from_xkb_state(globals->inputs.kstate);
+	uint32_t modifier = modifier_mask_from_xkb_state(globals->inputs.kstate);
 	/* char keyname[100]; */
 	/* xkb_keysym_get_name(keysym, keyname, 100); */
 	/* fprintf(stderr, "the key pressed is %s\n", keyname); */
@@ -99,7 +99,7 @@ handle_key(void *data,
 	//I suppose the modifier key is called as well
 	if (appsurf->keycb)
 		appsurf->keycb(appsurf, keysym,
-			       modifier_mask_from_xkb_state(globals->inputs.kstate));
+			       modifier);
 }
 
 static

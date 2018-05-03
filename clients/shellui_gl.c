@@ -346,13 +346,13 @@ widget_find_anchor(struct shell_widget *app)
 {
 	struct point2d point;
 	int x = app->icon.box.x + app->icon.box.w/2;
-	int y = app->icon.box.y;
+//	int y = app->icon.box.y;
 	int ww = app->width;
-	int wh = app->height;
+//	int wh = app->height;
 
 	struct shell_panel *panel = app->panel;
 	unsigned int pw = panel->panelsurf.w;
-	unsigned int ph = panel->panelsurf.h;
+//	unsigned int ph = panel->panelsurf.h;
 
 	if (x + ww/2 >= pw) {
 		point.x = pw - ww;

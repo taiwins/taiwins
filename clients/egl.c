@@ -52,7 +52,7 @@ static const EGLint egl_config_attribs[] = {
 	EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
 	EGL_NONE,
 };
-
+/*
 static void
 debug_egl_config_attribs(EGLDisplay dsp, EGLConfig cfg)
 {
@@ -65,6 +65,7 @@ debug_egl_config_attribs(EGLDisplay dsp, EGLConfig cfg)
 	fprintf(stderr, "\tcfg %p can %s bound to the rgba buffer", cfg,
 		yes ? "" : "not");
 }
+*/
 
 #ifdef _WITH_NVIDIA
 //we need this entry to load the platform library
@@ -85,7 +86,7 @@ egl_env_init(struct egl_env *env, struct wl_display *d)
 	EGLint major, minor;
 	EGLint n;
 	EGLConfig egl_cfg;
-	EGLint *context_attribute = NULL;
+//	EGLint *context_attribute = NULL;
 
 	env->egl_display = eglGetDisplay((EGLNativeDisplayType)env->wl_display);
 
