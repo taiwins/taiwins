@@ -1,6 +1,7 @@
 #ifndef TW_SHELL_H
 #define TW_SHELL_H
 
+#include <libweston-desktop.h>
 #include <compositor.h>
 #include <wayland-server.h>
 #include <wayland-taiwins-shell-server-protocol.h>
@@ -51,13 +52,14 @@ struct desktop {
 	struct workspace *actived_workspace[2];
 	vector_t workspaces;
 	struct weston_compositor *compositor;
+	struct weston_desktop *api;
 };
 
 /** announcing the taiwins launcher global
  *
  * @param
  */
-void annouce_desktop(struct weston_compositor *compositor);
+bool announce_desktop(struct weston_compositor *compositor);
 void add_desktop_bindings(struct weston_compositor *c);
 /**
  * get the launcher for the shell

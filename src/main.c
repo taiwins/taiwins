@@ -102,6 +102,7 @@ int main(int argc, char *argv[])
 	weston_compositor_wake(compositor);
 	//okay, now it is a good time to anonce the shell
 	announce_shell(compositor);
+	announce_desktop(compositor);
 	wl_display_run(display);
 	weston_compositor_destroy(compositor);
 	return 0;

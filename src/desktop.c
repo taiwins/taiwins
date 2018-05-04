@@ -1,7 +1,11 @@
+#include <linux/input.h>
+#include <unistd.h>
 #include <compositor.h>
 #include <libweston-desktop.h>
 #include <sequential.h>
 #include <wayland-server.h>
+
+
 
 #include "taiwins.h"
 #include "shell.h"
@@ -102,7 +106,6 @@ switch_to_recent_workspace(struct desktop *d)
 static bool
 switch_layer(struct desktop *d)
 {
-	uint32_t tpos, fpos;
 	struct workspace *wp = d->actived_workspace[0];
 
 	wp->float_layer_pos = wp->tiled_layout.position;
@@ -164,10 +167,11 @@ twdesk_surface_removed(struct weston_desktop_surface *surface,
 //	weston_desktop_surface_
 }
 
-
-static struct weston_desktop_api desktop =  {
+//doesn't seems to work!!!
+static struct weston_desktop_api desktop_impl =  {
 	.surface_added = twdesk_surface_added,
 	.surface_removed = twdesk_surface_removed,
+	.struct_size = sizeof(struct weston_desktop_api),
 };
 /*** libweston-desktop implementation ***/
 
@@ -200,10 +204,36 @@ bind_desktop(struct wl_client *client, void *data, uint32_t version, uint32_t id
 	wl_resource_set_implementation(resource, NULL, data, unbind_desktop);
 }
 
+/*TODO
+ * remove this function later!!!!
+ */
+void spawn_weston_terminal(struct weston_compositor *compositor, const struct timespec *time,
+			   uint32_t key, void *data)
+{
+	fprintf(stderr, "we should open the terminal now!\n");
+	char *argv[] = {NULL};
+	pid_t pid = fork();
+	if (pid == -1) {
+
+	} else if (pid == 0) {
+		//you don't need to setsid since you want to close all the
+		//clients as we close, also, child program can close the stdin,
+		//stdout, stderr themselves.
+
+		//child process, we should close all the
+		//setsid, we should probably setsid, close stdin, stdout
+		//what we can do here is changing the envals.
+		execvp("weston-terminal", argv);
+	} else {
+		return;
+	}
+}
+
 bool
 announce_desktop(struct weston_compositor *ec)
 {
 	//initialize the desktop
+	onedesktop.compositor = ec;
 	vector_t *workspaces = &onedesktop.workspaces;
 	vector_init(workspaces, sizeof(struct workspace), _free_workspace);
 	//then afterwards, you don't spend time allocating workspace anymore
@@ -214,6 +244,12 @@ announce_desktop(struct weston_compositor *ec)
 	onedesktop.actived_workspace[0] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
 	onedesktop.actived_workspace[1] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
 	switch_workspace(&onedesktop, onedesktop.actived_workspace[0]);
+	//add keybindings to spawn the
+	weston_compositor_add_key_binding(ec, KEY_ENTER, MODIFIER_CTRL, spawn_weston_terminal, NULL);
+	onedesktop.api = weston_desktop_create(ec, &desktop_impl, NULL);
+//	if (wl_global_create(ec->wl_display, const struct wl_interface *interface, int version, void *data, wl_global_bind_func_t bind))
+
+
 	//as we have
 	wl_global_create(ec->wl_display, &taiwins_launcher_interface, TWDESKP_VERSION, &onedesktop, bind_desktop);
 	return true;
