@@ -163,7 +163,7 @@ twdesk_surface_removed(struct weston_desktop_surface *surface,
 {
 	struct weston_surface *wt_surface = weston_desktop_surface_get_surface(surface);
 //	struct weston_view *v, *next;
-	weston_surface_destroy(wt_surface);
+//	weston_surface_destroy(wt_surface);
 //	weston_desktop_surface_
 }
 
