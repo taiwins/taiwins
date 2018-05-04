@@ -5,6 +5,22 @@
 //#include <librsvg/rsvg.h>
 #include <cairo/cairo.h>
 
+static inline int
+font_pt2px(int pt_size, int ppi)
+{
+	if (ppi < 0)
+		ppi = 96;
+	return (int) (ppi / 72.0 * pt_size);
+}
+
+static inline int
+font_px2pt(int px_size, int ppi)
+{
+	if (ppi < 0)
+		ppi = 96;
+	return (int) (72.0 * px_size / ppi);
+}
+
 
 //we try out several painting patterns then
 static cairo_surface_t * rendertext(const char *text)

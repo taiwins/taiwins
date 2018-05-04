@@ -156,7 +156,7 @@ static const struct weston_desktop_api _naw_desktop_api = {
 };
 
 
-void log_on_key(struct weston_keyboard *keyboard, uint32_t time, uint32_t key, void *data)
+void log_on_key(struct weston_keyboard *keyboard, const struct timespec *time, uint32_t key, void *data)
 {
 	weston_log("this key pressed");
 }
