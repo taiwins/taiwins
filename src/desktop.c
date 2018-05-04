@@ -3,9 +3,19 @@
 #include <sequential.h>
 #include <wayland-server.h>
 
-
 #include "taiwins.h"
 #include "shell.h"
+
+struct weston_output *
+get_default_output(struct weston_compositor *compositor)
+{
+	if (wl_list_empty(&compositor->output_list))
+		return NULL;
+
+	return container_of(compositor->output_list.next,
+			    struct weston_output, link);
+}
+
 
 struct workspace {
 	/* a workspace have three layers,
@@ -103,6 +113,7 @@ switch_layer(struct desktop *d)
 	weston_layer_set_position(&wp->shown_float_layout, wp->float_layer_pos);
 	weston_layer_set_position(&wp->tiled_layout, wp->tiled_layer_pos);
 	weston_compositor_schedule_repaint(d->compositor);
+	return true;
 }
 
 static void
@@ -122,6 +133,15 @@ twdesk_surface_added(struct weston_desktop_surface *surface,
 {
 	struct weston_surface *wt_surface = weston_desktop_surface_get_surface(surface);
 	struct workspace *wsp = onedesktop.actived_workspace[0];
+	struct weston_view *wt_view = weston_desktop_surface_create_view(surface);
+	//yep, I don't think we have a output
+	wt_view->is_mapped = true;
+	wt_surface->is_mapped = true;
+	//I am not sure if I need the output
+	weston_view_set_position(wt_view, 0, 0);
+	weston_layer_entry_insert(&wsp->shown_float_layout.view_list, &wt_view->layer_link);
+//	wl_list_init(struct wl_list *list)
+	weston_desktop_surface_set_activated(surface, true);
 
 	//decide ou se trouve le surface 1) tiled_layer, 2) float layer. If the
 	//tiling layer, you will need to allocate the position to the
@@ -138,7 +158,10 @@ static void
 twdesk_surface_removed(struct weston_desktop_surface *surface,
 		void *user_data)
 {
-	//unlink_view
+	struct weston_surface *wt_surface = weston_desktop_surface_get_surface(surface);
+//	struct weston_view *v, *next;
+	weston_surface_destroy(wt_surface);
+//	weston_desktop_surface_
 }
 
 
