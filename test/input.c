@@ -26,7 +26,7 @@ enum tw_modifier_mask {
 	TW_NOMOD = 0,
 	TW_ALT = 1,
 	TW_CTRL = 2,
-	TW_SUPER = 4
+	TW_SUPER = 4,
 };
 
 static uint32_t

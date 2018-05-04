@@ -1,6 +1,7 @@
 #include <compositor.h>
 #include <wayland-taiwins-shell-server-protocol.h>
 #include <helpers.h>
+#include <time.h>
 #include <linux/input.h>
 
 #include "taiwins.h"
@@ -153,8 +154,8 @@ hide_shell_widget(struct wl_client *client,
 
 static void
 shell_widget_should_close_on_keyboard(struct weston_keyboard *keyboard,
-					   uint32_t time, uint32_t key,
-					   void *data)
+				      const struct timespec *time, uint32_t key,
+				      void *data)
 {
 	if (keyboard->focus != oneshell.the_widget_surface &&
 	    oneshell.the_widget_surface)
@@ -163,7 +164,7 @@ shell_widget_should_close_on_keyboard(struct weston_keyboard *keyboard,
 
 static void
 shell_widget_should_close_on_cursor(struct weston_pointer *pointer,
-				    uint32_t time, uint32_t button,
+				    const struct timespec *time, uint32_t button,
 				    void *data)
 {
 	struct weston_view *view = pointer->focus;
