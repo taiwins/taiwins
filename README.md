@@ -3,4 +3,7 @@
 ### project under development.
 ![current progress](imgs/screenshot.png)
 
+### finally moved to desktop implementation, showing windows is seamless
+![use-emacs](imgs/use-emacs.png)
+
 currently on [shell implementation](docs/taiwins-shell.md)
