@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include <linux/input.h>
 #include <unistd.h>
 #include <compositor.h>
@@ -145,7 +146,9 @@ twdesk_surface_added(struct weston_desktop_surface *surface,
 	weston_layer_entry_insert(&wsp->shown_float_layout.view_list, &wt_view->layer_link);
 //	wl_list_init(struct wl_list *list)
 	weston_desktop_surface_set_activated(surface, true);
-
+	struct weston_seat *active_seat = container_of(onedesktop.compositor->seat_list.next, struct weston_seat, link);
+	struct weston_keyboard *keyboard = active_seat->keyboard_state;
+	weston_keyboard_set_focus(keyboard, wt_surface);
 	//decide ou se trouve le surface 1) tiled_layer, 2) float layer. If the
 	//tiling layer, you will need to allocate the position to the
 	//surface. If the floating layer, You can skip the allocator
@@ -162,9 +165,21 @@ twdesk_surface_removed(struct weston_desktop_surface *surface,
 		void *user_data)
 {
 	struct weston_surface *wt_surface = weston_desktop_surface_get_surface(surface);
+	weston_surface_unmap(wt_surface);
 //	struct weston_view *v, *next;
 //	weston_surface_destroy(wt_surface);
 //	weston_desktop_surface_
+}
+
+static void
+twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
+			 int32_t sx, int32_t sy, void *data)
+{
+	struct weston_surface *surface =  weston_desktop_surface_get_surface(desktop_surface);
+	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
+	weston_view_set_position(view, 0, 0);
+	weston_view_schedule_repaint(view);
+
 }
 
 //doesn't seems to work!!!
@@ -216,6 +231,12 @@ void spawn_weston_terminal(struct weston_compositor *compositor, const struct ti
 	if (pid == -1) {
 
 	} else if (pid == 0) {
+		//okay, we are gonna print everything in the environ
+		for (char **env = environ; *env != 0; env++)
+		{
+			char *thisEnv = *env;
+			printf("%s\n", thisEnv);
+		}
 		//you don't need to setsid since you want to close all the
 		//clients as we close, also, child program can close the stdin,
 		//stdout, stderr themselves.
@@ -223,11 +244,37 @@ void spawn_weston_terminal(struct weston_compositor *compositor, const struct ti
 		//child process, we should close all the
 		//setsid, we should probably setsid, close stdin, stdout
 		//what we can do here is changing the envals.
-		execvp("weston-terminal", argv);
+		execvpe("weston-flower", argv, environ);
+//		execvpe("/home/developer/Projects/weston-taiwins/build/bin/test_xkbcommon", argv, environ);
 	} else {
 		return;
 	}
 }
+
+/*
+ * this maybe temporary
+ */
+/* void focus_the_view(struct weston_pointer *pointer, */
+/*		    const struct timespec *time, */
+/*		    uint32_t button, */
+/*		    void *data) */
+/* { */
+
+/*	wl_fixed_t sx, sy; */
+/*	struct weston_view *view = NULL; */
+/*	weston_compositor_pick_view(pointer->seat->compositor, */
+/*				    pointer->x, pointer->y, &sx, &sy); */
+/*	if (view != NULL && */
+/*	    view->surface->resource != NULL) { */
+/*		fprintf(stderr, "yep, we are here\n"); */
+/*		weston_pointer_set_focus(pointer, view, sx, sy); */
+/*		weston_view_activate(view, pointer->seat, 0); */
+/*	} else { */
+/*		weston_pointer_clear_focus(pointer); */
+/*	} */
+
+/* } */
+
 
 bool
 announce_desktop(struct weston_compositor *ec)
@@ -245,7 +292,8 @@ announce_desktop(struct weston_compositor *ec)
 	onedesktop.actived_workspace[1] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
 	switch_workspace(&onedesktop, onedesktop.actived_workspace[0]);
 	//add keybindings to spawn the
-	weston_compositor_add_key_binding(ec, KEY_ENTER, MODIFIER_CTRL, spawn_weston_terminal, NULL);
+	weston_compositor_add_key_binding(ec, KEY_ENTER, MODIFIER_ALT, spawn_weston_terminal, NULL);
+//	weston_compositor_add_button_binding(ec, BTN_LEFT, 0, focus_the_view, NULL);
 	onedesktop.api = weston_desktop_create(ec, &desktop_impl, NULL);
 //	if (wl_global_create(ec->wl_display, const struct wl_interface *interface, int version, void *data, wl_global_bind_func_t bind))
 
