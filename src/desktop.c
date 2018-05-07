@@ -245,7 +245,6 @@ void spawn_weston_terminal(struct weston_compositor *compositor, const struct ti
 		//setsid, we should probably setsid, close stdin, stdout
 		//what we can do here is changing the envals.
 		execvpe("weston-flower", argv, environ);
-//		execvpe("/home/developer/Projects/weston-taiwins/build/bin/test_xkbcommon", argv, environ);
 	} else {
 		return;
 	}
