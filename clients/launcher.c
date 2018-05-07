@@ -171,14 +171,27 @@ _draw(struct desktop_launcher *launcher)
 {
 	//1) create the cairo_resource
 	//2) determine the dimension
+	void *data;
+	int pixel_size;
+	cairo_extend_t extend;
 	struct app_surface *surf = &launcher->launcher_surface;
+	cairo_format_t pixel_format;
+	cairo_surface_t *cairo_surf;
+	cairo_t *cr;
+
 	if (surf->committed[1])
 		return;
-	void *data = shm_pool_buffer_access(surf->wl_buffer[1]);
-	cairo_format_t pixel_format = translate_wl_shm_format(launcher->globals.buffer_format);
-	//this is a disaster
-	cairo_surface_t *cairo_surf = cairo_image_surface_create_for_data(data, pixel_format, surf->w, surf->h,
-									  cairo_format_stride_for_width(pixel_format, surf->w));
+	data = shm_pool_buffer_access(surf->wl_buffer[1]);
+	pixel_format = translate_wl_shm_format(launcher->globals.buffer_format);
+	cairo_surf =
+		cairo_image_surface_create_for_data((unsigned char *)data, pixel_format, surf->w, surf->h,
+						    cairo_format_stride_for_width(pixel_format, surf->w));
+	cr = cairo_create(cairo_surf);
+	pixel_size = surf->h;
+	cairo_select_font_face(cr, "sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+	cairo_set_font_size(cr, pixel_size);
+	//draw the text with the caret, we may gonna have a cairo library just in case.
+
 }
 
 
