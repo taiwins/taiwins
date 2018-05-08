@@ -173,11 +173,13 @@ _draw(struct desktop_launcher *launcher)
 	//2) determine the dimension
 	void *data;
 	int pixel_size;
-	cairo_extend_t extend;
+	float r, g, b, left, caret;
+	cairo_text_extents_t extend;
 	struct app_surface *surf = &launcher->launcher_surface;
 	cairo_format_t pixel_format;
 	cairo_surface_t *cairo_surf;
 	cairo_t *cr;
+
 
 	if (surf->committed[1])
 		return;
@@ -187,11 +189,33 @@ _draw(struct desktop_launcher *launcher)
 		cairo_image_surface_create_for_data((unsigned char *)data, pixel_format, surf->w, surf->h,
 						    cairo_format_stride_for_width(pixel_format, surf->w));
 	cr = cairo_create(cairo_surf);
+	//clean the background
+	wl_globals_bg_color_rgb(&launcher->globals, &r, &g, &b);
+	cairo_set_source_rgb(cr, r, g, b);
+	cairo_paint(cr);
+	wl_globals_fg_color_rgb(&launcher->globals, &r, &g, &b);
+	cairo_set_source_rgb(cr, r, g, b);
 	pixel_size = surf->h;
 	cairo_select_font_face(cr, "sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
 	cairo_set_font_size(cr, pixel_size);
+	cairo_text_extents(cr, launcher->chars, &extend);
+	caret = extend.height / 2;
+	//you also need to know the size of the caret...
 	//draw the text with the caret, we may gonna have a cairo library just in case.
-
+	if (extend.width + 1.5 * caret < surf->w)
+		left = 0.0;
+	else {
+		left = surf->w - extend.width - 1.5 * caret;
+	}
+	cairo_move_to(cr, left, (surf->h + extend.height) / 2);
+	cairo_show_text(cr, launcher->chars);
+	cairo_move_to(cr, left + extend.width + caret, (surf->h - extend.height)/2);
+	cairo_line_to(cr, left + extend.width + caret, (surf->h + extend.height)/2);
+	cairo_stroke(cr);
+	//okay, now we can clean the pieces
+	cairo_destroy(cr);
+	cairo_surface_destroy(cairo_surf);
+	//commit the buffer
 }
 
 

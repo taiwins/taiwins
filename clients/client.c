@@ -427,7 +427,8 @@ wl_globals_init(struct wl_globals *globals, struct wl_display *display)
 }
 
 
-void wl_globals_release(struct wl_globals *globals)
+void
+wl_globals_release(struct wl_globals *globals)
 {
 	if (globals->inputs.wl_pointer) {
 		wl_pointer_destroy(globals->inputs.wl_pointer);
@@ -447,7 +448,8 @@ void wl_globals_release(struct wl_globals *globals)
 
 
 
-int wl_globals_announce(struct wl_globals *globals,
+int
+wl_globals_announce(struct wl_globals *globals,
 			struct wl_registry *wl_registry,
 			uint32_t name,
 			const char *interface,
@@ -469,6 +471,34 @@ int wl_globals_announce(struct wl_globals *globals,
 }
 
 
+void
+wl_globals_bg_color_rgb(const struct wl_globals *globals, float *r, float *g, float *b)
+{
+	//because we are on the little edian system, the order is actually bgra
+	union color_encoder {
+		int32_t code;
+		char bgra[4];
+	} parser;
+
+	parser.code = globals->style.background;
+	*r = parser.bgra[2] / 256.0;
+	*g = parser.bgra[1] / 256.0;
+	*b = parser.bgra[0] / 256.0;
+}
+
+void
+wl_globals_fg_color_rgb(const struct wl_globals *globals, float *r, float *g, float *b)
+{
+	union color_encoder {
+		int32_t code;
+		char bgra[4];
+	} parser;
+
+	parser.code = globals->style.foreground;
+	*r = parser.bgra[2] / 256.0;
+	*g = parser.bgra[1] / 256.0;
+	*b = parser.bgra[0] / 256.0;
+}
 
 /* void */
 /* tw_event_queue_init(struct tw_event_queue *q) */
