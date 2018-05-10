@@ -30,8 +30,8 @@ shell_widget_init_with_funcs(struct shell_widget *app,
 		.h = icon->box.h,
 	};
 
-	app->width = 50;
-	app->width = 50;
+	app->width = 200;
+	app->width = 200;
 	//callbacks
 	app->icon.update_icon = update_icon;
 	app->draw_widget = draw_widget;
@@ -51,8 +51,8 @@ shell_widget_init_with_script(struct shell_widget *app,
 	if (status)
 		return;
 
-	app->width = 50;
-	app->width = 50;
+	app->width = 200;
+	app->width = 200;
 	//register globals
 	void *ptr = lua_newuserdata(app->L, sizeof(void *));
 	lua_setglobal(app->L, "application");
@@ -84,12 +84,11 @@ cairo_surface_from_appsurf(struct app_surface *surf, struct wl_buffer *buffer)
 
 void
 shell_panel_compile_widgets(struct shell_panel *panel)
-
 {
 	GLint status, loglen;
 	struct app_surface *widget_surface = &panel->widget_surface;
 
-	panel->eglwin = wl_egl_window_create(widget_surface->wl_surface, 50, 50);
+	panel->eglwin = wl_egl_window_create(widget_surface->wl_surface, 200, 200);
 	assert(panel->eglwin);
 	panel->eglsurface = eglCreateWindowSurface(panel->eglenv->egl_display, panel->eglenv->config,
 						   (EGLNativeWindowType)panel->eglwin, NULL);
@@ -264,6 +263,8 @@ shell_panel_add_widget(struct shell_panel *surf)
 void
 shell_panel_destroy_widgets(struct shell_panel *app)
 {
+	//this is indeed called
+	/* fprintf(stderr, "shell_panel_destroy_widgets, this should get called\n"); */
 	glDeleteBuffers(1, &app->vbo);
 	glDeleteBuffers(1, &app->ebo);
 	glDeleteVertexArrays(1, &app->vao);
@@ -272,4 +273,9 @@ shell_panel_destroy_widgets(struct shell_panel *app)
 	glDeleteShader(app->fs);
 	glDeleteProgram(app->glprog);
 	vector_destroy(&app->widgets);
+	//destroy the egl context
+	eglMakeCurrent(app->eglenv->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+	eglDestroySurface(app->eglenv->egl_display, app->eglsurface);
+	wl_egl_window_destroy(app->eglwin);
+	appsurface_destroy(&app->widget_surface);
 }

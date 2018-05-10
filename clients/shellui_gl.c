@@ -79,7 +79,6 @@ panel_setup_widget_input(struct shell_panel *panel)
 #define MAX_VERTEX_BUFFER 512 * 128
 #define MAX_ELEMENT_BUFFER 128 * 128
 
-
 void
 widget_key_cb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier)
 {
@@ -123,12 +122,9 @@ widget_cursor_axis_cb(struct app_surface *surf, int speed, int direction, uint32
 	nk_input_end(ctx);
 }
 
-
-
+//I can actually just samperate a
 NK_API void
 nk_egl_char_callback(struct shell_widget *win, unsigned int codepoint);
-NK_API void
-nk_egl_new_frame(struct shell_panel *app);
 NK_API void
 nk_egl_render(struct shell_panel *app, struct shell_widget *w, enum nk_anti_aliasing AA,
 	      int max_vertex_buffer, int max_element_buffer);
@@ -155,7 +151,6 @@ shell_widget_destroy(struct shell_widget *app)
 	cairo_destroy(app->icon.ctxt);
 	cairo_surface_destroy(app->icon.isurf);
 }
-
 
 
 NK_INTERN void
@@ -302,8 +297,8 @@ nk_egl_char_callback(struct shell_widget *win, unsigned int codepoint)
 	win->text[win->text_len++] = codepoint;
 }
 
-
-NK_API void
+//you don't even need to be here
+void
 nk_egl_new_frame(struct shell_panel *app)
 {
 	struct nk_context *ctx = &app->ctx;
@@ -327,10 +322,10 @@ nk_egl_new_frame(struct shell_panel *app)
 		if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
 		if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
 
-		nk_layout_row_dynamic(ctx, 25, 1);
-		nk_property_int(ctx, "Compression:", 0, &property, 100, 10, 1);
-		nk_label(ctx, "background:", NK_TEXT_LEFT);
-		nk_layout_row_dynamic(ctx, 25, 1);
+		/* nk_layout_row_dynamic(ctx, 25, 1); */
+		/* nk_property_int(ctx, "Compression:", 0, &property, 100, 10, 1); */
+		/* nk_label(ctx, "background:", NK_TEXT_LEFT); */
+		/* nk_layout_row_dynamic(ctx, 25, 1); */
 	    }
 	nk_end(ctx);
 	glViewport(0, 0, widget->width, widget->height);

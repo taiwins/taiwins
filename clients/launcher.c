@@ -135,6 +135,9 @@ desktop_launcher_release(struct desktop_launcher *launcher)
 	taiwins_launcher_destroy(launcher->interface);
 	wl_globals_release(&launcher->globals);
 	launcher->quit = true;
+#ifdef __DEBUG
+	cairo_debug_reset_static_data();
+#endif
 }
 
 

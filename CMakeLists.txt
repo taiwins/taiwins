@@ -12,6 +12,7 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug)
 endif()
 if(CMAKE_BUILD_TYPE MATCHES Debug)
+  add_definitions(-D__DEBUG)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
 endif()
 

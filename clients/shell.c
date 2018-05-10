@@ -140,6 +140,7 @@ output_init(struct shell_output *w)
 static void
 output_create(struct shell_output *w, struct wl_output *wl_output, struct desktop_shell *twshell)
 {
+	*w = (struct shell_output){0};
 	w->shell = twshell;
 	//we don't have the buffer format here
 	w->inited = false;
@@ -294,11 +295,15 @@ desktop_shell_release(struct desktop_shell *shell)
 	list_for_each_safe(w, next, &shell->outputs, link) {
 		list_remove(&w->link);
 		output_distroy(w);
+		free(w);
 	}
 	wl_globals_release(&shell->globals);
 	egl_env_end(&shell->eglenv);
 	shell->quit = true;
 	shell->client_event_queue.quit = true;
+#ifdef __DEBUG
+	cairo_debug_reset_static_data();
+#endif
 }
 
 
