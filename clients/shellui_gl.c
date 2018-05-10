@@ -138,7 +138,7 @@ shell_panel_init_nklear(struct shell_panel *panel)
 {
 	struct nk_font_atlas *atlas;
 	//I am not sure if I need to init this first
-	nk_buffer_init_default(&panel->cmds);
+//	nk_buffer_init_default(&panel->cmds);
 	//change that to fixed later
 	nk_init_default(&panel->ctx, 0);
 	nk_egl_font_stash_begin(panel, &atlas);
@@ -308,16 +308,20 @@ nk_egl_new_frame(struct shell_panel *app)
 	for (int i = 0; i < widget->text_len; i++)
 		nk_input_unicode(ctx, widget->text[i]);
 	nk_input_end(ctx);
+	nk_buffer_init_default(&app->cmds);
 	if (nk_begin(ctx, "eglapp", nk_rect(0,0, widget->width, widget->height),
 		     NK_WINDOW_BORDER)) {
 		//TODO, change the draw function to app->draw_widget(app);
 		enum {EASY, HARD};
 		static int op = EASY;
 		static int property = 20;
-		nk_layout_row_static(ctx, 30, 80, 1);
-		if (nk_button_label(ctx, "button")) {
-			fprintf(stderr, "button pressed\n");
-		}
+		nk_layout_row_static(ctx, 30, 80, 2);
+		nk_button_label(ctx, "button");
+		nk_label(ctx, "another", NK_TEXT_LEFT);
+		//I can try to use the other textures
+		/* if (nk_button_label(ctx, "button")) { */
+		/*	fprintf(stderr, "button pressed\n"); */
+		/* } */
 		nk_layout_row_dynamic(ctx, 30, 2);
 		if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
 		if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
