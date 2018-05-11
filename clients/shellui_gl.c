@@ -363,6 +363,8 @@ nk_egl_new_frame(struct shell_panel *app)
 	glViewport(0, 0, widget->width, widget->height);
 	glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
+	//free the commands here.
+	nk_buffer_free(&app->cmds);
 	//temp code
 	nk_egl_render(app, widget, NK_ANTI_ALIASING_ON,
 		      MAX_VERTEX_BUFFER, MAX_ELEMENT_BUFFER);

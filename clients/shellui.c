@@ -278,6 +278,8 @@ shell_panel_destroy_widgets(struct shell_panel *app)
 	glDeleteProgram(app->glprog);
 	vector_destroy(&app->widgets);
 	//destroy the egl context
+	nk_font_atlas_cleanup(&app->atlas);
+	nk_free(&app->ctx);
 	eglMakeCurrent(app->eglenv->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	eglDestroySurface(app->eglenv->egl_display, app->eglsurface);
 	wl_egl_window_destroy(app->eglwin);
