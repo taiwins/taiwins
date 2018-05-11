@@ -34,7 +34,7 @@ struct shell_widget;
 struct egl_nk_vertex {
 	float position[2];
 	float uv[2];
-	nk_byte col[4];
+	float col[4];
 };
 
 

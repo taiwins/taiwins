@@ -1,7 +1,7 @@
 ## Taiwins, a morden window manager based on libweston
 
 ### project under development.
-![current progress](imgs/screenshot.png)
+![current progress](imgs/with-nuklear.png)
 
 ### finally moved to desktop implementation, showing windows is seamless
 ![use-emacs](imgs/use-emacs.png)

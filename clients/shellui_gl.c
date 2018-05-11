@@ -186,6 +186,31 @@ nk_egl_font_stash_end(struct shell_panel *app)
 }
 
 
+static void
+_test_draw_triangle(struct shell_panel *app)
+{
+	const struct egl_nk_vertex triangle[3] = {
+		{
+			.position = {0.5, 0.25},
+			.uv = {0.0, 0.0},
+			.col = {1, 0, 0, 1},
+		},
+		{
+			.position = {0.25, 0.75},
+			.uv = {0.0, 0.0},
+			.col = {0, 1, 0, 1},
+		},
+		{
+			.position = {0.75, 0.75},
+			.uv = {0.0, 0.0},
+			.col = {0, 0, 1, 1},
+		},
+	};
+	glBindVertexArray(app->vao);
+	glBindBuffer(GL_ARRAY_BUFFER, app->vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(struct egl_nk_vertex) * 3, &triangle[0], GL_STATIC_DRAW);
+	glDrawArrays(GL_TRIANGLES, 0, 3);
+}
 
 NK_API void
 nk_egl_render(struct shell_panel *app, struct shell_widget *widget,
@@ -193,6 +218,7 @@ nk_egl_render(struct shell_panel *app, struct shell_widget *widget,
 	      int max_element_buffer)
 {
 	struct nk_buffer vbuf, ebuf;
+	//it is column major
 	GLfloat ortho[4][4] = {
 		{ 2.0f,  0.0f,  0.0f, 0.0f},
 		{ 0.0f, -2.0f,  0.0f, 0.0f},
@@ -214,8 +240,7 @@ nk_egl_render(struct shell_panel *app, struct shell_widget *widget,
 	glUseProgram(app->glprog);
 	glUniform1i(app->uniform_tex, 0);
 	glUniformMatrix4fv(app->uniform_proj, 1, GL_FALSE, &ortho[0][0]);
-	//about this, we need to test
-	glViewport(0, 0, widget->width, widget->height);
+	//we can successfully draw triangles now
 	{
 		//convert the command queue
 		const struct nk_draw_command *cmd;
@@ -241,7 +266,7 @@ nk_egl_render(struct shell_panel *app, struct shell_widget *widget,
 			 NK_OFFSETOF(struct egl_nk_vertex, position)},
 			{NK_VERTEX_TEXCOORD, NK_FORMAT_FLOAT,
 			 NK_OFFSETOF(struct egl_nk_vertex, uv)},
-			{NK_VERTEX_COLOR, NK_FORMAT_R8G8B8A8,
+			{NK_VERTEX_COLOR, NK_FORMAT_R32G32B32A32_FLOAT,
 			 NK_OFFSETOF(struct egl_nk_vertex, col)},
 			{NK_VERTEX_LAYOUT_END}
 		};
@@ -268,13 +293,16 @@ nk_egl_render(struct shell_panel *app, struct shell_widget *widget,
 			if (!cmd->elem_count)
 				continue;
 			glBindTexture(GL_TEXTURE_2D, (GLuint)cmd->texture.id);
-			glScissor(
+			GLint scissor_region[4] = {
 				(GLint)(cmd->clip_rect.x * app->fb_scale.x),
 				(GLint)((widget->height -
 					 (GLint)(cmd->clip_rect.y + cmd->clip_rect.h)) *
 					app->fb_scale.y),
 				(GLint)(cmd->clip_rect.w * app->fb_scale.x),
-				(GLint)(cmd->clip_rect.h * app->fb_scale.y));
+				(GLint)(cmd->clip_rect.h * app->fb_scale.y),
+			};
+			glScissor(scissor_region[0], scissor_region[1],
+				  scissor_region[2], scissor_region[3]);
 			glDrawElements(GL_TRIANGLES, (GLsizei)cmd->elem_count,
 				       GL_UNSIGNED_SHORT, offset);
 			offset += cmd->elem_count;
@@ -335,6 +363,7 @@ nk_egl_new_frame(struct shell_panel *app)
 	glViewport(0, 0, widget->width, widget->height);
 	glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
+	//temp code
 	nk_egl_render(app, widget, NK_ANTI_ALIASING_ON,
 		      MAX_VERTEX_BUFFER, MAX_ELEMENT_BUFFER);
 	eglSwapBuffers(app->eglenv->egl_display, app->eglsurface);
