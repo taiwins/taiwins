@@ -31,7 +31,7 @@ shell_widget_init_with_funcs(struct shell_widget *app,
 	};
 
 	app->width = 200;
-	app->width = 200;
+	app->height = 200;
 	//callbacks
 	app->icon.update_icon = update_icon;
 	app->draw_widget = draw_widget;
@@ -52,7 +52,7 @@ shell_widget_init_with_script(struct shell_widget *app,
 		return;
 
 	app->width = 200;
-	app->width = 200;
+	app->height = 200;
 	//register globals
 	void *ptr = lua_newuserdata(app->L, sizeof(void *));
 	lua_setglobal(app->L, "application");
@@ -116,7 +116,9 @@ shell_panel_compile_widgets(struct shell_panel *panel)
 		"in vec4 Frag_Color;\n"
 		"out vec4 Out_Color;\n"
 		"void main(){\n"
-		"   Out_Color = Frag_Color * texture(Texture, Frag_UV.st);\n"
+		"    vec4 color = texture(Texture, Frag_UV.st);\n"
+		"   //Out_Color = Frag_Color * texture(Texture, Frag_UV.st);\n"
+		"   Out_Color = vec4(1.0, 1.0, color.b, 1.0);\n"
 		"}\n";
 	panel->glprog = glCreateProgram();
 	panel->vs = glCreateShader(GL_VERTEX_SHADER);
@@ -136,6 +138,11 @@ shell_panel_compile_widgets(struct shell_panel *panel)
 	assert(status == GL_TRUE);
 	glGetShaderiv(panel->fs, GL_COMPILE_STATUS, &status);
 	glGetShaderiv(panel->fs, GL_INFO_LOG_LENGTH, &loglen);
+	if (status != GL_TRUE) {
+		char err_msg[loglen];
+		glGetShaderInfoLog(panel->fs, loglen, NULL, err_msg);
+		fprintf(stderr, "fragment shader compile fails: %s\n", err_msg);
+	}
 	assert(status == GL_TRUE);
 	//link shader into program
 	glAttachShader(panel->glprog, panel->vs);

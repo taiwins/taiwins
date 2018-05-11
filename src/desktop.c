@@ -222,7 +222,7 @@ bind_desktop(struct wl_client *client, void *data, uint32_t version, uint32_t id
 /*TODO
  * remove this function later!!!!
  */
-void spawn_weston_terminal(struct weston_compositor *compositor, const struct timespec *time,
+void spawn_weston_terminal(struct weston_keyboard *keyboard, const struct timespec *time,
 			   uint32_t key, void *data)
 {
 	fprintf(stderr, "we should open the terminal now!\n");
