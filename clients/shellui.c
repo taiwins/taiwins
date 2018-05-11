@@ -87,6 +87,7 @@ shell_panel_compile_widgets(struct shell_panel *panel)
 {
 	GLint status, loglen;
 	struct app_surface *widget_surface = &panel->widget_surface;
+	panel->fb_scale = nk_vec2(1, 1);
 
 	panel->eglwin = wl_egl_window_create(widget_surface->wl_surface, 200, 200);
 	assert(panel->eglwin);
@@ -116,9 +117,7 @@ shell_panel_compile_widgets(struct shell_panel *panel)
 		"in vec4 Frag_Color;\n"
 		"out vec4 Out_Color;\n"
 		"void main(){\n"
-		"    vec4 color = texture(Texture, Frag_UV.st);\n"
-		"   //Out_Color = Frag_Color * texture(Texture, Frag_UV.st);\n"
-		"   Out_Color = vec4(1.0, 1.0, color.b, 1.0);\n"
+		"   Out_Color = Frag_Color * texture(Texture, Frag_UV.st);\n"
 		"}\n";
 	panel->glprog = glCreateProgram();
 	panel->vs = glCreateShader(GL_VERTEX_SHADER);
@@ -138,11 +137,6 @@ shell_panel_compile_widgets(struct shell_panel *panel)
 	assert(status == GL_TRUE);
 	glGetShaderiv(panel->fs, GL_COMPILE_STATUS, &status);
 	glGetShaderiv(panel->fs, GL_INFO_LOG_LENGTH, &loglen);
-	if (status != GL_TRUE) {
-		char err_msg[loglen];
-		glGetShaderInfoLog(panel->fs, loglen, NULL, err_msg);
-		fprintf(stderr, "fragment shader compile fails: %s\n", err_msg);
-	}
 	assert(status == GL_TRUE);
 	//link shader into program
 	glAttachShader(panel->glprog, panel->vs);
@@ -175,11 +169,14 @@ shell_panel_compile_widgets(struct shell_panel *panel)
 	glBindVertexArray(panel->vao);
 	glBindBuffer(GL_ARRAY_BUFFER, panel->vbo);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, panel->ebo);
-
+	//this is the reason...
+	glEnableVertexAttribArray(panel->attrib_pos);
 	glVertexAttribPointer(panel->attrib_pos, 2, GL_FLOAT, GL_FALSE,
 			      stride, (void *)vp);
+	glEnableVertexAttribArray(panel->attrib_uv);
 	glVertexAttribPointer(panel->attrib_uv, 2, GL_FLOAT, GL_FALSE,
 			      stride, (void *)vt);
+	glEnableVertexAttribArray(panel->attrib_col);
 	glVertexAttribPointer(panel->attrib_col, 4, GL_FLOAT, GL_FALSE,
 			      stride, (void *)vc);
 	glBindVertexArray(0);
