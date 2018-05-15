@@ -337,6 +337,7 @@ nk_egl_new_frame(struct shell_panel *app)
 		nk_input_unicode(ctx, widget->text[i]);
 	nk_input_end(ctx);
 	nk_buffer_init_default(&app->cmds);
+	//this should be a draw command
 	if (nk_begin(ctx, "eglapp", nk_rect(0,0, widget->width, widget->height),
 		     NK_WINDOW_BORDER)) {
 		//TODO, change the draw function to app->draw_widget(app);
@@ -403,5 +404,6 @@ shell_widget_launch(struct shell_widget *app)
 	struct point2d p = widget_find_anchor(app);
 	shell_panel_show_widget(panel, p.x, p.y);
 	wl_egl_window_resize(panel->eglwin, app->width, app->height, 0, 0);
+	app->panel->fb_scale = nk_vec2(1, 1);
 	nk_egl_new_frame(panel);
 }
