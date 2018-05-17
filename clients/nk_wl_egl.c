@@ -1,5 +1,5 @@
-#define NK_IMPLEMENTATION
-
+#include <stdlib.h>
+#include <stdbool.h>
 #ifndef GL_GLEXT_PROTOTYPES
 #define GL_GLEXT_PROTOTYPES
 #endif
@@ -7,17 +7,11 @@
 #include <GL/gl.h>
 #include <wayland-egl.h>
 //pull in the nuklear headers so we can access eglapp
-#define NK_INCLUDE_FIXED_TYPES
-#define NK_INCLUDE_STANDARD_IO
-#define NK_INCLUDE_STANDARD_VARARGS
-#define NK_INCLUDE_DEFAULT_ALLOCATOR
-#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
-#define NK_INCLUDE_FONT_BAKING
-#define NK_INCLUDE_DEFAULT_FONT
-#define NK_SHADER_VERSION "#version 330 core\n"
-#include "../3rdparties/nuklear/nuklear.h"
 
+#define NK_IMPLEMENTATION
 #include "nk_wl_egl.h"
+#define NK_SHADER_VERSION "#version 330 core\n"
+#define NK_MAX_CTX_MEM 16 * 1024 * 1024
 
 //define the globals
 static const struct nk_draw_vertex_layout_element vertex_layout[] = {
@@ -31,6 +25,8 @@ static const struct nk_draw_vertex_layout_element vertex_layout[] = {
 };
 
 static char cmd_buffer_data[4096];
+static char *nk_ctx_buffer;
+
 /*
 static struct nk_convert_config nk_config = {
 	.vertex_layout = vertex_layout,
@@ -40,7 +36,7 @@ static struct nk_convert_config nk_config = {
 */
 
 NK_API void
-nk_egl_font_stash_begin(struct nk_egl_backend *app, struct nk_font_atlas **atlas);
+nk_egl_font_stash_begin(struct nk_egl_backend *app);
 NK_API void
 nk_egl_font_stash_end(struct nk_egl_backend *app);
 
@@ -145,10 +141,12 @@ nk_egl_compile_backend(struct nk_egl_backend *bkend)
 	glUseProgram(0);
 	///////////////////////////////////
 	//part 2) nuklear init
-	struct nk_font_atlas *atlas;
-	nk_init_default(&bkend->ctx, 0);
-	nk_egl_font_stash_begin(&bkend, &atlas);
-	nk_egl_font_stash_end(&bkend);
+	//I guess it is probably easier to use the atlas
+	nk_ctx_buffer = calloc(1, NK_MAX_CTX_MEM);
+	nk_init_fixed(&bkend->ctx, nk_ctx_buffer, NK_MAX_CTX_MEM, 0);
+//	nk_init_default(&bkend->ctx, 0);
+	nk_egl_font_stash_begin(bkend);
+	nk_egl_font_stash_end(bkend);
 	nk_buffer_init_fixed(&bkend->cmds, cmd_buffer_data, sizeof(cmd_buffer_data));
 	return true;
 }
@@ -167,6 +165,7 @@ nk_egl_end_backend(struct nk_egl_backend *bkend)
 	//nuklear resource
 	nk_font_atlas_cleanup(&bkend->atlas);
 	nk_free(&bkend->ctx);
+	free(nk_ctx_buffer);
 	//egl free context
 	eglMakeCurrent(bkend->env->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	eglDestroySurface(bkend->env->egl_display, bkend->eglsurface);
@@ -201,8 +200,12 @@ nk_egl_render(struct nk_egl_backend *bkend)
 	glActiveTexture(GL_TEXTURE0);
 	glUniform1i(bkend->uniform_tex, 0);
 	glUniformMatrix4fv(bkend->uniform_proj, 1, GL_FALSE, &ortho[0][0]);
+}
 
-
+void
+nk_egl_new_frame(struct nk_egl_backend *bkend)
+{
+	nk_clear(&bkend->ctx);
 }
 
 
@@ -218,11 +221,10 @@ nk_egl_upload_atlas(struct nk_egl_backend *app, const void *image, int width, in
 }
 
 NK_API void
-nk_egl_font_stash_begin(struct nk_egl_backend *app, struct nk_font_atlas **atlas)
+nk_egl_font_stash_begin(struct nk_egl_backend *app)
 {
     nk_font_atlas_init_default(&app->atlas);
     nk_font_atlas_begin(&app->atlas);
-    *atlas = &app->atlas;
 }
 
 NK_API void

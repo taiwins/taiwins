@@ -13,6 +13,12 @@ add_library(taiwins_client
   buffer.c
   )
 
+add_library(nk_backend STATIC
+  nk_wl_egl.c)
+
+target_link_libraries(nk_backend
+  ${CLIENT_LIBRARIES})
+
 target_link_libraries(taiwins_client
   ${CLIENT_LIBRARIES}
   ${WAYLAND_CURSOR_LIBRARIES}
