@@ -251,7 +251,8 @@ nk_egl_render(struct shell_panel *app, struct shell_widget *widget,
 		glBindVertexArray(app->vao);
 		glBindBuffer(GL_ARRAY_BUFFER, app->vbo);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->ebo);
-
+		//in this case, we probably just need to use glBufferData once
+		//and the rest depends on ...
 		glBufferData(GL_ARRAY_BUFFER, max_vertex_buffer,
 			     NULL, GL_STREAM_DRAW);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, max_element_buffer,
