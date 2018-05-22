@@ -9,7 +9,14 @@
 #define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
 #define NK_INCLUDE_FONT_BAKING
 #define NK_INCLUDE_DEFAULT_FONT
+#define NK_ZERO_COMMAND_MEMORY
 #include "../3rdparties/nuklear/nuklear.h"
+
+#ifndef NK_EGL_CMD_SIZE
+#define NK_EGL_CMD_SIZE 4096
+
+#endif
+
 
 #include <EGL/egl.h>
 #include <GL/gl.h>
@@ -63,6 +70,7 @@ struct nk_egl_backend {
 	struct nk_context ctx;
 	//ctx has all the information, vertex info, we are not supposed to bake it
 	struct nk_buffer cmds;
+	char last_cmds[NK_EGL_CMD_SIZE];
 	struct nk_draw_null_texture null;
 	struct nk_font_atlas atlas;
 	//window params

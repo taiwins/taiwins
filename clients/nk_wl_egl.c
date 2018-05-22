@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include <stdbool.h>
 #ifndef GL_GLEXT_PROTOTYPES
 #define GL_GLEXT_PROTOTYPES
@@ -9,6 +10,10 @@
 //pull in the nuklear headers so we can access eglapp
 
 #define NK_IMPLEMENTATION
+#define NK_EGL_CMD_SIZE 4096
+#define MAX_VERTEX_BUFFER 512 * 128
+#define MAX_ELEMENT_BUFFER 128 * 128
+
 #include "nk_wl_egl.h"
 #define NK_SHADER_VERSION "#version 330 core\n"
 #define NK_MAX_CTX_MEM 16 * 1024 * 1024
@@ -23,9 +28,14 @@ static const struct nk_draw_vertex_layout_element vertex_layout[] = {
 	 NK_OFFSETOF(struct nk_egl_vertex, col)},
 	{NK_VERTEX_LAYOUT_END}
 };
-
+/*we are giving 4Kb mem to the command buffer*/
 static char cmd_buffer_data[4096];
+/* and 16Mb to the context. */
 static char *nk_ctx_buffer;
+/* as we known that we are using the fixed memory here, the size is crucial to
+ * our needs, if the size is too small, we will run into `nk_mem_alloc`
+ * failed. If we are giving too much memory, it is then a certain waste. 16Mb is
+ * the sweat spot that most widgets will fit */
 
 /*
 static struct nk_convert_config nk_config = {
@@ -39,6 +49,36 @@ NK_API void
 nk_egl_font_stash_begin(struct nk_egl_backend *app);
 NK_API void
 nk_egl_font_stash_end(struct nk_egl_backend *app);
+
+
+/* the next thingis handling font, as we have no idea how it is baked */
+/* 1) create the struct of the nk_user_font */
+/* 2) callback 0: font.widht = you_text_width_calculation */
+/* 3) callback 1: if you want vertex output, provide the glyph query  */
+/* have this before init the context, so we don't need to setup aftwards */
+static struct nk_font*
+nk_egl_prepare_font(struct nk_egl_backend *bkend)
+{
+	struct nk_font *font;
+	int w, h;
+	const void *image;
+	struct nk_font_config cfg = nk_font_config(16);
+
+	nk_font_atlas_init_default(&bkend->atlas);
+	nk_font_atlas_begin(&bkend->atlas);
+	//now we are using default font, latter we will switch to font-config to
+	font = nk_font_atlas_add_default(&bkend->atlas, 16.0, &cfg);
+	image = nk_font_atlas_bake(&bkend->atlas, &w, &h, NK_FONT_ATLAS_RGBA32);
+	//upload to the texture
+	glGenTextures(1, &bkend->font_tex);
+	glBindTexture(GL_TEXTURE_2D, bkend->font_tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)w, (GLsizei)h, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	nk_font_atlas_end(&bkend->atlas, nk_handle_id(bkend->font_tex), &bkend->null);
+	return font;
+}
 
 
 
@@ -143,10 +183,8 @@ nk_egl_compile_backend(struct nk_egl_backend *bkend)
 	//part 2) nuklear init
 	//I guess it is probably easier to use the atlas
 	nk_ctx_buffer = calloc(1, NK_MAX_CTX_MEM);
-	nk_init_fixed(&bkend->ctx, nk_ctx_buffer, NK_MAX_CTX_MEM, 0);
-//	nk_init_default(&bkend->ctx, 0);
-	nk_egl_font_stash_begin(bkend);
-	nk_egl_font_stash_end(bkend);
+	struct nk_font *font = nk_egl_prepare_font(bkend);
+	nk_init_fixed(&bkend->ctx, nk_ctx_buffer, NK_MAX_CTX_MEM, &font->handle);
 	nk_buffer_init_fixed(&bkend->cmds, cmd_buffer_data, sizeof(cmd_buffer_data));
 	return true;
 }
@@ -163,9 +201,11 @@ nk_egl_end_backend(struct nk_egl_backend *bkend)
 	glDeleteShader(bkend->fs);
 	glDeleteShader(bkend->glprog);
 	//nuklear resource
-	nk_font_atlas_cleanup(&bkend->atlas);
 	nk_free(&bkend->ctx);
+	//use the clear, cleanup is used for creating second font
+	nk_font_atlas_clear(&bkend->atlas);
 	free(nk_ctx_buffer);
+	nk_buffer_free(&bkend->cmds);
 	//egl free context
 	eglMakeCurrent(bkend->env->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	eglDestroySurface(bkend->env->egl_display, bkend->eglsurface);
@@ -174,11 +214,36 @@ nk_egl_end_backend(struct nk_egl_backend *bkend)
 	bkend->compiled = false;
 }
 
-void
-nk_egl_render(struct nk_egl_backend *bkend)
+static void
+_nk_egl_init_vbuffer(struct nk_egl_backend *bkend,
+		     size_t max_vbuffer, size_t max_ebuffer)
 {
-	//map to gpu buffer
+	void *vertices, *elements;
+	assert(bkend->vao && bkend->vbo && bkend->ebo);
+	glBindVertexArray(bkend->vao);
+	glBindBuffer(GL_ARRAY_BUFFER, bkend->vbo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bkend->ebo);
+	glBufferData(GL_ARRAY_BUFFER, max_vbuffer, 0, GL_STREAM_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, max_ebuffer, 0, GL_STREAM_DRAW);
+	vertices = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+	elements = glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
+	nk_memset(vertices, 0, max_vbuffer);
+	nk_memset(elements, 0, max_ebuffer);
+	glUnmapBuffer(GL_ARRAY_BUFFER);
+	glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+static void
+_nk_egl_draw_begin(struct nk_egl_backend *bkend)
+{
 	struct nk_buffer vbuf, ebuf;
+	void *vertices = NULL;
+	void *elements = NULL;
+	const nk_draw_index *offset = NULL;
+	//NOTE update uniform
 	GLfloat ortho[4][4] = {
 		{ 2.0f,  0.0f,  0.0f, 0.0f},
 		{ 0.0f, -2.0f,  0.0f, 0.0f},
@@ -187,7 +252,7 @@ nk_egl_render(struct nk_egl_backend *bkend)
 	};
 	ortho[0][0] /= (GLfloat)bkend->width;
 	ortho[1][1] /= (GLfloat)bkend->height;
-	//setup the global state
+	//switches
 	glEnable(GL_BLEND);
 	glBlendEquation(GL_FUNC_ADD);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -196,46 +261,91 @@ nk_egl_render(struct nk_egl_backend *bkend)
 	glEnable(GL_SCISSOR_TEST);
 
 	glUseProgram(bkend->glprog);
-	// I think it is really just font tex
+	//uniforms
 	glActiveTexture(GL_TEXTURE0);
 	glUniform1i(bkend->uniform_tex, 0);
 	glUniformMatrix4fv(bkend->uniform_proj, 1, GL_FALSE, &ortho[0][0]);
+	//vertex buffers
+	glBindVertexArray(bkend->vao);
+	glBindBuffer(GL_ARRAY_BUFFER, bkend->vbo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bkend->ebo);
+
+	//I guess it is not really a good idea to allocate buffer every frame.
+	//if we already have the glBufferData, we would just mapbuffer
+	vertices = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+	elements = glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
+	{
+		struct nk_convert_config config;
+		nk_memset(&config, 0, sizeof(config));
+		config.vertex_layout = vertex_layout;
+		config.vertex_size = sizeof(struct nk_egl_vertex);
+		config.vertex_alignment = NK_ALIGNOF(struct nk_egl_vertex);
+		config.null = bkend->null;
+		config.circle_segment_count = 2;;
+		config.curve_segment_count = 22;
+		config.arc_segment_count = 2;;
+		config.global_alpha = 1.0f;
+		config.shape_AA = NK_ANTI_ALIASING_ON;
+		config.line_AA = NK_ANTI_ALIASING_ON;
+		nk_buffer_init_fixed(&vbuf, vertices, MAX_VERTEX_BUFFER);
+		nk_buffer_init_fixed(&ebuf, elements, MAX_ELEMENT_BUFFER);
+		nk_convert(&bkend->ctx, &bkend->cmds, &vbuf, &ebuf, &config);
+	}
+	glUnmapBuffer(GL_ARRAY_BUFFER);
+	glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+}
+
+static void
+_nk_egl_draw_end(struct nk_egl_backend *bkend)
+{
+	glUseProgram(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+	glDisable(GL_BLEND);
+	glDisable(GL_SCISSOR_TEST);
+	nk_clear(&bkend->ctx);
+	nk_buffer_clear(&bkend->cmds);
 }
 
 void
-nk_egl_new_frame(struct nk_egl_backend *bkend)
+nk_egl_render(struct nk_egl_backend *bkend)
 {
-	nk_clear(&bkend->ctx);
+	//convert the command queue
+	const struct nk_draw_command *cmd;
+	//we should check the command buffer first, if nothing changes we should
+	//just return
+	void *mem = nk_buffer_memory(&bkend->ctx.memory);
+	if (!memcmp(mem, bkend->last_cmds, bkend->ctx.memory.allocated))
+		return;
+	else
+		memcpy(bkend->last_cmds, mem, bkend->ctx.memory.allocated);
+	_nk_egl_draw_begin(bkend);
+	nk_draw_foreach(cmd, &bkend->ctx, &bkend->cmds) {
+		if (!cmd->elem_count)
+			continue;
+		glBindTexture(GL_TEXTURE_2D, (GLuint)cmd->texture.id);
+		GLint scissor_region[4] = {
+			(GLint)(cmd->clip_rect.x * bkend->fb_scale.x),
+			(GLint)((bkend->height -
+				 (GLint)(cmd->clip_rect.y + cmd->clip_rect.h)) *
+				bkend->fb_scale.y),
+			(GLint)(cmd->clip_rect.w * bkend->fb_scale.x),
+			(GLint)(cmd->clip_rect.h * bkend->fb_scale.y),
+		};
+		glScissor(scissor_region[0], scissor_region[1],
+			  scissor_region[2], scissor_region[3]);
+	}
+	_nk_egl_draw_end(bkend);
 }
 
-
-NK_INTERN void
-nk_egl_upload_atlas(struct nk_egl_backend *app, const void *image, int width, int height)
+void
+nk_egl_launch(struct nk_egl_backend *bkend, int w, int h, float s)
 {
-	glGenTextures(1, &app->font_tex);
-	glBindTexture(GL_TEXTURE_2D, app->font_tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)width, (GLsizei)height,
-		     0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-}
-
-NK_API void
-nk_egl_font_stash_begin(struct nk_egl_backend *app)
-{
-    nk_font_atlas_init_default(&app->atlas);
-    nk_font_atlas_begin(&app->atlas);
-}
-
-NK_API void
-nk_egl_font_stash_end(struct nk_egl_backend *app)
-{
-    const void *image; int w, h;
-    image = nk_font_atlas_bake(&app->atlas, &w, &h, NK_FONT_ATLAS_RGBA32);
-    nk_egl_upload_atlas(app, image, w, h);
-    nk_font_atlas_end(&app->atlas, nk_handle_id((int)app->font_tex), &app->null);
-    if (app->atlas.default_font) {
-	    //we should have here though
-	nk_style_set_font(&app->ctx, &app->atlas.default_font->handle);
-    }
+	bkend->width = w;
+	bkend->height = h;
+	bkend->fb_scale = nk_vec2(s, s);
+	//now resize the window
+	wl_egl_window_resize(bkend->eglwin, w, h, 0, 0);
+	//there seems to be no function about changing window size in egl
 }
