@@ -3,21 +3,14 @@
 #ifndef GL_GLEXT_PROTOTYPES
 #define GL_GLEXT_PROTOTYPES
 #endif
+#include <stdbool.h>
 #include <EGL/egl.h>
 #include <GL/gl.h>
 #include <wayland-egl.h>
 //pull in the nuklear headers so we can access eglapp
-#define NK_INCLUDE_FIXED_TYPES
-#define NK_INCLUDE_STANDARD_IO
-#define NK_INCLUDE_STANDARD_VARARGS
-#define NK_INCLUDE_DEFAULT_ALLOCATOR
-#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
-#define NK_INCLUDE_FONT_BAKING
-#define NK_INCLUDE_DEFAULT_FONT
-#define NK_SHADER_VERSION "#version 330 core\n"
-#include "../3rdparties/nuklear/nuklear.h"
-
 #include "nk_wl_egl.h"
+#define NK_SHADER_VERSION "#version 330 core\n"
+
 
 //define the globals
 static const struct nk_draw_vertex_layout_element vertex_layout[] = {
