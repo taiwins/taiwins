@@ -59,6 +59,13 @@ shell_widget_init_with_script(struct shell_widget *app,
 	//TODO, we should call update icon for the first time
 }
 
+static void
+shell_widget_destroy(struct shell_widget *app)
+{
+	cairo_destroy(app->icon.ctxt);
+	cairo_surface_destroy(app->icon.isurf);
+}
+
 
 static void
 _free_widget(void *app)
@@ -79,111 +86,6 @@ cairo_surface_from_appsurf(struct app_surface *surf, struct wl_buffer *buffer)
 		format, surf->w, surf->h,
 		cairo_format_stride_for_width(format, surf->w));
 	return cairo_surf;
-}
-
-
-void
-shell_panel_compile_widgets(struct shell_panel *panel)
-{
-	GLint status, loglen;
-	struct app_surface *widget_surface = &panel->widget_surface;
-	panel->fb_scale = nk_vec2(1, 1);
-
-	panel->eglwin = wl_egl_window_create(widget_surface->wl_surface, 200, 200);
-	assert(panel->eglwin);
-	panel->eglsurface = eglCreateWindowSurface(panel->eglenv->egl_display, panel->eglenv->config,
-						   (EGLNativeWindowType)panel->eglwin, NULL);
-	assert(panel->eglsurface);
-	assert(eglMakeCurrent(panel->eglenv->egl_display, panel->eglsurface,
-			      panel->eglsurface, panel->eglenv->egl_context));
-	static const GLchar *vertex_shader =
-		NK_SHADER_VERSION
-		"uniform mat4 ProjMtx;\n"
-		"in vec2 Position;\n"
-		"in vec2 TexCoord;\n"
-		"in vec4 Color;\n"
-		"out vec2 Frag_UV;\n"
-		"out vec4 Frag_Color;\n"
-		"void main() {\n"
-		"   Frag_UV = TexCoord;\n"
-		"   Frag_Color = Color;\n"
-		"   gl_Position = ProjMtx * vec4(Position.xy, 0, 1);\n"
-		"}\n";
-	static const GLchar *fragment_shader =
-		NK_SHADER_VERSION
-		"precision mediump float;\n"
-		"uniform sampler2D Texture;\n"
-		"in vec2 Frag_UV;\n"
-		"in vec4 Frag_Color;\n"
-		"out vec4 Out_Color;\n"
-		"void main(){\n"
-		"   Out_Color = Frag_Color * texture(Texture, Frag_UV.st);\n"
-		"}\n";
-	panel->glprog = glCreateProgram();
-	panel->vs = glCreateShader(GL_VERTEX_SHADER);
-	panel->fs = glCreateShader(GL_FRAGMENT_SHADER);
-	assert(glGetError() == GL_NO_ERROR);
-	glShaderSource(panel->vs, 1, &vertex_shader, 0);
-	glShaderSource(panel->fs, 1, &fragment_shader, 0);
-	glCompileShader(panel->vs);
-	glCompileShader(panel->fs);
-	glGetShaderiv(panel->vs, GL_COMPILE_STATUS, &status);
-	glGetShaderiv(panel->vs, GL_INFO_LOG_LENGTH, &loglen);
-	/* if (status != GL_TRUE) { */
-	/*	char err_msg[loglen]; */
-	/*	glGetShaderInfoLog(panel->vs, loglen, NULL, err_msg); */
-	/*	fprintf(stderr, "vertex shader compile fails: %s\n", err_msg); */
-	/* } */
-	assert(status == GL_TRUE);
-	glGetShaderiv(panel->fs, GL_COMPILE_STATUS, &status);
-	glGetShaderiv(panel->fs, GL_INFO_LOG_LENGTH, &loglen);
-	assert(status == GL_TRUE);
-	//link shader into program
-	glAttachShader(panel->glprog, panel->vs);
-	glAttachShader(panel->glprog, panel->fs);
-	glLinkProgram(panel->glprog);
-	glGetProgramiv(panel->glprog, GL_LINK_STATUS, &status);
-	assert(status == GL_TRUE);
-	//get all the uniforms
-	glUseProgram(panel->glprog);
-	panel->uniform_tex = glGetUniformLocation(panel->glprog, "Texture");
-	panel->uniform_proj = glGetUniformLocation(panel->glprog, "ProjMtx");
-	panel->attrib_pos = glGetAttribLocation(panel->glprog, "Position");
-	panel->attrib_uv = glGetAttribLocation(panel->glprog, "TexCoord");
-	panel->attrib_col = glGetAttribLocation(panel->glprog, "Color");
-	//asserts
-	assert(panel->uniform_tex >= 0);
-	assert(panel->uniform_proj >= 0);
-	assert(panel->attrib_pos >= 0);
-	assert(panel->attrib_pos >= 0);
-	assert(panel->attrib_uv  >= 0);
-	//vertex array
-	GLsizei stride = sizeof(struct egl_nk_vertex);
-	off_t vp = offsetof(struct egl_nk_vertex, position);
-	off_t vt = offsetof(struct egl_nk_vertex, uv);
-	off_t vc = offsetof(struct egl_nk_vertex, col);
-
-	glGenVertexArrays(1, &panel->vao);
-	glGenBuffers(1, &panel->vbo);
-	glGenBuffers(1, &panel->ebo);
-	glBindVertexArray(panel->vao);
-	glBindBuffer(GL_ARRAY_BUFFER, panel->vbo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, panel->ebo);
-	//this is the reason...
-	glEnableVertexAttribArray(panel->attrib_pos);
-	glVertexAttribPointer(panel->attrib_pos, 2, GL_FLOAT, GL_FALSE,
-			      stride, (void *)vp);
-	glEnableVertexAttribArray(panel->attrib_uv);
-	glVertexAttribPointer(panel->attrib_uv, 2, GL_FLOAT, GL_FALSE,
-			      stride, (void *)vt);
-	glEnableVertexAttribArray(panel->attrib_col);
-	glVertexAttribPointer(panel->attrib_col, 4, GL_FLOAT, GL_FALSE,
-			      stride, (void *)vc);
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	//at draw call, you will need to came up with all the uniforms
-	glUseProgram(0);
 }
 
 int
@@ -264,24 +166,25 @@ shell_panel_add_widget(struct shell_panel *surf)
 	return new_widget;
 }
 
-void
-shell_panel_destroy_widgets(struct shell_panel *app)
-{
-	//this is indeed called
-	/* fprintf(stderr, "shell_panel_destroy_widgets, this should get called\n"); */
-	glDeleteBuffers(1, &app->vbo);
-	glDeleteBuffers(1, &app->ebo);
-	glDeleteVertexArrays(1, &app->vao);
-	glDeleteTextures(1, &app->font_tex);
-	glDeleteShader(app->vs);
-	glDeleteShader(app->fs);
-	glDeleteProgram(app->glprog);
-	vector_destroy(&app->widgets);
-	//destroy the egl context
-	nk_font_atlas_cleanup(&app->atlas);
-	nk_free(&app->ctx);
-	eglMakeCurrent(app->eglenv->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-	eglDestroySurface(app->eglenv->egl_display, app->eglsurface);
-	wl_egl_window_destroy(app->eglwin);
-	appsurface_destroy(&app->widget_surface);
-}
+/* this is for backup */
+/* void */
+/* shell_panel_destroy_widgets(struct shell_panel *app) */
+/* { */
+/*	//this is indeed called */
+/*	/\* fprintf(stderr, "shell_panel_destroy_widgets, this should get called\n"); *\/ */
+/*	glDeleteBuffers(1, &app->vbo); */
+/*	glDeleteBuffers(1, &app->ebo); */
+/*	glDeleteVertexArrays(1, &app->vao); */
+/*	glDeleteTextures(1, &app->font_tex); */
+/*	glDeleteShader(app->vs); */
+/*	glDeleteShader(app->fs); */
+/*	glDeleteProgram(app->glprog); */
+/*	vector_destroy(&app->widgets); */
+/*	//destroy the egl context */
+/*	nk_font_atlas_cleanup(&app->atlas); */
+/*	nk_free(&app->ctx); */
+/*	eglMakeCurrent(app->eglenv->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); */
+/*	eglDestroySurface(app->eglenv->egl_display, app->eglsurface); */
+/*	wl_egl_window_destroy(app->eglwin); */
+/*	appsurface_destroy(&app->widget_surface); */
+/* } */

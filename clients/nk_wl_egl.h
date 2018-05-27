@@ -9,7 +9,14 @@
 #define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
 #define NK_INCLUDE_FONT_BAKING
 #define NK_INCLUDE_DEFAULT_FONT
+#define NK_ZERO_COMMAND_MEMORY
 #include "../3rdparties/nuklear/nuklear.h"
+
+#ifndef NK_EGL_CMD_SIZE
+#define NK_EGL_CMD_SIZE 4096
+
+#endif
+
 
 #include <EGL/egl.h>
 #include <GL/gl.h>
@@ -28,53 +35,18 @@ struct egl_env {
 	EGLConfig config;
 };
 
+//okay, hide it
+struct nk_egl_backend;
+
 bool egl_env_init(struct egl_env *env, struct wl_display *disp);
 void egl_env_end(struct egl_env *env);
 
-//vao layout
-struct nk_egl_vertex {
-	float position[2];
-	float uv[2];
-	float col[4];
-};
 
 
-struct nk_egl_backend {
-	bool compiled;
-	struct egl_env *env;
-	struct wl_surface *wl_surface;
-	struct wl_egl_window *eglwin;
-	EGLSurface eglsurface;
-
-	//opengl resources
-	GLuint glprog, vs, fs;//actually, we can evider vs, fs
-	GLuint vao, vbo, ebo;
-	GLuint font_tex;
-	GLint attrib_pos;
-	GLint attrib_uv;
-	GLint attrib_col;
-	//uniforms
-	//this texture is used for font and pictures though
-	GLint uniform_tex;
-	GLint uniform_proj;
-	//as we have the atlas font, we need to have the texture
-	//if we have the attrib here, we can actually define the vertex
-	//attribute inside
-	struct nk_context ctx;
-	//ctx has all the information, vertex info, we are not supposed to bake it
-	struct nk_buffer cmds;
-	struct nk_draw_null_texture null;
-	struct nk_font_atlas atlas;
-	//window params
-	size_t width, height;
-	struct nk_vec2 fb_scale;
-};
-
-
-void nk_egl_init_backend(struct nk_egl_backend *bkend, const struct egl_env *env, struct wl_surface *attach_to);
-void nk_egl_end_backend(struct nk_egl_backend *bkend);
-void nk_egl_launch(struct nk_egl_backend *bkend, int width, int height, struct nk_vec2 scale);
-
+struct nk_egl_backend *nk_egl_create_backend(const struct egl_env *env, struct wl_surface *attach_to);
+void nk_egl_launch(struct nk_egl_backend *bkend, int width, int height, float scale);
+void nk_egl_render(struct nk_egl_backend *bkend);
+void nk_egl_destroy_backend(struct nk_egl_backend *bkend);
 // struct nk_draw_vertex_layout_element nk_vertex_layout[4];
 
 #ifdef __cplusplus

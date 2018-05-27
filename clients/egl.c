@@ -23,8 +23,7 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
-#include "ui.h"
-#include "shellui.h"
+#include "nk_wl_egl.h"
 #include "client.h"
 
 

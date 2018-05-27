@@ -52,6 +52,14 @@ struct shell_output {
 /******************************************************************************/
 /**************************** panneaux fonctions ******************************/
 /******************************************************************************/
+
+static void
+shell_widget_launch(struct shell_widget *widget)
+{
+	//the scale here doesn't make any sense, we need a way to make the widget look good
+	nk_egl_launch(widget->panel->backend, widget->width, widget->height, 1.0);
+}
+
 static void
 shell_panel_click(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy)
 {
@@ -62,7 +70,6 @@ shell_panel_click(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy)
 		shell_widget_launch(w);
 }
 
-
 static void
 shell_panel_init(struct shell_panel *panel, struct shell_output *w)
 {
@@ -72,10 +79,8 @@ shell_panel_init(struct shell_panel *panel, struct shell_output *w)
 	//widget setup is quit complicated
 	appsurface_init(&panel->widget_surface, NULL, APP_WIDGET,
 			w->shell->globals.compositor, w->output);
-	panel_setup_widget_input(panel);
-	panel->eglenv = &w->shell->eglenv;
-	shell_panel_compile_widgets(panel);
-	shell_panel_init_nklear(panel);
+	panel->backend = nk_egl_create_backend(&w->shell->eglenv, panel->widget_surface.wl_surface);
+
 	panel->widgets = (vector_t){0};
 
 }
@@ -85,7 +90,9 @@ shell_panel_destroy(struct shell_panel *panel)
 {
 	struct app_surface *s = &panel->panelsurf;
 	appsurface_destroy(s);
-	shell_panel_destroy_widgets(panel);
+	nk_egl_destroy_backend(panel->backend);
+	appsurface_destroy(&panel->widget_surface);
+	vector_destroy(&panel->widgets);
 }
 
 void
@@ -101,7 +108,6 @@ void shell_panel_hide_widget(struct shell_panel *panel)
 	struct app_surface *surf = &panel->widget_surface;
 	taiwins_shell_hide_widget(w->shell->shell, surf->wl_surface);
 }
-
 
 /******************************************************************************/
 /************************** arriere-plan fonctions ****************************/

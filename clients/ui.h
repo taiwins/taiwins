@@ -172,26 +172,6 @@ app_surface_from_wl_surface(struct wl_surface *s)
 }
 
 
-//////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////EGLAPP///////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////
-
-//maybe move this to wl_globals later
-struct egl_env {
-	EGLDisplay egl_display;
-	EGLContext egl_context;
-	struct wl_display *wl_display;
-	EGLConfig config;
-};
-
-struct eglapp;
-
-
-bool egl_env_init(struct egl_env *env, struct wl_display *disp);
-
-void egl_env_end(struct egl_env *env);
-
-
 #ifdef __cplusplus
 }
 #endif
