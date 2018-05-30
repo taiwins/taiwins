@@ -81,6 +81,7 @@ struct nk_egl_backend {
 	//window params
 	size_t width, height;
 	struct nk_vec2 fb_scale;
+	nk_egl_draw_func_t frame;
 };
 
 /*
@@ -91,10 +92,10 @@ static struct nk_convert_config nk_config = {
 };
 */
 
-NK_API void
-nk_egl_font_stash_begin(struct nk_egl_backend *app);
-NK_API void
-nk_egl_font_stash_end(struct nk_egl_backend *app);
+/* NK_API void */
+/* nk_egl_font_stash_begin(struct nk_egl_backend *app); */
+/* NK_API void */
+/* nk_egl_font_stash_end(struct nk_egl_backend *app); */
 
 
 /* the next thingis handling font, as we have no idea how it is baked */
@@ -272,6 +273,10 @@ _nk_egl_draw_begin(struct nk_egl_backend *bkend)
 	};
 	ortho[0][0] /= (GLfloat)bkend->width;
 	ortho[1][1] /= (GLfloat)bkend->height;
+	//use program
+	glUseProgram(bkend->glprog);
+	glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
 	//switches
 	glEnable(GL_BLEND);
 	glBlendEquation(GL_FUNC_ADD);
@@ -280,7 +285,6 @@ _nk_egl_draw_begin(struct nk_egl_backend *bkend)
 	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_SCISSOR_TEST);
 
-	glUseProgram(bkend->glprog);
 	//uniforms
 	glActiveTexture(GL_TEXTURE0);
 	glUniform1i(bkend->uniform_tex, 0);
@@ -369,15 +373,29 @@ nk_egl_render(struct nk_egl_backend *bkend)
 	_nk_egl_draw_end(bkend);
 }
 
+static void
+_nk_egl_new_frame(struct nk_egl_backend *bkend)
+{
+	if (nk_begin(&bkend->ctx, "eglapp", nk_rect(0, 0, bkend->width, bkend->height),
+		     NK_WINDOW_BORDER)) {
+		bkend->frame(&bkend->ctx, bkend->width, bkend->height);
+	} nk_end(&bkend->ctx);
+	nk_egl_render(bkend);
+	eglSwapBuffers(bkend->env->egl_display, bkend->eglsurface);
+}
+
 void
-nk_egl_launch(struct nk_egl_backend *bkend, int w, int h, float s)
+nk_egl_launch(struct nk_egl_backend *bkend, int w, int h, float s,
+	      nk_egl_draw_func_t func)
 {
 	bkend->width = w;
 	bkend->height = h;
 	bkend->fb_scale = nk_vec2(s, s);
+	bkend->frame = func;
 	//now resize the window
 	bkend->compiled = _compile_backend(bkend);
 	wl_egl_window_resize(bkend->eglwin, w, h, 0, 0);
+	_nk_egl_new_frame(bkend);
 	//there seems to be no function about changing window size in egl
 }
 
