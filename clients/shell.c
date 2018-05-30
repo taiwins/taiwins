@@ -52,12 +52,29 @@ struct shell_output {
 /******************************************************************************/
 /**************************** panneaux fonctions ******************************/
 /******************************************************************************/
+static void sample_wiget(struct nk_context *ctx, float width, float height)
+{
+	//TODO, change the draw function to app->draw_widget(app);
+	enum {EASY, HARD};
+	static int op = EASY;
+	static int property = 20;
+	nk_layout_row_static(ctx, 30, 80, 2);
+	nk_button_label(ctx, "button");
+	nk_label(ctx, "another", NK_TEXT_LEFT);
+	//I can try to use the other textures
+	/* if (nk_button_label(ctx, "button")) { */
+	/*	fprintf(stderr, "button pressed\n"); */
+	/* } */
+	nk_layout_row_dynamic(ctx, 30, 2);
+	if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
+	if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
+}
 
 static void
 shell_widget_launch(struct shell_widget *widget)
 {
 	//the scale here doesn't make any sense, we need a way to make the widget look good
-	nk_egl_launch(widget->panel->backend, widget->width, widget->height, 1.0);
+	nk_egl_launch(widget->panel->backend, widget->width, widget->height, 1.0, sample_wiget);
 }
 
 static void
