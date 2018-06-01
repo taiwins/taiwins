@@ -70,10 +70,28 @@ static void sample_wiget(struct nk_context *ctx, float width, float height)
 	if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
 }
 
+
 static void
-shell_widget_launch(struct shell_widget *widget)
+_launch_widget(struct shell_widget *widget)
 {
-	//the scale here doesn't make any sense, we need a way to make the widget look good
+	//find the widget launch point
+	struct point2d point;
+	int x = widget->icon.box.x + widget->icon.box.w/2;
+	/* int y = app->icon.box.y; */
+	int ww = widget->width;
+	/* int wh = app->height; */
+	struct shell_panel *panel = widget->panel;
+	unsigned int pw = panel->panelsurf.w;
+	/* unsigned int ph = panel->panelsurf.h; */
+	if (x + ww/2 >= pw) {
+		point.x = pw - ww;
+	} else if (x - ww/2 < 0) {
+		point.x = 0;
+	} else
+		point.x = x - ww/2;
+	point.y = 10;
+
+	shell_panel_show_widget(widget->panel, point.x, point.y);
 	nk_egl_launch(widget->panel->backend, widget->width, widget->height, 1.0, sample_wiget);
 }
 
@@ -84,7 +102,7 @@ shell_panel_click(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy)
 	fprintf(stderr, "clicked on button (%d, %d)\n", cx, cy);
 	struct shell_widget *w = shell_panel_find_widget_at_xy(panel, cx, cy);
 	if (w)
-		shell_widget_launch(w);
+		_launch_widget(w);
 }
 
 static void
