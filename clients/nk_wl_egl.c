@@ -40,7 +40,7 @@ static const struct nk_draw_vertex_layout_element vertex_layout[] = {
 /*we are giving 4Kb mem to the command buffer*/
 static char cmd_buffer_data[4096];
 /* and 16Mb to the context. */
-static char *nk_ctx_buffer;
+static char *nk_ctx_buffer = NULL;
 /* as we known that we are using the fixed memory here, the size is crucial to
  * our needs, if the size is too small, we will run into `nk_mem_alloc`
  * failed. If we are giving too much memory, it is then a certain waste. 16Mb is
@@ -210,6 +210,9 @@ _compile_backend(struct nk_egl_backend *bkend)
 	glBindVertexArray(bkend->vao);
 	glBindBuffer(GL_ARRAY_BUFFER, bkend->vbo);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bkend->ebo);
+	glBufferData(GL_ARRAY_BUFFER, MAX_VERTEX_BUFFER, NULL, GL_STREAM_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, MAX_ELEMENT_BUFFER, NULL, GL_STREAM_DRAW);
+
 	assert(bkend->vao);
 	assert(bkend->vbo);
 	assert(bkend->ebo);
@@ -231,36 +234,14 @@ _compile_backend(struct nk_egl_backend *bkend)
 	struct nk_font *font = nk_egl_prepare_font(bkend);
 	nk_init_fixed(&bkend->ctx, nk_ctx_buffer, NK_MAX_CTX_MEM, &font->handle);
 	nk_buffer_init_fixed(&bkend->cmds, cmd_buffer_data, sizeof(cmd_buffer_data));
+	nk_buffer_clear(&bkend->cmds);
 	return true;
 }
 
 
 static void
-_nk_egl_init_vbuffer(struct nk_egl_backend *bkend,
-		     size_t max_vbuffer, size_t max_ebuffer)
+_nk_egl_draw_begin(struct nk_egl_backend *bkend, struct nk_buffer *vbuf, struct nk_buffer *ebuf)
 {
-	void *vertices, *elements;
-	assert(bkend->vao && bkend->vbo && bkend->ebo);
-	glBindVertexArray(bkend->vao);
-	glBindBuffer(GL_ARRAY_BUFFER, bkend->vbo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bkend->ebo);
-	glBufferData(GL_ARRAY_BUFFER, max_vbuffer, 0, GL_STREAM_DRAW);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, max_ebuffer, 0, GL_STREAM_DRAW);
-	vertices = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
-	elements = glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
-	nk_memset(vertices, 0, max_vbuffer);
-	nk_memset(elements, 0, max_ebuffer);
-	glUnmapBuffer(GL_ARRAY_BUFFER);
-	glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-}
-
-static void
-_nk_egl_draw_begin(struct nk_egl_backend *bkend)
-{
-	struct nk_buffer vbuf, ebuf;
 	void *vertices = NULL;
 	void *elements = NULL;
 	const nk_draw_index *offset = NULL;
@@ -311,9 +292,9 @@ _nk_egl_draw_begin(struct nk_egl_backend *bkend)
 		config.global_alpha = 1.0f;
 		config.shape_AA = NK_ANTI_ALIASING_ON;
 		config.line_AA = NK_ANTI_ALIASING_ON;
-		nk_buffer_init_fixed(&vbuf, vertices, MAX_VERTEX_BUFFER);
-		nk_buffer_init_fixed(&ebuf, elements, MAX_ELEMENT_BUFFER);
-		nk_convert(&bkend->ctx, &bkend->cmds, &vbuf, &ebuf, &config);
+		nk_buffer_init_fixed(vbuf, vertices, MAX_VERTEX_BUFFER);
+		nk_buffer_init_fixed(ebuf, elements, MAX_ELEMENT_BUFFER);
+		nk_convert(&bkend->ctx, &bkend->cmds, vbuf, ebuf, &config);
 	}
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 	glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
@@ -347,6 +328,8 @@ nk_egl_render(struct nk_egl_backend *bkend)
 {
 	//convert the command queue
 	const struct nk_draw_command *cmd;
+	nk_draw_index *offset = NULL;
+	struct nk_buffer vbuf, ebuf;
 	//we should check the command buffer first, if nothing changes we should
 	//just return
 	void *mem = nk_buffer_memory(&bkend->ctx.memory);
@@ -354,7 +337,7 @@ nk_egl_render(struct nk_egl_backend *bkend)
 		return;
 	else
 		memcpy(bkend->last_cmds, mem, bkend->ctx.memory.allocated);
-	_nk_egl_draw_begin(bkend);
+	_nk_egl_draw_begin(bkend, &vbuf, &ebuf);
 	nk_draw_foreach(cmd, &bkend->ctx, &bkend->cmds) {
 		if (!cmd->elem_count)
 			continue;
@@ -369,6 +352,9 @@ nk_egl_render(struct nk_egl_backend *bkend)
 		};
 		glScissor(scissor_region[0], scissor_region[1],
 			  scissor_region[2], scissor_region[3]);
+		glDrawElements(GL_TRIANGLES, (GLsizei)cmd->elem_count,
+			       GL_UNSIGNED_SHORT, offset);
+		offset += cmd->elem_count;
 	}
 	_nk_egl_draw_end(bkend);
 }
@@ -416,6 +402,7 @@ nk_egl_destroy_backend(struct nk_egl_backend *bkend)
 	//use the clear, cleanup is used for creating second font
 	nk_font_atlas_clear(&bkend->atlas);
 	free(nk_ctx_buffer);
+	nk_ctx_buffer = NULL;
 	nk_buffer_free(&bkend->cmds);
 	//egl free context
 	eglMakeCurrent(bkend->env->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
