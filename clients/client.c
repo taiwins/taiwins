@@ -154,7 +154,6 @@ handle_repeat_info(void *data,
 			    int32_t rate,
 			    int32_t delay)
 {
-
 }
 
 static void
@@ -273,7 +272,7 @@ pointer_frame(void *data,
 	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
 
 	uint32_t event = globals->inputs.cursor_events;
-	//events goes in the order
+	//events goes in the order, but why I am using else if?
 	if ((event & POINTER_AXIS) && appsurf->pointraxis)
 		appsurf->pointraxis(appsurf,
 				    globals->inputs.axis_pos, globals->inputs.axis,

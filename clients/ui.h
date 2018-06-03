@@ -50,8 +50,6 @@ font_px2pt(int px_size, int ppi)
 	return (int) (72.0 * px_size / ppi);
 }
 
-
-
 unsigned char *load_image(const char *path, const enum wl_shm_format wlformat,
 	   int width, int height, unsigned char *data);
 

@@ -14,7 +14,6 @@
 
 #ifndef NK_EGL_CMD_SIZE
 #define NK_EGL_CMD_SIZE 4096
-
 #endif
 
 
@@ -44,9 +43,10 @@ void egl_env_end(struct egl_env *env);
 typedef void (*nk_egl_draw_func_t)(struct nk_context *ctx, float widht, float height);
 
 struct nk_egl_backend *nk_egl_create_backend(const struct egl_env *env, struct wl_surface *attach_to);
-void nk_egl_launch(struct nk_egl_backend *bkend, int width, int height, float scale, nk_egl_draw_func_t draw_func);
-void nk_egl_render(struct nk_egl_backend *bkend);
-//struct nk_context *nk_egl_backend_aquire_ctx(struct nk_egl_backend *bkend);
+void nk_egl_launch(struct nk_egl_backend *bkend,
+		   int width, int height, float scale,
+		   nk_egl_draw_func_t draw_func,
+		   char *char_buffer, size_t total);
 void nk_egl_destroy_backend(struct nk_egl_backend *bkend);
 
 
