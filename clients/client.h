@@ -66,7 +66,6 @@ enum modifier_mask {
 	TW_SHIFT = 8,
 };
 
-
 /**
  * struct for one application, it should normally contains those
  */

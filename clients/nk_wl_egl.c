@@ -8,6 +8,8 @@
 #include <EGL/egl.h>
 #include <GL/gl.h>
 #include <wayland-egl.h>
+#include <wayland-client.h>
+#include "client.h"
 //pull in the nuklear headers so we can access eglapp
 
 #define NK_IMPLEMENTATION
@@ -42,7 +44,7 @@ static const struct nk_draw_vertex_layout_element vertex_layout[] = {
 /*we are giving 4Kb mem to the command buffer*/
 static char cmd_buffer_data[4096];
 /* and 16Mb to the context. */
-static char *nk_ctx_buffer;
+static char *nk_ctx_buffer = NULL;
 /* as we known that we are using the fixed memory here, the size is crucial to
  * our needs, if the size is too small, we will run into `nk_mem_alloc`
  * failed. If we are giving too much memory, it is then a certain waste. 16Mb is
@@ -56,6 +58,7 @@ static char *nk_ctx_buffer;
 struct nk_egl_backend {
 	bool compiled;
 	const struct egl_env *env;
+	struct app_surface *app_surface;
 	struct wl_surface *wl_surface;
 	struct wl_egl_window *eglwin;
 	EGLSurface eglsurface;
@@ -94,17 +97,8 @@ static struct nk_convert_config nk_config = {
 };
 */
 
-/* NK_API void */
-/* nk_egl_font_stash_begin(struct nk_egl_backend *app); */
-/* NK_API void */
-/* nk_egl_font_stash_end(struct nk_egl_backend *app); */
 
-
-/* the next thingis handling font, as we have no idea how it is baked */
-/* 1) create the struct of the nk_user_font */
-/* 2) callback 0: font.widht = you_text_width_calculation */
-/* 3) callback 1: if you want vertex output, provide the glyph query  */
-/* have this before init the context, so we don't need to setup aftwards */
+/*********** static implementations *********/
 static struct nk_font*
 nk_egl_prepare_font(struct nk_egl_backend *bkend)
 {
@@ -212,7 +206,6 @@ _compile_backend(struct nk_egl_backend *bkend)
 	glBindVertexArray(bkend->vao);
 	glBindBuffer(GL_ARRAY_BUFFER, bkend->vbo);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bkend->ebo);
-	//glBufferData, you don't know the size of the data, rightnow make it constant
 	glBufferData(GL_ARRAY_BUFFER, MAX_VERTEX_BUFFER, NULL, GL_STREAM_DRAW);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, MAX_ELEMENT_BUFFER, NULL, GL_STREAM_DRAW);
 
@@ -237,39 +230,16 @@ _compile_backend(struct nk_egl_backend *bkend)
 	struct nk_font *font = nk_egl_prepare_font(bkend);
 	nk_init_fixed(&bkend->ctx, nk_ctx_buffer, NK_MAX_CTX_MEM, &font->handle);
 	nk_buffer_init_fixed(&bkend->cmds, cmd_buffer_data, sizeof(cmd_buffer_data));
+	nk_buffer_clear(&bkend->cmds);
 	return true;
 }
 
 
 static void
-_nk_egl_init_vbuffer(struct nk_egl_backend *bkend,
-		     size_t max_vbuffer, size_t max_ebuffer)
+_nk_egl_draw_begin(struct nk_egl_backend *bkend, struct nk_buffer *vbuf, struct nk_buffer *ebuf)
 {
-	void *vertices, *elements;
-	assert(bkend->vao && bkend->vbo && bkend->ebo);
-	glBindVertexArray(bkend->vao);
-	glBindBuffer(GL_ARRAY_BUFFER, bkend->vbo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bkend->ebo);
-	glBufferData(GL_ARRAY_BUFFER, max_vbuffer, 0, GL_STREAM_DRAW);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, max_ebuffer, 0, GL_STREAM_DRAW);
-	vertices = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
-	elements = glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
-	nk_memset(vertices, 0, max_vbuffer);
-	nk_memset(elements, 0, max_ebuffer);
-	glUnmapBuffer(GL_ARRAY_BUFFER);
-	glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-}
-
-static void
-_nk_egl_draw_begin(struct nk_egl_backend *bkend)
-{
-	struct nk_buffer vbuf, ebuf;
 	void *vertices = NULL;
 	void *elements = NULL;
-	const nk_draw_index *offset = NULL;
 	//NOTE update uniform
 	GLfloat ortho[4][4] = {
 		{ 2.0f,  0.0f,  0.0f, 0.0f},
@@ -317,9 +287,9 @@ _nk_egl_draw_begin(struct nk_egl_backend *bkend)
 		config.global_alpha = 1.0f;
 		config.shape_AA = NK_ANTI_ALIASING_ON;
 		config.line_AA = NK_ANTI_ALIASING_ON;
-		nk_buffer_init_fixed(&vbuf, vertices, MAX_VERTEX_BUFFER);
-		nk_buffer_init_fixed(&ebuf, elements, MAX_ELEMENT_BUFFER);
-		nk_convert(&bkend->ctx, &bkend->cmds, &vbuf, &ebuf, &config);
+		nk_buffer_init_fixed(vbuf, vertices, MAX_VERTEX_BUFFER);
+		nk_buffer_init_fixed(ebuf, elements, MAX_ELEMENT_BUFFER);
+		nk_convert(&bkend->ctx, &bkend->cmds, vbuf, ebuf, &config);
 	}
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 	glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
@@ -338,29 +308,22 @@ _nk_egl_draw_end(struct nk_egl_backend *bkend)
 	nk_buffer_clear(&bkend->cmds);
 }
 
-/********************* exposed APIS *************************/
-struct nk_egl_backend*
-nk_egl_create_backend(const struct egl_env *env, struct wl_surface *attached_to)
-{
-	struct nk_egl_backend *bkend = (struct nk_egl_backend *)calloc(1, sizeof(*bkend));
-	bkend->env = env;
-	bkend->wl_surface = attached_to;
-	return bkend;
-}
-
-void
+static void
 nk_egl_render(struct nk_egl_backend *bkend)
 {
 	//convert the command queue
 	const struct nk_draw_command *cmd;
+	nk_draw_index *offset = NULL;
+	struct nk_buffer vbuf, ebuf;
 	//we should check the command buffer first, if nothing changes we should
 	//just return
-	void *mem = nk_buffer_memory(&bkend->ctx.memory);
-	if (!memcmp(mem, bkend->last_cmds, bkend->ctx.memory.allocated))
-		return;
-	else
-		memcpy(bkend->last_cmds, mem, bkend->ctx.memory.allocated);
-	_nk_egl_draw_begin(bkend);
+	//however, this doesn't work
+	/* void *mem = nk_buffer_memory(&bkend->ctx.memory); */
+	/* if (!memcmp(mem, bkend->last_cmds, bkend->ctx.memory.allocated)) */
+	/*	return; */
+	/* else */
+	/*	memcpy(bkend->last_cmds, mem, bkend->ctx.memory.allocated); */
+	_nk_egl_draw_begin(bkend, &vbuf, &ebuf);
 	nk_draw_foreach(cmd, &bkend->ctx, &bkend->cmds) {
 		if (!cmd->elem_count)
 			continue;
@@ -375,10 +338,15 @@ nk_egl_render(struct nk_egl_backend *bkend)
 		};
 		glScissor(scissor_region[0], scissor_region[1],
 			  scissor_region[2], scissor_region[3]);
+		glDrawElements(GL_TRIANGLES, (GLsizei)cmd->elem_count,
+			       GL_UNSIGNED_SHORT, offset);
+		offset += cmd->elem_count;
 	}
 	nk_clear(&bkend->ctx);
 	_nk_egl_draw_end(bkend);
+	eglSwapBuffers(bkend->env->egl_display, bkend->eglsurface);
 }
+
 
 static void
 _nk_egl_new_frame(struct nk_egl_backend *bkend)
@@ -388,12 +356,71 @@ _nk_egl_new_frame(struct nk_egl_backend *bkend)
 		bkend->frame(&bkend->ctx, bkend->width, bkend->height);
 	} nk_end(&bkend->ctx);
 	nk_egl_render(bkend);
-	eglSwapBuffers(bkend->env->egl_display, bkend->eglsurface);
 }
+
+
+static void
+nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier)
+{
+	struct nk_egl_backend *bkend = (struct nk_egl_backend *)surf->parent;
+}
+
+static void
+nk_pointron(struct app_surface *surf, uint32_t sx, uint32_t sy)
+{
+	struct nk_egl_backend *bkend = (struct nk_egl_backend *)surf->parent;
+	nk_input_begin(&bkend->ctx);
+	nk_input_motion(&bkend->ctx, sx, sy);
+	nk_input_end(&bkend->ctx);
+	_nk_egl_new_frame(bkend);
+}
+
+static void
+nk_pointrbtn(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy)
+{
+	struct nk_egl_backend *bkend = (struct nk_egl_backend *)surf->parent;
+	nk_input_begin(&bkend->ctx);
+	nk_input_button(&bkend->ctx, (btn) ? NK_BUTTON_LEFT : NK_BUTTON_RIGHT, (int)sx, (int)sy, 1);
+	nk_input_end(&bkend->ctx);
+	_nk_egl_new_frame(bkend);
+
+}
+
+static void
+nk_pointraxis(struct app_surface *surf, int pos, int direction, uint32_t sx, uint32_t sy)
+{
+	struct nk_egl_backend *bkend = (struct nk_egl_backend *)surf->parent;
+	nk_input_begin(&bkend->ctx);
+	nk_input_scroll(&bkend->ctx, nk_vec2(direction * (float)sx, (direction * (float)sy)));
+	nk_input_begin(&bkend->ctx);
+	_nk_egl_new_frame(bkend);
+}
+
+
+
+/********************* exposed APIS *************************/
+
+
+
+struct nk_egl_backend*
+nk_egl_create_backend(const struct egl_env *env, struct wl_surface *attached_to)
+{
+	struct nk_egl_backend *bkend = (struct nk_egl_backend *)calloc(1, sizeof(*bkend));
+	bkend->env = env;
+	bkend->wl_surface = attached_to;
+	bkend->app_surface = app_surface_from_wl_surface(attached_to);
+	//tmp pointer casting, if we could have better solution
+	bkend->app_surface->parent = (struct app_surface *)bkend;
+	appsurface_init_input(bkend->app_surface, NULL, nk_pointron, nk_pointrbtn, nk_pointraxis);
+	return bkend;
+}
+
+
 
 void
 nk_egl_launch(struct nk_egl_backend *bkend, int w, int h, float s,
-	      nk_egl_draw_func_t func)
+	      nk_egl_draw_func_t func,
+	      char *char_buffer, size_t total)
 {
 	bkend->width = w;
 	bkend->height = h;
@@ -423,6 +450,7 @@ nk_egl_destroy_backend(struct nk_egl_backend *bkend)
 	//use the clear, cleanup is used for creating second font
 	nk_font_atlas_clear(&bkend->atlas);
 	free(nk_ctx_buffer);
+	nk_ctx_buffer = NULL;
 	nk_buffer_free(&bkend->cmds);
 	//egl free context
 	eglMakeCurrent(bkend->env->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
