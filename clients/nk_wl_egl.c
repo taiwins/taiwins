@@ -18,6 +18,8 @@
 #include "nk_wl_egl.h"
 #define NK_SHADER_VERSION "#version 330 core\n"
 #define NK_MAX_CTX_MEM 16 * 1024 * 1024
+#define MAX_VERTEX_BUFFER 512 * 128
+#define MAX_ELEMENT_BUFFER 128 * 128
 
 //vao layout
 struct nk_egl_vertex {
@@ -210,6 +212,10 @@ _compile_backend(struct nk_egl_backend *bkend)
 	glBindVertexArray(bkend->vao);
 	glBindBuffer(GL_ARRAY_BUFFER, bkend->vbo);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bkend->ebo);
+	//glBufferData, you don't know the size of the data, rightnow make it constant
+	glBufferData(GL_ARRAY_BUFFER, MAX_VERTEX_BUFFER, NULL, GL_STREAM_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, MAX_ELEMENT_BUFFER, NULL, GL_STREAM_DRAW);
+
 	assert(bkend->vao);
 	assert(bkend->vbo);
 	assert(bkend->ebo);
@@ -328,7 +334,7 @@ _nk_egl_draw_end(struct nk_egl_backend *bkend)
 	glBindVertexArray(0);
 	glDisable(GL_BLEND);
 	glDisable(GL_SCISSOR_TEST);
-	nk_clear(&bkend->ctx);
+
 	nk_buffer_clear(&bkend->cmds);
 }
 
@@ -370,6 +376,7 @@ nk_egl_render(struct nk_egl_backend *bkend)
 		glScissor(scissor_region[0], scissor_region[1],
 			  scissor_region[2], scissor_region[3]);
 	}
+	nk_clear(&bkend->ctx);
 	_nk_egl_draw_end(bkend);
 }
 
