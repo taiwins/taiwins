@@ -1,0 +1,16 @@
+* [0%] Configurations
+** DOIN nuklear and other widget styles.
+* [25%] Taiwins-shell
+** DOIN [0%] fully nuklear backend (utilizing app-surface and)
+*** TODO keyboard callbacks, this writes to a buffer, apparently.
+*** TODO draw another triangle above nuklear widget
+*** TODO research the mouse clicking problem
+** CANC lua support
+   this can be *later*. It is very independent.
+*** DOIN adding text to widget APIs.
+** DOIN memory leak checking
+*** DONE nuklear memory checking
+*** DOIN cairo memory checking
+** TODO widgets support input events (this can be done through proxy events)
+* [%] Taiwins-launcher
+* [%] Taiwins layouting method
