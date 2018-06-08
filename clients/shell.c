@@ -93,7 +93,7 @@ _launch_widget(struct shell_widget *widget)
 
 	shell_panel_show_widget(widget->panel, point.x, point.y);
 	nk_egl_launch(widget->panel->backend, widget->width, widget->height, 1.0, sample_wiget,
-		      NULL, 0);
+		      widget->text, sizeof(widget->text));
 }
 
 static void

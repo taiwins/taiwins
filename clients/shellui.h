@@ -53,24 +53,19 @@ struct eglapp_icon {
 	void (*update_icon)(struct eglapp_icon *);
 };
 
-#ifndef NK_EGLAPP_TEXT_MAX
-#define NK_EGLAPP_TEXT_MAX 256
-#endif
-
 struct shell_widget {
 	struct shell_panel *panel;
 	//the awkward part is here, the anchor is in the icon
 	struct eglapp_icon icon;
 	bool ready_to_launch;
-	//for native app, the function is defined as following.
+	//this changes to nuklear draw
 	void (*draw_widget)(struct shell_widget *);
 	//or, we will need a lua function to do it.
 	lua_State *L;
-
-	unsigned int text[NK_EGLAPP_TEXT_MAX];
+	//no. No utf-8 support
+	char text[256];
 	unsigned int text_len;
 	uint32_t width, height;
-
 };
 //this will call the lua state of the widget
 void draw_lua_widget(struct shell_widget *widget);
