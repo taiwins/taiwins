@@ -80,13 +80,16 @@ struct nk_egl_backend {
 	struct nk_context ctx;
 	//ctx has all the information, vertex info, we are not supposed to bake it
 	struct nk_buffer cmds;
-	char last_cmds[NK_EGL_CMD_SIZE];
 	struct nk_draw_null_texture null;
 	struct nk_font_atlas atlas;
-	//window params
+
+	//up-to-date information
 	size_t width, height;
 	struct nk_vec2 fb_scale;
 	nk_egl_draw_func_t frame;
+	char *text_buffer;
+	size_t text_len;
+	size_t text_total;
 };
 
 /*
@@ -363,6 +366,20 @@ static void
 nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier)
 {
 	struct nk_egl_backend *bkend = (struct nk_egl_backend *)surf->parent;
+	uint32_t keycode = xkb_keysym_to_utf32(keysym);
+	if (!bkend->text_buffer || (modifier && modifier != TW_SHIFT) )
+		return;
+	//We only want the first plane of the unicode.
+	if (keycode == 0x08 && bkend->text_len > 0) {
+		bkend->text_len--;
+	}
+	else if (keycode < 0x20 && keycode < 0x7E) {
+
+	}
+	nk_input_begin(&bkend->ctx);
+	nk_input_unicode(&bkend->ctx, keycode);
+	nk_input_end(&bkend->ctx);
+	_nk_egl_new_frame(bkend);
 }
 
 static void
@@ -426,6 +443,9 @@ nk_egl_launch(struct nk_egl_backend *bkend, int w, int h, float s,
 	bkend->height = h;
 	bkend->fb_scale = nk_vec2(s, s);
 	bkend->frame = func;
+	bkend->text_buffer = char_buffer;
+	bkend->text_total = total;
+	bkend->text_len = strlen(char_buffer);
 	//now resize the window
 	bkend->compiled = _compile_backend(bkend);
 	wl_egl_window_resize(bkend->eglwin, w, h, 0, 0);
