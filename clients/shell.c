@@ -58,6 +58,11 @@ static void sample_wiget(struct nk_context *ctx, float width, float height)
 	enum {EASY, HARD};
 	static int op = EASY;
 	static int property = 20;
+	static size_t textlen;
+	static size_t code_point = 0;
+	static size_t tmp;
+	char *text_buffer = nk_egl_access_text_buffer(ctx, &textlen, &tmp);
+
 	nk_layout_row_static(ctx, 30, 80, 2);
 	nk_button_label(ctx, "button");
 	nk_label(ctx, "another", NK_TEXT_LEFT);
@@ -68,6 +73,9 @@ static void sample_wiget(struct nk_context *ctx, float width, float height)
 	nk_layout_row_dynamic(ctx, 30, 2);
 	if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
 	if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
+
+	nk_layout_row_dynamic(ctx, 25, 1);
+	nk_edit_string(ctx, NK_EDIT_FIELD, text_buffer, &code_point, (int)textlen, nk_filter_default);
 }
 
 

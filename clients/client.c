@@ -97,7 +97,7 @@ handle_key(void *data,
 	struct wl_surface *focused = globals->inputs.focused_surface;
 	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
 	//I suppose the modifier key is called as well
-	if (appsurf->keycb)
+	if (appsurf->keycb && state == WL_KEYBOARD_KEY_STATE_PRESSED)
 		appsurf->keycb(appsurf, keysym,
 			       modifier);
 }
