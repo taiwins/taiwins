@@ -52,6 +52,7 @@ struct shell_output {
 /******************************************************************************/
 /**************************** panneaux fonctions ******************************/
 /******************************************************************************/
+static int TEXT_LEN;
 static void sample_wiget(struct nk_context *ctx, float width, float height)
 {
 	//TODO, change the draw function to app->draw_widget(app);
@@ -59,9 +60,10 @@ static void sample_wiget(struct nk_context *ctx, float width, float height)
 	static int op = EASY;
 	static int property = 20;
 	static size_t textlen;
-	static size_t code_point = 0;
+	static size_t code_point;
 	static size_t tmp;
-	char *text_buffer = nk_egl_access_text_buffer(ctx, &textlen, &tmp);
+	static char text_buffer[256];
+//	char *text_buffer = nk_egl_access_text_buffer(ctx, &textlen, &tmp);
 
 	nk_layout_row_static(ctx, 30, 80, 2);
 	nk_button_label(ctx, "button");
@@ -75,7 +77,7 @@ static void sample_wiget(struct nk_context *ctx, float width, float height)
 	if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
 
 	nk_layout_row_dynamic(ctx, 25, 1);
-	nk_edit_string(ctx, NK_EDIT_FIELD, text_buffer, &code_point, (int)textlen, nk_filter_default);
+	nk_edit_string(ctx, NK_EDIT_FIELD, text_buffer, &TEXT_LEN, (int)256, nk_filter_default);
 }
 
 

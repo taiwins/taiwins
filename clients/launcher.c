@@ -46,7 +46,7 @@ struct desktop_launcher {
  *
  * for this to work, we need an actual exec and a line editing library, this is why this shit is hard.
  */
-static void key_handler(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier);
+static void key_handler(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int state);
 
 
 
@@ -266,7 +266,7 @@ handle_alt_bindings(xkb_keysym_t keysym)
 
 
 void
-key_handler(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier)
+key_handler(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int state)
 {
 	//deal with modifiers
 	switch (modifier) {
