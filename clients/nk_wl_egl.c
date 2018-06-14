@@ -363,46 +363,48 @@ _nk_egl_new_frame(struct nk_egl_backend *bkend)
 
 
 static void
-nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier)
+nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int state)
 {
 	//nk_input_key and nk_input_unicode are different, you kinda need to
 	//registered all the keys
 	struct nk_egl_backend *bkend = (struct nk_egl_backend *)surf->parent;
 	uint32_t keycode = xkb_keysym_to_utf32(keysym);
-	if ( !bkend->text_buffer || (modifier && modifier != TW_SHIFT) )
+	if ( !bkend->text_buffer)
 		return;
-
 	nk_input_begin(&bkend->ctx);
-/*	if (keycode == 0x08 && bkend->text_len > 0) */
-/* //		bkend->text_len--; */
-	if (keycode > 0x20 && keycode < 0x7E) {
-		nk_input_unicode(&bkend->ctx, keycode);
-//		bkend->text_len++;
-	}
-	nk_input_key(&bkend->ctx, NK_KEY_DEL, keysym == XKB_KEY_Delete);
-	nk_input_key(&bkend->ctx, NK_KEY_ENTER, keysym == XKB_KEY_Return);
-	nk_input_key(&bkend->ctx, NK_KEY_TAB, keysym == XKB_KEY_Tab);
-	nk_input_key(&bkend->ctx, NK_KEY_BACKSPACE, keysym == XKB_KEY_BackSpace);
-	nk_input_key(&bkend->ctx, NK_KEY_UP, keysym == XKB_KEY_UP);
-	nk_input_key(&bkend->ctx, NK_KEY_DOWN, keysym == XKB_KEY_DOWN);
-	nk_input_key(&bkend->ctx, NK_KEY_SHIFT, keysym == XKB_KEY_Shift_L ||
-		     keysym == XKB_KEY_Shift_R);
-	nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_START, keysym == XKB_KEY_Home);
-	nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_END, keysym == XKB_KEY_End);
-
 	//now we deal with the ctrl-keys
 	if (modifier & TW_CTRL) {
 		//the emacs keybindings
-		nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_START, keysym == XKB_KEY_a);
-		nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_END, keysym == XKB_KEY_e);
-		nk_input_key(&bkend->ctx, NK_KEY_LEFT, keysym == XKB_KEY_b);
-		nk_input_key(&bkend->ctx, NK_KEY_RIGHT, keysym == XKB_KEY_f);
+		nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_START, (keysym == XKB_KEY_a) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_END, (keysym == XKB_KEY_e) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_LEFT, (keysym == XKB_KEY_b) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_RIGHT, (keysym == XKB_KEY_f) && state);
 		//we should also support the clipboard later
 //		nk_input_key(&bkend->ctx, NK_KEY_COPY, )
 	} else if (modifier & TW_ALT) {
-		nk_input_key(&bkend->ctx, NK_KEY_TEXT_WORD_LEFT, keysym == XKB_KEY_b);
-		nk_input_key(&bkend->ctx, NK_KEY_TEXT_WORD_RIGHT, keysym == XKB_KEY_f);
+		nk_input_key(&bkend->ctx, NK_KEY_TEXT_WORD_LEFT, (keysym == XKB_KEY_b) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_TEXT_WORD_RIGHT, (keysym == XKB_KEY_f) && state);
 	}
+	//no tabs, we don't essentially need a buffer here, give your own buffer. That is it.
+	else if (keycode >= 0x20 && keycode < 0x7E && state)
+		nk_input_unicode(&bkend->ctx, keycode);
+//		bkend->text_len++;
+	else {
+		nk_input_key(&bkend->ctx, NK_KEY_DEL, (keysym == XKB_KEY_Delete) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_ENTER, (keysym == XKB_KEY_Return) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_TAB, keysym == XKB_KEY_Tab && state);
+		nk_input_key(&bkend->ctx, NK_KEY_BACKSPACE, (keysym == XKB_KEY_BackSpace) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_UP, (keysym == XKB_KEY_UP) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_DOWN, (keysym == XKB_KEY_DOWN) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_SHIFT, (keysym == XKB_KEY_Shift_L ||
+							 keysym == XKB_KEY_Shift_R) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_START, (keysym == XKB_KEY_Home) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_END, (keysym == XKB_KEY_End) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_LEFT, (keysym == XKB_KEY_Left) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_RIGHT, (keysym == XKB_KEY_Right) && state);
+	}
+//	fprintf(stderr, "we have the modifier %d\n", modifier);
+
 	nk_input_end(&bkend->ctx);
 	_nk_egl_new_frame(bkend);
 }
