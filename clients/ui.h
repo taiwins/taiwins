@@ -116,7 +116,7 @@ struct app_surface {
 	bool committed[2];
 
 	//input management, I need also the modifiers
-	void (*keycb)(struct app_surface *surf, xkb_keysym_t keysym, uint32_t mod);
+	void (*keycb)(struct app_surface *surf, xkb_keysym_t keysym, uint32_t mod, int state);
 //	void (*modcb)(struct app_surface *surf, xkb_mod_index_t mod);
 	//run this function at the frame callback
 	void (*pointron)(struct app_surface *surf, uint32_t sx, uint32_t sy);
@@ -146,7 +146,7 @@ void appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
  * /brief init all the input callbacks, zero is acceptable
  */
 void appsurface_init_input(struct app_surface *surf,
-			   void (*keycb)(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier),
+			   void (*keycb)(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int state),
 			   void (*pointron)(struct app_surface *surf, uint32_t sx, uint32_t sy),
 			   void (*pointrbtn)(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy),
 			   void (*pointraxis)(struct app_surface *surf, int pos, int direction, uint32_t sx, uint32_t sy));

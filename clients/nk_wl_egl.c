@@ -363,21 +363,48 @@ _nk_egl_new_frame(struct nk_egl_backend *bkend)
 
 
 static void
-nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier)
+nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int state)
 {
+	//nk_input_key and nk_input_unicode are different, you kinda need to
+	//registered all the keys
 	struct nk_egl_backend *bkend = (struct nk_egl_backend *)surf->parent;
 	uint32_t keycode = xkb_keysym_to_utf32(keysym);
-	if (!bkend->text_buffer || (modifier && modifier != TW_SHIFT) )
+	if ( !bkend->text_buffer)
 		return;
-	//We only want the first plane of the unicode.
-	if (keycode == 0x08 && bkend->text_len > 0) {
-		bkend->text_len--;
-	}
-	else if (keycode < 0x20 && keycode < 0x7E) {
-
-	}
 	nk_input_begin(&bkend->ctx);
-	nk_input_unicode(&bkend->ctx, keycode);
+	//now we deal with the ctrl-keys
+	if (modifier & TW_CTRL) {
+		//the emacs keybindings
+		nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_START, (keysym == XKB_KEY_a) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_END, (keysym == XKB_KEY_e) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_LEFT, (keysym == XKB_KEY_b) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_RIGHT, (keysym == XKB_KEY_f) && state);
+		//we should also support the clipboard later
+//		nk_input_key(&bkend->ctx, NK_KEY_COPY, )
+	} else if (modifier & TW_ALT) {
+		nk_input_key(&bkend->ctx, NK_KEY_TEXT_WORD_LEFT, (keysym == XKB_KEY_b) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_TEXT_WORD_RIGHT, (keysym == XKB_KEY_f) && state);
+	}
+	//no tabs, we don't essentially need a buffer here, give your own buffer. That is it.
+	else if (keycode >= 0x20 && keycode < 0x7E && state)
+		nk_input_unicode(&bkend->ctx, keycode);
+//		bkend->text_len++;
+	else {
+		nk_input_key(&bkend->ctx, NK_KEY_DEL, (keysym == XKB_KEY_Delete) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_ENTER, (keysym == XKB_KEY_Return) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_TAB, keysym == XKB_KEY_Tab && state);
+		nk_input_key(&bkend->ctx, NK_KEY_BACKSPACE, (keysym == XKB_KEY_BackSpace) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_UP, (keysym == XKB_KEY_UP) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_DOWN, (keysym == XKB_KEY_DOWN) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_SHIFT, (keysym == XKB_KEY_Shift_L ||
+							 keysym == XKB_KEY_Shift_R) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_START, (keysym == XKB_KEY_Home) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_END, (keysym == XKB_KEY_End) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_LEFT, (keysym == XKB_KEY_Left) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_RIGHT, (keysym == XKB_KEY_Right) && state);
+	}
+//	fprintf(stderr, "we have the modifier %d\n", modifier);
+
 	nk_input_end(&bkend->ctx);
 	_nk_egl_new_frame(bkend);
 }
@@ -417,21 +444,28 @@ nk_pointraxis(struct app_surface *surf, int pos, int direction, uint32_t sx, uin
 
 /********************* exposed APIS *************************/
 
-
-
 struct nk_egl_backend*
 nk_egl_create_backend(const struct egl_env *env, struct wl_surface *attached_to)
 {
+	//we probably should uses
 	struct nk_egl_backend *bkend = (struct nk_egl_backend *)calloc(1, sizeof(*bkend));
 	bkend->env = env;
 	bkend->wl_surface = attached_to;
 	bkend->app_surface = app_surface_from_wl_surface(attached_to);
 	//tmp pointer casting, if we could have better solution
 	bkend->app_surface->parent = (struct app_surface *)bkend;
-	appsurface_init_input(bkend->app_surface, NULL, nk_pointron, nk_pointrbtn, nk_pointraxis);
+	appsurface_init_input(bkend->app_surface, nk_keycb, nk_pointron, nk_pointrbtn, nk_pointraxis);
 	return bkend;
 }
 
+char *
+nk_egl_access_text_buffer(const struct nk_context *ctx, size_t *size, size_t *ptr)
+{
+	struct nk_egl_backend *bkend = container_of(ctx, struct nk_egl_backend, ctx);
+	*size = bkend->text_total;
+	*ptr = bkend->text_len;
+	return bkend->text_buffer;
+}
 
 
 void
