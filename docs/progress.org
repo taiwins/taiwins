@@ -2,7 +2,10 @@
 ** DOIN nuklear and other widget styles.
 * [25%] Taiwins-shell
 ** DOIN [0%] fully nuklear backend (utilizing app-surface and)
-*** TODO keyboard callbacks, this writes to a buffer, apparently.
+*** DOIN keyboard callbacks, this includes
+    - ~nk_input_key~, seems to handle the special keys.
+    - ~nk_input_char~, seems to input real chars, but it is really weird, how do
+      they determine which widget to input the char?
 *** TODO draw another triangle above nuklear widget
 *** TODO research the mouse clicking problem
 ** CANC lua support
