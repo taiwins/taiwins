@@ -1,19 +1,23 @@
 * [0%] Configurations
-** DOIN nuklear and other widget styles.
-* [25%] Taiwins-shell
-** DOIN [0%] fully nuklear backend (utilizing app-surface and)
-*** DOIN keyboard callbacks, this includes
-    - ~nk_input_key~, seems to handle the special keys.
-    - ~nk_input_char~, seems to input real chars, but it is really weird, how do
-      they determine which widget to input the char?
+** DOIN styles, nuklear and other widget styles.
+   - background color.
+   - Font size, font selection.
+*  [66%] fully nuklear backend (utilizing app-surface and)
+*** DONE keyboard callbacks, this writes to a buffer, apparently.
+    - ~nk_input_key~ and ~nk_input_unicode~ carries the text input. But the
+      input box details is unknown.
 *** TODO draw another triangle above nuklear widget
-*** TODO research the mouse clicking problem
+*** DONE research the mouse clicking problem
+    Nvidia driver specific problem.
+* [33%] Taiwins-shell
 ** CANC lua support
    this can be *later*. It is very independent.
 *** DOIN adding text to widget APIs.
 ** DOIN memory leak checking
+   based on my knowledge, currently I cannot see all the leaking source
 *** DONE nuklear memory checking
 *** DOIN cairo memory checking
-** TODO widgets support input events (this can be done through proxy events)
+** DOIN widgets support input events (this can be done through proxy events)
 * [%] Taiwins-launcher
+** implement launcher functions using ~nuklear~
 * [%] Taiwins layouting method
