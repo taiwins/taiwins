@@ -53,6 +53,8 @@ struct shell_output {
 /**************************** panneaux fonctions ******************************/
 /******************************************************************************/
 static int TEXT_LEN;
+static struct nk_text_edit text_edit;
+static bool init_text_edit = false;
 static void sample_wiget(struct nk_context *ctx, float width, float height)
 {
 	//TODO, change the draw function to app->draw_widget(app);
@@ -63,6 +65,10 @@ static void sample_wiget(struct nk_context *ctx, float width, float height)
 	static size_t code_point;
 	static size_t tmp;
 	static char text_buffer[256];
+	if (!init_text_edit) {
+		init_text_edit = true;
+		nk_textedit_init_fixed(&text_edit, text_buffer, 256);
+	}
 //	char *text_buffer = nk_egl_access_text_buffer(ctx, &textlen, &tmp);
 
 	nk_layout_row_static(ctx, 30, 80, 2);
@@ -77,7 +83,15 @@ static void sample_wiget(struct nk_context *ctx, float width, float height)
 	if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
 
 	nk_layout_row_dynamic(ctx, 25, 1);
-	nk_edit_string(ctx, NK_EDIT_FIELD, text_buffer, &TEXT_LEN, (int)256, nk_filter_default);
+//	nk_edit_buffer(ctx, NK_EDIT_FIELD, struct nk_text_edit *, nk_filter_default);
+//	nk_edit_string(ctx, NK_EDIT_FIELD, text_buffer, (int *)&textlen, (int)256, nk_filter_default);
+	nk_edit_buffer(ctx, NK_EDIT_FIELD, &text_edit, nk_filter_default);
+	//I can use nk_edit_buffer to implement it
+
+	/* if (textlen < 256 && textlen != 0) { */
+	/*	text_buffer[textlen++] = 'a'; */
+	/* } */
+	fprintf(stderr, "%s\n", text_buffer);
 }
 
 
