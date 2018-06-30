@@ -53,8 +53,8 @@ struct shell_output {
 /**************************** panneaux fonctions ******************************/
 /******************************************************************************/
 static int TEXT_LEN;
-static struct nk_text_edit text_edit;
-static bool init_text_edit = false;
+
+
 static void sample_wiget(struct nk_context *ctx, float width, float height)
 {
 	//TODO, change the draw function to app->draw_widget(app);
@@ -64,6 +64,8 @@ static void sample_wiget(struct nk_context *ctx, float width, float height)
 	static size_t textlen;
 	static size_t code_point;
 	static size_t tmp;
+	static struct nk_text_edit text_edit;
+	static bool init_text_edit = false;
 	static char text_buffer[256];
 	if (!init_text_edit) {
 		init_text_edit = true;
