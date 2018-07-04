@@ -52,8 +52,6 @@ void nk_egl_destroy_backend(struct nk_egl_backend *bkend);
 char *nk_egl_access_text_buffer(const struct nk_context *ctx, size_t *size, size_t *ptr);
 
 
-// struct nk_draw_vertex_layout_element nk_vertex_layout[4];
-
 #ifdef __cplusplus
 }
 #endif

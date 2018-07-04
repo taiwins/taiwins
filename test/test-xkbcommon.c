@@ -24,7 +24,7 @@
 
 #include <cairo.h>
 
-#include <buffer.h>
+#include <os/buffer.h>
 #include "input_data.h"
 
 ////shell with the input
