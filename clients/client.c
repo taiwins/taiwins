@@ -16,7 +16,7 @@
 #include <wayland-util.h>
 
 #include <sequential.h>
-#include <buffer.h>
+#include <os/buffer.h>
 
 #include "client.h"
 #include "ui.h"

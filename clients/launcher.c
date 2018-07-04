@@ -8,11 +8,12 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <cairo/cairo.h>
 
-
 #include <wayland-client.h>
 #include <wayland-taiwins-shell-client-protocol.h>
 #include "client.h"
 #include "ui.h"
+#include "nk_wl_egl.h"
+
 
 /* we define this stride to work with WL_SHM_FORMAT_ARGB888 */
 #define DECISION_STRIDE TAIWINS_LAUNCHER_CONF_STRIDE
@@ -31,8 +32,9 @@ struct desktop_launcher {
 	struct wl_globals globals;
 	struct app_surface launcher_surface;
 	struct wl_buffer *decision_buffer;
+	//fuck the pool, I don't need the pool anymore
 	struct shm_pool pool;
-	//we don't have a shm pool here
+
 	off_t cursor;
 	char chars[256];
 	bool quit;
@@ -44,10 +46,10 @@ struct desktop_launcher {
  * This function does all the input handling, decide what to do with the
  * launcher, manipulate the launcher chars and eventually launch an application.
  *
- * for this to work, we need an actual exec and a line editing library, this is why this shit is hard.
+ * for this to work, we need an actual exec and a line editing library, this is
+ * why this shit is hard.
  */
 static void key_handler(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int state);
-
 
 
 static void

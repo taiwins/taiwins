@@ -24,7 +24,7 @@
 #include <EGL/eglext.h>
 
 #include <sequential.h>
-#include <buffer.h>
+#include <os/buffer.h>
 
 #include "ui.h"
 
