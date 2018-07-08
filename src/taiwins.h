@@ -16,7 +16,8 @@ weston_surface_from_resource(struct wl_resource *wl_surface)
 	return (struct weston_surface *)wl_resource_get_user_data(wl_surface);
 }
 
-void tw_load_client(struct weston_compositor *ec);
+struct wl_client *tw_launch_client(struct weston_compositor *ec, const char *path);
+void tw_end_client(struct wl_client *client);
 
 
 #ifdef  __cplusplus

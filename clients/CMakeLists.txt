@@ -58,3 +58,12 @@ target_link_libraries(shell-launcher
   proto_client_libraries
   taiwins_client
   )
+
+
+add_executable(dummy
+  dummy.c
+  )
+
+target_link_libraries(dummy
+  ${CLIENT_LIBRARIES}
+  )
