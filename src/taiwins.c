@@ -7,18 +7,31 @@
 #include "taiwins.h"
 #include <os/os-compatibility.h>
 
+/* static void sigup_handler(int signum) */
+/* { */
+/*	raise(SIGTERM); */
+/* } */
+
 static int
 exec_wayland_client(const char *path, int fd)
 {
-	char sn[10];
-	sigset_t allsignals;
-	//shit I don't know about setting signals
-	sigfillset(&allsignals);
-//	sigprocmask(SIGN, const sigset_t *__restrict __set, sigset_t *__restrict __oset)
-
 	if (seteuid(getuid()) == -1) {
 		return -1;
 	}
+	//unblock all the signals
+
+	sigset_t allsignals;
+	sigfillset(&allsignals);
+	sigprocmask(SIG_UNBLOCK, &allsignals, NULL);
+	/* struct sigaction sa = { */
+	/*	.sa_mask = allsignals, */
+	/*	.sa_flags = SA_RESTART, */
+	/*	.sa_handler = sigup_handler, */
+	/* }; */
+	/* there seems to be no actual automatic mechism to notify child process
+	 * of the termination, I will have to do it myself. */
+
+	char sn[10];
 	int clientid = dup(fd);
 	snprintf(sn, sizeof(sn), "%d", clientid);
 	setenv("WAYLAND_SOCKET", sn, 1);
@@ -76,6 +89,15 @@ tw_launch_client(struct weston_compositor *ec, const char *path)
 	}
 	//now we some probably need to add signal on the server side
 	return client;
+}
+
+
+void
+tw_end_client(struct wl_client *client)
+{
+	pid_t pid; uid_t uid; gid_t gid;
+	wl_client_get_credentials(client, &pid, &uid, &gid);
+	kill(pid, SIGINT);
 }
 
 //you probabely want to add this

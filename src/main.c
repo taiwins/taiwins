@@ -18,6 +18,8 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include "backend.h"
 #include "shell.h"
+#include "taiwins.h"
+
 
 //this is a really bad idea
 struct tw_resources {
@@ -31,10 +33,11 @@ struct weston_seat *seat0;
 static int
 tw_log(const char *format, va_list args)
 {
-    return vfprintf(stderr, format, args);
+	return vfprintf(stderr, format, args);
 }
 
-bool setup_input(struct weston_compositor *compositor)
+static bool
+setup_input(struct weston_compositor *compositor)
 {
 	if (!compositor->xkb_names.layout) {
 		compositor->xkb_names = (struct xkb_rule_names) {
@@ -68,7 +71,7 @@ bool setup_input(struct weston_compositor *compositor)
 	return true;
 }
 
-void
+static void
 tawins_quit(struct weston_compositor *c)
 {
 	if (c->xkb_info) {
@@ -82,12 +85,23 @@ tawins_quit(struct weston_compositor *c)
 	}
 }
 
-//you need also other features, like launching shell, have to watch how weston did it
+static int terminate_children(struct wl_list *list)
+{
+	struct wl_list *p = list->next;
+	while (p != list) {
+		struct wl_client *client = wl_client_from_link(p);
+		tw_end_client(client);
+		p = p->next;
+		//it should work
+		wl_list_remove(p->prev);
+		wl_client_destroy(client);
+	}
+}
 
-//todo: cursor, loading weston-terminal using keyboard (for this, do we need the
-//the new protocol or something, ), but right now just show the cursor
 int main(int argc, char *argv[])
 {
+	struct wl_list children_list;
+
 	weston_log_set_handler(tw_log, tw_log);
 	struct wl_display *display = wl_display_create();
 	if (wl_display_add_socket(display, NULL) == -1)
@@ -103,8 +117,19 @@ int main(int argc, char *argv[])
 	//okay, now it is a good time to anonce the shell
 	announce_shell(compositor);
 	announce_desktop(compositor);
+	//now it a good time to get child process,
+	wl_list_init(&children_list);
+	if (argc >= 1) {
+		const char *child_name = argv[1];
+		struct wl_client *client = tw_launch_client(compositor, child_name);
+		if (client)
+			wl_list_insert(&children_list, wl_client_get_link(client));
+	}
+	fprintf(stderr, "we should see here\n");
 	wl_display_run(display);
 	weston_compositor_destroy(compositor);
+	wl_display_terminate(display);
+	//we should close the child now.
 	return 0;
 setup_err:
 	weston_compositor_destroy(compositor);
