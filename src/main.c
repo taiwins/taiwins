@@ -98,6 +98,20 @@ static int terminate_children(struct wl_list *list)
 	}
 }
 
+struct tmp_struct {
+	char *name;
+	struct weston_compositor *ec;
+};
+
+
+static void
+start_child_process(void *data)
+{
+	const struct tmp_struct *start = data;
+	struct wl_client *client = tw_launch_client(start->ec, start->name);
+}
+
+
 int main(int argc, char *argv[])
 {
 	struct wl_list children_list;
@@ -119,11 +133,18 @@ int main(int argc, char *argv[])
 	announce_desktop(compositor);
 	//now it a good time to get child process,
 	wl_list_init(&children_list);
-	if (argc >= 1) {
-		const char *child_name = argv[1];
-		struct wl_client *client = tw_launch_client(compositor, child_name);
-		if (client)
-			wl_list_insert(&children_list, wl_client_get_link(client));
+	const struct tmp_struct startup_process = {
+		argv[1],
+		compositor,
+	};
+	if (argc > 1) {
+		struct wl_event_loop *loop = wl_display_get_event_loop(display);
+		wl_event_loop_add_idle(loop, start_child_process, &startup_process);
+		/* const char *child_name = argv[1]; */
+		/* struct wl_client *client = tw_launch_client(compositor, child_name); */
+		/* if (client) */
+		/*	wl_list_insert(&children_list, wl_client_get_link(client)); */
+
 	}
 	fprintf(stderr, "we should see here\n");
 	wl_display_run(display);
