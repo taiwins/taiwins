@@ -391,7 +391,7 @@ seat_capabilities(void *data,
 		globals->inputs.wl_pointer = wl_seat_get_pointer(wl_seat);
 		fprintf(stderr, "got a mouse\n");
 		//TODO use the name in the global
-		globals->inputs.cursor_theme = wl_cursor_theme_load("Vanilla-DMZ", 32, globals->shm);
+		globals->inputs.cursor_theme = wl_cursor_theme_load("whiteglass", 32, globals->shm);
 		globals->inputs.cursor = wl_cursor_theme_get_cursor(globals->inputs.cursor_theme, "plus");
 		globals->inputs.cursor_surface = wl_compositor_create_surface(globals->compositor);
 		globals->inputs.cursor_buffer = wl_cursor_image_get_buffer(globals->inputs.cursor->images[0]);
