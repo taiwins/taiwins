@@ -1,3 +1,4 @@
+#include <string.h>
 #include <stdio.h>
 #include <signal.h>
 #include <sys/socket.h>
@@ -35,6 +36,13 @@ exec_wayland_client(const char *path, int fd)
 	int clientid = dup(fd);
 	snprintf(sn, sizeof(sn), "%d", clientid);
 	setenv("WAYLAND_SOCKET", sn, 1);
+	char *origin_env = getenv("LD_LIBRARY_PATH");
+	const char *for_shell = "/usr/lib/x86_64-linux-gnu/mesa:/usr/lib/x86_64-linux-gnu/mesa-egl:";
+	const char new_env[strlen(origin_env) + strlen(for_shell) + 1];
+	strcpy(new_env, for_shell);
+	strcat(new_env, origin_env);
+	setenv(("LD_LIBRARY_PATH"), new_env, 1);
+
 	if (execlp(path, path, NULL) == -1) {
 		close(clientid);
 		return -1;
