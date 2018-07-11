@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -378,6 +379,8 @@ desktop_shell_release(struct desktop_shell *shell)
 int
 main(int argc, char **argv)
 {
+	const char *wayland_socket = getenv("WAYLAND_SOCKET");
+	fprintf(stderr, "wayland socket! %s\n", wayland_socket);
 	struct wl_display *display = wl_display_connect(NULL);
 	if (!display) {
 		fprintf(stderr, "couldn't connect to wayland display\n");
