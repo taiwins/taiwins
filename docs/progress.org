@@ -2,7 +2,7 @@
 ** DOIN styles, nuklear and other widget styles.
    - background color.
    - Font size, font selection.
-*  [66%] fully nuklear backend (utilizing app-surface and)
+* [66%] fully nuklear backend (utilizing app-surface and)
 *** DONE keyboard callbacks, this writes to a buffer, apparently.
     - ~nk_input_key~ and ~nk_input_unicode~ carries the text input. But the
       input box details is unknown.
