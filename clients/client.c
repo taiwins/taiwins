@@ -621,9 +621,12 @@ tw_event_queue_run(void *event_queue)
 	//now it does the clean up, so we dont need a destructor
 	struct tw_event_source *es, *next;
 
-	close(queue->inotify_fd);
 	list_for_each_safe(es, next, &queue->head, node)
-		free(es);
+		if (es->wd) {
+			inotify_rm_watch(queue->inotify_fd, es->wd);
+			free(es);
+		}
+	close(queue->inotify_fd);
 	return NULL;
 }
 
@@ -668,4 +671,12 @@ tw_event_queue_add_source(struct tw_event_queue *queue, const char *file, long t
 	//TODO call the event for the first time
 	event->cb(event->data);
 	return true;
+}
+
+
+void
+tw_event_queue_end(struct tw_event_queue *queue)
+{
+	struct tw_event_source *src, *tmp;
+
 }

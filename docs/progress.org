@@ -14,9 +14,15 @@
    this can be *later*. It is very independent.
 *** DOIN adding text to widget APIs.
 ** DOIN memory leak checking
-   based on my knowledge, currently I cannot see all the leaking source
+*** Possible leaking ::
+    - malloc but no free(I probably don't have that).
+    - opened file without closing(socket, epoll, log file)
+    - other system resources I am not aware of
+    - libweston(-eglstream) leaks, since nvidia's implementation is not very
+      serious
+
 *** DONE nuklear memory checking
-*** DOIN cairo memory checking
+*** DONE cairo memory checking
 ** DOIN widgets support input events (this can be done through proxy events)
 * [%] Taiwins-launcher
 ** implement launcher functions using ~nuklear~

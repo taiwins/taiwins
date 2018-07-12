@@ -379,8 +379,7 @@ desktop_shell_release(struct desktop_shell *shell)
 int
 main(int argc, char **argv)
 {
-	const char *wayland_socket = getenv("WAYLAND_SOCKET");
-	fprintf(stderr, "wayland socket! %s\n", wayland_socket);
+	//shell-taiwins size is 112 it is not that
 	struct wl_display *display = wl_display_connect(NULL);
 	if (!display) {
 		fprintf(stderr, "couldn't connect to wayland display\n");

@@ -13,7 +13,7 @@ is dying, the shell need to know. When one minute passes, shell need to update
 the panel.
 
 
-## client-side-event-processor
+# client-side-event-processor
 This dude does two things, `poll` on the `inotify` file, and then timeout and
 execute it(the execute I mean create a event for the main thread). The previous
 design was to have a queue and let the main process to clean out the queue. But
@@ -74,7 +74,7 @@ will happen again, we have to update it as soon as we hold the resource again.
 This structure is now complex and prone to changes, we have to find a way to
 re-design it.
 
-## app-surface
+# app-surface
 
 This struct was designed for all the wayland client which requires a
 `wl_surface`. Right now we have three different types of `app-surface`:
@@ -142,3 +142,6 @@ becomes just active icons.
 We are facing the problem of choosing buffer format for applications. Cairo
 doesn't like OpenGL's RGBA, if we want to use cairo's image, we have to put the
 image format into BGRA, as it follows that order.
+
+
+# inotify machenism, I need to re process all that shit
