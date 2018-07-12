@@ -1,6 +1,6 @@
 #ifndef NK_EGL_BACKEND_H
 #define NK_EGL_BACKEND_H
-
+#include <stdarg.h>
 //pull in the nuklear headers so we can access eglapp
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO

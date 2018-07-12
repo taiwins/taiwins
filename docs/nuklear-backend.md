@@ -11,3 +11,7 @@ the new frames on the input.
 
 
 ## NUKLEAR pipeline
+The nuklear backend is really awesome, it does all the heavy job that we need
+for GUI code and you can implement different backend for it. In my case, I wrote
+the wayland-egl backend. It seems that we can also use traditional backend like
+cairo to do the job, it is still very fast.
