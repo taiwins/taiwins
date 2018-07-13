@@ -56,7 +56,7 @@ struct shell_output {
 static int TEXT_LEN;
 
 
-static void sample_wiget(struct nk_context *ctx, float width, float height)
+static void sample_wiget(struct nk_context *ctx, float width, float height, void *data)
 {
 	//TODO, change the draw function to app->draw_widget(app);
 	enum {EASY, HARD};
@@ -121,8 +121,9 @@ _launch_widget(struct shell_widget *widget)
 	point.y = 10;
 
 	shell_panel_show_widget(widget->panel, point.x, point.y);
-	nk_egl_launch(widget->panel->backend, widget->width, widget->height, 1.0, sample_wiget,
-		      widget->text, sizeof(widget->text));
+	nk_egl_launch(widget->panel->backend,
+		      widget->width, widget->height, 1.0,
+		      sample_wiget, NULL);
 }
 
 static void

@@ -63,6 +63,26 @@
       <arg name="floating" type="uint"/>
       <arg name="scale" type="fixed"/>
     </event>
+    <!-- start-submit pair -->
+    <event name="start">
+      <description summary="start the launcher">
+	launching information about the launcher itself
+      </description>
+      <arg name="width" type="fixed"/>
+      <arg name="height" type="fixed"/>
+      <arg name="scale" type="fixed"/>
+    </event>
+
+    <request name="submit">
+      <description summary="user call this when issue the command">
+	The launcher should do the submit request before the fork-exec. This
+	also masks that the application menu is realy, so when compositor
+	receive client creating events, it has the correct configure for the
+	application.
+
+	This requests closes the launcher window as well.
+      </description>
+    </request>
 
     <enum name="conf">
       <entry name="stride" value="4"

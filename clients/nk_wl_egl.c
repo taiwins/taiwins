@@ -87,11 +87,8 @@ struct nk_egl_backend {
 	size_t width, height;
 	struct nk_vec2 fb_scale;
 	nk_egl_draw_func_t frame;
-	//text is not needed right now, since we've got
-	char *text_buffer;
-	size_t text_len;
-	size_t text_total;
 	xkb_keysym_t ckey;
+	void *user_data;
 };
 
 /*
@@ -271,6 +268,7 @@ _nk_egl_draw_begin(struct nk_egl_backend *bkend, struct nk_buffer *vbuf, struct 
 	glUniform1i(bkend->uniform_tex, 0);
 	glUniformMatrix4fv(bkend->uniform_proj, 1, GL_FALSE, &ortho[0][0]);
 	//vertex buffers
+	//it could be actually a bottle neck
 	glBindVertexArray(bkend->vao);
 	glBindBuffer(GL_ARRAY_BUFFER, bkend->vbo);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bkend->ebo);
@@ -358,7 +356,7 @@ _nk_egl_new_frame(struct nk_egl_backend *bkend)
 {
 	if (nk_begin(&bkend->ctx, "eglapp", nk_rect(0, 0, bkend->width, bkend->height),
 		     NK_WINDOW_BORDER)) {
-		bkend->frame(&bkend->ctx, bkend->width, bkend->height);
+		bkend->frame(&bkend->ctx, bkend->width, bkend->height, bkend->user_data);
 	} nk_end(&bkend->ctx);
 	nk_egl_render(bkend);
 }
@@ -371,8 +369,6 @@ nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int s
 	//registered all the keys
 	struct nk_egl_backend *bkend = (struct nk_egl_backend *)surf->parent;
 	uint32_t keycode = xkb_keysym_to_utf32(keysym);
-	if ( !bkend->text_buffer)
-		return;
 	nk_input_begin(&bkend->ctx);
 	//now we deal with the ctrl-keys
 	if (modifier & TW_CTRL) {
@@ -464,28 +460,16 @@ nk_egl_create_backend(const struct egl_env *env, struct wl_surface *attached_to)
 	return bkend;
 }
 
-char *
-nk_egl_access_text_buffer(const struct nk_context *ctx, size_t *size, size_t *ptr)
-{
-	struct nk_egl_backend *bkend = container_of(ctx, struct nk_egl_backend, ctx);
-	*size = bkend->text_total;
-	*ptr = bkend->text_len;
-	return bkend->text_buffer;
-}
-
-
 void
 nk_egl_launch(struct nk_egl_backend *bkend, int w, int h, float s,
 	      nk_egl_draw_func_t func,
-	      char *char_buffer, size_t total)
+	      void *data)
 {
 	bkend->width = w;
 	bkend->height = h;
 	bkend->fb_scale = nk_vec2(s, s);
 	bkend->frame = func;
-	bkend->text_buffer = char_buffer;
-	bkend->text_total = total;
-	bkend->text_len = strlen(char_buffer);
+	bkend->user_data = data;
 	//now resize the window
 	bkend->compiled = _compile_backend(bkend);
 	wl_egl_window_resize(bkend->eglwin, w, h, 0, 0);
