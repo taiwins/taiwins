@@ -40,7 +40,7 @@ struct desktop_launcher {
 	struct nk_egl_backend *bkend;
 	struct egl_env env;
 	struct nk_text_edit text_edit;
-
+	const char *previous_tab;
 };
 
 
@@ -56,29 +56,40 @@ static const char *tmp_tab_chars[5] = {
 /**
  * @brief get the next
  */
-static void
-auto_complete(struct nk_context *ctx, struct desktop_launcher *launcher)
+static const char *
+auto_complete(struct desktop_launcher *launcher)
 {
 	//we have some shadowed context here
-	static next_tab = 0;
-	bool in_complete = false;
-	if (!in_complete);
-
+	static int i = 0;
+	return tmp_tab_chars[i++ % 5];
 }
 
 
 static void
 draw_launcher(struct nk_context *ctx, float width, float height, void *data)
 {
+	static bool _completing = false;
 	struct desktop_launcher *launcher = data;
 	nk_layout_row_static(ctx, height, width, 1);
 	nk_edit_buffer(ctx, NK_EDIT_FIELD, &launcher->text_edit, nk_filter_default);
-	if (nk_egl_get_keyinput(ctx) == XKB_KEY_Tab)
-		auto_complete(ctx, launcher);
-	else if (nk_egl_get_keyinput(ctx) == XKB_KEY_Return) {
+	if (nk_egl_get_keyinput(ctx) == XKB_KEY_Tab) {
+
+		_completing = true;
+		for (int i = 0; i < strlen(launcher->previous_tab); i++)
+			nk_textedit_undo(&launcher->text_edit);
+		launcher->previous_tab = auto_complete(launcher);
+		nk_textedit_text(&launcher->text_edit,
+				 launcher->previous_tab, strlen(launcher->previous_tab));
+
+	} else if (nk_egl_get_keyinput(ctx) == XKB_KEY_Return) {
+		launcher->previous_tab = NULL;
+		_completing = false;
 		//update the buffer.
 		//taiwins_launcher_submit(launcher->interface);
 		//do fork-exec (you probably don't want to do it here)
+	} else {
+		launcher->previous_tab = NULL;
+		_completing = false;
 	}
 }
 
