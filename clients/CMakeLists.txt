@@ -56,6 +56,7 @@ target_link_libraries(shell-launcher
   ${WAYLAND_CURSOR_LIBRARIES}
   m
   proto_client_libraries
+  nk_backend
   taiwins_client
   )
 

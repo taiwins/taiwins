@@ -44,13 +44,13 @@ struct nk_egl_backend;
 bool egl_env_init(struct egl_env *env, struct wl_display *disp);
 void egl_env_end(struct egl_env *env);
 
-typedef void (*nk_egl_draw_func_t)(struct nk_context *ctx, float widht, float height);
+typedef void (*nk_egl_draw_func_t)(struct nk_context *ctx, float width, float height, void *data);
 
+//TODO: change wl_surface to appsurface or maintain the appsurface inside nk_egl_backend
 struct nk_egl_backend *nk_egl_create_backend(const struct egl_env *env, struct wl_surface *attach_to);
 void nk_egl_launch(struct nk_egl_backend *bkend,
 		   int width, int height, float scale,
-		   nk_egl_draw_func_t draw_func,
-		   char *char_buffer, size_t total);
+		   nk_egl_draw_func_t draw_func, void *data);
 void nk_egl_destroy_backend(struct nk_egl_backend *bkend);
 
 //yeah, we can do in this way, but we can also
