@@ -16,6 +16,10 @@
 #define NK_EGL_CMD_SIZE 4096
 #endif
 
+//to output the key
+#include <xkbcommon/xkbcommon.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
+
 
 #include <EGL/egl.h>
 #include <GL/gl.h>
@@ -49,7 +53,8 @@ void nk_egl_launch(struct nk_egl_backend *bkend,
 		   char *char_buffer, size_t total);
 void nk_egl_destroy_backend(struct nk_egl_backend *bkend);
 
-char *nk_egl_access_text_buffer(const struct nk_context *ctx, size_t *size, size_t *ptr);
+//yeah, we can do in this way, but we can also
+xkb_keysym_t nk_egl_get_keyinput(struct nk_context *ctx);
 
 
 #ifdef __cplusplus
