@@ -87,9 +87,11 @@ struct nk_egl_backend {
 	size_t width, height;
 	struct nk_vec2 fb_scale;
 	nk_egl_draw_func_t frame;
+	//text is not needed right now, since we've got
 	char *text_buffer;
 	size_t text_len;
 	size_t text_total;
+	xkb_keysym_t ckey;
 };
 
 /*
@@ -379,6 +381,7 @@ nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int s
 		nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_END, (keysym == XKB_KEY_e) && state);
 		nk_input_key(&bkend->ctx, NK_KEY_LEFT, (keysym == XKB_KEY_b) && state);
 		nk_input_key(&bkend->ctx, NK_KEY_RIGHT, (keysym == XKB_KEY_f) && state);
+		nk_input_key(&bkend->ctx, NK_KEY_TEXT_UNDO, (keysym == XKB_KEY_slash) && state);
 		//we should also support the clipboard later
 //		nk_input_key(&bkend->ctx, NK_KEY_COPY, )
 	} else if (modifier & TW_ALT) {
@@ -404,7 +407,10 @@ nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int s
 		nk_input_key(&bkend->ctx, NK_KEY_RIGHT, (keysym == XKB_KEY_Right) && state);
 	}
 //	fprintf(stderr, "we have the modifier %d\n", modifier);
-
+	if (state)
+		bkend->ckey = keysym;
+	else
+		bkend->ckey = XKB_KEY_NoSymbol;
 	nk_input_end(&bkend->ctx);
 	_nk_egl_new_frame(bkend);
 }
@@ -512,4 +518,12 @@ nk_egl_destroy_backend(struct nk_egl_backend *bkend)
 	wl_egl_window_destroy(bkend->eglwin);
 	//
 	free(bkend);
+}
+
+
+xkb_keysym_t
+nk_egl_get_keyinput(struct nk_context *ctx)
+{
+	struct nk_egl_backend *bkend = container_of(ctx, struct nk_egl_backend, ctx);
+	return bkend->ckey;
 }

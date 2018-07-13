@@ -72,6 +72,7 @@ static void sample_wiget(struct nk_context *ctx, float width, float height)
 		init_text_edit = true;
 		nk_textedit_init_fixed(&text_edit, text_buffer, 256);
 	}
+	const char *a = "aaaa";
 //	char *text_buffer = nk_egl_access_text_buffer(ctx, &textlen, &tmp);
 
 	nk_layout_row_static(ctx, 30, 80, 2);
@@ -86,15 +87,16 @@ static void sample_wiget(struct nk_context *ctx, float width, float height)
 	if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
 
 	nk_layout_row_dynamic(ctx, 25, 1);
-//	nk_edit_buffer(ctx, NK_EDIT_FIELD, struct nk_text_edit *, nk_filter_default);
-//	nk_edit_string(ctx, NK_EDIT_FIELD, text_buffer, (int *)&textlen, (int)256, nk_filter_default);
 	nk_edit_buffer(ctx, NK_EDIT_FIELD, &text_edit, nk_filter_default);
-	//I can use nk_edit_buffer to implement it
+	if (nk_egl_get_keyinput(ctx) == XKB_KEY_Tab)
+		nk_textedit_text(&text_edit, a, 4);
+	//we need a for loop to do the undo...
+	//okay, I can try to meddle with textedit cursor but I guess it will
+	//fucked up the text_edit.
 
-	/* if (textlen < 256 && textlen != 0) { */
-	/*	text_buffer[textlen++] = 'a'; */
-	/* } */
-	fprintf(stderr, "%s\n", text_buffer);
+	//to support autocomplete, I will have to use `nk_textedit_text` to
+	//insert the text. then if we need to circulate the context, we need to
+	//undo the text then insert the new one
 }
 
 
