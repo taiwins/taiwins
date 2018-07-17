@@ -30,6 +30,11 @@ struct weston_layer *get_shell_background_layer(void);
 #define DECISION_STRIDE TAIWINS_LAUNCHER_CONF_STRIDE
 #define NUM_DECISIONS TAIWINS_LAUNCHER_CONF_NUM_DECISIONS
 
+/**
+ ** right now both the client and server have to keep this struct. We could
+ ** somehow create this record in a internal include file to avoid duplicating
+ ** this work
+ */
 struct taiwins_decision_key {
 	char app_name[128];
 	bool floating;
@@ -41,6 +46,7 @@ struct launcher {
 	struct wl_shm_buffer *decision_buffer;
 	struct weston_surface *surface;
 	struct wl_resource *launcher;
+	struct wl_listener destroy_listener;
 };
 
 struct workspace;
@@ -53,6 +59,8 @@ struct desktop {
 	vector_t workspaces;
 	struct weston_compositor *compositor;
 	struct weston_desktop *api;
+
+	struct wl_listener destroy_listener;
 };
 
 /** announcing the taiwins launcher global

@@ -124,7 +124,7 @@ start_launcher(void *data,
 
 struct taiwins_launcher_listener launcher_impl = {
 	.application_configure = update_app_config,
-	.start = start_launcher,
+	.hint = start_launcher,
 };
 
 

@@ -46,32 +46,23 @@
 
   </interface>
 
-    <!-- launcher interface -->
+  <!-- launcher interface -->
   <interface name="taiwins_launcher" version="1">
+    <description summary="the launcher interface of taiwins">
+      The launcher starts with set_launcher, which registers the launcher show
+      the surface. Before it can launch, the corresponding window information is
+      given through hint event. The launcher just update the information for
+      next launching. Once the enter is pressed, the launcher emits the event
+      submit, the server receive the information about corresponding
+      applications.
+    </description>
+
     <request name="set_launcher">
       <description summary="registre the launcher."/>
       <arg name="surface" type="object" interface="wl_surface"/>
       <!-- the second param is the launcher informaiton shared with server -->
       <arg name="buffer" type="object" interface="wl_buffer"/>
     </request>
-    <event name="application_configure">
-      <description summary="dynamically emit the application configure">
-	After launching application, we could still change the preference of the
-	application, when it becomes floating, tiled, scale, size change, etc.
-      </description>
-      <arg name="app_name" type="string"/>
-      <arg name="floating" type="uint"/>
-      <arg name="scale" type="fixed"/>
-    </event>
-    <!-- start-submit pair -->
-    <event name="start">
-      <description summary="start the launcher">
-	launching information about the launcher itself
-      </description>
-      <arg name="width" type="fixed"/>
-      <arg name="height" type="fixed"/>
-      <arg name="scale" type="fixed"/>
-    </event>
 
     <request name="submit">
       <description summary="user call this when issue the command">
@@ -83,6 +74,30 @@
 	This requests closes the launcher window as well.
       </description>
     </request>
+
+
+    <event name="application_configure">
+      <description summary="dynamically emit the application configure">
+	After launching application, we could still change the preference of the
+	application, when it becomes floating, tiled, scale, size change, etc.
+      </description>
+      <arg name="app_name" type="string"/>
+      <arg name="floating" type="uint"/>
+      <arg name="scale" type="fixed"/>
+    </event>
+
+    <event name="hint">
+      <description summary="information request for launcher, only before the
+			    opening launcher">
+	launching information about the launcher itself
+      </description>
+      <arg name="width" type="fixed"/>
+      <arg name="height" type="fixed"/>
+      <arg name="scale" type="fixed"/>
+    </event>
+
+    <!-- start-submit pair -->
+
 
     <enum name="conf">
       <entry name="stride" value="4"

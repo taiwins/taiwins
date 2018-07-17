@@ -46,15 +46,6 @@ twshell_acquire_launcher(void)
 	return &onedesktop.launcher;
 }
 
-void set_launcher(struct wl_client *client,
-		  struct wl_resource *resource,
-		  struct wl_resource *surface,
-		  struct wl_resource *buffer)
-{
-	struct launcher *launcher = twshell_acquire_launcher();
-	struct wl_shm_buffer *wl_buffer = wl_shm_buffer_get(buffer);
-	launcher->decision_buffer = wl_buffer;
-}
 
 
 //the application has to sit on the ui layer. So it has to follow the
@@ -96,9 +87,11 @@ switch_to_recent_workspace(struct desktop *d)
 }
 
 /**
- * @brief switch the tiling and floating layer, this happens when we focus on
- * the different layer. Later on I can write the renderer myself and blured out
- * window that is not focused (only in the application layer).
+ * @brief switch the tiling and floating layer.
+ *
+ * This happens when we focus on the different layer. Later on I can write the
+ * renderer myself and blured out window that is not focused (only in the
+ * application layer).
  *
  * other things need to notice here, if we are change from tiled layer to
  * floating layer, the floating layer should actually just have one view, the
@@ -205,10 +198,60 @@ _free_workspace(void *data)
 	}
 }
 
+
+static void
+launcher_committed(struct weston_surface *surface, int32_t sx, int32_t sy)
+{
+
+}
+
+
+static void
+set_launcher(struct wl_client *client, struct wl_resource *resource,
+	     struct wl_resource *wl_surface, struct wl_resource *buffer)
+{
+
+	//I would also need to know the layer, which it is controlled in the shell object
+	struct launcher *launcher = twshell_acquire_launcher();
+	struct wl_shm_buffer *wl_buffer = wl_shm_buffer_get(buffer);
+	launcher->decision_buffer = wl_buffer;
+	//now we should show the launcher
+	struct weston_surface *wt_surface = weston_surface_from_resource(wl_surface);
+	struct weston_view *view, *next;
+
+	if (wt_surface->committed) {
+		wl_resource_post_error(wl_surface, WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "surface already have a role");
+		return;
+	}
+	//I seriously don't know what to do
+	wt_surface->committed = NULL;
+	wt_surface->committed_private = NULL;
+	wl_list_for_each_safe(view, next, &wt_surface->views, surface_link)
+		weston_view_destroy(view);
+	view = weston_view_create(wt_surface);
+	wt_surface->output = weston_output_from_resource(output);
+	view->output = wt_surface->output;
+}
+
+
+
+
+static void
+close_launcher(struct wl_client *client, struct wl_resource *resource)
+{
+
+}
+
+
+static struct taiwins_launcher_interface launcher_impl = {
+	.set_launcher = set_launcher,
+};
+
+
 static void
 unbind_desktop(struct wl_resource *r)
 {
-
 }
 
 static void
@@ -217,6 +260,9 @@ bind_desktop(struct wl_client *client, void *data, uint32_t version, uint32_t id
 	struct wl_resource *resource = wl_resource_create(client, &taiwins_launcher_interface,
 							  TWDESKP_VERSION, id);
 	wl_resource_set_implementation(resource, NULL, data, unbind_desktop);
+	//TODO we may have to add resource destroy signal here, if the resource
+	//is deleted, we should somehow remove it from the
+
 }
 
 /*TODO
@@ -250,29 +296,6 @@ void spawn_weston_terminal(struct weston_keyboard *keyboard, const struct timesp
 	}
 }
 
-/*
- * this maybe temporary
- */
-/* void focus_the_view(struct weston_pointer *pointer, */
-/*		    const struct timespec *time, */
-/*		    uint32_t button, */
-/*		    void *data) */
-/* { */
-
-/*	wl_fixed_t sx, sy; */
-/*	struct weston_view *view = NULL; */
-/*	weston_compositor_pick_view(pointer->seat->compositor, */
-/*				    pointer->x, pointer->y, &sx, &sy); */
-/*	if (view != NULL && */
-/*	    view->surface->resource != NULL) { */
-/*		fprintf(stderr, "yep, we are here\n"); */
-/*		weston_pointer_set_focus(pointer, view, sx, sy); */
-/*		weston_view_activate(view, pointer->seat, 0); */
-/*	} else { */
-/*		weston_pointer_clear_focus(pointer); */
-/*	} */
-
-/* } */
 
 
 bool
@@ -291,11 +314,9 @@ announce_desktop(struct weston_compositor *ec)
 	onedesktop.actived_workspace[1] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
 	switch_workspace(&onedesktop, onedesktop.actived_workspace[0]);
 	//add keybindings to spawn the
-	weston_compositor_add_key_binding(ec, KEY_ENTER, MODIFIER_ALT, spawn_weston_terminal, NULL);
+//	weston_compositor_add_key_binding(ec, KEY_ENTER, MODIFIER_ALT, spawn_weston_terminal, NULL);
 //	weston_compositor_add_button_binding(ec, BTN_LEFT, 0, focus_the_view, NULL);
 	onedesktop.api = weston_desktop_create(ec, &desktop_impl, NULL);
-//	if (wl_global_create(ec->wl_display, const struct wl_interface *interface, int version, void *data, wl_global_bind_func_t bind))
-
 
 	//as we have
 	wl_global_create(ec->wl_display, &taiwins_launcher_interface, TWDESKP_VERSION, &onedesktop, bind_desktop);
