@@ -35,59 +35,6 @@ get_shell_background_layer(void)
 }
 
 
-/**
- * configure a static surface for its location, the location is determined,
- * output.x + x, output.y + y
- */
-static void
-setup_static_view(struct weston_view *view, struct weston_layer *layer, int x, int y)
-{
-	//delete all the other view in the layer, rightnow we assume we only
-	//have one view on the layer, this may not be true for UI layer.
-	struct weston_view *v, *next;
-	wl_list_for_each_safe(v, next, &layer->view_list.link, layer_link.link) {
-		if (v->output == view->output && v != view) {
-			weston_view_unmap(v);
-			v->surface->committed = NULL;
-			weston_surface_set_label_func(v->surface, NULL);
-		}
-	}
-	//the point of calling this function
-	weston_view_set_position(view, view->surface->output->x + x, view->surface->output->y + y);
-	view->surface->is_mapped = true;
-	view->is_mapped = true;
-
-	//for the new created view
-	if (wl_list_empty(&view->layer_link.link)) {
-		weston_layer_entry_insert(&layer->view_list, &view->layer_link);
-		weston_compositor_schedule_repaint(view->surface->compositor);
-	}
-}
-
-static void
-setup_ui_view(struct weston_view *uiview, struct weston_layer *uilayer, int x, int y)
-{
-	//on the ui layer, we only have one view per wl_surface
-	struct weston_surface *surface = uiview->surface;
-	struct weston_output *output = uiview->output;
-
-	struct weston_view *v, *next;
-
-	wl_list_for_each_safe(v, next, &surface->views, surface_link) {
-		if (v->output == uiview->output && v != uiview) {
-			weston_view_unmap(v);
-			v->surface->committed = NULL;
-			weston_surface_set_label_func(v->surface, NULL);
-		}
-	}
-	weston_view_set_position(uiview, output->x + x, output->y + y);
-	uiview->surface->is_mapped = true;
-	uiview->is_mapped = true;
-	if (wl_list_empty(&uiview->layer_link.link)) {
-		weston_layer_entry_insert(&uilayer->view_list, &uiview->layer_link);
-		weston_compositor_schedule_repaint(surface->compositor);
-	}
-}
 
 static void
 widget_committed(struct weston_surface *surface, int sx, int sy)
@@ -184,7 +131,7 @@ background_committed(struct weston_surface *surface, int sx, int sy)
 	setup_static_view(view, &shell->background_layer, 0, 0);
 }
 
-
+//I shall make this surface code into
 static void
 set_background(struct wl_client *client,
 	       struct wl_resource *resource,

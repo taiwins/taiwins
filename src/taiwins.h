@@ -20,6 +20,24 @@ struct wl_client *tw_launch_client(struct weston_compositor *ec, const char *pat
 void tw_end_client(struct wl_client *client);
 
 
+
+
+//this API is too long, you can't seriously have all this arguments
+//you require three additional arguments to work
+bool tw_set_wl_surface(struct wl_client *client,
+		       struct wl_resource *resource,
+		       struct wl_resource *surface,
+		       struct wl_resource *output,
+		       struct wl_listener *surface_destroy_listener);
+
+//two option to manipulate the view
+void setup_static_view(struct weston_view *view, struct weston_layer *layer, int x, int y);
+void setup_ui_view(struct weston_view *view, struct weston_layer *layer, int x, int y);
+
+
+
+
+
 #ifdef  __cplusplus
 }
 #endif
