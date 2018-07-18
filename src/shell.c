@@ -19,6 +19,20 @@ struct twshell {
 	struct weston_surface *the_widget_surface;
 };
 
+
+struct view_pos_info {
+	int32_t x;
+	int32_t y;
+	struct wl_listener destroy_listener;
+	struct twshell *shell;
+};
+
+void view_pos_destroy(struct wl_listener *listener, void *data)
+{
+	free(container_of(listener, struct view_pos_info, destroy_listener));
+}
+
+
 enum twshell_view_t {
 	twshell_view_UNIQUE, /* like the background */
 	twshell_view_STATIC, /* like the ui element */
@@ -55,34 +69,37 @@ setup_view(struct weston_view *view, struct weston_layer *layer,
 	}
 	//we shall do the testm
 	weston_view_set_position(view, output->x + x, output->y + y);
+	view->surface->is_mapped = true;
+	view->is_mapped = true;
+	//for the new created view
+	if (wl_list_empty(&view->layer_link.link)) {
+		weston_layer_entry_insert(&layer->view_list, &view->layer_link);
+		weston_compositor_schedule_repaint(view->surface->compositor);
+	}
+
 }
 
+
 static void
-commit_ui_surface(struct weston_surface *surface, int sx, int sy)
+commit_backgrand(struct weston_surface *surface, int sx, int sy)
 {
-	//the sx and sy are from attach or attach_buffer attach sets pending
-	//state, when commit request triggered, pending state calls
-	//weston_surface_state_commit to use the sx, and sy in here
-	//the confusion is that we cannot use sx and sy directly almost all the time.
-	struct twshell *shell = surface->committed_private;
+	struct view_pos_info *pos_info = surface->committed_private;
+	struct twshell *shell = pos_info->shell;
 	//get the first view, as ui element has only one view
 	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
 	//it is not true for both
-	setup_view(view, &shell->ui_layer, sx, sy, twshell_view_STATIC);
+	setup_view(view, &shell->ui_layer, pos_info->x, pos_info->y, twshell_view_UNIQUE);
 }
 
-
-/**
- * @brief make the ui surface appear
- *
- * using the UI_LAYER for for seting up the the view
+/*
+ * the unified solution to show the window
  */
-bool
-twshell_set_ui_surface(struct twshell *shell,
-		       struct wl_resource *wl_surface,
-		       struct wl_resource *wl_output,
-		       struct wl_resource *wl_resource,
-		       struct wl_listener *surface_destroy_listener)
+static bool
+_setup_surface(struct twshell *shell,
+		 struct wl_resource *wl_surface, struct wl_resource *wl_output,
+		 struct wl_resource *wl_resource,
+		 void (*committed)(struct weston_surface *, int32_t, int32_t),
+		 int32_t x, int32_t y)
 {
 	struct weston_view *view, *next;
 	struct weston_surface *surface = weston_surface_from_resource(wl_surface);
@@ -93,22 +110,60 @@ twshell_set_ui_surface(struct twshell *shell,
 				       "surface already have a role");
 		return false;
 	}
-	wl_list_for_each_safe(view, next, &surface->views, surface_link)
+	wl_list_for_each_safe(view, next, &surface->views, surface_link) {
 		weston_view_destroy(view);
-
-	surface->committed = commit_ui_surface;
-	surface->committed_private = shell;
+	}
 	view = weston_view_create(surface);
+	//temporary code, change to slot alloctor instead
+	struct view_pos_info *pos_info = malloc(sizeof(struct view_pos_info));
+	pos_info->x = x;
+	pos_info->y = y;
+	pos_info->shell = shell;
+	wl_list_init(&pos_info->destroy_listener.link);
+	pos_info->destroy_listener.notify = view_pos_destroy;
+	surface->committed = committed;
+	surface->committed_private = pos_info;
+	wl_signal_add(&view->destroy_signal, &pos_info->destroy_listener);
 	surface->output = output;
 	view->output = output;
+	return true;
+}
+
+void
+commit_ui_surface(struct weston_surface *surface, int sx, int sy)
+{
+	//the sx and sy are from attach or attach_buffer attach sets pending
+	//state, when commit request triggered, pending state calls
+	//weston_surface_state_commit to use the sx, and sy in here
+	//the confusion is that we cannot use sx and sy directly almost all the time.
+	struct view_pos_info *pos_info = surface->committed_private;
+	struct twshell *shell = pos_info->shell;
+	//get the first view, as ui element has only one view
+	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
+	//it is not true for both
+	setup_view(view, &shell->ui_layer, pos_info->x, pos_info->y, twshell_view_STATIC);
+}
+
+
+/**
+ * @brief make the ui surface appear
+ *
+ * using the UI_LAYER for for seting up the the view
+ */
+bool
+twshell_set_ui_surface(struct twshell *shell, struct wl_resource *wl_surface, struct wl_resource *wl_output,
+		       struct wl_resource *wl_resource,
+		       struct wl_listener *surface_destroy_listener,
+		       int32_t x, int32_t y)
+{
+	struct weston_surface *surface = weston_surface_from_resource(wl_surface);
 	//TODO destroy signal, I am not sure how the wl_surface's destroy signal is called.
 	//clearly the weston_desktop_surface destroy signal is
 	if (surface_destroy_listener) {
 		wl_signal_add(&surface->destroy_signal, surface_destroy_listener);
 	}
-	return true;
+	return _setup_surface(shell, wl_surface, wl_output, wl_resource, commit_ui_surface, x, y);
 }
-
 
 static struct twshell oneshell;
 
@@ -125,15 +180,6 @@ get_shell_background_layer(void)
 }
 
 
-
-static void
-widget_committed(struct weston_surface *surface, int sx, int sy)
-{
-	struct twshell *shell = (struct twshell *)surface->committed_private;
-	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
-	setup_ui_view(view, &shell->ui_layer, shell->current_widget_pos.x, shell->current_widget_pos.y);
-}
-
 static void
 setup_shell_widget(struct wl_client *client,
 		   struct wl_resource *resource,
@@ -142,30 +188,10 @@ setup_shell_widget(struct wl_client *client,
 		   uint32_t x,
 		   uint32_t y)
 {
-	struct weston_view *view, *next;
-	struct weston_surface *wd_surface =
-		(struct weston_surface *)wl_resource_get_user_data(surface);
-	struct weston_output *ws_output = weston_output_from_resource(output);
-	wd_surface->output = ws_output;
-	oneshell.the_widget_surface = wd_surface;
-	//this is very fake
-	if (wd_surface->committed) {
-		wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT, "surface already have a role");
-		return;
-	}
-	wd_surface->committed = widget_committed;
-	wd_surface->committed_private = &oneshell;
-	wl_list_for_each_safe(view, next, &wd_surface->views, surface_link)
-		weston_view_destroy(view);
-	//create the view for it
-	view = weston_view_create(wd_surface);
-	view->output = ws_output;
-	oneshell.current_widget_pos.x = x;
-	oneshell.current_widget_pos.y = y;
+	_setup_surface(&oneshell, surface, output, resource, commit_ui_surface, x, y);
 	struct weston_seat *seat0 = wl_container_of(oneshell.ec->seat_list.next, seat0, link);
-	weston_view_activate(view, seat0, WESTON_ACTIVATE_FLAG_CLICKED);
-;
-	//it won't work if we don't commit right?
+	//find a solution about it
+//	weston_view_activate(view, seat0, WESTON_ACTIVATE_FLAG_CLICKED);
 }
 
 static void
@@ -173,9 +199,10 @@ _hide_shell_widget(struct weston_surface *wd_surface)
 {
 	struct weston_view *view, *next;
 	wd_surface->committed = NULL;
-	wd_surface->committed_private = NULL;
 	wl_list_for_each_safe(view, next, &wd_surface->views, surface_link)
 		weston_view_destroy(view);
+	//make it here so we call the free first
+	wd_surface->committed_private = NULL;
 }
 
 static void
@@ -213,50 +240,16 @@ shell_widget_should_close_on_cursor(struct weston_pointer *pointer,
 
 
 static void
-background_committed(struct weston_surface *surface, int sx, int sy)
-{
-	struct twshell *shell = (struct twshell *)surface->committed_private;
-	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
-	setup_static_view(view, &shell->background_layer, 0, 0);
-}
-
-//I shall make this surface code into
-static void
 set_background(struct wl_client *client,
 	       struct wl_resource *resource,
 	       struct wl_resource *output,
 	       struct wl_resource *surface)
 {
-	struct weston_surface *bg_surface =
-		(struct weston_surface *)wl_resource_get_user_data(surface);
-	struct weston_view *view, *next;
-
-	if (bg_surface->committed) {
-		wl_resource_post_error(surface, WL_DISPLAY_ERROR_INVALID_OBJECT, "surface already has a role");
-		return;
-	}
-	bg_surface->committed = background_committed;
-	bg_surface->committed_private = &oneshell;
-	//this should be alright
-	wl_list_for_each_safe(view, next, &bg_surface->views, surface_link)
-		weston_view_destroy(view);
-	view = weston_view_create(bg_surface);
-	bg_surface->output = weston_output_from_resource(output);
-	view->output = bg_surface->output;
+	_setup_surface(&oneshell, surface, output, resource, commit_backgrand, 0, 0);
+	struct weston_surface *bg_surface = weston_surface_from_resource(surface);
 	taiwins_shell_send_configure(resource, surface, bg_surface->output->scale, 0,
 				     bg_surface->output->width, bg_surface->output->height);
 }
-
-static void
-panel_committed(struct weston_surface *surface, int sx, int sy)
-{
-	//now by default, we just put it on the top left
-	struct twshell *shell = (struct twshell *)surface->committed_private;
-	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
-	setup_ui_view(view, &shell->ui_layer, 0, 0);
-//	setup_static_view(view, &shell->ui_layer, 0, 0);
-}
-
 
 static void
 set_panel(struct wl_client *client,
@@ -264,24 +257,8 @@ set_panel(struct wl_client *client,
 	  struct wl_resource *output,
 	  struct wl_resource *surface)
 {
-	//this should be replace by weston_surface_from_resource
-	struct weston_surface *pn_surface =
-		(struct weston_surface *)wl_resource_get_user_data(surface);
-	struct weston_view *view, *next;
-
-	if (pn_surface->committed) {
-		wl_resource_post_error(surface, WL_DISPLAY_ERROR_INVALID_OBJECT, "surface already has a role");
-		return;
-	}
-	pn_surface->committed = panel_committed;
-	pn_surface->committed_private = &oneshell;
-	//destroy all the views, I am not sure if right
-	wl_list_for_each_safe(view, next, &pn_surface->views, surface_link)
-		weston_view_destroy(view);
-	view = weston_view_create(pn_surface);
-	pn_surface->output = weston_output_from_resource(output);
-	view->output = weston_output_from_resource(output);
-	//TODO user configure panel size
+	_setup_surface(&oneshell, surface, output, resource, commit_ui_surface, 0, 0);
+	struct weston_surface *pn_surface = weston_surface_from_resource(surface);
 	taiwins_shell_send_configure(resource, surface, pn_surface->output->scale, 0,
 				     pn_surface->output->width, 16);
 
