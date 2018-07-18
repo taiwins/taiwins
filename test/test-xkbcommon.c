@@ -187,7 +187,7 @@ void pointer_button(void *data,
 		    uint32_t button,
 		    uint32_t state)
 {
-	fprintf(stderr, "the state of the button is %d, with button %d\n", state, button);
+//	fprintf(stderr, "the state of the button is %d, with button %d\n", state, button);
 }
 
 
@@ -256,7 +256,7 @@ void seat_capabilities(void *data,
 		seat0->pointer = wl_seat_get_pointer(wl_seat);
 		fprintf(stderr, "got a mouse\n");
 		//okay, load the cursor stuff
-		struct wl_cursor_theme *theme = wl_cursor_theme_load("Vanilla-DMZ", 32, shm);
+		struct wl_cursor_theme *theme = wl_cursor_theme_load("whiteglass", 32, shm);
 		seat0->cursor_theme = theme;
 //		tw_cursor_theme_print_cursor_names(theme);
 		struct wl_cursor *plus = wl_cursor_theme_get_cursor(theme, "plus");

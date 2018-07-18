@@ -210,6 +210,7 @@ set_widget(struct wl_client *client,
 	_setup_surface(&oneshell, surface, output, resource, commit_ui_surface, x, y);
 	struct weston_seat *seat0 = weston_get_default_seat(oneshell.ec);
 	struct weston_view *view = weston_view_from_surface_resource(surface);
+	fprintf(stderr, "the view is %p\n", view);
 	weston_view_activate(view, seat0, WESTON_ACTIVATE_FLAG_CLICKED);
 }
 
