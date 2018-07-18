@@ -210,7 +210,6 @@ static void
 set_launcher(struct wl_client *client, struct wl_resource *resource,
 	     struct wl_resource *wl_surface, struct wl_resource *buffer)
 {
-
 	//I would also need to know the layer, which it is controlled in the shell object
 	struct launcher *launcher = twshell_acquire_launcher();
 	struct wl_shm_buffer *wl_buffer = wl_shm_buffer_get(buffer);

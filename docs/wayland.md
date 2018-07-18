@@ -14,6 +14,10 @@
 		  [blog](http://ppaalanen.blogspot.com/2014/07/wayland-protocol-design-object-lifespan.html).
 
 
+# weston objects
+	- `weston_surface` is the `wl_resource` of `wl_surface`
+	- `weston_output` is the `wl_resource` of the `wl_output`.
+
 # wayland-server implementations
 ## event-loop
 	`event_loop` is like what I have in the `client.c`, it is almost implemented

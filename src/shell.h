@@ -15,12 +15,21 @@ extern "C" {
 #define TWSHELL_VERSION 1
 #define TWDESKP_VERSION 1
 
+
+//we have this hiden struct for APIs
+struct twshell;
 /** announcing the taiwins shell global
  *
  * @param compositor weston compositor global
  */
 void announce_shell(struct weston_compositor *compositor);
 void add_shell_bindings(struct weston_compositor *ec);
+
+/* the effect to unify the surface view creation */
+bool twshell_set_ui_surface(struct twshell *shell,
+			    struct wl_resource *wl_surface,
+			    struct wl_resource *output, struct wl_resource *wl_resource,
+			    struct wl_listener *listener);
 
 struct weston_layer *get_shell_ui_layer(void);
 struct weston_layer *get_shell_background_layer(void);

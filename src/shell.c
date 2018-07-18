@@ -19,6 +19,96 @@ struct twshell {
 	struct weston_surface *the_widget_surface;
 };
 
+enum twshell_view_t {
+	twshell_view_UNIQUE, /* like the background */
+	twshell_view_STATIC, /* like the ui element */
+};
+
+
+static void
+setup_view(struct weston_view *view, struct weston_layer *layer,
+	   int x, int y, enum twshell_view_t type)
+{
+	struct weston_surface *surface = view->surface;
+	struct weston_output *output = view->output;
+
+	struct weston_view *v, *next;
+	if (type == twshell_view_UNIQUE) {
+	//view like background, only one is allowed in the layer
+		wl_list_for_each_safe(v, next, &layer->view_list.link, layer_link.link)
+			if (v->output == view->output && v != view) {
+				//unmap does the list removal
+				weston_view_unmap(v);
+				v->surface->committed = NULL;
+				weston_surface_set_label_func(surface, NULL);
+			}
+	}
+	else if (type == twshell_view_STATIC) {
+		//element
+		wl_list_for_each_safe(v, next, &surface->views, surface_link) {
+			if (v->output == view->output && v != view) {
+				weston_view_unmap(v);
+				v->surface->committed = NULL;
+				weston_surface_set_label_func(v->surface, NULL);
+			}
+		}
+	}
+	//we shall do the testm
+	weston_view_set_position(view, output->x + x, output->y + y);
+}
+
+static void
+commit_ui_surface(struct weston_surface *surface, int sx, int sy)
+{
+	//the sx and sy are from attach or attach_buffer attach sets pending
+	//state, when commit request triggered, pending state calls
+	//weston_surface_state_commit to use the sx, and sy in here
+	//the confusion is that we cannot use sx and sy directly almost all the time.
+	struct twshell *shell = surface->committed_private;
+	//get the first view, as ui element has only one view
+	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
+	//it is not true for both
+	setup_view(view, &shell->ui_layer, sx, sy, twshell_view_STATIC);
+}
+
+
+/**
+ * @brief make the ui surface appear
+ *
+ * using the UI_LAYER for for seting up the the view
+ */
+bool
+twshell_set_ui_surface(struct twshell *shell,
+		       struct wl_resource *wl_surface,
+		       struct wl_resource *wl_output,
+		       struct wl_resource *wl_resource,
+		       struct wl_listener *surface_destroy_listener)
+{
+	struct weston_view *view, *next;
+	struct weston_surface *surface = weston_surface_from_resource(wl_surface);
+	struct weston_output *output = weston_output_from_resource(wl_output);
+
+	if (surface->committed) {
+		wl_resource_post_error(wl_resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "surface already have a role");
+		return false;
+	}
+	wl_list_for_each_safe(view, next, &surface->views, surface_link)
+		weston_view_destroy(view);
+
+	surface->committed = commit_ui_surface;
+	surface->committed_private = shell;
+	view = weston_view_create(surface);
+	surface->output = output;
+	view->output = output;
+	//TODO destroy signal, I am not sure how the wl_surface's destroy signal is called.
+	//clearly the weston_desktop_surface destroy signal is
+	if (surface_destroy_listener) {
+		wl_signal_add(&surface->destroy_signal, surface_destroy_listener);
+	}
+	return true;
+}
+
 
 static struct twshell oneshell;
 
@@ -52,7 +142,6 @@ setup_shell_widget(struct wl_client *client,
 		   uint32_t x,
 		   uint32_t y)
 {
-
 	struct weston_view *view, *next;
 	struct weston_surface *wd_surface =
 		(struct weston_surface *)wl_resource_get_user_data(surface);
