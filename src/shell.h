@@ -32,7 +32,6 @@ bool twshell_set_ui_surface(struct twshell *shell,
 			    struct wl_resource *output, struct wl_resource *wl_resource,
 			    struct wl_listener *listener,
 			    int32_t x, int32_t y);
-void commit_ui_surface(struct weston_surface *, int32_t x, int32_t y);
 /* then I don't need these two */
 struct weston_layer *get_shell_ui_layer(void);
 struct weston_layer *get_shell_background_layer(void);
