@@ -200,7 +200,7 @@ main(int argc, char *argv[])
 		fprintf(stderr, "could not connect to display\n");
 		return -1;
 	}
-	wl_globals_init(&tw_launcher, display);
+	wl_globals_init(&tw_launcher.globals, display);
 
 	struct wl_registry *registry = wl_display_get_registry(display);
 	wl_registry_add_listener(registry, &registry_listener, &tw_launcher);

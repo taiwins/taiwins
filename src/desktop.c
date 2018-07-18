@@ -9,7 +9,23 @@
 
 
 #include "taiwins.h"
-#include "shell.h"
+#include "desktop.h"\
+
+
+struct workspace;
+struct twdesktop {
+	struct twshell *shell;
+	/* interface with the client */
+	struct launcher launcher;
+	/* managing current status */
+	struct workspace *actived_workspace[2];
+	vector_t workspaces;
+	struct weston_compositor *compositor;
+	struct weston_desktop *api;
+
+	struct wl_listener destroy_listener;
+};
+static struct twdesktop onedesktop;
 
 
 
@@ -29,21 +45,7 @@ struct workspace {
 	//the wayland-buffer
 };
 
-static struct desktop onedesktop;
 
-struct launcher *
-twshell_acquire_launcher(void)
-{
-	return &onedesktop.launcher;
-}
-
-
-
-//the application has to sit on the ui layer. So it has to follow the
-//taiwins_shell protocol
-
-//if you call weston_layer_set_position, you will insert the layer into
-//compositors layer_list, so we only do that when workspace is active.
 static void
 workspace_init(struct workspace *wp, struct weston_compositor *compositor)
 {
@@ -56,7 +58,7 @@ workspace_init(struct workspace *wp, struct weston_compositor *compositor)
 
 
 static void
-switch_workspace(struct desktop *d, struct workspace *to)
+switch_workspace(struct twdesktop *d, struct workspace *to)
 {
 	struct workspace *wp = d->actived_workspace[0];
 	weston_layer_unset_position(&wp->tiled_layout);
@@ -71,7 +73,7 @@ switch_workspace(struct desktop *d, struct workspace *to)
 }
 
 static void
-switch_to_recent_workspace(struct desktop *d)
+switch_to_recent_workspace(struct twdesktop *d)
 {
 	struct workspace *wp = d->actived_workspace[1];
 	switch_workspace(d, wp);
@@ -89,7 +91,7 @@ switch_to_recent_workspace(struct desktop *d)
  * rest should moved to hiden layer, there are some code here need to be done
  */
 static bool
-switch_layer(struct desktop *d)
+switch_layer(struct twdesktop *d)
 {
 	struct workspace *wp = d->actived_workspace[0];
 
@@ -105,7 +107,7 @@ switch_layer(struct desktop *d)
 }
 
 static void
-switch_layer_refresh(struct desktop *d)
+switch_layer_refresh(struct twdesktop *d)
 {
 	switch_layer(d);
 	weston_compositor_schedule_repaint(d->compositor);
@@ -227,57 +229,26 @@ static struct taiwins_launcher_interface launcher_impl = {
 static void
 unbind_desktop(struct wl_resource *r)
 {
+	//we should do our clean up here
 }
 
 static void
 bind_desktop(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
+	/* int pid, uid, gid; */
+	/* wl_client_get_credentials(client, &pid, &uid, &gid); */
 	struct wl_resource *resource = wl_resource_create(client, &taiwins_launcher_interface,
 							  TWDESKP_VERSION, id);
 	wl_resource_set_implementation(resource, NULL, data, unbind_desktop);
-	//TODO we may have to add resource destroy signal here, if the resource
-	//is deleted, we should somehow remove it from the
-
-}
-
-/*TODO
- * remove this function later!!!!
- */
-void spawn_weston_terminal(struct weston_keyboard *keyboard, const struct timespec *time,
-			   uint32_t key, void *data)
-{
-	fprintf(stderr, "we should open the terminal now!\n");
-	char *argv[] = {NULL};
-	pid_t pid = fork();
-	if (pid == -1) {
-
-	} else if (pid == 0) {
-		//okay, we are gonna print everything in the environ
-		for (char **env = environ; *env != 0; env++)
-		{
-			char *thisEnv = *env;
-			printf("%s\n", thisEnv);
-		}
-		//you don't need to setsid since you want to close all the
-		//clients as we close, also, child program can close the stdin,
-		//stdout, stderr themselves.
-
-		//child process, we should close all the
-		//setsid, we should probably setsid, close stdin, stdout
-		//what we can do here is changing the envals.
-		execvpe("weston-flower", argv, environ);
-	} else {
-		return;
-	}
 }
 
 
-
-bool
-announce_desktop(struct weston_compositor *ec)
+struct twdesktop *
+announce_desktop(struct weston_compositor *ec, struct twshell *shell)
 {
 	//initialize the desktop
 	onedesktop.compositor = ec;
+	onedesktop.shell = shell;
 	vector_t *workspaces = &onedesktop.workspaces;
 	vector_init(workspaces, sizeof(struct workspace), _free_workspace);
 	//then afterwards, you don't spend time allocating workspace anymore
@@ -295,5 +266,5 @@ announce_desktop(struct weston_compositor *ec)
 
 	//as we have
 	wl_global_create(ec->wl_display, &taiwins_launcher_interface, TWDESKP_VERSION, &onedesktop, bind_desktop);
-	return true;
+	return &onedesktop;
 }

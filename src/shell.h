@@ -37,56 +37,6 @@ bool twshell_set_ui_surface(struct twshell *shell,
 			    int32_t x, int32_t y);
 
 
-
-//wayland-desktop implementation, you can seperate this from  the shell
-#define DECISION_STRIDE TAIWINS_LAUNCHER_CONF_STRIDE
-#define NUM_DECISIONS TAIWINS_LAUNCHER_CONF_NUM_DECISIONS
-
-/**
- ** right now both the client and server have to keep this struct. We could
- ** somehow create this record in a internal include file to avoid duplicating
- ** this work
- */
-struct taiwins_decision_key {
-	char app_name[128];
-	bool floating;
-	int  scale;
-} __attribute__ ((aligned (DECISION_STRIDE)));
-
-//we have to make either taiwins_shell and launcher a api to the other
-struct launcher {
-	struct wl_shm_buffer *decision_buffer;
-	struct weston_surface *surface;
-	struct wl_resource *launcher;
-	struct wl_listener destroy_listener;
-};
-
-struct workspace;
-
-struct desktop {
-	/* interface with the client */
-	struct launcher launcher;
-	/* managing current status */
-	struct workspace *actived_workspace[2];
-	vector_t workspaces;
-	struct weston_compositor *compositor;
-	struct weston_desktop *api;
-
-	struct wl_listener destroy_listener;
-};
-
-/** announcing the taiwins launcher global
- *
- * @param
- */
-bool announce_desktop(struct weston_compositor *compositor);
-void add_desktop_bindings(struct weston_compositor *c);
-/**
- * get the launcher for the shell
- */
-struct launcher *twshell_acquire_launcher(void);
-
-
 #ifdef  __cplusplus
 }
 #endif

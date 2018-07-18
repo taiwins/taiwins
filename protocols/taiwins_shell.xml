@@ -49,50 +49,46 @@
   <!-- launcher interface -->
   <interface name="taiwins_launcher" version="1">
     <description summary="the launcher interface of taiwins">
-      The launcher starts with set_launcher, which registers the launcher show
-      the surface. Before it can launch, the corresponding window information is
-      given through hint event. The launcher just update the information for
-      next launching. Once the enter is pressed, the launcher emits the event
-      submit, the server receive the information about corresponding
-      applications.
+      The event and request below follows the order of usage. Since this object
+      is a global interface, it creates by events. So we have to be careful.
     </description>
 
+    <event name="start">
+      <description summary="instruct the client to call set_launcher">
+	launching information about the launcher itself
+      </description>
+      <arg name="width" type="fixed"/>
+      <arg name="height" type="fixed"/>
+      <arg name="scale" type="fixed"/>
+    </event>
+
     <request name="set_launcher">
-      <description summary="registre the launcher."/>
+      <description summary="show the launcher surface in compositor"/>
       <arg name="surface" type="object" interface="wl_surface"/>
-      <!-- the second param is the launcher informaiton shared with server -->
-      <arg name="buffer" type="object" interface="wl_buffer"/>
+
     </request>
 
     <request name="submit">
-      <description summary="user call this when issue the command">
+      <description summary="indicate the compositor to close the launcher surface">
 	The launcher should do the submit request before the fork-exec. This
-	also masks that the application menu is realy, so when compositor
-	receive client creating events, it has the correct configure for the
-	application.
-
-	This requests closes the launcher window as well.
+	make sure that compositor has enough up-to-dated configuration
+	buffer. This is the only time that compositor updates its knowledge
+	about configuration buffer to avoid the racing, you may still have
+	problem when one application launches from launcher, the other starts
+	somewhere else.
       </description>
+      <arg name="buffer" type="object" interface="wl_buffer"/>
     </request>
-
 
     <event name="application_configure">
       <description summary="dynamically emit the application configure">
 	After launching application, we could still change the preference of the
 	application, when it becomes floating, tiled, scale, size change, etc.
+
+	Notice that this event doesn't update the buffer.
       </description>
       <arg name="app_name" type="string"/>
       <arg name="floating" type="uint"/>
-      <arg name="scale" type="fixed"/>
-    </event>
-
-    <event name="hint">
-      <description summary="information request for launcher, only before the
-			    opening launcher">
-	launching information about the launcher itself
-      </description>
-      <arg name="width" type="fixed"/>
-      <arg name="height" type="fixed"/>
       <arg name="scale" type="fixed"/>
     </event>
 

@@ -25,7 +25,8 @@ weston_get_default_seat(struct weston_compositor *ec)
 {
 	if (wl_list_empty(&ec->seat_list))
 		return NULL;
-	return container_of(&ec->seat_list.next,
+	//be careful with container of, it doesn't care the
+	return container_of(ec->seat_list.next,
 			    struct weston_seat, link);
 }
 
@@ -40,7 +41,7 @@ static inline struct weston_view *
 weston_default_view_from_surface(struct weston_surface *surface)
 {
 	return (struct weston_view *)
-		container_of(&surface->views.next, struct weston_view, surface_link);
+		container_of(surface->views.next, struct weston_view, surface_link);
 }
 
 static inline struct weston_view *
