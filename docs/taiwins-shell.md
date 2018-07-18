@@ -142,6 +142,3 @@ becomes just active icons.
 We are facing the problem of choosing buffer format for applications. Cairo
 doesn't like OpenGL's RGBA, if we want to use cairo's image, we have to put the
 image format into BGRA, as it follows that order.
-
-
-# inotify machenism, I need to re process all that shit

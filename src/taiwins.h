@@ -16,6 +16,14 @@ weston_surface_from_resource(struct wl_resource *wl_surface)
 	return (struct weston_surface *)wl_resource_get_user_data(wl_surface);
 }
 
+
+static inline void
+weston_view_map(struct weston_view *view)
+{
+	view->surface->is_mapped = true;
+	view->is_mapped = true;
+}
+
 struct wl_client *tw_launch_client(struct weston_compositor *ec, const char *path);
 void tw_end_client(struct wl_client *client);
 
