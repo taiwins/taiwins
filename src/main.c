@@ -126,12 +126,11 @@ int main(int argc, char *argv[])
 	tw_setup_backend(compositor);
 	//it seems that we don't need to setup the input, maybe in other cases
 	fprintf(stderr, "backend registred\n");
-
 	weston_compositor_wake(compositor);
-	//okay, now it is a good time to anonce the shell
-	announce_shell(compositor);
+
+	struct twshell *shell = announce_twshell(compositor);
 	announce_desktop(compositor);
-	//now it a good time to get child process,
+
 	wl_list_init(&children_list);
 	const struct tmp_struct startup_process = {
 		argv[1],
@@ -148,11 +147,16 @@ int main(int argc, char *argv[])
 	}
 	fprintf(stderr, "we should see here\n");
 	wl_display_run(display);
-	weston_compositor_destroy(compositor);
 	wl_display_terminate(display);
-	//we should close the child now.
+	//TODO weston has three compositor destroy methods:
+	// - weston_compositor_exit
+	// - weston_compositor_shutdown: remove all the bindings, output, renderer,
+	// - weston_compositor_destroy, this call finally free the compositor
+	weston_compositor_shutdown(compositor);
+	weston_compositor_destroy(compositor);
 	return 0;
 setup_err:
+	weston_compositor_shutdown(compositor);
 	weston_compositor_destroy(compositor);
 connect_err:
 	wl_display_destroy(display);

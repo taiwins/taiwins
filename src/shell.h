@@ -21,8 +21,11 @@ struct twshell;
 /** announcing the taiwins shell global
  *
  * @param compositor weston compositor global
+ *
+ * this adds the signal to destroy the shell as well.
  */
-void announce_shell(struct weston_compositor *compositor);
+struct twshell *announce_twshell(struct weston_compositor *compositor);
+
 void add_shell_bindings(struct weston_compositor *ec);
 
 /* this function is getting too many arguments */
@@ -32,9 +35,7 @@ bool twshell_set_ui_surface(struct twshell *shell,
 			    struct wl_resource *output, struct wl_resource *wl_resource,
 			    struct wl_listener *listener,
 			    int32_t x, int32_t y);
-/* then I don't need these two */
-struct weston_layer *get_shell_ui_layer(void);
-struct weston_layer *get_shell_background_layer(void);
+
 
 
 //wayland-desktop implementation, you can seperate this from  the shell

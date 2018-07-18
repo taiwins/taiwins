@@ -107,14 +107,14 @@ tw_end_client(struct wl_client *client)
 	kill(pid, SIGINT);
 }
 
-//you probabely want to add this
+/*
 static int on_term_signal(int signal_number, void *data)
 {
 	struct wl_display *display = (struct wl_display *)data;
 	wl_display_terminate(display);
 	return 0;
 }
-
+*/
 
 /**
  * @brief general handler for adding a surface.
