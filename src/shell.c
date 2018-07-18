@@ -1,4 +1,5 @@
 #include <compositor.h>
+#include <wayland-server.h>
 #include <wayland-taiwins-shell-server-protocol.h>
 #include <helpers.h>
 #include <time.h>
@@ -19,7 +20,9 @@ struct twshell {
 	struct weston_surface *the_widget_surface;
 };
 
+static struct twshell oneshell;
 
+/* destroy info */
 struct view_pos_info {
 	int32_t x;
 	int32_t y;
@@ -29,6 +32,7 @@ struct view_pos_info {
 
 void view_pos_destroy(struct wl_listener *listener, void *data)
 {
+	//we have to do with that since the data is weston_view
 	free(container_of(listener, struct view_pos_info, destroy_listener));
 }
 
@@ -129,6 +133,8 @@ _setup_surface(struct twshell *shell,
 	return true;
 }
 
+
+
 static void
 commit_ui_surface(struct weston_surface *surface, int sx, int sy)
 {
@@ -145,55 +151,6 @@ commit_ui_surface(struct weston_surface *surface, int sx, int sy)
 }
 
 
-/**
- * @brief make the ui surface appear
- *
- * using the UI_LAYER for for seting up the the view
- */
-bool
-twshell_set_ui_surface(struct twshell *shell, struct wl_resource *wl_surface, struct wl_resource *wl_output,
-		       struct wl_resource *wl_resource,
-		       struct wl_listener *surface_destroy_listener,
-		       int32_t x, int32_t y)
-{
-	struct weston_surface *surface = weston_surface_from_resource(wl_surface);
-	//TODO destroy signal, I am not sure how the wl_surface's destroy signal is called.
-	//clearly the weston_desktop_surface destroy signal is
-	if (surface_destroy_listener) {
-		wl_signal_add(&surface->destroy_signal, surface_destroy_listener);
-	}
-	return _setup_surface(shell, wl_surface, wl_output, wl_resource, commit_ui_surface, x, y);
-}
-
-static struct twshell oneshell;
-
-struct weston_layer *
-get_shell_ui_layer(void)
-{
-	return &oneshell.ui_layer;
-}
-
-struct weston_layer *
-get_shell_background_layer(void)
-{
-	return &oneshell.background_layer;
-}
-
-
-static void
-setup_shell_widget(struct wl_client *client,
-		   struct wl_resource *resource,
-		   struct wl_resource *surface,
-		   struct wl_resource *output,
-		   uint32_t x,
-		   uint32_t y)
-{
-	_setup_surface(&oneshell, surface, output, resource, commit_ui_surface, x, y);
-	struct weston_seat *seat0 = wl_container_of(oneshell.ec->seat_list.next, seat0, link);
-	//find a solution about it
-//	weston_view_activate(view, seat0, WESTON_ACTIVATE_FLAG_CLICKED);
-}
-
 static void
 _hide_shell_widget(struct weston_surface *wd_surface)
 {
@@ -205,15 +162,6 @@ _hide_shell_widget(struct weston_surface *wd_surface)
 	wd_surface->committed_private = NULL;
 }
 
-static void
-hide_shell_widget(struct wl_client *client,
-		  struct wl_resource *resource,
-		  struct wl_resource *surface)
-{
-	struct weston_surface *wd_surface =
-		(struct weston_surface *)wl_resource_get_user_data(surface);
-	_hide_shell_widget(wd_surface);
-}
 
 static void
 shell_widget_should_close_on_keyboard(struct weston_keyboard *keyboard,
@@ -237,6 +185,33 @@ shell_widget_should_close_on_cursor(struct weston_pointer *pointer,
 		_hide_shell_widget(oneshell.the_widget_surface);
 }
 
+
+
+/////////////////////////// Taiwins shell interface //////////////////////////////////
+
+static void
+hide_shell_widget(struct wl_client *client,
+		  struct wl_resource *resource,
+		  struct wl_resource *surface)
+{
+	struct weston_surface *wd_surface =
+		(struct weston_surface *)wl_resource_get_user_data(surface);
+	_hide_shell_widget(wd_surface);
+}
+
+static void
+set_widget(struct wl_client *client,
+		   struct wl_resource *resource,
+		   struct wl_resource *surface,
+		   struct wl_resource *output,
+		   uint32_t x,
+		   uint32_t y)
+{
+	_setup_surface(&oneshell, surface, output, resource, commit_ui_surface, x, y);
+	struct weston_seat *seat0 = weston_get_default_seat(oneshell.ec);
+	struct weston_view *view = weston_view_from_surface_resource(surface);
+	weston_view_activate(view, seat0, WESTON_ACTIVATE_FLAG_CLICKED);
+}
 
 
 static void
@@ -268,24 +243,76 @@ set_panel(struct wl_client *client,
 static struct taiwins_shell_interface shell_impl = {
 	.set_background = set_background,
 	.set_panel = set_panel,
-	.set_widget = setup_shell_widget,
+	.set_widget = set_widget,
 	.hide_widget = hide_shell_widget,
 };
 
-static void
-unbind_shell(struct wl_resource *resource)
-{
+/////////////////////////// twshell global ////////////////////////////////
 
+
+
+static void
+unbind_twshell(struct wl_resource *resource)
+{
+	//TODO: either we remove the shell resource here, or we use the destroy signal.
 }
 
 static void
-bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
+bind_twshell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
+	//int uid, pid, gid;
+	//wl_client_get_credentials(client, &pid, &uid, &gid);
+	//refuse to add the resource if the client is not what we created
 	struct wl_resource *resource = wl_resource_create(client, &taiwins_shell_interface,
 							  TWSHELL_VERSION, id);
 	//TODO verify the client that from which is from wl_client_create, but rightnow we just do this
-	wl_resource_set_implementation(resource, &shell_impl, data, unbind_shell);
-//	wl_resource_add_destroy_listener(resource, NULL);
+	wl_resource_set_implementation(resource, &shell_impl, data, unbind_twshell);
+
+}
+
+
+static void
+end_twshell(struct wl_listener *listener, void *data)
+{
+//	struct weston_compositor *ec = data;
+	struct twshell *shell = &oneshell;
+	weston_layer_unset_position(&shell->background_layer);
+	weston_layer_unset_position(&shell->ui_layer);
+	//TODO probably remove shell application resources: you cannot force
+	//children to remove it, it has too many requests. So I have to figure
+	//out about that, otherwise, we will need to wait untill all children quit
+}
+
+
+static struct wl_listener twshell_destructor = {
+	.link = {
+		.prev = &twshell_destructor.link,
+		.next = &twshell_destructor.link
+	},
+	.notify = end_twshell
+};
+
+///////////////////////// exposed APIS ////////////////////////////////
+
+
+/**
+ * @brief make the ui surface appear
+ *
+ * using the UI_LAYER for for seting up the the view
+ */
+bool
+twshell_set_ui_surface(struct twshell *shell, struct wl_resource *wl_surface, struct wl_resource *wl_output,
+		       struct wl_resource *wl_resource,
+		       struct wl_listener *surface_destroy_listener,
+		       int32_t x, int32_t y)
+{
+	struct weston_surface *surface = weston_surface_from_resource(wl_surface);
+	//TODO destroy signal, I am not sure how the wl_surface's destroy signal is called.
+	//clearly the weston_desktop_surface destroy signal is
+	if (surface_destroy_listener) {
+		wl_signal_add(&surface->destroy_signal, surface_destroy_listener);
+	}
+	return _setup_surface(shell, wl_surface, wl_output, wl_resource, commit_ui_surface, x, y);
 }
 
 
@@ -297,8 +324,8 @@ add_shell_bindings(struct weston_compositor *ec)
 	weston_compositor_add_button_binding(ec, BTN_RIGHT, 0, shell_widget_should_close_on_cursor, NULL);
 }
 
-void
-announce_shell(struct weston_compositor *ec)
+struct twshell*
+announce_twshell(struct weston_compositor *ec)
 {
 	//I can make the static shell
 	weston_layer_init(&oneshell.background_layer, ec);
@@ -309,6 +336,10 @@ announce_shell(struct weston_compositor *ec)
 	weston_layer_init(&oneshell.ui_layer, ec);
 	weston_layer_set_position(&oneshell.ui_layer, WESTON_LAYER_POSITION_UI);
 
-	wl_global_create(ec->wl_display, &taiwins_shell_interface, TWSHELL_VERSION, &oneshell, bind_shell);
+	wl_global_create(ec->wl_display, &taiwins_shell_interface, TWSHELL_VERSION, &oneshell, bind_twshell);
 	add_shell_bindings(ec);
+	wl_signal_add(&ec->destroy_signal, &twshell_destructor);
+	//TODO here we need to launch the taiwins-shell client
+
+	return &oneshell;
 }

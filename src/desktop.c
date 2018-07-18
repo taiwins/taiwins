@@ -11,15 +11,6 @@
 #include "taiwins.h"
 #include "shell.h"
 
-struct weston_output *
-get_default_output(struct weston_compositor *compositor)
-{
-	if (wl_list_empty(&compositor->output_list))
-		return NULL;
-
-	return container_of(compositor->output_list.next,
-			    struct weston_output, link);
-}
 
 
 struct workspace {
