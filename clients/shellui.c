@@ -186,5 +186,5 @@ shell_panel_add_widget(struct shell_panel *surf)
 /*	eglMakeCurrent(app->eglenv->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); */
 /*	eglDestroySurface(app->eglenv->egl_display, app->eglsurface); */
 /*	wl_egl_window_destroy(app->eglwin); */
-/*	appsurface_destroy(&app->widget_surface); */
+/*	appsurface_release(&app->widget_surface); */
 /* } */

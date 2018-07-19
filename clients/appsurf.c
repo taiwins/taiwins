@@ -3,7 +3,7 @@
 
 
 void
-appsurface_destroy(struct app_surface *surf)
+appsurface_release(struct app_surface *surf)
 {
 	for (int i = 0; i < 2; i++) {
 		//the wl_buffer itself is destroyed at shm_pool destructor

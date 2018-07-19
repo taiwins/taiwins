@@ -153,9 +153,9 @@ static void
 shell_panel_destroy(struct shell_panel *panel)
 {
 	struct app_surface *s = &panel->panelsurf;
-	appsurface_destroy(s);
+	appsurface_release(s);
 	nk_egl_destroy_backend(panel->backend);
-	appsurface_destroy(&panel->widget_surface);
+	appsurface_release(&panel->widget_surface);
 	vector_destroy(&panel->widgets);
 }
 
@@ -225,7 +225,7 @@ static void
 output_distroy(struct shell_output *o)
 {
 	wl_output_release(o->output);
-	appsurface_destroy(&o->background);
+	appsurface_release(&o->background);
 	shell_panel_destroy(&o->panel);
 	shm_pool_destroy(&o->pool);
 }

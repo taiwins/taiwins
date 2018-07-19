@@ -134,7 +134,7 @@ struct app_surface {
 void appsurface_init(struct app_surface *surf, struct app_surface *parent,
 		     enum APP_SURFACE_TYPE type, struct wl_compositor *compositor,
 		     struct wl_output *output);
-void appsurface_destroy(struct app_surface *surf);
+void appsurface_release(struct app_surface *surf);
 /**
  * /brief assign wl_buffers to the appsurface, thus it initialize the double
  * buffer state and commit state

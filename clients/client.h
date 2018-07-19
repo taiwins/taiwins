@@ -12,6 +12,7 @@
 #include <GL/glext.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
+#include <wayland-client.h>
 
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon.h>
@@ -90,7 +91,8 @@ struct wl_globals {
 		struct wl_cursor_theme *cursor_theme;
 		struct wl_surface *cursor_surface;
 		struct wl_buffer *cursor_buffer;
-		struct wl_surface *focused_surface;
+		struct wl_surface *focused_surface; //the surface that cursor is on
+		struct wl_callback_listener cursor_done_listener;
 		uint32_t cursor_events;
 		uint32_t cx, cy; //current coordinate of the cursor
 		uint32_t axis;
@@ -108,8 +110,9 @@ int wl_globals_announce(struct wl_globals *globals,
 			uint32_t name,
 			const char *interface,
 			uint32_t version);
-
+/* Constructor */
 void wl_globals_init(struct wl_globals *globals, struct wl_display *display);
+/* destructor */
 void wl_globals_release(struct wl_globals *globals);
 void wl_globals_bg_color_rgb(const struct wl_globals *globals, float *r, float *g, float *b);
 void wl_globals_fg_color_rgb(const struct wl_globals *globals, float *r, float *g, float *b);
