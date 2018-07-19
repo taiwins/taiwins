@@ -30,7 +30,7 @@ struct taiwins_decision_key {
 struct desktop_launcher {
 	struct taiwins_launcher *interface;
 	struct wl_globals globals;
-	struct app_surface launcher_surface;
+	struct app_surface surface;
 	struct wl_buffer *decision_buffer;
 
 	off_t cursor;
@@ -113,18 +113,17 @@ start_launcher(void *data,
 {
 	struct desktop_launcher *launcher = (struct desktop_launcher *)data;
 	//yeah, generally you will want a buffer from this
+	taiwins_launcher_set_launcher(launcher, launcher->surface.wl_surface);
 	nk_egl_launch(launcher->bkend,
 		      wl_fixed_to_int(width),
 		      wl_fixed_to_int(height),
 		      wl_fixed_to_double(scale), draw_launcher, launcher);
-
 }
-
 
 
 struct taiwins_launcher_listener launcher_impl = {
 	.application_configure = update_app_config,
-	.hint = start_launcher,
+	.start = start_launcher,
 };
 
 
@@ -139,9 +138,11 @@ ready_launcher(struct desktop_launcher *launcher)
 		.x = 0, .y = 0,
 		.w = 400, .h = 20
 	};
+	appsurface_init(&launcher->surface, NULL, APP_WIDGET,
+			launcher->globals.compositor, NULL);
 	egl_env_init(&launcher->env, launcher->globals.display);
 	launcher->bkend = nk_egl_create_backend(&launcher->env,
-						launcher->launcher_surface.wl_surface);
+						launcher->surface.wl_surface);
 }
 
 

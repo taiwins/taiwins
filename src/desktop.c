@@ -198,31 +198,31 @@ launcher_committed(struct weston_surface *surface, int32_t sx, int32_t sy)
 
 }
 
-/*
 static void
 set_launcher(struct wl_client *client, struct wl_resource *resource,
-	     struct wl_resource *wl_surface, struct wl_resource *buffer)
+	     struct wl_resource *wl_surface)
 {
-	_setup_surface(NULL, wl_surface, get_default_output(onedesktop.compositor),
-		       resource, commit_ui_surface, 100, 100);
-	//I would also need to know the layer, which it is controlled in the shell object
-	struct launcher *launcher = twshell_acquire_launcher();
-	struct wl_shm_buffer *wl_buffer = wl_shm_buffer_get(buffer);
-	launcher->decision_buffer = wl_buffer;
+	struct launcher *lch = &onedesktop.launcher;
+	lch->surface = weston_surface_from_resource(wl_surface);
+	twshell_set_ui_surface(onedesktop.shell, wl_surface,
+			       weston_get_default_output(onedesktop.compositor),
+			       resource, NULL, 100, 100);
 }
-*/
-
 
 
 static void
-close_launcher(struct wl_client *client, struct wl_resource *resource)
+close_launcher(struct wl_client *client, struct wl_resource *resource,
+	       struct wl_resource *wl_buffer)
 {
-
+	struct launcher *lch = &onedesktop.launcher;
+	lch->decision_buffer = wl_shm_buffer_get(wl_buffer);
+	//close the wl_surface from
 }
 
 
 static struct taiwins_launcher_interface launcher_impl = {
-//	.set_launcher = set_launcher,
+	.set_launcher = set_launcher,
+	.submit = close_launcher
 };
 
 
@@ -239,7 +239,23 @@ bind_desktop(struct wl_client *client, void *data, uint32_t version, uint32_t id
 	/* wl_client_get_credentials(client, &pid, &uid, &gid); */
 	struct wl_resource *resource = wl_resource_create(client, &taiwins_launcher_interface,
 							  TWDESKP_VERSION, id);
-	wl_resource_set_implementation(resource, NULL, data, unbind_desktop);
+	//TODO tmp code
+	onedesktop.launcher.launcher = resource;
+	wl_resource_set_implementation(resource, &launcher_impl, data, unbind_desktop);
+}
+
+static void
+twdesktop_should_start_launcher(struct weston_keyboard *keyboard,
+				const struct timespec *time, uint32_t key,
+				void *data)
+{
+	fprintf(stderr, "I should see a launcher surface\n");
+	struct launcher *lch = data;
+	taiwins_launcher_send_start(lch->launcher,
+				    wl_fixed_from_int(400),
+				    wl_fixed_from_int(20),
+				    wl_fixed_from_int(1));
+
 }
 
 
@@ -259,6 +275,8 @@ announce_desktop(struct weston_compositor *ec, struct twshell *shell)
 	onedesktop.actived_workspace[0] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
 	onedesktop.actived_workspace[1] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
 	switch_workspace(&onedesktop, onedesktop.actived_workspace[0]);
+	weston_compositor_add_key_binding(ec, KEY_P, 0, twdesktop_should_start_launcher, &onedesktop.launcher);
+
 	//add keybindings to spawn the
 //	weston_compositor_add_key_binding(ec, KEY_ENTER, MODIFIER_ALT, spawn_weston_terminal, NULL);
 //	weston_compositor_add_button_binding(ec, BTN_LEFT, 0, focus_the_view, NULL);

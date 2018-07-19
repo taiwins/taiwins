@@ -35,6 +35,7 @@ bool twshell_set_ui_surface(struct twshell *shell,
 			    struct wl_resource *output, struct wl_resource *wl_resource,
 			    struct wl_listener *listener,
 			    int32_t x, int32_t y);
+void twshell_close_ui_surface(struct weston_surface *surface);
 
 
 #ifdef  __cplusplus
