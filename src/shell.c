@@ -151,16 +151,6 @@ commit_ui_surface(struct weston_surface *surface, int sx, int sy)
 }
 
 
-static void
-_hide_shell_widget(struct weston_surface *wd_surface)
-{
-	struct weston_view *view, *next;
-	wd_surface->committed = NULL;
-	wl_list_for_each_safe(view, next, &wd_surface->views, surface_link)
-		weston_view_destroy(view);
-	//make it here so we call the free first
-	wd_surface->committed_private = NULL;
-}
 
 
 static void
@@ -170,7 +160,7 @@ shell_widget_should_close_on_keyboard(struct weston_keyboard *keyboard,
 {
 	if (keyboard->focus != oneshell.the_widget_surface &&
 	    oneshell.the_widget_surface)
-		_hide_shell_widget(oneshell.the_widget_surface);
+		twshell_close_ui_surface(oneshell.the_widget_surface);
 }
 
 static void
@@ -182,7 +172,7 @@ shell_widget_should_close_on_cursor(struct weston_pointer *pointer,
 	struct weston_surface *surface = view->surface;
 	if (surface != oneshell.the_widget_surface &&
 		oneshell.the_widget_surface)
-		_hide_shell_widget(oneshell.the_widget_surface);
+		twshell_close_ui_surface(oneshell.the_widget_surface);
 }
 
 
@@ -190,13 +180,13 @@ shell_widget_should_close_on_cursor(struct weston_pointer *pointer,
 /////////////////////////// Taiwins shell interface //////////////////////////////////
 
 static void
-hide_shell_widget(struct wl_client *client,
+close_widget(struct wl_client *client,
 		  struct wl_resource *resource,
 		  struct wl_resource *surface)
 {
 	struct weston_surface *wd_surface =
 		(struct weston_surface *)wl_resource_get_user_data(surface);
-	_hide_shell_widget(wd_surface);
+	twshell_close_ui_surface(wd_surface);
 }
 
 static void
@@ -245,7 +235,7 @@ static struct taiwins_shell_interface shell_impl = {
 	.set_background = set_background,
 	.set_panel = set_panel,
 	.set_widget = set_widget,
-	.hide_widget = hide_shell_widget,
+	.hide_widget = close_widget,
 };
 
 /////////////////////////// twshell global ////////////////////////////////
@@ -315,6 +305,18 @@ twshell_set_ui_surface(struct twshell *shell, struct wl_resource *wl_surface, st
 	}
 	return _setup_surface(shell, wl_surface, wl_output, wl_resource, commit_ui_surface, x, y);
 }
+
+void
+twshell_close_ui_surface(struct weston_surface *wd_surface)
+{
+	struct weston_view *view, *next;
+	wd_surface->committed = NULL;
+	wl_list_for_each_safe(view, next, &wd_surface->views, surface_link)
+		weston_view_destroy(view);
+	//make it here so we call the free first
+	wd_surface->committed_private = NULL;
+}
+
 
 
 void
