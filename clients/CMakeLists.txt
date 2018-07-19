@@ -67,4 +67,6 @@ add_executable(dummy
 
 target_link_libraries(dummy
   ${CLIENT_LIBRARIES}
+  taiwins_client
+  nk_backend
   )

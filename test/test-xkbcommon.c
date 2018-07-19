@@ -353,6 +353,7 @@ handle_ping(void *data,
 		     uint32_t serial)
 {
 	fprintf(stderr, "ping!!!\n");
+	wl_shell_surface_pong(wl_shell_surface, serial);
 }
 
 static void

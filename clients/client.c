@@ -95,6 +95,8 @@ handle_key(void *data,
 	/* fprintf(stderr, "the key pressed is %s\n", keyname); */
 	//every surface it self is an app_surface, in thise case
 	struct wl_surface *focused = globals->inputs.focused_surface;
+	if (!focused)
+		return;
 	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
 	//I suppose the modifier key is called as well
 	if (appsurf->keycb)
@@ -163,8 +165,11 @@ handle_keyboard_enter(void *data,
 			   struct wl_surface *surface,
 			   struct wl_array *keys)
 {
+	struct wl_globals *globals = (struct wl_globals *)data;
+	globals->inputs.focused_surface = surface;
 	//this job is done by pointer
 	fprintf(stderr, "keyboard got focus\n");
+
 }
 static void
 handle_keyboard_leave(void *data,
@@ -172,6 +177,8 @@ handle_keyboard_leave(void *data,
 		    uint32_t serial,
 		    struct wl_surface *surface)
 {
+	struct wl_globals *globals = (struct wl_globals *)data;
+	globals->inputs.focused_surface = NULL;
 	fprintf(stderr, "keyboard lost focus\n");
 }
 
@@ -208,6 +215,13 @@ enum POINTER_EVENT_CODE {
 };
 
 
+static void
+pointer_cursor_done(void *data, struct wl_callback *callback, uint32_t callback_data)
+{
+	/* fprintf(stderr, "cursor set!\n"); */
+	wl_callback_destroy(callback);
+}
+
 
 static void
 pointer_enter(void *data,
@@ -223,6 +237,10 @@ pointer_enter(void *data,
 	if (!cursor_set) {
 		struct wl_surface *csurface = globals->inputs.cursor_surface;
 		struct wl_buffer *cbuffer = globals->inputs.cursor_buffer;
+		struct wl_callback *callback = wl_surface_frame(csurface);
+		globals->inputs.cursor_done_listener.done = pointer_cursor_done;
+		wl_callback_add_listener(callback, &globals->inputs.cursor_done_listener, NULL);
+		//give a role to the the cursor_surface
 		wl_pointer_set_cursor(wl_pointer, serial, csurface, 16, 16);
 		wl_surface_attach(csurface, cbuffer, 0, 0);
 		wl_surface_damage(csurface, 0, 0, 32, 32);
@@ -269,6 +287,8 @@ pointer_frame(void *data,
 		return;
 	//with the line above, we won't have any null surface problem
 	struct wl_surface *focused = globals->inputs.focused_surface;
+	if (!focused)
+		return;
 	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
 
 	uint32_t event = globals->inputs.cursor_events;
@@ -395,7 +415,6 @@ seat_capabilities(void *data,
 		globals->inputs.cursor = wl_cursor_theme_get_cursor(globals->inputs.cursor_theme, "plus");
 		globals->inputs.cursor_surface = wl_compositor_create_surface(globals->compositor);
 		globals->inputs.cursor_buffer = wl_cursor_image_get_buffer(globals->inputs.cursor->images[0]);
-//		wl_pointer_set_user_data(globals->inputs.wl_pointer, globals);
 		wl_pointer_add_listener(globals->inputs.wl_pointer, &pointer_listener, globals);
 	}
 	if (capabilities & WL_SEAT_CAPABILITY_TOUCH) {
@@ -429,9 +448,7 @@ wl_globals_init(struct wl_globals *globals, struct wl_display *display)
 void
 wl_globals_release(struct wl_globals *globals)
 {
-	if (globals->inputs.wl_pointer) {
-		wl_pointer_destroy(globals->inputs.wl_pointer);
-	}
+	//destroy the input
 	if (globals->inputs.cursor_theme) {
 		//there is no need to destroy the cursor wl_buffer or wl_cursor,
 		//it gets cleaned up automatically in theme_destroy
@@ -443,16 +460,24 @@ wl_globals_release(struct wl_globals *globals)
 		globals->inputs.cursor_surface = NULL;
 		globals->inputs.focused_surface = NULL;
 	}
+	if (globals->inputs.wl_pointer) {
+		wl_pointer_destroy(globals->inputs.wl_pointer);
+	}
+	if (globals->inputs.wl_keyboard)
+		wl_keyboard_destroy(globals->inputs.wl_keyboard);
+	wl_seat_destroy(globals->inputs.wl_seat);
+	wl_shm_destroy(globals->shm);
+	wl_compositor_destroy(globals->compositor);
 }
 
 
 
 int
 wl_globals_announce(struct wl_globals *globals,
-			struct wl_registry *wl_registry,
-			uint32_t name,
-			const char *interface,
-			uint32_t version)
+		    struct wl_registry *wl_registry,
+		    uint32_t name,
+		    const char *interface,
+		    uint32_t version)
 {
 	if (strcmp(interface, wl_seat_interface.name) == 0) {
 		globals->inputs.wl_seat = wl_registry_bind(wl_registry, name, &wl_seat_interface, version);
