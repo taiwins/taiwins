@@ -18,6 +18,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include "backend.h"
 #include "shell.h"
+#include "desktop.h"
 #include "taiwins.h"
 
 
@@ -129,7 +130,7 @@ int main(int argc, char *argv[])
 	weston_compositor_wake(compositor);
 
 	struct twshell *shell = announce_twshell(compositor);
-	announce_desktop(compositor);
+	announce_desktop(compositor, shell);
 
 	wl_list_init(&children_list);
 	const struct tmp_struct startup_process = {

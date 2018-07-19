@@ -29,12 +29,12 @@ struct twshell *announce_twshell(struct weston_compositor *compositor);
 void add_shell_bindings(struct weston_compositor *ec);
 
 /* this function is getting too many arguments */
-
 bool twshell_set_ui_surface(struct twshell *shell,
-			    struct wl_resource *wl_surface,
-			    struct wl_resource *output, struct wl_resource *wl_resource,
-			    struct wl_listener *listener,
+			    struct weston_surface *surface, struct weston_output *output,
+			    struct wl_resource *wl_resource,
+			    struct wl_listener *surface_destroy_listener,
 			    int32_t x, int32_t y);
+
 void twshell_close_ui_surface(struct weston_surface *surface);
 
 

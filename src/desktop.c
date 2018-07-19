@@ -204,7 +204,7 @@ set_launcher(struct wl_client *client, struct wl_resource *resource,
 {
 	struct launcher *lch = &onedesktop.launcher;
 	lch->surface = weston_surface_from_resource(wl_surface);
-	twshell_set_ui_surface(onedesktop.shell, wl_surface,
+	twshell_set_ui_surface(onedesktop.shell, lch->surface,
 			       weston_get_default_output(onedesktop.compositor),
 			       resource, NULL, 100, 100);
 }

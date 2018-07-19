@@ -113,7 +113,7 @@ start_launcher(void *data,
 {
 	struct desktop_launcher *launcher = (struct desktop_launcher *)data;
 	//yeah, generally you will want a buffer from this
-	taiwins_launcher_set_launcher(launcher, launcher->surface.wl_surface);
+	taiwins_launcher_set_launcher(launcher->interface, launcher->surface.wl_surface);
 	nk_egl_launch(launcher->bkend,
 		      wl_fixed_to_int(width),
 		      wl_fixed_to_int(height),
@@ -130,14 +130,9 @@ struct taiwins_launcher_listener launcher_impl = {
 
 
 static void
-ready_launcher(struct desktop_launcher *launcher)
+init_launcher(struct desktop_launcher *launcher)
 {
-	struct wl_shm *shm = launcher->globals.shm;
 	memset(launcher->chars, 0, sizeof(launcher->chars));
-	struct bbox bounding = {
-		.x = 0, .y = 0,
-		.w = 400, .h = 20
-	};
 	appsurface_init(&launcher->surface, NULL, APP_WIDGET,
 			launcher->globals.compositor, NULL);
 	egl_env_init(&launcher->env, launcher->globals.display);
@@ -172,7 +167,6 @@ void announce_globals(void *data,
 		fprintf(stderr, "launcher registé\n");
 		launcher->interface = (struct taiwins_launcher *)
 			wl_registry_bind(wl_registry, name, &taiwins_launcher_interface, version);
-		ready_launcher(launcher);
 		taiwins_launcher_add_listener(launcher->interface, &launcher_impl, launcher);
 	} else
 		wl_globals_announce(&launcher->globals, wl_registry, name, interface, version);
@@ -207,6 +201,8 @@ main(int argc, char *argv[])
 	wl_registry_add_listener(registry, &registry_listener, &tw_launcher);
 	wl_display_dispatch(display);
 	wl_display_roundtrip(display);
+	init_launcher(&tw_launcher);
+
 	//okay, now we should create the buffers
 	//event loop
 	while(wl_display_dispatch(display) != -1 && !tw_launcher.quit);
