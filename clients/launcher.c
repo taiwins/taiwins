@@ -133,6 +133,7 @@ static void
 init_launcher(struct desktop_launcher *launcher)
 {
 	memset(launcher->chars, 0, sizeof(launcher->chars));
+	launcher->quit = false;
 	appsurface_init(&launcher->surface, NULL, APP_WIDGET,
 			launcher->globals.compositor, NULL);
 	egl_env_init(&launcher->env, launcher->globals.display);
