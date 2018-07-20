@@ -1,3 +1,5 @@
+#include <string.h>
+#include <assert.h>
 #include <compositor.h>
 #include <wayland-server.h>
 #include <wayland-taiwins-shell-server-protocol.h>
@@ -10,6 +12,9 @@
 
 struct twshell {
 	int pid, uid, gid;
+	char path[256];
+	struct wl_client *shell_client;
+
 	struct weston_compositor *ec;
 	//you probably don't want to have the layer
 	struct weston_layer background_layer;
@@ -105,7 +110,7 @@ _setup_surface(struct twshell *shell,
 		 void (*committed)(struct weston_surface *, int32_t, int32_t),
 		 int32_t x, int32_t y)
 {
-	struct weston_surface *surface = weston_surface_from_resource(wl_surface);
+	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
 	struct weston_output *output = weston_output_from_resource(wl_output);
 
 }
@@ -210,13 +215,13 @@ set_widget(struct wl_client *client,
 		   uint32_t y)
 {
 	struct twshell *shell = wl_resource_get_user_data(resource);
-	struct weston_surface *surface = weston_surface_from_resource(wl_surface);
+	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
 	struct weston_output *output = weston_output_from_resource(wl_output);
 	set_surface(shell, surface, output, resource, commit_background, 0, 0);
 
 	/* _setup_surface(&oneshell, surface, output, resource, commit_ui_surface, x, y); */
-	struct weston_seat *seat0 = weston_get_default_seat(oneshell.ec);
-	struct weston_view *view = weston_default_view_from_surface(surface);
+	struct weston_seat *seat0 = tw_get_default_seat(oneshell.ec);
+	struct weston_view *view = tw_default_view_from_surface(surface);
 	/* fprintf(stderr, "the view is %p\n", view); */
 	weston_view_activate(view, seat0, WESTON_ACTIVATE_FLAG_CLICKED);
 }
@@ -229,7 +234,7 @@ set_background(struct wl_client *client,
 	       struct wl_resource *wl_surface)
 {
 	struct twshell *shell = wl_resource_get_user_data(resource);
-	struct weston_surface *surface = weston_surface_from_resource(wl_surface);
+	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
 	struct weston_output *output = weston_output_from_resource(wl_output);
 	set_surface(shell, surface, output, resource, commit_background, 0, 0);
 
@@ -245,7 +250,7 @@ set_panel(struct wl_client *client,
 	  struct wl_resource *wl_surface)
 {
 	struct twshell *shell = wl_resource_get_user_data(resource);
-	struct weston_surface *surface = weston_surface_from_resource(wl_surface);
+	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
 	struct weston_output *output = weston_output_from_resource(wl_output);
 	set_surface(shell, surface, output, resource, commit_ui_surface, 0, 0);
 
@@ -369,8 +374,21 @@ add_shell_bindings(struct weston_compositor *ec)
 	weston_compositor_add_button_binding(ec, BTN_RIGHT, 0, shell_widget_should_close_on_cursor, NULL);
 }
 
+
+void
+launch_shell_client(void *data)
+{
+	struct twshell *shell = data;
+	shell->shell_client = tw_launch_client(shell->ec, shell->path);
+}
+
+/**
+ * @brief announce the taiwins shell protocols.
+ *
+ * We should start the client at this point as well.
+ */
 struct twshell*
-announce_twshell(struct weston_compositor *ec)
+announce_twshell(struct weston_compositor *ec, const char *path)
 {
 	oneshell.the_widget_surface = NULL;
 	oneshell.ec = ec;
@@ -385,7 +403,11 @@ announce_twshell(struct weston_compositor *ec)
 			 taiwins_shell_interface.version, &oneshell, bind_twshell);
 	add_shell_bindings(ec);
 	wl_signal_add(&ec->destroy_signal, &twshell_destructor);
-	//TODO here we need to launch the taiwins-shell client
-
+	if (path) {
+		assert(strlen(path) +1 <= sizeof(oneshell.path));
+		strcpy(oneshell.path, path);
+		struct wl_event_loop *loop = wl_display_get_event_loop(ec->wl_display);
+		wl_event_loop_add_idle(loop, launch_shell_client, &oneshell);
+	}
 	return &oneshell;
 }
