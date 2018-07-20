@@ -24,7 +24,8 @@ struct twshell;
  *
  * this adds the signal to destroy the shell as well.
  */
-struct twshell *announce_twshell(struct weston_compositor *compositor);
+struct twshell *announce_twshell(struct weston_compositor *compositor, const char *path);
+struct wl_client *twshell_get_client(struct twshell *shell);
 
 void add_shell_bindings(struct weston_compositor *ec);
 

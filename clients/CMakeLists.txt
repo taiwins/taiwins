@@ -27,7 +27,6 @@ target_link_libraries(taiwins_client
 
 add_executable(shell-taiwins
   shell.c
-#  shellui_gl.c
   icon.c
   shellui.c
   )

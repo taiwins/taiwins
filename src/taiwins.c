@@ -137,7 +137,7 @@ tw_set_wl_surface(struct wl_client *client,
 		  struct wl_resource *output,
 		  struct wl_listener *surface_destroy_listener)
 {
-	struct weston_surface *wt_surface = weston_surface_from_resource(surface);
+	struct weston_surface *wt_surface = tw_surface_from_resource(surface);
 	struct weston_view *view, *next;
 	if (wt_surface->committed) {
 		wl_resource_post_error(surface, WL_DISPLAY_ERROR_INVALID_OBJECT,

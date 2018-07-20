@@ -9,9 +9,15 @@
 extern "C" {
 #endif
 
-///////////////////////// UTILS Functions /////////////////////////
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
+///////////////////////// UTILS Functions ///////////////////////// this maybe a
+//stupid idea to use weston prefix, since libweston could add the function with
+//same name
 static inline struct weston_output *
-weston_get_default_output(struct weston_compositor *compositor)
+tw_get_default_output(struct weston_compositor *compositor)
 {
 	if (wl_list_empty(&compositor->output_list))
 		return NULL;
@@ -19,9 +25,8 @@ weston_get_default_output(struct weston_compositor *compositor)
 			    struct weston_output, link);
 }
 
-
 static inline struct weston_seat *
-weston_get_default_seat(struct weston_compositor *ec)
+tw_get_default_seat(struct weston_compositor *ec)
 {
 	if (wl_list_empty(&ec->seat_list))
 		return NULL;
@@ -30,35 +35,32 @@ weston_get_default_seat(struct weston_compositor *ec)
 			    struct weston_seat, link);
 }
 
-
 static inline struct weston_surface *
-weston_surface_from_resource(struct wl_resource *wl_surface)
+tw_surface_from_resource(struct wl_resource *wl_surface)
 {
 	return (struct weston_surface *)wl_resource_get_user_data(wl_surface);
 }
 
 static inline struct weston_view *
-weston_default_view_from_surface(struct weston_surface *surface)
+tw_default_view_from_surface(struct weston_surface *surface)
 {
 	return (struct weston_view *)
 		container_of(surface->views.next, struct weston_view, surface_link);
 }
 
 static inline struct weston_view *
-weston_view_from_surface_resource(struct wl_resource *wl_surface)
+tw_view_from_surface_resource(struct wl_resource *wl_surface)
 {
-	return weston_default_view_from_surface(
-		weston_surface_from_resource(wl_surface));
+	return tw_default_view_from_surface(
+		tw_surface_from_resource(wl_surface));
 }
 
-
 static inline void
-weston_view_map(struct weston_view *view)
+tw_map_view(struct weston_view *view)
 {
 	view->surface->is_mapped = true;
 	view->is_mapped = true;
 }
-
 
 struct wl_client *tw_launch_client(struct weston_compositor *ec, const char *path);
 /* kill a client */
