@@ -53,18 +53,12 @@ struct shell_output {
 /******************************************************************************/
 /**************************** panneaux fonctions ******************************/
 /******************************************************************************/
-static int TEXT_LEN;
-
 
 static void sample_wiget(struct nk_context *ctx, float width, float height, void *data)
 {
 	//TODO, change the draw function to app->draw_widget(app);
 	enum {EASY, HARD};
 	static int op = EASY;
-	static int property = 20;
-	static size_t textlen;
-	static size_t code_point;
-	static size_t tmp;
 	static struct nk_text_edit text_edit;
 	static bool init_text_edit = false;
 	static char text_buffer[256];
@@ -250,7 +244,8 @@ shell_configure_surface(void *data,
 	else if (appsurf->type == APP_PANEL) {
 		struct shell_panel *p = container_of(appsurf, struct shell_panel, panelsurf);
 		output = container_of(p, struct shell_output, panel);
-	}
+	} else
+		return;
 
 	int32_t w = scale *(width - edges);
 	int32_t h = scale *(height - edges);
