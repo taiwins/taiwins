@@ -144,6 +144,8 @@ int main(int argc, char *argv[])
 	while (wl_display_dispatch(wl_display) != -1 && !App.done)
 		;
 	nk_egl_destroy_backend(App.bkend);
+	egl_env_end(&App.env);
+	wl_shell_surface_destroy(shell_surface);
 	appsurface_release(&App.surface);
 	wl_globals_release(&App.global);
 	wl_registry_destroy(registry);

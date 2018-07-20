@@ -497,8 +497,11 @@ nk_egl_destroy_backend(struct nk_egl_backend *bkend)
 	nk_ctx_buffer = NULL;
 	nk_buffer_free(&bkend->cmds);
 	//egl free context
-	eglMakeCurrent(bkend->env->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+	eglMakeCurrent(bkend->env->egl_display, NULL, NULL, NULL);
 	eglDestroySurface(bkend->env->egl_display, bkend->eglsurface);
+	/* eglMakeCurrent(bkend->env->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); */
+
+
 	wl_egl_window_destroy(bkend->eglwin);
 	//
 	free(bkend);
