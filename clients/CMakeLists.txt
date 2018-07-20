@@ -32,6 +32,10 @@ add_executable(shell-taiwins
   shellui.c
   )
 #message("the NVEGL libraries are ${NVEGL_LIBRARIES}")
+# set_target_properties(shell-taiwins
+#   PROPERTIES COMPILE_FLAGS
+#   "-fsanitize=address -fno-omit-frame-pointer")
+
 
 target_link_libraries(shell-taiwins
   ${CLIENT_LIBRARIES}
@@ -42,6 +46,8 @@ target_link_libraries(shell-taiwins
   proto_client_libraries
   taiwins_client
   nk_backend
+  tcmalloc
+#  asan
   )
 
 
@@ -65,8 +71,13 @@ add_executable(dummy
   dummy.c
   )
 
+set_target_properties(dummy
+  PROPERTIES COMPILE_FLAGS
+  "-fsanitize=address -fno-omit-frame-pointer")
+
 target_link_libraries(dummy
   ${CLIENT_LIBRARIES}
   taiwins_client
   nk_backend
+  asan
   )

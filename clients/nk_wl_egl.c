@@ -455,7 +455,8 @@ nk_egl_create_backend(const struct egl_env *env, struct wl_surface *attached_to)
 	bkend->wl_surface = attached_to;
 	bkend->app_surface = app_surface_from_wl_surface(attached_to);
 	//tmp pointer casting, if we could have better solution
-	bkend->app_surface->parent = (struct app_surface *)bkend;
+	bkend->app_surface->parent = NULL;
+	bkend->compiled = false;
 	appsurface_init_input(bkend->app_surface, nk_keycb, nk_pointron, nk_pointrbtn, nk_pointraxis);
 	return bkend;
 }
@@ -481,28 +482,31 @@ nk_egl_launch(struct nk_egl_backend *bkend, int w, int h, float s,
 void
 nk_egl_destroy_backend(struct nk_egl_backend *bkend)
 {
-	//opengl resource
-	glDeleteBuffers(1, &bkend->vbo);
-	glDeleteBuffers(1, &bkend->ebo);
-	glDeleteVertexArrays(1, &bkend->vao);
-	glDeleteTextures(1, &bkend->font_tex);
-	glDeleteShader(bkend->vs);
-	glDeleteShader(bkend->fs);
-	glDeleteShader(bkend->glprog);
-	//nuklear resource
-	nk_free(&bkend->ctx);
-	//use the clear, cleanup is used for creating second font
-	nk_font_atlas_clear(&bkend->atlas);
-	free(nk_ctx_buffer);
-	nk_ctx_buffer = NULL;
-	nk_buffer_free(&bkend->cmds);
-	//egl free context
-	eglMakeCurrent(bkend->env->egl_display, NULL, NULL, NULL);
-	eglDestroySurface(bkend->env->egl_display, bkend->eglsurface);
-	/* eglMakeCurrent(bkend->env->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); */
+	if (bkend->compiled) {
+		//opengl resource
+		glDeleteBuffers(1, &bkend->vbo);
+		glDeleteBuffers(1, &bkend->ebo);
+		glDeleteVertexArrays(1, &bkend->vao);
+		glDeleteTextures(1, &bkend->font_tex);
+		glDeleteShader(bkend->vs);
+		glDeleteShader(bkend->fs);
+		glDeleteShader(bkend->glprog);
+		//nuklear resource
+		nk_font_atlas_clear(&bkend->atlas);
+		nk_free(&bkend->ctx);
+		//use the clear, cleanup is used for creating second font
 
+		free(nk_ctx_buffer);
+		nk_ctx_buffer = NULL;
+		nk_buffer_free(&bkend->cmds);
+		//egl free context
+		eglMakeCurrent(bkend->env->egl_display, NULL, NULL, NULL);
+		eglDestroySurface(bkend->env->egl_display, bkend->eglsurface);
+		/* eglMakeCurrent(bkend->env->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); */
 
-	wl_egl_window_destroy(bkend->eglwin);
+		wl_egl_window_destroy(bkend->eglwin);
+	}
+	bkend->compiled = false;
 	//
 	free(bkend);
 }

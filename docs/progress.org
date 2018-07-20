@@ -20,6 +20,8 @@
     - other system resources I am not aware of
     - libweston(-eglstream) leaks, since nvidia's implementation is not very
       serious
+    - ~wl_callback~ :: there may be a wl_callback not destroyed. For this we
+		       would have to store the wl_callback specifically
 
 *** DONE nuklear memory checking
 *** DONE cairo memory checking
