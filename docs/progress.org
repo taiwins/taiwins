@@ -1,19 +1,29 @@
+* [0%] server-side work
+** TODO singals for adding new output and seats
+** TODO current active seat and output
+** TODO rendering/compositing optimization
+
 * [0%] Configurations
-** DOIN styles, nuklear and other widget styles.
+** TODO styles, nuklear and other widget styles.
    - background color.
    - Font size, font selection.
+* TODO find a way to read dispatch wl_display without blocking
+   - possible solution :: maybe we can use epoll on wl_display, and add it to
+	our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
+	need another thread for that anymore.
+
 * [66%] fully nuklear backend (utilizing app-surface and)
-*** DONE keyboard callbacks, this writes to a buffer, apparently.
+** DONE keyboard callbacks, this writes to a buffer, apparently.
     - ~nk_input_key~ and ~nk_input_unicode~ carries the text input. But the
       input box details is unknown.
-*** TODO draw another triangle above nuklear widget
-*** DONE research the mouse clicking problem
-    Nvidia driver specific problem.
-* [33%] Taiwins-shell
+** TODO draw another triangle above nuklear widget
+** DONE research the mouse clicking problem
+   Nvidia driver specific problem.
+* [100%] Taiwins-shell
 ** CANC lua support
    this can be *later*. It is very independent.
 *** DOIN adding text to widget APIs.
-** DOIN memory leak checking
+** DONE memory leak checking
 *** Possible leaking ::
     - malloc but no free(I probably don't have that).
     - opened file without closing(socket, epoll, log file)
@@ -25,7 +35,15 @@
 
 *** DONE nuklear memory checking
 *** DONE cairo memory checking
-** DOIN widgets support input events (this can be done through proxy events)
-* [%] Taiwins-launcher
-** implement launcher functions using ~nuklear~
-* [%] Taiwins layouting method
+
+* [50%] Taiwins-launcher
+** DONE showing the luancher window
+** DOIN implement text_editing                                       :client:
+** TODO fork-exec                                                    :client:
+** TODO place the laucher at the right spot                          :server:
+** TODO client search buffer                                          :proto:
+* [0%] libweston-desktop implementation                              :server:
+** DONE desktop layer architecture
+** TODO simple random floating implementation
+** TODO tiling layout
+** TODO ML based layout
