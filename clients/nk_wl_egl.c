@@ -455,7 +455,7 @@ nk_egl_create_backend(const struct egl_env *env, struct wl_surface *attached_to)
 	bkend->wl_surface = attached_to;
 	bkend->app_surface = app_surface_from_wl_surface(attached_to);
 	//tmp pointer casting, if we could have better solution
-	bkend->app_surface->parent = NULL;
+	bkend->app_surface->parent = (struct app_surface *) bkend;
 	bkend->compiled = false;
 	appsurface_init_input(bkend->app_surface, nk_keycb, nk_pointron, nk_pointrbtn, nk_pointraxis);
 	return bkend;
