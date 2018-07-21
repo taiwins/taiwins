@@ -193,12 +193,6 @@ _free_workspace(void *data)
 
 
 static void
-launcher_committed(struct weston_surface *surface, int32_t sx, int32_t sy)
-{
-
-}
-
-static void
 set_launcher(struct wl_client *client, struct wl_resource *resource,
 	     struct wl_resource *wl_surface)
 {
@@ -253,7 +247,7 @@ twdesktop_should_start_launcher(struct weston_keyboard *keyboard,
 	struct launcher *lch = data;
 	taiwins_launcher_send_start(lch->launcher,
 				    wl_fixed_from_int(400),
-				    wl_fixed_from_int(20),
+				    wl_fixed_from_int(100),
 				    wl_fixed_from_int(1));
 
 }

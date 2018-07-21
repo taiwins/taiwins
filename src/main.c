@@ -73,37 +73,25 @@ setup_input(struct weston_compositor *compositor)
 }
 
 static void
-tawins_quit(struct weston_compositor *c)
+taiwins_quit(struct weston_keyboard *keyboard,
+	     const struct timespec *time,
+	     uint32_t key,
+	     void *data)
 {
-	if (c->xkb_info) {
-		xkb_keymap_unref(c->xkb_info->keymap);
-		free(c->xkb_info);
-		c->xkb_info = NULL;
-	}
-	if (c->xkb_context) {
-		xkb_context_unref(c->xkb_context);
-		c->xkb_context = NULL;
-	}
+	fprintf(stderr, "quitting taiwins\n");
+	struct wl_display *wl_display = data;
+	wl_display_terminate(wl_display);
+	/* if (c->xkb_info) { */
+	/*	xkb_keymap_unref(c->xkb_info->keymap); */
+	/*	free(c->xkb_info); */
+	/*	c->xkb_info = NULL; */
+	/* } */
+	/* if (c->xkb_context) { */
+	/*	xkb_context_unref(c->xkb_context); */
+	/*	c->xkb_context = NULL; */
+	/* } */
+
 }
-
-static int terminate_children(struct wl_list *list)
-{
-	struct wl_list *p = list->next;
-	while (p != list) {
-		struct wl_client *client = wl_client_from_link(p);
-		tw_end_client(client);
-		p = p->next;
-		//it should work
-		wl_list_remove(p->prev);
-		wl_client_destroy(client);
-	}
-}
-
-struct tmp_struct {
-	char *name;
-	struct weston_compositor *ec;
-};
-
 
 
 int main(int argc, char *argv[])
@@ -111,13 +99,17 @@ int main(int argc, char *argv[])
 	struct wl_list children_list;
 	const char *shellpath = (argc > 1) ? argv[1] : NULL;
 	const char *launcherpath = (argv > 2) ? argv[2] : NULL;
+	struct wl_display *display = wl_display_create();
 
 	weston_log_set_handler(tw_log, tw_log);
-	struct wl_display *display = wl_display_create();
+
+	//quit if we already have a wayland server
 	if (wl_display_add_socket(display, NULL) == -1)
 		goto connect_err;
 
 	struct weston_compositor *compositor = weston_compositor_create(display, NULL);
+	weston_compositor_add_key_binding(compositor, KEY_F12, 0, taiwins_quit, display);
+//	weston_compositor_add_debug_binding(compositor, KEY_F12, taiwins_quit, display);
 	//yep, we need to setup backend,
 	tw_setup_backend(compositor);
 	//it seems that we don't need to setup the input, maybe in other cases
@@ -127,29 +119,16 @@ int main(int argc, char *argv[])
 	struct twshell *shell = announce_twshell(compositor, shellpath);
 	announce_desktop(compositor, shell);
 
-	wl_list_init(&children_list);
-	/* const struct tmp_struct startup_process = { */
-	/*	argv[1], */
-	/*	compositor, */
-	/* }; */
-	/* if (argc > 1) { */
-	/*	struct wl_event_loop *loop = wl_display_get_event_loop(display); */
-	/*	wl_event_loop_add_idle(loop, start_child_process, &startup_process); */
-	/*	/\* const char *child_name = argv[1]; *\/ */
-	/*	/\* struct wl_client *client = tw_launch_client(compositor, child_name); *\/ */
-	/*	/\* if (client) *\/ */
-	/*	/\*	wl_list_insert(&children_list, wl_client_get_link(client)); *\/ */
-
-	/* } */
-	fprintf(stderr, "we should see here\n");
 	wl_display_run(display);
-	wl_display_terminate(display);
+//	wl_display_terminate(display);
+
 	//TODO weston has three compositor destroy methods:
 	// - weston_compositor_exit
 	// - weston_compositor_shutdown: remove all the bindings, output, renderer,
 	// - weston_compositor_destroy, this call finally free the compositor
 	weston_compositor_shutdown(compositor);
 	weston_compositor_destroy(compositor);
+	wl_display_destroy(display);
 	return 0;
 setup_err:
 	weston_compositor_shutdown(compositor);

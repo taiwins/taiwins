@@ -11,7 +11,7 @@
 #include "shell.h"
 
 struct twshell {
-	int pid, uid, gid;
+	uid_t uid; gid_t gid; pid_t pid;
 	char path[256];
 	struct wl_client *shell_client;
 
@@ -100,20 +100,6 @@ commit_background(struct weston_surface *surface, int sx, int sy)
 	setup_view(view, &shell->ui_layer, pos_info->x, pos_info->y, twshell_view_UNIQUE);
 }
 
-/**
- * @brief the effort to make unified set_surface
- */
-static bool
-_setup_surface(struct twshell *shell,
-		 struct wl_resource *wl_surface, struct wl_resource *wl_output,
-		 struct wl_resource *wl_resource,
-		 void (*committed)(struct weston_surface *, int32_t, int32_t),
-		 int32_t x, int32_t y)
-{
-	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
-	struct weston_output *output = weston_output_from_resource(wl_output);
-
-}
 
 static bool
 set_surface(struct twshell *shell,
@@ -217,9 +203,8 @@ set_widget(struct wl_client *client,
 	struct twshell *shell = wl_resource_get_user_data(resource);
 	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
 	struct weston_output *output = weston_output_from_resource(wl_output);
-	set_surface(shell, surface, output, resource, commit_background, 0, 0);
+	set_surface(shell, surface, output, resource, commit_ui_surface, x, y);
 
-	/* _setup_surface(&oneshell, surface, output, resource, commit_ui_surface, x, y); */
 	struct weston_seat *seat0 = tw_get_default_seat(oneshell.ec);
 	struct weston_view *view = tw_default_view_from_surface(surface);
 	/* fprintf(stderr, "the view is %p\n", view); */
@@ -238,7 +223,6 @@ set_background(struct wl_client *client,
 	struct weston_output *output = weston_output_from_resource(wl_output);
 	set_surface(shell, surface, output, resource, commit_background, 0, 0);
 
-//	_setup_surface(&oneshell, surface, output, resource, commit_backgrand, 0, 0);
 	taiwins_shell_send_configure(resource, wl_surface, output->scale, 0,
 				     output->width, output->height);
 }
@@ -254,7 +238,6 @@ set_panel(struct wl_client *client,
 	struct weston_output *output = weston_output_from_resource(wl_output);
 	set_surface(shell, surface, output, resource, commit_ui_surface, 0, 0);
 
-//	_setup_surface(&oneshell, surface, output, resource, commit_ui_surface, 0, 0);
 	taiwins_shell_send_configure(resource, wl_surface, output->scale, 0, //edge
 				     output->width, 16);
 
@@ -285,7 +268,7 @@ unbind_twshell(struct wl_resource *resource)
 		weston_view_unmap(v);
 	wl_list_for_each_safe(v, n, &shell->ui_layer.view_list.link, layer_link.link)
 		weston_view_unmap(v);
-	//TODO maybe destroy the surface as well.
+	fprintf(stderr, "shell-unbined\n");
 }
 
 static void
@@ -295,43 +278,26 @@ bind_twshell(struct wl_client *client, void *data, uint32_t version, uint32_t id
 	struct wl_resource *resource =
 		wl_resource_create(client, &taiwins_shell_interface,
 				   taiwins_shell_interface.version, id);
-	/* client verification code */
-	/* int uid, pid, gid; */
-	/* wl_client_get_credentials(client, &pid, &uid, &gid); */
-	/* if (uid != shell->uid || pid != shell->pid || gid != shell->gid) { */
-	/*	wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT, */
-	/*			       "client %d is not un atherized shell", id); */
-	/*	wl_resource_destroy(resource); */
-	/* } */
+
+	uid_t uid; gid_t gid; pid_t pid;
+	wl_client_get_credentials(client, &pid, &uid, &gid);
+	if (shell->shell_client &&
+	    (uid != shell->uid || pid != shell->pid || gid != shell->gid)) {
+		wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "client %d is not un atherized shell", id);
+		wl_resource_destroy(resource);
+	}
+	//only add the layers if we have a shell.
+	weston_layer_init(&shell->background_layer, shell->ec);
+	weston_layer_set_position(&shell->background_layer, WESTON_LAYER_POSITION_BACKGROUND);
+	weston_layer_init(&shell->ui_layer, shell->ec);
+	weston_layer_set_position(&shell->ui_layer, WESTON_LAYER_POSITION_UI);
+
 	wl_resource_set_implementation(resource, &shell_impl, shell, unbind_twshell);
 	shell->ready = true;
 }
 
-
-static void
-end_twshell(struct wl_listener *listener, void *data)
-{
-	//move the code to the unbind_shell, this is not useful anyway
-	struct twshell *shell = &oneshell;
-	weston_layer_unset_position(&shell->background_layer);
-	weston_layer_unset_position(&shell->ui_layer);
-
-	//TODO probably remove shell application resources: you cannot force
-	//children to remove it, it has too many requests. So I have to figure
-	//out about that, otherwise, we will need to wait untill all children quit
-}
-
-
-static struct wl_listener twshell_destructor = {
-	.link = {
-		.prev = &twshell_destructor.link,
-		.next = &twshell_destructor.link
-	},
-	.notify = end_twshell
-};
-
 ///////////////////////// exposed APIS ////////////////////////////////
-
 
 /**
  * @brief make the ui surface appear
@@ -350,7 +316,6 @@ twshell_set_ui_surface(struct twshell *shell, struct weston_surface *surface, st
 		wl_signal_add(&surface->destroy_signal, surface_destroy_listener);
 	}
 	return set_surface(shell, surface, output, wl_resource, commit_ui_surface, x, y);
-//	return _setup_surface(shell, wl_surface, wl_output, wl_resource, commit_ui_surface, x, y);
 }
 
 void
@@ -380,6 +345,7 @@ launch_shell_client(void *data)
 {
 	struct twshell *shell = data;
 	shell->shell_client = tw_launch_client(shell->ec, shell->path);
+	wl_client_get_credentials(shell->shell_client, &shell->pid, &shell->uid, &shell->gid);
 }
 
 /**
@@ -390,19 +356,18 @@ launch_shell_client(void *data)
 struct twshell*
 announce_twshell(struct weston_compositor *ec, const char *path)
 {
-	oneshell.the_widget_surface = NULL;
 	oneshell.ec = ec;
 	oneshell.ready = false;
+	oneshell.the_widget_surface = NULL;
+	oneshell.shell_client = NULL;
 
-	weston_layer_init(&oneshell.background_layer, ec);
-	weston_layer_set_position(&oneshell.background_layer, WESTON_LAYER_POSITION_BACKGROUND);
-	weston_layer_init(&oneshell.ui_layer, ec);
-	weston_layer_set_position(&oneshell.ui_layer, WESTON_LAYER_POSITION_UI);
 
 	wl_global_create(ec->wl_display, &taiwins_shell_interface,
 			 taiwins_shell_interface.version, &oneshell, bind_twshell);
 	add_shell_bindings(ec);
-	wl_signal_add(&ec->destroy_signal, &twshell_destructor);
+	//we don't use the destroy signal here anymore, twshell_should be
+	//destroyed in the resource destructor
+	//wl_signal_add(&ec->destroy_signal, &twshell_destructor);
 	if (path) {
 		assert(strlen(path) +1 <= sizeof(oneshell.path));
 		strcpy(oneshell.path, path);
