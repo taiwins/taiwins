@@ -84,6 +84,8 @@ static void sample_wiget(struct nk_context *ctx, float width, float height, void
 	nk_edit_buffer(ctx, NK_EDIT_FIELD, &text_edit, nk_filter_default);
 	if (nk_egl_get_keyinput(ctx) == XKB_KEY_Tab)
 		nk_textedit_text(&text_edit, a, 4);
+	else if (nk_egl_get_keyinput(ctx) == XKB_KEY_Print)
+		nk_egl_capture_framebuffer(ctx, "/tmp/capture.png");
 	//we need a for loop to do the undo...
 	//okay, I can try to meddle with textedit cursor but I guess it will
 	//fucked up the text_edit.
