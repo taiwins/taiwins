@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <linux/input.h>
 #ifndef GL_GLEXT_PROTOTYPES
 #define GL_GLEXT_PROTOTYPES
 #endif
@@ -88,6 +89,10 @@ struct nk_egl_backend {
 	nk_egl_draw_func_t frame;
 	xkb_keysym_t ckey;
 	void *user_data;
+#ifdef __DEBUG
+	enum nk_buttons btn;
+#endif
+
 };
 
 /*
@@ -430,7 +435,9 @@ nk_pointrbtn(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy)
 	nk_input_button(&bkend->ctx, (btn) ? NK_BUTTON_LEFT : NK_BUTTON_RIGHT, (int)sx, (int)sy, 1);
 	nk_input_end(&bkend->ctx);
 	_nk_egl_new_frame(bkend);
-
+#ifdef __DEBUG
+	bkend->btn = (btn) ? NK_BUTTON_LEFT : NK_BUTTON_RIGHT;
+#endif
 }
 
 static void
@@ -521,8 +528,17 @@ nk_egl_get_keyinput(struct nk_context *ctx)
 }
 
 
-
 #ifdef __DEBUG
+
+enum nk_buttons
+nk_egl_get_btn(struct nk_context *ctx)
+{
+	struct nk_egl_backend *bkend = container_of(ctx, struct nk_egl_backend, ctx);
+	return bkend->btn;
+
+}
+
+
 void nk_egl_capture_framebuffer(struct nk_context *ctx, const char *path)
 {
 	EGLint gl_pack_alignment;
