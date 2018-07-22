@@ -1,49 +1,71 @@
-* [0%] server-side work
-** TODO singals for adding new output and seats
-** TODO current active seat and output
-** TODO rendering/compositing optimization
+* Stage one: basic libweston compositor
+  - have interface(shell and launcher)
+  - cursor, keyboard are fully function.
+  - be able to launch and close applications.
 
-* [0%] Configurations
-** TODO styles, nuklear and other widget styles.
-   - background color.
-   - Font size, font selection.
-* TODO find a way to read dispatch wl_display without blocking
-   - possible solution :: maybe we can use epoll on wl_display, and add it to
-	our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
-	need another thread for that anymore.
 
-* [66%] fully nuklear backend (utilizing app-surface and)
-** DONE keyboard callbacks, this writes to a buffer, apparently.
-    - ~nk_input_key~ and ~nk_input_unicode~ carries the text input. But the
-      input box details is unknown.
-** TODO draw another triangle above nuklear widget
-** DONE research the mouse clicking problem
-   Nvidia driver specific problem.
-* [100%] Taiwins-shell
-** CANC lua support
-   this can be *later*. It is very independent.
-*** DOIN adding text to widget APIs.
-** DONE memory leak checking
-*** Possible leaking ::
-    - malloc but no free(I probably don't have that).
-    - opened file without closing(socket, epoll, log file)
-    - other system resources I am not aware of
-    - libweston(-eglstream) leaks, since nvidia's implementation is not very
-      serious
-    - ~wl_callback~ :: there may be a wl_callback not destroyed. For this we
-		       would have to store the wl_callback specifically
+** [66%] fully nuklear backend (utilizing app-surface and)
+     - ~nk_input_key~ and ~nk_input_unicode~ carries the text input. But the
+       input box details is unknown.
+*** TODO draw another triangle above nuklear widget
+*** DONE research the mouse clicking problem
+    Nvidia driver specific problem.
+** [100%] Taiwins-shell
+*** CANC lua support
+    this can be *later*. It is very independent.
+**** DOIN adding text to widget APIs.
+*** DONE memory leak checking
+**** Possible leaking ::
+     - malloc but no free(I probably don't have that).
+     - opened file without closing(socket, epoll, log file)
+     - other system resources I am not aware of
+     - libweston(-eglstream) leaks, since nvidia's implementation is not very
+       serious
+     - ~wl_callback~ :: there may be a wl_callback not destroyed. For this we
+			would have to store the wl_callback specifically
 
-*** DONE nuklear memory checking
-*** DONE cairo memory checking
+**** DONE nuklear memory checking
+**** DONE cairo memory checking
 
-* [50%] Taiwins-launcher
-** DONE showing the luancher window
-** DOIN implement text_editing                                       :client:
-** TODO fork-exec                                                    :client:
-** TODO place the laucher at the right spot                          :server:
-** TODO client search buffer                                          :proto:
-* [0%] libweston-desktop implementation                              :server:
-** DONE desktop layer architecture
-** TODO simple random floating implementation
-** TODO tiling layout
-** TODO ML based layout
+** [50%] Taiwins-launcher
+*** DONE showing the luancher window
+*** DOIN implement text_editing                                      :client:
+*** TODO fork-exec                                                   :client:
+*** TODO place the laucher at the right spot                         :server:
+*** TODO client search buffer                                         :proto:
+** [0%] libweston-desktop implementation                             :server:
+*** DONE desktop layer architecture
+*** TODO simple random floating implementation
+*** TODO tiling layout
+**** TODO ML based layout
+
+
+* Stage two: optimization
+  - supporting multiple monitors/seats.
+  - weston view focus defocus
+  - a few different extensions.
+  - lua support for writing extensions.
+  - different layouting support
+  - resize EGL windows.
+** [0%] server-side optimization
+*** TODO singals for adding new output and seats
+*** TODO current active seat and output
+*** TODO rendering/compositing optimization
+
+** [0%] Configurations
+*** TODO styles, nuklear and other widget styles.
+    - background color.
+    - Font size, font selection.
+
+*** DONE keyboard callbacks, this writes to a buffer, apparently.
+
+
+* Stage three: extensions
+  - screen capture and screen record(audio support?).
+  - westons's zoom support.
+
+* feature research
+** TODO find a way to read dispatch wl_display without blocking
+    - possible solution :: maybe we can use epoll on wl_display, and add it to
+	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
+	 need another thread for that anymore.
