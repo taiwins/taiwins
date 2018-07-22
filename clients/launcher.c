@@ -73,7 +73,7 @@ draw_launcher(struct nk_context *ctx, float width, float height, void *data)
 	nk_layout_row_static(ctx, 30, 80, 2);
 	nk_button_label(ctx, "button");
 	nk_label(ctx, "another", NK_TEXT_LEFT);
-	if (nk_egl_get_keyinput(ctx) == XKB_KEY_Print)
+	if (nk_egl_get_btn(ctx) == NK_BUTTON_LEFT)
 		nk_egl_capture_framebuffer(ctx, "/tmp/capture.png");
 
 

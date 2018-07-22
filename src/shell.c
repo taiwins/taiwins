@@ -316,6 +316,11 @@ twshell_set_ui_surface(struct twshell *shell, struct weston_surface *surface, st
 		wl_signal_add(&surface->destroy_signal, surface_destroy_listener);
 	}
 	return set_surface(shell, surface, output, wl_resource, commit_ui_surface, x, y);
+	struct weston_seat *seat0 = tw_get_default_seat(oneshell.ec);
+	struct weston_view *view = tw_default_view_from_surface(surface);
+	/* fprintf(stderr, "the view is %p\n", view); */
+	weston_view_activate(view, seat0, WESTON_ACTIVATE_FLAG_CLICKED);
+
 }
 
 void

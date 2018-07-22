@@ -56,8 +56,11 @@ void nk_egl_destroy_backend(struct nk_egl_backend *bkend);
 //yeah, we can do in this way, but we can also
 xkb_keysym_t nk_egl_get_keyinput(struct nk_context *ctx);
 
+
 #ifdef __DEBUG
 //this call back writes the framebuffer to a image file.
+enum nk_buttons nk_egl_get_btn(struct nk_context *ctx);
+
 void nk_egl_capture_framebuffer(struct nk_context *ctx, const char *path);
 #endif
 
