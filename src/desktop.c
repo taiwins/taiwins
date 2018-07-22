@@ -246,8 +246,8 @@ twdesktop_should_start_launcher(struct weston_keyboard *keyboard,
 	fprintf(stderr, "I should see a launcher surface\n");
 	struct launcher *lch = data;
 	taiwins_launcher_send_start(lch->launcher,
-				    wl_fixed_from_int(400),
-				    wl_fixed_from_int(100),
+				    wl_fixed_from_int(200),
+				    wl_fixed_from_int(200),
 				    wl_fixed_from_int(1));
 
 }
