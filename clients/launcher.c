@@ -70,27 +70,34 @@ draw_launcher(struct nk_context *ctx, float width, float height, void *data)
 {
 	static bool _completing = false;
 	struct desktop_launcher *launcher = data;
-	nk_layout_row_static(ctx, height, width, 1);
-	nk_edit_buffer(ctx, NK_EDIT_FIELD, &launcher->text_edit, nk_filter_default);
-	if (nk_egl_get_keyinput(ctx) == XKB_KEY_Tab) {
+	nk_layout_row_static(ctx, 30, 80, 2);
+	nk_button_label(ctx, "button");
+	nk_label(ctx, "another", NK_TEXT_LEFT);
+	if (nk_egl_get_keyinput(ctx) == XKB_KEY_Print)
+		nk_egl_capture_framebuffer(ctx, "/tmp/capture.png");
 
-		_completing = true;
-		for (int i = 0; i < strlen(launcher->previous_tab); i++)
-			nk_textedit_undo(&launcher->text_edit);
-		launcher->previous_tab = auto_complete(launcher);
-		nk_textedit_text(&launcher->text_edit,
-				 launcher->previous_tab, strlen(launcher->previous_tab));
 
-	} else if (nk_egl_get_keyinput(ctx) == XKB_KEY_Return) {
-		launcher->previous_tab = NULL;
-		_completing = false;
-		//update the buffer.
-		//taiwins_launcher_submit(launcher->interface);
-		//do fork-exec (you probably don't want to do it here)
-	} else {
-		launcher->previous_tab = NULL;
-		_completing = false;
-	}
+	/* nk_layout_row_static(ctx, height - 30, width, 1); */
+	/* nk_edit_buffer(ctx, NK_EDIT_FIELD, &launcher->text_edit, nk_filter_default); */
+	/* if (nk_egl_get_keyinput(ctx) == XKB_KEY_Tab) { */
+
+	/*	_completing = true; */
+	/*	for (int i = 0; i < strlen(launcher->previous_tab); i++) */
+	/*		nk_textedit_undo(&launcher->text_edit); */
+	/*	launcher->previous_tab = auto_complete(launcher); */
+	/*	nk_textedit_text(&launcher->text_edit, */
+	/*			 launcher->previous_tab, strlen(launcher->previous_tab)); */
+
+	/* } else if (nk_egl_get_keyinput(ctx) == XKB_KEY_Return) { */
+	/*	launcher->previous_tab = NULL; */
+	/*	_completing = false; */
+	/*	//update the buffer. */
+	/*	//taiwins_launcher_submit(launcher->interface); */
+	/*	//do fork-exec (you probably don't want to do it here) */
+	/* } else { */
+	/*	launcher->previous_tab = NULL; */
+	/*	_completing = false; */
+	/* } */
 }
 
 //fuck, I wish that I have c++

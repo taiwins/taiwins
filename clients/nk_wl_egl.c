@@ -24,6 +24,7 @@
 #define MAX_ELEMENT_BUFFER 128 * 128
 
 //vao layout
+//I could probably use less memory
 struct nk_egl_vertex {
 	float position[2];
 	float uv[2];
@@ -49,8 +50,6 @@ static char *nk_ctx_buffer = NULL;
  * our needs, if the size is too small, we will run into `nk_mem_alloc`
  * failed. If we are giving too much memory, it is then a certain waste. 16Mb is
  * the sweat spot that most widgets will fit */
-
-
 
 //I dont think we can really do this, you need to somehow implement the
 //wl_input_callbacks, and the implmentation is not here. So the solution must be
@@ -319,8 +318,10 @@ nk_egl_render(struct nk_egl_backend *bkend)
 	nk_draw_index *offset = NULL;
 	struct nk_buffer vbuf, ebuf;
 	//we should check the command buffer first, if nothing changes we should
-	//just return
-	//however, this doesn't work
+	//just return. However, this doesn't work, I didn't know the reason.  I
+	//thought it is because of the double buffer, but that is the case, it
+	//should happen only in the beginning.
+
 	/* void *mem = nk_buffer_memory(&bkend->ctx.memory); */
 	/* if (!memcmp(mem, bkend->last_cmds, bkend->ctx.memory.allocated)) */
 	/*	return; */
@@ -518,3 +519,44 @@ nk_egl_get_keyinput(struct nk_context *ctx)
 	struct nk_egl_backend *bkend = container_of(ctx, struct nk_egl_backend, ctx);
 	return bkend->ckey;
 }
+
+
+
+#ifdef __DEBUG
+void nk_egl_capture_framebuffer(struct nk_context *ctx, const char *path)
+{
+	EGLint gl_pack_alignment;
+	//okay, I can use glreadpixels, so I don't need additional framebuffer
+	struct nk_egl_backend *bkend = container_of(ctx, struct nk_egl_backend, ctx);
+	//create rgba8 data
+	unsigned char *data = malloc(bkend->width * bkend->height * 4);
+	cairo_surface_t *s = cairo_image_surface_create_for_data(
+		data, CAIRO_FORMAT_ARGB32,
+		bkend->width, bkend->height,
+		cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, bkend->width));
+
+	glGetIntegerv(GL_PACK_ALIGNMENT, &gl_pack_alignment);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glReadPixels(0, 0, bkend->width, bkend->height,
+		     GL_RGBA, GL_UNSIGNED_BYTE, data);
+	glPixelStorei(GL_PACK_ALIGNMENT, gl_pack_alignment);
+
+	//now flip the image
+	cairo_surface_t *s1 = cairo_image_surface_create(
+		CAIRO_FORMAT_RGB24, bkend->width, bkend->height);
+	cairo_t *cr = cairo_create(s1);
+	cairo_matrix_t matrix;
+	cairo_matrix_init(&matrix,
+			  1, 0, 0, -1, 0, bkend->height);
+	cairo_transform(cr, &matrix);
+	cairo_set_source_surface(cr, s, 0, 0);
+	cairo_paint(cr);
+	cairo_surface_write_to_png(s1, path);
+	cairo_destroy(cr);
+	cairo_surface_destroy(s1);
+	cairo_surface_destroy(s);
+	free(data);
+}
+
+
+#endif
