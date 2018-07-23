@@ -39,6 +39,8 @@ struct desktop_launcher {
 	//for nuklear
 	struct nk_egl_backend *bkend;
 	struct egl_env env;
+	//a good hack is that this text_edit is stateless, we don't need to
+	//store anything once submitted
 	struct nk_text_edit text_edit;
 	const char *previous_tab;
 };
@@ -65,38 +67,52 @@ auto_complete(struct desktop_launcher *launcher)
 }
 
 
+/**
+ * @brief a more serious launcher implementation
+ */
 static void
 draw_launcher(struct nk_context *ctx, float width, float height, void *data)
 {
-	static bool _completing = false;
+	//uses a state machine
+	enum EDITSTATE {NORMAL, COMPLETING, SUBMITTING};
+	static enum EDITSTATE edit_state = NORMAL;
+	static char previous_tab[256] = {0};
+
 	struct desktop_launcher *launcher = data;
+
 	nk_layout_row_static(ctx, 30, 80, 2);
 	nk_button_label(ctx, "button");
 	nk_label(ctx, "another", NK_TEXT_LEFT);
-	if (nk_egl_get_btn(ctx) == NK_BUTTON_LEFT)
-		nk_egl_capture_framebuffer(ctx, "/tmp/capture.png");
-
 
 	nk_layout_row_static(ctx, height - 30, width, 1);
 	nk_edit_buffer(ctx, NK_EDIT_FIELD, &launcher->text_edit, nk_filter_default);
-	if (nk_egl_get_keyinput(ctx) == XKB_KEY_Tab) {
+	//we could go into two different state, first is compeletion, then it is submission
+	if (nk_egl_get_keyinput(ctx) == XKB_KEY_Tab)
+		edit_state = COMPLETING;
+	else if (nk_egl_get_keyinput(ctx) == XKB_KEY_Return)
+		edit_state = SUBMITTING;
+	else
+		edit_state = NORMAL;
 
-		_completing = true;
-		for (int i = 0; i < strlen(launcher->previous_tab); i++)
+	switch (edit_state) {
+	case COMPLETING:
+		for (int i = 0; i < strlen(previous_tab); i++) {
 			nk_textedit_undo(&launcher->text_edit);
-		launcher->previous_tab = auto_complete(launcher);
-		nk_textedit_text(&launcher->text_edit,
-				 launcher->previous_tab, strlen(launcher->previous_tab));
-
-	} else if (nk_egl_get_keyinput(ctx) == XKB_KEY_Return) {
-		launcher->previous_tab = NULL;
-		_completing = false;
-		//update the buffer.
-		//taiwins_launcher_submit(launcher->interface);
-		//do fork-exec (you probably don't want to do it here)
-	} else {
-		launcher->previous_tab = NULL;
-		_completing = false;
+		}
+		fprintf(stderr, "%s\n", launcher->chars);
+		strcpy(previous_tab, auto_complete(launcher));
+		nk_textedit_text(&launcher->text_edit, previous_tab, strlen(previous_tab));
+		break;
+	case SUBMITTING:
+		memset(previous_tab, 0, sizeof(previous_tab));
+		edit_state = NORMAL;
+		nk_textedit_init_fixed(&launcher->text_edit, launcher->chars, 256);
+		//we should skip the the rendering here, how?
+		taiwins_launcher_submit(launcher->interface, launcher->decision_buffer);
+		break;
+	case NORMAL:
+		memset(previous_tab, 0, sizeof(previous_tab));
+		break;
 	}
 }
 
@@ -146,15 +162,19 @@ init_launcher(struct desktop_launcher *launcher)
 	egl_env_init(&launcher->env, launcher->globals.display);
 	launcher->bkend = nk_egl_create_backend(&launcher->env,
 						launcher->surface.wl_surface);
+	nk_textedit_init_fixed(&launcher->text_edit, launcher->chars, 256);
 }
 
 
 static void
 release_launcher(struct desktop_launcher *launcher)
 {
+	nk_textedit_free(&launcher->text_edit);
+	nk_egl_destroy_backend(launcher->bkend);
 	egl_env_end(&launcher->env);
 	taiwins_launcher_destroy(launcher->interface);
 	wl_globals_release(&launcher->globals);
+
 	launcher->quit = true;
 #ifdef __DEBUG
 	cairo_debug_reset_static_data();
