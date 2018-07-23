@@ -210,6 +210,7 @@ close_launcher(struct wl_client *client, struct wl_resource *resource,
 {
 	struct launcher *lch = &onedesktop.launcher;
 	lch->decision_buffer = wl_shm_buffer_get(wl_buffer);
+	twshell_close_ui_surface(lch->surface);
 	//close the wl_surface from
 }
 
