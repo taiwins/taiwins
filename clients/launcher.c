@@ -87,7 +87,7 @@ draw_launcher(struct nk_context *ctx, float width, float height, void *data)
 	nk_layout_row_static(ctx, height - 30, width, 1);
 	nk_edit_buffer(ctx, NK_EDIT_FIELD, &launcher->text_edit, nk_filter_default);
 	//we could go into two different state, first is compeletion, then it is submission
-	if (nk_egl_get_keyinput(ctx) == XKB_KEY_NoSymbol)
+	if (nk_egl_get_keyinput(ctx) == XKB_KEY_NoSymbol) //key up
 		return;
 	if (nk_egl_get_keyinput(ctx) == XKB_KEY_Tab)
 		edit_state = COMPLETING;
@@ -100,14 +100,8 @@ draw_launcher(struct nk_context *ctx, float width, float height, void *data)
 	case COMPLETING:
 		nk_textedit_delete(&launcher->text_edit, launcher->text_edit.cursor - strlen(previous_tab),
 				   strlen(previous_tab));
-		fprintf(stderr, "the internal string. %d, prev %d\n", launcher->text_edit.string.len, strlen(previous_tab));
-		/* launcher->text_edit.cursor -= strlen(previous_tab); */
-		/* for (int i = 0; i < strlen(previous_tab); i++) { */
-		/*	nk_textedit_undo(&launcher->text_edit); */
-		/* } */
 		strcpy(previous_tab, auto_complete(launcher));
 		nk_textedit_text(&launcher->text_edit, previous_tab, strlen(previous_tab));
-		fprintf(stderr, "%s\n", launcher->chars);
 		break;
 	case SUBMITTING:
 		memset(previous_tab, 0, sizeof(previous_tab));
