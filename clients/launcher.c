@@ -96,9 +96,11 @@ draw_launcher(struct nk_context *ctx, float width, float height, void *data)
 
 	switch (edit_state) {
 	case COMPLETING:
-		for (int i = 0; i < strlen(previous_tab); i++) {
-			nk_textedit_undo(&launcher->text_edit);
-		}
+		nk_textedit_delete(&launcher->text_edit, launcher->text_edit.cursor - strlen(previous_tab),
+				   strlen(previous_tab));
+		/* for (int i = 0; i < strlen(previous_tab); i++) { */
+		/*	nk_textedit_(&launcher->text_edit); */
+		/* } */
 		fprintf(stderr, "%s\n", launcher->chars);
 		strcpy(previous_tab, auto_complete(launcher));
 		nk_textedit_text(&launcher->text_edit, previous_tab, strlen(previous_tab));
