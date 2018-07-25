@@ -169,7 +169,11 @@ handle_keyboard_enter(void *data,
 	globals->inputs.focused_surface = surface;
 	//this job is done by pointer
 	fprintf(stderr, "keyboard got focus\n");
-
+	/* struct wl_surface *focused = globals->inputs.focused_surface; */
+	/* struct app_surface *appsurf = app_surface_from_wl_surface(focused); */
+	/* //I suppose the modifier key is called as well */
+	/* if (appsurf->keycb) */
+	/*	appsurf->keycb(appsurf, XKB_KEY_NoSymbol, TW_NOMOD, 0); */
 }
 static void
 handle_keyboard_leave(void *data,

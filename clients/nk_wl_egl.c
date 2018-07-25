@@ -538,6 +538,14 @@ nk_egl_get_btn(struct nk_context *ctx)
 
 }
 
+void
+nk_egl_clean_keyboard_state(struct nk_context *ctx)
+{
+	struct nk_egl_backend *bkend = container_of(ctx, struct nk_egl_backend, ctx);
+	bkend->ckey = XKB_KEY_NoSymbol;
+}
+
+
 
 void nk_egl_capture_framebuffer(struct nk_context *ctx, const char *path)
 {

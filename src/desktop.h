@@ -29,6 +29,8 @@ struct launcher {
 	struct weston_surface *surface;
 	struct wl_resource *launcher;
 	struct wl_listener destroy_listener;
+	struct wl_resource *callback;
+	unsigned int n_execs;
 };
 
 struct twdesktop;

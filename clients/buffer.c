@@ -1,6 +1,5 @@
 #include "client.h"
 
-
 struct wl_buffer_node {
 	list_t link;
 	struct wl_buffer *wl_buffer;
@@ -17,7 +16,7 @@ struct wl_buffer_node {
 
 
 int
-shm_pool_create(struct shm_pool *pool, struct wl_shm *shm, int size, enum wl_shm_format format)
+shm_pool_init(struct shm_pool *pool, struct wl_shm *shm, size_t size, enum wl_shm_format format)
 {
 	pool->format = format;
 	pool->shm = shm;
@@ -31,7 +30,7 @@ shm_pool_create(struct shm_pool *pool, struct wl_shm *shm, int size, enum wl_shm
 }
 
 void
-shm_pool_destroy(struct shm_pool *pool)
+shm_pool_release(struct shm_pool *pool)
 {
 	struct wl_buffer_node *v, *n;
 	list_for_each_safe(v, n, &pool->wl_buffers, link) {

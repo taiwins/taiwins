@@ -193,7 +193,7 @@ static void
 output_init(struct shell_output *w)
 {
 	struct taiwins_shell *shell = w->shell->shell;
-	shm_pool_create(&w->pool, w->shell->globals.shm, 4096, w->shell->globals.buffer_format);
+	shm_pool_init(&w->pool, w->shell->globals.shm, 4096, w->shell->globals.buffer_format);
 	//arriere-plan
 	appsurface_init(&w->background, NULL, APP_BACKGROUND, w->shell->globals.compositor, w->output);
 	taiwins_shell_set_background(shell, w->output, w->background.wl_surface);
@@ -223,7 +223,7 @@ output_distroy(struct shell_output *o)
 	wl_output_release(o->output);
 	appsurface_release(&o->background);
 	shell_panel_destroy(&o->panel);
-	shm_pool_destroy(&o->pool);
+	shm_pool_release(&o->pool);
 }
 
 
