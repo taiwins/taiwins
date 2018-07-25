@@ -132,7 +132,7 @@ struct shm_pool {
 };
 
 //we should also add format
-int shm_pool_create(struct shm_pool *pool, struct wl_shm *shm, int size, enum wl_shm_format format);
+int shm_pool_init(struct shm_pool *pool, struct wl_shm *shm, size_t size, enum wl_shm_format format);
 
 /** allocated a peice of buffer
  *
@@ -154,7 +154,7 @@ void *shm_pool_buffer_access(struct wl_buffer *wl_buffer);
 
 size_t shm_pool_buffer_size(struct wl_buffer *wl_buffer);
 
-void shm_pool_destroy(struct shm_pool *pool);
+void shm_pool_release(struct shm_pool *pool);
 
 #ifdef __cplusplus
 }

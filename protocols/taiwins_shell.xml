@@ -65,14 +65,17 @@
     <request name="set_launcher">
       <description summary="show the launcher surface in compositor"/>
       <arg name="surface" type="object" interface="wl_surface"/>
-
+      <arg name="exec_callback" type="new_id" interface="wl_callback"
+	   summary="callback for client to exec applications"/>
+      <arg name="exec_id" type="uint"/>
     </request>
 
     <request name="submit">
       <description summary="indicate the compositor to close the launcher surface">
 	The launcher should do the submit request before the fork-exec. This
 	make sure that compositor has enough up-to-dated configuration
-	buffer. This is the only time that compositor updates its knowledge
+	buffer, then it waits the wl_callback to actually exec the application.
+	This is the only time that compositor updates its knowledge
 	about configuration buffer to avoid the racing, you may still have
 	problem when one application launches from launcher, the other starts
 	somewhere else.
@@ -93,8 +96,6 @@
     </event>
 
     <!-- start-submit pair -->
-
-
     <enum name="conf">
       <entry name="stride" value="4"
 	     summary="given wl_surface has another role"/>

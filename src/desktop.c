@@ -194,10 +194,14 @@ _free_workspace(void *data)
 
 static void
 set_launcher(struct wl_client *client, struct wl_resource *resource,
-	     struct wl_resource *wl_surface)
+	     struct wl_resource *wl_surface,
+	     uint32_t exec_callback, uint32_t exec_id)
 {
 	struct launcher *lch = &onedesktop.launcher;
 	lch->surface = tw_surface_from_resource(wl_surface);
+	lch->callback = wl_resource_create(client, &wl_callback_interface, 1, exec_callback);
+	lch->n_execs = exec_id;
+
 	twshell_set_ui_surface(onedesktop.shell, lch->surface,
 			       tw_get_default_output(onedesktop.compositor),
 			       resource, NULL, 100, 100);
@@ -211,6 +215,8 @@ close_launcher(struct wl_client *client, struct wl_resource *resource,
 	struct launcher *lch = &onedesktop.launcher;
 	lch->decision_buffer = wl_shm_buffer_get(wl_buffer);
 	twshell_close_ui_surface(lch->surface);
+	wl_callback_send_done(lch->callback, lch->n_execs);
+	wl_resource_destroy(lch->callback);
 	//close the wl_surface from
 }
 
@@ -246,11 +252,11 @@ twdesktop_should_start_launcher(struct weston_keyboard *keyboard,
 {
 	fprintf(stderr, "I should see a launcher surface\n");
 	struct launcher *lch = data;
+
 	taiwins_launcher_send_start(lch->launcher,
 				    wl_fixed_from_int(200),
 				    wl_fixed_from_int(200),
 				    wl_fixed_from_int(1));
-
 }
 
 

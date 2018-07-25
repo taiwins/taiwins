@@ -31,18 +31,22 @@ struct desktop_launcher {
 	struct taiwins_launcher *interface;
 	struct wl_globals globals;
 	struct app_surface surface;
+	struct shm_pool pool;
 	struct wl_buffer *decision_buffer;
+
+	struct wl_callback *exec_cb;
+	uint32_t exec_id;
 
 	off_t cursor;
 	char chars[256];
 	bool quit;
+	//rendering data
 	//for nuklear
 	struct nk_egl_backend *bkend;
 	struct egl_env env;
 	//a good hack is that this text_edit is stateless, we don't need to
 	//store anything once submitted
 	struct nk_text_edit text_edit;
-	const char *previous_tab;
 };
 
 
@@ -104,16 +108,20 @@ draw_launcher(struct nk_context *ctx, float width, float height, void *data)
 		nk_textedit_text(&launcher->text_edit, previous_tab, strlen(previous_tab));
 		break;
 	case SUBMITTING:
+		fprintf(stderr, "%d ", edit_state);
 		memset(previous_tab, 0, sizeof(previous_tab));
 		edit_state = NORMAL;
 		nk_textedit_init_fixed(&launcher->text_edit, launcher->chars, 256);
 		//we should skip the the rendering here, how?
 		taiwins_launcher_submit(launcher->interface, launcher->decision_buffer);
+		nk_egl_clean_keyboard_state(ctx);
+		fprintf(stderr, "okay, submitted %d.\n", edit_state);
 		break;
 	case NORMAL:
 		memset(previous_tab, 0, sizeof(previous_tab));
 		break;
 	}
+	fprintf(stderr, "okay, here are the state %d\n", edit_state);
 }
 
 //fuck, I wish that I have c++
@@ -127,6 +135,24 @@ update_app_config(void *data,
 //we don't nothing here now
 }
 
+
+static void
+exec_application(void *data, struct wl_callback *wl_callback, uint32_t id)
+{
+	struct desktop_launcher *launcher = data;
+	if (id != launcher->exec_id) {
+		fprintf(stderr, "exec order not consistant, something wrong.");
+	} else {
+		//actually execute it
+	}
+	launcher->exec_id++;
+	wl_callback_destroy(wl_callback);
+}
+
+static const struct wl_callback_listener exec_listener = {
+	.done = exec_application,
+};
+
 static void
 start_launcher(void *data,
 	       struct taiwins_launcher *taiwins_launcher,
@@ -136,7 +162,10 @@ start_launcher(void *data,
 {
 	struct desktop_launcher *launcher = (struct desktop_launcher *)data;
 	//yeah, generally you will want a buffer from this
-	taiwins_launcher_set_launcher(launcher->interface, launcher->surface.wl_surface);
+	launcher->exec_cb = taiwins_launcher_set_launcher(launcher->interface, launcher->surface.wl_surface,
+							  launcher->exec_id);
+	wl_callback_add_listener(launcher->exec_cb, &exec_listener, launcher);
+
 	nk_egl_launch(launcher->bkend,
 		      wl_fixed_to_int(width),
 		      wl_fixed_to_int(height),
@@ -157,6 +186,13 @@ init_launcher(struct desktop_launcher *launcher)
 {
 	memset(launcher->chars, 0, sizeof(launcher->chars));
 	launcher->quit = false;
+	shm_pool_init(&launcher->pool, launcher->globals.shm,
+		      TAIWINS_LAUNCHER_CONF_NUM_DECISIONS * sizeof(struct taiwins_decision_key),
+		      launcher->globals.buffer_format);
+	launcher->decision_buffer = shm_pool_alloc_buffer(&launcher->pool,
+							  sizeof(struct taiwins_decision_key),
+							  TAIWINS_LAUNCHER_CONF_NUM_DECISIONS);
+
 	appsurface_init(&launcher->surface, NULL, APP_WIDGET,
 			launcher->globals.compositor, NULL);
 	egl_env_init(&launcher->env, launcher->globals.display);
@@ -172,6 +208,8 @@ release_launcher(struct desktop_launcher *launcher)
 	nk_textedit_free(&launcher->text_edit);
 	nk_egl_destroy_backend(launcher->bkend);
 	egl_env_end(&launcher->env);
+	shm_pool_release(&launcher->pool);
+
 	taiwins_launcher_destroy(launcher->interface);
 	wl_globals_release(&launcher->globals);
 

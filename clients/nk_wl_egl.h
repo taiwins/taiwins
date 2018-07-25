@@ -60,6 +60,9 @@ xkb_keysym_t nk_egl_get_keyinput(struct nk_context *ctx);
 #ifdef __DEBUG
 //this call back writes the framebuffer to a image file.
 enum nk_buttons nk_egl_get_btn(struct nk_context *ctx);
+//TODO this is a temporary solution, when surface view lost, our client still
+//have the last pressed key.
+void nk_egl_clean_keyboard_state(struct nk_context *ctx);
 
 void nk_egl_capture_framebuffer(struct nk_context *ctx, const char *path);
 #endif
