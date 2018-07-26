@@ -25,13 +25,12 @@
 #define MAX_ELEMENT_BUFFER 128 * 128
 
 //vao layout
-//I could probably use less memory
+//I could probably use more compat format, and we need float32_t
 struct nk_egl_vertex {
 	float position[2];
 	float uv[2];
 	float col[4];
 };
-
 
 //define the globals
 static const struct nk_draw_vertex_layout_element vertex_layout[] = {
@@ -52,11 +51,30 @@ static char *nk_ctx_buffer = NULL;
  * failed. If we are giving too much memory, it is then a certain waste. 16Mb is
  * the sweat spot that most widgets will fit */
 
-//I dont think we can really do this, you need to somehow implement the
-//wl_input_callbacks, and the implmentation is not here. So the solution must be
-//implementing the raw wayland callbacks...
+
+/**
+ * @brief nk_egl_backend
+ *
+ * nuklear EGL backend for wayland, this backend uses EGL and OpenGL 3.3 for
+ * rendering the widgets. The rendering loop is a bit different than typical
+ * window toolkit like GLFW/SDL.
+ *
+ * GFLW window toolkit traps everything in a loop. the loops blocks at the
+ * system events, then process the events(intput, time for updating
+ * normal), then uses the up-to-date information for rendering.
+ *
+ * In the our case, such loop doesn't exists(yet, we may add the loop support in
+ * the future to support FPS control, but it will not be here. GLFW can do more
+ * optimization, it can accumlate the events and do just one pass of rendering
+ * for multiple events).
+ *
+ * In our case, the events triggers a frame for the rendering(no rendering if
+ * there is no update). Then nuklear updates the context then OpenGL does the
+ * rendering.
+ */
 struct nk_egl_backend {
 	bool compiled;
+	void *user_data;
 	const struct egl_env *env;
 	struct app_surface *app_surface;
 	struct wl_surface *wl_surface;
@@ -74,8 +92,6 @@ struct nk_egl_backend {
 	//this texture is used for font and pictures though
 	GLint uniform_tex;
 	GLint uniform_proj;
-	//as we have the atlas font, we need to have the texture
-	//if we have the attrib here, we can actually define the vertex
 	//attribute inside
 	struct nk_context ctx;
 	//ctx has all the information, vertex info, we are not supposed to bake it
@@ -87,8 +103,9 @@ struct nk_egl_backend {
 	size_t width, height;
 	struct nk_vec2 fb_scale;
 	nk_egl_draw_func_t frame;
-	xkb_keysym_t ckey;
-	void *user_data;
+	nk_egl_postcall_t post_cb;
+	xkb_keysym_t ckey; //cleaned up every frame
+
 #ifdef __DEBUG
 	enum nk_buttons btn;
 #endif
@@ -352,6 +369,8 @@ nk_egl_render(struct nk_egl_backend *bkend)
 		offset += cmd->elem_count;
 	}
 	nk_clear(&bkend->ctx);
+
+
 	_nk_egl_draw_end(bkend);
 	eglSwapBuffers(bkend->env->egl_display, bkend->eglsurface);
 }
@@ -365,6 +384,12 @@ _nk_egl_new_frame(struct nk_egl_backend *bkend)
 		bkend->frame(&bkend->ctx, bkend->width, bkend->height, bkend->user_data);
 	} nk_end(&bkend->ctx);
 	nk_egl_render(bkend);
+	//call the post_cb if any
+	if (bkend->post_cb) {
+		bkend->post_cb(bkend->user_data);
+		bkend->post_cb = NULL;
+	}
+	bkend->ckey = XKB_KEY_NoSymbol;
 }
 
 
@@ -386,7 +411,8 @@ nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int s
 		nk_input_key(&bkend->ctx, NK_KEY_TEXT_UNDO, (keysym == XKB_KEY_slash) && state);
 		//we should also support the clipboard later
 //		nk_input_key(&bkend->ctx, NK_KEY_COPY, )
-	} else if (modifier & TW_ALT) {
+	}
+	else if (modifier & TW_ALT) {
 		nk_input_key(&bkend->ctx, NK_KEY_TEXT_WORD_LEFT, (keysym == XKB_KEY_b) && state);
 		nk_input_key(&bkend->ctx, NK_KEY_TEXT_WORD_RIGHT, (keysym == XKB_KEY_f) && state);
 	}
@@ -414,6 +440,7 @@ nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int s
 	else
 		bkend->ckey = XKB_KEY_NoSymbol;
 	nk_input_end(&bkend->ctx);
+	//we can actually just trigger the rendering if we have a symbol.
 	_nk_egl_new_frame(bkend);
 }
 
@@ -527,6 +554,14 @@ nk_egl_get_keyinput(struct nk_context *ctx)
 	return bkend->ckey;
 }
 
+void
+nk_egl_add_idle(struct nk_context *ctx,
+		void (*task)(void *user_data))
+{
+	struct nk_egl_backend *bkend = container_of(ctx, struct nk_egl_backend, ctx);
+	bkend->post_cb = task;
+}
+
 
 #ifdef __DEBUG
 
@@ -535,14 +570,6 @@ nk_egl_get_btn(struct nk_context *ctx)
 {
 	struct nk_egl_backend *bkend = container_of(ctx, struct nk_egl_backend, ctx);
 	return bkend->btn;
-
-}
-
-void
-nk_egl_clean_keyboard_state(struct nk_context *ctx)
-{
-	struct nk_egl_backend *bkend = container_of(ctx, struct nk_egl_backend, ctx);
-	bkend->ckey = XKB_KEY_NoSymbol;
 }
 
 

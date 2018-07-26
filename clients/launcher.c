@@ -114,7 +114,6 @@ draw_launcher(struct nk_context *ctx, float width, float height, void *data)
 		nk_textedit_init_fixed(&launcher->text_edit, launcher->chars, 256);
 		//we should skip the the rendering here, how?
 		taiwins_launcher_submit(launcher->interface, launcher->decision_buffer);
-		nk_egl_clean_keyboard_state(ctx);
 		fprintf(stderr, "okay, submitted %d.\n", edit_state);
 		break;
 	case NORMAL:
