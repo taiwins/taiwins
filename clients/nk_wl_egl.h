@@ -45,6 +45,7 @@ bool egl_env_init(struct egl_env *env, struct wl_display *disp);
 void egl_env_end(struct egl_env *env);
 
 typedef void (*nk_egl_draw_func_t)(struct nk_context *ctx, float width, float height, void *data);
+typedef void (*nk_egl_postcall_t)(void *userdata);
 
 //TODO: change wl_surface to appsurface or maintain the appsurface inside nk_egl_backend
 struct nk_egl_backend *nk_egl_create_backend(const struct egl_env *env, struct wl_surface *attach_to);
@@ -52,6 +53,11 @@ void nk_egl_launch(struct nk_egl_backend *bkend,
 		   int width, int height, float scale,
 		   nk_egl_draw_func_t draw_func, void *data);
 void nk_egl_destroy_backend(struct nk_egl_backend *bkend);
+//tell the nk_egl_backend to run a specific task after the the rendering,
+//provides also an option to clean up the state as well, it get's cleaned after evaluated.
+void nk_egl_add_idle(struct nk_context *ctx,
+		     void (*task)(void *user_data));
+
 
 //yeah, we can do in this way, but we can also
 xkb_keysym_t nk_egl_get_keyinput(struct nk_context *ctx);
@@ -60,9 +66,6 @@ xkb_keysym_t nk_egl_get_keyinput(struct nk_context *ctx);
 #ifdef __DEBUG
 //this call back writes the framebuffer to a image file.
 enum nk_buttons nk_egl_get_btn(struct nk_context *ctx);
-//TODO this is a temporary solution, when surface view lost, our client still
-//have the last pressed key.
-void nk_egl_clean_keyboard_state(struct nk_context *ctx);
 
 void nk_egl_capture_framebuffer(struct nk_context *ctx, const char *path);
 #endif
