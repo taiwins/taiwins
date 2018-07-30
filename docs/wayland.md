@@ -31,5 +31,3 @@
 	socket is created when the first client created(if you look into the
 	`wl_client_create` code)). Since you are forced to give a `fd`, the only way
 	is providing a `socketpair`.
-
-## call `wayland_socket_create_auto`
