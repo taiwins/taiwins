@@ -3,7 +3,6 @@
   - cursor, keyboard are fully function.
   - be able to launch and close applications.
 
-
 ** [66%] fully nuklear backend (utilizing app-surface and)
      - ~nk_input_key~ and ~nk_input_unicode~ carries the text input. But the
        input box details is unknown.
@@ -69,3 +68,22 @@
     - possible solution :: maybe we can use epoll on wl_display, and add it to
 	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
 	 need another thread for that anymore.
+
+
+* Bugs
+** a completion based text_edit
+   - ~nk_egl_get_key~ gets NoSymbol very 2 frames, so if you press Tab twice,
+     what you get is Tab -> NoSymbol -> Tab -> NoSymbol. NoSymbol resets the
+     state.
+   - solution :: return on NoSymbol
+
+** HARD!! compositor doesn't emit the ~done~ event for clients.
+   - ~frame_callback~ was created in ~surface_state~, moved to ~surface~ at
+     commit, emit ~done~ at repaint. And repaint only works if you have a view
+     in the compositor. ~weston_view_unmap~ removes the view from compositor. In
+     this case, the ~frame_callback~ stayed in the surface.
+   - solution :: either find a way that only destroy the ~view~ after repaint(I
+		 do not have a solution for this now), or do not destroy the
+		 view, only unmap it. Remap the view to the compositor before
+		 allow client to draw again, this should work for all the UI
+		 surface.
