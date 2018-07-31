@@ -70,6 +70,13 @@ auto_complete(struct desktop_launcher *launcher)
 	return tmp_tab_chars[i++ % 5];
 }
 
+static void
+submit_launcher(void *data)
+{
+	struct desktop_launcher *launcher = data;
+	taiwins_launcher_submit(launcher->interface, launcher->decision_buffer);
+}
+
 
 /**
  * @brief a more serious launcher implementation
@@ -112,8 +119,8 @@ draw_launcher(struct nk_context *ctx, float width, float height, void *data)
 		memset(previous_tab, 0, sizeof(previous_tab));
 		edit_state = NORMAL;
 		nk_textedit_init_fixed(&launcher->text_edit, launcher->chars, 256);
+		nk_egl_add_idle(ctx, submit_launcher);
 		//we should skip the the rendering here, how?
-		taiwins_launcher_submit(launcher->interface, launcher->decision_buffer);
 		fprintf(stderr, "okay, submitted %d.\n", edit_state);
 		break;
 	case NORMAL:

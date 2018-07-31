@@ -32,6 +32,7 @@
 *** TODO fork-exec                                                   :client:
 *** TODO place the laucher at the right spot                         :server:
 *** TODO client search buffer                                         :proto:
+*** DOIN change the ui element start or close implimentation
 ** [0%] libweston-desktop implementation                             :server:
 *** DONE desktop layer architecture
 *** TODO simple random floating implementation
