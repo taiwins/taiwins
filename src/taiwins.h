@@ -44,8 +44,10 @@ tw_surface_from_resource(struct wl_resource *wl_surface)
 static inline struct weston_view *
 tw_default_view_from_surface(struct weston_surface *surface)
 {
-	return (struct weston_view *)
-		container_of(surface->views.next, struct weston_view, surface_link);
+	//return NULL if no view is
+	return (surface->views.next != &surface->views) ?
+		container_of(surface->views.next, struct weston_view, surface_link) :
+		NULL;
 }
 
 static inline struct weston_view *
