@@ -38,6 +38,7 @@ struct view_pos_info {
 void view_pos_destroy(struct wl_listener *listener, void *data)
 {
 	//we have to do with that since the data is weston_view
+	wl_list_remove(&listener->link);
 	free(container_of(listener, struct view_pos_info, destroy_listener));
 }
 
@@ -100,6 +101,12 @@ commit_background(struct weston_surface *surface, int sx, int sy)
 	setup_view(view, &shell->ui_layer, pos_info->x, pos_info->y, twshell_view_UNIQUE);
 }
 
+static struct view_pos_info *
+ret_view_pos_info(struct weston_view *view)
+{
+	struct wl_listener *l = wl_signal_get(&view->destroy_signal, view_pos_destroy);
+	return container_of(l, struct view_pos_info, destroy_listener);
+}
 
 static bool
 set_surface(struct twshell *shell,
@@ -108,27 +115,36 @@ set_surface(struct twshell *shell,
 	    void (*committed)(struct weston_surface *, int32_t, int32_t),
 	    int32_t x, int32_t y)
 {
-	struct weston_view *view, *next;
+	struct weston_view *view;
+	struct view_pos_info *pos_info;
 
+	//remember to reset the weston_surface's commit and commit_private
 	if (surface->committed) {
 		wl_resource_post_error(wl_resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
 				       "surface already have a role");
 		return false;
 	}
-	wl_list_for_each_safe(view, next, &surface->views, surface_link) {
-		weston_view_destroy(view);
+	if ( !(view = tw_default_view_from_surface(surface)) ) {
+		view = weston_view_create(surface);
+		pos_info = malloc(sizeof(struct view_pos_info));
+		pos_info->x = x;
+		pos_info->y = y;
+		pos_info->shell = shell;
+		wl_list_init(&pos_info->destroy_listener.link);
+		pos_info->destroy_listener.notify = view_pos_destroy;
+		wl_signal_add(&view->destroy_signal, &pos_info->destroy_listener);
+	} else {
+		pos_info = ret_view_pos_info(view);
 	}
-	view = weston_view_create(surface);
+	//it has only one view, so we need to find one
+
+	/* wl_list_for_each_safe(view, next, &surface->views, surface_link) { */
+	/*	weston_view_destroy(view); */
+	/* } */
+//	view = weston_view_create(surface);
 	//temporary code, change to slot alloctor instead
-	struct view_pos_info *pos_info = malloc(sizeof(struct view_pos_info));
-	pos_info->x = x;
-	pos_info->y = y;
-	pos_info->shell = shell;
-	wl_list_init(&pos_info->destroy_listener.link);
-	pos_info->destroy_listener.notify = view_pos_destroy;
 	surface->committed = committed;
 	surface->committed_private = pos_info;
-	wl_signal_add(&view->destroy_signal, &pos_info->destroy_listener);
 	surface->output = output;
 	view->output = output;
 	return true;
@@ -317,7 +333,7 @@ bind_twshell(struct wl_client *client, void *data, uint32_t version, uint32_t id
 /**
  * @brief make the ui surface appear
  *
- * using the UI_LAYER for for seting up the the view
+ * using the UI_LAYER for for seting up the the view, why do we need the
  */
 bool
 twshell_set_ui_surface(struct twshell *shell, struct weston_surface *surface, struct weston_output *output,
@@ -346,10 +362,11 @@ twshell_close_ui_surface(struct weston_surface *wd_surface)
 {
 	struct weston_view *view, *next;
 	wd_surface->committed = NULL;
-	wl_list_for_each_safe(view, next, &wd_surface->views, surface_link)
-		weston_view_destroy(view);
 	//make it here so we call the free first
 	wd_surface->committed_private = NULL;
+	//unmap but don't destroy it.
+	wl_list_for_each_safe(view, next, &wd_surface->views, surface_link)
+		weston_view_unmap(view);
 }
 
 
