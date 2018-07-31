@@ -207,6 +207,11 @@ set_launcher(struct wl_client *client, struct wl_resource *resource,
 			       resource, NULL, 100, 100);
 }
 
+struct weston_frame_callback {
+	struct wl_resource *resource;
+	struct wl_list link;
+};
+
 
 static void
 close_launcher(struct wl_client *client, struct wl_resource *resource,
@@ -214,6 +219,12 @@ close_launcher(struct wl_client *client, struct wl_resource *resource,
 {
 	struct launcher *lch = &onedesktop.launcher;
 	lch->decision_buffer = wl_shm_buffer_get(wl_buffer);
+	struct weston_frame_callback *cb =  container_of(lch->surface->frame_callback_list.next,
+							 struct weston_frame_callback, link);
+	wl_callback_send_done(cb->resource, 0);
+	wl_resource_destroy(cb->resource);
+	wl_list_init(&lch->surface->frame_callback_list);
+
 	twshell_close_ui_surface(lch->surface);
 	wl_callback_send_done(lch->callback, lch->n_execs);
 	wl_resource_destroy(lch->callback);
