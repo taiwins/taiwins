@@ -33,7 +33,6 @@ void add_shell_bindings(struct weston_compositor *ec);
 bool twshell_set_ui_surface(struct twshell *shell,
 			    struct weston_surface *surface, struct weston_output *output,
 			    struct wl_resource *wl_resource,
-			    struct wl_listener *surface_destroy_listener,
 			    int32_t x, int32_t y);
 
 void twshell_close_ui_surface(struct weston_surface *surface);

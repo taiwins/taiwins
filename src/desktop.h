@@ -23,16 +23,6 @@ struct taiwins_decision_key {
 	int  scale;
 } __attribute__ ((aligned (DECISION_STRIDE)));
 
-//we have to make either taiwins_shell and launcher a api to the other
-struct launcher {
-	struct wl_shm_buffer *decision_buffer;
-	struct weston_surface *surface;
-	struct wl_resource *launcher;
-	struct wl_listener destroy_listener;
-	struct wl_listener close_listener;
-	struct wl_resource *callback;
-	unsigned int n_execs;
-};
 
 struct twdesktop;
 

@@ -9,18 +9,34 @@
 
 
 #include "taiwins.h"
-#include "desktop.h"\
-
+#include "desktop.h"
 
 struct workspace;
+
+
+/**
+ * this struct handles the request and sends the event from
+ * taiwins_launcher.
+ */
+struct launcher {
+	struct wl_shm_buffer *decision_buffer;
+	struct weston_surface *surface;
+	struct wl_resource *resource;
+	struct wl_listener close_listener;
+	struct wl_resource *callback;
+	unsigned int exec_id;
+};
+
 struct twdesktop {
+	struct weston_compositor *compositor;
 	struct twshell *shell;
-	/* interface with the client */
+	//taiwins_launcher
 	struct launcher launcher;
 	/* managing current status */
 	struct workspace *actived_workspace[2];
+	//we may need a hidden layer
 	vector_t workspaces;
-	struct weston_compositor *compositor;
+
 	struct weston_desktop *api;
 
 	struct wl_listener destroy_listener;
@@ -152,11 +168,9 @@ twdesk_surface_removed(struct weston_desktop_surface *surface,
 {
 	struct weston_surface *wt_surface = weston_desktop_surface_get_surface(surface);
 	weston_surface_unmap(wt_surface);
-//	struct weston_view *v, *next;
-//	weston_surface_destroy(wt_surface);
-//	weston_desktop_surface_
 }
 
+/*
 static void
 twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
 			 int32_t sx, int32_t sy, void *data)
@@ -167,6 +181,7 @@ twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
 	weston_view_schedule_repaint(view);
 
 }
+*/
 
 //doesn't seems to work!!!
 static struct weston_desktop_api desktop_impl =  {
@@ -200,13 +215,20 @@ set_launcher(struct wl_client *client, struct wl_resource *resource,
 	struct launcher *lch = &onedesktop.launcher;
 	lch->surface = tw_surface_from_resource(wl_surface);
 	lch->callback = wl_resource_create(client, &wl_callback_interface, 1, exec_callback);
-	lch->n_execs = exec_id;
+	lch->exec_id = exec_id;
 
 	twshell_set_ui_surface(onedesktop.shell, lch->surface,
 			       tw_get_default_output(onedesktop.compositor),
-			       resource, NULL, 100, 100);
+			       resource, 100, 100);
 }
 
+static void
+close_launcher_notify(struct wl_listener *listener, void *data)
+{
+	struct launcher *lch = container_of(listener, struct launcher, close_listener);
+	twshell_close_ui_surface(lch->surface);
+	wl_list_remove(&lch->close_listener.link);
+}
 
 
 static void
@@ -218,16 +240,8 @@ close_launcher(struct wl_client *client, struct wl_resource *resource,
 	struct weston_output *output = lch->surface->output;
 	wl_signal_add(&output->frame_signal, &lch->close_listener);
 
-	/* struct weston_frame_callback *cb =  container_of(lch->surface->frame_callback_list.next, */
-	/*						 struct weston_frame_callback, link); */
-	/* wl_callback_send_done(cb->resource, 0); */
-	/* wl_resource_destroy(cb->resource); */
-	/* wl_list_init(&lch->surface->frame_callback_list); */
-
-
-	wl_callback_send_done(lch->callback, lch->n_execs);
+	wl_callback_send_done(lch->callback, lch->exec_id);
 	wl_resource_destroy(lch->callback);
-	//close the wl_surface from
 }
 
 
@@ -243,24 +257,16 @@ unbind_desktop(struct wl_resource *r)
 	//we should do our clean up here
 }
 
-void close_launcher_notify(struct wl_listener *listener, void *data)
-{
-	struct launcher *lch = container_of(listener, struct launcher, close_listener);
-	twshell_close_ui_surface(lch->surface);
-	wl_list_remove(&lch->close_listener.link);
-}
-
 
 static void
 bind_desktop(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
 	/* int pid, uid, gid; */
 	/* wl_client_get_credentials(client, &pid, &uid, &gid); */
-	struct wl_resource *resource = wl_resource_create(client, &taiwins_launcher_interface,
+	struct wl_resource *wl_resource = wl_resource_create(client, &taiwins_launcher_interface,
 							  TWDESKP_VERSION, id);
-	//TODO tmp code
-	onedesktop.launcher.launcher = resource;
-	wl_resource_set_implementation(resource, &launcher_impl, data, unbind_desktop);
+	onedesktop.launcher.resource = wl_resource;
+	wl_resource_set_implementation(wl_resource, &launcher_impl, data, unbind_desktop);
 	wl_list_init(&onedesktop.launcher.close_listener.link);
 	onedesktop.launcher.close_listener.notify = close_launcher_notify;
 }
@@ -270,10 +276,10 @@ twdesktop_should_start_launcher(struct weston_keyboard *keyboard,
 				const struct timespec *time, uint32_t key,
 				void *data)
 {
-	fprintf(stderr, "I should see a launcher surface\n");
+//	fprintf(stderr, "I should see a launcher surface\n");
 	struct launcher *lch = data;
 
-	taiwins_launcher_send_start(lch->launcher,
+	taiwins_launcher_send_start(lch->resource,
 				    wl_fixed_from_int(200),
 				    wl_fixed_from_int(200),
 				    wl_fixed_from_int(1));

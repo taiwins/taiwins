@@ -154,22 +154,6 @@ commit_ui_surface(struct weston_surface *surface, int sx, int sy)
 	setup_view(view, &shell->ui_layer, pos_info->x, pos_info->y, twshell_view_STATIC);
 }
 
-static void
-commit_dui_surface(struct weston_surface *surface, int sx, int sy)
-{
-	//the sx and sy are from attach or attach_buffer attach sets pending
-	//state, when commit request triggered, pending state calls
-	//weston_surface_state_commit to use the sx, and sy in here
-	//the confusion is that we cannot use sx and sy directly almost all the time.
-	struct view_pos_info *pos_info = surface->committed_private;
-	struct twshell *shell = pos_info->shell;
-	//get the first view, as ui element has only one view
-	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
-	//it is not true for both
-	setup_view(view, &shell->ui_layer, pos_info->x, pos_info->y, twshell_view_STATIC);
-}
-
-
 
 
 static void
@@ -321,17 +305,12 @@ bind_twshell(struct wl_client *client, void *data, uint32_t version, uint32_t id
  * using the UI_LAYER for for seting up the the view, why do we need the
  */
 bool
-twshell_set_ui_surface(struct twshell *shell, struct weston_surface *surface, struct weston_output *output,
+twshell_set_ui_surface(struct twshell *shell, struct weston_surface *surface,
+		       struct weston_output *output,
 		       struct wl_resource *wl_resource,
-		       struct wl_listener *surface_destroy_listener,
 		       int32_t x, int32_t y)
 {
-	//TODO destroy signal, I am not sure how the wl_surface's destroy signal is called.
-	//clearly the weston_desktop_surface destroy signal is
-	if (surface_destroy_listener) {
-		wl_signal_add(&surface->destroy_signal, surface_destroy_listener);
-	}
-	bool ret = set_surface(shell, surface, output, wl_resource, commit_dui_surface, x, y);
+	bool ret = set_surface(shell, surface, output, wl_resource, commit_ui_surface, x, y);
 	if (ret) {
 		struct weston_seat *seat0 = tw_get_default_seat(oneshell.ec);
 		struct weston_view *view = tw_default_view_from_surface(surface);

@@ -6,10 +6,10 @@
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
-#include <cairo/cairo.h>
 
 #include <wayland-client.h>
 #include <wayland-taiwins-shell-client-protocol.h>
+#include <os/exec.h>
 #include "client.h"
 #include "ui.h"
 #include "nk_wl_egl.h"
@@ -25,6 +25,8 @@ struct taiwins_decision_key {
 	bool floating;
 	int  scale;
 } __attribute__ ((aligned (DECISION_STRIDE)));
+
+
 
 
 struct desktop_launcher {
@@ -47,6 +49,27 @@ struct desktop_launcher {
 	//a good hack is that this text_edit is stateless, we don't need to
 	//store anything once submitted
 	struct nk_text_edit text_edit;
+};
+
+
+static void
+exec_application(void *data, struct wl_callback *wl_callback, uint32_t id)
+{
+	const char *forks[] = {"weston-terminal"};
+	struct desktop_launcher *launcher = data;
+	if (id != launcher->exec_id) {
+		fprintf(stderr, "exec order not consistant, something wrong.");
+	} else {
+		fprintf(stderr, "creating weston terminal");
+		//parsing the input and command buffer. Then do it
+		fork_exec(1, forks);
+	}
+	launcher->exec_id++;
+	wl_callback_destroy(wl_callback);
+}
+
+static const struct wl_callback_listener exec_listener = {
+	.done = exec_application,
 };
 
 
@@ -75,6 +98,7 @@ submit_launcher(void *data)
 {
 	struct desktop_launcher *launcher = data;
 	taiwins_launcher_submit(launcher->interface, launcher->decision_buffer);
+	nk_textedit_init_fixed(&launcher->text_edit, launcher->chars, 256);
 }
 
 
@@ -84,7 +108,7 @@ submit_launcher(void *data)
 static void
 draw_launcher(struct nk_context *ctx, float width, float height, void *data)
 {
-	//uses a state machine
+	//TODO change the state machine
 	enum EDITSTATE {NORMAL, COMPLETING, SUBMITTING};
 	static enum EDITSTATE edit_state = NORMAL;
 	static char previous_tab[256] = {0};
@@ -115,19 +139,14 @@ draw_launcher(struct nk_context *ctx, float width, float height, void *data)
 		nk_textedit_text(&launcher->text_edit, previous_tab, strlen(previous_tab));
 		break;
 	case SUBMITTING:
-		fprintf(stderr, "%d ", edit_state);
 		memset(previous_tab, 0, sizeof(previous_tab));
 		edit_state = NORMAL;
-		nk_textedit_init_fixed(&launcher->text_edit, launcher->chars, 256);
 		nk_egl_add_idle(ctx, submit_launcher);
-		//we should skip the the rendering here, how?
-		fprintf(stderr, "okay, submitted %d.\n", edit_state);
 		break;
 	case NORMAL:
 		memset(previous_tab, 0, sizeof(previous_tab));
 		break;
 	}
-	fprintf(stderr, "okay, here are the state %d\n", edit_state);
 }
 
 //fuck, I wish that I have c++
@@ -142,22 +161,6 @@ update_app_config(void *data,
 }
 
 
-static void
-exec_application(void *data, struct wl_callback *wl_callback, uint32_t id)
-{
-	struct desktop_launcher *launcher = data;
-	if (id != launcher->exec_id) {
-		fprintf(stderr, "exec order not consistant, something wrong.");
-	} else {
-		//actually execute it
-	}
-	launcher->exec_id++;
-	wl_callback_destroy(wl_callback);
-}
-
-static const struct wl_callback_listener exec_listener = {
-	.done = exec_application,
-};
 
 static void
 start_launcher(void *data,
@@ -220,9 +223,6 @@ release_launcher(struct desktop_launcher *launcher)
 	wl_globals_release(&launcher->globals);
 
 	launcher->quit = true;
-#ifdef __DEBUG
-	cairo_debug_reset_static_data();
-#endif
 }
 
 
