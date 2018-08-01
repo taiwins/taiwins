@@ -19,6 +19,8 @@ struct workspace;
  * taiwins_launcher.
  */
 struct launcher {
+	struct weston_compositor *compositor;
+	struct twshell *shell;
 	struct wl_shm_buffer *decision_buffer;
 	struct weston_surface *surface;
 	struct wl_resource *resource;
@@ -29,7 +31,6 @@ struct launcher {
 
 struct twdesktop {
 	struct weston_compositor *compositor;
-	struct twshell *shell;
 	//taiwins_launcher
 	struct launcher launcher;
 	/* managing current status */
@@ -137,6 +138,7 @@ static void
 twdesk_surface_added(struct weston_desktop_surface *surface,
 	      void *user_data)
 {
+	fprintf(stderr, "new surface added\n");
 	struct weston_surface *wt_surface = weston_desktop_surface_get_surface(surface);
 	struct workspace *wsp = onedesktop.actived_workspace[0];
 	struct weston_view *wt_view = weston_desktop_surface_create_view(surface);
@@ -212,13 +214,13 @@ set_launcher(struct wl_client *client, struct wl_resource *resource,
 	     struct wl_resource *wl_surface,
 	     uint32_t exec_callback, uint32_t exec_id)
 {
-	struct launcher *lch = &onedesktop.launcher;
+	struct launcher *lch = wl_resource_get_user_data(resource);
 	lch->surface = tw_surface_from_resource(wl_surface);
 	lch->callback = wl_resource_create(client, &wl_callback_interface, 1, exec_callback);
 	lch->exec_id = exec_id;
 
-	twshell_set_ui_surface(onedesktop.shell, lch->surface,
-			       tw_get_default_output(onedesktop.compositor),
+	twshell_set_ui_surface(lch->shell, lch->surface,
+			       tw_get_default_output(lch->compositor),
 			       resource, 100, 100);
 }
 
@@ -235,7 +237,7 @@ static void
 close_launcher(struct wl_client *client, struct wl_resource *resource,
 	       struct wl_resource *wl_buffer)
 {
-	struct launcher *lch = &onedesktop.launcher;
+	struct launcher *lch = (struct launcher *)wl_resource_get_user_data(resource);
 	lch->decision_buffer = wl_shm_buffer_get(wl_buffer);
 	struct weston_output *output = lch->surface->output;
 	wl_signal_add(&output->frame_signal, &lch->close_listener);
@@ -263,12 +265,14 @@ bind_desktop(struct wl_client *client, void *data, uint32_t version, uint32_t id
 {
 	/* int pid, uid, gid; */
 	/* wl_client_get_credentials(client, &pid, &uid, &gid); */
+	struct twdesktop *desktop  = data;
 	struct wl_resource *wl_resource = wl_resource_create(client, &taiwins_launcher_interface,
 							  TWDESKP_VERSION, id);
-	onedesktop.launcher.resource = wl_resource;
-	wl_resource_set_implementation(wl_resource, &launcher_impl, data, unbind_desktop);
-	wl_list_init(&onedesktop.launcher.close_listener.link);
-	onedesktop.launcher.close_listener.notify = close_launcher_notify;
+	desktop->launcher.resource = wl_resource;
+	wl_resource_set_implementation(wl_resource, &launcher_impl, &desktop->launcher, unbind_desktop);
+
+	wl_list_init(&desktop->launcher.close_listener.link);
+	desktop->launcher.close_listener.notify = close_launcher_notify;
 }
 
 static void
@@ -276,9 +280,7 @@ twdesktop_should_start_launcher(struct weston_keyboard *keyboard,
 				const struct timespec *time, uint32_t key,
 				void *data)
 {
-//	fprintf(stderr, "I should see a launcher surface\n");
 	struct launcher *lch = data;
-
 	taiwins_launcher_send_start(lch->resource,
 				    wl_fixed_from_int(200),
 				    wl_fixed_from_int(200),
@@ -291,7 +293,8 @@ announce_desktop(struct weston_compositor *ec, struct twshell *shell)
 {
 	//initialize the desktop
 	onedesktop.compositor = ec;
-	onedesktop.shell = shell;
+	onedesktop.launcher.shell = shell;
+	onedesktop.launcher.compositor = ec;
 	vector_t *workspaces = &onedesktop.workspaces;
 	vector_init(workspaces, sizeof(struct workspace), _free_workspace);
 	//then afterwards, you don't spend time allocating workspace anymore
@@ -303,13 +306,9 @@ announce_desktop(struct weston_compositor *ec, struct twshell *shell)
 	onedesktop.actived_workspace[1] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
 	switch_workspace(&onedesktop, onedesktop.actived_workspace[0]);
 	weston_compositor_add_key_binding(ec, KEY_P, 0, twdesktop_should_start_launcher, &onedesktop.launcher);
+	//creating desktop
+	onedesktop.api = weston_desktop_create(ec, &desktop_impl, &onedesktop);
 
-	//add keybindings to spawn the
-//	weston_compositor_add_key_binding(ec, KEY_ENTER, MODIFIER_ALT, spawn_weston_terminal, NULL);
-//	weston_compositor_add_button_binding(ec, BTN_LEFT, 0, focus_the_view, NULL);
-	onedesktop.api = weston_desktop_create(ec, &desktop_impl, NULL);
-
-	//as we have
 	wl_global_create(ec->wl_display, &taiwins_launcher_interface, TWDESKP_VERSION, &onedesktop, bind_desktop);
 	return &onedesktop;
 }
