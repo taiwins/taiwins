@@ -207,10 +207,6 @@ set_launcher(struct wl_client *client, struct wl_resource *resource,
 			       resource, NULL, 100, 100);
 }
 
-struct weston_frame_callback {
-	struct wl_resource *resource;
-	struct wl_list link;
-};
 
 
 static void
@@ -219,13 +215,16 @@ close_launcher(struct wl_client *client, struct wl_resource *resource,
 {
 	struct launcher *lch = &onedesktop.launcher;
 	lch->decision_buffer = wl_shm_buffer_get(wl_buffer);
-	struct weston_frame_callback *cb =  container_of(lch->surface->frame_callback_list.next,
-							 struct weston_frame_callback, link);
-	wl_callback_send_done(cb->resource, 0);
-	wl_resource_destroy(cb->resource);
-	wl_list_init(&lch->surface->frame_callback_list);
+	struct weston_output *output = lch->surface->output;
+	wl_signal_add(&output->frame_signal, &lch->close_listener);
 
-	twshell_close_ui_surface(lch->surface);
+	/* struct weston_frame_callback *cb =  container_of(lch->surface->frame_callback_list.next, */
+	/*						 struct weston_frame_callback, link); */
+	/* wl_callback_send_done(cb->resource, 0); */
+	/* wl_resource_destroy(cb->resource); */
+	/* wl_list_init(&lch->surface->frame_callback_list); */
+
+
 	wl_callback_send_done(lch->callback, lch->n_execs);
 	wl_resource_destroy(lch->callback);
 	//close the wl_surface from
@@ -244,6 +243,14 @@ unbind_desktop(struct wl_resource *r)
 	//we should do our clean up here
 }
 
+void close_launcher_notify(struct wl_listener *listener, void *data)
+{
+	struct launcher *lch = container_of(listener, struct launcher, close_listener);
+	twshell_close_ui_surface(lch->surface);
+	wl_list_remove(&lch->close_listener.link);
+}
+
+
 static void
 bind_desktop(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
@@ -254,6 +261,8 @@ bind_desktop(struct wl_client *client, void *data, uint32_t version, uint32_t id
 	//TODO tmp code
 	onedesktop.launcher.launcher = resource;
 	wl_resource_set_implementation(resource, &launcher_impl, data, unbind_desktop);
+	wl_list_init(&onedesktop.launcher.close_listener.link);
+	onedesktop.launcher.close_listener.notify = close_launcher_notify;
 }
 
 static void
