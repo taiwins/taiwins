@@ -18,6 +18,15 @@
 	- `weston_surface` is the `wl_resource` of `wl_surface`
 	- `weston_output` is the `wl_resource` of the `wl_output`.
 
+# weston_output_repaint_loop and discovered problem.
+	The surface has to follow the `frame->attach->damage->commit->done` loop!
+	If done happen after next commit, the client will having trouble waiting the
+	done event for the corresponding frame, it lags the rendering.
+## if you want to unmap the view
+	It is okay if all the operation is transparent to client. The compositor
+	suddenly unmap the view and remap the view, clients just get paused, nothing
+	wrong happens.
+
 # wayland-server implementations
 ## event-loop
 	`event_loop` is like what I have in the `client.c`, it is almost implemented
