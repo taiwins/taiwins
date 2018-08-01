@@ -83,8 +83,15 @@
      commit, emit ~done~ at repaint. And repaint only works if you have a view
      in the compositor. ~weston_view_unmap~ removes the view from compositor. In
      this case, the ~frame_callback~ stayed in the surface.
-   - solution :: either find a way that only destroy the ~view~ after repaint(I
-		 do not have a solution for this now), or do not destroy the
-		 view, only unmap it. Remap the view to the compositor before
-		 allow client to draw again, this should work for all the UI
-		 surface.
+*** failed solution:
+    - unmap the view :: unmap the view removes view immediately out of any of
+			~layer_list~, compositor's ~view_list~. So the frame
+			~done~ would never get called.
+    - do not commit in client :: cannot guarantee no commits after then submit request.
+
+    - solution :: either find a way that only destroy the ~view~ after repaint(I
+		  do not have a solution for this now), or do not destroy the
+		  view, only unmap it. Remap the view to the compositor before
+		  allow client to draw again, this should work for all the UI
+		  surface.
+    - solution :: use an another /hiden/ layer
