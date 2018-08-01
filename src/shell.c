@@ -101,12 +101,6 @@ commit_background(struct weston_surface *surface, int sx, int sy)
 	setup_view(view, &shell->ui_layer, pos_info->x, pos_info->y, twshell_view_UNIQUE);
 }
 
-static struct view_pos_info *
-ret_view_pos_info(struct weston_view *view)
-{
-	struct wl_listener *l = wl_signal_get(&view->destroy_signal, view_pos_destroy);
-	return container_of(l, struct view_pos_info, destroy_listener);
-}
 
 static bool
 set_surface(struct twshell *shell,
@@ -115,7 +109,7 @@ set_surface(struct twshell *shell,
 	    void (*committed)(struct weston_surface *, int32_t, int32_t),
 	    int32_t x, int32_t y)
 {
-	struct weston_view *view;
+	struct weston_view *view, *next;
 	struct view_pos_info *pos_info;
 
 	//remember to reset the weston_surface's commit and commit_private
@@ -124,32 +118,23 @@ set_surface(struct twshell *shell,
 				       "surface already have a role");
 		return false;
 	}
-	if ( !(view = tw_default_view_from_surface(surface)) ) {
-		view = weston_view_create(surface);
-		pos_info = malloc(sizeof(struct view_pos_info));
-		pos_info->x = x;
-		pos_info->y = y;
-		pos_info->shell = shell;
-		wl_list_init(&pos_info->destroy_listener.link);
-		pos_info->destroy_listener.notify = view_pos_destroy;
-		wl_signal_add(&view->destroy_signal, &pos_info->destroy_listener);
-	} else {
-		pos_info = ret_view_pos_info(view);
-	}
-	//it has only one view, so we need to find one
+	wl_list_for_each_safe(view, next, &surface->views, surface_link)
+		weston_view_destroy(view);
 
-	/* wl_list_for_each_safe(view, next, &surface->views, surface_link) { */
-	/*	weston_view_destroy(view); */
-	/* } */
-//	view = weston_view_create(surface);
-	//temporary code, change to slot alloctor instead
+	view = weston_view_create(surface);
+	pos_info = malloc(sizeof(struct view_pos_info));
+	pos_info->x = x;
+	pos_info->y = y;
+	pos_info->shell = shell;
+	wl_list_init(&pos_info->destroy_listener.link);
+	pos_info->destroy_listener.notify = view_pos_destroy;
+	wl_signal_add(&view->destroy_signal, &pos_info->destroy_listener);
+
 	surface->committed = committed;
 	surface->committed_private = pos_info;
 	surface->output = output;
 	view->output = output;
 	return true;
-
-
 }
 
 
@@ -366,7 +351,7 @@ twshell_close_ui_surface(struct weston_surface *wd_surface)
 	wd_surface->committed_private = NULL;
 	//unmap but don't destroy it.
 	wl_list_for_each_safe(view, next, &wd_surface->views, surface_link)
-		weston_view_unmap(view);
+		weston_view_destroy(view);
 }
 
 

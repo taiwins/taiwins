@@ -83,15 +83,23 @@
      commit, emit ~done~ at repaint. And repaint only works if you have a view
      in the compositor. ~weston_view_unmap~ removes the view from compositor. In
      this case, the ~frame_callback~ stayed in the surface.
-*** failed solution:
+*** failed solution( NO RESPONSE ):
+
+*** failed solution( LAGGY ):
     - unmap the view :: unmap the view removes view immediately out of any of
 			~layer_list~, compositor's ~view_list~. So the frame
-			~done~ would never get called.
-    - do not commit in client :: cannot guarantee no commits after then submit request.
-
-    - solution :: either find a way that only destroy the ~view~ after repaint(I
-		  do not have a solution for this now), or do not destroy the
-		  view, only unmap it. Remap the view to the compositor before
-		  allow client to draw again, this should work for all the UI
-		  surface.
-    - solution :: use an another /hiden/ layer
+			~done~ would never get called either. So when the views
+			move back to the layer let's say, next repaint should
+			emit ~done~. However, at ~set_launcher~, we will
+			immediately have another ~commit~, this can happen
+			before next repaint(and it happens every time). In other
+			words, so we will have one commit ahead, thus causes
+			lag.
+    - uses a hidden layer :: does the same thing above, since
+	 ~weston_output_repaint~ does the ~view_list~ building. The view moves
+	 out of the compositor before sending done.
+    - do not commit in client :: cannot guarantee no commits after then submit
+	 request, will also causes the lag as well.
+*** UGLY solution
+    - send done yourself :: copy the frame_callback struct then send the done.
+*** Final solution (using frame_signal)
