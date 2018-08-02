@@ -19,6 +19,7 @@ add_executable(taiwins
   shell.c
   desktop.c
   taiwins.c
+  launcher.c
   )
 
 
