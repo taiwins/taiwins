@@ -173,12 +173,15 @@ static void
 twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
 			 int32_t sx, int32_t sy, void *data)
 {
-	struct workspace *wsp = onedesktop.actived_workspace[0];
-	weston_layer_entry_insert(&wsp->shown_float_layout.view_list, &wt_view->layer_link);
+	//again, we don't know which view is committed as well.
 	fprintf(stderr, "committed\n");
-	weston_desktop_surface_set_activated(desktop_surface, true);
+	struct workspace *wsp = onedesktop.actived_workspace[0];
 	struct weston_surface *surface =  weston_desktop_surface_get_surface(desktop_surface);
 	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
+
+	weston_layer_entry_insert(&wsp->shown_float_layout.view_list, &view->layer_link);
+
+	weston_desktop_surface_set_activated(desktop_surface, true);
 	weston_view_set_position(view, 0, 0);
 	struct weston_seat *active_seat = container_of(onedesktop.compositor->seat_list.next, struct weston_seat, link);
 	struct weston_keyboard *keyboard = active_seat->keyboard_state;
@@ -242,12 +245,14 @@ close_launcher(struct wl_client *client, struct wl_resource *resource,
 	       struct wl_resource *wl_buffer)
 {
 	struct launcher *lch = (struct launcher *)wl_resource_get_user_data(resource);
+	tw_lose_surface_focus(lch->surface);
 	lch->decision_buffer = wl_shm_buffer_get(wl_buffer);
 	struct weston_output *output = lch->surface->output;
 	wl_signal_add(&output->frame_signal, &lch->close_listener);
 
 	wl_callback_send_done(lch->callback, lch->exec_id);
 	wl_resource_destroy(lch->callback);
+
 }
 
 
