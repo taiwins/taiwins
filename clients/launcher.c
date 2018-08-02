@@ -62,7 +62,7 @@ exec_application(void *data, struct wl_callback *wl_callback, uint32_t id)
 	} else {
 		fprintf(stderr, "creating weston terminal");
 		//parsing the input and command buffer. Then do it
-		fork_exec(1, forks);
+//		fork_exec(1, forks);
 	}
 	launcher->exec_id++;
 	wl_callback_destroy(wl_callback);
