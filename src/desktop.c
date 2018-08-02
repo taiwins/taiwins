@@ -140,19 +140,15 @@ twdesk_surface_added(struct weston_desktop_surface *surface,
 {
 	fprintf(stderr, "new surface added\n");
 	struct weston_surface *wt_surface = weston_desktop_surface_get_surface(surface);
-	struct workspace *wsp = onedesktop.actived_workspace[0];
+
 	struct weston_view *wt_view = weston_desktop_surface_create_view(surface);
 	//yep, I don't think we have a output
 	wt_view->is_mapped = true;
 	wt_surface->is_mapped = true;
 	//I am not sure if I need the output
-	weston_view_set_position(wt_view, 0, 0);
-	weston_layer_entry_insert(&wsp->shown_float_layout.view_list, &wt_view->layer_link);
+//	weston_view_set_position(wt_view, 0, 0);
+
 //	wl_list_init(struct wl_list *list)
-	weston_desktop_surface_set_activated(surface, true);
-	struct weston_seat *active_seat = container_of(onedesktop.compositor->seat_list.next, struct weston_seat, link);
-	struct weston_keyboard *keyboard = active_seat->keyboard_state;
-	weston_keyboard_set_focus(keyboard, wt_surface);
 	//decide ou se trouve le surface 1) tiled_layer, 2) float layer. If the
 	//tiling layer, you will need to allocate the position to the
 	//surface. If the floating layer, You can skip the allocator
@@ -172,23 +168,31 @@ twdesk_surface_removed(struct weston_desktop_surface *surface,
 	weston_surface_unmap(wt_surface);
 }
 
-/*
+
 static void
 twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
 			 int32_t sx, int32_t sy, void *data)
 {
+	struct workspace *wsp = onedesktop.actived_workspace[0];
+	weston_layer_entry_insert(&wsp->shown_float_layout.view_list, &wt_view->layer_link);
+	fprintf(stderr, "committed\n");
+	weston_desktop_surface_set_activated(desktop_surface, true);
 	struct weston_surface *surface =  weston_desktop_surface_get_surface(desktop_surface);
 	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
 	weston_view_set_position(view, 0, 0);
+	struct weston_seat *active_seat = container_of(onedesktop.compositor->seat_list.next, struct weston_seat, link);
+	struct weston_keyboard *keyboard = active_seat->keyboard_state;
+	weston_keyboard_set_focus(keyboard, surface);
+
 	weston_view_schedule_repaint(view);
 
 }
-*/
 
 //doesn't seems to work!!!
 static struct weston_desktop_api desktop_impl =  {
 	.surface_added = twdesk_surface_added,
 	.surface_removed = twdesk_surface_removed,
+	.committed = twdesk_surface_committed,
 	.struct_size = sizeof(struct weston_desktop_api),
 };
 /*** libweston-desktop implementation ***/
