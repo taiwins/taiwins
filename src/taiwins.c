@@ -107,6 +107,76 @@ tw_end_client(struct wl_client *client)
 	kill(pid, SIGINT);
 }
 
+
+void
+tw_lose_surface_focus(struct weston_surface *surface)
+{
+	struct weston_compositor *ec = surface->compositor;
+	struct weston_seat *seat;
+	struct weston_view *focus;
+
+	wl_list_for_each(seat, &ec->seat_list, link) {
+		struct weston_keyboard *keyboard =
+			weston_seat_get_keyboard(seat);
+		//struct weston_pointer *pointer =
+		//	weston_seat_get_pointer(seat);
+		//struct weston_touch *touch =
+		//	weston_seat_get_touch(seat);
+		if (keyboard &&
+		    (weston_surface_get_main_surface(keyboard->focus) == surface))
+			weston_keyboard_set_focus(keyboard, NULL);
+		//it maynot be a good idea to do the pointer and touch as well,
+		//since FIRST only keyboard gets the focus of a surface, the
+		//rest gets the focus from view; SECOND if we do this when we
+		//need focused output, there is no thing we can do
+
+		//focus = (pointer) ? pointer->focus : NULL;
+		//if (focus &&
+		//    (weston_surface_get_main_surface(focus->surface) == surface))
+		//	weston_pointer_set_focus(pointer, NULL,
+		//				 wl_fixed_from_int(0),
+		//				 wl_fixed_from_int(0));
+
+		//focus = (touch) ? touch->focus : NULL;
+		//if (focus &&
+		//    (weston_surface_get_main_surface(focus->surface) == surface))
+		//	weston_touch_set_focus(touch, NULL);
+	}
+}
+
+struct weston_output *
+tw_get_focused_output(struct weston_compositor *compositor)
+{
+	struct weston_seat *seat;
+	struct weston_output *output = NULL;
+
+	wl_list_for_each(seat, &compositor->seat_list, link) {
+		struct weston_touch *touch = weston_seat_get_touch(seat);
+		struct weston_pointer *pointer = weston_seat_get_pointer(seat);
+		struct weston_keyboard *keyboard =
+			weston_seat_get_keyboard(seat);
+
+		/* Priority has touch focus, then pointer and
+		 * then keyboard focus. We should probably have
+		 * three for loops and check frist for touch,
+		 * then for pointer, etc. but unless somebody has some
+		 * objections, I think this is sufficient. */
+		if (touch && touch->focus)
+			output = touch->focus->output;
+		else if (pointer && pointer->focus)
+			output = pointer->focus->output;
+		else if (keyboard && keyboard->focus)
+			output = keyboard->focus->output;
+
+		if (output)
+			break;
+	}
+
+	return output;
+}
+
+
+
 /*
 static int on_term_signal(int signal_number, void *data)
 {

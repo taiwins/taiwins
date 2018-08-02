@@ -46,6 +46,7 @@ tw_default_view_from_surface(struct weston_surface *surface)
 {
 	//return NULL if no view is
 	return (surface->views.next != &surface->views) ?
+
 		container_of(surface->views.next, struct weston_view, surface_link) :
 		NULL;
 }
@@ -67,6 +68,10 @@ tw_map_view(struct weston_view *view)
 struct wl_client *tw_launch_client(struct weston_compositor *ec, const char *path);
 /* kill a client */
 void tw_end_client(struct wl_client *client);
+
+
+void tw_lose_surface_focus(struct weston_surface *surface);
+struct weston_output *tw_get_focused_output(struct weston_compositor *compositor);
 
 ///////////////////////// UTILS Functions /////////////////////////
 
