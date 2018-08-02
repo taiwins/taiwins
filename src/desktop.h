@@ -25,10 +25,15 @@ struct taiwins_decision_key {
 
 
 struct twdesktop;
+struct twlauncher;
+
+struct twlauncher *announce_twlauncher(struct weston_compositor *compositor,
+				       struct twshell *shell, const char *exec_path);
 
 
 /** add desktop protocols **/
-struct twdesktop *announce_desktop(struct weston_compositor *compositor, struct twshell *shell);
+struct twdesktop *announce_desktop(struct weston_compositor *compositor, struct twlauncher *launcher);
+void end_twdesktop(struct twdesktop *desktop);
 //void add_desktop_bindings(struct weston_compositor *c);
 
 #ifdef  __cplusplus

@@ -344,7 +344,7 @@ add_shell_bindings(struct weston_compositor *ec)
 }
 
 
-void
+static void
 launch_shell_client(void *data)
 {
 	struct twshell *shell = data;

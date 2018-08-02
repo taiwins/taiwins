@@ -117,7 +117,8 @@ int main(int argc, char *argv[])
 	weston_compositor_wake(compositor);
 
 	struct twshell *shell = announce_twshell(compositor, shellpath);
-	announce_desktop(compositor, shell);
+	struct twlauncher *launcher = announce_twlauncher(compositor, shell, launcherpath);
+	announce_desktop(compositor, launcher);
 
 	wl_display_run(display);
 //	wl_display_terminate(display);
