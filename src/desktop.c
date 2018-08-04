@@ -70,8 +70,8 @@ switch_workspace(struct twdesktop *d, struct workspace *to)
 	d->actived_workspace[1] = wp;
 	d->actived_workspace[0] = to;
 //	weston_layer_set_position(&wp->hiden_float_layout, WESTON_LAYER_POSITION_NORMAL-1);
-	weston_layer_set_position(&wp->tiled_layout, wp->tiled_layer_pos);
-	weston_layer_set_position(&wp->shown_float_layout , wp->float_layer_pos);
+	weston_layer_set_position(&to->tiled_layout, WESTON_LAYER_POSITION_NORMAL+1);
+	weston_layer_set_position(&to->shown_float_layout , WESTON_LAYER_POSITION_NORMAL);
 	weston_compositor_schedule_repaint(d->compositor);
 }
 
@@ -124,13 +124,25 @@ static void
 twdesk_surface_added(struct weston_desktop_surface *surface,
 	      void *user_data)
 {
+	struct weston_view *view, *next;
 	fprintf(stderr, "new surface added\n");
 	struct weston_surface *wt_surface = weston_desktop_surface_get_surface(surface);
+	wl_list_for_each_safe(view, next, &wt_surface->views, surface_link)
+		weston_view_destroy(view);
+//	fprintf(stderr, "surface commit data %p %p", wt_surface->committed, wt_surface->committed_private);
 
 	struct weston_view *wt_view = weston_desktop_surface_create_view(surface);
-	//yep, I don't think we have a output
+	wl_list_init(&wt_view->link);
+
 	wt_view->is_mapped = true;
 	wt_surface->is_mapped = true;
+	weston_desktop_surface_set_activated(surface, true);
+	wt_view->output = tw_get_focused_output(wt_surface->compositor);
+	wt_surface->output = wt_view->output;
+	weston_view_damage_below(wt_view);
+	struct weston_seat *active_seat = container_of(onedesktop.compositor->seat_list.next, struct weston_seat, link);
+	struct weston_keyboard *keyboard = active_seat->keyboard_state;
+	weston_keyboard_set_focus(keyboard, wt_surface);
 	//I am not sure if I need the output
 //	weston_view_set_position(wt_view, 0, 0);
 
@@ -165,15 +177,13 @@ twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
 	struct weston_surface *surface =  weston_desktop_surface_get_surface(desktop_surface);
 	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
 
-	weston_layer_entry_insert(&wsp->shown_float_layout.view_list, &view->layer_link);
+	if (wl_list_empty(&view->layer_link.link))
+		weston_layer_entry_insert(&wsp->shown_float_layout.view_list, &view->layer_link);
 
-	weston_desktop_surface_set_activated(desktop_surface, true);
-	weston_view_set_position(view, 0, 0);
-	struct weston_seat *active_seat = container_of(onedesktop.compositor->seat_list.next, struct weston_seat, link);
-	struct weston_keyboard *keyboard = active_seat->keyboard_state;
-	weston_keyboard_set_focus(keyboard, surface);
+	weston_view_set_position(view, 200, 200);
+	weston_view_damage_below(view);
 
-	weston_view_schedule_repaint(view);
+	weston_surface_schedule_repaint(surface);
 
 }
 
@@ -218,7 +228,7 @@ announce_desktop(struct weston_compositor *ec, struct twlauncher *launcher)
 	onedesktop.actived_workspace[0] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
 	onedesktop.actived_workspace[1] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
 	switch_workspace(&onedesktop, onedesktop.actived_workspace[0]);
-	//creating desktop
+	//NOTE this creates the xwayland layer, which is WAYLAND_LAYER_POSITION_NORMAL+1
 	onedesktop.api = weston_desktop_create(ec, &desktop_impl, &onedesktop);
 
 //	wl_global_create(ec->wl_display, &taiwins_launcher_interface, TWDESKP_VERSION, &onedesktop, bind_desktop);
