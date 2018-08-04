@@ -98,8 +98,24 @@ commit_background(struct weston_surface *surface, int sx, int sy)
 	//get the first view, as ui element has only one view
 	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
 	//it is not true for both
-	setup_view(view, &shell->ui_layer, pos_info->x, pos_info->y, twshell_view_UNIQUE);
+	setup_view(view, &shell->background_layer, pos_info->x, pos_info->y, twshell_view_UNIQUE);
 }
+
+static void
+commit_ui_surface(struct weston_surface *surface, int sx, int sy)
+{
+	//the sx and sy are from attach or attach_buffer attach sets pending
+	//state, when commit request triggered, pending state calls
+	//weston_surface_state_commit to use the sx, and sy in here
+	//the confusion is that we cannot use sx and sy directly almost all the time.
+	struct view_pos_info *pos_info = surface->committed_private;
+	struct twshell *shell = pos_info->shell;
+	//get the first view, as ui element has only one view
+	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
+	//it is not true for both
+	setup_view(view, &shell->ui_layer, pos_info->x, pos_info->y, twshell_view_STATIC);
+}
+
 
 
 static bool
@@ -139,20 +155,6 @@ set_surface(struct twshell *shell,
 
 
 
-static void
-commit_ui_surface(struct weston_surface *surface, int sx, int sy)
-{
-	//the sx and sy are from attach or attach_buffer attach sets pending
-	//state, when commit request triggered, pending state calls
-	//weston_surface_state_commit to use the sx, and sy in here
-	//the confusion is that we cannot use sx and sy directly almost all the time.
-	struct view_pos_info *pos_info = surface->committed_private;
-	struct twshell *shell = pos_info->shell;
-	//get the first view, as ui element has only one view
-	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
-	//it is not true for both
-	setup_view(view, &shell->ui_layer, pos_info->x, pos_info->y, twshell_view_STATIC);
-}
 
 
 
@@ -286,6 +288,10 @@ bind_twshell(struct wl_client *client, void *data, uint32_t version, uint32_t id
 		wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
 				       "client %d is not un atherized shell", id);
 		wl_resource_destroy(resource);
+	}
+	struct weston_layer *layer;
+	wl_list_for_each(layer, &shell->ec->layer_list, link) {
+		fprintf(stderr, "layer position %x\n", layer->position);
 	}
 	//only add the layers if we have a shell.
 	weston_layer_init(&shell->background_layer, shell->ec);
