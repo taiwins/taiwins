@@ -3,10 +3,10 @@
   - cursor, keyboard are fully function.
   - be able to launch and close applications.
 
-** [66%] fully nuklear backend (utilizing app-surface and)
+** [100%] fully nuklear backend (utilizing app-surface and)
      - ~nk_input_key~ and ~nk_input_unicode~ carries the text input. But the
        input box details is unknown.
-*** TODO draw another triangle above nuklear widget
+*** CANC draw another triangle above nuklear widget
 *** DONE research the mouse clicking problem
     Nvidia driver specific problem.
 ** [100%] Taiwins-shell
@@ -26,19 +26,13 @@
 **** DONE nuklear memory checking
 **** DONE cairo memory checking
 
-** [40%] Taiwins-launcher
+** [100%] Taiwins-launcher
 *** DONE showing the luancher window
-*** DOIN implement text_editing                                      :client:
+*** DONE implement text_editing                                      :client:
     Tab works
-*** TODO fork-exec                                                   :client:
-*** TODO client search buffer                                         :proto:
-*** DONE change the ui element start or close implimentation
-** [0%] libweston-desktop implementation                             :server:
-*** DONE desktop layer architecture
-*** TODO simple random floating implementation
-*** TODO tiling layout
-**** TODO ML based layout
+*** DONE fork-exec                                                   :client:
 
+*** DONE change the ui element start or close implimentation
 
 * Stage two: optimization
   - supporting multiple monitors/seats.
@@ -59,6 +53,13 @@
 
 *** DONE keyboard callbacks, this writes to a buffer, apparently.
 
+** [0%] libweston-desktop implementation                             :server:
+*** DONE desktop layer architecture
+*** TODO simple random floating implementation
+*** TODO tiling layout
+**** TODO ML based layout
+
+*** TODO client search buffer                                         :proto:
 
 * Stage three: extensions
   - screen capture and screen record(audio support?).
