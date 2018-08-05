@@ -11,8 +11,34 @@
 #include "taiwins.h"
 #include "desktop.h"
 
-struct workspace;
+struct workspace {
+	//workspace does not distinguish the outputs.
+	//so when we `switch_workspace, all the output has to update.
+	//The layouting algorithm may have to worry about output
+	struct weston_layer hidden_layer;
+	struct weston_layer tiling_layer;
+	struct weston_layer floating_layer;
+	//we need a recent_views struct for user to switch among views a link
+	//list would be ideal but weston view struct does not have a link for
+	//it. The second best choice is a link-list that wraps the view in it,
+	//but this requires extensive memory allocation. The next best thing is
+	//a stack. Since the recent views and stack share the same logic. We
+	//will need a unique stack which can eliminate the duplicated elements.
+};
 
+/* workspace related methods */
+static void workspace_init(struct workspace *ws, struct weston_compositor *ec);
+/* called at compositor destruction */
+static void workspace_release(struct workspace *ws);
+static void free_workspace(void *ws) { workspace_release((struct workspace *)ws); }
+static void workspace_switch(struct workspace *to, struct twdesktop *d);
+
+static inline void workspace_switch_recent(struct twdesktop *d);
+/* move all the views in floating layer to hidden */
+static void workspace_clear_floating(struct workspace *ws);
+/* for a given view, decide whether it is floating view or hidden view */
+static void workspace_focus_view(struct workspace *ws, struct weston_view *v);
+//what about making view from tiled to float and vice versa?
 
 
 struct twdesktop {
@@ -31,89 +57,87 @@ struct twdesktop {
 static struct twdesktop onedesktop;
 
 
-
-struct workspace {
-	/* a workspace have three layers,
-	 * - the hiden layer that you won't be able to see, because it is covered by
-	 shown float but we don't insert the third layer to
-	 * the compositors since they are hiden for floating views. The postions
-	 * of the two layers change when user interact with windows.
-	 */
-	struct weston_layer hiden_float_layout;
-	struct weston_layer tiled_layout;
-	struct weston_layer shown_float_layout;
-	/* also, we need to remember the position of the layer */
-	uint32_t float_layer_pos;
-	uint32_t tiled_layer_pos;
-	//the wayland-buffer
-};
-
-
+/**
+ * workspace implementation
+ */
 static void
 workspace_init(struct workspace *wp, struct weston_compositor *compositor)
 {
-	weston_layer_init(&wp->tiled_layout, compositor);
-	weston_layer_init(&wp->shown_float_layout, compositor);
-	weston_layer_init(&wp->hiden_float_layout, compositor);
-	wp->float_layer_pos = WESTON_LAYER_POSITION_NORMAL + 1;
-	wp->tiled_layer_pos = WESTON_LAYER_POSITION_NORMAL;
+	weston_layer_init(&wp->tiling_layer, compositor);
+	weston_layer_init(&wp->floating_layer, compositor);
+	weston_layer_init(&wp->hidden_layer, compositor);
 }
 
+static void
+workspace_release(struct workspace *ws)
+{
+	struct weston_view *view, *next;
+	struct weston_layer *layers[3]  = {
+		&ws->floating_layer,
+		&ws->tiling_layer,
+		&ws->hidden_layer,
+	};
+	//get rid of all the surface, maybe
+	for (int i = 0; i < 3; i++) {
+		if (!wl_list_length(&layers[i]->view_list.link))
+			continue;
+		wl_list_for_each_safe(view, next,
+				      &layers[i]->view_list.link,
+				      layer_link.link) {
+			struct weston_surface *surface =
+				weston_surface_get_main_surface(view->surface);
+			weston_surface_destroy(surface);
+		}
+	}
+}
 
 static void
-switch_workspace(struct twdesktop *d, struct workspace *to)
+workspace_switch(struct workspace *to, struct twdesktop *d)
 {
-	struct workspace *wp = d->actived_workspace[0];
-	weston_layer_unset_position(&wp->tiled_layout);
-	weston_layer_unset_position(&wp->shown_float_layout);
+	struct workspace *ws = d->actived_workspace[0];
+	weston_layer_unset_position(&ws->floating_layer);
+	weston_layer_unset_position(&ws->tiling_layer);
 
-	d->actived_workspace[1] = wp;
+	d->actived_workspace[1] = ws;
 	d->actived_workspace[0] = to;
-//	weston_layer_set_position(&wp->hiden_float_layout, WESTON_LAYER_POSITION_NORMAL-1);
-	weston_layer_set_position(&to->tiled_layout, WESTON_LAYER_POSITION_NORMAL+1);
-	weston_layer_set_position(&to->shown_float_layout , WESTON_LAYER_POSITION_NORMAL);
+	weston_layer_set_position(&to->tiling_layer, WESTON_LAYER_POSITION_NORMAL);
+	weston_layer_set_position(&to->floating_layer , WESTON_LAYER_POSITION_NORMAL+1);
 	weston_compositor_schedule_repaint(d->compositor);
+}
+
+static inline void workspace_switch_recent(struct twdesktop *d)
+{
+	workspace_switch(d->actived_workspace[1], d);
 }
 
 static void
-switch_to_recent_workspace(struct twdesktop *d)
+workspace_clear_floating(struct workspace *ws)
 {
-	struct workspace *wp = d->actived_workspace[1];
-	switch_workspace(d, wp);
-}
-
-/**
- * @brief switch the tiling and floating layer.
- *
- * This happens when we focus on the different layer. Later on I can write the
- * renderer myself and blured out window that is not focused (only in the
- * application layer).
- *
- * other things need to notice here, if we are change from tiled layer to
- * floating layer, the floating layer should actually just have one view, the
- * rest should moved to hiden layer, there are some code here need to be done
- */
-static bool
-switch_layer(struct twdesktop *d)
-{
-	struct workspace *wp = d->actived_workspace[0];
-
-	wp->float_layer_pos = wp->tiled_layout.position;
-	wp->tiled_layer_pos = wp->shown_float_layout.position;
-
-	weston_layer_unset_position(&wp->shown_float_layout);
-	weston_layer_unset_position(&wp->tiled_layout);
-	weston_layer_set_position(&wp->shown_float_layout, wp->float_layer_pos);
-	weston_layer_set_position(&wp->tiled_layout, wp->tiled_layer_pos);
-	weston_compositor_schedule_repaint(d->compositor);
-	return true;
+	struct weston_view *view, *next;
+	if (wl_list_length(&ws->floating_layer.view_list.link))
+		wl_list_for_each_safe(view, next,
+				      &ws->floating_layer.view_list.link,
+				      layer_link.link) {
+			weston_layer_entry_remove(&view->layer_link);
+			weston_layer_entry_insert(&ws->hidden_layer.view_list,
+						  &view->layer_link);
+		}
 }
 
 static void
-switch_layer_refresh(struct twdesktop *d)
+workspace_focus_view(struct workspace *ws, struct weston_view *v)
 {
-	switch_layer(d);
-	weston_compositor_schedule_repaint(d->compositor);
+	struct weston_layer *l = v->layer_link.layer;
+	if (l == &ws->floating_layer) {
+		//there is nothing to do, we are already in the top layer.
+	} else if (l == &ws->tiling_layer) {
+		workspace_clear_floating(ws);
+	} else if (l == &ws->hidden_layer) {
+		weston_layer_entry_remove(&v->layer_link);
+		weston_layer_entry_insert(&ws->floating_layer.view_list,
+					  &v->layer_link);
+	}
+	//it is not possible to be here.
 }
 
 
@@ -122,14 +146,12 @@ switch_layer_refresh(struct twdesktop *d)
  */
 static void
 twdesk_surface_added(struct weston_desktop_surface *surface,
-	      void *user_data)
+		     void *user_data)
 {
 	struct weston_view *view, *next;
-	fprintf(stderr, "new surface added\n");
 	struct weston_surface *wt_surface = weston_desktop_surface_get_surface(surface);
 	wl_list_for_each_safe(view, next, &wt_surface->views, surface_link)
 		weston_view_destroy(view);
-//	fprintf(stderr, "surface commit data %p %p", wt_surface->committed, wt_surface->committed_private);
 
 	struct weston_view *wt_view = weston_desktop_surface_create_view(surface);
 	wl_list_init(&wt_view->link);
@@ -140,27 +162,16 @@ twdesk_surface_added(struct weston_desktop_surface *surface,
 	wt_view->output = tw_get_focused_output(wt_surface->compositor);
 	wt_surface->output = wt_view->output;
 	weston_view_damage_below(wt_view);
+	//you need to somehow focus the view, here we are doing it in the hacky
+	//way.
 	struct weston_seat *active_seat = container_of(onedesktop.compositor->seat_list.next, struct weston_seat, link);
 	struct weston_keyboard *keyboard = active_seat->keyboard_state;
 	weston_keyboard_set_focus(keyboard, wt_surface);
-	//I am not sure if I need the output
-//	weston_view_set_position(wt_view, 0, 0);
-
-//	wl_list_init(struct wl_list *list)
-	//decide ou se trouve le surface 1) tiled_layer, 2) float layer. If the
-	//tiling layer, you will need to allocate the position to the
-	//surface. If the floating layer, You can skip the allocator
-
-	//And finally, switch the layer if you need to.
-
-	//now you need to create the view
-
-	//create
 }
 
 static void
 twdesk_surface_removed(struct weston_desktop_surface *surface,
-		void *user_data)
+		       void *user_data)
 {
 	struct weston_surface *wt_surface = weston_desktop_surface_get_surface(surface);
 	weston_surface_unmap(wt_surface);
@@ -176,9 +187,9 @@ twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
 	struct workspace *wsp = onedesktop.actived_workspace[0];
 	struct weston_surface *surface =  weston_desktop_surface_get_surface(desktop_surface);
 	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
-
+	//hacky way, we don't know which layer to insert though, need to decide by the layout program
 	if (wl_list_empty(&view->layer_link.link))
-		weston_layer_entry_insert(&wsp->shown_float_layout.view_list, &view->layer_link);
+		weston_layer_entry_insert(&wsp->floating_layer.view_list, &view->layer_link);
 
 	weston_view_set_position(view, 200, 200);
 	weston_view_damage_below(view);
@@ -197,21 +208,6 @@ static struct weston_desktop_api desktop_impl =  {
 /*** libweston-desktop implementation ***/
 
 
-static void
-_free_workspace(void *data)
-{
-	struct weston_layer *workspace = (struct weston_layer *)data;
-	while(workspace->view_list.link.next != &workspace->view_list.link) {
-		struct wl_list *link = workspace->view_list.link.next;
-		struct weston_view *view = container_of(link, struct weston_view, layer_link.link);
-		struct weston_surface *surf = view->surface;
-		weston_surface_destroy(surf);
-		//close this application!!!! By close the surface?
-		//we could get into a segment fault for this
-	}
-}
-
-
 struct twdesktop *
 announce_desktop(struct weston_compositor *ec, struct twlauncher *launcher)
 {
@@ -219,7 +215,7 @@ announce_desktop(struct weston_compositor *ec, struct twlauncher *launcher)
 	onedesktop.compositor = ec;
 	onedesktop.launcher = launcher;
 	vector_t *workspaces = &onedesktop.workspaces;
-	vector_init(workspaces, sizeof(struct workspace), _free_workspace);
+	vector_init(workspaces, sizeof(struct workspace), free_workspace);
 	//then afterwards, you don't spend time allocating workspace anymore
 	vector_resize(workspaces, 9);
 	for (int i = 0; i < workspaces->len; i++)
@@ -227,7 +223,7 @@ announce_desktop(struct weston_compositor *ec, struct twlauncher *launcher)
 	//not sure if this is a good idea, since we are using vector
 	onedesktop.actived_workspace[0] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
 	onedesktop.actived_workspace[1] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
-	switch_workspace(&onedesktop, onedesktop.actived_workspace[0]);
+	workspace_switch(onedesktop.actived_workspace[0], &onedesktop);
 	//NOTE this creates the xwayland layer, which is WAYLAND_LAYER_POSITION_NORMAL+1
 	onedesktop.api = weston_desktop_create(ec, &desktop_impl, &onedesktop);
 
