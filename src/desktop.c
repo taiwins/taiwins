@@ -230,3 +230,30 @@ announce_desktop(struct weston_compositor *ec, struct twlauncher *launcher)
 //	wl_global_create(ec->wl_display, &taiwins_launcher_interface, TWDESKP_VERSION, &onedesktop, bind_desktop);
 	return &onedesktop;
 }
+
+
+//implementation of grab interfaces
+struct grab_interface {
+	struct weston_pointer_grab pointer_grab;
+	struct weston_touch_grab touch_grab;
+	struct weston_keyboard_grab keyboard_grab;
+	struct weston_view *view;
+};
+
+//implement the grab interfaces, basically 3 different interfaces need to be
+// implemented.
+//
+//1) pointer, 2) touch 3) keyboard
+// The grab is a state, you need to start and end(basically setting back to
+// default grab).  the start grab is usually triggered by libweston
+// callbacks(move) and maybe other bindings.
+//
+// Once the grab is triggered, you have to work on one view. From start to
+// end. The grab should stay on the same view, but since there are multiple
+// input devices, we cannot assume the we only have one grab at a time(although
+// it is true most of the itme). So The idea is allocate a grab_interface when
+// starting the grab. The deallocate it when we are done.
+
+static struct weston_pointer_grab_interface twdesktop_grab_impl {
+
+};
