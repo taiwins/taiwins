@@ -119,7 +119,6 @@ int main(int argc, char *argv[])
 	struct twshell *shell = announce_twshell(compositor, shellpath);
 	struct twlauncher *launcher = announce_twlauncher(compositor, shell, launcherpath);
 	announce_desktop(compositor, launcher);
-
 	wl_display_run(display);
 //	wl_display_terminate(display);
 

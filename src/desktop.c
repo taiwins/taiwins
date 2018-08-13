@@ -18,12 +18,16 @@ struct workspace {
 	struct weston_layer hidden_layer;
 	struct weston_layer tiling_layer;
 	struct weston_layer floating_layer;
-	//we need a recent_views struct for user to switch among views a link
-	//list would be ideal but weston view struct does not have a link for
-	//it. The second best choice is a link-list that wraps the view in it,
-	//but this requires extensive memory allocation. The next best thing is
-	//a stack. Since the recent views and stack share the same logic. We
+	//Recent views::
+	//we need a recent_views struct for user to switch among views. FIRST a
+	//link list would be ideal but weston view struct does not have a link
+	//for it. The SECOND best choice is a link-list that wraps the view in
+	//it, but this requires extensive memory allocation. The NEXT best thing
+	//is a stack. Since the recent views and stack share the same logic. We
 	//will need a unique stack which can eliminate the duplicated elements.
+
+	//the only tiling layer here will create the problem when we want to do
+	//the stacking layout, for example. Only show two views.
 };
 
 /* workspace related methods */
@@ -42,6 +46,9 @@ static void workspace_focus_view(struct workspace *ws, struct weston_view *v);
 
 
 struct twdesktop {
+	//does the desktop should have the shell ui layout? If that is the case,
+	//we should get the shell as well.
+
 	struct weston_compositor *compositor;
 	//taiwins_launcher
 	struct twlauncher *launcher;
@@ -140,6 +147,20 @@ workspace_focus_view(struct workspace *ws, struct weston_view *v)
 	//it is not possible to be here.
 }
 
+/**
+ * grab decleration
+ */
+struct grab_interface {
+	struct weston_pointer_grab pointer_grab;
+	struct weston_touch_grab touch_grab;
+	struct weston_keyboard_grab keyboard_grab;
+	struct weston_view *view;
+};
+static struct grab_interface *
+grab_interface_create_for(struct weston_view *view, struct weston_seat *seat);
+static void
+grab_interface_destroy(struct grab_interface *gi);
+
 
 /**
  * @brief the libweston-desktop implementation
@@ -198,11 +219,28 @@ twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 }
 
+static void
+twdesk_surface_move(struct weston_desktop_surface *desktop_surface,
+		    struct weston_seat *seat, uint32_t serial, void *user_data)
+{
+	struct grab_interface *gi;
+	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
+	struct weston_surface *surface = weston_desktop_surface_get_surface(desktop_surface);
+	struct weston_view *view = tw_default_view_from_surface(surface);
+//	struct weston_touch *touch = weston_seat_get_touch(seat);
+	if (pointer && pointer->focus && pointer->button_count > 0) {
+		gi = grab_interface_create_for(view, seat);
+		weston_pointer_start_grab(pointer, &gi->pointer_grab);
+	}
+}
+
+
 //doesn't seems to work!!!
 static struct weston_desktop_api desktop_impl =  {
 	.surface_added = twdesk_surface_added,
 	.surface_removed = twdesk_surface_removed,
 	.committed = twdesk_surface_committed,
+	.move = twdesk_surface_move,
 	.struct_size = sizeof(struct weston_desktop_api),
 };
 /*** libweston-desktop implementation ***/
@@ -233,20 +271,18 @@ announce_desktop(struct weston_compositor *ec, struct twlauncher *launcher)
 
 
 //implementation of grab interfaces
-struct grab_interface {
-	struct weston_pointer_grab pointer_grab;
-	struct weston_touch_grab touch_grab;
-	struct weston_keyboard_grab keyboard_grab;
-	struct weston_view *view;
-};
+static struct weston_pointer_grab_interface twdesktop_moving_grab;
+
 
 static struct grab_interface *
-grab_interface_create_for(struct weston_view *view)
+grab_interface_create_for(struct weston_view *view, struct weston_seat *seat)
 {
 	struct grab_interface *gi = calloc(sizeof(struct grab_interface), 1);
 	gi->view = view;
 	//TODO find out the corresponding grab interface
-
+	gi->pointer_grab.interface = &twdesktop_moving_grab;
+	gi->pointer_grab.pointer = weston_seat_get_pointer(seat);
+	//right now we do not have other grab
 	return gi;
 }
 
@@ -287,20 +323,44 @@ static void noop_axis_source(struct weston_pointer_grab *grab, uint32_t source) 
 
 static void noop_frame(struct weston_pointer_grab *grab) {}
 
+static void pointer_motion_delta(struct weston_pointer *p,
+				 struct weston_pointer_motion_event *e,
+				 double *dx, double *dy)
+{
+
+	//so there could be two case, if the motion is abs, the cx, cy is from
+	//event->[x,y]. If it is relative, it will be pointer->x + event->dx.
+	wl_fixed_t cx, cy;
+	if (e->mask & WESTON_POINTER_MOTION_REL) {
+		//this is a short cut where you can get back as soon as possible.
+		*dx = e->dx;
+		*dy = e->dy;
+	} else {
+		weston_pointer_motion_to_abs(p, e, &cx, &cy);
+		*dx = wl_fixed_to_double(cx) - wl_fixed_to_double(p->x);
+		*dy = wl_fixed_to_double(cy) - wl_fixed_to_double(p->y);
+	}
+}
+
 static void move_grab_pointer_motion(struct weston_pointer_grab *grab,
 				     const struct timespec *time,
 				     struct weston_pointer_motion_event *event)
 {
-	float cx, cy;
+	double dx, dy;
 	struct grab_interface *gi = container_of(grab, struct grab_interface, pointer_grab);
+	//this func change the pointer->x pointer->y
+	pointer_motion_delta(grab->pointer, event, &dx, &dy);
 	weston_pointer_move(grab->pointer, event);
+
 	//but no send_motion_event.
 	if (!gi->view)
 		return;
-	struct weston_surface *surface = gi->view->surface;
-	//!!!constrain the pointer
-//	cx = wl_fixed_to_int(grab->pointer->x + event->)
-//	weston_view_set_position(gi->view, float x, float y);
+//	struct weston_surface *surface = gi->view->surface;
+	//TODO constrain the pointer.
+	weston_view_set_position(gi->view,
+				 gi->view->geometry.x + dx,
+				 gi->view->geometry.y + dy);
+	weston_view_schedule_repaint(gi->view);
 
 }
 
@@ -309,11 +369,30 @@ static void
 pointer_grab_cancel(struct weston_pointer_grab *grab)
 {
 	struct grab_interface *gi = container_of(grab, struct grab_interface, pointer_grab);
-	weston_pointer_end_grab(&gi->pointer_grab);
+	weston_pointer_end_grab(grab->pointer);
 	grab_interface_destroy(gi);
 }
 
 
-static struct weston_pointer_grab_interface twdesktop_moving_grab = {
+static void
+move_grab_button(struct weston_pointer_grab *grab, const struct timespec *time,
+			     uint32_t button, uint32_t state)
+{
+	//free can happen here as well.
+	struct weston_pointer *pointer = grab->pointer;
+	if (pointer->button_count == 0 &&
+	    state == WL_POINTER_BUTTON_STATE_RELEASED)
+		pointer_grab_cancel(grab);
+}
 
+
+
+static struct weston_pointer_grab_interface twdesktop_moving_grab = {
+	.focus = noop_focus,
+	.motion = move_grab_pointer_motion,
+	.button = move_grab_button,
+	.axis = noop_axis,
+	.frame = noop_frame,
+	.cancel = pointer_grab_cancel,
+	.axis_source = noop_axis_source,
 };
