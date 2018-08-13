@@ -31,6 +31,8 @@
 static struct wl_shell *gshell;
 static struct wl_compositor *gcompositor;
 struct wl_shm *shm;
+struct wl_shell_surface *shell_surface;
+
 
 bool QUIT = false;
 
@@ -187,7 +189,9 @@ void pointer_button(void *data,
 		    uint32_t button,
 		    uint32_t state)
 {
-//	fprintf(stderr, "the state of the button is %d, with button %d\n", state, button);
+	if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
+		wl_shell_surface_move(shell_surface, seat0.s, serial);
+	fprintf(stderr, "the state of the button is %d, with button %d\n", state, button);
 }
 
 
@@ -427,7 +431,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "cant creat a surface\n");
 		return -1;
 	}
-	struct wl_shell_surface *shell_surface = wl_shell_get_shell_surface(gshell, surface);
+	shell_surface = wl_shell_get_shell_surface(gshell, surface);
 	wl_shell_surface_add_listener(shell_surface, &pingpong, NULL);
 	wl_shell_surface_set_toplevel(shell_surface);
 	struct wl_buffer *buffer = create_buffer(400, 200);

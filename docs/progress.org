@@ -34,7 +34,7 @@
 
 *** DONE change the ui element start or close implimentation
 
-* Stage two: optimization
+* Stage two: optimization[0%]
   - supporting multiple monitors/seats.
   - weston view focus defocus
   - a few different extensions.
