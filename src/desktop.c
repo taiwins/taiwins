@@ -240,6 +240,22 @@ struct grab_interface {
 	struct weston_view *view;
 };
 
+static struct grab_interface *
+grab_interface_create_for(struct weston_view *view)
+{
+	struct grab_interface *gi = calloc(sizeof(struct grab_interface), 1);
+	gi->view = view;
+	//TODO find out the corresponding grab interface
+
+	return gi;
+}
+
+static void
+grab_interface_destroy(struct grab_interface *gi)
+{
+	free(gi);
+}
+
 //implement the grab interfaces, basically 3 different interfaces need to be
 // implemented.
 //
@@ -248,12 +264,56 @@ struct grab_interface {
 // default grab).  the start grab is usually triggered by libweston
 // callbacks(move) and maybe other bindings.
 //
-// Once the grab is triggered, you have to work on one view. From start to
-// end. The grab should stay on the same view, but since there are multiple
-// input devices, we cannot assume the we only have one grab at a time(although
-// it is true most of the itme). So The idea is allocate a grab_interface when
-// starting the grab. The deallocate it when we are done.
+// Once the grab is triggered. the input devices works differently, for example.
+// Once super pressed, the pointer gets into moving state, and you have to work
+// on one view. From start to end. The grab should stay on the same view, but
+// since there are multiple input devices, we cannot assume the we only have one
+// grab at a time(although it is true most of the itme). So The idea is allocate
+// a grab_interface when starting the grab. The deallocate it when we are done.
 
-static struct weston_pointer_grab_interface twdesktop_grab_impl {
+static void constrain_pointer(struct weston_pointer_motion_event *event, struct weston_output *output)
+{
+	//the actual use of the function is contraining the views so it doesn't
+	//overlap the UI elements, but we do not need it here.
+}
+
+//used in the mopving_grab
+static void noop_focus(struct weston_pointer_grab *grab) {}
+
+static void noop_axis(struct weston_pointer_grab *grab, const struct timespec *time,
+		      struct weston_pointer_axis_event *event ) {}
+
+static void noop_axis_source(struct weston_pointer_grab *grab, uint32_t source) {}
+
+static void noop_frame(struct weston_pointer_grab *grab) {}
+
+static void move_grab_pointer_motion(struct weston_pointer_grab *grab,
+				     const struct timespec *time,
+				     struct weston_pointer_motion_event *event)
+{
+	float cx, cy;
+	struct grab_interface *gi = container_of(grab, struct grab_interface, pointer_grab);
+	weston_pointer_move(grab->pointer, event);
+	//but no send_motion_event.
+	if (!gi->view)
+		return;
+	struct weston_surface *surface = gi->view->surface;
+	//!!!constrain the pointer
+//	cx = wl_fixed_to_int(grab->pointer->x + event->)
+//	weston_view_set_position(gi->view, float x, float y);
+
+}
+
+//this should be an universal implementation
+static void
+pointer_grab_cancel(struct weston_pointer_grab *grab)
+{
+	struct grab_interface *gi = container_of(grab, struct grab_interface, pointer_grab);
+	weston_pointer_end_grab(&gi->pointer_grab);
+	grab_interface_destroy(gi);
+}
+
+
+static struct weston_pointer_grab_interface twdesktop_moving_grab = {
 
 };
