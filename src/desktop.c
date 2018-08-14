@@ -148,16 +148,18 @@ workspace_focus_view(struct workspace *ws, struct weston_view *v)
 }
 
 /**
- * grab decleration
+ * grab decleration, with different options.
  */
 struct grab_interface {
 	struct weston_pointer_grab pointer_grab;
 	struct weston_touch_grab touch_grab;
 	struct weston_keyboard_grab keyboard_grab;
 	struct weston_view *view;
+	struct weston_compositor *compositor;
 };
+
 static struct grab_interface *
-grab_interface_create_for(struct weston_view *view, struct weston_seat *seat);
+grab_interface_create_for_view(struct weston_view *view, struct weston_seat *seat);
 static void
 grab_interface_destroy(struct grab_interface *gi);
 
@@ -229,7 +231,7 @@ twdesk_surface_move(struct weston_desktop_surface *desktop_surface,
 	struct weston_view *view = tw_default_view_from_surface(surface);
 //	struct weston_touch *touch = weston_seat_get_touch(seat);
 	if (pointer && pointer->focus && pointer->button_count > 0) {
-		gi = grab_interface_create_for(view, seat);
+		gi = grab_interface_create_for_view(view, seat);
 		weston_pointer_start_grab(pointer, &gi->pointer_grab);
 	}
 }
@@ -272,15 +274,18 @@ announce_desktop(struct weston_compositor *ec, struct twlauncher *launcher)
 
 //implementation of grab interfaces
 static struct weston_pointer_grab_interface twdesktop_moving_grab;
-
+static struct weston_pointer_grab_interface twdesktop_zoom_grab;
+static struct weston_pointer_grab_interface twdesktop_alpha_grab;
 
 static struct grab_interface *
-grab_interface_create_for(struct weston_view *view, struct weston_seat *seat)
+grab_interface_create_for_view(struct weston_view *view, struct weston_seat *seat)
 {
 	struct grab_interface *gi = calloc(sizeof(struct grab_interface), 1);
 	gi->view = view;
+	gi->compositor = view->surface->compositor;
 	//TODO find out the corresponding grab interface
-	gi->pointer_grab.interface = &twdesktop_moving_grab;
+//	gi->pointer_grab.interface = &twdesktop_moving_grab;
+	gi->pointer_grab.interface = &twdesktop_alpha_grab;
 	gi->pointer_grab.pointer = weston_seat_get_pointer(seat);
 	//right now we do not have other grab
 	return gi;
@@ -307,23 +312,15 @@ grab_interface_destroy(struct grab_interface *gi)
 // grab at a time(although it is true most of the itme). So The idea is allocate
 // a grab_interface when starting the grab. The deallocate it when we are done.
 
-static void constrain_pointer(struct weston_pointer_motion_event *event, struct weston_output *output)
+static void
+constrain_pointer(struct weston_pointer_motion_event *event, struct weston_output *output)
 {
 	//the actual use of the function is contraining the views so it doesn't
 	//overlap the UI elements, but we do not need it here.
 }
 
-//used in the mopving_grab
-static void noop_focus(struct weston_pointer_grab *grab) {}
-
-static void noop_axis(struct weston_pointer_grab *grab, const struct timespec *time,
-		      struct weston_pointer_axis_event *event ) {}
-
-static void noop_axis_source(struct weston_pointer_grab *grab, uint32_t source) {}
-
-static void noop_frame(struct weston_pointer_grab *grab) {}
-
-static void pointer_motion_delta(struct weston_pointer *p,
+static void
+pointer_motion_delta(struct weston_pointer *p,
 				 struct weston_pointer_motion_event *e,
 				 double *dx, double *dy)
 {
@@ -342,7 +339,85 @@ static void pointer_motion_delta(struct weston_pointer *p,
 	}
 }
 
-static void move_grab_pointer_motion(struct weston_pointer_grab *grab,
+
+//used in the mopving_grab
+static void noop_focus(struct weston_pointer_grab *grab) {}
+
+static void noop_axis(struct weston_pointer_grab *grab, const struct timespec *time,
+		      struct weston_pointer_axis_event *event ) {}
+
+//this zoom can also be implement as blending operations
+static void
+zoom_axis(struct weston_pointer_grab *grab, const struct timespec *time,
+	  struct weston_pointer_axis_event *event)
+{
+	struct grab_interface *gi = container_of(grab, struct grab_interface, pointer_grab);
+	struct weston_pointer *pointer = gi->pointer_grab.pointer;
+	struct weston_seat *seat = gi->pointer_grab.pointer->seat;
+	struct weston_output *output;
+	double augment;
+
+	wl_list_for_each(output, &gi->compositor->output_list, link) {
+		if (pixman_region32_contains_point(&output->region,
+						   wl_fixed_to_int(pointer->x),
+						   wl_fixed_to_int(pointer->y), NULL))
+		{
+			float sign = (event->has_discrete) ? -1.0 : 1.0;
+
+			if (event->axis == WL_POINTER_AXIS_VERTICAL_SCROLL)
+				augment = output->zoom.increment * sign * event->value / 20.0;
+			else
+				augment = 0.0;
+
+			output->zoom.level += augment;
+
+			if (output->zoom.level < 0.0)
+				output->zoom.level = 0.0;
+			else if (output->zoom.level > output->zoom.max_level)
+				output->zoom.level = output->zoom.max_level;
+
+			if (!output->zoom.active) {
+				if (output->zoom.level <= 0.0)
+					continue;
+				weston_output_activate_zoom(output, seat);
+			}
+
+			output->zoom.spring_z.target = output->zoom.level;
+			weston_output_update_zoom(output);
+		}
+	}
+
+}
+
+static void
+alpha_axis(struct weston_pointer_grab *grab, const struct timespec *time,
+	      struct weston_pointer_axis_event *event)
+{
+	struct grab_interface *gi = container_of(grab, struct grab_interface, pointer_grab);
+	struct weston_pointer *pointer = gi->pointer_grab.pointer;
+	struct weston_seat *seat = gi->pointer_grab.pointer->seat;
+	struct weston_view *view = gi->view;
+	float increment = 0.07;
+	float sign = (event->has_discrete) ? -1.0 : 1.0;
+
+	if (!view)
+		return;
+	view->alpha += increment * sign * event->value / 20.0;
+	if (view->alpha < 0.0)
+		view->alpha = 0.0;
+	if (view->alpha > 1.0)
+		view->alpha = 1.0;
+	weston_view_damage_below(view);
+	weston_view_schedule_repaint(view);
+}
+
+static void noop_axis_source(struct weston_pointer_grab *grab, uint32_t source) {}
+
+static void noop_frame(struct weston_pointer_grab *grab) {}
+
+
+static void
+move_grab_pointer_motion(struct weston_pointer_grab *grab,
 				     const struct timespec *time,
 				     struct weston_pointer_motion_event *event)
 {
@@ -362,6 +437,13 @@ static void move_grab_pointer_motion(struct weston_pointer_grab *grab,
 				 gi->view->geometry.y + dy);
 	weston_view_schedule_repaint(gi->view);
 
+}
+
+static void
+noop_grab_pointer_motion(struct weston_pointer_grab *grab, const struct timespec *time,
+			 struct weston_pointer_motion_event *event)
+{
+	weston_pointer_move(grab->pointer, event);
 }
 
 //this should be an universal implementation
@@ -392,6 +474,26 @@ static struct weston_pointer_grab_interface twdesktop_moving_grab = {
 	.motion = move_grab_pointer_motion,
 	.button = move_grab_button,
 	.axis = noop_axis,
+	.frame = noop_frame,
+	.cancel = pointer_grab_cancel,
+	.axis_source = noop_axis_source,
+};
+
+static struct weston_pointer_grab_interface twdesktop_zoom_grab = {
+	.focus = noop_focus,
+	.motion = noop_grab_pointer_motion,
+	.button = move_grab_button,
+	.axis = zoom_axis,
+	.frame = noop_frame,
+	.cancel = pointer_grab_cancel,
+	.axis_source = noop_axis_source,
+};
+
+static struct weston_pointer_grab_interface twdesktop_alpha_grab = {
+	.focus = noop_focus,
+	.motion = noop_grab_pointer_motion,
+	.button = move_grab_button,
+	.axis = alpha_axis,
 	.frame = noop_frame,
 	.cancel = pointer_grab_cancel,
 	.axis_source = noop_axis_source,
