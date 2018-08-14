@@ -159,7 +159,8 @@ struct grab_interface {
 };
 
 static struct grab_interface *
-grab_interface_create_for_view(struct weston_view *view, struct weston_seat *seat);
+grab_interface_create_for(struct weston_view *view, struct weston_seat *seat);
+
 static void
 grab_interface_destroy(struct grab_interface *gi);
 
@@ -231,7 +232,7 @@ twdesk_surface_move(struct weston_desktop_surface *desktop_surface,
 	struct weston_view *view = tw_default_view_from_surface(surface);
 //	struct weston_touch *touch = weston_seat_get_touch(seat);
 	if (pointer && pointer->focus && pointer->button_count > 0) {
-		gi = grab_interface_create_for_view(view, seat);
+		gi = grab_interface_create_for(view, seat);
 		weston_pointer_start_grab(pointer, &gi->pointer_grab);
 	}
 }
@@ -277,12 +278,16 @@ static struct weston_pointer_grab_interface twdesktop_moving_grab;
 static struct weston_pointer_grab_interface twdesktop_zoom_grab;
 static struct weston_pointer_grab_interface twdesktop_alpha_grab;
 
+/**
+ * constructor, view can be null, but seat cannot. we need compositor
+ */
 static struct grab_interface *
-grab_interface_create_for_view(struct weston_view *view, struct weston_seat *seat)
+grab_interface_create_for(struct weston_view *view, struct weston_seat *seat)
 {
+	assert(seat);
 	struct grab_interface *gi = calloc(sizeof(struct grab_interface), 1);
 	gi->view = view;
-	gi->compositor = view->surface->compositor;
+	gi->compositor = seat->compositor;
 	//TODO find out the corresponding grab interface
 //	gi->pointer_grab.interface = &twdesktop_moving_grab;
 	gi->pointer_grab.interface = &twdesktop_alpha_grab;
