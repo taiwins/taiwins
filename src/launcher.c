@@ -50,15 +50,18 @@ static void
 close_launcher(struct wl_client *client, struct wl_resource *resource,
 	       struct wl_resource *wl_buffer)
 {
+	struct weston_view *view;
 	struct twlauncher *lch = (struct twlauncher *)wl_resource_get_user_data(resource);
 	tw_lose_surface_focus(lch->surface);
 	lch->decision_buffer = wl_shm_buffer_get(wl_buffer);
 	struct weston_output *output = lch->surface->output;
 	wl_signal_add(&output->frame_signal, &lch->close_listener);
-
+	//okay, it has nothing to do with damaged view.
+	wl_list_for_each(view, &lch->surface->views, surface_link)
+		weston_view_damage_below(view);
+	weston_output_schedule_repaint(lch->surface->output);
 	wl_callback_send_done(lch->callback, lch->exec_id);
 	wl_resource_destroy(lch->callback);
-
 }
 
 
