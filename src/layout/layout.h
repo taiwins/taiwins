@@ -19,6 +19,15 @@ extern "C" {
 #define _GNU_SOURCE
 #endif
 
+//it maybe a good idea to have a iterator object. extend the iterator struct is the key
+struct layout;
+struct disposer_iterator {
+	struct layout *layout;
+	struct weston_view *v;
+	int idx;
+	int len;
+};
+
 struct layout {
 	bool clean;
 	//simplement les N permiere sont visible, tout sera visible si il est -1.
@@ -27,6 +36,8 @@ struct layout {
 	//if NULL, the layout works on all the output
 	struct weston_output *output;
 	struct weston_layer *layer;
+	//this may points to another data structure in the layout
+	struct disposer_iterator *iterator;
 	//retourner le position, mais en fin, on devrait mettre les position
 	//pour tout les view dans la coche.
 	struct weston_position (*disposer)(struct weston_view *v, struct layout *l);

@@ -6,7 +6,7 @@
 ### finally moved to desktop implementation, showing windows is seamless
 ![use-emacs](imgs/use-emacs.png)
 
-currently on [shell implementation](docs/taiwins-shell.md)
+currently on [desktop implementation](docs/weston-desktop.md)
 
 
 ## how to build

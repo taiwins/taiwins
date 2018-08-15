@@ -1,8 +1,9 @@
 # Weston-desktop API
 
-The API essentially implements the `xdg_shell_protocols`, avec ceci, on as les
-puissance de décider quoi faire à le moment de crée l'application. On peut
-faire les décisions à les dimension des fenêtres, les positions ou priorités.
+
+The API essentially implements the `xdg_shell_protocols`, it combines the
+`wl_shell`,`xdg_shell_v5` and `xdg_shell_v6` under one implementation, which is
+really smart, saves much resources for the developers.
 
 ## weston_layer
 `weston_layer`s are stored from top to bottom in the compositor, in that case
@@ -14,38 +15,65 @@ compositor can figure out which parts of the `weston_plane` (a `pixman_region`)
 are damaged.
 
 ## weston_plane
-I am actually not sure what exactly it is, my guess is that this plane is the
-entire rendering output. I guess the plane is kind of organized in a smart
-way. Also it seems both `gl_renderer` and `pixman_render` do the same
-thing. So once you insert the layer to compositor, it becomes part of the
-rendering pipeline, so we have to optimize the layer_list!
+The `weston_plane` is a logical representation of the hardware compositing
+planes, so we only need to do the compositing on every plane, and the hardware
+composits the different planes. Currently here is a piece of code inside the
+`gl-renderer` and `pixman-renderer`.
 
 	wl_list_for_each_reverse(view, compositor->view_list, link)
 		if (view->plane == &compositor->primary_plane)
 			draw_view(view);
 
-### the pixman_region_t
+## the pixman_region_t
 `pixman_region16_t` or `pixman_region32_t` are both regions, because it contains
-boxes(x,y,w,h).
+boxes(x,y,w,h). You have to walk though the pixman examples to know how to use
+it.
 
-
-### weston-renderer implementation
-todo
 
 ## Taiwins-desktop implementation
-Because of the design of the Libweston rendering pipeline, we have to find a way
-to limit the number of the layers in the list. In other words, do not insert
-the layer when it is not shown.
+desktop has following concepts:
+	- **workspace**  one workspace contains all the views from different **output**.
+	- **layer** tiling layer, floating layer, hidden layer, we probably doesn't
+	  need hidden layer now.
+	- **layout** can work on per **output** space or directly under
+	  compositor.
+
+Desktop is the center of work now, it is hard to organize than others. The
+dilemma here is how we can implement the tiling, do we go for the container
+option like i3? How can we organize the data structure. We have to disposer
+every view, what kind of the iteration information we need for that? An iterator
+object? For exemple, master layout can just record the index and column
+size. The container based layout need to store the tree, it is much more
+complicated.
+
+We are getting the views into a array, then pass that every time to the layout
+algorithm. We would want it to be a tree that works with list as well, but we
+cannot be sure, the array has advantages we can store them on stack, but it is
+minimum so we cannot take advantage too much of the tree. Can we use the heap
+structure then use the in place sort?
+
+If we want to make it to a tree, what kind of tree is needed? Radix tree?
+
+### sample process
+	- adding a window in the workspace
+		* decide to put in the floating layer or tiling layer.
+		* you need to have the output from `tw_get_focused_output`.
+		* find the **layout** corresponded to the **output**.
+		* decide how you want to tell the **layout** new view is ready.
+		* `disposer` all the views in the layout or just the one.
+	- deleting a window.
+		* decide if it is in the floating/tiling layer
+		* decide how to announce the deleting of the view.
+		* `disposer` all the views or not.
+	- focus the window.
+		* throw it to the top of the view_list.
+	- moving up or down from the current view.
+		* modify the positin of the view in the tree?
+
 
 ### tiling and floating
-Be cause the nature of the tiling layer and floating layer, to represent
-correctly a workspace, we need at least three layers, the floating layers that
-doesn't show, the tiling layer and the shown floating layer. Why is that?
-Because the tiling layer occupies the entire screen all the time, so the
-floating layer gets cut into **two**, the one **above** and the one
-**below**. There are cases when only one layer showing as well. Later.
 
-### layout-ing algorithm
+### disposing algorithm
 Another piece of problem is that when we launch the application, we have no idea
 where to put them, the size of the it and many other parameters. We address this
 problem with a launcher problem, how we can do that? The details are not really
@@ -53,3 +81,6 @@ interesting I guess, but the idea is using a `shared_memory` with server. When
 we launch the program, we decide the parameters with the `launcher`, the
 `launcher` writes them into the buffer, so when the program really gets
 created. The server can decide it by read the buffer.
+
+## weston-renderer implementation
+TODO
