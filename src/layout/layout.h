@@ -1,6 +1,6 @@
 /***************************************************************************
- *			How to create the
  *
+ *			How to create the layout
  *
  ***************************************************************************/
 #ifndef TAIWINS_H
@@ -24,22 +24,13 @@ struct layout {
 	//simplement les N permiere sont visible, tout sera visible si il est -1.
 	int nvisible;
 	struct wl_list link;
+	//if NULL, the layout works on all the output
 	struct weston_output *output;
 	struct weston_layer *layer;
-	uint32_t layer_pos;
 	//retourner le position, mais en fin, on devrait mettre les position
 	//pour tout les view dans la coche.
-	void _reorder(struct layout *l);
+	struct weston_position (*disposer)(struct weston_view *v, struct layout *l);
 };
-
-void
-layout_reorder(struct layout *l)
-{
-	if (l->clean)
-		return;
-	l->_reorder(l);
-	l->clean = true;
-}
 
 //many problems occurs, for example. If we want to implement stacking layout
 //that only allows two views to win?
@@ -51,9 +42,11 @@ layout_reorder(struct layout *l)
 
 //en fait, je pense que seulement le dernier facon est assez deja, on peut utilise le
 
-//DIFICULTIY: le layout suive les behavior different.
+//DIFICULTIY: le disposition suive the comportement different. par exemple, les
+//disposition flottant n'a pas besoin de reorder the entire layer, while the
+//tiling layer usually do.
 
-
+//we need to build the views
 
 
 #ifdef  __cplusplus

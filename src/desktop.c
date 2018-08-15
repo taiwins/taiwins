@@ -12,6 +12,8 @@
 #include "desktop.h"
 
 struct workspace {
+	struct wl_list layout_tiling_link;
+	struct wl_list layout_floating_link;
 	//workspace does not distinguish the outputs.
 	//so when we `switch_workspace, all the output has to update.
 	//The layouting algorithm may have to worry about output
@@ -29,6 +31,13 @@ struct workspace {
 	//the only tiling layer here will create the problem when we want to do
 	//the stacking layout, for example. Only show two views.
 };
+
+//operation surtenir.
+//move view to top(move the view to the top of the list)
+
+//move view up/down only for tile : (find the next view on the same output, then insert after that)
+//move view to another workspace(insert the view the correct layer on the correct )
+//toggle view float/tiled(insert to the top of corresponding layer)
 
 /* workspace related methods */
 static void workspace_init(struct workspace *ws, struct weston_compositor *ec);

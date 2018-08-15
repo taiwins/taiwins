@@ -12,12 +12,14 @@ target_link_libraries(twshell
   ${COMPOSITOR_LIBRARIES}
   )
 
+add_library(taiwins_desktop
+  desktop.c
+  layout/layout.c)
+
 add_executable(taiwins
   main.c
   input.c
   backend.c
-  shell.c
-  desktop.c
   taiwins.c
   launcher.c
   )
@@ -27,4 +29,5 @@ target_link_libraries(taiwins
   ${COMPOSITOR_LIBRARIES}
   ${TRDPTY_LIBRARIES}
   twshell
+  taiwins_desktop
   )
