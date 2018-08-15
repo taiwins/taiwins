@@ -4,7 +4,7 @@
 
 
 struct floatlayout {
-	struct layout;
+	struct layout layout;
 	struct weston_geometry geo;
 };
 
@@ -12,27 +12,20 @@ struct floatlayout {
 struct weston_position
 layout_floatpos(struct weston_view *view, struct layout *l)
 {
-	struct weston_position pos;
-	struct floatlayout *fl = l;
-	if (view->geometry.x >= fl->geo.x &&
-	    view->geometry.x < fl->geo.x + fl->geo.width &&
-	    view->geometry.y >= fl->geo.y &&
-	    view->geometry.y < fl->geo.y + fl->geo.height)
+	//I am not sure if this is right implementation
+	struct floatlayout *fl = container_of(l, struct floatlayout, layout);
+	struct weston_position pos = {
+		.x = view->geometry.x,
+		.y = view->geometry.y
+	};
+	if (is_inbound(pos.x, fl->geo.x, fl->geo.x + fl->geo.width) &&
+	    is_inbound(pos.y, fl->geo.y, fl->geo.y + fl->geo.height))
 		return pos;
 	else {
 		pos.x = rand() % (fl->geo.width  / 2);
 		pos.y = rand() % (fl->geo.height / 2);
 	}
 	return pos;
-}
-
-//this design pose the problem, since you have to run this for all the views in
-//the layer.
-struct weston_position
-layout_master(struct weston_view *view, struct layout *l)
-{
-	//I don't know what is the order of the current view, I can rely on the
-	//position of current view in the layer?
 }
 
 
@@ -61,6 +54,8 @@ layout_disposer(struct layout *l)
 			weston_view_set_mask(views[i], 0, 0, 0, 0);
 			continue;
 		}
+		//TODO also you may want to change the size of the view, in that
+		//case, you will want to weston_desktop functions
 		pos = l->disposer(views[i], l);
 		weston_view_set_position(views[i], pos.x, pos.y);
 		weston_view_schedule_repaint(views[i]);

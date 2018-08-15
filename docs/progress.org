@@ -45,7 +45,7 @@
 ** [0%] server-side optimization
 *** TODO singals for adding new output and seats
 *** TODO current active seat and output
-*** TODO rendering/compositing optimization
+*** TODO rendering/compositing optimization(what did this mean again)?
 
 ** [0%] Configurations
 *** TODO styles, nuklear and other widget styles.
@@ -62,16 +62,21 @@
 **** TODO ML based layout
 
 *** TODO client search buffer                                         :proto:
+    for this to work, we probably will need ~radix tree~ or ~trie~ or hash
+    table.
 
+
+** [%] client-side optimization
+*** TODO find a way to read dispatch wl_display without blocking
+    - possible solution :: maybe we can use epoll on wl_display, and add it to
+	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
+	 need another thread for that anymore.
+*** TODO resize EGL window
 * Stage three: extensions
   - screen capture and screen record(audio support?).
   - westons's zoom support.
 
-* feature research
-** TODO find a way to read dispatch wl_display without blocking
-    - possible solution :: maybe we can use epoll on wl_display, and add it to
-	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
-	 need another thread for that anymore.
+
 
 
 * Bugs

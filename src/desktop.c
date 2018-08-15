@@ -38,6 +38,8 @@ struct workspace {
 //move view up/down only for tile : (find the next view on the same output, then insert after that)
 //move view to another workspace(insert the view the correct layer on the correct )
 //toggle view float/tiled(insert to the top of corresponding layer)
+//cycle through the views(we should unfied)
+//resize
 
 /* workspace related methods */
 static void workspace_init(struct workspace *ws, struct weston_compositor *ec);
