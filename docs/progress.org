@@ -41,6 +41,7 @@
   - lua support for writing extensions.
   - different layouting support
   - resize EGL windows.
+  - compositing
 ** [0%] server-side optimization
 *** TODO singals for adding new output and seats
 *** TODO current active seat and output
@@ -53,10 +54,11 @@
 
 *** DONE keyboard callbacks, this writes to a buffer, apparently.
 
-** [0%] libweston-desktop implementation                             :server:
+** [25%] libweston-desktop implementation                            :server:
 *** DONE desktop layer architecture
-*** TODO simple random floating implementation
+*** DOIN simple random floating implementation
 *** TODO tiling layout
+**** DOIN support nvisible
 **** TODO ML based layout
 
 *** TODO client search buffer                                         :proto:
