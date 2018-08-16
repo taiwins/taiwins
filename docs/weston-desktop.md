@@ -1,6 +1,5 @@
 # Weston-desktop API
 
-
 The API essentially implements the `xdg_shell_protocols`, it combines the
 `wl_shell`,`xdg_shell_v5` and `xdg_shell_v6` under one implementation, which is
 really smart, saves much resources for the developers.
@@ -69,6 +68,18 @@ If we want to make it to a tree, what kind of tree is needed? Radix tree?
 		* throw it to the top of the view_list.
 	- moving up or down from the current view.
 		* modify the positin of the view in the tree?
+
+So for the `weston_desktop_surface`, it cares only the setting position and size
+of the desktop_surface. For the layout, it cares more in detail about the state
+of the tree, if new views is insert/delete? moving up or not? So it maybe a good
+idea to implement an input and output interface. With this pattern, we can
+unified the interface of floating layout and tiling layout. Some of the event is
+not valid to the floating mode and vice versa. This is the data driving
+programming I guess.
+
+	//at event point.
+	desktop.make_event(event_type, view) >> layout;
+	layout.prod_layout() >> desktop;
 
 
 ### tiling and floating
