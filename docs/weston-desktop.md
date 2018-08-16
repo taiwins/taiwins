@@ -32,26 +32,11 @@ it.
 ## Taiwins-desktop implementation
 desktop has following concepts:
 	- **workspace**  one workspace contains all the views from different **output**.
-	- **layer** tiling layer, floating layer, hidden layer, we probably doesn't
-	  need hidden layer now.
+	- **layer** tiling layer, floating layer, hidden layer.
 	- **layout** can work on per **output** space or directly under
-	  compositor.
-
-Desktop is the center of work now, it is hard to organize than others. The
-dilemma here is how we can implement the tiling, do we go for the container
-option like i3? How can we organize the data structure. We have to disposer
-every view, what kind of the iteration information we need for that? An iterator
-object? For exemple, master layout can just record the index and column
-size. The container based layout need to store the tree, it is much more
-complicated.
-
-We are getting the views into a array, then pass that every time to the layout
-algorithm. We would want it to be a tree that works with list as well, but we
-cannot be sure, the array has advantages we can store them on stack, but it is
-minimum so we cannot take advantage too much of the tree. Can we use the heap
-structure then use the in place sort?
-
-If we want to make it to a tree, what kind of tree is needed? Radix tree?
+	  compositor. The (tiling) layout is internally tree like structure.
+  layers **CARE** about the order, layouts **cares** about the positions and
+	  sizes, so they should not touch each others responsibilities.
 
 ### sample process
 	- adding a window in the workspace
@@ -69,29 +54,15 @@ If we want to make it to a tree, what kind of tree is needed? Radix tree?
 	- moving up or down from the current view.
 		* modify the positin of the view in the tree?
 
-So for the `weston_desktop_surface`, it cares only the setting position and size
-of the desktop_surface. For the layout, it cares more in detail about the state
-of the tree, if new views is insert/delete? moving up or not? So it maybe a good
-idea to implement an input and output interface. With this pattern, we can
-unified the interface of floating layout and tiling layout. Some of the event is
-not valid to the floating mode and vice versa. This is the data driving
-programming I guess.
+### peusdo code
 
 	//at event point.
 	desktop.make_event(event_type, view) >> layout;
 	layout.prod_layout() >> desktop;
 
-
-### tiling and floating
-
 ### disposing algorithm
-Another piece of problem is that when we launch the application, we have no idea
-where to put them, the size of the it and many other parameters. We address this
-problem with a launcher problem, how we can do that? The details are not really
-interesting I guess, but the idea is using a `shared_memory` with server. When
-we launch the program, we decide the parameters with the `launcher`, the
-`launcher` writes them into the buffer, so when the program really gets
-created. The server can decide it by read the buffer.
+	It is too early to talk about this, right now the priority is implementing a
+	stupid algorithm.
 
 ## weston-renderer implementation
 TODO

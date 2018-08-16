@@ -36,10 +36,13 @@ struct workspace {
 //move view to top(move the view to the top of the list)
 
 //move view up/down only for tile : (find the next view on the same output, then insert after that)
-//move view to another workspace(insert the view the correct layer on the correct )
-//toggle view float/tiled(insert to the top of corresponding layer)
+//move view to another workspace, bind a del and add event together.
+//toggle view float/tiled(insert to the top of corresponding layer), same thing as
 //cycle through the views(we should unfied)
 //resize
+
+//if you want, you can implement the workspace function as commands as well then
+//uses the decorator to have relayout or not, so you can extensive commands.
 
 /* workspace related methods */
 static void workspace_init(struct workspace *ws, struct weston_compositor *ec);

@@ -19,14 +19,41 @@ extern "C" {
 #define _GNU_SOURCE
 #endif
 
-//it maybe a good idea to have a iterator object. extend the iterator struct is the key
-struct layout;
-struct disposer_iterator {
-	struct layout *layout;
-	struct weston_view *v;
-	int idx;
-	int len;
+/**
+ * we decide to use a tree based tiling layout system because its
+ * expresiveness. Thus we supports the tree like operations, move the node left,
+ * right, up, down.
+
+ * Some of the operation is not ambigous like left/right, delete, top, because
+ * we know exactly where the view will be after the operation. But up, down, add
+ * have non-determinstic behavoirs.
+ */
+
+/* the commands pass to layout algorithm */
+enum disposer_command {
+	DPSR_focus, //useful in floating.
+	DPSR_add,
+	DPSR_del,
+	DPSR_deplace, //useful in floating.
+	DPSR_up, //useful in tiling.
+	DPSR_down, //useful in tiling.
+	DPSR_left, //useful in tiling.
+	DPSR_right, //useful in tiling.
+	DPSR_resize, //useful in tiling
+	DPSR_top, //not useful in neither
 };
+
+/* the operation correspond to the command, I am not sure if it is good to have
+ * responce immediately but currently I have no other way and when to apply the
+ * operations is not clear either.
+ */
+struct disposer_op {
+	struct weston_view *v;
+	struct weston_position pos;
+	struct weston_size size;
+	float scale;
+};
+
 
 struct layout {
 	bool clean;
@@ -36,28 +63,13 @@ struct layout {
 	//if NULL, the layout works on all the output
 	struct weston_output *output;
 	struct weston_layer *layer;
-	//this may points to another data structure in the layout
-	struct disposer_iterator *iterator;
 	//retourner le position, mais en fin, on devrait mettre les position
 	//pour tout les view dans la coche.
 	struct weston_position (*disposer)(struct weston_view *v, struct layout *l);
+	//in this way we don't need to allocate the memory on the heap
+	void (*commander)(enum disposer_command command, struct weston_view *v, struct layout *l,
+			  struct disposer_op *ops);
 };
-
-//many problems occurs, for example. If we want to implement stacking layout
-//that only allows two views to win?
-
-//solution 1) utiliser une coche extra. dans cet facon, on caint pas les view
-//recois les input.
-//solution 2) utiliser les mask.
-//solution 3) mettre les views dans la fin de la coche.
-
-//en fait, je pense que seulement le dernier facon est assez deja, on peut utilise le
-
-//DIFICULTIY: le disposition suive the comportement different. par exemple, les
-//disposition flottant n'a pas besoin de reorder the entire layer, while the
-//tiling layer usually do.
-
-//we need to build the views
 
 
 #ifdef  __cplusplus
