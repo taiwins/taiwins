@@ -9,24 +9,43 @@ struct floatlayout {
 };
 
 
-struct weston_position
-layout_floatpos(struct weston_view *view, struct layout *l)
+//it will look like a long function, the easiest way is make an array which does
+//the map, lucky the enum map is linear
+static void
+disposer_noop(const enum disposer_command command, const struct disposer_op *arg,
+	      struct weston_view *v, struct layout *l,
+	      struct disposer_op *ops)
 {
-	//I am not sure if this is right implementation
-	struct floatlayout *fl = container_of(l, struct floatlayout, layout);
-	struct weston_position pos = {
-		.x = view->geometry.x,
-		.y = view->geometry.y
-	};
-	if (is_inbound(pos.x, fl->geo.x, fl->geo.x + fl->geo.width) &&
-	    is_inbound(pos.y, fl->geo.y, fl->geo.y + fl->geo.height))
-		return pos;
-	else {
-		pos.x = rand() % (fl->geo.width  / 2);
-		pos.y = rand() % (fl->geo.height / 2);
-	}
-	return pos;
+	ops[0].end = true;
 }
+
+
+
+static void
+disposer_float(const enum disposer_command command, const struct disposer_op *arg,
+	       struct weston_view *v, struct layout *l,
+	       struct disposer_op *ops)
+{
+	int end = 0;
+	struct floatlayout *fl = container_of(l, struct floatlayout, layout);
+	switch (command) {
+	case DPSR_add:
+		ops->pos.x = rand() % (fl->geo.width / 2);
+		ops->pos.y = rand() % (fl->geo.height / 2);
+		ops->end = false;
+		ops->v = v;
+		end = 1;
+	default:
+	/* case DPSR_up: */
+	/* case DPSR_down: */
+	/* case DPSR_focus: */
+		break;
+	}
+	ops[end].end = true;
+	return;
+}
+
+
 
 
 void
@@ -56,7 +75,7 @@ layout_disposer(struct layout *l)
 		}
 		//TODO also you may want to change the size of the view, in that
 		//case, you will want to weston_desktop functions
-		pos = l->disposer(views[i], l);
+//		pos = l->disposer(views[i], l);
 		weston_view_set_position(views[i], pos.x, pos.y);
 		weston_view_schedule_repaint(views[i]);
 	}
