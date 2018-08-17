@@ -40,7 +40,7 @@ enum disposer_command {
 	DPSR_left, //useful in tiling.
 	DPSR_right, //useful in tiling.
 	DPSR_resize, //useful in tiling
-	DPSR_top, //not useful in neither
+	//DPSR_top, //not useful in neither
 };
 
 /* the operation correspond to the command, I am not sure if it is good to have
@@ -53,19 +53,15 @@ struct disposer_op {
 	struct weston_size size;
 	float scale;
 	bool end;
+	bool visible;
 };
 
 
 struct layout;
-typedef	void (*disposer_fun_t)(const enum disposer_command command, const struct disposer_op *arg,
-			  struct weston_view *v, struct layout *l,
-			  struct disposer_op *ops);
-
-
-struct disposer_node {
-	enum disposer_command command;
-	disposer_fun_t fun;
-};
+typedef	void (*disposer_fun_t)(const enum disposer_command command,
+			       const struct disposer_op *arg,
+			       struct weston_view *v, struct layout *l,
+			       struct disposer_op *ops);
 
 
 struct layout {
