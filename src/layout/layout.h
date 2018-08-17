@@ -55,10 +55,17 @@ struct disposer_op {
 	bool end;
 };
 
+
 struct layout;
 typedef	void (*disposer_fun_t)(const enum disposer_command command, const struct disposer_op *arg,
 			  struct weston_view *v, struct layout *l,
 			  struct disposer_op *ops);
+
+
+struct disposer_node {
+	enum disposer_command command;
+	disposer_fun_t fun;
+};
 
 
 struct layout {

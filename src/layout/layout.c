@@ -2,7 +2,6 @@
 #include <helpers.h>
 #include "layout.h"
 
-
 struct floatlayout {
 	struct layout layout;
 	struct weston_geometry geo;
@@ -18,6 +17,7 @@ disposer_noop(const enum disposer_command command, const struct disposer_op *arg
 {
 	ops[0].end = true;
 }
+
 
 
 
@@ -45,6 +45,9 @@ disposer_float(const enum disposer_command command, const struct disposer_op *ar
 	return;
 }
 
+struct disposer_node float_ops[] = {
+	{DPSR_focus, disposer_noop},
+};
 
 
 
