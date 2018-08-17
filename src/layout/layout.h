@@ -52,7 +52,13 @@ struct disposer_op {
 	struct weston_position pos;
 	struct weston_size size;
 	float scale;
+	bool end;
 };
+
+struct layout;
+typedef	void (*disposer_fun_t)(const enum disposer_command command, const struct disposer_op *arg,
+			  struct weston_view *v, struct layout *l,
+			  struct disposer_op *ops);
 
 
 struct layout {
@@ -63,12 +69,7 @@ struct layout {
 	//if NULL, the layout works on all the output
 	struct weston_output *output;
 	struct weston_layer *layer;
-	//retourner le position, mais en fin, on devrait mettre les position
-	//pour tout les view dans la coche.
-	struct weston_position (*disposer)(struct weston_view *v, struct layout *l);
-	//in this way we don't need to allocate the memory on the heap
-	void (*commander)(enum disposer_command command, struct weston_view *v, struct layout *l,
-			  struct disposer_op *ops);
+	disposer_fun_t commander;
 };
 
 
