@@ -58,6 +58,9 @@ static void workspace_clear_floating(struct workspace *ws);
 static void workspace_focus_view(struct workspace *ws, struct weston_view *v);
 //what about making view from tiled to float and vice versa?
 
+//if you want to use layout algorithms, you have to either implement the desktop
+//protocol or implement bindings.
+
 
 struct twdesktop {
 	//does the desktop should have the shell ui layout? If that is the case,
