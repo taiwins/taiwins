@@ -36,6 +36,25 @@ struct twdesktop *announce_desktop(struct weston_compositor *compositor, struct 
 void end_twdesktop(struct twdesktop *desktop);
 //void add_desktop_bindings(struct weston_compositor *c);
 
+
+
+
+/////////axis bindings
+weston_axis_binding_handler_t twdesktop_zoom_binding;
+weston_axis_binding_handler_t twdesktop_alpha_binding;;
+
+
+//////////btn bindings
+weston_button_binding_handler_t twdesktop_move_binding;
+weston_button_binding_handler_t twdestkop_resize_btnbinding;
+
+
+//////////keybindings
+weston_key_binding_handler_t twdesktop_resize_keybinding;
+weston_key_binding_handler_t twdesktop_deplace_binding;
+weston_key_binding_handler_t twdesktop_focus_binding;
+
+
 #ifdef  __cplusplus
 }
 #endif
