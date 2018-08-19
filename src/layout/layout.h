@@ -3,8 +3,8 @@
  *			How to create the layout
  *
  ***************************************************************************/
-#ifndef TAIWINS_H
-#define TAIWINS_H
+#ifndef LAYOUT_H
+#define LAYOUT_H
 
 #include <stdbool.h>
 #include <helpers.h>
@@ -19,15 +19,6 @@ extern "C" {
 #define _GNU_SOURCE
 #endif
 
-/**
- * we decide to use a tree based tiling layout system because its
- * expresiveness. Thus we supports the tree like operations, move the node left,
- * right, up, down.
-
- * Some of the operation is not ambigous like left/right, delete, top, because
- * we know exactly where the view will be after the operation. But up, down, add
- * have non-determinstic behavoirs.
- */
 
 /* the commands pass to layout algorithm */
 enum disposer_command {
@@ -74,6 +65,12 @@ struct layout {
 	struct weston_layer *layer;
 	disposer_fun_t commander;
 };
+
+//the weston_output is not ready when we create it
+struct layout *floatlayout_create(struct weston_layer *ly, struct weston_output *o);
+void floatlayout_destroy(struct layout *l);
+
+
 
 
 #ifdef  __cplusplus

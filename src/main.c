@@ -109,18 +109,28 @@ int main(int argc, char *argv[])
 
 	struct weston_compositor *compositor = weston_compositor_create(display, NULL);
 	weston_compositor_add_key_binding(compositor, KEY_F12, 0, taiwins_quit, display);
-//	weston_compositor_add_debug_binding(compositor, KEY_F12, taiwins_quit, display);
-	//yep, we need to setup backend,
+
 	tw_setup_backend(compositor);
 	//it seems that we don't need to setup the input, maybe in other cases
 	fprintf(stderr, "backend registred\n");
 	weston_compositor_wake(compositor);
-
+	//good moment to add the extensions
 	struct twshell *shell = announce_twshell(compositor, shellpath);
 	struct twlauncher *launcher = announce_twlauncher(compositor, shell, launcherpath);
-	announce_desktop(compositor, launcher);
+	struct twdesktop *desktop = announce_desktop(compositor, launcher);
+
+	weston_compositor_add_axis_binding(compositor, WL_POINTER_AXIS_VERTICAL_SCROLL,
+					   MODIFIER_SUPER, twdesktop_zoom_binding, desktop);
+	weston_compositor_add_axis_binding(compositor, WL_POINTER_AXIS_VERTICAL_SCROLL,
+					   MODIFIER_SUPER | MODIFIER_ALT, twdesktop_alpha_binding, desktop);
+	weston_compositor_add_button_binding(compositor, BTN_LEFT, MODIFIER_SUPER,
+					     twdesktop_move_binding, desktop);
+
+
+
 	wl_display_run(display);
 //	wl_display_terminate(display);
+	//now you destroy the desktops
 
 	//TODO weston has three compositor destroy methods:
 	// - weston_compositor_exit
