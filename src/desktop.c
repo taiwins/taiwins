@@ -1,3 +1,4 @@
+#include <string.h>
 #include <unistd.h>
 #include <linux/input.h>
 #include <unistd.h>
@@ -10,10 +11,11 @@
 
 #include "taiwins.h"
 #include "desktop.h"
+#include "layout/layout.h"
 
 struct workspace {
-	struct wl_list layout_tiling_link;
-	struct wl_list layout_floating_link;
+	struct wl_list floating_layout_link;
+	struct wl_list tiling_layout_link;
 	//workspace does not distinguish the outputs.
 	//so when we `switch_workspace, all the output has to update.
 	//The layouting algorithm may have to worry about output
@@ -32,36 +34,6 @@ struct workspace {
 	//the stacking layout, for example. Only show two views.
 };
 
-//operation surtenir.
-//move view to top(move the view to the top of the list)
-
-//move view up/down only for tile : (find the next view on the same output, then insert after that)
-//move view to another workspace, bind a del and add event together.
-//toggle view float/tiled(insert to the top of corresponding layer), same thing as
-//cycle through the views(we should unfied)
-//resize
-
-//if you want, you can implement the workspace function as commands as well then
-//uses the decorator to have relayout or not, so you can extensive commands.
-
-/* workspace related methods */
-static void workspace_init(struct workspace *ws, struct weston_compositor *ec);
-/* called at compositor destruction */
-static void workspace_release(struct workspace *ws);
-static void free_workspace(void *ws) { workspace_release((struct workspace *)ws); }
-static void workspace_switch(struct workspace *to, struct twdesktop *d);
-
-static inline void workspace_switch_recent(struct twdesktop *d);
-/* move all the views in floating layer to hidden */
-static void workspace_clear_floating(struct workspace *ws);
-/* for a given view, decide whether it is floating view or hidden view */
-static void workspace_focus_view(struct workspace *ws, struct weston_view *v);
-//what about making view from tiled to float and vice versa?
-
-//if you want to use layout algorithms, you have to either implement the desktop
-//protocol or implement bindings.
-
-
 struct twdesktop {
 	//does the desktop should have the shell ui layout? If that is the case,
 	//we should get the shell as well.
@@ -77,8 +49,35 @@ struct twdesktop {
 	struct weston_desktop *api;
 
 	struct wl_listener destroy_listener;
+	struct wl_listener output_create_listener;
+	struct wl_listener output_destroy_listener;
+
+	struct wl_listener seat_create_listener;
+	struct wl_listener pointer_focus_listener;
+	struct wl_listener keyboard_focus_listener;
+	struct wl_listener touch_focus_listener;
 };
 static struct twdesktop onedesktop;
+
+
+
+
+
+
+
+static void workspace_switch(struct workspace *to, struct twdesktop *d);
+
+static inline void workspace_switch_recent(struct twdesktop *d);
+/* move all the views in floating layer to hidden */
+static void workspace_clear_floating(struct workspace *ws);
+/* for a given view, decide whether it is floating view or hidden view */
+//you need to use the focus signal to implement the
+static void workspace_focus_view(struct workspace *ws, struct weston_view *v);
+//what about making view from tiled to float and vice versa?
+
+
+
+
 
 
 /**
@@ -87,6 +86,8 @@ static struct twdesktop onedesktop;
 static void
 workspace_init(struct workspace *wp, struct weston_compositor *compositor)
 {
+	wl_list_init(&wp->floating_layout_link);
+	wl_list_init(&wp->tiling_layout_link);
 	weston_layer_init(&wp->tiling_layer, compositor);
 	weston_layer_init(&wp->floating_layer, compositor);
 	weston_layer_init(&wp->hidden_layer, compositor);
@@ -114,6 +115,50 @@ workspace_release(struct workspace *ws)
 		}
 	}
 }
+
+static void free_workspace(void *ws)
+{ workspace_release((struct workspace *)ws); }
+
+struct layout *
+workspace_get_layout_for_view(const struct workspace *ws, const struct weston_view *v)
+{
+	struct layout *l;
+	if (!v || (v->layer_link.layer != &ws->floating_layer &&
+		   v->layer_link.layer != &ws->tiling_layer))
+		return NULL;
+	wl_list_for_each(l, &ws->floating_layout_link, link) {
+		if (l->layer == &ws->floating_layer)
+			return l;
+	}
+	wl_list_for_each(l, &ws->tiling_layout_link, link) {
+		if (l->layer == &ws->tiling_layer)
+			return l;
+	}
+	return NULL;
+}
+
+static void
+arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
+			const enum disposer_command command,
+			const struct disposer_op *arg)
+{
+	struct layout *layout = workspace_get_layout_for_view(ws, v);
+	if (!layout)
+		return;
+	int len = wl_list_length(&ws->floating_layer.view_list.link) +
+		wl_list_length(&ws->tiling_layer.view_list.link) + 1;
+	struct disposer_op ops[len];
+	memset(ops, 0, sizeof(ops));
+	layout->commander(command, arg, v, layout, ops);
+	for (int i = 0; i < len; i++) {
+		if (ops[i].end)
+			break;
+		//TODO, check the validty of the operations
+		weston_view_set_position(v, ops[i].pos.x, ops[i].pos.y);
+		weston_view_schedule_repaint(v);
+	}
+}
+
 
 static void
 workspace_switch(struct workspace *to, struct twdesktop *d)
@@ -148,21 +193,59 @@ workspace_clear_floating(struct workspace *ws)
 		}
 }
 
+//BUG!!! couldn't lift the view
 static void
 workspace_focus_view(struct workspace *ws, struct weston_view *v)
 {
-	struct weston_layer *l = v->layer_link.layer;
+	struct weston_layer *l = (v) ? v->layer_link.layer : NULL;
+	if (!l || (l != &ws->floating_layer && l != &ws->tiling_layer))
+		return;
+	//move float to hidden is a bit tricky
 	if (l == &ws->floating_layer) {
-		//there is nothing to do, we are already in the top layer.
+		weston_layer_entry_remove(&v->layer_link);
+		weston_layer_entry_insert(&ws->floating_layer.view_list,
+					  &v->layer_link);
 	} else if (l == &ws->tiling_layer) {
 		workspace_clear_floating(ws);
+		weston_layer_entry_remove(&v->layer_link);
+		weston_layer_entry_insert(&ws->tiling_layer.view_list,
+					  &v->layer_link);
 	} else if (l == &ws->hidden_layer) {
 		weston_layer_entry_remove(&v->layer_link);
 		weston_layer_entry_insert(&ws->floating_layer.view_list,
 					  &v->layer_link);
+
 	}
+	weston_view_damage_below(v);
+	weston_view_schedule_repaint(v);
 	//it is not possible to be here.
 }
+
+
+static void
+workspace_add_output(struct workspace *wp, struct weston_output *output)
+{
+	if (wl_list_empty(&wp->floating_layout_link)) {
+		struct layout *fl = floatlayout_create(&wp->floating_layer, output);
+		wl_list_insert(&wp->floating_layout_link, &fl->link);
+	}
+	//TODO create the tiling_layout as well.
+}
+
+static void
+workspace_remove_output(struct workspace *w, struct weston_output *output)
+{
+	struct layout *l, *next;
+	wl_list_for_each_safe(l, next, &w->floating_layout_link, link) {
+		wl_list_remove(&l->link);
+		floatlayout_destroy(l);
+		//some how you need to move all the layer here
+	}
+	wl_list_for_each_safe(l, next, &w->tiling_layout_link, link) {
+	}
+}
+
+
 
 /**
  * grab decleration, with different options.
@@ -171,43 +254,62 @@ struct grab_interface {
 	struct weston_pointer_grab pointer_grab;
 	struct weston_touch_grab touch_grab;
 	struct weston_keyboard_grab keyboard_grab;
+	/* need this struct to access the workspace */
+	struct twdesktop *desktop;
 	struct weston_view *view;
 	struct weston_compositor *compositor;
 };
 
 static struct grab_interface *
-grab_interface_create_for(struct weston_view *view, struct weston_seat *seat);
+grab_interface_create_for(struct weston_view *view, struct weston_seat *seat, struct twdesktop *desktop);
 
 static void
 grab_interface_destroy(struct grab_interface *gi);
 
 
-/**
- * @brief the libweston-desktop implementation
- */
+/*********************************************************************/
+/****************      weston_desktop impl            ****************/
+/*********************************************************************/
+static inline bool
+is_view_on_twdesktop(const struct weston_view *v, const struct twdesktop *desk)
+{
+	struct workspace *ws = desk->actived_workspace[0];
+	struct weston_layer *layer = v->layer_link.layer;
+	return (layer == &ws->floating_layer || layer == &ws->tiling_layer);
+}
+
+
+
+
+
+
 static void
 twdesk_surface_added(struct weston_desktop_surface *surface,
 		     void *user_data)
 {
+	struct twdesktop *desktop = user_data;
+	//remove old view (if any) and create one
 	struct weston_view *view, *next;
 	struct weston_surface *wt_surface = weston_desktop_surface_get_surface(surface);
 	wl_list_for_each_safe(view, next, &wt_surface->views, surface_link)
 		weston_view_destroy(view);
-
-	struct weston_view *wt_view = weston_desktop_surface_create_view(surface);
-	wl_list_init(&wt_view->link);
-
-	wt_view->is_mapped = true;
+	view = weston_desktop_surface_create_view(surface);
+	wl_list_init(&view->link);
+	view->is_mapped = true;
 	wt_surface->is_mapped = true;
 	weston_desktop_surface_set_activated(surface, true);
-	wt_view->output = tw_get_focused_output(wt_surface->compositor);
-	wt_surface->output = wt_view->output;
-	weston_view_damage_below(wt_view);
-	//you need to somehow focus the view, here we are doing it in the hacky
-	//way.
-	struct weston_seat *active_seat = container_of(onedesktop.compositor->seat_list.next, struct weston_seat, link);
+	view->output = tw_get_focused_output(wt_surface->compositor);
+	wt_surface->output = view->output;
+	//focus on it
+	struct weston_seat *active_seat = container_of(desktop->compositor->seat_list.next,
+						       struct weston_seat, link);
 	struct weston_keyboard *keyboard = active_seat->keyboard_state;
+	struct workspace *wsp = desktop->actived_workspace[0];
+
 	weston_keyboard_set_focus(keyboard, wt_surface);
+	if (wl_list_empty(&view->layer_link.link))
+		weston_layer_entry_insert(&wsp->floating_layer.view_list, &view->layer_link);
+	weston_view_set_position(view, 200, 200);
 }
 
 static void
@@ -215,6 +317,7 @@ twdesk_surface_removed(struct weston_desktop_surface *surface,
 		       void *user_data)
 {
 	struct weston_surface *wt_surface = weston_desktop_surface_get_surface(surface);
+	//remove or destroy?
 	weston_surface_unmap(wt_surface);
 }
 
@@ -225,18 +328,13 @@ twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
 {
 	//again, we don't know which view is committed as well.
 	fprintf(stderr, "committed\n");
-	struct workspace *wsp = onedesktop.actived_workspace[0];
+
 	struct weston_surface *surface =  weston_desktop_surface_get_surface(desktop_surface);
 	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
 	//hacky way, we don't know which layer to insert though, need to decide by the layout program
-	if (wl_list_empty(&view->layer_link.link))
-		weston_layer_entry_insert(&wsp->floating_layer.view_list, &view->layer_link);
 
-	weston_view_set_position(view, 200, 200);
 	weston_view_damage_below(view);
-
-	weston_surface_schedule_repaint(surface);
-
+	weston_view_schedule_repaint(view);
 }
 
 static void
@@ -244,12 +342,13 @@ twdesk_surface_move(struct weston_desktop_surface *desktop_surface,
 		    struct weston_seat *seat, uint32_t serial, void *user_data)
 {
 	struct grab_interface *gi;
+	struct twdesktop *desktop = user_data;
 	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
 	struct weston_surface *surface = weston_desktop_surface_get_surface(desktop_surface);
 	struct weston_view *view = tw_default_view_from_surface(surface);
 //	struct weston_touch *touch = weston_seat_get_touch(seat);
 	if (pointer && pointer->focus && pointer->button_count > 0) {
-		gi = grab_interface_create_for(view, seat);
+		gi = grab_interface_create_for(view, seat, desktop);
 		weston_pointer_start_grab(pointer, &gi->pointer_grab);
 	}
 }
@@ -265,6 +364,76 @@ static struct weston_desktop_api desktop_impl =  {
 };
 /*** libweston-desktop implementation ***/
 
+static void
+twdesktop_output_created(struct wl_listener *listener, void *data)
+{
+	struct weston_output *output = data;
+	for (int i = 0; i < onedesktop.workspaces.len; i++) {
+		struct workspace *w = (struct workspace *)
+			vector_at(&onedesktop.workspaces, i);
+		workspace_add_output(w, output);
+	}
+}
+
+static void
+twdesktop_output_destroyed(struct wl_listener *listener, void *data)
+{
+	struct weston_output *output = data;
+	for (int i = 0; i < onedesktop.workspaces.len; i++) {
+		struct workspace *w = (struct workspace *)
+			vector_at(&onedesktop.workspaces, i);
+		//you somehow need to move the views to other output.
+		workspace_remove_output(w, output);
+	}
+}
+
+static void
+twdesktop_seat_created(struct wl_listener *listener, void *data)
+{
+	struct twdesktop *desktop = container_of(listener, struct twdesktop,
+						 seat_create_listener);
+	struct weston_seat *seat = data;
+	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
+	struct weston_touch *touch = weston_seat_get_touch(seat);
+	struct weston_keyboard *keyboard = weston_seat_get_keyboard(seat);
+	if (pointer)
+		wl_signal_add(&pointer->focus_signal,
+			      &desktop->pointer_focus_listener);
+	if (touch)
+		wl_signal_add(&touch->focus_signal,
+			      &desktop->touch_focus_listener);
+	if (keyboard)
+		wl_signal_add(&keyboard->focus_signal,
+			      &desktop->keyboard_focus_listener);
+}
+
+static void
+twdesktop_focus_pointer(struct wl_listener *listener, void *data)
+{
+	struct weston_pointer *pointer = data;
+	struct twdesktop *desktop = container_of(listener, struct twdesktop,
+						 pointer_focus_listener);
+	struct workspace *ws = desktop->actived_workspace[0];
+	if (!pointer->button_count)
+		return;
+	workspace_focus_view(ws, pointer->focus);
+}
+
+static void
+twdesktop_focus_touch(struct wl_listener *listener, void *data)
+{
+	struct weston_touch *touch = data;
+	struct twdesktop *desktop = container_of(listener, struct twdesktop,
+						 touch_focus_listener);
+	struct workspace *ws = desktop->actived_workspace[0];
+	workspace_focus_view(ws, touch->focus);
+}
+
+static void
+twdesktop_focus_keyboard(struct wl_listener *listener, void *data)
+{
+	//nothing to do, we
+}
 
 struct twdesktop *
 announce_desktop(struct weston_compositor *ec, struct twlauncher *launcher)
@@ -272,42 +441,75 @@ announce_desktop(struct weston_compositor *ec, struct twlauncher *launcher)
 	//initialize the desktop
 	onedesktop.compositor = ec;
 	onedesktop.launcher = launcher;
-	vector_t *workspaces = &onedesktop.workspaces;
-	vector_init(workspaces, sizeof(struct workspace), free_workspace);
-	//then afterwards, you don't spend time allocating workspace anymore
-	vector_resize(workspaces, 9);
-	for (int i = 0; i < workspaces->len; i++)
-		workspace_init((struct workspace *)vector_at(workspaces, i), ec);
-	//not sure if this is a good idea, since we are using vector
-	onedesktop.actived_workspace[0] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
-	onedesktop.actived_workspace[1] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
-	workspace_switch(onedesktop.actived_workspace[0], &onedesktop);
+	{
+		vector_t *workspaces = &onedesktop.workspaces;
+		vector_init(workspaces, sizeof(struct workspace), free_workspace);
+		vector_resize(workspaces, 9);
+		for (int i = 0; i < workspaces->len; i++)
+			workspace_init((struct workspace *)vector_at(workspaces, i), ec);
+		onedesktop.actived_workspace[0] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
+		onedesktop.actived_workspace[1] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
+		workspace_switch(onedesktop.actived_workspace[0], &onedesktop);
+	}
+	/// create the desktop api
 	//NOTE this creates the xwayland layer, which is WAYLAND_LAYER_POSITION_NORMAL+1
 	onedesktop.api = weston_desktop_create(ec, &desktop_impl, &onedesktop);
+	{
+		struct weston_output *output;
+		struct weston_seat *seat;
+
+		wl_list_init(&onedesktop.output_create_listener.link);
+		wl_list_init(&onedesktop.output_destroy_listener.link);
+		wl_list_init(&onedesktop.seat_create_listener.link);
+		wl_list_init(&onedesktop.pointer_focus_listener.link);
+		wl_list_init(&onedesktop.touch_focus_listener.link);
+		wl_list_init(&onedesktop.keyboard_focus_listener.link);
+
+		onedesktop.output_create_listener.notify = twdesktop_output_created;
+		onedesktop.output_destroy_listener.notify = twdesktop_output_destroyed;
+		onedesktop.seat_create_listener.notify = twdesktop_seat_created;
+		onedesktop.pointer_focus_listener.notify = twdesktop_focus_pointer;
+		onedesktop.touch_focus_listener.notify = twdesktop_focus_touch;
+		onedesktop.keyboard_focus_listener.notify = twdesktop_focus_keyboard;
+
+		//add existing output
+		wl_signal_add(&ec->output_created_signal,
+			      &onedesktop.output_create_listener);
+		wl_signal_add(&ec->output_destroyed_signal,
+			      &onedesktop.output_destroy_listener);
+		wl_signal_add(&ec->seat_created_signal,
+			      &onedesktop.seat_create_listener);
+
+		wl_list_for_each(output, &ec->output_list, link)
+			twdesktop_output_created(&onedesktop.output_create_listener,
+						 output);
+
+		wl_list_for_each(seat, &ec->seat_list, link) {
+			twdesktop_seat_created(&onedesktop.seat_create_listener,
+					       seat);
+		}
+	}
 
 //	wl_global_create(ec->wl_display, &taiwins_launcher_interface, TWDESKP_VERSION, &onedesktop, bind_desktop);
 	return &onedesktop;
 }
 
 
-//implementation of grab interfaces
 static struct weston_pointer_grab_interface twdesktop_moving_grab;
-static struct weston_pointer_grab_interface twdesktop_zoom_grab;
-static struct weston_pointer_grab_interface twdesktop_alpha_grab;
 
 /**
  * constructor, view can be null, but seat cannot. we need compositor
  */
 static struct grab_interface *
-grab_interface_create_for(struct weston_view *view, struct weston_seat *seat)
+grab_interface_create_for(struct weston_view *view, struct weston_seat *seat, struct twdesktop *desktop)
 {
 	assert(seat);
 	struct grab_interface *gi = calloc(sizeof(struct grab_interface), 1);
 	gi->view = view;
 	gi->compositor = seat->compositor;
+	gi->desktop = desktop;
 	//TODO find out the corresponding grab interface
-//	gi->pointer_grab.interface = &twdesktop_moving_grab;
-	gi->pointer_grab.interface = &twdesktop_alpha_grab;
+	gi->pointer_grab.interface = &twdesktop_moving_grab;
 	gi->pointer_grab.pointer = weston_seat_get_pointer(seat);
 	//right now we do not have other grab
 	return gi;
@@ -319,21 +521,6 @@ grab_interface_destroy(struct grab_interface *gi)
 	free(gi);
 }
 
-//implement the grab interfaces, basically 3 different interfaces need to be
-// implemented.
-//
-//1) pointer, 2) touch 3) keyboard
-// The grab is a state, you need to start and end(basically setting back to
-// default grab).  the start grab is usually triggered by libweston
-// callbacks(move) and maybe other bindings.
-//
-// Once the grab is triggered. the input devices works differently, for example.
-// Once super pressed, the pointer gets into moving state, and you have to work
-// on one view. From start to end. The grab should stay on the same view, but
-// since there are multiple input devices, we cannot assume the we only have one
-// grab at a time(although it is true most of the itme). So The idea is allocate
-// a grab_interface when starting the grab. The deallocate it when we are done.
-
 static void
 constrain_pointer(struct weston_pointer_motion_event *event, struct weston_output *output)
 {
@@ -343,10 +530,9 @@ constrain_pointer(struct weston_pointer_motion_event *event, struct weston_outpu
 
 static void
 pointer_motion_delta(struct weston_pointer *p,
-				 struct weston_pointer_motion_event *e,
-				 double *dx, double *dy)
+		     struct weston_pointer_motion_event *e,
+		     double *dx, double *dy)
 {
-
 	//so there could be two case, if the motion is abs, the cx, cy is from
 	//event->[x,y]. If it is relative, it will be pointer->x + event->dx.
 	wl_fixed_t cx, cy;
@@ -362,24 +548,15 @@ pointer_motion_delta(struct weston_pointer *p,
 }
 
 
-//used in the mopving_grab
-static void noop_focus(struct weston_pointer_grab *grab) {}
-
-static void noop_axis(struct weston_pointer_grab *grab, const struct timespec *time,
-		      struct weston_pointer_axis_event *event ) {}
-
-//this zoom can also be implement as blending operations
 static void
-zoom_axis(struct weston_pointer_grab *grab, const struct timespec *time,
-	  struct weston_pointer_axis_event *event)
+zoom_axis(struct weston_pointer *pointer, const struct timespec *time,
+	   struct weston_pointer_axis_event *event, struct weston_compositor *ec)
 {
-	struct grab_interface *gi = container_of(grab, struct grab_interface, pointer_grab);
-	struct weston_pointer *pointer = gi->pointer_grab.pointer;
-	struct weston_seat *seat = gi->pointer_grab.pointer->seat;
-	struct weston_output *output;
 	double augment;
+	struct weston_output *output;
+	struct weston_seat *seat = pointer->seat;
 
-	wl_list_for_each(output, &gi->compositor->output_list, link) {
+	wl_list_for_each(output, &ec->output_list, link) {
 		if (pixman_region32_contains_point(&output->region,
 						   wl_fixed_to_int(pointer->x),
 						   wl_fixed_to_int(pointer->y), NULL))
@@ -408,22 +585,15 @@ zoom_axis(struct weston_pointer_grab *grab, const struct timespec *time,
 			weston_output_update_zoom(output);
 		}
 	}
-
 }
 
 static void
-alpha_axis(struct weston_pointer_grab *grab, const struct timespec *time,
-	      struct weston_pointer_axis_event *event)
+alpha_axis(struct weston_pointer *pointer, const struct timespec *time,
+	   struct weston_pointer_axis_event *event, struct weston_view *view)
 {
-	struct grab_interface *gi = container_of(grab, struct grab_interface, pointer_grab);
-	struct weston_pointer *pointer = gi->pointer_grab.pointer;
-	struct weston_seat *seat = gi->pointer_grab.pointer->seat;
-	struct weston_view *view = gi->view;
 	float increment = 0.07;
 	float sign = (event->has_discrete) ? -1.0 : 1.0;
 
-	if (!view)
-		return;
 	view->alpha += increment * sign * event->value / 20.0;
 	if (view->alpha < 0.0)
 		view->alpha = 0.0;
@@ -433,31 +603,53 @@ alpha_axis(struct weston_pointer_grab *grab, const struct timespec *time,
 	weston_view_schedule_repaint(view);
 }
 
-static void noop_axis_source(struct weston_pointer_grab *grab, uint32_t source) {}
+/*********************************************************************/
+/****************             GRABS                   ****************/
+/*********************************************************************/
+static void noop_grab_focus(struct weston_pointer_grab *grab) {}
 
-static void noop_frame(struct weston_pointer_grab *grab) {}
+static void noop_grab_axis(struct weston_pointer_grab *grab, const struct timespec *time,
+		      struct weston_pointer_axis_event *event ) {}
+
+static void noop_grab_axis_source(struct weston_pointer_grab *grab, uint32_t source) {}
+
+static void noop_grab_frame(struct weston_pointer_grab *grab) {}
 
 
 static void
 move_grab_pointer_motion(struct weston_pointer_grab *grab,
-				     const struct timespec *time,
-				     struct weston_pointer_motion_event *event)
+			 const struct timespec *time,
+			 struct weston_pointer_motion_event *event)
 {
 	double dx, dy;
 	struct grab_interface *gi = container_of(grab, struct grab_interface, pointer_grab);
+	struct twdesktop *d = gi->desktop;
+	struct weston_layer *layer = gi->view->layer_link.layer;
+	struct workspace *ws = d->actived_workspace[0];
 	//this func change the pointer->x pointer->y
 	pointer_motion_delta(grab->pointer, event, &dx, &dy);
 	weston_pointer_move(grab->pointer, event);
-
-	//but no send_motion_event.
 	if (!gi->view)
 		return;
-//	struct weston_surface *surface = gi->view->surface;
 	//TODO constrain the pointer.
-	weston_view_set_position(gi->view,
-				 gi->view->geometry.x + dx,
-				 gi->view->geometry.y + dy);
-	weston_view_schedule_repaint(gi->view);
+	if (layer == &ws->floating_layer) {
+		weston_view_set_position(gi->view,
+					 gi->view->geometry.x + dx,
+					 gi->view->geometry.y + dy);
+		weston_view_schedule_repaint(gi->view);
+	} else {
+
+		struct disposer_op arg = {
+			.v = gi->view,
+			.pos = {
+				gi->view->geometry.x + dx,
+				gi->view->geometry.y + dy,
+			},
+			.visible = true,
+		};
+		//this can be problematic
+		arrange_view_for_workspace(ws, gi->view, DPSR_deplace, &arg);
+	}
 
 }
 
@@ -468,10 +660,11 @@ noop_grab_pointer_motion(struct weston_pointer_grab *grab, const struct timespec
 	weston_pointer_move(grab->pointer, event);
 }
 
-//this should be an universal implementation
+
 static void
 pointer_grab_cancel(struct weston_pointer_grab *grab)
 {
+	//an universal implemention, destroy the grab all the time
 	struct grab_interface *gi = container_of(grab, struct grab_interface, pointer_grab);
 	weston_pointer_end_grab(grab->pointer);
 	grab_interface_destroy(gi);
@@ -490,33 +683,96 @@ move_grab_button(struct weston_pointer_grab *grab, const struct timespec *time,
 }
 
 
-
 static struct weston_pointer_grab_interface twdesktop_moving_grab = {
-	.focus = noop_focus,
+	.focus = noop_grab_focus,
 	.motion = move_grab_pointer_motion,
 	.button = move_grab_button,
-	.axis = noop_axis,
-	.frame = noop_frame,
+	.axis = noop_grab_axis,
+	.frame = noop_grab_frame,
 	.cancel = pointer_grab_cancel,
-	.axis_source = noop_axis_source,
+	.axis_source = noop_grab_axis_source,
 };
 
-static struct weston_pointer_grab_interface twdesktop_zoom_grab = {
-	.focus = noop_focus,
-	.motion = noop_grab_pointer_motion,
-	.button = move_grab_button,
-	.axis = zoom_axis,
-	.frame = noop_frame,
-	.cancel = pointer_grab_cancel,
-	.axis_source = noop_axis_source,
-};
 
-static struct weston_pointer_grab_interface twdesktop_alpha_grab = {
-	.focus = noop_focus,
-	.motion = noop_grab_pointer_motion,
-	.button = move_grab_button,
-	.axis = alpha_axis,
-	.frame = noop_frame,
-	.cancel = pointer_grab_cancel,
-	.axis_source = noop_axis_source,
-};
+static void
+twdesktop_zoom_axis(struct weston_pointer *pointer,
+		    const struct timespec *time,
+		    struct weston_pointer_axis_event *event,
+		    void *data)
+{
+	struct twdesktop *desktop = data;
+	zoom_axis(pointer, time, event, desktop->compositor);
+}
+
+static void
+twdesktop_alpha_axis(struct weston_pointer *pointer,
+		     const struct timespec *time,
+		     struct weston_pointer_axis_event *event,
+		     void *data)
+{
+	struct twdesktop *desktop = data;
+	//find a view.
+	if (!pointer->focus ||
+	    !is_view_on_twdesktop(pointer->focus, desktop))
+		return;
+	alpha_axis(pointer, time, event, pointer->focus);
+}
+
+
+/* I have to implement this like a grab */
+static void
+twdesktop_move_btn(struct weston_pointer *pointer, const struct timespec *time,
+		   uint32_t button, void *data)
+{
+	struct grab_interface *gi = NULL;
+	struct weston_seat *seat = pointer->seat;
+	struct weston_view *view = pointer->focus;
+	struct twdesktop *desktop = data;
+	if (pointer->button_count > 0 && view && is_view_on_twdesktop(view, desktop)) {
+		gi = grab_interface_create_for(view, seat, desktop);
+		weston_pointer_start_grab(pointer, &gi->pointer_grab);
+	}
+
+}
+
+/*this is useless, we do not know where to move the view*/
+static void
+twdesktop_deplace_key(struct weston_keyboard *keyboard,
+		      const struct timespec *time,
+		      uint32_t key,
+		      void *data)
+{
+	//okay, this works, but we will need other things
+	struct twdesktop *desktop = data;
+	enum disposer_command command;
+	struct disposer_op arg;
+	struct weston_view *view = keyboard->seat->pointer_state->focus;
+	struct workspace *ws = desktop->actived_workspace[0];
+	if (!view)
+		return;
+	arg.visible = true;
+	arg.v = view;
+	arg.end = false;
+	switch (key) {
+	case KEY_UP:
+		command = DPSR_up;
+		break;
+	case KEY_DOWN:
+		command = DPSR_down;
+		break;
+	case KEY_LEFT:
+		command = DPSR_left;
+		break;
+	case KEY_RIGHT:
+		command = DPSR_right;
+		break;
+	default:
+		return;
+	}
+	arrange_view_for_workspace(ws, view, command, &arg);
+}
+
+weston_axis_binding_handler_t twdesktop_zoom_binding = &twdesktop_zoom_axis;
+weston_axis_binding_handler_t twdesktop_alpha_binding = &twdesktop_alpha_axis;
+weston_button_binding_handler_t twdesktop_move_binding = &twdesktop_move_btn;
+//weston_key_binding_handler_t twdesktop_deplace_binding = &twdesktop_deplace_key;

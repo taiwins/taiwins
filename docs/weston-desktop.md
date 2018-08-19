@@ -64,5 +64,18 @@ desktop has following concepts:
 	It is too early to talk about this, right now the priority is implementing a
 	stupid algorithm.
 
+### How do we use it
+The `desktop`, `shell`, or any other code we write, are meant to provide the
+functionalities and there are only a few ways to expose them to users. The
+desktop need to provide the means to operate the `views`, like moving `views`,
+delete them, switching workspaces and so on. They are in the form of bindings.
+
+The second way to provide the functionalities is through protocols. They are
+mainly used in `shell`.
+
+We can implement them by keybindings, they are mutual exclusive, if both are
+activated. The effects doubled.
+
+
 ## weston-renderer implementation
 TODO

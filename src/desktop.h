@@ -30,29 +30,37 @@ struct twlauncher;
 struct twlauncher *announce_twlauncher(struct weston_compositor *compositor,
 				       struct twshell *shell, const char *exec_path);
 
-
-/** add desktop protocols **/
+/** TODO add desktop protocols **/
 struct twdesktop *announce_desktop(struct weston_compositor *compositor, struct twlauncher *launcher);
 void end_twdesktop(struct twdesktop *desktop);
-//void add_desktop_bindings(struct weston_compositor *c);
 
 
+/* extern struct wl_listener twdesktop_output_create_listener; */
+/* extern struct wl_listener twdesktop_output_destroy_listener; */
+/* //from this we can add focus signal. */
+/* extern struct wl_listener twdesktop_seat_create_listener; */
 
+/////////////// Desktop functionalities ///////////////////////
 
-/////////axis bindings
+//// operations on the output
 weston_axis_binding_handler_t twdesktop_zoom_binding;
-weston_axis_binding_handler_t twdesktop_alpha_binding;;
 
+//// operations on workspaces
+weston_key_binding_handler_t twdesktop_switch_ws_binding;
+weston_key_binding_handler_t twdesktop_switch_recent_ws_binding;
 
-//////////btn bindings
+//// operations on the views
+weston_axis_binding_handler_t twdesktop_alpha_binding;
 weston_button_binding_handler_t twdesktop_move_binding;
 weston_button_binding_handler_t twdestkop_resize_btnbinding;
-
-
-//////////keybindings
 weston_key_binding_handler_t twdesktop_resize_keybinding;
 weston_key_binding_handler_t twdesktop_deplace_binding;
 weston_key_binding_handler_t twdesktop_focus_binding;
+weston_key_binding_handler_t twdesktop_change_view_ws_binding;
+
+/// now we have to figure out how to have user define the keys, but we should
+/// wait the input system is ready
+
 
 
 #ifdef  __cplusplus
