@@ -35,11 +35,6 @@ struct twdesktop *announce_desktop(struct weston_compositor *compositor, struct 
 void end_twdesktop(struct twdesktop *desktop);
 
 
-/* extern struct wl_listener twdesktop_output_create_listener; */
-/* extern struct wl_listener twdesktop_output_destroy_listener; */
-/* //from this we can add focus signal. */
-/* extern struct wl_listener twdesktop_seat_create_listener; */
-
 /////////////// Desktop functionalities ///////////////////////
 
 //// operations on the output
