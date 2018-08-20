@@ -120,12 +120,13 @@ int main(int argc, char *argv[])
 	struct twdesktop *desktop = announce_desktop(compositor, launcher);
 
 	weston_compositor_add_axis_binding(compositor, WL_POINTER_AXIS_VERTICAL_SCROLL,
-					   MODIFIER_SUPER, twdesktop_zoom_binding, desktop);
+					   MODIFIER_SUPER | MODIFIER_ALT, twdesktop_zoom_binding, desktop);
 	weston_compositor_add_axis_binding(compositor, WL_POINTER_AXIS_VERTICAL_SCROLL,
 					   MODIFIER_SUPER | MODIFIER_ALT, twdesktop_alpha_binding, desktop);
 	weston_compositor_add_button_binding(compositor, BTN_LEFT, MODIFIER_SUPER,
 					     twdesktop_move_binding, desktop);
-
+	weston_compositor_add_button_binding(compositor, BTN_LEFT, 0, twdesktop_click_focus_binding, desktop);
+	weston_compositor_add_touch_binding(compositor, 0, twdesktop_touch_focus_binding, desktop);
 
 
 	wl_display_run(display);
