@@ -18,7 +18,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include "backend.h"
 #include "shell.h"
-#include "desktop.h"
+#include "desktop/desktop.h"
 #include "taiwins.h"
 
 

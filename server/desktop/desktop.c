@@ -9,9 +9,9 @@
 
 
 
-#include "taiwins.h"
+#include "../taiwins.h"
 #include "desktop.h"
-#include "layout/layout.h"
+#include "layout.h"
 
 struct workspace {
 	struct wl_list floating_layout_link;
