@@ -51,17 +51,8 @@ struct twdesktop {
 	struct wl_listener destroy_listener;
 	struct wl_listener output_create_listener;
 	struct wl_listener output_destroy_listener;
-
-	struct wl_listener seat_create_listener;
-	struct wl_listener pointer_focus_listener;
-	struct wl_listener keyboard_focus_listener;
-	struct wl_listener touch_focus_listener;
 };
 static struct twdesktop onedesktop;
-
-
-
-
 
 
 
@@ -72,12 +63,8 @@ static inline void workspace_switch_recent(struct twdesktop *d);
 static void workspace_clear_floating(struct workspace *ws);
 /* for a given view, decide whether it is floating view or hidden view */
 //you need to use the focus signal to implement the
-static void workspace_focus_view(struct workspace *ws, struct weston_view *v);
+static bool workspace_focus_view(struct workspace *ws, struct weston_view *v);
 //what about making view from tiled to float and vice versa?
-
-
-
-
 
 
 /**
@@ -194,17 +181,18 @@ workspace_clear_floating(struct workspace *ws)
 }
 
 //BUG!!! couldn't lift the view
-static void
+static bool
 workspace_focus_view(struct workspace *ws, struct weston_view *v)
 {
 	struct weston_layer *l = (v) ? v->layer_link.layer : NULL;
 	if (!l || (l != &ws->floating_layer && l != &ws->tiling_layer))
-		return;
+		return false;
 	//move float to hidden is a bit tricky
 	if (l == &ws->floating_layer) {
 		weston_layer_entry_remove(&v->layer_link);
 		weston_layer_entry_insert(&ws->floating_layer.view_list,
 					  &v->layer_link);
+		//we should somehow ping on it
 	} else if (l == &ws->tiling_layer) {
 		workspace_clear_floating(ws);
 		weston_layer_entry_remove(&v->layer_link);
@@ -218,6 +206,7 @@ workspace_focus_view(struct workspace *ws, struct weston_view *v)
 	}
 	weston_view_damage_below(v);
 	weston_view_schedule_repaint(v);
+	return true;
 	//it is not possible to be here.
 }
 
@@ -277,10 +266,6 @@ is_view_on_twdesktop(const struct weston_view *v, const struct twdesktop *desk)
 	struct weston_layer *layer = v->layer_link.layer;
 	return (layer == &ws->floating_layer || layer == &ws->tiling_layer);
 }
-
-
-
-
 
 
 static void
@@ -387,54 +372,6 @@ twdesktop_output_destroyed(struct wl_listener *listener, void *data)
 	}
 }
 
-static void
-twdesktop_seat_created(struct wl_listener *listener, void *data)
-{
-	struct twdesktop *desktop = container_of(listener, struct twdesktop,
-						 seat_create_listener);
-	struct weston_seat *seat = data;
-	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
-	struct weston_touch *touch = weston_seat_get_touch(seat);
-	struct weston_keyboard *keyboard = weston_seat_get_keyboard(seat);
-	if (pointer)
-		wl_signal_add(&pointer->focus_signal,
-			      &desktop->pointer_focus_listener);
-	if (touch)
-		wl_signal_add(&touch->focus_signal,
-			      &desktop->touch_focus_listener);
-	if (keyboard)
-		wl_signal_add(&keyboard->focus_signal,
-			      &desktop->keyboard_focus_listener);
-}
-
-static void
-twdesktop_focus_pointer(struct wl_listener *listener, void *data)
-{
-	struct weston_pointer *pointer = data;
-	struct twdesktop *desktop = container_of(listener, struct twdesktop,
-						 pointer_focus_listener);
-	struct workspace *ws = desktop->actived_workspace[0];
-	if (!pointer->button_count)
-		return;
-	workspace_focus_view(ws, pointer->focus);
-}
-
-static void
-twdesktop_focus_touch(struct wl_listener *listener, void *data)
-{
-	struct weston_touch *touch = data;
-	struct twdesktop *desktop = container_of(listener, struct twdesktop,
-						 touch_focus_listener);
-	struct workspace *ws = desktop->actived_workspace[0];
-	workspace_focus_view(ws, touch->focus);
-}
-
-static void
-twdesktop_focus_keyboard(struct wl_listener *listener, void *data)
-{
-	//nothing to do, we
-}
-
 struct twdesktop *
 announce_desktop(struct weston_compositor *ec, struct twlauncher *launcher)
 {
@@ -456,38 +393,22 @@ announce_desktop(struct weston_compositor *ec, struct twlauncher *launcher)
 	onedesktop.api = weston_desktop_create(ec, &desktop_impl, &onedesktop);
 	{
 		struct weston_output *output;
-		struct weston_seat *seat;
 
 		wl_list_init(&onedesktop.output_create_listener.link);
 		wl_list_init(&onedesktop.output_destroy_listener.link);
-		wl_list_init(&onedesktop.seat_create_listener.link);
-		wl_list_init(&onedesktop.pointer_focus_listener.link);
-		wl_list_init(&onedesktop.touch_focus_listener.link);
-		wl_list_init(&onedesktop.keyboard_focus_listener.link);
 
 		onedesktop.output_create_listener.notify = twdesktop_output_created;
 		onedesktop.output_destroy_listener.notify = twdesktop_output_destroyed;
-		onedesktop.seat_create_listener.notify = twdesktop_seat_created;
-		onedesktop.pointer_focus_listener.notify = twdesktop_focus_pointer;
-		onedesktop.touch_focus_listener.notify = twdesktop_focus_touch;
-		onedesktop.keyboard_focus_listener.notify = twdesktop_focus_keyboard;
 
 		//add existing output
 		wl_signal_add(&ec->output_created_signal,
 			      &onedesktop.output_create_listener);
 		wl_signal_add(&ec->output_destroyed_signal,
 			      &onedesktop.output_destroy_listener);
-		wl_signal_add(&ec->seat_created_signal,
-			      &onedesktop.seat_create_listener);
 
 		wl_list_for_each(output, &ec->output_list, link)
 			twdesktop_output_created(&onedesktop.output_create_listener,
 						 output);
-
-		wl_list_for_each(seat, &ec->seat_list, link) {
-			twdesktop_seat_created(&onedesktop.seat_create_listener,
-					       seat);
-		}
 	}
 
 //	wl_global_create(ec->wl_display, &taiwins_launcher_interface, TWDESKP_VERSION, &onedesktop, bind_desktop);
@@ -772,7 +693,49 @@ twdesktop_deplace_key(struct weston_keyboard *keyboard,
 	arrange_view_for_workspace(ws, view, command, &arg);
 }
 
+static void
+twdesktop_click_activate_view(struct weston_pointer *pointer,
+			      const struct timespec *time,
+			      uint32_t button, void *data)
+{
+	struct twdesktop *desktop = data;
+	struct workspace *ws = desktop->actived_workspace[0];
+	if (pointer->grab != &pointer->default_grab)
+		return;
+	if (!pointer->focus || !pointer->button_count)
+		return;
+	if (workspace_focus_view(ws, pointer->focus)) {
+		weston_view_activate(pointer->focus, pointer->seat,
+				     WESTON_ACTIVATE_FLAG_CLICKED);
+		struct weston_desktop_surface *s =
+			weston_surface_get_desktop_surface(pointer->focus->surface);
+		weston_desktop_client_ping(
+			weston_desktop_surface_get_client(s));
+	}
+}
+
+static void
+twdesktop_touch_activate_view(struct weston_touch *touch,
+			      const struct timespec *time,
+			      void *data)
+{
+	struct twdesktop *desktop = data;
+	if (touch->grab != &touch->default_grab || !touch->focus)
+		return;
+	struct workspace *ws = desktop->actived_workspace[0];
+	if (workspace_focus_view(ws, touch->focus)) {
+		weston_view_activate(touch->focus, touch->seat,
+				     WESTON_ACTIVATE_FLAG_CONFIGURE);
+		struct weston_desktop_surface *s =
+			weston_surface_get_desktop_surface(touch->focus->surface);
+		weston_desktop_client_ping(
+			weston_desktop_surface_get_client(s));
+	}
+}
+
 weston_axis_binding_handler_t twdesktop_zoom_binding = &twdesktop_zoom_axis;
 weston_axis_binding_handler_t twdesktop_alpha_binding = &twdesktop_alpha_axis;
 weston_button_binding_handler_t twdesktop_move_binding = &twdesktop_move_btn;
+weston_button_binding_handler_t twdesktop_click_focus_binding = &twdesktop_click_activate_view;
+weston_touch_binding_handler_t  twdesktop_touch_focus_binding = &twdesktop_touch_activate_view;
 //weston_key_binding_handler_t twdesktop_deplace_binding = &twdesktop_deplace_key;

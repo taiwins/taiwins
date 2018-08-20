@@ -126,6 +126,6 @@ message("3rdparty includes: ${TRDPTY_INCLUDE_DIRS}")
 message("3rdparty lib: ${TRDPTY_LIBRARIES}")
 
 add_subdirectory(protocols)
-add_subdirectory(src)
+add_subdirectory(server)
 add_subdirectory(test)
 add_subdirectory(clients)
