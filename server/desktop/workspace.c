@@ -28,8 +28,6 @@ struct workspace {
 size_t workspace_size =  sizeof(struct workspace);
 
 
-
-
 /**
  * workspace implementation
  */
@@ -200,11 +198,14 @@ workspace_add_view(struct workspace *w, struct weston_view *view)
 {
 	if (wl_list_empty(&view->layer_link.link))
 		weston_layer_entry_insert(&w->floating_layer.view_list, &view->layer_link);
-	weston_view_set_position(view, 200, 200);
+	struct disposer_op arg = {
+		.v = view,
+	};
+	arrange_view_for_workspace(w, view, DPSR_add, &arg);
 }
 
-bool workspace_move_floating_view(struct workspace *w, struct weston_view *view,
-				  const struct weston_position *pos)
+bool workspace_move_view(struct workspace *w, struct weston_view *view,
+			 const struct weston_position *pos)
 {
 	struct weston_layer *layer = view->layer_link.layer;
 	if (layer == &w->floating_layer) {

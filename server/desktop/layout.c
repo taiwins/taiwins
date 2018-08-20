@@ -73,7 +73,7 @@ floating_add(const enum disposer_command command, const struct disposer_op *arg,
 	     struct weston_view *v, struct layout *l,
 	     struct disposer_op *ops)
 {
-	assert(ops[0].end == 0);
+	assert(!ops[0].end);
 	struct floatlayout *fl = container_of(l, struct floatlayout, layout);
 	ops[0].pos.x = rand() % (fl->geo.width / 2);
 	ops[0].pos.y = rand() % (fl->geo.height / 2);

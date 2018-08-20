@@ -37,9 +37,6 @@ static struct twdesktop onedesktop;
 
 
 
-
-
-
 /**
  * grab decleration, with different options.
  */
@@ -353,7 +350,7 @@ move_grab_pointer_motion(struct weston_pointer_grab *grab,
 	if (!gi->view)
 		return;
 	//TODO constrain the pointer.
-	if (!workspace_move_floating_view(ws, gi->view,
+	if (!workspace_move_view(ws, gi->view,
 					  &(struct weston_position) {
 						  gi->view->geometry.x + dx,
 							  gi->view->geometry.y + dy}))
