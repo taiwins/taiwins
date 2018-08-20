@@ -1,7 +1,7 @@
 #ifndef TW_DESKTOP_H
 #define TW_DESKTOP_H
 
-#include "shell.h"
+#include "../shell.h"
 
 #ifdef  __cplusplus
 extern "C" {
