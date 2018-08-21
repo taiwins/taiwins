@@ -38,15 +38,14 @@ extern "C" {
 struct tw_event {
 	void *data;
 	int (*cb)(void *);
-	void (*free)(void *);
 };
 
 //client side event processor
 struct tw_event_queue {
+	struct wl_display *wl_display;
 	int pollfd;
-	list_t head;
+	struct wl_list head;
 	bool quit;
-	vector_t sources;
 };
 
 void tw_event_queue_run(struct tw_event_queue *queue);
