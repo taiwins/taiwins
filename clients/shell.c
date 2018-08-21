@@ -267,6 +267,7 @@ shell_configure_surface(void *data,
 		appsurface_fadc(appsurf);
 
 	} else if (appsurf->type == APP_PANEL) {
+		fprintf(stderr, "we have panel!\n");
 		memset(buffer0, 255, w*h*4);
 		memset(buffer1, 255, w*h*4);
 
@@ -281,8 +282,11 @@ shell_configure_surface(void *data,
 		};
 		struct timespec interval = {
 			.tv_sec = 1,
+			.tv_nsec = 0,
 		};
-		tw_event_queue_add_timer(the_event_processor, &interval, &update_icon);
+		if (!tw_event_queue_add_timer(the_event_processor, &interval, &update_icon))
+			exit(-1);
+//		tw_event_queue_add_timer(the_event_processor, &interval, &update_icon);
 		/* struct eglapp *another; */
 		/* another = eglapp_addtolist(&output->panel); */
 		/* eglapp_init_with_funcs(another, calendar_icon, NULL); */
@@ -353,7 +357,8 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	shell->quit = false;
 	egl_env_init(&shell->eglenv, display);
 	tw_event_queue_init(&shell->client_event_queue);
-	tw_event_queue_add_wl_display(&shell->client_event_queue, display);
+	if (!tw_event_queue_add_wl_display(&shell->client_event_queue, display))
+		exit(-1);
 }
 
 
@@ -402,9 +407,9 @@ main(int argc, char **argv)
 				output_init(w);
 		}
 	}
+	wl_display_flush(display);
 	tw_event_queue_run(&oneshell.client_event_queue);
-//	while(wl_display_dispatch(display) != -1);
-	desktop_shell_release(&oneshell);
+//	desktop_shell_release(&oneshell);
 	wl_registry_destroy(registry);
 	wl_display_disconnect(display);
 //	desktop_shell_release(oneshell);
