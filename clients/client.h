@@ -13,6 +13,7 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <wayland-client.h>
+#include <sys/timerfd.h>
 
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon.h>
@@ -37,26 +38,28 @@ extern "C" {
 struct tw_event {
 	void *data;
 	int (*cb)(void *);
+	void (*free)(void *);
 };
 
 //client side event processor
 struct tw_event_queue {
-	struct wl_display *wl_display;
-	pthread_t thread;
-	long timeout;
-	int inotify_fd;
-	struct pollfd pollfd;
+	int pollfd;
 	list_t head;
 	bool quit;
+	vector_t sources;
 };
 
-extern struct tw_event_queue *the_event_processor;
-void *tw_event_queue_run(void *event_queue);
-bool tw_event_queue_start(struct tw_event_queue *queue, struct wl_display *display);
-/** add an file based event if file is provided, or time based event if timeout is provided
+void tw_event_queue_run(struct tw_event_queue *queue);
+bool tw_event_queue_init(struct tw_event_queue *queue);
+/** add an file based event if file is  provided, or time based event if timeout is provided
  */
-bool tw_event_queue_add_source(struct tw_event_queue *queue, const char *file, long timeout,
+bool tw_event_queue_add_source(struct tw_event_queue *queue, int fd,
 			       struct tw_event *event, uint32_t mask);
+
+bool tw_event_queue_add_timer(struct tw_event_queue *queue, const struct timespec *interval,
+			      struct tw_event *event);
+
+bool tw_event_queue_add_wl_display(struct tw_event_queue *queue, struct wl_display *d);
 
 //we need also the modifier enum
 enum modifier_mask {
