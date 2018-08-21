@@ -34,7 +34,7 @@
 
 *** DONE change the ui element start or close implimentation
 
-* Stage two: optimization[0%]
+* Stage two: optimization
   - supporting multiple monitors/seats.
   - weston view focus defocus
   - a few different extensions.
@@ -42,9 +42,8 @@
   - different layouting support
   - resize EGL windows.
   - compositing
-** [0%] server-side optimization
-*** TODO singals for adding new output and seats
-*** TODO current active seat and output
+** [50%] server-side optimization
+*** DONE singals for adding new output and seats
 *** TODO rendering/compositing optimization(what did this mean again)?
 
 ** [0%] Configurations
@@ -54,23 +53,22 @@
 
 *** DONE keyboard callbacks, this writes to a buffer, apparently.
 
-** [25%] libweston-desktop implementation                            :server:
+** [60%] libweston-desktop implementation                            :server:
 *** DONE desktop layer architecture
-*** DOIN simple random floating implementation
+*** DONE simple random floating implementation
 *** TODO tiling layout
-**** DOIN support nvisible
 **** TODO ML based layout
 
 *** TODO client search buffer                                         :proto:
     for this to work, we probably will need ~radix tree~ or ~trie~ or hash
     table.
+*** DONE decoupling the desktop implementation                    :refactory:
 
-
-** [%] client-side optimization
-*** TODO find a way to read dispatch wl_display without blocking
+** [50%] client-side optimization
+*** DONE find a way to read dispatch wl_display without blocking
     - possible solution :: maybe we can use epoll on wl_display, and add it to
 	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
-	 need another thread for that anymore.
+	 need another thread anymore.
 *** TODO resize EGL window
 * Stage three: extensions
   - screen capture and screen record(audio support?).
