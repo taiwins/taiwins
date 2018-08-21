@@ -3,7 +3,8 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <pthread.h>
-#include <sys/inotify.h>
+#include <sys/timerfd.h>
+#include <sys/epoll.h>
 #include <poll.h>
 
 #include <linux/input.h>
@@ -528,184 +529,124 @@ wl_globals_fg_color_rgb(const struct wl_globals *globals, float *r, float *g, fl
 	*b = parser.bgra[0] / 256.0;
 }
 
-/* void */
-/* tw_event_queue_init(struct tw_event_queue *q) */
-/* { */
-/*	queue_init(&q->event_queue, sizeof(struct tw_event), NULL); */
-/*	pthread_mutex_init(&q->mutex, NULL); */
-/*	q->quit = false; */
-/* } */
-/* void */
-/* tw_event_queue_destroy(struct tw_event_queue *q) */
-/* { */
-/*	q->quit = true; */
-/*	queue_destroy(&q->event_queue); */
-/* } */
 
-/* void */
-/* tw_event_queue_append_event(struct tw_event_queue ppp*q, void *data, int (*cb)(void *)) */
-/* { */
-/*	struct tw_event event = {.data = data, .cb=cb}; */
-/*	pthread_mutex_lock(&q->mutex); */
-/*	queue_append(&q->event_queue, &event); */
-/*	pthread_mutex_unlock(&q->mutex); */
-/* } */
-
-/* static inline bool */
-/* tw_event_queue_empty(struct tw_event_queue *q) */
-/* { */
-/*	bool empty = false; */
-/*	pthread_mutex_lock(&q->mutex); */
-/*	empty = queue_empty(&q->event_queue); */
-/*	pthread_mutex_unlock(&q->mutex); */
-/*	return empty; */
-/* } */
-
-
-/* void */
-/* tw_event_queue_dispatch(struct tw_event_queue *q) */
-/* { */
-/*	while (!tw_event_queue_empty(q)) { */
-
-/*		pthread_mutex_lock(&q->mutex); */
-/*		struct tw_event event = *(struct tw_event *)queue_top(&q->event_queue); */
-/*		queue_pop(&q->event_queue); */
-/*		pthread_mutex_unlock(&q->mutex); */
-
-/*		event.cb(event.data); */
-/*	} */
-/* } */
-
-//this should not
+//event queue implementation
 struct tw_event_source {
-	int wd;
+	struct epoll_event poll_event;
 	struct tw_event event;
-	list_t node;
-	//for time-based event
-	long duration;
-	long progress;
 };
-
-static int
-process_events(struct tw_event_queue *queue)
-{
-	char *ptr;
-	size_t len;
-	char buff[4096];
-	struct tw_event_source *es, *next;
-	const struct inotify_event *event;
-	//I think I can read as much I want
-	len = read(queue->inotify_fd, buff, sizeof(buff));
-	if (len <= 0)
-		return -1;
-	for (ptr = buff; ptr < buff+len;
-	     ptr += sizeof(struct inotify_event) + event->len) {
-		event = (const struct inotify_event *)ptr;
-		list_for_each_safe(es, next, &queue->head, node) {
-			if (es->wd == event->wd) {
-				//run the event
-				es->event.cb(es->event.data);
-				break;
-			}
-		}
-	}
-	return 0;
-}
-
-static int
-process_timeout_event(struct tw_event_queue *queue)
-{
-	int processed = 0;
-	struct tw_event_source *es, *next;
-	list_for_each_safe(es, next, &queue->head, node) {
-		if (es->wd == -1 && es->progress + queue->timeout >= es->duration) {
-			es->progress += queue->timeout - es->duration;
-			es->event.cb(es->event.data);
-			processed = 1;
-		} else {
-			es->progress += queue->timeout;
-			processed = 0;
-		}
-	}
-	return processed;
-}
-
-//the thread function
-void *
-tw_event_queue_run(void *event_queue)
-{
-	struct tw_event_queue *queue = (struct tw_event_queue *)event_queue;
-	//poll->produce-event-or-timeout
-	while (!queue->quit) {
-		//you will need a queue since you can have
-		//1) more than one event happen at the same time
-		//2) events get lost if they can't be processed or queued at the same time.
-		int poll_num = poll(&queue->pollfd, 1, 1000);
-		if (poll_num > 0 && (queue->pollfd.events & POLLIN)) {
-			process_events(queue);
-		} else if (poll_num == 0)
-			process_timeout_event(queue);
-		wl_display_flush(queue->wl_display);
-	}
-	//now it does the clean up, so we dont need a destructor
-	struct tw_event_source *es, *next;
-
-	list_for_each_safe(es, next, &queue->head, node)
-		if (es->wd) {
-			inotify_rm_watch(queue->inotify_fd, es->wd);
-			free(es);
-		}
-	close(queue->inotify_fd);
-	return NULL;
-}
-
-bool
-tw_event_queue_start(struct tw_event_queue *queue, struct wl_display *display)
-{
-	queue->wl_display = display;
-	list_init(&queue->head);
-	int fd = inotify_init1(IN_NONBLOCK);
-	if (fd == -1)
-		return false;
-	queue->quit = false;
-	queue->inotify_fd = fd;
-	queue->pollfd.fd = fd;
-	queue->pollfd.events = POLLIN;
-	queue->timeout = 60000; //initially set to one minute
-	pthread_create(&queue->thread, NULL, tw_event_queue_run, queue);
-	return true;
-}
-
-
-bool
-tw_event_queue_add_source(struct tw_event_queue *queue, const char *file, long timeout,
-			  struct tw_event *event, uint32_t mask)
-{
-	int fd;
-	if (file) {
-		fd = inotify_add_watch(queue->inotify_fd, file, mask);
-		if (fd == -1)
-			return false;
-		timeout = queue->timeout + 1;
-	} else
-		fd = -1;
-	struct tw_event_source *event_source =
-		(struct tw_event_source *)malloc(sizeof(struct tw_event_source));
-	queue->timeout = min(queue->timeout, timeout);
-	event_source->event = *event;
-	event_source->wd = fd;
-	event_source->duration = timeout;
-	event_source->progress = 0;
-	list_append(&queue->head, &event_source->node);
-	//TODO call the event for the first time
-	event->cb(event->data);
-	return true;
-}
 
 
 void
-tw_event_queue_end(struct tw_event_queue *queue)
+tw_event_queue_run(struct tw_event_queue *queue)
 {
-	struct tw_event_source *src, *tmp;
+	struct epoll_event events[32];
+	struct tw_event_source *event_source;
+	struct tw_event *event;
+	//poll->produce-event-or-timeout
+	while (!queue->quit) {
+		int count = epoll_wait(queue->pollfd, events, 32, 0);
+		for (int i = 0; i < count; i++) {
+			event = events[i].data.ptr;
+			event->cb(event->data);
+		}
+	}
+	for (int i = 0; i < queue->sources.len; i++) {
+		event_source = (struct tw_event_source *)vector_at(&queue->sources, i);
+		event = &event_source->event;
+		epoll_ctl(queue->pollfd, EPOLL_CTL_DEL,
+			  event_source->poll_event.data.fd, NULL);
+		if (event->free)
+			event->free(event->data);
+	}
+	close(queue->pollfd);
+	return;
+}
 
+bool
+tw_event_queue_init(struct tw_event_queue *queue)
+{
+	int fd = epoll_create1(EPOLL_CLOEXEC);
+	if (fd == -1)
+		return false;
+
+	vector_init(&queue->sources, sizeof(struct epoll_event), NULL);
+	queue->pollfd = fd;
+	queue->quit = false;
+	return true;
+}
+
+
+
+bool
+tw_event_queue_add_source(struct tw_event_queue *queue, int fd,
+			  struct tw_event *e, uint32_t mask)
+{
+	//luckly we have newelem method.
+	struct tw_event_source *event_source = vector_newelem(&queue->sources);
+	event_source->event = *e;
+	event_source->poll_event.data.fd = fd;
+	event_source->poll_event.data.ptr = &event_source->event;
+	event_source->poll_event.events = mask;
+
+	if (epoll_ctl(queue->pollfd, EPOLL_CTL_ADD, fd, &event_source->poll_event))
+		return false;
+
+	e->cb(e->data);
+	return true;
+}
+
+
+bool
+tw_event_queue_add_timer(struct tw_event_queue *queue, const struct timespec *interval,
+			 struct tw_event *e)
+{
+	int fd;
+	struct itimerspec spec = {
+		.it_interval = *interval,
+		.it_value = {0},
+	};
+	struct tw_event_source *event_source;
+	fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+	if (!fd)
+		return false;
+	timerfd_settime(fd, 0, &spec, NULL);
+	event_source = vector_newelem(&queue->sources);
+	event_source->event = *e;
+	event_source->poll_event.data.fd = fd;
+	event_source->poll_event.data.ptr = &event_source->event;
+	event_source->poll_event.events = EPOLLIN | EPOLLOUT;
+
+	if (epoll_ctl(queue->pollfd, EPOLL_CTL_ADD, fd, &event_source->poll_event)) {
+		close(fd);
+		return false;
+	}
+	e->cb(e->data);
+	return true;
+}
+
+int dispatch_wl_event(void *data)
+{
+	struct wl_display *display = data;
+	wl_display_prepare_read(display);
+	wl_display_read_events(display);
+	wl_display_dispatch_pending(display);
+}
+
+bool
+tw_event_queue_add_wl_display(struct tw_event_queue *queue, struct wl_display *display)
+{
+	int fd = wl_display_get_fd(display);
+	struct tw_event dispatch_display = {
+		.data = display,
+		.cb = dispatch_wl_event,
+	};
+	struct tw_event_source *event_source;
+	event_source = vector_newelem(&queue->sources);
+	event_source->event = dispatch_display;
+	event_source->poll_event.data.fd = fd;
+	event_source->poll_event.data.ptr = &event_source->event;
+	event_source->poll_event.events = EPOLLIN;
+
+	epoll_ctl(queue->pollfd, EPOLL_CTL_ADD, fd, &event_source->poll_event);
 }

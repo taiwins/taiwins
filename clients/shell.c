@@ -279,7 +279,10 @@ shell_configure_surface(void *data,
 		struct tw_event update_icon = {.data = app,
 					       .cb = update_icon_event,
 		};
-		tw_event_queue_add_source(the_event_processor, NULL, 1000, &update_icon, IN_MODIFY);
+		struct timespec interval = {
+			.tv_sec = 1,
+		};
+		tw_event_queue_add_timer(the_event_processor, &interval, &update_icon);
 		/* struct eglapp *another; */
 		/* another = eglapp_addtolist(&output->panel); */
 		/* eglapp_init_with_funcs(another, calendar_icon, NULL); */
@@ -349,7 +352,8 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	shell->shell = NULL;
 	shell->quit = false;
 	egl_env_init(&shell->eglenv, display);
-	tw_event_queue_start(&shell->client_event_queue, display);
+	tw_event_queue_init(&shell->client_event_queue);
+	tw_event_queue_add_wl_display(&shell->client_event_queue, display);
 }
 
 
@@ -398,7 +402,8 @@ main(int argc, char **argv)
 				output_init(w);
 		}
 	}
-	while(wl_display_dispatch(display) != -1);
+	tw_event_queue_run(&oneshell.client_event_queue);
+//	while(wl_display_dispatch(display) != -1);
 	desktop_shell_release(&oneshell);
 	wl_registry_destroy(registry);
 	wl_display_disconnect(display);
