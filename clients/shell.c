@@ -237,6 +237,8 @@ shell_configure_surface(void *data,
 			int32_t width,
 			int32_t height)
 {
+	struct desktop_shell *shell =
+		taiwins_shell_get_user_data(taiwins_shell);
 	struct shell_output *output;
 	//damn it, we need a hack
 	struct app_surface *appsurf = (struct app_surface *)wl_surface_get_user_data(surface);
@@ -284,8 +286,8 @@ shell_configure_surface(void *data,
 			.tv_sec = 1,
 			.tv_nsec = 0,
 		};
-		if (!tw_event_queue_add_timer(the_event_processor, &interval, &update_icon))
-			exit(-1);
+		shell->client_event_queue.quit =
+			!tw_event_queue_add_timer(the_event_processor, &interval, &update_icon);
 //		tw_event_queue_add_timer(the_event_processor, &interval, &update_icon);
 		/* struct eglapp *another; */
 		/* another = eglapp_addtolist(&output->panel); */
@@ -357,8 +359,8 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	shell->quit = false;
 	egl_env_init(&shell->eglenv, display);
 	tw_event_queue_init(&shell->client_event_queue);
-	if (!tw_event_queue_add_wl_display(&shell->client_event_queue, display))
-		exit(-1);
+	shell->client_event_queue.quit =
+		!tw_event_queue_add_wl_display(&shell->client_event_queue, display);
 }
 
 
