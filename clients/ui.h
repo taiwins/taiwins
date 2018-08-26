@@ -96,10 +96,27 @@ enum APP_SURFACE_TYPE {
 	APP_LOCKER,
 };
 
+//we need also the modifier enum
+enum modifier_mask {
+	TW_NOMOD = 0,
+	TW_ALT = 1,
+	TW_CTRL = 2,
+	TW_SUPER = 4,
+	TW_SHIFT = 8,
+};
+
+enum taiwins_btn_t {
+	TWBTN_LEFT,
+	TWBTN_RIGHT,
+	TWBTN_MID,
+	TWBTN_DCLICK,
+};
+
+
 struct app_surface;
 typedef void (*keycb_t)(struct app_surface *, xkb_keysym_t, uint32_t, int);
 typedef void (*pointron_t)(struct app_surface *, uint32_t, uint32_t);
-typedef void (*pointrbtn_t)(struct app_surface *, bool, uint32_t, uint32_t);
+typedef void (*pointrbtn_t)(struct app_surface *, enum taiwins_btn_t, bool, uint32_t, uint32_t);
 typedef void (*pointraxis_t)(struct app_surface *, int, int, uint32_t, uint32_t);
 
 struct app_surface {
@@ -121,15 +138,12 @@ struct app_surface {
 	bool dirty[2];
 	bool committed[2];
 
-	//input management, I need also the modifiers
-	void (*keycb)(struct app_surface *surf, xkb_keysym_t keysym, uint32_t mod, int state);
-//	void (*modcb)(struct app_surface *surf, xkb_mod_index_t mod);
-	//run this function at the frame callback
-	void (*pointron)(struct app_surface *surf, uint32_t sx, uint32_t sy);
-	//left is true, right is false
-	void (*pointrbtn)(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy);
-	//axis events with direction (0->x, y->1)
-	void (*pointraxis)(struct app_surface *surf, int pos, int direction, uint32_t sx, uint32_t sy);
+	struct {
+		keycb_t keycb;
+		pointron_t pointron;
+		pointrbtn_t pointrbtn;
+		pointraxis_t pointraxis;
+	};
 };
 
 /**
@@ -152,10 +166,7 @@ void appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
  * /brief init all the input callbacks, zero is acceptable
  */
 void appsurface_init_input(struct app_surface *surf,
-			   void (*keycb)(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int state),
-			   void (*pointron)(struct app_surface *surf, uint32_t sx, uint32_t sy),
-			   void (*pointrbtn)(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy),
-			   void (*pointraxis)(struct app_surface *surf, int pos, int direction, uint32_t sx, uint32_t sy));
+			   keycb_t keycb, pointron_t on, pointrbtn_t btn, pointraxis_t axis);
 
 void appsurface_fadc(struct app_surface *surf);
 

@@ -123,12 +123,12 @@ _launch_widget(struct shell_widget *widget)
 }
 
 static void
-shell_panel_click(struct app_surface *surf, bool btn, uint32_t cx, uint32_t cy)
+shell_panel_click(struct app_surface *surf, enum taiwins_btn_t btn, bool state, uint32_t cx, uint32_t cy)
 {
 	struct shell_panel *panel = container_of(surf, struct shell_panel, panelsurf);
 	fprintf(stderr, "clicked on button (%d, %d)\n", cx, cy);
 	struct shell_widget *w = shell_panel_find_widget_at_xy(panel, cx, cy);
-	if (w)
+	if (w && state)
 		_launch_widget(w);
 }
 

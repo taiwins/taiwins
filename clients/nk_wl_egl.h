@@ -1,5 +1,6 @@
 #ifndef NK_EGL_BACKEND_H
 #define NK_EGL_BACKEND_H
+#include <stdbool.h>
 #include <stdarg.h>
 //pull in the nuklear headers so we can access eglapp
 #define NK_INCLUDE_FIXED_TYPES
@@ -61,12 +62,11 @@ void nk_egl_add_idle(struct nk_context *ctx,
 
 //yeah, we can do in this way, but we can also
 xkb_keysym_t nk_egl_get_keyinput(struct nk_context *ctx);
+//this call back writes the framebuffer to a image file.
+bool nk_egl_get_btn(struct nk_context *ctx, enum nk_buttons *btn, uint32_t *sx, uint32_t *sy);
 
 
 #ifdef __DEBUG
-//this call back writes the framebuffer to a image file.
-enum nk_buttons nk_egl_get_btn(struct nk_context *ctx);
-
 void nk_egl_capture_framebuffer(struct nk_context *ctx, const char *path);
 #endif
 
