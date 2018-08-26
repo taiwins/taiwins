@@ -91,6 +91,8 @@ handle_key(void *data,
 	xkb_keysym_t  keysym  = xkb_state_key_get_one_sym(globals->inputs.kstate,
 							  keycode);
 	uint32_t modifier = modifier_mask_from_xkb_state(globals->inputs.kstate);
+
+	globals->inputs.serial = serial;
 	/* char keyname[100]; */
 	/* xkb_keysym_get_name(keysym, keyname, 100); */
 	/* fprintf(stderr, "the key pressed is %s\n", keyname); */
@@ -118,6 +120,7 @@ void handle_modifiers(void *data,
 	//wayland uses layout group. you need to know what xkb_matched_layout is
 	xkb_state_update_mask(globals->inputs.kstate,
 			      mods_depressed, mods_latched, mods_locked, 0, 0, group);
+	globals->inputs.serial = serial;
 	//every surface it self is an app_surface, in thise case
 //	struct wl_surface *focused = globals->inputs.focused_surface;
 //	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
@@ -166,7 +169,7 @@ handle_keyboard_enter(void *data,
 {
 	struct wl_globals *globals = (struct wl_globals *)data;
 	globals->inputs.focused_surface = surface;
-	//this job is done by pointer
+	globals->inputs.serial = serial;
 	fprintf(stderr, "keyboard got focus\n");
 	/* struct wl_surface *focused = globals->inputs.focused_surface; */
 	/* struct app_surface *appsurf = app_surface_from_wl_surface(focused); */
@@ -182,6 +185,7 @@ handle_keyboard_leave(void *data,
 {
 	struct wl_globals *globals = (struct wl_globals *)data;
 	globals->inputs.focused_surface = NULL;
+	globals->inputs.serial = serial;
 	fprintf(stderr, "keyboard lost focus\n");
 }
 
@@ -243,6 +247,7 @@ pointer_enter(void *data,
 	static bool cursor_set = false;
 	struct wl_globals *globals = (struct wl_globals *)data;
 	globals->inputs.focused_surface = surface;
+	globals->inputs.serial = serial;
 	if (!cursor_set) {
 		struct wl_surface *csurface = globals->inputs.cursor_surface;
 		struct wl_buffer *cbuffer = globals->inputs.cursor_buffer;
@@ -268,6 +273,8 @@ pointer_leave(void *data,
 	struct wl_globals *globals = (struct wl_globals *)data;
 	globals->inputs.focused_surface = NULL;
 	globals->inputs.cursor_events = POINTER_LEAVE;
+	globals->inputs.serial = serial;
+
 }
 
 
@@ -282,6 +289,8 @@ pointer_motion(void *data,
 	globals->inputs.cx = wl_fixed_to_int(surface_x);
 	globals->inputs.cy = wl_fixed_to_int(surface_y);
 	globals->inputs.cursor_events |= POINTER_MOTION;
+	globals->inputs.serial = serial;
+
 }
 
 
@@ -337,6 +346,8 @@ pointer_button(void *data,
 {
 	struct wl_globals *globals = (struct wl_globals *)data;
 	globals->inputs.cursor_state = state;
+	globals->inputs.serial = serial;
+
 	switch (button) {
 	case BTN_LEFT:
 		globals->inputs.cursor_events |= POINTER_BTN_LEFT;

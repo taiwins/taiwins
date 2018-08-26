@@ -70,13 +70,13 @@ add_executable(dummy
   dummy.c
   )
 
-set_target_properties(dummy
-  PROPERTIES COMPILE_FLAGS
-  "-fsanitize=address -fno-omit-frame-pointer")
+# set_target_properties(dummy
+#   PROPERTIES COMPILE_FLAGS
+#   "-fsanitize=address -fno-omit-frame-pointer")
 
 target_link_libraries(dummy
   ${CLIENT_LIBRARIES}
   taiwins_client
   nk_backend
-  asan
+#  asan
   )
