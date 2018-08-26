@@ -96,6 +96,12 @@ enum APP_SURFACE_TYPE {
 	APP_LOCKER,
 };
 
+struct app_surface;
+typedef void (*keycb_t)(struct app_surface *, xkb_keysym_t, uint32_t, int);
+typedef void (*pointron_t)(struct app_surface *, uint32_t, uint32_t);
+typedef void (*pointrbtn_t)(struct app_surface *, bool, uint32_t, uint32_t);
+typedef void (*pointraxis_t)(struct app_surface *, int, int, uint32_t, uint32_t);
+
 struct app_surface {
 	/**
 	 * the parent pointer. It is only in the sub_surfaces, so the parent has
