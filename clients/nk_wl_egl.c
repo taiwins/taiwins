@@ -538,6 +538,14 @@ nk_egl_launch(struct nk_egl_backend *bkend, int w, int h, float s,
 	//there seems to be no function about changing window size in egl
 }
 
+void nk_egl_resize(struct nk_egl_backend *bkend,
+		   int width, int height)
+{
+	bkend->width = width;
+	bkend->height = height;
+	wl_egl_window_resize(bkend->eglwin, width, height, 0, 0);
+}
+
 
 void
 nk_egl_destroy_backend(struct nk_egl_backend *bkend)

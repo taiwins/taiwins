@@ -98,6 +98,7 @@ struct wl_globals {
 			uint32_t cx, cy; //current coordinate of the cursor
 			uint32_t axis;
 			bool axis_pos;
+			uint32_t serial;
 		};
 	} inputs;
 	struct app_style style;
