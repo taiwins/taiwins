@@ -204,7 +204,8 @@ set_widget(struct wl_client *client,
 {
 	struct twshell *shell = wl_resource_get_user_data(resource);
 	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
-	struct weston_output *output = weston_output_from_resource(wl_output);
+	struct weston_head *head = weston_head_from_resource(wl_output);
+	struct weston_output *output = head->output;
 	set_surface(shell, surface, output, resource, commit_ui_surface, x, y);
 
 	struct weston_seat *seat0 = tw_get_default_seat(oneshell.ec);
@@ -222,7 +223,8 @@ set_background(struct wl_client *client,
 {
 	struct twshell *shell = wl_resource_get_user_data(resource);
 	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
-	struct weston_output *output = weston_output_from_resource(wl_output);
+	struct weston_head *head = weston_head_from_resource(wl_output);
+	struct weston_output *output = head->output;
 	set_surface(shell, surface, output, resource, commit_background, 0, 0);
 
 	taiwins_shell_send_configure(resource, wl_surface, output->scale, 0,
@@ -237,7 +239,8 @@ set_panel(struct wl_client *client,
 {
 	struct twshell *shell = wl_resource_get_user_data(resource);
 	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
-	struct weston_output *output = weston_output_from_resource(wl_output);
+	struct weston_head *head = weston_head_from_resource(wl_output);
+	struct weston_output *output = head->output;
 	set_surface(shell, surface, output, resource, commit_ui_surface, 0, 0);
 
 	taiwins_shell_send_configure(resource, wl_surface, output->scale, 0, //edge
