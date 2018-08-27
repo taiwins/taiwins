@@ -101,13 +101,15 @@ int main(int argc, char *argv[])
 	const char *launcherpath = (argv > 2) ? argv[2] : NULL;
 	struct wl_display *display = wl_display_create();
 
+
 	weston_log_set_handler(tw_log, tw_log);
 
 	//quit if we already have a wayland server
 	if (wl_display_add_socket(display, NULL) == -1)
 		goto connect_err;
 
-	struct weston_compositor *compositor = weston_compositor_create(display, NULL);
+
+	struct weston_compositor *compositor = weston_compositor_create(display, tw_get_backend());
 	weston_compositor_add_key_binding(compositor, KEY_F12, 0, taiwins_quit, display);
 
 	tw_setup_backend(compositor);

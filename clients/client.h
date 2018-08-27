@@ -60,14 +60,6 @@ bool tw_event_queue_add_timer(struct tw_event_queue *queue, const struct timespe
 
 bool tw_event_queue_add_wl_display(struct tw_event_queue *queue, struct wl_display *d);
 
-//we need also the modifier enum
-enum modifier_mask {
-	TW_NOMOD = 0,
-	TW_ALT = 1,
-	TW_CTRL = 2,
-	TW_SUPER = 4,
-	TW_SHIFT = 8,
-};
 
 /**
  * struct for one application, it should normally contains those
@@ -83,22 +75,31 @@ struct wl_globals {
 		struct wl_pointer *wl_pointer;
 		struct wl_touch *wl_touch;
 		char name[64];
-		//xkb informations
-		struct xkb_context *kcontext;
-		struct xkb_keymap  *keymap;
-		struct xkb_state   *kstate;
-		//cursor information
-		char cursor_theme_name[64];
-		struct wl_cursor *cursor;
-		struct wl_cursor_theme *cursor_theme;
-		struct wl_surface *cursor_surface;
-		struct wl_buffer *cursor_buffer;
-		struct wl_surface *focused_surface; //the surface that cursor is on
-		struct wl_callback_listener cursor_done_listener;
-		uint32_t cursor_events;
-		uint32_t cx, cy; //current coordinate of the cursor
-		uint32_t axis;
-		bool axis_pos;
+		struct {
+			/* xkbinfo */
+			struct xkb_context *kcontext;
+			struct xkb_keymap  *keymap;
+			struct xkb_state   *kstate;
+		};
+
+		struct {
+			/* cursor surface */
+			char cursor_theme_name[64];
+			struct wl_cursor *cursor;
+			struct wl_cursor_theme *cursor_theme;
+			struct wl_surface *cursor_surface;
+			struct wl_buffer *cursor_buffer;
+			struct wl_surface *focused_surface; //the surface that cursor is on
+			struct wl_callback_listener cursor_done_listener;
+		};
+		struct {
+			uint32_t cursor_events;
+			bool cursor_state;
+			uint32_t cx, cy; //current coordinate of the cursor
+			uint32_t axis;
+			bool axis_pos;
+			uint32_t serial;
+		};
 	} inputs;
 	struct app_style style;
 };
