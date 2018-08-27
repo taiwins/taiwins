@@ -53,6 +53,8 @@ struct nk_egl_backend *nk_egl_create_backend(const struct egl_env *env, struct w
 void nk_egl_launch(struct nk_egl_backend *bkend,
 		   int width, int height, float scale,
 		   nk_egl_draw_func_t draw_func, void *data);
+void nk_egl_resize(struct nk_egl_backend *bkend,
+		   int width, int height);
 void nk_egl_destroy_backend(struct nk_egl_backend *bkend);
 //tell the nk_egl_backend to run a specific task after the the rendering,
 //provides also an option to clean up the state as well, it get's cleaned after evaluated.
