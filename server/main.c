@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
 {
 	struct wl_list children_list;
 	const char *shellpath = (argc > 1) ? argv[1] : NULL;
-	const char *launcherpath = (argv > 2) ? argv[2] : NULL;
+	const char *launcherpath = (argc > 2) ? argv[2] : NULL;
 	struct wl_display *display = wl_display_create();
 
 

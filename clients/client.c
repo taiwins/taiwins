@@ -34,19 +34,27 @@ shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 	//we have to use ARGB because cairo uses this format
 	if (format == WL_SHM_FORMAT_ARGB8888) {
 		globals->buffer_format = WL_SHM_FORMAT_ARGB8888;
-//		fprintf(stderr, "we choosed argb8888 for the application\n");
+		//fprintf(stderr, "we choosed argb8888 for the application\n");
 	}
 	else if (format == WL_SHM_FORMAT_RGBA8888 &&
 		 globals->buffer_format != WL_SHM_FORMAT_ARGB8888) {
 		globals->buffer_format = WL_SHM_FORMAT_RGBA8888;
-//		fprintf(stderr, "we choosed rgba8888 for the application\n");
+		//fprintf(stderr, "we choosed rgba8888 for the application\n");
 	}
 	else if (format == WL_SHM_FORMAT_RGB888 &&
 		 globals->buffer_format != WL_SHM_FORMAT_ARGB8888 &&
 		 globals->buffer_format != WL_SHM_FORMAT_RGBA8888) {
 		globals->buffer_format = WL_SHM_FORMAT_RGB888;
-//		fprintf(stderr, "we choosed rgb888 for the application\n");
+		//fprintf(stderr, "we choosed rgb888 for the application\n");
+	} else {
+		//fprintf(stderr, "okay, the shm_format that we don't know 0x%x\n", format);
 	}
+}
+
+bool
+is_shm_format_valid(uint32_t format)
+{
+	return format != 0xFFFFFFFF;
 }
 
 static struct wl_shm_listener shm_listener = {

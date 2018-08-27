@@ -72,10 +72,7 @@ static void sample_wiget(struct nk_context *ctx, float width, float height, void
 	nk_layout_row_static(ctx, 30, 80, 2);
 	nk_button_label(ctx, "button");
 	nk_label(ctx, "another", NK_TEXT_LEFT);
-	//I can try to use the other textures
-	/* if (nk_button_label(ctx, "button")) { */
-	/*	fprintf(stderr, "button pressed\n"); */
-	/* } */
+
 	nk_layout_row_dynamic(ctx, 30, 2);
 	if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
 	if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
@@ -212,7 +209,7 @@ output_create(struct shell_output *w, struct wl_output *wl_output, struct deskto
 	w->inited = false;
 	w->output = wl_output;
 	wl_output_set_user_data(wl_output, w);
-	if (w->shell->shell)
+	if (w->shell->shell && is_shm_format_valid(twshell->globals.buffer_format))
 		output_init(w);
 }
 
