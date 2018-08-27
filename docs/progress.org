@@ -1,6 +1,6 @@
 * Stage one: basic libweston compositor
   - have interface(shell and launcher)
-  - cursor, keyboard are fully function.
+  - cursor, keyboard are fully functioned.
   - be able to launch and close applications.
 
 ** [100%] fully nuklear backend (utilizing app-surface and)
@@ -42,10 +42,10 @@
   - different layouting support
   - resize EGL windows.
   - compositing
-** [50%] server-side optimization
+** [66%] server-side optimization
 *** DONE singals for adding new output and seats
-*** TODO rendering/compositing optimization(what did this mean again)?
-
+*** TODO change the keyboard grab allowing the long pressing.
+*** DONE updated to libweston-5
 ** [0%] Configurations
 *** TODO styles, nuklear and other widget styles.
     - background color.
@@ -54,6 +54,7 @@
 *** DONE keyboard callbacks, this writes to a buffer, apparently.
 
 ** [60%] libweston-desktop implementation                            :server:
+*** TODO implement the libweston-desktop protocol
 *** DONE desktop layer architecture
 *** DONE simple random floating implementation
 *** TODO tiling layout
@@ -70,7 +71,10 @@
 	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
 	 need another thread anymore.
 *** TODO resize EGL window
+*** TODO shell panel refactoring
+*** TODO fix the cursor input problem(maybe just forget about the cursor frame callback)
 * Stage three: extensions
+*** TODO rendering/compositing optimization.
   - screen capture and screen record(audio support?).
   - westons's zoom support.
 

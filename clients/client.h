@@ -119,6 +119,7 @@ void wl_globals_init(struct wl_globals *globals, struct wl_display *display);
 void wl_globals_release(struct wl_globals *globals);
 void wl_globals_bg_color_rgb(const struct wl_globals *globals, float *r, float *g, float *b);
 void wl_globals_fg_color_rgb(const struct wl_globals *globals, float *r, float *g, float *b);
+bool is_shm_format_valid(uint32_t format);
 
 
 /******************************************************************************
