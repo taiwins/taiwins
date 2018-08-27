@@ -5,6 +5,7 @@
 #ifndef GL_GLEXT_PROTOTYPES
 #define GL_GLEXT_PROTOTYPES
 #endif
+#include <time.h>
 #include <stdbool.h>
 #include <EGL/egl.h>
 #include <GL/gl.h>
@@ -23,6 +24,8 @@
 #define NK_MAX_CTX_MEM 16 * 1024 * 1024
 #define MAX_VERTEX_BUFFER 512 * 128
 #define MAX_ELEMENT_BUFFER 128 * 128
+
+#include <helpers.h>
 
 //vao layout
 //I could probably use more compat format, and we need float32_t
@@ -44,6 +47,7 @@ static const struct nk_draw_vertex_layout_element vertex_layout[] = {
 };
 /*we are giving 4Kb mem to the command buffer*/
 static char cmd_buffer_data[4096];
+
 /* and 16Mb to the context. */
 static char *nk_ctx_buffer = NULL;
 /* as we known that we are using the fixed memory here, the size is crucial to
@@ -100,16 +104,17 @@ struct nk_egl_backend {
 	struct nk_font_atlas atlas;
 
 	//up-to-date information
-	size_t width, height;
-	struct nk_vec2 fb_scale;
 	nk_egl_draw_func_t frame;
 	nk_egl_postcall_t post_cb;
-	xkb_keysym_t ckey; //cleaned up every frame
+	size_t width, height;
+	struct nk_vec2 fb_scale;
 
-#ifdef __DEBUG
-	enum nk_buttons btn;
-#endif
-
+	struct {
+		xkb_keysym_t ckey; //cleaned up every frame
+		int32_t cbtn; //clean up every frame
+		uint32_t sx;
+		uint32_t sy;
+	};
 };
 
 /*
@@ -335,20 +340,18 @@ _nk_egl_draw_end(struct nk_egl_backend *bkend)
 static void
 nk_egl_render(struct nk_egl_backend *bkend)
 {
-	//convert the command queue
+	static char nk_last_cmds[64 * 4096] = {0};
+	void *cmds = nk_buffer_memory(&bkend->ctx.memory);
+	bool need_redraw = memcmp(cmds, nk_last_cmds, bkend->ctx.memory.allocated);
+	if (!need_redraw) {
+		nk_clear(&bkend->ctx);
+		return;
+	}
+	memcpy(nk_last_cmds, cmds, bkend->ctx.memory.allocated);
+
 	const struct nk_draw_command *cmd;
 	nk_draw_index *offset = NULL;
 	struct nk_buffer vbuf, ebuf;
-	//we should check the command buffer first, if nothing changes we should
-	//just return. However, this doesn't work, I didn't know the reason.  I
-	//thought it is because of the double buffer, but that is the case, it
-	//should happen only in the beginning.
-
-	/* void *mem = nk_buffer_memory(&bkend->ctx.memory); */
-	/* if (!memcmp(mem, bkend->last_cmds, bkend->ctx.memory.allocated)) */
-	/*	return; */
-	/* else */
-	/*	memcpy(bkend->last_cmds, mem, bkend->ctx.memory.allocated); */
 	_nk_egl_draw_begin(bkend, &vbuf, &ebuf);
 	nk_draw_foreach(cmd, &bkend->ctx, &bkend->cmds) {
 		if (!cmd->elem_count)
@@ -383,6 +386,7 @@ _nk_egl_new_frame(struct nk_egl_backend *bkend)
 		     NK_WINDOW_BORDER)) {
 		bkend->frame(&bkend->ctx, bkend->width, bkend->height, bkend->user_data);
 	} nk_end(&bkend->ctx);
+
 	nk_egl_render(bkend);
 	//call the post_cb if any
 	if (bkend->post_cb) {
@@ -390,6 +394,7 @@ _nk_egl_new_frame(struct nk_egl_backend *bkend)
 		bkend->post_cb = NULL;
 	}
 	bkend->ckey = XKB_KEY_NoSymbol;
+	bkend->cbtn = -1;
 }
 
 
@@ -410,7 +415,6 @@ nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int s
 		nk_input_key(&bkend->ctx, NK_KEY_RIGHT, (keysym == XKB_KEY_f) && state);
 		nk_input_key(&bkend->ctx, NK_KEY_TEXT_UNDO, (keysym == XKB_KEY_slash) && state);
 		//we should also support the clipboard later
-//		nk_input_key(&bkend->ctx, NK_KEY_COPY, )
 	}
 	else if (modifier & TW_ALT) {
 		nk_input_key(&bkend->ctx, NK_KEY_TEXT_WORD_LEFT, (keysym == XKB_KEY_b) && state);
@@ -419,7 +423,6 @@ nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int s
 	//no tabs, we don't essentially need a buffer here, give your own buffer. That is it.
 	else if (keycode >= 0x20 && keycode < 0x7E && state)
 		nk_input_unicode(&bkend->ctx, keycode);
-//		bkend->text_len++;
 	else {
 		nk_input_key(&bkend->ctx, NK_KEY_DEL, (keysym == XKB_KEY_Delete) && state);
 		nk_input_key(&bkend->ctx, NK_KEY_ENTER, (keysym == XKB_KEY_Return) && state);
@@ -451,20 +454,42 @@ nk_pointron(struct app_surface *surf, uint32_t sx, uint32_t sy)
 	nk_input_begin(&bkend->ctx);
 	nk_input_motion(&bkend->ctx, sx, sy);
 	nk_input_end(&bkend->ctx);
+	bkend->sx = sx;
+	bkend->sy = sy;
+
 	_nk_egl_new_frame(bkend);
 }
 
 static void
-nk_pointrbtn(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy)
+nk_pointrbtn(struct app_surface *surf, enum taiwins_btn_t btn, bool state, uint32_t sx, uint32_t sy)
 {
+//	fprintf(stderr, "we are getting a btn event on %d, %d\n", sx, sy);
 	struct nk_egl_backend *bkend = (struct nk_egl_backend *)surf->parent;
+	enum nk_buttons b;
+	switch (btn) {
+	case TWBTN_LEFT:
+		b = NK_BUTTON_LEFT;
+		break;
+	case TWBTN_RIGHT:
+		b = NK_BUTTON_RIGHT;
+		break;
+	case TWBTN_MID:
+		b = NK_BUTTON_MIDDLE;
+		break;
+	case TWBTN_DCLICK:
+		b = NK_BUTTON_DOUBLE;
+		break;
+	}
+
 	nk_input_begin(&bkend->ctx);
-	nk_input_button(&bkend->ctx, (btn) ? NK_BUTTON_LEFT : NK_BUTTON_RIGHT, (int)sx, (int)sy, 1);
+	nk_input_button(&bkend->ctx, b, (int)sx, (int)sy, state);
 	nk_input_end(&bkend->ctx);
+
+	bkend->cbtn = (state) ? b : -1;
+	bkend->sx = sx;
+	bkend->sy = sy;
+
 	_nk_egl_new_frame(bkend);
-#ifdef __DEBUG
-	bkend->btn = (btn) ? NK_BUTTON_LEFT : NK_BUTTON_RIGHT;
-#endif
 }
 
 static void
@@ -513,6 +538,14 @@ nk_egl_launch(struct nk_egl_backend *bkend, int w, int h, float s,
 	//there seems to be no function about changing window size in egl
 }
 
+void nk_egl_resize(struct nk_egl_backend *bkend,
+		   int width, int height)
+{
+	bkend->width = width;
+	bkend->height = height;
+	wl_egl_window_resize(bkend->eglwin, width, height, 0, 0);
+}
+
 
 void
 nk_egl_destroy_backend(struct nk_egl_backend *bkend)
@@ -554,6 +587,17 @@ nk_egl_get_keyinput(struct nk_context *ctx)
 	return bkend->ckey;
 }
 
+bool
+nk_egl_get_btn(struct nk_context *ctx, enum nk_buttons *button, uint32_t *sx, uint32_t *sy)
+{
+	struct nk_egl_backend *bkend = container_of(ctx, struct nk_egl_backend, ctx);
+	*button = (bkend->cbtn >= 0) ? bkend->cbtn : NK_BUTTON_MAX;
+	*sx = bkend->sx;
+	*sy = bkend->sy;
+	return (bkend->cbtn) >= 0;
+}
+
+
 void
 nk_egl_add_idle(struct nk_context *ctx,
 		void (*task)(void *user_data))
@@ -564,15 +608,6 @@ nk_egl_add_idle(struct nk_context *ctx,
 
 
 #ifdef __DEBUG
-
-enum nk_buttons
-nk_egl_get_btn(struct nk_context *ctx)
-{
-	struct nk_egl_backend *bkend = container_of(ctx, struct nk_egl_backend, ctx);
-	return bkend->btn;
-}
-
-
 
 void nk_egl_capture_framebuffer(struct nk_context *ctx, const char *path)
 {

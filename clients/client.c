@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <time.h>
 #include <sys/mman.h>
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
@@ -90,18 +91,18 @@ handle_key(void *data,
 	xkb_keysym_t  keysym  = xkb_state_key_get_one_sym(globals->inputs.kstate,
 							  keycode);
 	uint32_t modifier = modifier_mask_from_xkb_state(globals->inputs.kstate);
+
+	globals->inputs.serial = serial;
 	/* char keyname[100]; */
 	/* xkb_keysym_get_name(keysym, keyname, 100); */
 	/* fprintf(stderr, "the key pressed is %s\n", keyname); */
 	//every surface it self is an app_surface, in thise case
 	struct wl_surface *focused = globals->inputs.focused_surface;
-	if (!focused)
-		return;
-	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
-	//I suppose the modifier key is called as well
-	if (appsurf->keycb)
-		appsurf->keycb(appsurf, keysym, modifier,
-			       (state == WL_KEYBOARD_KEY_STATE_PRESSED) ? 1 : 0);
+	struct app_surface *appsurf = (focused) ? app_surface_from_wl_surface(focused) : NULL;
+	keycb_t keycb = (appsurf && appsurf->keycb) ? appsurf->keycb : NULL;
+	if (keycb)
+		keycb(appsurf, keysym, modifier,
+		      (state == WL_KEYBOARD_KEY_STATE_PRESSED) ? 1 : 0);
 }
 
 static
@@ -119,6 +120,7 @@ void handle_modifiers(void *data,
 	//wayland uses layout group. you need to know what xkb_matched_layout is
 	xkb_state_update_mask(globals->inputs.kstate,
 			      mods_depressed, mods_latched, mods_locked, 0, 0, group);
+	globals->inputs.serial = serial;
 	//every surface it self is an app_surface, in thise case
 //	struct wl_surface *focused = globals->inputs.focused_surface;
 //	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
@@ -149,7 +151,7 @@ handle_keymap(void *data, struct wl_keyboard *wl_keyboard,
 }
 
 
-//you must have this
+//shit, this must be how you implement delay.
 static void
 handle_repeat_info(void *data,
 			    struct wl_keyboard *wl_keyboard,
@@ -167,7 +169,7 @@ handle_keyboard_enter(void *data,
 {
 	struct wl_globals *globals = (struct wl_globals *)data;
 	globals->inputs.focused_surface = surface;
-	//this job is done by pointer
+	globals->inputs.serial = serial;
 	fprintf(stderr, "keyboard got focus\n");
 	/* struct wl_surface *focused = globals->inputs.focused_surface; */
 	/* struct app_surface *appsurf = app_surface_from_wl_surface(focused); */
@@ -183,6 +185,7 @@ handle_keyboard_leave(void *data,
 {
 	struct wl_globals *globals = (struct wl_globals *)data;
 	globals->inputs.focused_surface = NULL;
+	globals->inputs.serial = serial;
 	fprintf(stderr, "keyboard lost focus\n");
 }
 
@@ -202,20 +205,26 @@ struct wl_keyboard_listener keyboard_listener = {
 /////////////////////////////Pointer listeners////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-//this code is used to accumlate the a sequence of event for the cursor, they
-//are mutually exclusive and have priorities
+//the code is accumlate for the frame event.
+//the bit map info
+//[1] motion.
+//[2-4] 2->left. 4->right. 8->middle. 16->dclick
+// 5-> axis
 enum POINTER_EVENT_CODE {
 	//the event doesn't need to be handle
 	POINTER_ENTER = 0,
 	POINTER_LEAVE = 0,
 	//motion
 	POINTER_MOTION = 1,
+
 	//the btn group, no middle key handled
-	POINTER_BTN_LEFT =  1,
-	POINTER_BTN_RIGHT = 2,
-	POINTER_BTN = 4,
+	POINTER_BTN_LEFT =  2,
+	POINTER_BTN_RIGHT = 4,
+	POINTER_BTN_MID = 8,
+	POINTER_BTN_DCLICK = 16,
 	//axis events, we only handle a few.
-	POINTER_AXIS = 8
+	POINTER_AXIS = 32,
+
 };
 
 
@@ -238,6 +247,7 @@ pointer_enter(void *data,
 	static bool cursor_set = false;
 	struct wl_globals *globals = (struct wl_globals *)data;
 	globals->inputs.focused_surface = surface;
+	globals->inputs.serial = serial;
 	if (!cursor_set) {
 		struct wl_surface *csurface = globals->inputs.cursor_surface;
 		struct wl_buffer *cbuffer = globals->inputs.cursor_buffer;
@@ -263,6 +273,8 @@ pointer_leave(void *data,
 	struct wl_globals *globals = (struct wl_globals *)data;
 	globals->inputs.focused_surface = NULL;
 	globals->inputs.cursor_events = POINTER_LEAVE;
+	globals->inputs.serial = serial;
+
 }
 
 
@@ -276,8 +288,9 @@ pointer_motion(void *data,
 	struct wl_globals *globals = (struct wl_globals *)data;
 	globals->inputs.cx = wl_fixed_to_int(surface_x);
 	globals->inputs.cy = wl_fixed_to_int(surface_y);
-//	fprintf(stderr, "the mostion is (%d, %d)\n", surface_x/256, surface_x/256);
 	globals->inputs.cursor_events |= POINTER_MOTION;
+	globals->inputs.serial = serial;
+
 }
 
 
@@ -291,21 +304,32 @@ pointer_frame(void *data,
 		return;
 	//with the line above, we won't have any null surface problem
 	struct wl_surface *focused = globals->inputs.focused_surface;
-	if (!focused)
-		return;
-	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
+	struct app_surface *appsurf = (focused) ? app_surface_from_wl_surface(focused) : NULL;
+	pointron_t ptr_on = (appsurf && appsurf->pointron) ? appsurf->pointron : NULL;
+	pointrbtn_t ptr_btn = (appsurf && appsurf->pointrbtn) ? appsurf->pointrbtn : NULL;
+	pointraxis_t ptr_axis = (appsurf && appsurf->pointraxis) ? appsurf->pointraxis : NULL;
 
 	uint32_t event = globals->inputs.cursor_events;
-	//events goes in the order, but why I am using else if?
-	if ((event & POINTER_AXIS) && appsurf->pointraxis)
-		appsurf->pointraxis(appsurf,
-				    globals->inputs.axis_pos, globals->inputs.axis,
-				    globals->inputs.cx, globals->inputs.cy);
-	else if ((event & POINTER_BTN) && appsurf->pointrbtn)
-		appsurf->pointrbtn(appsurf, event & POINTER_BTN_LEFT,
-				   globals->inputs.cx, globals->inputs.cy); //well, you never know
-	else if ((event & POINTER_MOTION) && appsurf->pointron)
-		appsurf->pointron(appsurf, globals->inputs.cx, globals->inputs.cy);
+	if ((event & POINTER_AXIS) && ptr_axis)
+		ptr_axis(appsurf,
+			 globals->inputs.axis_pos, globals->inputs.axis,
+			 globals->inputs.cx, globals->inputs.cy);
+
+	if ((event & POINTER_MOTION) && ptr_on)
+		ptr_on(appsurf, globals->inputs.cx, globals->inputs.cy);
+
+	if ((event & POINTER_BTN_LEFT) && ptr_btn)
+		ptr_btn(appsurf, TWBTN_LEFT, globals->inputs.cursor_state,
+				   globals->inputs.cx, globals->inputs.cy);
+	if ((event & POINTER_BTN_RIGHT) && ptr_btn)
+		ptr_btn(appsurf, TWBTN_RIGHT, globals->inputs.cursor_state,
+				   globals->inputs.cx, globals->inputs.cy);
+	if ((event & POINTER_BTN_MID) && ptr_btn)
+		ptr_btn(appsurf, TWBTN_MID, globals->inputs.cursor_state,
+				   globals->inputs.cx, globals->inputs.cy);
+	/* fprintf(stderr, "we are getting a cursor event it is %s.\n", */
+	/*	(event & POINTER_MOTION) ? "motion" : */
+	/*	(event & POINTER_BTN_LEFT) ? "button" : "other"); */
 
 	//finally erase all previous events
 	globals->inputs.cursor_events = 0;
@@ -321,19 +345,21 @@ pointer_button(void *data,
 	       uint32_t state)
 {
 	struct wl_globals *globals = (struct wl_globals *)data;
-	if (!state) { //only register events at the end of the pointer
-		switch (button) {
-		case BTN_LEFT:
-			globals->inputs.cursor_events |= POINTER_BTN;
-			globals->inputs.cursor_events |= POINTER_BTN_LEFT;
-			break;
-		case BTN_RIGHT:
-			globals->inputs.cursor_events |= POINTER_BTN;
-			globals->inputs.cursor_events |= POINTER_BTN_RIGHT;
-			break;
-		default:
-			break;
-		}
+	globals->inputs.cursor_state = state;
+	globals->inputs.serial = serial;
+
+	switch (button) {
+	case BTN_LEFT:
+		globals->inputs.cursor_events |= POINTER_BTN_LEFT;
+		break;
+	case BTN_RIGHT:
+		globals->inputs.cursor_events |= POINTER_BTN_RIGHT;
+		break;
+	case BTN_MIDDLE:
+		globals->inputs.cursor_events |= POINTER_BTN_MID;
+		break;
+	default:
+		break;
 	}
 }
 
@@ -349,7 +375,6 @@ pointer_axis(void *data,
 	//reverse it
 	globals->inputs.axis_pos = wl_fixed_to_int(value);
 	globals->inputs.axis = axis;
-
 	globals->inputs.cursor_events |= POINTER_AXIS;
 }
 
@@ -363,7 +388,8 @@ pointer_axis_src(void *data,
 static void
 pointer_axis_stop(void *data,
 		  struct wl_pointer *wl_pointer,
-		  uint32_t time, uint32_t axis) {
+		  uint32_t time, uint32_t axis)
+{
 //	fprintf(stderr, "axis end event\n");
 }
 
@@ -529,7 +555,9 @@ wl_globals_fg_color_rgb(const struct wl_globals *globals, float *r, float *g, fl
 }
 
 
-//event queue implementation
+/*************************************************************
+ *              event queue implementation                   *
+ *************************************************************/
 struct tw_event_source {
 	struct wl_list link;
 	struct epoll_event poll_event;
@@ -551,7 +579,7 @@ alloc_event_source(struct tw_event *e, uint32_t mask, int fd)
 	return event_source;
 }
 
-void
+static void
 destroy_event_source(struct tw_event_source *s)
 {
 	wl_list_remove(&s->link);
@@ -563,7 +591,6 @@ tw_event_queue_run(struct tw_event_queue *queue)
 {
 	struct epoll_event events[32];
 	struct tw_event_source *event_source, *next;
-	struct tw_event *event;
 	//poll->produce-event-or-timeout
 	while (!queue->quit) {
 		//it turned out this is crucial other wise we have nothing to read...
@@ -578,7 +605,6 @@ tw_event_queue_run(struct tw_event_queue *queue)
 
 	}
 	wl_list_for_each_safe(event_source, next, &queue->head, link) {
-		event = &event_source->event;
 		epoll_ctl(queue->pollfd, EPOLL_CTL_DEL, event_source->fd, NULL);
 	}
 	close(queue->pollfd);
@@ -597,8 +623,6 @@ tw_event_queue_init(struct tw_event_queue *queue)
 	queue->quit = false;
 	return true;
 }
-
-
 
 bool
 tw_event_queue_add_source(struct tw_event_queue *queue, int fd,
@@ -654,7 +678,8 @@ err:
 	return false;
 }
 
-int dispatch_wl_event(void *data)
+static int
+dispatch_wl_event(void *data)
 {
 	struct tw_event_queue *queue = data;
 	struct wl_display *display = queue->wl_display;

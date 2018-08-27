@@ -53,11 +53,8 @@ appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
 }
 
 
-void appsurface_init_input(struct app_surface *surf,
-			   void (*keycb)(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int state),
-			   void (*pointron)(struct app_surface *surf, uint32_t sx, uint32_t sy),
-			   void (*pointrbtn)(struct app_surface *surf, bool btn, uint32_t sx, uint32_t sy),
-			   void (*pointraxis)(struct app_surface *surf, int pos, int direction, uint32_t sx, uint32_t sy))
+void appsurface_init_input(struct app_surface *surf, keycb_t keycb, pointron_t pointron,
+			   pointrbtn_t pointrbtn, pointraxis_t pointraxis)
 {
 	surf->keycb = keycb;
 	surf->pointron = pointron;

@@ -1,5 +1,6 @@
 #ifndef NK_EGL_BACKEND_H
 #define NK_EGL_BACKEND_H
+#include <stdbool.h>
 #include <stdarg.h>
 //pull in the nuklear headers so we can access eglapp
 #define NK_INCLUDE_FIXED_TYPES
@@ -52,6 +53,8 @@ struct nk_egl_backend *nk_egl_create_backend(const struct egl_env *env, struct w
 void nk_egl_launch(struct nk_egl_backend *bkend,
 		   int width, int height, float scale,
 		   nk_egl_draw_func_t draw_func, void *data);
+void nk_egl_resize(struct nk_egl_backend *bkend,
+		   int width, int height);
 void nk_egl_destroy_backend(struct nk_egl_backend *bkend);
 //tell the nk_egl_backend to run a specific task after the the rendering,
 //provides also an option to clean up the state as well, it get's cleaned after evaluated.
@@ -61,12 +64,11 @@ void nk_egl_add_idle(struct nk_context *ctx,
 
 //yeah, we can do in this way, but we can also
 xkb_keysym_t nk_egl_get_keyinput(struct nk_context *ctx);
+//this call back writes the framebuffer to a image file.
+bool nk_egl_get_btn(struct nk_context *ctx, enum nk_buttons *btn, uint32_t *sx, uint32_t *sy);
 
 
 #ifdef __DEBUG
-//this call back writes the framebuffer to a image file.
-enum nk_buttons nk_egl_get_btn(struct nk_context *ctx);
-
 void nk_egl_capture_framebuffer(struct nk_context *ctx, const char *path);
 #endif
 
