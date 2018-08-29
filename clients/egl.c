@@ -88,11 +88,14 @@ egl_env_init(struct egl_env *env, struct wl_display *d)
 //	EGLint *context_attribute = NULL;
 
 	env->egl_display = eglGetDisplay((EGLNativeDisplayType)env->wl_display);
-
-	const char *egl_extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
-	fprintf(stderr, "egl_extensions%s\n", egl_extensions);
 	assert(env->egl_display);
 	assert(eglInitialize(env->egl_display, &major, &minor) == EGL_TRUE);
+	fprintf(stderr, "egl display is %p\n", env->egl_display);
+
+	const char *egl_extensions = eglQueryString(env->egl_display, EGL_EXTENSIONS);
+	const char *egl_vendor = eglQueryString(env->egl_display, EGL_VENDOR);
+	fprintf(stderr, "egl vendor using: %s\n", egl_vendor);
+	fprintf(stderr, "egl_extensions: %s\n", egl_extensions);
 	eglGetConfigs(env->egl_display, NULL, 0, &n);
 	fprintf(stderr, "egl has %d configures\n", n);
 	assert(EGL_TRUE == eglChooseConfig(env->egl_display, egl_config_attribs, &egl_cfg, 1, &n));
