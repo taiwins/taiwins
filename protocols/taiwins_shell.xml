@@ -11,6 +11,14 @@
       <arg name="output" type="object" interface="wl_output"/>
       <arg name="surface" type="object" interface="wl_surface"/>
     </request>
+
+    <!-- new api, so deprecate the old set_widget and hide_widget -->
+    <request name="create_widget">
+      <description summary="create a new widget from wl_surface"/>
+      <arg name="tw_widget" type="new_id" interface="tw_widget"/>
+      <arg name="wl_surface" type="object" interface="wl_surface"/>
+    </request>
+
     <request name="set_widget">
       <arg name="surface" type="object" interface="wl_surface"/>
       <arg name="output"  type="object" interface="wl_output"/>
@@ -42,6 +50,20 @@
       <arg name="edges" type="uint"/>
       <arg name="width" type="int"/>
       <arg name="height" type="int"/>
+    </event>
+
+  </interface>
+
+  <interface name="tw_widget" version="1">
+    <description summary="UI layer widget protocols">
+      The widgets sit on the UI layer, there are unique
+    </description>
+
+    <event name="configure">
+      <description summary="event to instruct clients for size and scale">
+	The server decides the geometry of the widget, before this call, there
+	should not be any commit, as UI layer only do the position at commit.
+      </description>
     </event>
 
   </interface>

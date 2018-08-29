@@ -15,3 +15,12 @@ The nuklear backend is really awesome, it does all the heavy job that we need
 for GUI code and you can implement different backend for it. In my case, I wrote
 the wayland-egl backend. It seems that we can also use traditional backend like
 cairo to do the job, it is still very fast.
+
+## measures
+It seems that it takes at least 1ms to render the widget(maybe not really the
+gpu time, may be the data uploading). In either case we need to come up with
+methods to reduce the computation.
+
+- using command buffer comparision.
+- adding fps support, so we can skip directly those inputs in the
+  timestamp(accumnate maybe).
