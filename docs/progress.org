@@ -46,19 +46,19 @@
 *** DONE singals for adding new output and seats
 *** TODO change the keyboard grab allowing the long pressing.
 *** DONE updated to libweston-5
-** [0%] Configurations
+** [33%] Configurations
 *** TODO styles, nuklear and other widget styles.
     - background color.
     - Font size, font selection.
-
 *** DONE keyboard callbacks, this writes to a buffer, apparently.
+*** TODO shortcuts `taiwins_zoom`, `taiwins_alpha`.
 
 ** [60%] libweston-desktop implementation                            :server:
-*** TODO implement the libweston-desktop protocol
+*** TODO implement the libweston-desktop protocol                     :proto:
 *** DONE desktop layer architecture
 *** DONE simple random floating implementation
 *** TODO tiling layout
-**** TODO ML based layout
+
 
 *** TODO client search buffer                                         :proto:
     for this to work, we probably will need ~radix tree~ or ~trie~ or hash
@@ -66,21 +66,27 @@
 *** DONE decoupling the desktop implementation                    :refactory:
 
 ** [50%] client-side optimization
-*** DONE find a way to read dispatch wl_display without blocking
+*** DONE switch to epoll on wl_display
     - possible solution :: maybe we can use epoll on wl_display, and add it to
 	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
 	 need another thread anymore.
 *** TODO resize EGL window
 *** TODO shell panel refactoring
-*** TODO fix the cursor input problem(maybe just forget about the cursor frame callback)
+*** TODO fix the cursor input problem(maybe just forget about the cursor frame callback), what is this??
+** [0%] protocols                                                     :proto:
+*** TODO `tw_output` protocols to represent logical output
+*** TODO `tw_desktop` output to recieve desktop events
+
 * Stage three: extensions
+*** TODO ML based layout
 *** TODO rendering/compositing optimization.
   - screen capture and screen record(audio support?).
   - westons's zoom support.
 
 
 
-
+*** TODO supporting examing buffer
+*** TODO build weston along with taiwins(with meson maybe)
 * Bugs
 ** a completion based text_edit
    - ~nk_egl_get_key~ gets NoSymbol very 2 frames, so if you press Tab twice,
@@ -116,3 +122,17 @@
 *** Final solution (using frame_signal)
     the frame_signal in the ~weston_output~ struct is for the recorder. But it
     suits our case
+
+
+* summarizing and planning
+** <2018-08-28 Tue>
+taiwins has come to a point it can be used, maybe crash from time to time, ugly
+ui, but usable. I try to list all the functionanities that I can think of then
+choose one to work on, but it still confuses me right now. One side is a bug I
+am not sure how to fix (EGL resizing), the otherside is a big feature(tiling
+layout) that I do not want to touch now. I have to decide which side to focus
+next, if I focus more on the client side, the development revolves around the
+EGL, refactoring the panel to make a more pretty interface. The server side will
+be more about the deplace algorithms. I am more biased towards clients since it
+has been long time. If I do not currently know what is going on with EGL,
+refactoring maybe a good solution.
