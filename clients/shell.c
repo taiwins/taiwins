@@ -94,7 +94,7 @@ static void sample_wiget(struct nk_context *ctx, float width, float height, void
 
 
 static void
-_launch_widget(struct shell_widget *widget)
+_launch_widget(struct shell_widget *widget, struct app_surface *widget_surface)
 {
 	//find the widget launch point
 	struct point2d point;
@@ -114,8 +114,7 @@ _launch_widget(struct shell_widget *widget)
 	point.y = 10;
 
 	shell_panel_show_widget(widget->panel, point.x, point.y);
-	nk_egl_launch(widget->panel->backend,
-		      widget->width, widget->height, 1.0,
+	nk_egl_launch(widget->panel->backend, widget_surface,
 		      sample_wiget, NULL);
 }
 
@@ -123,10 +122,14 @@ static void
 shell_panel_click(struct app_surface *surf, enum taiwins_btn_t btn, bool state, uint32_t cx, uint32_t cy)
 {
 	struct shell_panel *panel = container_of(surf, struct shell_panel, panelsurf);
+	struct app_surface *widget_surface = &panel->widget_surface;
 	fprintf(stderr, "clicked on button (%d, %d)\n", cx, cy);
 	struct shell_widget *w = shell_panel_find_widget_at_xy(panel, cx, cy);
+	widget_surface->w =  w->width;
+	widget_surface->h = w->height;
+	widget_surface->s = 1.0;
 	if (w && state)
-		_launch_widget(w);
+		_launch_widget(w, widget_surface);
 }
 
 static void
@@ -137,7 +140,7 @@ shell_panel_init(struct shell_panel *panel, struct shell_output *w)
 	appsurface_init_input(s, NULL, NULL, shell_panel_click, NULL);
 	appsurface_init(&panel->widget_surface, NULL, APP_WIDGET,
 			w->shell->globals.compositor, w->output);
-	panel->backend = nk_egl_create_backend(&w->shell->eglenv, panel->widget_surface.wl_surface);
+	panel->backend = nk_egl_create_backend(&w->shell->eglenv);
 	panel->widgets = (vector_t){0};
 
 }

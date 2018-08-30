@@ -1,7 +1,6 @@
 #ifndef TW_UI_H
 #define TW_UI_H
 
-
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
@@ -129,14 +128,26 @@ struct app_surface {
 	//geometry information
 	unsigned int px, py; //anchor
 	unsigned int w, h; //size
+	unsigned int s;
 	enum APP_SURFACE_TYPE type;
-	//buffer management
-	struct shm_pool *pool;
+
 	struct wl_output *wl_output;
 	struct wl_surface *wl_surface;
-	struct wl_buffer  *wl_buffer[2];
-	bool dirty[2];
-	bool committed[2];
+
+	//to allow both cpu and GPU backend
+	union {
+		struct {
+			struct shm_pool *pool;
+			struct wl_buffer  *wl_buffer[2];
+			bool dirty[2];
+			bool committed[2];
+		};
+		struct {
+			struct wl_egl_window *eglwin;
+			EGLSurface eglsurface;
+		};
+	};
+
 
 	struct {
 		keycb_t keycb;

@@ -170,15 +170,17 @@ start_launcher(void *data,
 	       wl_fixed_t scale)
 {
 	struct desktop_launcher *launcher = (struct desktop_launcher *)data;
+	struct app_surface *surface = &launcher->surface;
+	surface->w = wl_fixed_to_int(width);
+	surface->h = wl_fixed_to_int(height);
+	surface->s = wl_fixed_to_int(scale);
 	//yeah, generally you will want a buffer from this
 	launcher->exec_cb = taiwins_launcher_set_launcher(launcher->interface, launcher->surface.wl_surface,
 							  launcher->exec_id);
 	wl_callback_add_listener(launcher->exec_cb, &exec_listener, launcher);
 
-	nk_egl_launch(launcher->bkend,
-		      wl_fixed_to_int(width),
-		      wl_fixed_to_int(height),
-		      wl_fixed_to_double(scale), draw_launcher, launcher);
+	nk_egl_launch(launcher->bkend, &launcher->surface,
+		      draw_launcher, launcher);
 }
 
 
@@ -205,8 +207,7 @@ init_launcher(struct desktop_launcher *launcher)
 	appsurface_init(&launcher->surface, NULL, APP_WIDGET,
 			launcher->globals.compositor, NULL);
 	egl_env_init(&launcher->env, launcher->globals.display);
-	launcher->bkend = nk_egl_create_backend(&launcher->env,
-						launcher->surface.wl_surface);
+	launcher->bkend = nk_egl_create_backend(&launcher->env);
 	nk_textedit_init_fixed(&launcher->text_edit, launcher->chars, 256);
 }
 

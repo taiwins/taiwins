@@ -21,7 +21,7 @@
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
-
+#include <stdio.h>
 #include <EGL/egl.h>
 #include <GL/gl.h>
 #include <wayland-egl.h>
@@ -40,6 +40,7 @@ struct egl_env {
 };
 
 //okay, hide it
+struct app_surface;
 struct nk_egl_backend;
 
 bool egl_env_init(struct egl_env *env, struct wl_display *disp);
@@ -48,14 +49,13 @@ void egl_env_end(struct egl_env *env);
 typedef void (*nk_egl_draw_func_t)(struct nk_context *ctx, float width, float height, void *data);
 typedef void (*nk_egl_postcall_t)(void *userdata);
 
-//TODO: change wl_surface to appsurface or maintain the appsurface inside nk_egl_backend
-struct nk_egl_backend *nk_egl_create_backend(const struct egl_env *env, struct wl_surface *attach_to);
-void nk_egl_launch(struct nk_egl_backend *bkend,
-		   int width, int height, float scale,
-		   nk_egl_draw_func_t draw_func, void *data);
-void nk_egl_resize(struct nk_egl_backend *bkend,
-		   int width, int height);
+struct nk_egl_backend *nk_egl_create_backend(const struct egl_env *env);
 void nk_egl_destroy_backend(struct nk_egl_backend *bkend);
+
+void nk_egl_launch(struct nk_egl_backend *bkend, struct app_surface *app,
+		   nk_egl_draw_func_t draw_func, void *data);
+void nk_egl_close(struct nk_egl_backend *bkend, struct app_surface *app_surface);
+
 //tell the nk_egl_backend to run a specific task after the the rendering,
 //provides also an option to clean up the state as well, it get's cleaned after evaluated.
 void nk_egl_add_idle(struct nk_context *ctx,
@@ -70,6 +70,11 @@ bool nk_egl_get_btn(struct nk_context *ctx, enum nk_buttons *btn, uint32_t *sx, 
 
 #ifdef __DEBUG
 void nk_egl_capture_framebuffer(struct nk_context *ctx, const char *path);
+void nk_egl_resize(struct nk_egl_backend *bkend, int32_t width, int32_t height);
+
+void
+nk_egl_debug_commands(struct nk_egl_backend *bkend);
+
 #endif
 
 

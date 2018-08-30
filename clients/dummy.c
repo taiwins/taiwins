@@ -149,10 +149,13 @@ int main(int argc, char *argv[])
 	App.shell_surface = shell_surface;
 
 	egl_env_init(&App.env, App.global.display);
+	App.surface.w = 200;
+	App.surface.h = 400;
+	App.surface.s = 1;
 
-	App.bkend = nk_egl_create_backend(&App.env,
-						App.surface.wl_surface);
-	nk_egl_launch(App.bkend, 200, 200, 1, sample_widget, &App);
+	App.bkend = nk_egl_create_backend(&App.env);
+
+	nk_egl_launch(App.bkend, &App.surface, sample_widget, &App);
 	fprintf(stdout, "here\n");
 	while (wl_display_dispatch(wl_display) != -1 && !App.done)
 		;
