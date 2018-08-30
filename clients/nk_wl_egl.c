@@ -79,11 +79,9 @@ static char *nk_ctx_buffer = NULL;
 struct nk_egl_backend {
 	bool compiled;
 	void *user_data;
+
 	const struct egl_env *env;
 	struct app_surface *app_surface;
-	struct wl_surface *wl_surface;
-	struct wl_egl_window *eglwin;
-	EGLSurface eglsurface;
 
 	//opengl resources
 	GLuint glprog, vs, fs;//actually, we can evider vs, fs
@@ -151,21 +149,57 @@ nk_egl_prepare_font(struct nk_egl_backend *bkend)
 	return font;
 }
 
+static inline bool
+is_surfless_supported(struct nk_egl_backend *bkend)
+{
+	const char *egl_extensions =  eglQueryString(bkend->env->egl_display, EGL_EXTENSIONS);
+	//nvidia eglcontext does not bind to different surface with same context
+	const char *egl_vendor = eglQueryString(bkend->env->egl_display, EGL_VENDOR);
+
+	return (strstr(egl_extensions, "EGL_KHR_create_context") != NULL &&
+		strstr(egl_extensions, "EGL_KHR_surfaceless_context") != NULL &&
+		strstr(egl_vendor, "NVIDIA") == NULL);
+}
+
+static inline void
+assign_egl_surface(struct app_surface *app_surface, const struct egl_env *env)
+{
+	app_surface->eglwin = wl_egl_window_create(app_surface->wl_surface,
+						   app_surface->w,
+						   app_surface->h);
+	assert(app_surface->eglwin);
+	app_surface->eglsurface =
+		eglCreateWindowSurface(env->egl_display,
+				       env->config,
+				       (EGLNativeWindowType)app_surface->eglwin,
+				       NULL);
+	assert(app_surface->eglsurface);
+	assert(eglMakeCurrent(env->egl_display, app_surface->eglsurface,
+			      app_surface->eglsurface, env->egl_context));
+	/* EGLint value; */
+	/* eglQueryContext(env->egl_display, env->egl_context, EGL_RENDER_BUFFER, &value); */
+	/* printf("\nEGL_Render_buffer%d\n", value); */
+	/* eglQuerySurface(env->egl_display, app_surface->eglsurface, EGL_RENDER_BUFFER, &value); */
+	/* printf("\n surface EGL_Render_buffer%d\n", value); */
+}
+
 static bool
-_compile_backend(struct nk_egl_backend *bkend)
+compile_backend(struct nk_egl_backend *bkend, struct app_surface *app_surface)
 {
 	if (bkend->compiled)
 		return true;
+
 	GLint status, loglen;
 	GLsizei stride;
-	//////////////////// part 0) egl resource
-	bkend->eglwin = wl_egl_window_create(bkend->wl_surface, 200, 200);
-	assert(bkend->eglwin);
-	bkend->eglsurface = eglCreateWindowSurface(bkend->env->egl_display, bkend->env->config,
-						   (EGLNativeWindowType)bkend->eglwin, NULL);
-	assert(bkend->eglsurface);
-	assert(eglMakeCurrent(bkend->env->egl_display, bkend->eglsurface,
-			      bkend->eglsurface, bkend->env->egl_context));
+	//part 0) testing the extension
+	/* assign_egl_surface(app_surface, bkend->env); */
+	if (is_surfless_supported(bkend)) {
+		assert(eglMakeCurrent(bkend->env->egl_display,
+				      EGL_NO_SURFACE, EGL_NO_SURFACE,
+				      bkend->env->egl_context));
+	} else
+		assign_egl_surface(app_surface, bkend->env);
+
 	//////////////////// part 1) OpenGL code
 	static const GLchar *vertex_shader =
 		NK_SHADER_VERSION
@@ -259,6 +293,9 @@ _compile_backend(struct nk_egl_backend *bkend)
 	nk_init_fixed(&bkend->ctx, nk_ctx_buffer, NK_MAX_CTX_MEM, &font->handle);
 	nk_buffer_init_fixed(&bkend->cmds, cmd_buffer_data, sizeof(cmd_buffer_data));
 	nk_buffer_clear(&bkend->cmds);
+
+	//release the context
+//	eglMakeCurrent(bkend->env->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	return true;
 }
 
@@ -279,6 +316,7 @@ _nk_egl_draw_begin(struct nk_egl_backend *bkend, struct nk_buffer *vbuf, struct 
 	ortho[1][1] /= (GLfloat)bkend->height;
 	//use program
 	glUseProgram(bkend->glprog);
+	glValidateProgram(bkend->glprog);
 	glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 	//switches
@@ -373,11 +411,10 @@ nk_egl_render(struct nk_egl_backend *bkend)
 	}
 	nk_clear(&bkend->ctx);
 
-
 	_nk_egl_draw_end(bkend);
-	eglSwapBuffers(bkend->env->egl_display, bkend->eglsurface);
+	eglSwapBuffers(bkend->env->egl_display,
+		       bkend->app_surface->eglsurface);
 }
-
 
 static void
 _nk_egl_new_frame(struct nk_egl_backend *bkend)
@@ -463,7 +500,6 @@ nk_pointron(struct app_surface *surf, uint32_t sx, uint32_t sy)
 static void
 nk_pointrbtn(struct app_surface *surf, enum taiwins_btn_t btn, bool state, uint32_t sx, uint32_t sy)
 {
-//	fprintf(stderr, "we are getting a btn event on %d, %d\n", sx, sy);
 	struct nk_egl_backend *bkend = (struct nk_egl_backend *)surf->parent;
 	enum nk_buttons b;
 	switch (btn) {
@@ -503,52 +539,8 @@ nk_pointraxis(struct app_surface *surf, int pos, int direction, uint32_t sx, uin
 }
 
 
-
-/********************* exposed APIS *************************/
-
-struct nk_egl_backend*
-nk_egl_create_backend(const struct egl_env *env, struct wl_surface *attached_to)
-{
-	//we probably should uses
-	struct nk_egl_backend *bkend = (struct nk_egl_backend *)calloc(1, sizeof(*bkend));
-	bkend->env = env;
-	bkend->wl_surface = attached_to;
-	bkend->app_surface = app_surface_from_wl_surface(attached_to);
-	//tmp pointer casting, if we could have better solution
-	bkend->app_surface->parent = (struct app_surface *) bkend;
-	bkend->compiled = false;
-	appsurface_init_input(bkend->app_surface, nk_keycb, nk_pointron, nk_pointrbtn, nk_pointraxis);
-	return bkend;
-}
-
-void
-nk_egl_launch(struct nk_egl_backend *bkend, int w, int h, float s,
-	      nk_egl_draw_func_t func,
-	      void *data)
-{
-	bkend->width = w;
-	bkend->height = h;
-	bkend->fb_scale = nk_vec2(s, s);
-	bkend->frame = func;
-	bkend->user_data = data;
-	//now resize the window
-	bkend->compiled = _compile_backend(bkend);
-	wl_egl_window_resize(bkend->eglwin, w, h, 0, 0);
-	_nk_egl_new_frame(bkend);
-	//there seems to be no function about changing window size in egl
-}
-
-void nk_egl_resize(struct nk_egl_backend *bkend,
-		   int width, int height)
-{
-	bkend->width = width;
-	bkend->height = height;
-	wl_egl_window_resize(bkend->eglwin, width, height, 0, 0);
-}
-
-
-void
-nk_egl_destroy_backend(struct nk_egl_backend *bkend)
+static void
+release_backend(struct nk_egl_backend *bkend)
 {
 	if (bkend->compiled) {
 		//opengl resource
@@ -569,13 +561,76 @@ nk_egl_destroy_backend(struct nk_egl_backend *bkend)
 		nk_buffer_free(&bkend->cmds);
 		//egl free context
 		eglMakeCurrent(bkend->env->egl_display, NULL, NULL, NULL);
-		eglDestroySurface(bkend->env->egl_display, bkend->eglsurface);
-		/* eglMakeCurrent(bkend->env->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT); */
-
-		wl_egl_window_destroy(bkend->eglwin);
+		bkend->compiled = false;
+		bkend->width = 0;
+		bkend->height = 0;
+		bkend->fb_scale = nk_vec2(1.0, 1.0);
 	}
+}
+
+/********************* exposed APIS *************************/
+
+struct nk_egl_backend*
+nk_egl_create_backend(const struct egl_env *env)
+{
+	//we probably should uses
+	struct nk_egl_backend *bkend = (struct nk_egl_backend *)calloc(1, sizeof(*bkend));
+	bkend->env = env;
+	bkend->app_surface = NULL;
 	bkend->compiled = false;
-	//
+
+	return bkend;
+}
+
+void
+nk_egl_launch(struct nk_egl_backend *bkend,
+	      struct app_surface *app_surface,
+	      nk_egl_draw_func_t func,
+	      void *data)
+{
+	{
+		const unsigned int w = app_surface->w;
+		const unsigned int h = app_surface->h;
+		const unsigned int s = app_surface->s;
+		bkend->width = w;
+		bkend->height = h;
+		bkend->fb_scale = nk_vec2(s, s);
+		appsurface_init_input(app_surface, nk_keycb, nk_pointron, nk_pointrbtn, nk_pointraxis);
+		app_surface->parent = (struct app_surface *)bkend;
+		bkend->app_surface = app_surface;
+	}
+
+	bkend->frame = func;
+	bkend->user_data = data;
+	//now resize the window
+	bkend->compiled = compile_backend(bkend, app_surface);
+	if (!app_surface->eglwin || !app_surface->eglsurface)
+		assign_egl_surface(app_surface, bkend->env);
+
+	_nk_egl_new_frame(bkend);
+	//there seems to be no function about changing window size in egl
+}
+
+void
+nk_egl_close(struct nk_egl_backend *bkend, struct app_surface *app_surface)
+{
+	if (!is_surfless_supported(bkend))
+		release_backend(bkend);
+	eglDestroySurface(bkend->env->egl_display,
+			  app_surface->eglsurface);
+	wl_egl_window_destroy(app_surface->eglwin);
+	app_surface->eglsurface = EGL_NO_SURFACE;
+	app_surface->eglwin = NULL;
+	//reset the egl_surface
+	bkend->app_surface = NULL;
+	eglMakeCurrent(bkend->env->egl_display, NULL, NULL, NULL);
+}
+
+
+void
+nk_egl_destroy_backend(struct nk_egl_backend *bkend)
+{
+	release_backend(bkend);
 	free(bkend);
 }
 
@@ -608,6 +663,16 @@ nk_egl_add_idle(struct nk_context *ctx,
 
 
 #ifdef __DEBUG
+
+void
+nk_egl_resize(struct nk_egl_backend *bkend, int32_t width, int32_t height)
+{
+	struct app_surface *app_surface = bkend->app_surface;
+	app_surface->w = width;
+	app_surface->h = height;
+	wl_egl_window_resize(app_surface->eglwin, width, height, 0, 0);
+}
+
 
 void nk_egl_capture_framebuffer(struct nk_context *ctx, const char *path)
 {
@@ -644,5 +709,48 @@ void nk_egl_capture_framebuffer(struct nk_context *ctx, const char *path)
 	free(data);
 }
 
+
+void
+nk_egl_debug_command(struct nk_egl_backend *bkend)
+{
+	const char *command_type[] = {
+		"NK_COMMAND_NOP",
+		"NK_COMMAND_SCISSOR",
+		"NK_COMMAND_LINE",
+		"NK_COMMAND_CURVE",
+		"NK_COMMAND_RECT",
+		"NK_COMMAND_RECT_FILLED",
+		"NK_COMMAND_RECT_MULTI_COLOR",
+		"NK_COMMAND_CIRCLE",
+		"NK_COMMAND_CIRCLE_FILLED",
+		"NK_COMMAND_ARC",
+		"NK_COMMAND_ARC_FILLED",
+		"NK_COMMAND_TRIANGLE",
+		"NK_COMMAND_TRIANGLE_FILLED",
+		"NK_COMMAND_POLYGON",
+		"NK_COMMAND_POLYGON_FILLED",
+		"NK_COMMAND_POLYLINE",
+		"NK_COMMAND_TEXT",
+		"NK_COMMAND_IMAGE",
+		"NK_COMMAND_CUSTOM",
+	};
+	const struct nk_command *cmd = 0;
+	int idx = 0;
+	nk_foreach(cmd, &bkend->ctx) {
+		fprintf(stderr, "%d command: %s \t", idx++, command_type[cmd->type]);
+	}
+	fprintf(stderr, "\n");
+}
+
+/* void */
+/* nk_egl_debug_draw_command(struct nk_egl_backend *bkend) */
+/* { */
+/*	const struct nk_draw_command *cmd; */
+/*	size_t stride = sizeof(struct nk_egl_vertex); */
+
+/*	nk_draw_foreach(cmd, &bkend->ctx, &bkend->cmds) { */
+
+/*	} */
+/* } */
 
 #endif

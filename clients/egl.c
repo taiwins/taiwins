@@ -85,12 +85,10 @@ egl_env_init(struct egl_env *env, struct wl_display *d)
 	EGLint major, minor;
 	EGLint n;
 	EGLConfig egl_cfg;
-//	EGLint *context_attribute = NULL;
 
 	env->egl_display = eglGetDisplay((EGLNativeDisplayType)env->wl_display);
 	assert(env->egl_display);
 	assert(eglInitialize(env->egl_display, &major, &minor) == EGL_TRUE);
-	fprintf(stderr, "egl display is %p\n", env->egl_display);
 
 	const char *egl_extensions = eglQueryString(env->egl_display, EGL_EXTENSIONS);
 	const char *egl_vendor = eglQueryString(env->egl_display, EGL_VENDOR);
