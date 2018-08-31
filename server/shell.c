@@ -14,6 +14,7 @@ struct twshell {
 	uid_t uid; gid_t gid; pid_t pid;
 	char path[256];
 	struct wl_client *shell_client;
+	struct wl_global *shell_global;
 
 	struct weston_compositor *ec;
 	//you probably don't want to have the layer
@@ -22,10 +23,95 @@ struct twshell {
 
 	//the widget is the global view
 	struct weston_surface *the_widget_surface;
+	struct wl_listener output_create_listener;
+	struct wl_listener output_destroy_listener;
 	bool ready;
+
+	struct {
+		struct wl_global *global;
+		struct weston_output *output;
+	} tw_outputs[16];
+
 };
 
 static struct twshell oneshell;
+
+
+static size_t
+shell_n_outputs(struct twshell *shell)
+{
+	for (int i = 0; i < 16; i++) {
+		if (shell->tw_outputs[i].global == NULL &&
+		    shell->tw_outputs[i].output == NULL)
+			return i;
+	}
+	return 16;
+}
+
+static int
+shell_ith_output(struct twshell *shell, struct weston_output *output)
+{
+	for (int i = 0; i < 16; i++) {
+		if (shell->tw_outputs[i].output == output)
+			return i;
+	}
+	return -1;
+}
+/************** output created ********************/
+
+void
+bind_tw_output(struct wl_client *client, void *data, uint32_t version, uint32_t id)
+{
+	struct weston_output *output = data;
+	struct wl_resource *resource =
+		wl_resource_create(client, &tw_output_interface,
+				   tw_output_interface.version, id);
+
+	if (!resource) {
+		wl_client_post_no_memory(client);
+		return;
+	}
+	//currently there is no event we need to handle
+	wl_resource_set_implementation(resource, NULL, output, NULL);
+	tw_output_send_configure(resource,
+				 output->width, output->height,
+				 output->scale,
+				 output->x, output->y);
+}
+
+
+static void
+twshell_output_created(struct wl_listener *listener, void *data)
+{
+	struct weston_output *output = data;
+	struct twshell *shell = container_of(listener, struct twshell, output_create_listener);
+	size_t ith_output = shell_n_outputs(shell);
+	//if we have 16 output...
+	if (ith_output == 16)
+		return;
+	shell->tw_outputs[ith_output].output = output;
+	shell->tw_outputs[ith_output].global =
+		wl_global_create(shell->ec->wl_display, &tw_output_interface, 3, output,
+				 bind_tw_output);
+	//reset back if no global is created
+	if (!shell->tw_outputs[ith_output].global)
+		shell->tw_outputs[ith_output].output = NULL;
+}
+
+static void
+twshell_output_destroyed(struct wl_listener *listener, void *data)
+{
+	struct weston_output *output = data;
+	struct twshell *shell = container_of(listener, struct twshell, output_destroy_listener);
+	int i = shell_ith_output(shell, output);
+	if (i < 0)
+		return;
+	struct wl_global *global = shell->tw_outputs[i].global;
+	wl_global_destroy(global);
+	shell->tw_outputs[i].global = NULL;
+	shell->tw_outputs[i].output = NULL;
+}
+/************** output created ********************/
 
 /* destroy info */
 struct view_pos_info {
@@ -374,9 +460,10 @@ announce_twshell(struct weston_compositor *ec, const char *path)
 	oneshell.the_widget_surface = NULL;
 	oneshell.shell_client = NULL;
 
-
-	wl_global_create(ec->wl_display, &taiwins_shell_interface,
-			 taiwins_shell_interface.version, &oneshell, bind_twshell);
+	//TODO leaking a wl_global
+	oneshell.shell_global =  wl_global_create(ec->wl_display, &taiwins_shell_interface,
+						  taiwins_shell_interface.version, &oneshell,
+						  bind_twshell);
 	add_shell_bindings(ec);
 	//we don't use the destroy signal here anymore, twshell_should be
 	//destroyed in the resource destructor
@@ -387,5 +474,19 @@ announce_twshell(struct weston_compositor *ec, const char *path)
 		struct wl_event_loop *loop = wl_display_get_event_loop(ec->wl_display);
 		wl_event_loop_add_idle(loop, launch_shell_client, &oneshell);
 	}
+
+	{
+		wl_list_init(&oneshell.output_create_listener.link);
+		oneshell.output_create_listener.notify = twshell_output_created;
+		wl_list_init(&oneshell.output_destroy_listener.link);
+		oneshell.output_destroy_listener.notify = twshell_output_destroyed;
+		wl_signal_add(&ec->output_created_signal, &oneshell.output_create_listener);
+		wl_signal_add(&ec->output_destroyed_signal, &oneshell.output_destroy_listener);
+
+		struct weston_output *output;
+		wl_list_for_each(output, &ec->output_list, link)
+			twshell_output_created(&oneshell.output_create_listener, output);
+	}
+
 	return &oneshell;
 }
