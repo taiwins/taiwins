@@ -1,60 +1,21 @@
 # Taiwins-shell architecture
 
-The `taiwins-shell` is the shell interface that interacts with the
-`taiwins-server`. It implements the **arriere plane**, **widget and activitiy
-panel** and **application launcher**. Maybe even the **verrou(casier)**. All the
-functionalities are done dans une application, so it requires a delicate
-structure to handle all the `events/requests`. Currently it consists two
-threads, the main thread `wayland-dispatch-loop-processor`, mostly processes all
-the wayland events(like input, buffer release, output created, etc.) and a
-`client-side-event-processor`, we need it because there are also other events
-which are not covered by a wayland proxy, for example, when you laptop battery
-is dying, the shell need to know. When one minute passes, shell need to update
-the panel.
+The `taiwins-shell` is the shell interface that interacts with the ui layer
+views in the `taiwins-server`. It implements the **arriere plane**, **widget and
+activitiy panel** and **application launcher**. Maybe even the
+**verrou(casier)**. All the functionalities are expected being done in one
+application.
 
+# The unified event processor
+Previously we have two threads to process events using linux `inotify` APIs, it
+is dull. Finally we have switch to a unfied `tw_event_queue` interface that
+deals with both events from `wl_display` and other types events like
+`timer`. Grace a the unix **everything is a file** philosophy, we treat time,
+`wl_display` and other things all like files and an `epoll` waits them all. This
+design will probably not change for a while(we lacks of error handling when
+wl_display closes).
 
-# client-side-event-processor
-This dude does two things, `poll` on the `inotify` file, and then timeout and
-execute it(the execute I mean create a event for the main thread). The previous
-design was to have a queue and let the main process to clean out the queue. But
-we are stuck in the main process if there is nothing to dispatch.
-
-From the triggering perspective, two different types events arrive in the queue,
-the ones that triggered by system, `inotify event` and the ones triggered by
-time as `timeout event`. From other perspective, for example, **local events**
-and **proxy events**, the **local events** only concern inside the clients,
-updating local buffer but no committing. **proxy events** will push all those
-events and send it to the server.
-
-| type           | A              | B              |
-| ----           | ------         | ------         |
-| executing type | local events   | proxy events   |
-| arriving type  | inotify events | timeout events |
-
-Unfortunately, right now we have to process them differently, `inotify event`
-and `timeout event` can be distinguished by the return value from `poll`. But
-`proxy event` and `local events` only different by its nature (I mean there is
-no way you can distinguish it self). More likely, the event queue are.
-
-	poll()
-	for event in local_events:
-		if event in inotify_events and event.triggered():
-			event.do()
-		else if event in timeout_events and event.timeout():
-			event.do()
-	for event in proxy_events:
-		event.do()
-
-Another problem arises that when one of the events cannot be processed
-immediately, for example, the resource for the event to process is not
-available, then in this case, the best that we can do is queuing the event and
-try again later. Otherwise we will lose it. If this situation happens to local
-event, in the beginning I feel like I need to re-processed before the all the
-proxy-events, otherwise we need to wait another `poll`, but let's face it, the
-resource won't be available for the between the interval of two `poll`s, so it
-need to be queued for next interval. For `timeout event`, we might as well
-discard it, but for `inotify event`, because there is no way to know when it
-will happen again, we have to update it as soon as we hold the resource again.
+Look the design before, it is so ugly...
 
 	poll()
 	for event in leftovers:
@@ -71,20 +32,45 @@ will happen again, we have to update it as soon as we hold the resource again.
 	for event in proxy_events:
 		event.do()
 
-This structure is now complex and prone to changes, we have to find a way to
-re-design it.
-
 # app-surface
 
 This struct was designed for all the wayland client which requires a
 `wl_surface`. Right now we have three different types of `app-surface`:
-background, panel and widgets. It is double-buffered, has simple input
-handlers. Now it also has children and the children occupies part of its
-surface. This is not a very obvious design, since every `wl_surface` should be
-independent, so how come it occupies other people's buffer. In the
-`taiwins-shell` case, this is caused by panel has widgets hook on it and the
-widgets has icons that occupy the panel, the widget itself also has a
-`wl_surface` if you click on the icon.
+background, panel and widgets. It could be double buffered, EGL based or maybe
+just writing to a pixel buffer(maybe some rework).
+
+## backend
+- cairo 2D widget drawing for icon.
+- EGL with nuklear backends.
+
+## ui-layer positioning and size problem
+I face different cases here for positioning:
+- shell widgets determines the position by itself(where you click it), and the
+  size also.
+- launcher's position is determined by server(a fixed position), the size is
+  determined by itself.
+- panel's position is determined by server, the size is determined by server,
+  the background is same as panel.
+- the widget icons determines the position and size from its parents(panel).
+- lockers probably is the as panel and background.
+- maybe virtual keyboards.
+
+The best way to solve it is by using c++ subclass.
+
+### the launch and close of the widget
+the launch could be triggered by input(click and keypresses). But closing them
+is tricky, for widgets, closing happens when we lose inputs, by clicking other
+places. For launcher, it happens when we press enter and sends the close
+reques. For panel and background, we also send the close request when we receive
+the death of `wl_output`. It would be nice if we have only one interface(for
+example `tw_shell_ui`) and uses launch and close request (Or simply by
+destroying the object) so server cleans it up.
+
+
+### resizing
+
+Des la we have been avoiding the problem of resizing for `app_surface`, it is
+problematic.
 
 Actually a solution to this overlapping is necessary in a general the UI
 designs, when we are in parent UI and want to access one of the children UI, we
