@@ -13,12 +13,14 @@
     </request>
 
     <!-- new api, so deprecate the old set_widget and hide_widget -->
-    <request name="create_widget">
+    <request name="create_ui_element">
       <description summary="create a new widget from wl_surface"/>
-      <arg name="tw_widget" type="new_id" interface="tw_widget"/>
+      <arg name="tw_ui" type="new_id" interface="tw_ui"/>
       <arg name="wl_surface" type="object" interface="wl_surface"/>
+      <arg name="type" type="uint" enum="tw_ui.type" summary="type of the ui element"/>
     </request>
 
+    <!-- deprecated API -->
     <request name="set_widget">
       <arg name="surface" type="object" interface="wl_surface"/>
       <arg name="output"  type="object" interface="wl_output"/>
@@ -51,12 +53,18 @@
       <arg name="width" type="int"/>
       <arg name="height" type="int"/>
     </event>
-
   </interface>
 
-  <interface name="tw_widget" version="1">
-    <description summary="UI layer widget protocols">
-      The widgets sit on the UI layer, there are unique
+  <!-- <interface name="tw_output" version="1"> -->
+  <!--   <description summary="logical output representation for taiwins"/> -->
+  <!-- </interface> -->
+
+  <interface name="tw_ui" version="1">
+    <description summary="UI elements like widget, panel, wallpaper">
+      This interface is aming to replace panel, background, locker, widgets and
+      future ui elements to come. The view is created at the time of creation,
+      so no set method is required, the ui elements get removed at time of
+      destruction, work much like those shell surface interface.
     </description>
 
     <event name="configure">
@@ -64,7 +72,19 @@
 	The server decides the geometry of the widget, before this call, there
 	should not be any commit, as UI layer only do the position at commit.
       </description>
+      <arg name="width" type="uint"/>
+      <arg name="height" type="uint"/>
+      <arg name="scale" type="uint"/>
     </event>
+
+    <enum name="type">
+      <entry name="panel" value="0"
+	     summary="The panel UI is per output "/>
+      <entry name="background" value="1"
+	     summary="background UI element"/>
+      <entry name="widget" value="2"
+	     summary="light widget element to interact with"/>
+    </enum>
 
   </interface>
 
