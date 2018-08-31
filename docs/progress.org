@@ -70,8 +70,12 @@
     - possible solution :: maybe we can use epoll on wl_display, and add it to
 	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
 	 need another thread anymore.
-*** TODO resize EGL window
+*** CANC resize EGL window
+    I didn't do it eventually, using different wl_surface become a solution
 *** TODO shell panel refactoring
+    - easily create and destroy ~app_surface~.
+    - make icon a app_surface as well, so we do not need to create new buffer
+      for it?
 *** TODO fix the cursor input problem(maybe just forget about the cursor frame callback), what is this??
 ** [0%] protocols                                                     :proto:
 *** TODO `tw_output` protocols to represent logical output

@@ -13,11 +13,34 @@
     </request>
 
     <!-- new api, so deprecate the old set_widget and hide_widget -->
-    <request name="create_ui_element">
+    <request name="create_panel">
       <description summary="create a new widget from wl_surface"/>
       <arg name="tw_ui" type="new_id" interface="tw_ui"/>
       <arg name="wl_surface" type="object" interface="wl_surface"/>
-      <arg name="type" type="uint" enum="tw_ui.type" summary="type of the ui element"/>
+      <arg name="tw_output" type="object" interface="tw_output"/>
+    </request>
+
+    <request name="create_background">
+      <description summary="create a background for a logical output"/>
+      <arg name="tw_ui" type="new_id" interface="tw_ui"/>
+      <arg name="wl_surface" type="object" interface="wl_surface"/>
+      <arg name="tw_output" type="object" interface="tw_output"/>
+    </request>
+
+    <request name="launch_widget">
+      <description summary="start the widget at point (x, y) "/>
+      <arg name="tw_ui" type="new_id" interface="tw_ui"/>
+      <arg name="wl_surface" type="object" interface="wl_surface"/>
+      <arg name="x" type="uint"/>
+      <arg name="y" type="uint"/>
+      <arg name="tw_output" type="object" interface="tw_output"/>
+    </request>
+
+    <request name="create_locker">
+      <description summary="create locker interface"/>
+      <arg name="tw_ui" type="new_id" interface="tw_ui"/>
+      <arg name="wl_surface" type="object" interface="wl_surface"/>
+      <arg name="tw_output" type="object" interface="tw_output"/>
     </request>
 
     <!-- deprecated API -->
@@ -55,9 +78,26 @@
     </event>
   </interface>
 
-  <!-- <interface name="tw_output" version="1"> -->
-  <!--   <description summary="logical output representation for taiwins"/> -->
-  <!-- </interface> -->
+  <interface name="tw_output" version="1">
+    <description summary="the logical output for taiwins">
+      Because of wl_output interface represents a physical monitor for clients
+      (corresponding to a weston_head in the compositor), we need a logical
+      output representation for shell clients.
+    </description>
+
+    <event name="configure">
+      <description summary="information regards to a logical output">
+	The scale is confusing, when scale is 2, should it indicate the clients
+	to draw twice as large or it means the output does the scale so please
+	draw smaller?
+      </description>
+      <arg name="width" type="uint" summary="pixel width"/>
+      <arg name="height" type="uint" summary="pixel height"/>
+      <arg name="scale" type="uint"/>
+      <arg name="x" type="int" summary="x position in the compositor"/>
+      <arg name="y" type="int" summary="y position in the compositor"/>
+    </event>
+  </interface>
 
   <interface name="tw_ui" version="1">
     <description summary="UI elements like widget, panel, wallpaper">
