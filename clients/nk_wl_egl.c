@@ -176,6 +176,8 @@ assign_egl_surface(struct app_surface *app_surface, const struct egl_env *env)
 	assert(app_surface->eglsurface);
 	assert(eglMakeCurrent(env->egl_display, app_surface->eglsurface,
 			      app_surface->eglsurface, env->egl_context));
+	glViewport(0, 0, app_surface->w, app_surface->h);
+	glScissor(0, 0, app_surface->w, app_surface->h);
 	/* EGLint value; */
 	/* eglQueryContext(env->egl_display, env->egl_context, EGL_RENDER_BUFFER, &value); */
 	/* printf("\nEGL_Render_buffer%d\n", value); */
@@ -671,6 +673,8 @@ nk_egl_resize(struct nk_egl_backend *bkend, int32_t width, int32_t height)
 	app_surface->w = width;
 	app_surface->h = height;
 	wl_egl_window_resize(app_surface->eglwin, width, height, 0, 0);
+	glViewport(0, 0, width, height);
+	glScissor(0, 0, width, height);
 }
 
 

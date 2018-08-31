@@ -117,6 +117,13 @@
       <arg name="scale" type="uint"/>
     </event>
 
+    <event name="lose_input">
+      <description summary="this ui element loses its access to input">
+	we have to have an argument for this
+      </description>
+      <arg name="timestamp" type="uint"/>
+    </event>
+
     <enum name="type">
       <entry name="panel" value="0"
 	     summary="The panel UI is per output "/>
