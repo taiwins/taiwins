@@ -74,7 +74,8 @@ The second way to provide the functionalities is through protocols. They are
 mainly used in `shell`.
 
 We can implement them by keybindings, they are mutual exclusive, if both are
-activated. The effects doubled.
+activated. The effects doubled. Keybinding has another problem,
+customization. For pointer and touch, you can easily set moving up and done as
 
 
 ## weston-renderer implementation

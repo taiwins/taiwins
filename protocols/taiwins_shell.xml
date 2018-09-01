@@ -31,9 +31,9 @@
       <description summary="start the widget at point (x, y) "/>
       <arg name="tw_ui" type="new_id" interface="tw_ui"/>
       <arg name="wl_surface" type="object" interface="wl_surface"/>
+      <arg name="tw_output" type="object" interface="tw_output"/>
       <arg name="x" type="uint"/>
       <arg name="y" type="uint"/>
-      <arg name="tw_output" type="object" interface="tw_output"/>
     </request>
 
     <request name="create_locker">
