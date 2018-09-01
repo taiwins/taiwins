@@ -113,7 +113,6 @@ err_ui_create:
 static struct twshell_ui *
 twshell_ui_create_simple(struct wl_resource *tw_ui, struct weston_surface *s)
 {
-	struct weston_compositor *ec = s->compositor;
 	struct twshell_ui *ui = calloc(1, sizeof(struct twshell_ui));
 	ui->resource = tw_ui;
 	ui->binded = s;
@@ -147,6 +146,7 @@ struct twshell {
 static struct twshell oneshell;
 
 
+/************** output created ********************/
 static size_t
 shell_n_outputs(struct twshell *shell)
 {
@@ -167,7 +167,6 @@ shell_ith_output(struct twshell *shell, struct weston_output *output)
 	}
 	return -1;
 }
-/************** output created ********************/
 
 void
 bind_tw_output(struct wl_client *client, void *data, uint32_t version, uint32_t id)
@@ -417,6 +416,44 @@ set_panel(struct wl_client *client,
 
 }
 
+static void
+create_ui_element(struct wl_client *client,
+		  struct wl_resource *resource,
+		  uint32_t tw_ui,
+		  struct wl_resource *wl_surface,
+		  struct wl_resource *tw_output,
+		  uint32_t x, uint32_t y,
+		  enum tw_ui_type type)
+{
+	struct twshell *shell = wl_resource_get_user_data(resource);
+	struct weston_output *output = wl_resource_get_user_data(tw_output);
+	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
+	struct wl_resource *tw_ui_resource = wl_resource_create(client, NULL, 1, tw_ui);
+	if (!tw_ui_resource) {
+		wl_client_post_no_memory(client);
+		return;
+	}
+	struct twshell_ui *elem = (type == TW_UI_TYPE_PANEL || type == TW_UI_TYPE_BACKGROUND) ?
+		twshell_ui_create_simple(tw_ui_resource, surface) :
+		twshell_ui_create_with_binding(tw_ui_resource, surface);
+	wl_resource_set_implementation(tw_ui_resource, NULL, elem, twshell_ui_unbind);
+	elem->x = x;
+	elem->y = y;
+
+	switch (type) {
+	case TW_UI_TYPE_PANEL:
+		tw_ui_send_configure(resource, output->width, 16, 1);
+		set_surface(shell, surface, output, resource, commit_ui_surface, x, y);
+		break;
+	case TW_UI_TYPE_BACKGROUND:
+		tw_ui_send_configure(resource, output->width, output->height, 1);
+		set_surface(shell, surface, output, resource, commit_background, x, y);
+		break;
+	case TW_UI_TYPE_WIDGET:
+		set_surface(shell, surface, output, resource, commit_ui_surface, x, y);
+		break;
+	}
+}
 
 static void
 create_shell_panel(struct wl_client *client,
@@ -425,44 +462,33 @@ create_shell_panel(struct wl_client *client,
 		   struct wl_resource *wl_surface,
 		   struct wl_resource *tw_output)
 {
-	struct twshell *shell = wl_resource_get_user_data(resource);
-	struct weston_output *output = wl_resource_get_user_data(tw_output);
-	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
-	struct wl_resource *tw_ui_resource = wl_resource_create(client, NULL, 1, tw_ui);
-	if (!tw_ui_resource) {
-		wl_client_post_no_memory(client);
-		return;
-	}
-	struct twshell_ui *elem = twshell_ui_create_simple(tw_ui_resource, surface);
-	elem->x = 0; elem->y = 0;
-	wl_resource_set_implementation(tw_ui_resource, NULL, elem, twshell_ui_unbind);
-	tw_ui_send_configure(resource, output->width, 16, 1);
-	set_surface(shell, surface, output, resource, commit_ui_surface, 0, 0);
+	create_ui_element(client, resource, tw_ui, wl_surface, tw_output,
+			  0, 0, TW_UI_TYPE_PANEL);
 }
 
 static void
-launch_widget(struct wl_client *client,
-	      struct wl_resource *resource,
-	      uint32_t tw_ui,
-	      struct wl_resource *wl_surface,
-	      uint32_t x, uint32_t y,
-	      struct wl_resource *tw_output)
+launch_shell_widget(struct wl_client *client,
+		    struct wl_resource *resource,
+		    uint32_t tw_ui,
+		    struct wl_resource *wl_surface,
+		    struct wl_resource *tw_output,
+		    uint32_t x, uint32_t y)
 {
-	struct twshell *shell = wl_resource_get_user_data(resource);
-	struct weston_output *output = wl_resource_get_user_data(tw_output);
-	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
-	struct wl_resource *tw_ui_resource = wl_resource_create(client, NULL, 1, tw_ui);
-	if (!tw_ui_resource) {
-		wl_client_post_no_memory(client);
-		return;
-	}
-	struct twshell_ui *elem = twshell_ui_create_with_binding(tw_ui_resource, surface);
-	elem->x = x; elem->y = y;
-	wl_resource_set_implementation(tw_ui_resource, NULL, elem, twshell_ui_unbind);
-	//no configure
-	set_surface(shell, surface, output, resource, commit_ui_surface, x, y);
+	create_ui_element(client, resource, tw_ui, wl_surface, tw_output,
+			  x, y, TW_UI_TYPE_WIDGET);
 }
 
+static void
+create_shell_background(struct wl_client *client,
+			struct wl_resource *resource,
+			uint32_t tw_ui,
+			struct wl_resource *wl_surface,
+			struct wl_resource *tw_output)
+{
+	create_ui_element(client, resource, tw_ui, wl_surface, tw_output,
+			  0, 0, TW_UI_TYPE_BACKGROUND);
+
+}
 
 static struct taiwins_shell_interface shell_impl = {
 	.set_background = set_background,
@@ -470,6 +496,8 @@ static struct taiwins_shell_interface shell_impl = {
 	.set_widget = set_widget,
 	.hide_widget = close_widget,
 	.create_panel = create_shell_panel,
+	.create_background = create_shell_background,
+	.launch_widget = launch_shell_widget,
 };
 
 /////////////////////////// twshell global ////////////////////////////////
