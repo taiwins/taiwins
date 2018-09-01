@@ -16,10 +16,109 @@ struct twshell_ui {
 	struct weston_binding *lose_keyboard;
 	struct weston_binding *lose_pointer;
 	struct weston_binding *lose_touch;
-	//we could make pos_info here to merge the two apis
+	uint32_t x; uint32_t y;
 };
 
 
+static void
+test_ui_lose_keyboard(struct weston_keyboard *keyboard,
+			 const struct timespec *time, uint32_t key,
+			 void *data)
+{
+	struct twshell_ui *ui_elem = data;
+	struct weston_surface *surface = ui_elem->binded;
+	if (keyboard->focus != surface) {
+		tw_ui_send_lose_input(ui_elem->resource, key);
+		weston_binding_destroy(ui_elem->lose_keyboard);
+		ui_elem->lose_keyboard = NULL;
+	}
+}
+
+static void
+test_ui_lose_pointer(struct weston_pointer *pointer,
+			const struct timespec *time, uint32_t button,
+			void *data)
+{
+	struct twshell_ui *ui_elem = data;
+	struct weston_surface *surface = ui_elem->binded;
+	if (pointer->focus != tw_default_view_from_surface(surface)) {
+		tw_ui_send_lose_input(ui_elem->resource, button);
+		weston_binding_destroy(ui_elem->lose_keyboard);
+		ui_elem->lose_pointer = NULL;
+	}
+}
+
+static void
+test_ui_lose_touch(struct weston_touch *touch,
+		      const struct timespec *time, void *data)
+{
+	struct twshell_ui *ui_elem = data;
+	struct weston_view *view =
+		tw_default_view_from_surface(ui_elem->binded);
+	if (touch->focus != view) {
+		tw_ui_send_lose_input(ui_elem->resource, 0);
+		weston_binding_destroy(ui_elem->lose_touch);
+		ui_elem->lose_touch = NULL;
+	}
+}
+
+static void
+twshell_ui_unbind(struct wl_resource *resource)
+{
+	struct twshell_ui *ui_elem = wl_resource_get_user_data(resource);
+	struct weston_binding *bindings[] = {
+		ui_elem->lose_keyboard,
+		ui_elem->lose_pointer,
+		ui_elem->lose_touch,
+	};
+	for (int i = 0; i < numof(bindings); i++)
+		if (bindings[i] != NULL)
+			weston_binding_destroy(bindings[i]);
+	free(ui_elem);
+}
+
+static struct twshell_ui *
+twshell_ui_create_with_binding(struct wl_resource *tw_ui, struct weston_surface *s)
+{
+	struct weston_compositor *ec = s->compositor;
+	struct twshell_ui *ui = malloc(sizeof(struct twshell_ui));
+	if (!ui)
+		goto err_ui_create;
+	struct weston_binding *k = weston_compositor_add_key_binding(ec, KEY_ESC, 0, test_ui_lose_keyboard, ui);
+	if (!k)
+		goto err_bind_keyboard;
+	struct weston_binding *p = weston_compositor_add_button_binding(ec, BTN_LEFT, 0, test_ui_lose_pointer, ui);
+	if (!p)
+		goto err_bind_ptr;
+	struct weston_binding *t = weston_compositor_add_touch_binding(ec, 0, test_ui_lose_touch, ui);
+	if (!t)
+		goto err_bind_touch;
+
+	ui->lose_keyboard = k;
+	ui->lose_touch = t;
+	ui->lose_pointer = p;
+	ui->resource = tw_ui;
+	ui->binded = s;
+	return ui;
+err_bind_touch:
+	weston_binding_destroy(p);
+err_bind_ptr:
+	weston_binding_destroy(k);
+err_bind_keyboard:
+	free(ui);
+err_ui_create:
+	return NULL;
+}
+
+static struct twshell_ui *
+twshell_ui_create_simple(struct wl_resource *tw_ui, struct weston_surface *s)
+{
+	struct weston_compositor *ec = s->compositor;
+	struct twshell_ui *ui = calloc(1, sizeof(struct twshell_ui));
+	ui->resource = tw_ui;
+	ui->binded = s;
+	return ui;
+}
 
 struct twshell {
 	uid_t uid; gid_t gid; pid_t pid;
@@ -213,8 +312,6 @@ commit_ui_surface(struct weston_surface *surface, int sx, int sy)
 	setup_view(view, &shell->ui_layer, pos_info->x, pos_info->y, twshell_view_STATIC);
 }
 
-
-
 static bool
 set_surface(struct twshell *shell,
 	    struct weston_surface *surface, struct weston_output *output,
@@ -222,6 +319,7 @@ set_surface(struct twshell *shell,
 	    void (*committed)(struct weston_surface *, int32_t, int32_t),
 	    int32_t x, int32_t y)
 {
+	//TODO, use wl_resource_get_user_data for position
 	struct weston_view *view, *next;
 	struct view_pos_info *pos_info;
 
@@ -250,29 +348,6 @@ set_surface(struct twshell *shell,
 	return true;
 }
 
-
-
-static void
-shell_widget_should_close_on_keyboard(struct weston_keyboard *keyboard,
-				      const struct timespec *time, uint32_t key,
-				      void *data)
-{
-	if (keyboard->focus != oneshell.the_widget_surface &&
-	    oneshell.the_widget_surface)
-		twshell_close_ui_surface(oneshell.the_widget_surface);
-}
-
-static void
-shell_widget_should_close_on_cursor(struct weston_pointer *pointer,
-				    const struct timespec *time, uint32_t button,
-				    void *data)
-{
-	struct weston_view *view = pointer->focus;
-	struct weston_surface *surface = view->surface;
-	if (surface != oneshell.the_widget_surface &&
-		oneshell.the_widget_surface)
-		twshell_close_ui_surface(oneshell.the_widget_surface);
-}
 
 
 
@@ -343,101 +418,6 @@ set_panel(struct wl_client *client,
 }
 
 
-
-static void
-tw_ui_test_lose_keyboard(struct weston_keyboard *keyboard,
-			 const struct timespec *time, uint32_t key,
-			 void *data)
-{
-	struct twshell_ui *ui_elem = data;
-	struct weston_surface *surface = ui_elem->binded;
-	if (keyboard->focus != surface) {
-		tw_ui_send_lose_input(ui_elem->resource, key);
-		weston_binding_destroy(ui_elem->lose_keyboard);
-		ui_elem->lose_keyboard = NULL;
-	}
-}
-
-static void
-tw_ui_test_lose_pointer(struct weston_pointer *pointer,
-			const struct timespec *time, uint32_t button,
-			void *data)
-{
-	struct twshell_ui *ui_elem = data;
-	struct weston_surface *surface = ui_elem->binded;
-	if (pointer->focus != tw_default_view_from_surface(surface)) {
-		tw_ui_send_lose_input(ui_elem->resource, button);
-		weston_binding_destroy(ui_elem->lose_keyboard);
-		ui_elem->lose_pointer = NULL;
-	}
-}
-
-static void
-tw_ui_test_lose_touch(struct weston_touch *touch,
-		      const struct timespec *time, void *data)
-{
-	struct twshell_ui *ui_elem = data;
-	struct weston_view *view =
-		tw_default_view_from_surface(ui_elem->binded);
-	if (touch->focus != view) {
-		tw_ui_send_lose_input(ui_elem->resource, 0);
-		weston_binding_destroy(ui_elem->lose_touch);
-		ui_elem->lose_touch = NULL;
-	}
-}
-
-
-
-static void
-tw_ui_element_unbind(struct wl_resource *resource)
-{
-	struct twshell_ui *ui_elem = wl_resource_get_user_data(resource);
-	if (ui_elem->lose_keyboard)
-		weston_binding_destroy(ui_elem->lose_keyboard);
-	if (ui_elem->lose_touch)
-		weston_binding_destroy(ui_elem->lose_touch);
-	if (ui_elem->lose_pointer)
-		weston_binding_destroy(ui_elem->lose_pointer);
-	free(ui_elem);
-}
-
-
-static struct twshell_ui *
-create_ui_elem_with_binding(struct wl_resource *tw_ui, struct weston_surface *s)
-{
-	struct weston_compositor *ec = s->compositor;
-	struct twshell_ui *ui = malloc(sizeof(struct twshell_ui));
-	if (!ui)
-		goto err_ui_create;
-	struct weston_binding *k = weston_compositor_add_key_binding(ec, KEY_ESC, 0, tw_ui_test_lose_keyboard,
-								     ui);
-	if (!k)
-		goto err_bind_keyboard;
-	struct weston_binding *p = weston_compositor_add_button_binding(ec, BTN_LEFT, 0, tw_ui_test_lose_pointer, ui);
-	if (!p)
-		goto err_bind_ptr;
-	struct weston_binding *t = weston_compositor_add_touch_binding(ec, 0, tw_ui_test_lose_touch, ui);
-	if (!t)
-		goto err_bind_touch;
-
-	ui->lose_keyboard = k;
-	ui->lose_touch = t;
-	ui->lose_pointer = p;
-	ui->resource = tw_ui;
-	ui->binded = s;
-	return ui;
-
-err_bind_touch:
-	weston_binding_destroy(p);
-err_bind_ptr:
-	weston_binding_destroy(k);
-err_bind_keyboard:
-	free(ui);
-err_ui_create:
-	return NULL;
-}
-
-
 static void
 create_shell_panel(struct wl_client *client,
 		   struct wl_resource *resource,
@@ -453,12 +433,34 @@ create_shell_panel(struct wl_client *client,
 		wl_client_post_no_memory(client);
 		return;
 	}
-	struct twshell_ui *elem = create_ui_elem_with_binding(tw_ui_resource, surface);
-
-	wl_resource_set_implementation(tw_ui_resource, NULL, elem, tw_ui_element_unbind);
+	struct twshell_ui *elem = twshell_ui_create_simple(tw_ui_resource, surface);
+	elem->x = 0; elem->y = 0;
+	wl_resource_set_implementation(tw_ui_resource, NULL, elem, twshell_ui_unbind);
 	tw_ui_send_configure(resource, output->width, 16, 1);
 	set_surface(shell, surface, output, resource, commit_ui_surface, 0, 0);
-	return;
+}
+
+static void
+launch_widget(struct wl_client *client,
+	      struct wl_resource *resource,
+	      uint32_t tw_ui,
+	      struct wl_resource *wl_surface,
+	      uint32_t x, uint32_t y,
+	      struct wl_resource *tw_output)
+{
+	struct twshell *shell = wl_resource_get_user_data(resource);
+	struct weston_output *output = wl_resource_get_user_data(tw_output);
+	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
+	struct wl_resource *tw_ui_resource = wl_resource_create(client, NULL, 1, tw_ui);
+	if (!tw_ui_resource) {
+		wl_client_post_no_memory(client);
+		return;
+	}
+	struct twshell_ui *elem = twshell_ui_create_with_binding(tw_ui_resource, surface);
+	elem->x = x; elem->y = y;
+	wl_resource_set_implementation(tw_ui_resource, NULL, elem, twshell_ui_unbind);
+	//no configure
+	set_surface(shell, surface, output, resource, commit_ui_surface, x, y);
 }
 
 
@@ -471,13 +473,6 @@ static struct taiwins_shell_interface shell_impl = {
 };
 
 /////////////////////////// twshell global ////////////////////////////////
-
-
-
-/////////////////////////// tw_ui impl ////////////////////////////////////
-
-
-
 
 
 static void
@@ -562,17 +557,6 @@ twshell_close_ui_surface(struct weston_surface *wd_surface)
 		weston_view_destroy(view);
 }
 
-
-
-void
-add_shell_bindings(struct weston_compositor *ec)
-{
-	weston_compositor_add_key_binding(ec, KEY_ESC, 0, shell_widget_should_close_on_keyboard, NULL);
-	weston_compositor_add_button_binding(ec, BTN_LEFT, 0, shell_widget_should_close_on_cursor, NULL);
-	weston_compositor_add_button_binding(ec, BTN_RIGHT, 0, shell_widget_should_close_on_cursor, NULL);
-}
-
-
 static void
 launch_shell_client(void *data)
 {
@@ -598,7 +582,6 @@ announce_twshell(struct weston_compositor *ec, const char *path)
 	oneshell.shell_global =  wl_global_create(ec->wl_display, &taiwins_shell_interface,
 						  taiwins_shell_interface.version, &oneshell,
 						  bind_twshell);
-	add_shell_bindings(ec);
 	//we don't use the destroy signal here anymore, twshell_should be
 	//destroyed in the resource destructor
 	//wl_signal_add(&ec->destroy_signal, &twshell_destructor);
