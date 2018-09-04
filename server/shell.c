@@ -147,7 +147,7 @@ static struct twshell oneshell;
 
 
 /************** output created ********************/
-static size_t
+static inline size_t
 shell_n_outputs(struct twshell *shell)
 {
 	for (int i = 0; i < 16; i++) {
@@ -158,7 +158,7 @@ shell_n_outputs(struct twshell *shell)
 	return 16;
 }
 
-static int
+static inline int
 shell_ith_output(struct twshell *shell, struct weston_output *output)
 {
 	for (int i = 0; i < 16; i++) {
