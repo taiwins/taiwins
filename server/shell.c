@@ -200,7 +200,8 @@ twshell_output_created(struct wl_listener *listener, void *data)
 		return;
 	shell->tw_outputs[ith_output].output = output;
 	shell->tw_outputs[ith_output].global =
-		wl_global_create(shell->ec->wl_display, &tw_output_interface, 3, output,
+		wl_global_create(shell->ec->wl_display, &tw_output_interface,
+				 tw_output_interface.version, output,
 				 bind_tw_output);
 	//reset back if no global is created
 	if (!shell->tw_outputs[ith_output].global)
