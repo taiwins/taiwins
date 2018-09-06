@@ -22,24 +22,9 @@
 
 struct taiwins_shell *shelloftaiwins;
 
-
-//here we define the one queue
-struct desktop_shell {
-	struct wl_globals globals;
-	struct taiwins_shell *shell;
-	struct egl_env eglenv;
-	//right now we only have one output, but we still keep the info
-	list_t outputs;
-	//the event queue
-	struct tw_event_queue client_event_queue;
-	bool quit;
-} oneshell; //singleton
-
-struct tw_event_queue *the_event_processor = &oneshell.client_event_queue;
-
 struct shell_output {
 	struct desktop_shell *shell;
-	struct wl_output *output;
+	struct tw_output *output;
 	struct app_surface background;
 	struct shell_panel panel;
 	struct shm_pool pool;
@@ -47,6 +32,27 @@ struct shell_output {
 	list_t link;
 	bool inited;
 };
+
+//here we define the one queue
+struct desktop_shell {
+	struct wl_globals globals;
+	struct taiwins_shell *shell;
+	struct egl_env eglenv;
+	//right now we only have one output, but we still keep the info
+	struct shell_output shell_outputs[16];
+	list_t outputs;
+	//the event queue
+	struct tw_event_queue client_event_queue;
+
+	//the data structure to store the uninitialized outputs
+	vector_t uinit_outputs;
+
+	bool quit;
+} oneshell; //singleton
+
+struct tw_event_queue *the_event_processor = &oneshell.client_event_queue;
+
+
 
 
 
@@ -190,40 +196,59 @@ shell_background_load(struct app_surface *background)
 }
 
 static void
+initialize_shell_output(struct shell_output *w, struct tw_output *tw_output,
+			struct desktop_shell *shell)
+{
+	w->shell = shell;
+	w->output = tw_output;
+	shm_pool_init(&w->pool, shell->globals.shm, 4096, shell->globals.buffer_format);
+
+	struct wl_surface *bg_sf =
+		wl_compositor_create_surface(shell->globals.compositor);
+	struct tw_ui *bg_ui =
+		taiwins_shell_create_background(shell->shell, bg_sf, tw_output);
+	appsurface_init1(&w->background, NULL, APP_BACKGROUND, bg_sf,
+			 (struct wl_proxy *)bg_ui);
+
+	struct wl_surface *pn_sf =
+		wl_compositor_create_surface(shell->globals.compositor);
+	struct tw_ui *pn_ui =
+		taiwins_shell_create_panel(shell->shell, pn_sf, tw_output);
+	appsurface_init1(&w->panel.panelsurf, NULL, APP_PANEL, pn_sf,
+			 (struct wl_proxy *)pn_ui);
+
+	tw_output_set_user_data(tw_output, w);
+}
+
+static void
+release_shell_output(struct shell_output *w)
+{
+	struct app_surface *surfaces[] = {
+		&w->panel.panelsurf,
+		&w->background,
+	};
+	for (int i = 0; i < 2; i++)
+		appsurface_release(surfaces[i]);
+
+	//you may destroy the buffer before released
+	shm_pool_release(&w->pool);
+}
+
+
+static void
 output_init(struct shell_output *w)
 {
-	struct taiwins_shell *shell = w->shell->shell;
-	shm_pool_init(&w->pool, w->shell->globals.shm, 4096, w->shell->globals.buffer_format);
-	//arriere-plan
-	appsurface_init(&w->background, NULL, APP_BACKGROUND, w->shell->globals.compositor, w->output);
-	taiwins_shell_set_background(shell, w->output, w->background.wl_surface);
-	//panel
-	shell_panel_init(&w->panel, w);
-	taiwins_shell_set_panel(shell, w->output, w->panel.panelsurf.wl_surface);
-	w->inited = true;
 }
 
 static void
 output_create(struct shell_output *w, struct wl_output *wl_output, struct desktop_shell *twshell)
 {
-	*w = (struct shell_output){0};
-	w->shell = twshell;
-	//we don't have the buffer format here
-	w->inited = false;
-	w->output = wl_output;
-	wl_output_set_user_data(wl_output, w);
-	if (w->shell->shell && is_shm_format_valid(twshell->globals.buffer_format))
-		output_init(w);
 }
 
 
 static void
 output_distroy(struct shell_output *o)
 {
-	wl_output_release(o->output);
-	appsurface_release(&o->background);
-	shell_panel_destroy(&o->panel);
-	shm_pool_release(&o->pool);
 }
 
 
@@ -304,6 +329,101 @@ static struct taiwins_shell_listener taiwins_listener = {
 };
 
 
+
+/************************** desktop_shell_interface ********************************/
+
+static inline bool
+desktop_shell_ready(struct desktop_shell *shell)
+{
+	return shell->shell && is_shm_format_valid(shell->globals.buffer_format);
+}
+
+/* just know this code has side effect: it works even you removed and plug back
+ * the output, since n_outputs returns at the first time it hits NULL. Even if
+ * there is output afterwards, it won't know, so next time when you plug in
+ * another monitor, it will choose the emtpy slots.
+ */
+static inline int
+desktop_n_outputs(struct desktop_shell *shell)
+{
+	for (int i = 0; i < 16; i++)
+		if (shell->shell_outputs[i].output == NULL)
+			return i;
+	return 16;
+}
+
+static inline void
+desktop_refill_outputs(struct desktop_shell *shell)
+{
+	for (int i = 0, j=0; i < 16 && j <= i; i++) {
+		//check i
+		if (shell->shell_outputs[j].output == NULL)
+			continue;
+		//check j
+		if (i==j)
+			j++;
+		else
+			shell->shell_outputs[j++] = shell->shell_outputs[i];
+	}
+}
+
+static inline
+desktop_ith_output(struct desktop_shell *shell, struct tw_output *output)
+{
+	for (int i = 0; i < 16; i++)
+		if (shell->shell_outputs[i].output == output)
+			return i;
+	return -1;
+}
+
+static void
+desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
+{
+	wl_globals_init(&shell->globals, display);
+	list_init(&shell->outputs);
+	shell->shell = NULL;
+	shell->quit = false;
+	egl_env_init(&shell->eglenv, display);
+	tw_event_queue_init(&shell->client_event_queue);
+	shell->client_event_queue.quit =
+		!tw_event_queue_add_wl_display(&shell->client_event_queue, display);
+	vector_init(&shell->uinit_outputs, sizeof(struct tw_output *), NULL);
+}
+
+static void
+desktop_shell_release(struct desktop_shell *shell)
+{
+	taiwins_shell_destroy(shell->shell);
+	struct shell_output *w, *next;
+	list_for_each_safe(w, next, &shell->outputs, link) {
+		list_remove(&w->link);
+		output_distroy(w);
+		free(w);
+	}
+	wl_globals_release(&shell->globals);
+	egl_env_end(&shell->eglenv);
+	shell->quit = true;
+	shell->client_event_queue.quit = true;
+#ifdef __DEBUG
+	cairo_debug_reset_static_data();
+#endif
+}
+
+static void
+desktop_shell_init_rest_outputs(struct desktop_shell *shell)
+{
+	for (int n = desktop_n_outputs(shell), j = 0;
+	     j < shell->uinit_outputs.len; j++) {
+		struct shell_output *w = &shell->shell_outputs[n+j];
+		initialize_shell_output(w, vector_at(&shell->uinit_outputs, j),
+					shell);
+	}
+}
+/************************** desktop_shell_interface ********************************/
+/*********************************** end *******************************************/
+
+
+
 static
 void announce_globals(void *data,
 		      struct wl_registry *wl_registry,
@@ -319,6 +439,13 @@ void announce_globals(void *data,
 			wl_registry_bind(wl_registry, name, &taiwins_shell_interface, version);
 		taiwins_shell_add_listener(twshell->shell, &taiwins_listener, twshell);
 		shelloftaiwins = twshell->shell;
+	} else if (!strcmp(interface, tw_output_interface.name)) {
+		struct tw_output *tw_output =
+			wl_registry_bind(wl_registry, name, &tw_output_interface, version);
+		if (desktop_shell_ready(twshell)) {
+
+		} else
+			vector_append(&twshell->uinit_outputs, &tw_output);
 	} else if (!strcmp(interface, wl_output_interface.name)) {
 		struct shell_output *output = malloc(sizeof(*output));
 		struct wl_output *wl_output = wl_registry_bind(wl_registry, name, &wl_output_interface, version);
@@ -340,51 +467,6 @@ static struct wl_registry_listener registry_listener = {
 	.global_remove = announce_global_remove
 };
 
-//options.
-
-//1) make it static, adding all the inotify entry all at once before we can use
-//it.  if we decide to go this way, when to add the thread? Obviously, it it
-//after all the registeration of the widgets , but it should also before the
-//widgets because if not, you will need the inotify when you run the widgets.
-
-//so it has to be dynamiclly. The the widgets well registre all the inotify
-//entry, but it will cause a aabb lock problem
-
-static void
-desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
-{
-	wl_globals_init(&shell->globals, display);
-	list_init(&shell->outputs);
-	shell->shell = NULL;
-	shell->quit = false;
-	egl_env_init(&shell->eglenv, display);
-	tw_event_queue_init(&shell->client_event_queue);
-	shell->client_event_queue.quit =
-		!tw_event_queue_add_wl_display(&shell->client_event_queue, display);
-}
-
-
-
-static void
-desktop_shell_release(struct desktop_shell *shell)
-{
-	taiwins_shell_destroy(shell->shell);
-	struct shell_output *w, *next;
-	list_for_each_safe(w, next, &shell->outputs, link) {
-		list_remove(&w->link);
-		output_distroy(w);
-		free(w);
-	}
-	wl_globals_release(&shell->globals);
-	egl_env_end(&shell->eglenv);
-	shell->quit = true;
-	shell->client_event_queue.quit = true;
-#ifdef __DEBUG
-	cairo_debug_reset_static_data();
-#endif
-}
-
-
 
 
 int
@@ -402,13 +484,8 @@ main(int argc, char **argv)
 	wl_registry_add_listener(registry, &registry_listener, &oneshell);
 	wl_display_dispatch(display);
 	wl_display_roundtrip(display);
-	{	//initialize the output
-		struct shell_output *w, *next;
-		list_for_each_safe(w, next, &oneshell.outputs, link) {
-			if (!w->inited)
-				output_init(w);
-		}
-	}
+	desktop_shell_init_rest_outputs(&oneshell);
+
 	wl_display_flush(display);
 	tw_event_queue_run(&oneshell.client_event_queue);
 //	desktop_shell_release(&oneshell);
