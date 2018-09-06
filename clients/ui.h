@@ -117,7 +117,9 @@ typedef void (*keycb_t)(struct app_surface *, xkb_keysym_t, uint32_t, int);
 typedef void (*pointron_t)(struct app_surface *, uint32_t, uint32_t);
 typedef void (*pointrbtn_t)(struct app_surface *, enum taiwins_btn_t, bool, uint32_t, uint32_t);
 typedef void (*pointraxis_t)(struct app_surface *, int, int, uint32_t, uint32_t);
+typedef void (*appsurf_draw_t)(struct app_surface *);
 
+//the better way would be make it a inherited type
 struct app_surface {
 	/**
 	 * the parent pointer. It is only in the sub_surfaces, so the parent has
@@ -125,6 +127,8 @@ struct app_surface {
 	 * change the subclasses into list and expose the bbox information
 	*/
 	struct app_surface *parent;
+	//the structure to store wl_shell_surface, xdg_shell_surface or tw_ui
+	struct wl_proxy *protocol;
 	//geometry information
 	unsigned int px, py; //anchor
 	unsigned int w, h; //size
@@ -134,7 +138,7 @@ struct app_surface {
 	struct wl_output *wl_output;
 	struct wl_surface *wl_surface;
 
-	//to allow both cpu and GPU backend
+	/* buffer */
 	union {
 		struct {
 			struct shm_pool *pool;
@@ -143,18 +147,24 @@ struct app_surface {
 			bool committed[2];
 		};
 		struct {
+			EGLDisplay egldisplay;
 			struct wl_egl_window *eglwin;
 			EGLSurface eglsurface;
 		};
+		struct {
+			cairo_surface_t *attached;
+			cairo_t *cro;
+		};
 	};
-
-
+	/* input */
 	struct {
 		keycb_t keycb;
 		pointron_t pointron;
 		pointrbtn_t pointrbtn;
 		pointraxis_t pointraxis;
 	};
+	//destructor
+	void (*destroy)(struct app_surface *);
 };
 
 /**
@@ -165,6 +175,11 @@ struct app_surface {
 void appsurface_init(struct app_surface *surf, struct app_surface *parent,
 		     enum APP_SURFACE_TYPE type, struct wl_compositor *compositor,
 		     struct wl_output *output);
+
+void appsurface_init1(struct app_surface *surf, struct app_surface *p,
+		      enum APP_SURFACE_TYPE type, struct wl_surface *wl_surface,
+		      struct wl_proxy *protocol);
+
 void appsurface_release(struct app_surface *surf);
 /**
  * /brief assign wl_buffers to the appsurface, thus it initialize the double
@@ -173,6 +188,8 @@ void appsurface_release(struct app_surface *surf);
  */
 void appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
 			    const struct bbox *bbox);
+void appsurface_init_egl(struct app_surface *surf, struct wl_egl_window *egl_win,
+			 EGLSurface eglsurface, EGLDisplay disp);
 /**
  * /brief init all the input callbacks, zero is acceptable
  */

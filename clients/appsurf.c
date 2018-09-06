@@ -36,6 +36,43 @@ appsurface_init(struct app_surface *appsurf, struct app_surface *parent,
 }
 
 void
+appsurface_init1(struct app_surface *surf, struct app_surface *p,
+		 enum APP_SURFACE_TYPE type, struct wl_surface *wl_surface,
+		 struct wl_proxy *protocol)
+{
+	*surf = (struct app_surface){0};
+
+	surf->type = type;
+	surf->parent = p;
+	surf->wl_surface = wl_surface;
+	surf->protocol = protocol;
+	wl_surface_set_user_data(wl_surface, surf);
+}
+
+
+static void
+appsurface_destroy_with_egl(struct app_surface *surf)
+{
+	eglDestroySurface(surf->egldisplay, surf->eglsurface);
+	wl_egl_window_destroy(surf->eglwin);
+	surf->egldisplay = EGL_NO_DISPLAY;
+	wl_surface_destroy(surf->wl_surface);
+	wl_proxy_destroy(surf->protocol);
+}
+
+
+static void
+appsurface_destroy_with_buffer(struct app_surface *surf)
+{
+	//buffer is not managed here, it has released signal, so we don't need
+	//to worry about it.
+	surf->wl_buffer[0] = surf->wl_buffer[1] = NULL;
+
+	wl_surface_destroy(surf->wl_surface);
+	wl_proxy_destroy(surf->protocol);
+}
+
+void
 appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
 		       const struct bbox *bbox)
 {
@@ -50,11 +87,23 @@ appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
 		surf->committed[i] = false;
 		shm_pool_wl_buffer_set_release(surf->wl_buffer[i], appsurface_buffer_release, surf);
 	}
+	surf->destroy = appsurface_destroy_with_buffer;
+}
+
+void
+appsurface_init_egl(struct app_surface *surf, struct wl_egl_window *egl_win,
+		     EGLSurface eglsurface, EGLDisplay display)
+{
+	surf->eglwin = egl_win;
+	surf->eglsurface = eglsurface;
+	surf->egldisplay = display;
+	surf->destroy = appsurface_destroy_with_egl;
 }
 
 
-void appsurface_init_input(struct app_surface *surf, keycb_t keycb, pointron_t pointron,
-			   pointrbtn_t pointrbtn, pointraxis_t pointraxis)
+void
+appsurface_init_input(struct app_surface *surf, keycb_t keycb, pointron_t pointron,
+		      pointrbtn_t pointrbtn, pointraxis_t pointraxis)
 {
 	surf->keycb = keycb;
 	surf->pointron = pointron;
@@ -67,8 +116,6 @@ void appsurface_init_input(struct app_surface *surf, keycb_t keycb, pointron_t p
 static void
 app_surface_done(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
 {
-
-//	struct app_surface *appsurf = (struct app_surface *)data;
 	if (wl_callback)
 		wl_callback_destroy(wl_callback);
 }

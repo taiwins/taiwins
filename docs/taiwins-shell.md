@@ -55,7 +55,9 @@ I face different cases here for positioning:
 - lockers probably is the as panel and background.
 - maybe virtual keyboards.
 
-The best way to solve it is by using c++ subclass.
+  Now we have created a unfied protocl `tw_ui`, it does the trick, creating
+  `tw_ui` from panel, background and all that, the widget want the pos, when we
+  create `tw_ui` with the position. Fairly simple
 
 ### the launch and close of the widget
 the launch could be triggered by input(click and keypresses). But closing them
@@ -128,3 +130,20 @@ becomes just active icons.
 We are facing the problem of choosing buffer format for applications. Cairo
 doesn't like OpenGL's RGBA, if we want to use cairo's image, we have to put the
 image format into BGRA, as it follows that order.
+
+
+##
+
+
+## tw_output protocol
+This protocol is create for the need of logical output representation. Server
+side is finished. Client side needs more work.
+
+First problem is that we do not know if `tw_output` is created or not before
+`taiwins_shell` interface. Before we have `output_init` and `output_create`
+methods, it is fairly ugly. Change them to a stack or queue implementation if
+possible. List is not ideal since you will need to create additional struct.
+
+
+We probably do not even need the shell interface anymore. Don't you need one for
+sending events like `change_workspace`?
