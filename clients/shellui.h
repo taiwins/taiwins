@@ -72,7 +72,6 @@ struct shell_widget {
 //this will call the lua state of the widget
 void draw_lua_widget(struct shell_widget *widget);
 
-
 //later on you will need to use these function to build apps
 void shell_widget_init_with_funcs(struct shell_widget *app,
 			    void (*update_icon)(struct eglapp_icon *),
