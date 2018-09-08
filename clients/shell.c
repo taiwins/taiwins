@@ -26,27 +26,25 @@ struct shell_output {
 	struct desktop_shell *shell;
 	struct tw_output *output;
 	struct app_surface background;
+	//TODO make panel a single app_surface, and move widgets into shell
 	struct shell_panel panel;
 	struct shm_pool pool;
-
-	list_t link;
-	bool inited;
 };
 
-//here we define the one queue
+/* we would want this structure to work with shell protocol, not just desktop
+ * protocol, so rename it would be necessary
+ */
 struct desktop_shell {
 	struct wl_globals globals;
 	struct taiwins_shell *shell;
 	struct egl_env eglenv;
-	//right now we only have one output, but we still keep the info
+
 	struct shell_output shell_outputs[16];
-	list_t outputs;
-	//the event queue
+
+	struct wl_list shell_widgets;
 	struct tw_event_queue client_event_queue;
-
-	//the data structure to store the uninitialized outputs
+	//states
 	vector_t uinit_outputs;
-
 	bool quit;
 } oneshell; //singleton
 
@@ -97,7 +95,6 @@ static void sample_wiget(struct nk_context *ctx, float width, float height, void
 	//insert the text. then if we need to circulate the context, we need to
 	//undo the text then insert the new one
 }
-
 
 static void
 _launch_widget(struct shell_widget *widget, struct app_surface *widget_surface)
@@ -235,23 +232,6 @@ release_shell_output(struct shell_output *w)
 }
 
 
-static void
-output_init(struct shell_output *w)
-{
-}
-
-static void
-output_create(struct shell_output *w, struct wl_output *wl_output, struct desktop_shell *twshell)
-{
-}
-
-
-static void
-output_distroy(struct shell_output *o)
-{
-}
-
-
 
 static void
 shell_configure_surface(void *data,
@@ -344,7 +324,7 @@ desktop_shell_ready(struct desktop_shell *shell)
  * another monitor, it will choose the emtpy slots.
  */
 static inline int
-desktop_n_outputs(struct desktop_shell *shell)
+desktop_shell_n_outputs(struct desktop_shell *shell)
 {
 	for (int i = 0; i < 16; i++)
 		if (shell->shell_outputs[i].output == NULL)
@@ -353,7 +333,7 @@ desktop_n_outputs(struct desktop_shell *shell)
 }
 
 static inline void
-desktop_refill_outputs(struct desktop_shell *shell)
+desktop_shell_refill_outputs(struct desktop_shell *shell)
 {
 	for (int i = 0, j=0; i < 16 && j <= i; i++) {
 		//check i
@@ -368,7 +348,7 @@ desktop_refill_outputs(struct desktop_shell *shell)
 }
 
 static inline
-desktop_ith_output(struct desktop_shell *shell, struct tw_output *output)
+desktop_shell_ith_output(struct desktop_shell *shell, struct tw_output *output)
 {
 	for (int i = 0; i < 16; i++)
 		if (shell->shell_outputs[i].output == output)
@@ -380,7 +360,6 @@ static void
 desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 {
 	wl_globals_init(&shell->globals, display);
-	list_init(&shell->outputs);
 	shell->shell = NULL;
 	shell->quit = false;
 	egl_env_init(&shell->eglenv, display);
@@ -395,11 +374,8 @@ desktop_shell_release(struct desktop_shell *shell)
 {
 	taiwins_shell_destroy(shell->shell);
 	struct shell_output *w, *next;
-	list_for_each_safe(w, next, &shell->outputs, link) {
-		list_remove(&w->link);
-		output_distroy(w);
-		free(w);
-	}
+	for (int i = 0; i < desktop_shell_n_outputs(shell); i++)
+		release_shell_output(&shell->shell_outputs[i]);
 	wl_globals_release(&shell->globals);
 	egl_env_end(&shell->eglenv);
 	shell->quit = true;
@@ -410,9 +386,18 @@ desktop_shell_release(struct desktop_shell *shell)
 }
 
 static void
+desktop_shell_try_add_tw_output(struct desktop_shell *shell, struct tw_output *tw_output)
+{
+	if (desktop_shell_ready(shell)) {
+		int n = desktop_shell_n_outputs(shell);
+		initialize_shell_output(&shell->shell_outputs[n], tw_output, shell);
+	} else
+		vector_append(&shell->uinit_outputs, &tw_output);
+}
+static void
 desktop_shell_init_rest_outputs(struct desktop_shell *shell)
 {
-	for (int n = desktop_n_outputs(shell), j = 0;
+	for (int n = desktop_shell_n_outputs(shell), j = 0;
 	     j < shell->uinit_outputs.len; j++) {
 		struct shell_output *w = &shell->shell_outputs[n+j];
 		initialize_shell_output(w, vector_at(&shell->uinit_outputs, j),
@@ -421,7 +406,6 @@ desktop_shell_init_rest_outputs(struct desktop_shell *shell)
 }
 /************************** desktop_shell_interface ********************************/
 /*********************************** end *******************************************/
-
 
 
 static
@@ -442,16 +426,12 @@ void announce_globals(void *data,
 	} else if (!strcmp(interface, tw_output_interface.name)) {
 		struct tw_output *tw_output =
 			wl_registry_bind(wl_registry, name, &tw_output_interface, version);
-		if (desktop_shell_ready(twshell)) {
-
-		} else
-			vector_append(&twshell->uinit_outputs, &tw_output);
-	} else if (!strcmp(interface, wl_output_interface.name)) {
-		struct shell_output *output = malloc(sizeof(*output));
-		struct wl_output *wl_output = wl_registry_bind(wl_registry, name, &wl_output_interface, version);
-		output_create(output, wl_output, twshell);
-		list_append(&twshell->outputs, &output->link);
-
+		desktop_shell_try_add_tw_output(twshell, tw_output);
+	/* } else if (!strcmp(interface, wl_output_interface.name)) { */
+	/*	struct shell_output *output = malloc(sizeof(*output)); */
+	/*	struct wl_output *wl_output = wl_registry_bind(wl_registry, name, &wl_output_interface, version); */
+	/*	output_create(output, wl_output, twshell); */
+	/*	list_append(&twshell->outputs, &output->link); */
 	} else
 		wl_globals_announce(&twshell->globals, wl_registry, name, interface, version);
 }

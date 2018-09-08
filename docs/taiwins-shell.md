@@ -101,6 +101,35 @@ widgets are hooked on it. It has commit events every time when the widget has
 updates on icons. It is almost the entire reason that I had this
 `client-side-event-processor`.
 
+The current approach is have the widget icon can commit the panel surface. I am
+not entirely happy about it. If it needs to be double buffered.
+
+The goal is not introducing a GUI library in this implementation and make
+individual component as separated as possible. Right now the involved components
+are:
+
+- panel.
+- widget-icon.
+- widget.
+
+So if we don't want any panel specific function being used in widget, we have to
+make all app_surface APIs virtual, I do not like it, the current `appsurface` is
+already very chrombesome, it will be an god object. Otherwise we have to have
+panel functions in the widget, like the previous design.
+
+
+### Decisions to make
+- does widget icons draws on its own buffer or directly on panels buffer?
+- How does panel update the widget icons? Iteratively or event based.
+- do we can an special panel structure or can we use simply the app_surface?
+  Then use special update functions?
+
+I want to leverage the `tw_event` system we have right now, so if widget has an
+event. Then we can trigger an panel commit `tw_event`, so we can have an
+decorator? In that way we have to have `tw_event_queue_add_event_for_event`.
+
+So if I do not want extra memory footage, I will need to have
+
 ### widgets
 Widget sits on the `WESTON_LAYER_POSITION_UI` layer, where panel also sits. So
 in that sense we cannot remove all the all the views in the panel anymore. When
@@ -132,7 +161,6 @@ doesn't like OpenGL's RGBA, if we want to use cairo's image, we have to put the
 image format into BGRA, as it follows that order.
 
 
-##
 
 
 ## tw_output protocol
@@ -143,7 +171,3 @@ First problem is that we do not know if `tw_output` is created or not before
 `taiwins_shell` interface. Before we have `output_init` and `output_create`
 methods, it is fairly ugly. Change them to a stack or queue implementation if
 possible. List is not ideal since you will need to create additional struct.
-
-
-We probably do not even need the shell interface anymore. Don't you need one for
-sending events like `change_workspace`?
