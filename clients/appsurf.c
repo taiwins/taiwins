@@ -1,6 +1,6 @@
 #include "client.h"
 #include "ui.h"
-
+#include "egl.h"
 
 void
 appsurface_release(struct app_surface *surf)
@@ -17,26 +17,7 @@ appsurface_release(struct app_surface *surf)
 }
 
 void
-appsurface_init(struct app_surface *appsurf, struct app_surface *parent,
-		enum APP_SURFACE_TYPE type, struct wl_compositor *compositor,
-		struct wl_output *output)
-{
-
-	//okay, first thing to do
-	*appsurf = (struct app_surface){0};
-
-	appsurf->type = type;
-	appsurf->parent = parent;
-	appsurf->wl_output = output;
-
-	//create its actual surface
-	appsurf->wl_surface = wl_compositor_create_surface(compositor);
-	wl_surface_set_user_data(appsurf->wl_surface, appsurf);
-	//the anchor and size is also undefined
-}
-
-void
-appsurface_init1(struct app_surface *surf, struct app_surface *p,
+appsurface_init(struct app_surface *surf, struct app_surface *p,
 		 enum APP_SURFACE_TYPE type, struct wl_surface *wl_surface,
 		 struct wl_proxy *protocol)
 {
@@ -58,6 +39,7 @@ appsurface_destroy_with_egl(struct app_surface *surf)
 	surf->egldisplay = EGL_NO_DISPLAY;
 	wl_surface_destroy(surf->wl_surface);
 	wl_proxy_destroy(surf->protocol);
+	eglMakeCurrent(surf->egldisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 }
 
 
@@ -91,15 +73,19 @@ appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
 }
 
 void
-appsurface_init_egl(struct app_surface *surf, struct wl_egl_window *egl_win,
-		     EGLSurface eglsurface, EGLDisplay display)
+appsurface_init_egl(struct app_surface *surf, struct egl_env *env)
 {
-	surf->eglwin = egl_win;
-	surf->eglsurface = eglsurface;
-	surf->egldisplay = display;
+	surf->egldisplay = env->egl_display;
+	surf->eglwin = wl_egl_window_create(surf->wl_surface,
+					    surf->w * surf->s, surf->h * surf->s);
+	surf->eglsurface =
+		eglCreateWindowSurface(env->egl_display,
+				       env->config,
+				       (EGLNativeWindowType)surf->eglwin,
+				       NULL);
+
 	surf->destroy = appsurface_destroy_with_egl;
 }
-
 
 void
 appsurface_init_input(struct app_surface *surf, keycb_t keycb, pointron_t pointron,

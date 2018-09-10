@@ -113,6 +113,8 @@ enum taiwins_btn_t {
 
 
 struct app_surface;
+struct egl_env;
+
 typedef void (*keycb_t)(struct app_surface *, xkb_keysym_t, uint32_t, int);
 typedef void (*pointron_t)(struct app_surface *, uint32_t, uint32_t);
 typedef void (*pointrbtn_t)(struct app_surface *, enum taiwins_btn_t, bool, uint32_t, uint32_t);
@@ -146,6 +148,8 @@ struct app_surface {
 			bool committed[2];
 		};
 		struct {
+			/* we do not necessary need it but when it comes to
+			 * surface destroy you will need it */
 			EGLDisplay egldisplay;
 			struct wl_egl_window *eglwin;
 			EGLSurface eglsurface;
@@ -167,13 +171,9 @@ struct app_surface {
  *
  * no input, no subapp, no buffer, but has a wl_surface
  */
-void appsurface_init(struct app_surface *surf, struct app_surface *parent,
-		     enum APP_SURFACE_TYPE type, struct wl_compositor *compositor,
-		     struct wl_output *output);
-
-void appsurface_init1(struct app_surface *surf, struct app_surface *p,
-		      enum APP_SURFACE_TYPE type, struct wl_surface *wl_surface,
-		      struct wl_proxy *protocol);
+void appsurface_init(struct app_surface *surf, struct app_surface *p,
+		     enum APP_SURFACE_TYPE type, struct wl_surface *wl_surface,
+		     struct wl_proxy *protocol);
 
 void appsurface_release(struct app_surface *surf);
 /**
@@ -183,8 +183,7 @@ void appsurface_release(struct app_surface *surf);
  */
 void appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
 			    const struct bbox *bbox);
-void appsurface_init_egl(struct app_surface *surf, struct wl_egl_window *egl_win,
-			 EGLSurface eglsurface, EGLDisplay disp);
+void appsurface_init_egl(struct app_surface *surf, struct egl_env *env);
 /**
  * /brief init all the input callbacks, zero is acceptable
  */

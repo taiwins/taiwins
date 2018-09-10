@@ -204,9 +204,13 @@ init_launcher(struct desktop_launcher *launcher)
 							  sizeof(struct taiwins_decision_key),
 							  TAIWINS_LAUNCHER_CONF_NUM_DECISIONS);
 
+	struct wl_surface *wl_surface = wl_compositor_create_surface(launcher->globals.compositor);
+	//TODO, use tw_ui element
 	appsurface_init(&launcher->surface, NULL, APP_WIDGET,
-			launcher->globals.compositor, NULL);
+			wl_surface, NULL);
 	egl_env_init(&launcher->env, launcher->globals.display);
+	appsurface_init_egl(&launcher->surface, &launcher->env);
+
 	launcher->bkend = nk_egl_create_backend(&launcher->env);
 	nk_textedit_init_fixed(&launcher->text_edit, launcher->chars, 256);
 }
