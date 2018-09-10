@@ -13,6 +13,14 @@ redraw_panel(void *data)
 	return true;
 }
 
+/*
+ * This is a simple illustration of how to work with a row. We may really does
+ * not know how much space the widget occupies inadvance.
+ *
+ * the widget should start with nk_layout_row_push to occupy its space, we limit
+ * one widget right now, as it is what most time is. But we may need to have
+ * more versatile approach
+ */
 static void
 clock_widget_anchor(struct nk_context *ctx, float width, float height, void *data)
 {
@@ -25,7 +33,7 @@ clock_widget_anchor(struct nk_context *ctx, float width, float height, void *dat
 
 	sprintf(formatedtime, "%s %02d:%02d:%02d",
 		daysoftheweek[tim->tm_wday], tim->tm_hour, tim->tm_min, tim->tm_sec);
-
+	nk_label(ctx, formatedtime, NK_TEXT_CENTERED);
 }
 
 static void clock_set_timer(struct shell_widget *w,
