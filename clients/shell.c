@@ -59,7 +59,7 @@ struct tw_event_queue *the_event_processor = &oneshell.client_event_queue;
 /******************************************************************************/
 
 static void
-draw_shell_panel(struct nk_context *ctx, float width, float height, void *data)
+shell_panel_frame(struct nk_context *ctx, float width, float height, void *data)
 {
 	enum nk_buttons button;
 	uint32_t sx, sy;
@@ -69,43 +69,40 @@ draw_shell_panel(struct nk_context *ctx, float width, float height, void *data)
 	struct app_surface *panel = &shell_output->panel;
 
 	//actual drawing
-	struct shell_widget *widget;
-	nk_layout_row_begin(ctx, NK_STATIC, panel->h,
-			    wl_list_length(&shell->shell_widgets));
+	size_t n_widgets =  wl_list_length(&shell->shell_widgets);
+	struct shell_widget *widget = NULL, *clicked = NULL;
+	nk_layout_row_begin(ctx, NK_STATIC, panel->h, n_widgets);
 	wl_list_for_each(widget, &shell->shell_widgets, link) {
 		widget->ancre_cb(ctx, width, height, widget);
+		if (nk_widget_is_mouse_clicked(ctx, NK_BUTTON_LEFT))
+			clicked = widget;
 	}
 	nk_layout_row_end(ctx);
-
-	bool has_click = nk_egl_get_btn(ctx, &button, &sx, &sy);
-	if (!has_click)
+	if (!clicked)
 		return;
-	wl_list_for_each(widget, &shell->shell_widgets, link) {
-		//assume we found the widget
-		break;
-	}
+	//we should essentially use nuklear builtin functions
+	nk_egl_get_btn(ctx, &button, &sx, &sy);
 	//determine the launch point
-	if (sx + widget->widget.w/2 >= panel->w)
-		launch_point.x = panel->w - widget->widget.w;
-	else if (sx - widget->widget.w/2 < 0)
+	if (sx + clicked->widget.w/2 >= panel->w)
+		launch_point.x = panel->w - clicked->widget.w;
+	else if (sx - clicked->widget.w/2 < 0)
 		launch_point.x = 0;
 	else
-		launch_point.x = sx - widget->widget.w/2;
+		launch_point.x = sx - clicked->widget.w/2;
 	launch_point.y = sy;
 	//en preference, we do this after the panel commit
 
 	//the widget is already there or the widget does not need to draw, we
 	//just return
-	if (widget->widget.protocol || !widget->draw_cb)
+	if (clicked->widget.protocol || !clicked->draw_cb)
 		return;
 	struct wl_surface *widget_surface = wl_compositor_create_surface(shell->globals.compositor);
 	struct tw_ui *widget_proxy = taiwins_shell_launch_widget(shell->shell, widget_surface,
 								 shell_output->output,
 								 launch_point.x, launch_point.y);
-	appsurface_init1(&widget->widget, NULL, APP_WIDGET, widget_surface,
+	appsurface_init1(&clicked->widget, NULL, APP_WIDGET, widget_surface,
 			 (struct wl_proxy *)widget_proxy);
-	nk_egl_launch(shell->widget_backend, &widget->widget, widget->draw_cb, widget);
-
+	nk_egl_launch(shell->widget_backend, &clicked->widget, clicked->draw_cb, clicked);
 }
 
 
@@ -163,7 +160,7 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 					     output->panel_backend,
 					     &shell->client_event_queue);
 
-	nk_egl_launch(output->panel_backend, panel, draw_shell_panel, output);
+	nk_egl_launch(output->panel_backend, panel, shell_panel_frame, output);
 
 }
 
