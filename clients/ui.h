@@ -117,7 +117,6 @@ typedef void (*keycb_t)(struct app_surface *, xkb_keysym_t, uint32_t, int);
 typedef void (*pointron_t)(struct app_surface *, uint32_t, uint32_t);
 typedef void (*pointrbtn_t)(struct app_surface *, enum taiwins_btn_t, bool, uint32_t, uint32_t);
 typedef void (*pointraxis_t)(struct app_surface *, int, int, uint32_t, uint32_t);
-typedef void (*appsurf_draw_t)(struct app_surface *);
 
 //the better way would be make it a inherited type
 struct app_surface {
@@ -150,10 +149,6 @@ struct app_surface {
 			EGLDisplay egldisplay;
 			struct wl_egl_window *eglwin;
 			EGLSurface eglsurface;
-		};
-		struct {
-			cairo_surface_t *attached;
-			cairo_t *cro;
 		};
 	};
 	/* input */

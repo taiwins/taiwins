@@ -124,11 +124,12 @@ panel functions in the widget, like the previous design.
 - do we can an special panel structure or can we use simply the app_surface?
   Then use special update functions?
 
-I want to leverage the `tw_event` system we have right now, so if widget has an
-event. Then we can trigger an panel commit `tw_event`, so we can have an
-decorator? In that way we have to have `tw_event_queue_add_event_for_event`.
+Now the decision is made, I am really not an professional ui coder, so I'd
+better just leverage nuklear UI to do it, it has many benifits. It is small and
+fast, it is responsive. It is kinda heavy though. 10ms on my desktop, hope it
+can be optimized.
 
-So if I do not want extra memory footage, I will need to have
+
 
 ### widgets
 Widget sits on the `WESTON_LAYER_POSITION_UI` layer, where panel also sits. So
