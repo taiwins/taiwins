@@ -25,26 +25,17 @@
 #include <EGL/egl.h>
 #include <GL/gl.h>
 #include <wayland-egl.h>
+#include "egl.h"
 
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-//maybe move this to wl_globals later
-struct egl_env {
-	EGLDisplay egl_display;
-	EGLContext egl_context;
-	struct wl_display *wl_display;
-	EGLConfig config;
-};
 
 //okay, hide it
 struct app_surface;
 struct nk_egl_backend;
-
-bool egl_env_init(struct egl_env *env, struct wl_display *disp);
-void egl_env_end(struct egl_env *env);
 
 typedef void (*nk_egl_draw_func_t)(struct nk_context *ctx, float width, float height, void *data);
 typedef void (*nk_egl_postcall_t)(void *userdata);

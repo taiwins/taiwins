@@ -100,7 +100,7 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, void *data)
 	struct tw_ui *widget_proxy = taiwins_shell_launch_widget(shell->shell, widget_surface,
 								 shell_output->output,
 								 launch_point.x, launch_point.y);
-	appsurface_init1(&clicked->widget, NULL, APP_WIDGET, widget_surface,
+	appsurface_init(&clicked->widget, NULL, APP_WIDGET, widget_surface,
 			 (struct wl_proxy *)widget_proxy);
 	nk_egl_launch(shell->widget_backend, &clicked->widget, clicked->draw_cb, clicked);
 }
@@ -167,6 +167,7 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 					     output->panel_backend,
 					     &shell->client_event_queue);
 
+	appsurface_init_egl(panel, &shell->eglenv);
 	nk_egl_launch(output->panel_backend, panel, shell_panel_frame, output);
 
 }
@@ -190,16 +191,16 @@ initialize_shell_output(struct shell_output *w, struct tw_output *tw_output,
 		wl_compositor_create_surface(shell->globals.compositor);
 	struct tw_ui *bg_ui =
 		taiwins_shell_create_background(shell->shell, bg_sf, tw_output);
-	appsurface_init1(&w->background, NULL, APP_BACKGROUND, bg_sf,
-			 (struct wl_proxy *)bg_ui);
+	appsurface_init(&w->background, NULL, APP_BACKGROUND, bg_sf,
+			(struct wl_proxy *)bg_ui);
 	tw_ui_add_listener(bg_ui, &tw_background_impl, w);
 
 	struct wl_surface *pn_sf =
 		wl_compositor_create_surface(shell->globals.compositor);
 	struct tw_ui *pn_ui =
 		taiwins_shell_create_panel(shell->shell, pn_sf, tw_output);
-	appsurface_init1(&w->panel, NULL, APP_PANEL, pn_sf,
-			 (struct wl_proxy *)pn_ui);
+	appsurface_init(&w->panel, NULL, APP_PANEL, pn_sf,
+			(struct wl_proxy *)pn_ui);
 	tw_ui_add_listener(pn_ui, &tw_panel_impl, w);
 
 	//so we have one nk_egl_backend for the panel.

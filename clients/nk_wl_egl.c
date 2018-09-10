@@ -164,15 +164,6 @@ is_surfless_supported(struct nk_egl_backend *bkend)
 static inline void
 assign_egl_surface(struct app_surface *app_surface, const struct egl_env *env)
 {
-	app_surface->eglwin = wl_egl_window_create(app_surface->wl_surface,
-						   app_surface->w,
-						   app_surface->h);
-	assert(app_surface->eglwin);
-	app_surface->eglsurface =
-		eglCreateWindowSurface(env->egl_display,
-				       env->config,
-				       (EGLNativeWindowType)app_surface->eglwin,
-				       NULL);
 	assert(app_surface->eglsurface);
 	assert(eglMakeCurrent(env->egl_display, app_surface->eglsurface,
 			      app_surface->eglsurface, env->egl_context));
@@ -588,6 +579,9 @@ nk_egl_launch(struct nk_egl_backend *bkend,
 	      nk_egl_draw_func_t func,
 	      void *data)
 {
+	if (bkend->app_surface)
+		appsurface_release(bkend->app_surface);
+
 	{
 		const unsigned int w = app_surface->w;
 		const unsigned int h = app_surface->h;
@@ -602,6 +596,7 @@ nk_egl_launch(struct nk_egl_backend *bkend,
 
 	bkend->frame = func;
 	bkend->user_data = data;
+
 	//now resize the window
 	bkend->compiled = compile_backend(bkend, app_surface);
 	if (!app_surface->eglwin || !app_surface->eglsurface)

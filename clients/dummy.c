@@ -142,8 +142,11 @@ int main(int argc, char *argv[])
 
 	wl_display_dispatch(wl_display);
 	wl_display_roundtrip(wl_display);
-	appsurface_init(&App.surface, NULL, APP_WIDGET, App.global.compositor, NULL);
-	struct wl_shell_surface *shell_surface = wl_shell_get_shell_surface(App.shell, App.surface.wl_surface);
+
+	struct wl_surface *wl_surface = wl_compositor_create_surface(App.global.compositor);
+	struct wl_shell_surface *shell_surface = wl_shell_get_shell_surface(App.shell, wl_surface);
+	appsurface_init(&App.surface, NULL, APP_WIDGET, wl_surface, (struct wl_proxy *)shell_surface);
+
 	wl_shell_surface_add_listener(shell_surface, &pingpong, NULL);
 	wl_shell_surface_set_toplevel(shell_surface);
 	App.shell_surface = shell_surface;
@@ -154,6 +157,8 @@ int main(int argc, char *argv[])
 	App.surface.s = 1;
 
 	App.bkend = nk_egl_create_backend(&App.env);
+
+	appsurface_init_egl(&App.surface, &App.env);
 
 	nk_egl_launch(App.bkend, &App.surface, sample_widget, &App);
 	fprintf(stdout, "here\n");
