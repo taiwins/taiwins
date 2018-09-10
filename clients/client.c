@@ -675,7 +675,7 @@ tw_event_queue_add_timer(struct tw_event_queue *queue,
 	//you ahve to read the timmer.
 	if (epoll_ctl(queue->pollfd, EPOLL_CTL_ADD, fd, &s->poll_event))
 		goto err_add;
-	e->cb(e->data);
+
 	return true;
 
 err_add:

@@ -24,7 +24,8 @@ redraw_panel(void *data)
 static void
 clock_widget_anchor(struct nk_context *ctx, float width, float height, void *data)
 {
-	nk_layout_row_push(ctx, 40);
+	//it seems to work, we still need a library to figure out the text size
+	nk_layout_row_push(ctx, 100);
 	static const char * daysoftheweek[] =
 		{"sun", "mon", "tus", "wed", "thu", "fri", "sat"};
 	char formatedtime[20];

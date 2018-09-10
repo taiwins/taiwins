@@ -296,8 +296,6 @@ compile_backend(struct nk_egl_backend *bkend, struct app_surface *app_surface)
 	nk_buffer_init_fixed(&bkend->cmds, cmd_buffer_data, sizeof(cmd_buffer_data));
 	nk_buffer_clear(&bkend->cmds);
 
-	//release the context
-//	eglMakeCurrent(bkend->env->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	return true;
 }
 

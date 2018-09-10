@@ -429,7 +429,7 @@ create_ui_element(struct wl_client *client,
 	struct twshell *shell = wl_resource_get_user_data(resource);
 	struct weston_output *output = wl_resource_get_user_data(tw_output);
 	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
-	struct wl_resource *tw_ui_resource = wl_resource_create(client, NULL, 1, tw_ui);
+	struct wl_resource *tw_ui_resource = wl_resource_create(client, &tw_ui_interface, 1, tw_ui);
 	if (!tw_ui_resource) {
 		wl_client_post_no_memory(client);
 		return;
@@ -443,11 +443,11 @@ create_ui_element(struct wl_client *client,
 
 	switch (type) {
 	case TW_UI_TYPE_PANEL:
-		tw_ui_send_configure(resource, output->width, 16, 1);
+		tw_ui_send_configure(tw_ui_resource, output->width, 32, 1);
 		set_surface(shell, surface, output, resource, commit_ui_surface, x, y);
 		break;
 	case TW_UI_TYPE_BACKGROUND:
-		tw_ui_send_configure(resource, output->width, output->height, 1);
+		tw_ui_send_configure(tw_ui_resource, output->width, output->height, 1);
 		set_surface(shell, surface, output, resource, commit_background, x, y);
 		break;
 	case TW_UI_TYPE_WIDGET:
@@ -458,6 +458,7 @@ create_ui_element(struct wl_client *client,
 
 static void
 create_shell_panel(struct wl_client *client,
+
 		   struct wl_resource *resource,
 		   uint32_t tw_ui,
 		   struct wl_resource *wl_surface,

@@ -71,7 +71,7 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, void *data)
 	//actual drawing
 	size_t n_widgets =  wl_list_length(&shell->shell_widgets);
 	struct shell_widget *widget = NULL, *clicked = NULL;
-	nk_layout_row_begin(ctx, NK_STATIC, panel->h, n_widgets);
+	nk_layout_row_begin(ctx, NK_STATIC, panel->h - 12, n_widgets);
 	wl_list_for_each(widget, &shell->shell_widgets, link) {
 		widget->ancre_cb(ctx, width, height, widget);
 		if (nk_widget_is_mouse_clicked(ctx, NK_BUTTON_LEFT))
@@ -119,6 +119,9 @@ tw_background_configure(void *data,
 
 	struct desktop_shell *shell = w->shell;
 
+	background->w = width;
+	background->h = height;
+	background->s = scale;
 	shm_pool_init(&w->pool, shell->globals.shm, 4096, shell->globals.buffer_format);
 	struct bbox bounding = {
 		.w = scale * width,
@@ -151,6 +154,10 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 	struct shell_output *output = data;
 	struct app_surface *panel = &output->panel;
 	struct desktop_shell *shell = output->shell;
+
+	panel->w = width;
+	panel->h = height;
+	panel->s = scale;
 	//TODO detect if we are on the major output, if not, we paint it differently
 	output->panel_backend = nk_egl_create_backend(&output->shell->eglenv);
 	struct shell_widget *widget;
@@ -273,7 +280,9 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	shell->shell = NULL;
 	shell->quit = false;
 	egl_env_init(&shell->eglenv, display);
-	shell->widget_backend = nk_egl_create_backend(&shell->eglenv);
+//	shell->widget_backend = nk_egl_create_backend(&shell->eglenv);
+	wl_list_init(&shell->shell_widgets);
+	wl_list_insert(&shell->shell_widgets, &clock_widget.link);
 
 	tw_event_queue_init(&shell->client_event_queue);
 	shell->client_event_queue.quit =
@@ -312,7 +321,8 @@ desktop_shell_init_rest_outputs(struct desktop_shell *shell)
 	for (int n = desktop_shell_n_outputs(shell), j = 0;
 	     j < shell->uinit_outputs.len; j++) {
 		struct shell_output *w = &shell->shell_outputs[n+j];
-		initialize_shell_output(w, vector_at(&shell->uinit_outputs, j),
+
+		initialize_shell_output(w, *(struct tw_output **)vector_at(&shell->uinit_outputs, j),
 					shell);
 	}
 }
@@ -339,11 +349,6 @@ void announce_globals(void *data,
 		struct tw_output *tw_output =
 			wl_registry_bind(wl_registry, name, &tw_output_interface, version);
 		desktop_shell_try_add_tw_output(twshell, tw_output);
-	/* } else if (!strcmp(interface, wl_output_interface.name)) { */
-	/*	struct shell_output *output = malloc(sizeof(*output)); */
-	/*	struct wl_output *wl_output = wl_registry_bind(wl_registry, name, &wl_output_interface, version); */
-	/*	output_create(output, wl_output, twshell); */
-	/*	list_append(&twshell->outputs, &output->link); */
 	} else
 		wl_globals_announce(&twshell->globals, wl_registry, name, interface, version);
 }
@@ -380,7 +385,7 @@ main(int argc, char **argv)
 
 	wl_display_flush(display);
 	tw_event_queue_run(&oneshell.client_event_queue);
-	desktop_shell_release(&oneshell);
+//	desktop_shell_release(&oneshell);
 	wl_registry_destroy(registry);
 	wl_display_disconnect(display);
 //	desktop_shell_release(oneshell);
