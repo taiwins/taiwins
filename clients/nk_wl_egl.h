@@ -51,6 +51,8 @@ typedef void (*nk_egl_postcall_t)(void *userdata);
 
 struct nk_egl_backend *nk_egl_create_backend(const struct egl_env *env);
 void nk_egl_destroy_backend(struct nk_egl_backend *bkend);
+//force update a frame
+void nk_egl_update(struct nk_egl_backend *bkend);
 
 void nk_egl_launch(struct nk_egl_backend *bkend, struct app_surface *app,
 		   nk_egl_draw_func_t draw_func, void *data);

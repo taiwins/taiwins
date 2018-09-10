@@ -27,8 +27,7 @@ target_link_libraries(taiwins_client
 
 add_executable(shell-taiwins
   shell.c
-  icon.c
-  shellui.c
+  widget.c
   )
 #message("the NVEGL libraries are ${NVEGL_LIBRARIES}")
 # set_target_properties(shell-taiwins

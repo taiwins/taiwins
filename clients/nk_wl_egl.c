@@ -419,7 +419,7 @@ nk_egl_render(struct nk_egl_backend *bkend)
 }
 
 static void
-_nk_egl_new_frame(struct nk_egl_backend *bkend)
+nk_egl_new_frame(struct nk_egl_backend *bkend)
 {
 	if (nk_begin(&bkend->ctx, "eglapp", nk_rect(0, 0, bkend->width, bkend->height),
 		     NK_WINDOW_BORDER)) {
@@ -483,7 +483,7 @@ nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int s
 		bkend->ckey = XKB_KEY_NoSymbol;
 	nk_input_end(&bkend->ctx);
 	//we can actually just trigger the rendering if we have a symbol.
-	_nk_egl_new_frame(bkend);
+	nk_egl_new_frame(bkend);
 }
 
 static void
@@ -496,7 +496,7 @@ nk_pointron(struct app_surface *surf, uint32_t sx, uint32_t sy)
 	bkend->sx = sx;
 	bkend->sy = sy;
 
-	_nk_egl_new_frame(bkend);
+	nk_egl_new_frame(bkend);
 }
 
 static void
@@ -527,7 +527,7 @@ nk_pointrbtn(struct app_surface *surf, enum taiwins_btn_t btn, bool state, uint3
 	bkend->sx = sx;
 	bkend->sy = sy;
 
-	_nk_egl_new_frame(bkend);
+	nk_egl_new_frame(bkend);
 }
 
 static void
@@ -537,7 +537,7 @@ nk_pointraxis(struct app_surface *surf, int pos, int direction, uint32_t sx, uin
 	nk_input_begin(&bkend->ctx);
 	nk_input_scroll(&bkend->ctx, nk_vec2(direction * (float)sx, (direction * (float)sy)));
 	nk_input_begin(&bkend->ctx);
-	_nk_egl_new_frame(bkend);
+	nk_egl_new_frame(bkend);
 }
 
 
@@ -609,8 +609,14 @@ nk_egl_launch(struct nk_egl_backend *bkend,
 	if (!app_surface->eglwin || !app_surface->eglsurface)
 		assign_egl_surface(app_surface, bkend->env);
 
-	_nk_egl_new_frame(bkend);
+	nk_egl_new_frame(bkend);
 	//there seems to be no function about changing window size in egl
+}
+
+void
+nk_egl_update(struct nk_egl_backend *bkend)
+{
+	nk_egl_new_frame(bkend);
 }
 
 void
