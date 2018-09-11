@@ -10,23 +10,11 @@
 #include <wayland-client.h>
 #include <wayland-taiwins-shell-client-protocol.h>
 #include <os/exec.h>
+
+#include "../config.h"
 #include "client.h"
 #include "ui.h"
 #include "nk_wl_egl.h"
-
-
-/* we define this stride to work with WL_SHM_FORMAT_ARGB888 */
-#define DECISION_STRIDE TAIWINS_LAUNCHER_CONF_STRIDE
-#define NUM_DECISIONS TAIWINS_LAUNCHER_CONF_NUM_DECISIONS
-
-//every decision represents a row in wl_buffer, we need to make it as aligned as possible
-struct taiwins_decision_key {
-	char app_name[128];
-	bool floating;
-	int  scale;
-} __attribute__ ((aligned (DECISION_STRIDE)));
-
-
 
 
 struct desktop_launcher {
@@ -50,28 +38,6 @@ struct desktop_launcher {
 	//store anything once submitted
 	struct nk_text_edit text_edit;
 };
-
-
-static void
-exec_application(void *data, struct wl_callback *wl_callback, uint32_t id)
-{
-	char *const forks[] = {"/usr/bin/weston-terminal", NULL};
-	struct desktop_launcher *launcher = data;
-	if (id != launcher->exec_id) {
-		fprintf(stderr, "exec order not consistant, something wrong.");
-	} else {
-		fprintf(stderr, "creating weston terminal");
-		//parsing the input and command buffer. Then do it
-		fork_exec(1, forks);
-	}
-	launcher->exec_id++;
-	wl_callback_destroy(wl_callback);
-}
-
-static const struct wl_callback_listener exec_listener = {
-	.done = exec_application,
-};
-
 
 static const char *tmp_tab_chars[5] = {
 	"aaaaaa",
@@ -97,8 +63,9 @@ static void
 submit_launcher(void *data)
 {
 	struct desktop_launcher *launcher = data;
-	taiwins_launcher_submit(launcher->interface, launcher->decision_buffer);
+	taiwins_launcher_submit(launcher->interface, launcher->decision_buffer, launcher->exec_id);
 	nk_textedit_init_fixed(&launcher->text_edit, launcher->chars, 256);
+	appsurface_release(&launcher->surface);
 }
 
 
@@ -147,6 +114,7 @@ draw_launcher(struct nk_context *ctx, float width, float height, void *data)
 		memset(previous_tab, 0, sizeof(previous_tab));
 		break;
 	}
+	//TODO, have a close option, thus close without submiting
 }
 
 //fuck, I wish that I have c++
@@ -171,27 +139,41 @@ start_launcher(void *data,
 {
 	struct desktop_launcher *launcher = (struct desktop_launcher *)data;
 	struct app_surface *surface = &launcher->surface;
+	struct tw_ui *ui;
 	surface->w = wl_fixed_to_int(width);
 	surface->h = wl_fixed_to_int(height);
 	surface->s = wl_fixed_to_int(scale);
+	ui = taiwins_launcher_launch(taiwins_launcher, launcher->surface.wl_surface);
+	launcher->surface.protocol = (struct wl_proxy *)ui;
 	//yeah, generally you will want a buffer from this
-	launcher->exec_cb = taiwins_launcher_set_launcher(launcher->interface, launcher->surface.wl_surface,
-							  launcher->exec_id);
-	wl_callback_add_listener(launcher->exec_cb, &exec_listener, launcher);
 
+	appsurface_init_egl(&launcher->surface, &launcher->env);
 	nk_egl_launch(launcher->bkend, &launcher->surface,
 		      draw_launcher, launcher);
 }
 
+static void
+exec_application(void *data, struct taiwins_launcher *launcher, uint32_t id)
+{
+	char *const forks[] = {"/usr/bin/weston-terminal", NULL};
+	struct desktop_launcher *desktop_launcher = data;
+	if (id != desktop_launcher->exec_id) {
+		fprintf(stderr, "exec order not consistant, something wrong.");
+	} else {
+		fprintf(stderr, "creating weston terminal");
+		//parsing the input and command buffer. Then do it
+		fork_exec(1, forks);
+	}
+	desktop_launcher->exec_id++;
+}
 
 struct taiwins_launcher_listener launcher_impl = {
 	.application_configure = update_app_config,
 	.start = start_launcher,
+	.exec = exec_application,
 };
 
-
-
-
+/** constructor-destructor **/
 static void
 init_launcher(struct desktop_launcher *launcher)
 {
@@ -209,8 +191,6 @@ init_launcher(struct desktop_launcher *launcher)
 	appsurface_init(&launcher->surface, NULL, APP_WIDGET,
 			wl_surface, NULL);
 	egl_env_init(&launcher->env, launcher->globals.display);
-	appsurface_init_egl(&launcher->surface, &launcher->env);
-
 	launcher->bkend = nk_egl_create_backend(&launcher->env);
 	nk_textedit_init_fixed(&launcher->text_edit, launcher->chars, 256);
 }

@@ -8,22 +8,6 @@ extern "C" {
 #endif
 
 
-//wayland-desktop implementation, you can seperate this from  the shell
-#define DECISION_STRIDE TAIWINS_LAUNCHER_CONF_STRIDE
-#define NUM_DECISIONS TAIWINS_LAUNCHER_CONF_NUM_DECISIONS
-
-/**
- ** right now both the client and server have to keep this struct. We could
- ** somehow create this record in a internal include file to avoid duplicating
- ** this work
- */
-struct taiwins_decision_key {
-	char app_name[128];
-	bool floating;
-	int  scale;
-} __attribute__ ((aligned (DECISION_STRIDE)));
-
-
 struct twdesktop;
 struct twlauncher;
 

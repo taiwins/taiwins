@@ -17,11 +17,12 @@ struct twshell_ui {
 	struct weston_binding *lose_pointer;
 	struct weston_binding *lose_touch;
 	uint32_t x; uint32_t y;
+	struct weston_layer *layer;
 };
 
 
 static void
-test_ui_lose_keyboard(struct weston_keyboard *keyboard,
+does_ui_lose_keyboard(struct weston_keyboard *keyboard,
 			 const struct timespec *time, uint32_t key,
 			 void *data)
 {
@@ -35,7 +36,7 @@ test_ui_lose_keyboard(struct weston_keyboard *keyboard,
 }
 
 static void
-test_ui_lose_pointer(struct weston_pointer *pointer,
+does_ui_lose_pointer(struct weston_pointer *pointer,
 			const struct timespec *time, uint32_t button,
 			void *data)
 {
@@ -49,7 +50,7 @@ test_ui_lose_pointer(struct weston_pointer *pointer,
 }
 
 static void
-test_ui_lose_touch(struct weston_touch *touch,
+does_ui_lose_touch(struct weston_touch *touch,
 		      const struct timespec *time, void *data)
 {
 	struct twshell_ui *ui_elem = data;
@@ -84,13 +85,13 @@ twshell_ui_create_with_binding(struct wl_resource *tw_ui, struct weston_surface 
 	struct twshell_ui *ui = malloc(sizeof(struct twshell_ui));
 	if (!ui)
 		goto err_ui_create;
-	struct weston_binding *k = weston_compositor_add_key_binding(ec, KEY_ESC, 0, test_ui_lose_keyboard, ui);
+	struct weston_binding *k = weston_compositor_add_key_binding(ec, KEY_ESC, 0, does_ui_lose_keyboard, ui);
 	if (!k)
 		goto err_bind_keyboard;
-	struct weston_binding *p = weston_compositor_add_button_binding(ec, BTN_LEFT, 0, test_ui_lose_pointer, ui);
+	struct weston_binding *p = weston_compositor_add_button_binding(ec, BTN_LEFT, 0, does_ui_lose_pointer, ui);
 	if (!p)
 		goto err_bind_ptr;
-	struct weston_binding *t = weston_compositor_add_touch_binding(ec, 0, test_ui_lose_touch, ui);
+	struct weston_binding *t = weston_compositor_add_touch_binding(ec, 0, does_ui_lose_touch, ui);
 	if (!t)
 		goto err_bind_touch;
 
@@ -223,21 +224,6 @@ twshell_output_destroyed(struct wl_listener *listener, void *data)
 }
 /************** output created ********************/
 
-/* destroy info */
-struct view_pos_info {
-	int32_t x;
-	int32_t y;
-	struct wl_listener destroy_listener;
-	struct twshell *shell;
-};
-
-void view_pos_destroy(struct wl_listener *listener, void *data)
-{
-	//we have to do with that since the data is weston_view
-	wl_list_remove(&listener->link);
-	free(container_of(listener, struct view_pos_info, destroy_listener));
-}
-
 
 enum twshell_view_t {
 	twshell_view_UNIQUE, /* like the background */
@@ -289,12 +275,12 @@ setup_view(struct weston_view *view, struct weston_layer *layer,
 static void
 commit_background(struct weston_surface *surface, int sx, int sy)
 {
-	struct view_pos_info *pos_info = surface->committed_private;
-	struct twshell *shell = pos_info->shell;
+	struct twshell_ui *ui = surface->committed_private;
 	//get the first view, as ui element has only one view
 	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
 	//it is not true for both
-	setup_view(view, &shell->background_layer, pos_info->x, pos_info->y, twshell_view_UNIQUE);
+	if (surface->buffer_ref.buffer)
+		setup_view(view, ui->layer, ui->x, ui->y, twshell_view_UNIQUE);
 }
 
 static void
@@ -304,12 +290,12 @@ commit_ui_surface(struct weston_surface *surface, int sx, int sy)
 	//state, when commit request triggered, pending state calls
 	//weston_surface_state_commit to use the sx, and sy in here
 	//the confusion is that we cannot use sx and sy directly almost all the time.
-	struct view_pos_info *pos_info = surface->committed_private;
-	struct twshell *shell = pos_info->shell;
+	struct twshell_ui *ui = surface->committed_private;
 	//get the first view, as ui element has only one view
 	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
 	//it is not true for both
-	setup_view(view, &shell->ui_layer, pos_info->x, pos_info->y, twshell_view_STATIC);
+	if (surface->buffer_ref.buffer)
+		setup_view(view, ui->layer, ui->x, ui->y, twshell_view_STATIC);
 }
 
 static bool
@@ -321,7 +307,8 @@ set_surface(struct twshell *shell,
 {
 	//TODO, use wl_resource_get_user_data for position
 	struct weston_view *view, *next;
-	struct view_pos_info *pos_info;
+	struct twshell_ui *ui = wl_resource_get_user_data(wl_resource);
+	ui->x = x; ui->y = y;
 
 	//remember to reset the weston_surface's commit and commit_private
 	if (surface->committed) {
@@ -333,16 +320,9 @@ set_surface(struct twshell *shell,
 		weston_view_destroy(view);
 
 	view = weston_view_create(surface);
-	pos_info = malloc(sizeof(struct view_pos_info));
-	pos_info->x = x;
-	pos_info->y = y;
-	pos_info->shell = shell;
-	wl_list_init(&pos_info->destroy_listener.link);
-	pos_info->destroy_listener.notify = view_pos_destroy;
-	wl_signal_add(&view->destroy_signal, &pos_info->destroy_listener);
 
 	surface->committed = committed;
-	surface->committed_private = pos_info;
+	surface->committed_private = ui;
 	surface->output = output;
 	view->output = output;
 	return true;
@@ -354,81 +334,21 @@ set_surface(struct twshell *shell,
 /////////////////////////// Taiwins shell interface //////////////////////////////////
 
 static void
-close_widget(struct wl_client *client,
-		  struct wl_resource *resource,
-		  struct wl_resource *surface)
-{
-	struct weston_surface *wd_surface =
-		(struct weston_surface *)wl_resource_get_user_data(surface);
-	twshell_close_ui_surface(wd_surface);
-}
-
-static void
-set_widget(struct wl_client *client,
-		   struct wl_resource *resource,
-		   struct wl_resource *wl_surface,
-		   struct wl_resource *wl_output,
-		   uint32_t x,
-		   uint32_t y)
-{
-	struct twshell *shell = wl_resource_get_user_data(resource);
-	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
-	struct weston_head *head = weston_head_from_resource(wl_output);
-	struct weston_output *output = head->output;
-	set_surface(shell, surface, output, resource, commit_ui_surface, x, y);
-
-	struct weston_seat *seat0 = tw_get_default_seat(oneshell.ec);
-	struct weston_view *view = tw_default_view_from_surface(surface);
-	/* fprintf(stderr, "the view is %p\n", view); */
-	weston_view_activate(view, seat0, WESTON_ACTIVATE_FLAG_CLICKED);
-}
-
-
-static void
-set_background(struct wl_client *client,
-	       struct wl_resource *resource,
-	       struct wl_resource *wl_output,
-	       struct wl_resource *wl_surface)
-{
-	struct twshell *shell = wl_resource_get_user_data(resource);
-	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
-	struct weston_head *head = weston_head_from_resource(wl_output);
-	struct weston_output *output = head->output;
-	set_surface(shell, surface, output, resource, commit_background, 0, 0);
-
-	taiwins_shell_send_configure(resource, wl_surface, output->scale, 0,
-				     output->width, output->height);
-}
-
-static void
-set_panel(struct wl_client *client,
-	  struct wl_resource *resource,
-	  struct wl_resource *wl_output,
-	  struct wl_resource *wl_surface)
-{
-	struct twshell *shell = wl_resource_get_user_data(resource);
-	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
-	struct weston_head *head = weston_head_from_resource(wl_output);
-	struct weston_output *output = head->output;
-	set_surface(shell, surface, output, resource, commit_ui_surface, 0, 0);
-
-	taiwins_shell_send_configure(resource, wl_surface, output->scale, 0, //edge
-				     output->width, 16);
-
-}
-
-static void
 create_ui_element(struct wl_client *client,
-		  struct wl_resource *resource,
+		  struct twshell *shell,
 		  uint32_t tw_ui,
 		  struct wl_resource *wl_surface,
 		  struct wl_resource *tw_output,
 		  uint32_t x, uint32_t y,
 		  enum tw_ui_type type)
 {
-	struct twshell *shell = wl_resource_get_user_data(resource);
-	struct weston_output *output = wl_resource_get_user_data(tw_output);
+	struct weston_output *output = (tw_output) ?
+		wl_resource_get_user_data(tw_output) :
+		tw_get_focused_output(shell->ec);
+	struct weston_seat *seat = tw_get_default_seat(shell->ec);
+
 	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
+	weston_seat_set_keyboard_focus(seat, surface);
 	struct wl_resource *tw_ui_resource = wl_resource_create(client, &tw_ui_interface, 1, tw_ui);
 	if (!tw_ui_resource) {
 		wl_client_post_no_memory(client);
@@ -444,27 +364,31 @@ create_ui_element(struct wl_client *client,
 	switch (type) {
 	case TW_UI_TYPE_PANEL:
 		tw_ui_send_configure(tw_ui_resource, output->width, 32, 1);
-		set_surface(shell, surface, output, resource, commit_ui_surface, x, y);
+		elem->layer = &shell->ui_layer;
+		set_surface(shell, surface, output, tw_ui_resource, commit_ui_surface, x, y);
 		break;
 	case TW_UI_TYPE_BACKGROUND:
 		tw_ui_send_configure(tw_ui_resource, output->width, output->height, 1);
-		set_surface(shell, surface, output, resource, commit_background, x, y);
+		elem->layer = &shell->background_layer;
+		set_surface(shell, surface, output, tw_ui_resource, commit_background, x, y);
 		break;
 	case TW_UI_TYPE_WIDGET:
-		set_surface(shell, surface, output, resource, commit_ui_surface, x, y);
+		elem->layer = &shell->ui_layer;
+		set_surface(shell, surface, output, tw_ui_resource, commit_ui_surface, x, y);
 		break;
 	}
+
 }
 
 static void
 create_shell_panel(struct wl_client *client,
-
 		   struct wl_resource *resource,
 		   uint32_t tw_ui,
 		   struct wl_resource *wl_surface,
 		   struct wl_resource *tw_output)
 {
-	create_ui_element(client, resource, tw_ui, wl_surface, tw_output,
+	struct twshell *shell = wl_resource_get_user_data(resource);
+	create_ui_element(client, shell, tw_ui, wl_surface, tw_output,
 			  0, 0, TW_UI_TYPE_PANEL);
 }
 
@@ -476,7 +400,8 @@ launch_shell_widget(struct wl_client *client,
 		    struct wl_resource *tw_output,
 		    uint32_t x, uint32_t y)
 {
-	create_ui_element(client, resource, tw_ui, wl_surface, tw_output,
+	struct twshell *shell = wl_resource_get_user_data(resource);
+	create_ui_element(client, shell, tw_ui, wl_surface, tw_output,
 			  x, y, TW_UI_TYPE_WIDGET);
 }
 
@@ -487,16 +412,13 @@ create_shell_background(struct wl_client *client,
 			struct wl_resource *wl_surface,
 			struct wl_resource *tw_output)
 {
-	create_ui_element(client, resource, tw_ui, wl_surface, tw_output,
+	struct twshell *shell = wl_resource_get_user_data(resource);
+	create_ui_element(client, shell, tw_ui, wl_surface, tw_output,
 			  0, 0, TW_UI_TYPE_BACKGROUND);
 
 }
 
 static struct taiwins_shell_interface shell_impl = {
-	.set_background = set_background,
-	.set_panel = set_panel,
-	.set_widget = set_widget,
-	.hide_widget = close_widget,
 	.create_panel = create_shell_panel,
 	.create_background = create_shell_background,
 	.launch_widget = launch_shell_widget,
@@ -553,39 +475,19 @@ bind_twshell(struct wl_client *client, void *data, uint32_t version, uint32_t id
 
 ///////////////////////// exposed APIS ////////////////////////////////
 
-/**
- * @brief make the ui surface appear
- *
- * using the UI_LAYER for for seting up the the view, why do we need the
- */
-bool
-twshell_set_ui_surface(struct twshell *shell, struct weston_surface *surface,
-		       struct weston_output *output,
-		       struct wl_resource *wl_resource,
-		       int32_t x, int32_t y)
-{
-	bool ret = set_surface(shell, surface, output, wl_resource, commit_ui_surface, x, y);
-	if (ret) {
-		struct weston_seat *seat0 = tw_get_default_seat(oneshell.ec);
-		struct weston_view *view = tw_default_view_from_surface(surface);
-		/* fprintf(stderr, "the view is %p\n", view); */
-		weston_view_activate(view, seat0, WESTON_ACTIVATE_FLAG_CLICKED);
-	}
-	return ret;
-
-}
 
 void
-twshell_close_ui_surface(struct weston_surface *wd_surface)
+twshell_create_ui_elem(struct twshell *shell,
+		       struct wl_client *client,
+		       uint32_t tw_ui,
+		       struct wl_resource *wl_surface,
+		       struct wl_resource *tw_output,
+		       uint32_t x, uint32_t y,
+		       enum tw_ui_type type)
 {
-	struct weston_view *view, *next;
-	wd_surface->committed = NULL;
-	//make it here so we call the free first
-	wd_surface->committed_private = NULL;
-	//unmap but don't destroy it.
-	wl_list_for_each_safe(view, next, &wd_surface->views, surface_link)
-		weston_view_destroy(view);
+	create_ui_element(client, shell, tw_ui, wl_surface, tw_output, x, y, type);
 }
+
 
 static void
 launch_shell_client(void *data)

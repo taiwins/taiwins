@@ -7,11 +7,6 @@
       background, panels and locking surfaces.
     </description>
 
-    <request name="set_background">
-      <arg name="output" type="object" interface="wl_output"/>
-      <arg name="surface" type="object" interface="wl_surface"/>
-    </request>
-
     <!-- new api, so deprecate the old set_widget and hide_widget -->
     <request name="create_panel">
       <description summary="create a new widget from wl_surface"/>
@@ -43,39 +38,6 @@
       <arg name="tw_output" type="object" interface="tw_output"/>
     </request>
 
-    <!-- deprecated API -->
-    <request name="set_widget">
-      <arg name="surface" type="object" interface="wl_surface"/>
-      <arg name="output"  type="object" interface="wl_output"/>
-      <arg name= "x" type="uint"/>
-      <arg name= "y" type="uint"/>
-    </request>
-    <request name="hide_widget">
-      <description summary="destroy the widget view at the server side"/>
-      <arg name="surface" type="object" interface="wl_surface"/>
-    </request>
-
-    <request name="set_panel">
-      <description summary="show panel for the output">
-	Panel is the for output, any input will go to commander
-      </description>
-      <arg name="output" type="object" interface="wl_output"/>
-      <arg name="surface" type="object" interface="wl_surface"/>
-    </request>
-
-    <event name="configure">
-      <description summary="send expect configuration to client">
-	expected size from the server, the clients are expected to attach same
-	dimension of buffer to the surface. Common usage like background, for
-	example, it will be the same dimension of output. For commander, it will
-	have longer width than height if vertical and vice versa.
-      </description>
-      <arg name="surface" type="object" interface="wl_surface"/>
-      <arg name="scale" type="uint"/>
-      <arg name="edges" type="uint"/>
-      <arg name="width" type="int"/>
-      <arg name="height" type="int"/>
-    </event>
   </interface>
 
   <interface name="tw_output" version="1">
@@ -151,12 +113,12 @@
       <arg name="scale" type="fixed"/>
     </event>
 
-    <request name="set_launcher">
-      <description summary="show the launcher surface in compositor"/>
+    <request name="launch">
+      <description summary="Actaully start the launcher">
+	This request must act as an action results from start event
+      </description>
+      <arg name="ui_elem" type="new_id" interface="tw_ui"/>
       <arg name="surface" type="object" interface="wl_surface"/>
-      <arg name="exec_callback" type="new_id" interface="wl_callback"
-	   summary="callback for client to exec applications"/>
-      <arg name="exec_id" type="uint"/>
     </request>
 
     <request name="submit">
@@ -170,7 +132,18 @@
 	somewhere else.
       </description>
       <arg name="buffer" type="object" interface="wl_buffer"/>
+      <arg name="exec_id" type="uint" summary="exec action for the launcher">
+	The exec_id has to be here because we could actually close the launcher
+	without submitting an exec request
+      </arg>
     </request>
+
+    <event name="exec">
+      <description summary="indicate the launcher could perform fork-exec">
+	it is a response from the submit request
+      </description>
+      <arg name="exec_id" type="uint"/>
+    </event>
 
     <event name="application_configure">
       <description summary="dynamically emit the application configure">

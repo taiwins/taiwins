@@ -2,24 +2,12 @@
 #include "ui.h"
 #include "egl.h"
 
-void
-appsurface_release(struct app_surface *surf)
-{
-	for (int i = 0; i < 2; i++) {
-		//the wl_buffer itself is destroyed at shm_pool destructor
-		if (surf->wl_buffer[i]) {
-			shm_pool_buffer_free(surf->wl_buffer[i]);
-			surf->committed[i] = false;
-			surf->dirty[i] = false;
-		}
-	}
-	wl_surface_destroy(surf->wl_surface);
-}
+
 
 void
 appsurface_init(struct app_surface *surf, struct app_surface *p,
-		 enum APP_SURFACE_TYPE type, struct wl_surface *wl_surface,
-		 struct wl_proxy *protocol)
+		enum APP_SURFACE_TYPE type, struct wl_surface *wl_surface,
+		struct wl_proxy *protocol)
 {
 	*surf = (struct app_surface){0};
 
@@ -37,9 +25,10 @@ appsurface_destroy_with_egl(struct app_surface *surf)
 	eglDestroySurface(surf->egldisplay, surf->eglsurface);
 	wl_egl_window_destroy(surf->eglwin);
 	surf->egldisplay = EGL_NO_DISPLAY;
+	eglMakeCurrent(surf->egldisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	wl_surface_destroy(surf->wl_surface);
 	wl_proxy_destroy(surf->protocol);
-	eglMakeCurrent(surf->egldisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+
 }
 
 
@@ -48,8 +37,14 @@ appsurface_destroy_with_buffer(struct app_surface *surf)
 {
 	//buffer is not managed here, it has released signal, so we don't need
 	//to worry about it.
-	surf->wl_buffer[0] = surf->wl_buffer[1] = NULL;
-
+	for (int i = 0; i < 2; i++) {
+		//the wl_buffer itself is destroyed at shm_pool destructor
+		if (surf->wl_buffer[i]) {
+			shm_pool_buffer_free(surf->wl_buffer[i]);
+			surf->committed[i] = false;
+			surf->dirty[i] = false;
+		}
+	}
 	wl_surface_destroy(surf->wl_surface);
 	wl_proxy_destroy(surf->protocol);
 }
@@ -150,7 +145,6 @@ appsurface_fadc(struct app_surface *surf)
 void
 appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer)
 {
-//	fprintf(stderr, "buffer %p  released.\n", wl_buffer);
 	struct app_surface *appsurf = (struct app_surface *)data;
 //	fprintf(stderr, "the type of the surface is %s\n",
 //		(appsurf->type == APP_BACKGROUND) ? "background" : "panel");

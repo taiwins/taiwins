@@ -421,6 +421,7 @@ nk_egl_new_frame(struct nk_egl_backend *bkend)
 		bkend->post_cb(bkend->user_data);
 		bkend->post_cb = NULL;
 	}
+
 	bkend->ckey = XKB_KEY_NoSymbol;
 	bkend->cbtn = -1;
 }

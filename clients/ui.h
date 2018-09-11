@@ -175,7 +175,15 @@ void appsurface_init(struct app_surface *surf, struct app_surface *p,
 		     enum APP_SURFACE_TYPE type, struct wl_surface *wl_surface,
 		     struct wl_proxy *protocol);
 
-void appsurface_release(struct app_surface *surf);
+static inline void
+appsurface_release(struct app_surface *surf)
+{
+	surf->keycb = NULL;
+	surf->pointron = NULL;
+	surf->pointrbtn = NULL;
+	surf->pointraxis = NULL;
+	surf->destroy(surf);
+}
 /**
  * /brief assign wl_buffers to the appsurface, thus it initialize the double
  * buffer state and commit state

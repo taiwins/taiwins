@@ -16,6 +16,7 @@
 #include <wayland-taiwins-shell-client-protocol.h>
 #include <wayland-client.h>
 #include <sequential.h>
+#include "../config.h"
 #include "client.h"
 #include "egl.h"
 #include "nk_wl_egl.h"
@@ -104,8 +105,6 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, void *data)
 			 (struct wl_proxy *)widget_proxy);
 	nk_egl_launch(shell->widget_backend, &clicked->widget, clicked->draw_cb, clicked);
 }
-
-
 
 static void
 tw_background_configure(void *data,
@@ -222,9 +221,6 @@ release_shell_output(struct shell_output *w)
 	shm_pool_release(&w->pool);
 }
 
-static struct taiwins_shell_listener taiwins_listener = {
-	.configure = NULL
-};
 
 
 
@@ -344,7 +340,6 @@ void announce_globals(void *data,
 		fprintf(stderr, "shell registé\n");
 		twshell->shell = (struct taiwins_shell *)
 			wl_registry_bind(wl_registry, name, &taiwins_shell_interface, version);
-		taiwins_shell_add_listener(twshell->shell, &taiwins_listener, twshell);
 		shelloftaiwins = twshell->shell;
 	} else if (!strcmp(interface, tw_output_interface.name)) {
 		struct tw_output *tw_output =
