@@ -413,7 +413,7 @@ set_panel(struct wl_client *client,
 	set_surface(shell, surface, output, resource, commit_ui_surface, 0, 0);
 
 	taiwins_shell_send_configure(resource, wl_surface, output->scale, 0, //edge
-				     output->width, 16);
+				     output->width, 32);
 
 }
 
