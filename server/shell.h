@@ -29,14 +29,11 @@ struct wl_client *twshell_get_client(struct twshell *shell);
 
 void add_shell_bindings(struct weston_compositor *ec);
 
-/* this function is getting too many arguments */
-bool twshell_set_ui_surface(struct twshell *shell,
-			    struct weston_surface *surface, struct weston_output *output,
-			    struct wl_resource *wl_resource,
-			    int32_t x, int32_t y);
-
-void twshell_close_ui_surface(struct weston_surface *surface);
-
+void
+twshell_create_ui_elem(struct twshell *shell, struct wl_client *client,
+		       uint32_t tw_ui, struct wl_resource *wl_surface,
+		       struct wl_resource *tw_output,
+		       uint32_t x, uint32_t y, enum tw_ui_type type);
 
 #ifdef  __cplusplus
 }

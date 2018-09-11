@@ -27,62 +27,36 @@ struct twlauncher {
 	struct twshell *shell;
 	struct wl_shm_buffer *decision_buffer;
 	struct weston_surface *surface;
-	struct wl_listener close_listener;
-	struct wl_resource *callback;
-	unsigned int exec_id;
 };
 
 static struct twlauncher onelauncher;
 
-
-
 static void
-close_launcher_notify(struct wl_listener *listener, void *data)
+close_launcher(struct wl_client *client,
+		       struct wl_resource *resource,
+		       struct wl_resource *wl_buffer,
+		       uint32_t exec_id)
 {
-	struct twlauncher *lch = container_of(listener, struct twlauncher, close_listener);
-	twshell_close_ui_surface(lch->surface);
-	wl_list_remove(&lch->close_listener.link);
-}
-
-
-
-static void
-close_launcher(struct wl_client *client, struct wl_resource *resource,
-	       struct wl_resource *wl_buffer)
-{
-	struct weston_view *view;
 	struct twlauncher *lch = (struct twlauncher *)wl_resource_get_user_data(resource);
-	tw_lose_surface_focus(lch->surface);
 	lch->decision_buffer = wl_shm_buffer_get(wl_buffer);
-	struct weston_output *output = lch->surface->output;
-	wl_signal_add(&output->frame_signal, &lch->close_listener);
-	//okay, it has nothing to do with damaged view.
-	wl_list_for_each(view, &lch->surface->views, surface_link)
-		weston_view_damage_below(view);
-	weston_output_schedule_repaint(lch->surface->output);
-	wl_callback_send_done(lch->callback, lch->exec_id);
-	wl_resource_destroy(lch->callback);
+	taiwins_launcher_send_exec(resource, exec_id);
 }
 
 
 static void
-set_launcher(struct wl_client *client, struct wl_resource *resource,
-	     struct wl_resource *wl_surface,
-	     uint32_t exec_callback, uint32_t exec_id)
+set_launcher(struct wl_client *client,
+	     struct wl_resource *resource,
+	     uint32_t ui_elem,
+	     struct wl_resource *wl_surface)
 {
 	struct twlauncher *lch = wl_resource_get_user_data(resource);
+	twshell_create_ui_elem(lch->shell, client, ui_elem, wl_surface, NULL, 100, 100, TW_UI_TYPE_WIDGET);
 	lch->surface = tw_surface_from_resource(wl_surface);
-	lch->callback = wl_resource_create(client, &wl_callback_interface, 1, exec_callback);
-	lch->exec_id = exec_id;
-
-	twshell_set_ui_surface(lch->shell, lch->surface,
-			       tw_get_default_output(lch->compositor),
-			       resource, 100, 100);
 }
 
 
 static struct taiwins_launcher_interface launcher_impl = {
-	.set_launcher = set_launcher,
+	.launch = set_launcher,
 	.submit = close_launcher
 };
 
@@ -149,8 +123,6 @@ struct twlauncher *announce_twlauncher(struct weston_compositor *compositor,
 	onelauncher.resource = NULL;
 	onelauncher.compositor = compositor;
 	onelauncher.shell = shell;
-	wl_list_init(&onelauncher.close_listener.link);
-	onelauncher.close_listener.notify = close_launcher_notify;
 
 	wl_global_create(compositor->wl_display, &taiwins_launcher_interface, TWDESKP_VERSION, &onelauncher, bind_launcher);
 	weston_compositor_add_key_binding(compositor, KEY_P, 0, should_start_launcher, &onelauncher);

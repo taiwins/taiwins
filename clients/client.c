@@ -278,6 +278,7 @@ pointer_leave(void *data,
 	      uint32_t serial,
 	      struct wl_surface *surface)
 {
+	fprintf(stderr, "%p surface\n", surface);
 	struct wl_globals *globals = (struct wl_globals *)data;
 	globals->inputs.focused_surface = NULL;
 	globals->inputs.cursor_events = POINTER_LEAVE;
