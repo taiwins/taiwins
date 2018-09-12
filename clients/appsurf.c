@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "client.h"
 #include "ui.h"
 #include "egl.h"
@@ -9,8 +10,6 @@ appsurface_init(struct app_surface *surf, struct app_surface *p,
 		enum APP_SURFACE_TYPE type, struct wl_surface *wl_surface,
 		struct wl_proxy *protocol)
 {
-	*surf = (struct app_surface){0};
-
 	surf->type = type;
 	surf->parent = p;
 	surf->wl_surface = wl_surface;
@@ -25,10 +24,12 @@ appsurface_destroy_with_egl(struct app_surface *surf)
 	eglDestroySurface(surf->egldisplay, surf->eglsurface);
 	wl_egl_window_destroy(surf->eglwin);
 	surf->egldisplay = EGL_NO_DISPLAY;
-	eglMakeCurrent(surf->egldisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+//	eglMakeCurrent(surf->egldisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	wl_surface_destroy(surf->wl_surface);
 	wl_proxy_destroy(surf->protocol);
-
+	surf->eglwin = NULL;
+	surf->eglsurface = EGL_NO_SURFACE;
+	surf->destroy = NULL;
 }
 
 
@@ -43,10 +44,12 @@ appsurface_destroy_with_buffer(struct app_surface *surf)
 			shm_pool_buffer_free(surf->wl_buffer[i]);
 			surf->committed[i] = false;
 			surf->dirty[i] = false;
+			surf->wl_buffer[i] = NULL;
 		}
 	}
 	wl_surface_destroy(surf->wl_surface);
 	wl_proxy_destroy(surf->protocol);
+	surf->destroy = NULL;
 }
 
 void
@@ -80,6 +83,9 @@ appsurface_init_egl(struct app_surface *surf, struct egl_env *env)
 				       NULL);
 
 	surf->destroy = appsurface_destroy_with_egl;
+	assert(surf->eglsurface);
+	assert(surf->eglwin);
+
 }
 
 void

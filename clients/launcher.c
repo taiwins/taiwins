@@ -65,7 +65,8 @@ submit_launcher(void *data)
 	struct desktop_launcher *launcher = data;
 	taiwins_launcher_submit(launcher->interface, launcher->decision_buffer, launcher->exec_id);
 	nk_textedit_init_fixed(&launcher->text_edit, launcher->chars, 256);
-	appsurface_release(&launcher->surface);
+	nk_egl_close(launcher->bkend, &launcher->surface);
+//	appsurface_release(&launcher->surface);
 }
 
 
@@ -139,15 +140,22 @@ start_launcher(void *data,
 {
 	struct desktop_launcher *launcher = (struct desktop_launcher *)data;
 	struct app_surface *surface = &launcher->surface;
+	struct wl_surface *wl_surface = NULL;
 	struct tw_ui *ui;
 	surface->w = wl_fixed_to_int(width);
 	surface->h = wl_fixed_to_int(height);
 	surface->s = wl_fixed_to_int(scale);
-	ui = taiwins_launcher_launch(taiwins_launcher, launcher->surface.wl_surface);
-	launcher->surface.protocol = (struct wl_proxy *)ui;
+
+	wl_surface = wl_compositor_create_surface(launcher->globals.compositor);
+	ui = taiwins_launcher_launch(taiwins_launcher, wl_surface);
+
+	//TODO, use tw_ui element
+	appsurface_init(surface, NULL, APP_WIDGET,
+			wl_surface, ui);
+	appsurface_init_egl(&launcher->surface, &launcher->env);
+
 	//yeah, generally you will want a buffer from this
 
-	appsurface_init_egl(&launcher->surface, &launcher->env);
 	nk_egl_launch(launcher->bkend, &launcher->surface,
 		      draw_launcher, launcher);
 }
@@ -162,7 +170,7 @@ exec_application(void *data, struct taiwins_launcher *launcher, uint32_t id)
 	} else {
 		fprintf(stderr, "creating weston terminal");
 		//parsing the input and command buffer. Then do it
-		fork_exec(1, forks);
+//		fork_exec(1, forks);
 	}
 	desktop_launcher->exec_id++;
 }
@@ -186,10 +194,6 @@ init_launcher(struct desktop_launcher *launcher)
 							  sizeof(struct taiwins_decision_key),
 							  TAIWINS_LAUNCHER_CONF_NUM_DECISIONS);
 
-	struct wl_surface *wl_surface = wl_compositor_create_surface(launcher->globals.compositor);
-	//TODO, use tw_ui element
-	appsurface_init(&launcher->surface, NULL, APP_WIDGET,
-			wl_surface, NULL);
 	egl_env_init(&launcher->env, launcher->globals.display);
 	launcher->bkend = nk_egl_create_backend(&launcher->env);
 	nk_textedit_init_fixed(&launcher->text_edit, launcher->chars, 256);
