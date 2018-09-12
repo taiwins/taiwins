@@ -617,11 +617,7 @@ nk_egl_close(struct nk_egl_backend *bkend, struct app_surface *app_surface)
 {
 	if (!is_surfless_supported(bkend))
 		release_backend(bkend);
-	eglDestroySurface(bkend->env->egl_display,
-			  app_surface->eglsurface);
-	wl_egl_window_destroy(app_surface->eglwin);
-	app_surface->eglsurface = EGL_NO_SURFACE;
-	app_surface->eglwin = NULL;
+	appsurface_release(app_surface);
 	//reset the egl_surface
 	bkend->app_surface = NULL;
 	eglMakeCurrent(bkend->env->egl_display, NULL, NULL, NULL);
