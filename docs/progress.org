@@ -42,43 +42,48 @@
   - different layouting support
   - resize EGL windows.
   - compositing
-** [66%] server-side optimization
+** [33%] server-side optimization
 *** DONE singals for adding new output and seats
 *** TODO change the keyboard grab allowing the long pressing.
-*** DONE updated to libweston-5
+*** DOIN updated to libweston-5
+    - figure out the bug for libdrm backend.
 ** [33%] Configurations
 *** TODO styles, nuklear and other widget styles.
     - background color.
     - Font size, font selection.
 *** DONE keyboard callbacks, this writes to a buffer, apparently.
-*** TODO shortcuts `taiwins_zoom`, `taiwins_alpha`.
+*** TODO shortcuts `taiwins_zoom`, `taiwins_alpha`. Move them into ~config.h~
 
 ** [60%] libweston-desktop implementation                            :server:
 *** TODO implement the libweston-desktop protocol                     :proto:
 *** DONE desktop layer architecture
 *** DONE simple random floating implementation
 *** TODO tiling layout
-
-
 *** TODO client search buffer                                         :proto:
     for this to work, we probably will need ~radix tree~ or ~trie~ or hash
     table.
 *** DONE decoupling the desktop implementation                    :refactory:
 
-** [50%] client-side optimization
+** [57%] client-side optimization
 *** DONE switch to epoll on wl_display
     - possible solution :: maybe we can use epoll on wl_display, and add it to
 	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
 	 need another thread anymore.
 *** CANC resize EGL window
     I didn't do it eventually, using different wl_surface become a solution
-*** TODO shell panel refactoring
-    - easily create and destroy ~app_surface~.
-    - make icon a app_surface as well, so we do not need to create new buffer
-      for it?
-*** TODO fix the cursor input problem(maybe just forget about the cursor frame callback), what is this??
-** [0%] protocols                                                     :proto:
-*** TODO `tw_output` protocols to represent logical output
+*** DONE shell panel refactoring
+    replace the panel to nuklear implementation
+*** DONE fix the cursor input problem(maybe just forget about the cursor frame callback), what is this??
+*** TODO move the wl_cursor surface into shell?
+    Maybe I am wrong. I do need the cursor for every application.
+*** TODO widget surface launch code.
+*** TODO second widget, reading batteries
+*** TODO add another row for panel to have better look?
+** [0%] launcher optimization
+*** TODO allow launcher to quit instead of launch weston-terminal all the time
+*** TODO the real launcher implementation
+** [50%] protocols                                                    :proto:
+*** DONE `tw_output` protocols to represent logical output
 *** TODO `tw_desktop` output to recieve desktop events
 
 * Stage three: extensions
@@ -129,6 +134,14 @@
 
 
 * summarizing and planning
+** <2018-09-11 Tue>
+So this is the cycle of the big refactoring, today I am finally done. I switched
+panel implementation to ~nuklear~, so I am not no longer bothered by how to draw
+icons and widgets. I still need to create another sample widget though, I miss
+a function to launch the widget. So now I am ready, more confident on the client
+side, though there are many optimization work need to be done.
+
+
 ** <2018-08-28 Tue>
 taiwins has come to a point it can be used, maybe crash from time to time, ugly
 ui, but usable. I try to list all the functionanities that I can think of then
