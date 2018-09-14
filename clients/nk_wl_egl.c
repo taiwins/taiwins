@@ -167,6 +167,8 @@ assign_egl_surface(struct app_surface *app_surface, const struct egl_env *env)
 	assert(app_surface->eglsurface);
 	assert(eglMakeCurrent(env->egl_display, app_surface->eglsurface,
 			      app_surface->eglsurface, env->egl_context));
+	//TODO I am getting GL_INVALID_OPERATION on this, but eglMakeCurrent succeed.
+	glGetError();
 	glViewport(0, 0, app_surface->w, app_surface->h);
 	glScissor(0, 0, app_surface->w, app_surface->h);
 	/* EGLint value; */
