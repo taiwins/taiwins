@@ -27,9 +27,17 @@ struct twlauncher {
 	struct twshell *shell;
 	struct wl_shm_buffer *decision_buffer;
 	struct weston_surface *surface;
+	struct wl_listener close_launcher_listener;
 };
 
 static struct twlauncher onelauncher;
+
+void launcher_surface_destroy_cb(struct wl_listener *listener, void *data)
+{
+	struct twlauncher *launcher = container_of(listener, struct twlauncher, close_launcher_listener);
+	launcher->surface = NULL;
+}
+
 
 static void
 close_launcher(struct wl_client *client,
@@ -37,6 +45,7 @@ close_launcher(struct wl_client *client,
 		       struct wl_resource *wl_buffer,
 		       uint32_t exec_id)
 {
+	fprintf(stderr, "the launcher client is %p\n", client);
 	struct twlauncher *lch = (struct twlauncher *)wl_resource_get_user_data(resource);
 	lch->decision_buffer = wl_shm_buffer_get(wl_buffer);
 	taiwins_launcher_send_exec(resource, exec_id);
@@ -52,6 +61,7 @@ set_launcher(struct wl_client *client,
 	struct twlauncher *lch = wl_resource_get_user_data(resource);
 	twshell_create_ui_elem(lch->shell, client, ui_elem, wl_surface, NULL, 100, 100, TW_UI_TYPE_WIDGET);
 	lch->surface = tw_surface_from_resource(wl_surface);
+	wl_resource_add_destroy_listener(wl_surface, &lch->close_launcher_listener);
 }
 
 
@@ -64,7 +74,6 @@ static struct taiwins_launcher_interface launcher_impl = {
 static void
 unbind_launcher(struct wl_resource *r)
 {
-
 }
 
 
@@ -123,6 +132,8 @@ struct twlauncher *announce_twlauncher(struct weston_compositor *compositor,
 	onelauncher.resource = NULL;
 	onelauncher.compositor = compositor;
 	onelauncher.shell = shell;
+	wl_list_init(&onelauncher.close_launcher_listener.link);
+	onelauncher.close_launcher_listener.notify = launcher_surface_destroy_cb;
 
 	wl_global_create(compositor->wl_display, &taiwins_launcher_interface, TWDESKP_VERSION, &onelauncher, bind_launcher);
 	weston_compositor_add_key_binding(compositor, KEY_P, 0, should_start_launcher, &onelauncher);
