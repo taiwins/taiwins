@@ -18,7 +18,6 @@
 #include <wayland-egl.h>
 #include <stdbool.h>
 #include <cairo/cairo.h>
-#include <librsvg/rsvg.h>
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
