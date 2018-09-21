@@ -46,17 +46,19 @@ find_package(Wayland REQUIRED)
 find_package(Cairo REQUIRED)
 find_package(OpenGL REQUIRED COMPONENTS EGL OpenGL)
 find_package(Lua REQUIRED)
-find_package(LibRSVG REQUIRED)
+find_package(NVEGL)
+find_package(fontconfig REQUIRED)
+
 set(CMAKE_THREAD_PREFER_PTHREAD)
 find_package(Threads REQUIRED)
-#find_package(NVEGL)
-
-#if(NVEGL_FOUND)
-#  message("we are building with nvidia support")
-#  add_definitions(-D_WITH_NVIDIA)
-#endif(NVEGL_FOUND)
 
 
+if(NVEGL_FOUND)
+ message("we are building with nvidia support")
+ add_definitions(-D_WITH_NVIDIA)
+else()
+  message("we are building with mesa opengl")
+endif(NVEGL_FOUND)
 
 #####################################################################
 ################# setup the project variables #######################
@@ -69,6 +71,7 @@ set(COMPOSITOR_LIBRARIES
   ${WAYLAND_SERVER_LIBRARIES}
   ${XKBCOMMON_LIBRARIES}
   ${PIXMAN_LIBRARIES}
+  ${FONTCONFIG_LIBRARIES}
   )
 list(REMOVE_DUPLICATES COMPOSITOR_LIBRARIES)
 
@@ -78,6 +81,7 @@ set(COMPOSITOR_INCLUDE_DIRS
   ${XKBCOMMON_INCLUDE_DIRS}
   ${WAYLAND_SERVER_INCLUDE_DIR}
   ${PIXMAN_INCLUDE_DIRS}
+  ${FONTCONFIG_INCLUDE_DIR}
   )
 list(REMOVE_DUPLICATES COMPOSITOR_INCLUDE_DIRS)
 
@@ -96,8 +100,8 @@ set(CLIENT_INCLUDE_DIRS
   ${WAYLAND_CURSOR_INCLUDE_DIR}
   ${WAYLAND_EGL_INCLUDE_DIR}
   ${LUA_INCLUDE_DIR}
-  ${LibRSVG_INCLUDE_DIRS}
   ${PIXMAN_INCLUDE_DIRS}
+  ${FONTCONFIG_INCLUDE_DIR}
   )
 list(REMOVE_DUPLICATES CLIENT_INCLUDE_DIRS)
 
@@ -106,14 +110,12 @@ set(CLIENT_LIBRARIES
   ${WAYLAND_CLIENT_LIBRARIES}
   ${CAIRO_LIBRARIES}
   ${WAYLAND_EGL_LIBRARIES}
-  # OpenGL::EGL
-  # OpenGL::OpenGL
-  ${OPENGL_LIBRARIES}
-  ${OPENGL_egl_LIBRARY}
   ${LUA_LIBRARIES}
-  ${LibRSVG_LIBRARIES}
+  OpenGL::EGL
+  OpenGL::OpenGL
   Threads::Threads
   ${PIXMAN_LIBRARIES}
+  ${FONTCONFIG_LIBRARIES}
   )
 list(REMOVE_DUPLICATES CLIENT_LIBRARIES)
 

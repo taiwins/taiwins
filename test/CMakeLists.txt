@@ -1,8 +1,10 @@
+include(CTest)
+enable_testing()
+
 #test the features in this
 include_directories(
   ${CLIENT_INCLUDE_DIRS}
   ${PROTOCOLS_INCLUDE_DIR}
-#  ${WAYLAND_CURSOR_INCLUDE_DIR}
   )
 
 add_subdirectory(cursor)
@@ -68,5 +70,13 @@ add_executable(test_input
   )
 
 target_link_libraries(test_input
+  ${CLIENT_LIBRARIES}
+  )
+
+
+add_executable(test_fontconfig
+  test_fontconfig.c)
+
+target_link_libraries(test_fontconfig
   ${CLIENT_LIBRARIES}
   )
