@@ -28,7 +28,7 @@ does_ui_lose_keyboard(struct weston_keyboard *keyboard,
 {
 	struct twshell_ui *ui_elem = data;
 	struct weston_surface *surface = ui_elem->binded;
-	if (keyboard->focus != surface) {
+	if (keyboard->focus != surface && ui_elem->lose_keyboard) {
 		tw_ui_send_lose_input(ui_elem->resource, key);
 		weston_binding_destroy(ui_elem->lose_keyboard);
 		ui_elem->lose_keyboard = NULL;
@@ -42,9 +42,10 @@ does_ui_lose_pointer(struct weston_pointer *pointer,
 {
 	struct twshell_ui *ui_elem = data;
 	struct weston_surface *surface = ui_elem->binded;
-	if (pointer->focus != tw_default_view_from_surface(surface)) {
+	if (pointer->focus != tw_default_view_from_surface(surface) &&
+		ui_elem->lose_pointer) {
 		tw_ui_send_lose_input(ui_elem->resource, button);
-		weston_binding_destroy(ui_elem->lose_keyboard);
+		weston_binding_destroy(ui_elem->lose_pointer);
 		ui_elem->lose_pointer = NULL;
 	}
 }
@@ -56,7 +57,7 @@ does_ui_lose_touch(struct weston_touch *touch,
 	struct twshell_ui *ui_elem = data;
 	struct weston_view *view =
 		tw_default_view_from_surface(ui_elem->binded);
-	if (touch->focus != view) {
+	if (touch->focus != view && ui_elem->lose_touch) {
 		tw_ui_send_lose_input(ui_elem->resource, 0);
 		weston_binding_destroy(ui_elem->lose_touch);
 		ui_elem->lose_touch = NULL;

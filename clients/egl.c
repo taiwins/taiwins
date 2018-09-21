@@ -1,5 +1,6 @@
 #include <time.h>
 #include <assert.h>
+#include <string.h>
 
 #ifdef _WITH_NVIDIA
 #include <eglexternalplatform.h>
@@ -22,8 +23,8 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
-#include "nk_wl_egl.h"
 #include "client.h"
+#include "egl.h"
 
 
 /*
@@ -117,43 +118,39 @@ egl_env_end(struct egl_env *env)
 }
 
 
+void *
+egl_get_egl_proc_address(const char *address)
+{
+	const char *extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
+	if (extensions &&
+	    (strstr(extensions, "EGL_EXT_platform_wayland") ||
+	     strstr(extensions, "EGL_KHR_platform_wayland"))) {
+		return (void *)eglGetProcAddress(address);
+	}
+	return NULL;
+}
 
 
+EGLSurface
+egl_create_platform_surface(EGLDisplay dpy, EGLConfig config,
+			    void *native_window,
+			    const EGLint *attrib_list)
+{
+	static PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC
+		create_platform_window = NULL;
 
-///////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////Lua C callbacks////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////
+	if (!create_platform_window) {
+		create_platform_window = (PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC)
+	    egl_get_egl_proc_address(
+		"eglCreatePlatformWindowSurfaceEXT");
+	}
 
-//lua uses this to render svg to the surface, so lua can use it
-/* static int */
-/* egl_load_svg(lua_State *L) */
-/* { */
-/*	struct eglapp **ptr, *app; */
-/*	const char *string; */
-/*	//lua call this with (eglapp, function) */
-/*	int nargs = lua_gettop(L); */
-/*	ptr = lua_touserdata(L, -2); */
-/*	string = lua_tostring(L, -1); */
+	if (create_platform_window)
+		return create_platform_window(dpy, config,
+					      native_window,
+					      attrib_list);
 
-/*	app = *ptr; */
-/*	RsvgHandle *handle = rsvg_handle_new_from_file(string, NULL); */
-/*	rsvg_handle_render_cairo(handle, app->icon.ctxt); */
-/*	rsvg_handle_close(handle, NULL); */
-
-/*	return 0; */
-/*	//then afterwords, we should have panel to use it. */
-/* } */
-
-//it can be a callback
-
-//this function is used for lua code to actively update the icon
-/* static int */
-/* lua_eglapp_update_icon(lua_State *L) */
-/* { */
-/*	struct eglapp **ptr, *app; */
-/* //	const char *string; */
-/*	ptr = lua_touserdata(L, -1); */
-/*	app = *ptr; */
-/* } */
-
-//create an example application, calendar
+	return eglCreateWindowSurface(dpy, config,
+				      (EGLNativeWindowType) native_window,
+				      attrib_list);
+}

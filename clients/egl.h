@@ -23,7 +23,6 @@ struct egl_env {
 bool egl_env_init(struct egl_env *env, struct wl_display *disp);
 void egl_env_end(struct egl_env *env);
 
-
 #ifdef __cplusplus
 }
 #endif
