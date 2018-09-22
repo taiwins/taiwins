@@ -17,6 +17,7 @@
 #include <wayland-client.h>
 #include <sequential.h>
 
+#include "../config.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -29,25 +30,8 @@ struct app_style {
 	int32_t background;
 	int32_t foreground;
 	int32_t fnt_pt;
-	//other stuff like
-	//button color, something like button color for example
 };
 
-static inline int
-font_pt2px(int pt_size, int ppi)
-{
-	if (ppi < 0)
-		ppi = 96;
-	return (int) (ppi / 72.0 * pt_size);
-}
-
-static inline int
-font_px2pt(int px_size, int ppi)
-{
-	if (ppi < 0)
-		ppi = 96;
-	return (int) (72.0 * px_size / ppi);
-}
 
 unsigned char *load_image(const char *path, const enum wl_shm_format wlformat,
 	   int width, int height, unsigned char *data);
@@ -93,15 +77,6 @@ enum APP_SURFACE_TYPE {
 	APP_PANEL,
 	APP_WIDGET,
 	APP_LOCKER,
-};
-
-//we need also the modifier enum
-enum modifier_mask {
-	TW_NOMOD = 0,
-	TW_ALT = 1,
-	TW_CTRL = 2,
-	TW_SUPER = 4,
-	TW_SHIFT = 8,
 };
 
 enum taiwins_btn_t {
