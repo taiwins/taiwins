@@ -61,7 +61,21 @@ else()
 endif(NVEGL_FOUND)
 
 #####################################################################
+############################# configs ###############################
+#####################################################################
+add_library(taiwins_config STATIC
+  config.c)
+
+target_link_libraries(taiwins_config
+  ${FONTCONFIG_LIBRARIES}
+  m
+  )
+
+
+#####################################################################
 ################# setup the project variables #######################
+#####################################################################
+
 add_subdirectory("3rdparties/ctypes")
 add_subdirectory("3rdparties/nuklear")
 

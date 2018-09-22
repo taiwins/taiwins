@@ -21,7 +21,7 @@
 
 #include "client.h"
 #include "ui.h"
-
+#include "../config.h"
 
 ////////////////////////////wayland listeners///////////////////////////
 
@@ -62,30 +62,6 @@ static struct wl_shm_listener shm_listener = {
 };
 
 
-static uint32_t
-kc_linux2xkb(uint32_t kc_linux)
-{
-	//this should only work on x11, but very weird it works all the time
-	return kc_linux+8;
-}
-
-
-static uint32_t
-modifier_mask_from_xkb_state(struct xkb_state *state)
-{
-	uint32_t mask = TW_NOMOD;
-	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE))
-		mask |= TW_ALT;
-	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE))
-		mask |= TW_CTRL;
-	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_EFFECTIVE))
-		mask |= TW_SUPER;
-	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE))
-		mask |= TW_SHIFT;
-	return mask;
-}
-
-
 static void
 handle_key(void *data,
 	   struct wl_keyboard *wl_keyboard,
@@ -98,7 +74,7 @@ handle_key(void *data,
 	xkb_keycode_t keycode = kc_linux2xkb(key);
 	xkb_keysym_t  keysym  = xkb_state_key_get_one_sym(globals->inputs.kstate,
 							  keycode);
-	uint32_t modifier = modifier_mask_from_xkb_state(globals->inputs.kstate);
+	uint32_t modifier = tw_mod_mask_from_xkb_state(globals->inputs.kstate);
 
 	globals->inputs.serial = serial;
 	/* char keyname[100]; */

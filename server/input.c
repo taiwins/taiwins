@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <compositor.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
@@ -102,15 +103,15 @@ static struct tw_keymap_tree root_keybinding = {
 #define node2treekeymap(ptr)	container_of(ptr, struct tw_keymap_tree, node)
 
 
-static uint32_t
+static inline xkb_keycode_t
 kc_linux2xkb(uint32_t kc_linux)
 {
 	//this should only work on x11, but very weird it works all the time
 	return kc_linux+8;
 }
 
-static uint32_t
-kc_xkb2linux(uint32_t kc_xkb)
+static inline uint32_t
+kc_xkb2linux(xkb_keycode_t kc_xkb)
 {
 	return kc_xkb-8;
 }

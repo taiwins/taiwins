@@ -8,9 +8,14 @@
 #ifndef TW_CONFIG_H
 #define TW_CONFIG_H
 
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <fontconfig/fontconfig.h>
+#include <xkbcommon/xkbcommon.h>
+#include <xkbcommon/xkbcommon-names.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
+#include <wayland-util.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,8 +34,9 @@ struct tw_rgba_t {
 	uint8_t r,g,b,a;
 };
 
-/* we need to be careful about what to put here */
-
+/*****************************************************************/
+/*                            theme                              */
+/*****************************************************************/
 
 /* the simpler version of style config, it is not gonna be as fancy as
  * nuklear(supporting nk_style_time(image or color) for all gui elements), but
@@ -39,17 +45,103 @@ struct tw_rgba_t {
 struct taiwins_theme {
 	uint32_t row_size; //this defines the text size as well
 	struct tw_rgba_t text_color;
+	struct tw_rgba_t text_active_color;
+	struct tw_rgba_t text_hover_acolor;
+
 	struct tw_rgba_t gui_color;
 	struct tw_rgba_t gui_active_color;
-	struct tw_rgba_t hover_color;
+	struct tw_rgba_t gui_hover_color;
 	struct tw_rgba_t border_color;
 	//these will be replaced by the font_file eventually
-	char taiwins_ascii_font[256];
-	char taiwins_icons_font[256];
-	char taiwins_cjk_font[256];
+	char ascii_font[256];
+	char icons_font[256];
+	char cjk_font[256];
 };
 
-bool taiwins_validate_theme(const struct taiwins_theme *);
+/**
+ * this function exams the theme(color and fonts are valid and do some convert)
+ */
+bool taiwins_validate_theme(struct taiwins_theme *);
+
+
+static inline int
+tw_font_pt2px(int pt_size, int ppi)
+{
+	if (ppi < 0)
+		ppi = 96;
+	return (int) (ppi / 72.0 * pt_size);
+}
+
+static inline int
+tw_font_px2pt(int px_size, int ppi)
+{
+	if (ppi < 0)
+		ppi = 96;
+	return (int) (72.0 * px_size / ppi);
+}
+
+
+
+/*****************************************************************/
+/*                           binding                             */
+/*****************************************************************/
+enum taiwins_modifier_mask {
+	TW_NOMOD = 0,
+	TW_ALT = 1,
+	TW_CTRL = 2,
+	TW_SUPER = 4,
+	TW_SHIFT = 8,
+};
+
+struct taiwins_keypress {
+	struct wl_list link;
+	xkb_keycode_t keycode;
+	enum taiwins_modifier_mask mod;
+};
+
+struct taiwins_btnpress {
+	uint32_t btn;
+	enum taiwins_modifier_mask mod;
+};
+
+
+struct taiwins_binding {
+	union {
+		struct taiwins_keypress keypress;
+		struct taiwins_btnpress btnpress;
+	};
+	//we need a generalized run-binding, this can be later
+};
+
+static inline xkb_keycode_t
+kc_linux2xkb(uint32_t kc_linux)
+{
+	//this should only work on x11, but very weird it works all the time
+	return kc_linux+8;
+}
+
+static inline uint32_t
+kc_xkb2linux(xkb_keycode_t kc_xkb)
+{
+	return kc_xkb-8;
+}
+
+
+static inline uint32_t
+tw_mod_mask_from_xkb_state(struct xkb_state *state)
+{
+	uint32_t mask = TW_NOMOD;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_ALT;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_CTRL;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_SUPER;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_SHIFT;
+	return mask;
+}
+
 
 #ifdef __cplusplus
 }
