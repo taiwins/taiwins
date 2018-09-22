@@ -64,7 +64,6 @@ target_link_libraries(test_pixman
   ${CLIENT_LIBARARIES})
 
 
-
 add_executable(test_input
   test-input_nosurface.c
   )
