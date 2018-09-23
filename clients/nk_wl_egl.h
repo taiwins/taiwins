@@ -36,6 +36,7 @@ extern "C" {
 //okay, hide it
 struct app_surface;
 struct nk_egl_backend;
+struct taiwins_theme;
 
 typedef void (*nk_egl_draw_func_t)(struct nk_context *ctx, float width, float height, void *data);
 typedef void (*nk_egl_postcall_t)(void *userdata);
@@ -49,15 +50,16 @@ void nk_egl_launch(struct nk_egl_backend *bkend, struct app_surface *app,
 		   nk_egl_draw_func_t draw_func, void *data);
 void nk_egl_close(struct nk_egl_backend *bkend, struct app_surface *app_surface);
 
+bool nk_egl_set_theme(struct nk_egl_backend *bkend, struct taiwins_theme *theme);
+
 //tell the nk_egl_backend to run a specific task after the the rendering,
 //provides also an option to clean up the state as well, it get's cleaned after evaluated.
 void nk_egl_add_idle(struct nk_context *ctx,
 		     void (*task)(void *user_data));
 
 
-//yeah, we can do in this way, but we can also
+/* these two calls are not necessary */
 xkb_keysym_t nk_egl_get_keyinput(struct nk_context *ctx);
-//this call back writes the framebuffer to a image file.
 bool nk_egl_get_btn(struct nk_context *ctx, enum nk_buttons *btn, uint32_t *sx, uint32_t *sy);
 
 
