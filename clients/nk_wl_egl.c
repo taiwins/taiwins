@@ -12,6 +12,8 @@
 #include <wayland-egl.h>
 #include <wayland-client.h>
 #include "client.h"
+//for the configurations
+#include "../config.h"
 //pull in the nuklear headers so we can access eglapp
 
 #define NK_IMPLEMENTATION
@@ -32,7 +34,7 @@
 struct nk_egl_vertex {
 	float position[2];
 	float uv[2];
-	float col[4];
+	nk_byte col[4];
 };
 
 //define the globals
@@ -41,7 +43,7 @@ static const struct nk_draw_vertex_layout_element vertex_layout[] = {
 	 NK_OFFSETOF(struct nk_egl_vertex, position)},
 	{NK_VERTEX_TEXCOORD, NK_FORMAT_FLOAT,
 	 NK_OFFSETOF(struct nk_egl_vertex, uv)},
-	{NK_VERTEX_COLOR, NK_FORMAT_R32G32B32A32_FLOAT,
+	{NK_VERTEX_COLOR, NK_FORMAT_B8G8R8A8,
 	 NK_OFFSETOF(struct nk_egl_vertex, col)},
 	{NK_VERTEX_LAYOUT_END}
 };
@@ -54,7 +56,6 @@ static char *nk_ctx_buffer = NULL;
  * our needs, if the size is too small, we will run into `nk_mem_alloc`
  * failed. If we are giving too much memory, it is then a certain waste. 16Mb is
  * the sweat spot that most widgets will fit */
-
 
 /**
  * @brief nk_egl_backend
@@ -96,16 +97,21 @@ struct nk_egl_backend {
 	GLint uniform_proj;
 	//attribute inside
 	struct nk_context ctx;
-	//ctx has all the information, vertex info, we are not supposed to bake it
+
 	struct nk_buffer cmds;
 	struct nk_draw_null_texture null;
 	struct nk_font_atlas atlas;
+	//themes
+	struct taiwins_theme theme;
+	//we do not want to put the color information here, so we must have a
+	//hack
 
 	//up-to-date information
 	nk_egl_draw_func_t frame;
 	nk_egl_postcall_t post_cb;
 	size_t width, height;
 	struct nk_vec2 fb_scale;
+	size_t row_size;
 
 	struct {
 		xkb_keysym_t ckey; //cleaned up every frame
@@ -125,6 +131,44 @@ static struct nk_convert_config nk_config = {
 
 
 /*********** static implementations *********/
+static void
+nk_egl_apply_color(struct nk_egl_backend *bkend)
+{
+	if (bkend->theme.row_size == 0)
+		return;
+	struct nk_color table[NK_COLOR_COUNT];
+	table[NK_COLOR_TEXT] = nk_rgba(70, 70, 70, 255);
+	table[NK_COLOR_WINDOW] = nk_rgba(175, 175, 175, 255);
+	table[NK_COLOR_HEADER] = nk_rgba(175, 175, 175, 255);
+	table[NK_COLOR_BORDER] = nk_rgba(0, 0, 0, 255);
+	table[NK_COLOR_BUTTON] = nk_rgba(185, 185, 185, 255);
+	table[NK_COLOR_BUTTON_HOVER] = nk_rgba(170, 170, 170, 255);
+	table[NK_COLOR_BUTTON_ACTIVE] = nk_rgba(160, 160, 160, 255);
+	table[NK_COLOR_TOGGLE] = nk_rgba(150, 150, 150, 255);
+	table[NK_COLOR_TOGGLE_HOVER] = nk_rgba(120, 120, 120, 255);
+	table[NK_COLOR_TOGGLE_CURSOR] = nk_rgba(175, 175, 175, 255);
+	table[NK_COLOR_SELECT] = nk_rgba(190, 190, 190, 255);
+	table[NK_COLOR_SELECT_ACTIVE] = nk_rgba(175, 175, 175, 255);
+	table[NK_COLOR_SLIDER] = nk_rgba(190, 190, 190, 255);
+	table[NK_COLOR_SLIDER_CURSOR] = nk_rgba(80, 80, 80, 255);
+	table[NK_COLOR_SLIDER_CURSOR_HOVER] = nk_rgba(70, 70, 70, 255);
+	table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = nk_rgba(60, 60, 60, 255);
+	table[NK_COLOR_PROPERTY] = nk_rgba(175, 175, 175, 255);
+	table[NK_COLOR_EDIT] = nk_rgba(150, 150, 150, 255);
+	table[NK_COLOR_EDIT_CURSOR] = nk_rgba(0, 0, 0, 255);
+	table[NK_COLOR_COMBO] = nk_rgba(175, 175, 175, 255);
+	table[NK_COLOR_CHART] = nk_rgba(160, 160, 160, 255);
+	table[NK_COLOR_CHART_COLOR] = nk_rgba(45, 45, 45, 255);
+	table[NK_COLOR_CHART_COLOR_HIGHLIGHT] = nk_rgba( 255, 0, 0, 255);
+	table[NK_COLOR_SCROLLBAR] = nk_rgba(180, 180, 180, 255);
+	table[NK_COLOR_SCROLLBAR_CURSOR] = nk_rgba(140, 140, 140, 255);
+	table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = nk_rgba(150, 150, 150, 255);
+	table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(160, 160, 160, 255);
+	table[NK_COLOR_TAB_HEADER] = nk_rgba(180, 180, 180, 255);
+	nk_style_from_table(&bkend->ctx, table);
+}
+
+
 static struct nk_font*
 nk_egl_prepare_font(struct nk_egl_backend *bkend)
 {
@@ -135,8 +179,19 @@ nk_egl_prepare_font(struct nk_egl_backend *bkend)
 
 	nk_font_atlas_init_default(&bkend->atlas);
 	nk_font_atlas_begin(&bkend->atlas);
-	//now we are using default font, latter we will switch to font-config to
-	font = nk_font_atlas_add_default(&bkend->atlas, 16.0, &cfg);
+
+	char *fonts[MAX_FONTS];
+	size_t n_fonts = tw_theme_extract_fonts(&bkend->theme, fonts);
+	if (n_fonts == 0)
+		font = nk_font_atlas_add_default(&bkend->atlas, 16.0, &cfg);
+	else {
+		n_fonts = (n_fonts > 3) ? 3: n_fonts;
+		for (int i = 0; i < n_fonts; i++) {
+			nk_font_atlas_add_from_file(
+				&bkend->atlas, fonts[i],
+				tw_font_px2pt(bkend->row_size, 92), 0);
+		}
+	}
 	image = nk_font_atlas_bake(&bkend->atlas, &w, &h, NK_FONT_ATLAS_RGBA32);
 	//upload to the texture
 	glGenTextures(1, &bkend->font_tex);
@@ -146,6 +201,7 @@ nk_egl_prepare_font(struct nk_egl_backend *bkend)
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)w, (GLsizei)h, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	nk_font_atlas_end(&bkend->atlas, nk_handle_id(bkend->font_tex), &bkend->null);
+	//I should be able to free the image here?
 	return font;
 }
 
@@ -165,19 +221,13 @@ static inline void
 assign_egl_surface(struct app_surface *app_surface, const struct egl_env *env)
 {
 	assert(app_surface->eglsurface);
+	//TODO on Nvidia driver, I am getting GL_INVALID_OPERATION on this, but
+	//eglMakeCurrent succeed, a hack to make Nvidia happy
 	assert(eglMakeCurrent(env->egl_display, app_surface->eglsurface,
 			      app_surface->eglsurface, env->egl_context));
-	//TODO on Nvidia driver, I am getting GL_INVALID_OPERATION on this, but
-	//eglMakeCurrent succeed, this is a work around to remove all the error
-	//we have so far.
 	glGetError();
 	glViewport(0, 0, app_surface->w, app_surface->h);
 	glScissor(0, 0, app_surface->w, app_surface->h);
-	/* EGLint value; */
-	/* eglQueryContext(env->egl_display, env->egl_context, EGL_RENDER_BUFFER, &value); */
-	/* printf("\nEGL_Render_buffer%d\n", value); */
-	/* eglQuerySurface(env->egl_display, app_surface->eglsurface, EGL_RENDER_BUFFER, &value); */
-	/* printf("\n surface EGL_Render_buffer%d\n", value); */
 }
 
 static bool
@@ -277,7 +327,7 @@ compile_backend(struct nk_egl_backend *bkend, struct app_surface *app_surface)
 	glEnableVertexAttribArray(bkend->attrib_uv);
 	glVertexAttribPointer(bkend->attrib_uv, 2, GL_FLOAT, GL_FALSE, stride, (void *)vt);
 	glEnableVertexAttribArray(bkend->attrib_col);
-	glVertexAttribPointer(bkend->attrib_col, 4, GL_FLOAT, GL_FALSE, stride, (void *)vc);
+	glVertexAttribPointer(bkend->attrib_col, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride, (void *)vc);
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -290,7 +340,7 @@ compile_backend(struct nk_egl_backend *bkend, struct app_surface *app_surface)
 	nk_init_fixed(&bkend->ctx, nk_ctx_buffer, NK_MAX_CTX_MEM, &font->handle);
 	nk_buffer_init_fixed(&bkend->cmds, cmd_buffer_data, sizeof(cmd_buffer_data));
 	nk_buffer_clear(&bkend->cmds);
-
+	nk_egl_apply_color(bkend);
 	return true;
 }
 
@@ -535,6 +585,7 @@ nk_pointraxis(struct app_surface *surf, int pos, int direction, uint32_t sx, uin
 }
 
 
+
 static void
 release_backend(struct nk_egl_backend *bkend)
 {
@@ -633,6 +684,14 @@ nk_egl_destroy_backend(struct nk_egl_backend *bkend)
 {
 	release_backend(bkend);
 	free(bkend);
+}
+
+bool
+nk_egl_set_theme(struct nk_egl_backend *bkend, struct taiwins_theme *theme)
+{
+	/* if (!tw_validate_theme(theme)) */
+	/*	return false; */
+	bkend->theme = *theme;
 }
 
 

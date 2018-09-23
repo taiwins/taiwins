@@ -23,6 +23,8 @@ extern "C" {
 /* we define this stride to work with WL_SHM_FORMAT_ARGB888 */
 #define DECISION_STRIDE 32
 #define NUM_DECISIONS 500
+#define MAX_PATH_LEN 256
+#define MAX_FONTS 3
 
 struct taiwins_decision_key {
 	char app_name[128];
@@ -46,22 +48,29 @@ struct taiwins_theme {
 	uint32_t row_size; //this defines the text size as well
 	struct tw_rgba_t text_color;
 	struct tw_rgba_t text_active_color;
-	struct tw_rgba_t text_hover_acolor;
+	struct tw_rgba_t text_hover_color;
 
 	struct tw_rgba_t gui_color;
 	struct tw_rgba_t gui_active_color;
 	struct tw_rgba_t gui_hover_color;
 	struct tw_rgba_t border_color;
-	//these will be replaced by the font_file eventually
-	char ascii_font[256];
-	char icons_font[256];
-	char cjk_font[256];
+
+	//we may need to extend this later
+	char ascii_font[MAX_PATH_LEN];
+	char icons_font[MAX_PATH_LEN];
+	char cjk_font[MAX_PATH_LEN];
 };
+
+
+extern const struct taiwins_theme taiwins_dark_theme;
+extern const struct taiwins_theme taiwins_light_theme;
 
 /**
  * this function exams the theme(color and fonts are valid and do some convert)
  */
-bool taiwins_validate_theme(struct taiwins_theme *);
+bool tw_validate_theme(struct taiwins_theme *);
+size_t tw_theme_extract_fonts(struct taiwins_theme *, char *fonts[MAX_FONTS]);
+
 
 
 static inline int

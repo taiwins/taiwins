@@ -54,7 +54,7 @@ validate_theme_colors(struct taiwins_theme *theme)
 	//make sure they are distinguishable
 	float ctext_orig = rgb2grayscale(&theme->text_color);
 	float ctext_active = rgb2grayscale(&theme->text_active_color);
-	float ctext_hover = rgb2grayscale(&theme->text_hover_acolor);
+	float ctext_hover = rgb2grayscale(&theme->text_hover_color);
 
 	float cgui_orig = rgb2grayscale(&theme->gui_color);
 	float cgui_active = rgb2grayscale(&theme->gui_active_color);
@@ -73,13 +73,61 @@ validate_theme_colors(struct taiwins_theme *theme)
 		if (fabs(text_guis[i].l - text_guis[i].r) < 0.3)
 			return false;
 
-	return (fabs(ctext_orig - ctext_active) >= 0.3) &&
-		(fabs(cgui_orig - cgui_active) >= 0.3);
+	return (fabs(cgui_orig - cgui_active) >= 0.1);
 }
 
 
 bool
-taiwins_validate_theme(struct taiwins_theme *theme)
+tw_validate_theme(struct taiwins_theme *theme)
 {
 	return validate_theme_colors(theme) && validate_theme_font(theme);
 }
+
+size_t
+tw_theme_extract_fonts(struct taiwins_theme *theme, char *fonts[MAX_FONTS])
+{
+	size_t fidx = 0;
+	if (*theme->ascii_font)
+		fonts[fidx++] = theme->ascii_font;
+
+	if (*theme->cjk_font &&
+	    strcmp(theme->cjk_font, theme->ascii_font))
+		fonts[fidx++] = theme->cjk_font;
+
+	if (*theme->icons_font &&
+	    strcmp(theme->icons_font, theme->ascii_font) &&
+	    strcmp(theme->icons_font, theme->cjk_font))
+		fonts[fidx++] = theme->icons_font;
+
+	return fidx;
+}
+
+
+
+
+const struct taiwins_theme taiwins_dark_theme = {
+	.row_size = 24,
+	.text_color = {
+		.r = 210, .g = 210, .b = 210, .a = 255,
+	},
+	.text_active_color = {
+		.r = 40, .g = 28, .b = 61, .a=255,
+	},
+	.text_hover_color = {
+		.r = 40, .g = 28, .b = 61, .a=255,
+	},
+	.gui_color = {
+		.r = 48, .g=67, .b = 71, .a=255,
+	},
+	.gui_active_color = {
+		.r = 49, .g=59, .b = 62, .a=255,
+	},
+	.gui_hover_color = {
+		.r = 53, .g=62, .b=66, .a=255
+	},
+};
+
+
+const struct taiwins_theme taiwins_light_theme = {
+
+};
