@@ -10,6 +10,7 @@
 #include "ui.h"
 #include "client.h"
 #include "nk_wl_egl.h"
+#include "../config.h"
 
 
 //create a egl ui
@@ -120,6 +121,10 @@ struct wl_shell_surface_listener pingpong = {
 	.popup_done = handle_popup_done
 };
 
+
+
+/* okay we are gonna try to set the theme for nuklear */
+
 int main(int argc, char *argv[])
 {
 	/* const char *wayland_socket = getenv("WAYLAND_SOCKET"); */
@@ -157,6 +162,8 @@ int main(int argc, char *argv[])
 	App.surface.s = 1;
 
 	App.bkend = nk_egl_create_backend(&App.env);
+	struct taiwins_theme theme = taiwins_dark_theme;
+	nk_egl_set_theme(App.bkend, &theme);
 
 	appsurface_init_egl(&App.surface, &App.env);
 
