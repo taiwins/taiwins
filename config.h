@@ -36,6 +36,12 @@ struct tw_rgba_t {
 	uint8_t r,g,b,a;
 };
 
+struct widget_colors {
+	struct tw_rgba_t normal;
+	struct tw_rgba_t hover;
+	struct tw_rgba_t active;
+};
+
 /*****************************************************************/
 /*                            theme                              */
 /*****************************************************************/
@@ -46,19 +52,25 @@ struct tw_rgba_t {
  */
 struct taiwins_theme {
 	uint32_t row_size; //this defines the text size as well
-	struct tw_rgba_t text_color;
-	struct tw_rgba_t text_active_color;
-	struct tw_rgba_t text_hover_color;
-
-	struct tw_rgba_t gui_color;
-	struct tw_rgba_t gui_active_color;
-	struct tw_rgba_t gui_hover_color;
+	struct tw_rgba_t window_color;
 	struct tw_rgba_t border_color;
+	//text colors
+	struct tw_rgba_t text_color; //text_edit_cursor as well
+	struct tw_rgba_t text_active_color;
+	//widget color
+	struct widget_colors button;
+	struct widget_colors toggle;
+	struct widget_colors select;
+	struct tw_rgba_t slider_bg_color;
+	struct widget_colors slider;
+	struct widget_colors chart;
+	struct tw_rgba_t combo_color;
 
 	//we may need to extend this later
 	char ascii_font[MAX_PATH_LEN];
 	char icons_font[MAX_PATH_LEN];
 	char cjk_font[MAX_PATH_LEN];
+	//there could other fonts, but hope not so many
 };
 
 

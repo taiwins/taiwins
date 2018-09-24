@@ -165,7 +165,7 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 			widget->set_event_cb(widget,
 					     output->panel_backend,
 					     &shell->client_event_queue);
-
+	nk_egl_set_theme(output->panel_backend, &taiwins_dark_theme);
 	appsurface_init_egl(panel, &shell->eglenv);
 	nk_egl_launch(output->panel_backend, panel, shell_panel_frame, output);
 
