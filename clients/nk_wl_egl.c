@@ -43,7 +43,7 @@ static const struct nk_draw_vertex_layout_element vertex_layout[] = {
 	 NK_OFFSETOF(struct nk_egl_vertex, position)},
 	{NK_VERTEX_TEXCOORD, NK_FORMAT_FLOAT,
 	 NK_OFFSETOF(struct nk_egl_vertex, uv)},
-	{NK_VERTEX_COLOR, NK_FORMAT_B8G8R8A8,
+	{NK_VERTEX_COLOR, NK_FORMAT_R8G8B8A8,
 	 NK_OFFSETOF(struct nk_egl_vertex, col)},
 	{NK_VERTEX_LAYOUT_END}
 };
@@ -103,6 +103,7 @@ struct nk_egl_backend {
 	struct nk_font_atlas atlas;
 	//themes
 	struct taiwins_theme theme;
+	struct nk_colorf main_color;
 	//we do not want to put the color information here, so we must have a
 	//hack
 
@@ -121,14 +122,6 @@ struct nk_egl_backend {
 	};
 };
 
-/*
-static struct nk_convert_config nk_config = {
-	.vertex_layout = vertex_layout,
-	.vertex_size = sizeof(struct egl_nk_vertex),
-	.vertex_alignment = NK_ALIGNOF(struct egl_nk_vertex),
-};
-*/
-
 
 /*********** static implementations *********/
 static void
@@ -136,35 +129,40 @@ nk_egl_apply_color(struct nk_egl_backend *bkend)
 {
 	if (bkend->theme.row_size == 0)
 		return;
+	//TODO this is a shitty hack, somehow the first draw call did not work, we
+	//have to hack it in the background color
+	bkend->main_color = (struct nk_colorf){
+		57.0/255.0, 67.0/255.0, 71.0/255.0, 215.0/255.0
+	};
 	struct nk_color table[NK_COLOR_COUNT];
-	table[NK_COLOR_TEXT] = nk_rgba(70, 70, 70, 255);
-	table[NK_COLOR_WINDOW] = nk_rgba(175, 175, 175, 255);
-	table[NK_COLOR_HEADER] = nk_rgba(175, 175, 175, 255);
-	table[NK_COLOR_BORDER] = nk_rgba(0, 0, 0, 255);
-	table[NK_COLOR_BUTTON] = nk_rgba(185, 185, 185, 255);
-	table[NK_COLOR_BUTTON_HOVER] = nk_rgba(170, 170, 170, 255);
-	table[NK_COLOR_BUTTON_ACTIVE] = nk_rgba(160, 160, 160, 255);
-	table[NK_COLOR_TOGGLE] = nk_rgba(150, 150, 150, 255);
-	table[NK_COLOR_TOGGLE_HOVER] = nk_rgba(120, 120, 120, 255);
-	table[NK_COLOR_TOGGLE_CURSOR] = nk_rgba(175, 175, 175, 255);
-	table[NK_COLOR_SELECT] = nk_rgba(190, 190, 190, 255);
-	table[NK_COLOR_SELECT_ACTIVE] = nk_rgba(175, 175, 175, 255);
-	table[NK_COLOR_SLIDER] = nk_rgba(190, 190, 190, 255);
-	table[NK_COLOR_SLIDER_CURSOR] = nk_rgba(80, 80, 80, 255);
-	table[NK_COLOR_SLIDER_CURSOR_HOVER] = nk_rgba(70, 70, 70, 255);
-	table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = nk_rgba(60, 60, 60, 255);
-	table[NK_COLOR_PROPERTY] = nk_rgba(175, 175, 175, 255);
-	table[NK_COLOR_EDIT] = nk_rgba(150, 150, 150, 255);
-	table[NK_COLOR_EDIT_CURSOR] = nk_rgba(0, 0, 0, 255);
-	table[NK_COLOR_COMBO] = nk_rgba(175, 175, 175, 255);
-	table[NK_COLOR_CHART] = nk_rgba(160, 160, 160, 255);
-	table[NK_COLOR_CHART_COLOR] = nk_rgba(45, 45, 45, 255);
-	table[NK_COLOR_CHART_COLOR_HIGHLIGHT] = nk_rgba( 255, 0, 0, 255);
-	table[NK_COLOR_SCROLLBAR] = nk_rgba(180, 180, 180, 255);
-	table[NK_COLOR_SCROLLBAR_CURSOR] = nk_rgba(140, 140, 140, 255);
-	table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = nk_rgba(150, 150, 150, 255);
-	table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(160, 160, 160, 255);
-	table[NK_COLOR_TAB_HEADER] = nk_rgba(180, 180, 180, 255);
+	table[NK_COLOR_TEXT] = nk_rgba(210, 210, 210, 255);
+	table[NK_COLOR_WINDOW] = nk_rgba(57, 67, 71, 215);
+	table[NK_COLOR_HEADER] = nk_rgba(51, 51, 56, 220);
+	table[NK_COLOR_BORDER] = nk_rgba(46, 46, 46, 255);
+	table[NK_COLOR_BUTTON] = nk_rgba(48, 83, 111, 255);
+	table[NK_COLOR_BUTTON_HOVER] = nk_rgba(58, 93, 121, 255);
+	table[NK_COLOR_BUTTON_ACTIVE] = nk_rgba(63, 98, 126, 255);
+	table[NK_COLOR_TOGGLE] = nk_rgba(50, 58, 61, 255);
+	table[NK_COLOR_TOGGLE_HOVER] = nk_rgba(45, 53, 56, 255);
+	table[NK_COLOR_TOGGLE_CURSOR] = nk_rgba(48, 83, 111, 255);
+	table[NK_COLOR_SELECT] = nk_rgba(57, 67, 61, 255);
+	table[NK_COLOR_SELECT_ACTIVE] = nk_rgba(48, 83, 111, 255);
+	table[NK_COLOR_SLIDER] = nk_rgba(50, 58, 61, 255);
+	table[NK_COLOR_SLIDER_CURSOR] = nk_rgba(48, 83, 111, 245);
+	table[NK_COLOR_SLIDER_CURSOR_HOVER] = nk_rgba(53, 88, 116, 255);
+	table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = nk_rgba(58, 93, 121, 255);
+	table[NK_COLOR_PROPERTY] = nk_rgba(50, 58, 61, 255);
+	table[NK_COLOR_EDIT] = nk_rgba(50, 58, 61, 225);
+	table[NK_COLOR_EDIT_CURSOR] = nk_rgba(210, 210, 210, 255);
+	table[NK_COLOR_COMBO] = nk_rgba(50, 58, 61, 255);
+	table[NK_COLOR_CHART] = nk_rgba(50, 58, 61, 255);
+	table[NK_COLOR_CHART_COLOR] = nk_rgba(48, 83, 111, 255);
+	table[NK_COLOR_CHART_COLOR_HIGHLIGHT] = nk_rgba(255, 0, 0, 255);
+	table[NK_COLOR_SCROLLBAR] = nk_rgba(50, 58, 61, 255);
+	table[NK_COLOR_SCROLLBAR_CURSOR] = nk_rgba(48, 83, 111, 255);
+	table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = nk_rgba(53, 88, 116, 255);
+	table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(58, 93, 121, 255);
+	table[NK_COLOR_TAB_HEADER] = nk_rgba(48, 83, 111, 255);
 	nk_style_from_table(&bkend->ctx, table);
 }
 
@@ -362,7 +360,8 @@ _nk_egl_draw_begin(struct nk_egl_backend *bkend, struct nk_buffer *vbuf, struct 
 	//use program
 	glUseProgram(bkend->glprog);
 	glValidateProgram(bkend->glprog);
-	glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+	glClearColor(bkend->main_color.r, bkend->main_color.g,
+		     bkend->main_color.b, bkend->main_color.a);
 	glClear(GL_COLOR_BUFFER_BIT);
 	//switches
 	glEnable(GL_BLEND);
@@ -442,8 +441,7 @@ nk_egl_render(struct nk_egl_backend *bkend)
 		glBindTexture(GL_TEXTURE_2D, (GLuint)cmd->texture.id);
 		GLint scissor_region[4] = {
 			(GLint)(cmd->clip_rect.x * bkend->fb_scale.x),
-			(GLint)((bkend->height -
-				 (GLint)(cmd->clip_rect.y + cmd->clip_rect.h)) *
+			(GLint)((bkend->height - (cmd->clip_rect.y + cmd->clip_rect.h)) *
 				bkend->fb_scale.y),
 			(GLint)(cmd->clip_rect.w * bkend->fb_scale.x),
 			(GLint)(cmd->clip_rect.h * bkend->fb_scale.y),

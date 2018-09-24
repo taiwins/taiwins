@@ -96,7 +96,7 @@
 
 *** TODO supporting examing buffer
 *** TODO build weston along with taiwins(with meson maybe)
-* Bugs
+* [0%] Bugs
 ** a completion based text_edit
    - ~nk_egl_get_key~ gets NoSymbol very 2 frames, so if you press Tab twice,
      what you get is Tab -> NoSymbol -> Tab -> NoSymbol. NoSymbol resets the
@@ -132,7 +132,8 @@
     the frame_signal in the ~weston_output~ struct is for the recorder. But it
     suits our case
 
-
+** TODO somehow nklear did not have effects on the first draw call
+   currently I have to use background color as a hack, which I hate it
 * summarizing and planning
 ** <2018-09-11 Tue>
 So this is the cycle of the big refactoring, today I am finally done. I switched
