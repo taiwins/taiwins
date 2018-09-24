@@ -5,7 +5,7 @@ void print_pattern(FcPattern *pat)
 {
 	FcChar8 *s;
 	double d;
-	int i;
+	FcCharSet *cset;
 
 	if (FcPatternGetString(pat, FC_FAMILY, 0, &s) == FcResultMatch)
 		fprintf(stdout, "family: %s\n", s);
@@ -29,7 +29,14 @@ void print_pattern(FcPattern *pat)
 		fprintf(stdout, "dpi: %f\n", d);
 	else
 		fprintf(stdout, "no dpi\n");
-	/* if (FcPatternGetCharSet(pat, FC_CHARSET, 0, &cset) == FcResultMatch); */
+
+	if (FcPatternGetDouble(pat, FC_SIZE, 0, &d) == FcResultMatch)
+		fprintf(stdout, "point size: %f\n", d);
+	else
+		fprintf(stdout, "no point size\n");
+	if (FcPatternGetCharSet(pat, FC_CHARSET, 0, &cset) == FcResultMatch) {
+		//how to print the charset?
+	}
 	printf("\n");
 }
 
