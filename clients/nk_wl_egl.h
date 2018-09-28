@@ -50,7 +50,7 @@ void nk_egl_launch(struct nk_egl_backend *bkend, struct app_surface *app,
 		   nk_egl_draw_func_t draw_func, void *data);
 void nk_egl_close(struct nk_egl_backend *bkend, struct app_surface *app_surface);
 
-bool nk_egl_set_theme(struct nk_egl_backend *bkend, struct taiwins_theme *theme);
+bool nk_egl_set_theme(struct nk_egl_backend *bkend, const struct taiwins_theme *theme);
 
 //tell the nk_egl_backend to run a specific task after the the rendering,
 //provides also an option to clean up the state as well, it get's cleaned after evaluated.

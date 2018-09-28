@@ -125,44 +125,78 @@ struct nk_egl_backend {
 
 /*********** static implementations *********/
 static void
+nk_color_from_tw_rgba(struct nk_color *nc, const struct tw_rgba_t *tc)
+{
+	nc->r = tc->r; nc->g = tc->g;
+	nc->b = tc->b; nc->a = tc->a;
+}
+
+static void
+nk_colorf_from_tw_rgba(struct nk_colorf *nc, const struct tw_rgba_t *tc)
+{
+	nc->r = (float)tc->r/255.0; nc->g = (float)tc->g/255.0;
+	nc->b = (float)tc->b/255.0; nc->a = (float)tc->a/255.0;
+}
+
+static void
 nk_egl_apply_color(struct nk_egl_backend *bkend)
 {
 	if (bkend->theme.row_size == 0)
 		return;
 	//TODO this is a shitty hack, somehow the first draw call did not work, we
 	//have to hack it in the background color
-	bkend->main_color = (struct nk_colorf){
-		57.0/255.0, 67.0/255.0, 71.0/255.0, 215.0/255.0
-	};
+	nk_colorf_from_tw_rgba(&bkend->main_color, &bkend->theme.window_color);
 	struct nk_color table[NK_COLOR_COUNT];
-	table[NK_COLOR_TEXT] = nk_rgba(210, 210, 210, 255);
-	table[NK_COLOR_WINDOW] = nk_rgba(57, 67, 71, 215);
-	table[NK_COLOR_HEADER] = nk_rgba(51, 51, 56, 220);
-	table[NK_COLOR_BORDER] = nk_rgba(46, 46, 46, 255);
-	table[NK_COLOR_BUTTON] = nk_rgba(48, 83, 111, 255);
-	table[NK_COLOR_BUTTON_HOVER] = nk_rgba(58, 93, 121, 255);
-	table[NK_COLOR_BUTTON_ACTIVE] = nk_rgba(63, 98, 126, 255);
-	table[NK_COLOR_TOGGLE] = nk_rgba(50, 58, 61, 255);
-	table[NK_COLOR_TOGGLE_HOVER] = nk_rgba(45, 53, 56, 255);
-	table[NK_COLOR_TOGGLE_CURSOR] = nk_rgba(48, 83, 111, 255);
-	table[NK_COLOR_SELECT] = nk_rgba(57, 67, 61, 255);
-	table[NK_COLOR_SELECT_ACTIVE] = nk_rgba(48, 83, 111, 255);
-	table[NK_COLOR_SLIDER] = nk_rgba(50, 58, 61, 255);
-	table[NK_COLOR_SLIDER_CURSOR] = nk_rgba(48, 83, 111, 245);
-	table[NK_COLOR_SLIDER_CURSOR_HOVER] = nk_rgba(53, 88, 116, 255);
-	table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = nk_rgba(58, 93, 121, 255);
-	table[NK_COLOR_PROPERTY] = nk_rgba(50, 58, 61, 255);
-	table[NK_COLOR_EDIT] = nk_rgba(50, 58, 61, 225);
-	table[NK_COLOR_EDIT_CURSOR] = nk_rgba(210, 210, 210, 255);
-	table[NK_COLOR_COMBO] = nk_rgba(50, 58, 61, 255);
-	table[NK_COLOR_CHART] = nk_rgba(50, 58, 61, 255);
-	table[NK_COLOR_CHART_COLOR] = nk_rgba(48, 83, 111, 255);
-	table[NK_COLOR_CHART_COLOR_HIGHLIGHT] = nk_rgba(255, 0, 0, 255);
-	table[NK_COLOR_SCROLLBAR] = nk_rgba(50, 58, 61, 255);
-	table[NK_COLOR_SCROLLBAR_CURSOR] = nk_rgba(48, 83, 111, 255);
-	table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = nk_rgba(53, 88, 116, 255);
-	table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(58, 93, 121, 255);
-	table[NK_COLOR_TAB_HEADER] = nk_rgba(48, 83, 111, 255);
+	nk_color_from_tw_rgba(&table[NK_COLOR_TEXT], &bkend->theme.text_color);
+	nk_color_from_tw_rgba(&table[NK_COLOR_WINDOW], &bkend->theme.window_color);
+	//no header
+	nk_color_from_tw_rgba(&table[NK_COLOR_HEADER], &bkend->theme.window_color);
+	nk_color_from_tw_rgba(&table[NK_COLOR_BORDER], &bkend->theme.border_color);
+	//button
+	nk_color_from_tw_rgba(&table[NK_COLOR_BUTTON], &bkend->theme.button.normal);
+	nk_color_from_tw_rgba(&table[NK_COLOR_BUTTON_HOVER],
+			      &bkend->theme.button.hover);
+	nk_color_from_tw_rgba(&table[NK_COLOR_BUTTON_ACTIVE],
+			      &bkend->theme.button.active);
+	//toggle
+	nk_color_from_tw_rgba(&table[NK_COLOR_TOGGLE],
+			      &bkend->theme.toggle.normal);
+	nk_color_from_tw_rgba(&table[NK_COLOR_TOGGLE_HOVER],
+			      &bkend->theme.toggle.hover);
+	nk_color_from_tw_rgba(&table[NK_COLOR_TOGGLE_CURSOR],
+			      &bkend->theme.toggle.active);
+	//select
+	nk_color_from_tw_rgba(&table[NK_COLOR_SELECT],
+			      &bkend->theme.select.normal);
+	nk_color_from_tw_rgba(&table[NK_COLOR_SELECT_ACTIVE],
+			      &bkend->theme.select.active);
+	//slider
+	nk_color_from_tw_rgba(&table[NK_COLOR_SLIDER],
+			      &bkend->theme.slider_bg_color);
+	nk_color_from_tw_rgba(&table[NK_COLOR_SLIDER_CURSOR],
+			      &bkend->theme.slider.normal);
+	nk_color_from_tw_rgba(&table[NK_COLOR_SLIDER_CURSOR_HOVER],
+			      &bkend->theme.slider.hover);
+	nk_color_from_tw_rgba(&table[NK_COLOR_SLIDER_CURSOR_ACTIVE],
+			      &bkend->theme.slider.active);
+	//property
+	table[NK_COLOR_PROPERTY] = table[NK_COLOR_SLIDER];
+	//edit
+	nk_color_from_tw_rgba(&table[NK_COLOR_EDIT], &bkend->theme.text_active_color);
+	nk_color_from_tw_rgba(&table[NK_COLOR_EDIT_CURSOR], &bkend->theme.text_color);
+	//combo
+	nk_color_from_tw_rgba(&table[NK_COLOR_COMBO], &bkend->theme.combo_color);
+	//chart
+	nk_color_from_tw_rgba(&table[NK_COLOR_CHART], &bkend->theme.chart.normal);
+	nk_color_from_tw_rgba(&table[NK_COLOR_CHART_COLOR], &bkend->theme.chart.active);
+	nk_color_from_tw_rgba(&table[NK_COLOR_CHART_COLOR_HIGHLIGHT],
+			      &bkend->theme.chart.hover);
+	//scrollbar
+	table[NK_COLOR_SCROLLBAR] = table[NK_COLOR_WINDOW];
+	table[NK_COLOR_SCROLLBAR_CURSOR] = table[NK_COLOR_WINDOW];
+	table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = table[NK_COLOR_WINDOW];
+	table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = table[NK_COLOR_WINDOW];
+	table[NK_COLOR_TAB_HEADER] = table[NK_COLOR_WINDOW];
 	nk_style_from_table(&bkend->ctx, table);
 }
 
@@ -463,7 +497,7 @@ static void
 nk_egl_new_frame(struct nk_egl_backend *bkend)
 {
 	if (nk_begin(&bkend->ctx, "eglapp", nk_rect(0, 0, bkend->width, bkend->height),
-		     NK_WINDOW_BORDER)) {
+		     NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR)) {
 		bkend->frame(&bkend->ctx, bkend->width, bkend->height, bkend->user_data);
 	} nk_end(&bkend->ctx);
 
@@ -685,11 +719,11 @@ nk_egl_destroy_backend(struct nk_egl_backend *bkend)
 }
 
 bool
-nk_egl_set_theme(struct nk_egl_backend *bkend, struct taiwins_theme *theme)
+nk_egl_set_theme(struct nk_egl_backend *bkend, const struct taiwins_theme *theme)
 {
-	/* if (!tw_validate_theme(theme)) */
-	/*	return false; */
 	bkend->theme = *theme;
+	//validate there
+	return true;
 }
 
 
