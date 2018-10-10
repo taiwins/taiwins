@@ -23,7 +23,7 @@
 
 #include "nk_wl_egl.h"
 #define NK_SHADER_VERSION "#version 330 core\n"
-#define NK_MAX_CTX_MEM 16 * 1024 * 1024
+#define NK_MAX_CTX_MEM 64 * 64 * 1024
 #define MAX_VERTEX_BUFFER 512 * 128
 #define MAX_ELEMENT_BUFFER 128 * 128
 
@@ -47,11 +47,7 @@ static const struct nk_draw_vertex_layout_element vertex_layout[] = {
 	 NK_OFFSETOF(struct nk_egl_vertex, col)},
 	{NK_VERTEX_LAYOUT_END}
 };
-/*we are giving 4Kb mem to the command buffer*/
-static char cmd_buffer_data[4096];
 
-/* and 16Mb to the context. */
-static char *nk_ctx_buffer = NULL;
 /* as we known that we are using the fixed memory here, the size is crucial to
  * our needs, if the size is too small, we will run into `nk_mem_alloc`
  * failed. If we are giving too much memory, it is then a certain waste. 16Mb is
@@ -97,15 +93,17 @@ struct nk_egl_backend {
 	GLint uniform_proj;
 	//attribute inside
 	struct nk_context ctx;
-
 	struct nk_buffer cmds;
 	struct nk_draw_null_texture null;
 	struct nk_font_atlas atlas;
 	//themes
 	struct taiwins_theme theme;
 	struct nk_colorf main_color;
-	//we do not want to put the color information here, so we must have a
-	//hack
+	//free this
+	nk_rune *unicode_range;
+
+	unsigned char cmd_buffer[NK_EGL_CMD_SIZE];
+	unsigned char ctx_buffer[NK_MAX_CTX_MEM];
 
 	//up-to-date information
 	nk_egl_draw_func_t frame;
@@ -122,8 +120,10 @@ struct nk_egl_backend {
 	};
 };
 
+///////////////////////////////////////////////////////////////////
+/////////////////////////// COLOR /////////////////////////////////
+///////////////////////////////////////////////////////////////////
 
-/*********** static implementations *********/
 static void
 nk_color_from_tw_rgba(struct nk_color *nc, const struct tw_rgba_t *tc)
 {
@@ -200,6 +200,75 @@ nk_egl_apply_color(struct nk_egl_backend *bkend)
 	nk_style_from_table(&bkend->ctx, table);
 }
 
+///////////////////////////////////////////////////////////////////
+//////////////////////////// FONT /////////////////////////////////
+///////////////////////////////////////////////////////////////////
+
+static inline void
+union_unicode_range(const nk_rune left[2], const nk_rune right[2], nk_rune out[2])
+{
+	nk_rune tmp[2];
+	tmp[0] = left[0] < right[0] ? left[0] : right[0];
+	tmp[1] = left[1] > right[1] ? left[1] : right[1];
+	out[0] = tmp[0];
+	out[1] = tmp[1];
+}
+
+//return true if left and right are insersected, else false
+static inline bool
+intersect_unicode_range(const nk_rune left[2], const nk_rune right[2])
+{
+	return (left[0] <= right[1] && left[1] >= right[1]) ||
+		(left[0] <= right[0] && left[1] >= right[0]);
+}
+
+static int
+unicode_range_compare(const void *l, const void *r)
+{
+	const nk_rune *range_left = (const nk_rune *)l;
+	const nk_rune *range_right = (const nk_rune *)r;
+	return ((int)range_left[0] - (int)range_right[0]);
+}
+
+//we can only merge one range at a time
+static int
+merge_unicode_range(const nk_rune *left, const nk_rune *right, nk_rune *out)
+{
+	//get the range
+	int left_size = 0;
+	while(*(left+left_size)) left_size++;
+	int right_size = 0;
+	while(*(right+right_size)) right_size++;
+	//sort the range,
+	nk_rune sorted_ranges[left_size+right_size];
+	memcpy(sorted_ranges, left, sizeof(nk_rune) * left_size);
+	memcpy(sorted_ranges+left_size, right, sizeof(nk_rune) * right_size);
+	qsort(sorted_ranges, (left_size+right_size)/2, sizeof(nk_rune) * 2,
+	      unicode_range_compare);
+	//merge algorithm
+	nk_rune merged[left_size+right_size+1];
+	merged[0] = sorted_ranges[0];
+	merged[1] = sorted_ranges[1];
+	int m = 0;
+	for (int i = 0; i < (left_size+right_size) / 2; i++) {
+		if (intersect_unicode_range(&sorted_ranges[i*2],
+					    &merged[2*m]))
+			union_unicode_range(&sorted_ranges[i*2], &merged[2*m],
+					    &merged[2*m]);
+		else {
+			m++;
+			merged[2*m] = sorted_ranges[2*i];
+			merged[2*m+1] = sorted_ranges[2*i+1];
+		}
+	}
+	m++;
+	merged[2*m] = 0;
+
+	if (!out)
+		return 2*m;
+	memcpy(out, merged, (2*m+1) * sizeof(nk_rune));
+	return 2*m;
+}
 
 static struct nk_font*
 nk_egl_prepare_font(struct nk_egl_backend *bkend)
@@ -208,20 +277,33 @@ nk_egl_prepare_font(struct nk_egl_backend *bkend)
 	int w, h;
 	const void *image;
 	struct nk_font_config cfg = nk_font_config(16);
+	size_t len_range  = merge_unicode_range(nk_font_chinese_glyph_ranges(),
+						nk_font_korean_glyph_ranges(),
+						NULL);
+	//we have to make this range available
+	bkend->unicode_range = malloc(sizeof(nk_rune) * (len_range+1));
+	merge_unicode_range(nk_font_chinese_glyph_ranges(),
+			    nk_font_korean_glyph_ranges(), bkend->unicode_range);
+	cfg.range = bkend->unicode_range;
+	cfg.merge_mode = nk_false;
+//	cfg.range = nk_font_chinese_glyph_ranges();
 
 	nk_font_atlas_init_default(&bkend->atlas);
 	nk_font_atlas_begin(&bkend->atlas);
 
 	char *fonts[MAX_FONTS];
 	size_t n_fonts = tw_theme_extract_fonts(&bkend->theme, fonts);
-	if (n_fonts == 0)
-		font = nk_font_atlas_add_default(&bkend->atlas, 16.0, &cfg);
-	else {
+	if (n_fonts == 0) {
+		/* font = nk_font_atlas_add_default(&bkend->atlas, 16.0, &cfg); */
+		font = nk_font_atlas_add_from_file(&bkend->atlas,
+					   "/usr/share/fonts/TTF/Vera.ttf",
+					   16, &cfg);
+	} else {
 		n_fonts = (n_fonts > 3) ? 3: n_fonts;
 		for (int i = 0; i < n_fonts; i++) {
-			nk_font_atlas_add_from_file(
+			font = nk_font_atlas_add_from_file(
 				&bkend->atlas, fonts[i],
-				tw_font_px2pt(bkend->row_size, 92), 0);
+				tw_font_px2pt(bkend->row_size, 92), &cfg);
 		}
 	}
 	image = nk_font_atlas_bake(&bkend->atlas, &w, &h, NK_FONT_ATLAS_RGBA32);
@@ -236,6 +318,11 @@ nk_egl_prepare_font(struct nk_egl_backend *bkend)
 	//I should be able to free the image here?
 	return font;
 }
+
+///////////////////////////////////////////////////////////////////
+///////////////////////////// EGL /////////////////////////////////
+///////////////////////////////////////////////////////////////////
+
 
 static inline bool
 is_surfless_supported(struct nk_egl_backend *bkend)
@@ -367,15 +454,18 @@ compile_backend(struct nk_egl_backend *bkend, struct app_surface *app_surface)
 	///////////////////////////////////
 	//part 2) nuklear init
 	//I guess it is probably easier to use the atlas
-	nk_ctx_buffer = calloc(1, NK_MAX_CTX_MEM);
 	struct nk_font *font = nk_egl_prepare_font(bkend);
-	nk_init_fixed(&bkend->ctx, nk_ctx_buffer, NK_MAX_CTX_MEM, &font->handle);
-	nk_buffer_init_fixed(&bkend->cmds, cmd_buffer_data, sizeof(cmd_buffer_data));
+	nk_init_fixed(&bkend->ctx, bkend->ctx_buffer, NK_MAX_CTX_MEM, &font->handle);
+	nk_buffer_init_fixed(&bkend->cmds, bkend->cmd_buffer, sizeof(bkend->cmd_buffer));
 	nk_buffer_clear(&bkend->cmds);
 	nk_egl_apply_color(bkend);
 	return true;
 }
 
+
+///////////////////////////////////////////////////////////////////
+///////////////////////////// EGL /////////////////////////////////
+///////////////////////////////////////////////////////////////////
 
 static void
 _nk_egl_draw_begin(struct nk_egl_backend *bkend, struct nk_buffer *vbuf, struct nk_buffer *ebuf)
@@ -469,6 +559,8 @@ nk_egl_render(struct nk_egl_backend *bkend)
 	nk_draw_index *offset = NULL;
 	struct nk_buffer vbuf, ebuf;
 	_nk_egl_draw_begin(bkend, &vbuf, &ebuf);
+	//TODO MESA driver has a problem, the first draw call did not work, we can
+	//avoid it by draw a quad that does nothing
 	nk_draw_foreach(cmd, &bkend->ctx, &bkend->cmds) {
 		if (!cmd->elem_count)
 			continue;
@@ -635,9 +727,8 @@ release_backend(struct nk_egl_backend *bkend)
 		nk_free(&bkend->ctx);
 		//use the clear, cleanup is used for creating second font
 
-		free(nk_ctx_buffer);
-		nk_ctx_buffer = NULL;
 		nk_buffer_free(&bkend->cmds);
+		free(bkend->unicode_range);
 		//egl free context
 		eglMakeCurrent(bkend->env->egl_display, NULL, NULL, NULL);
 		bkend->compiled = false;

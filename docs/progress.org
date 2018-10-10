@@ -134,6 +134,9 @@
 
 ** TODO somehow nklear did not have effects on the first draw call
    currently I have to use background color as a hack, which I hate it
+** TODO libEGL warning: FIXME: egl/x11 doesn't support front buffer rendering.
+   find out what it means
+** TODO find out why all the code point becomes `?`
 * summarizing and planning
 ** <2018-09-11 Tue>
 So this is the cycle of the big refactoring, today I am finally done. I switched
