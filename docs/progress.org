@@ -96,7 +96,7 @@
 
 *** TODO supporting examing buffer
 *** TODO build weston along with taiwins(with meson maybe)
-* [0%] Bugs
+* [33%] Bugs
 ** a completion based text_edit
    - ~nk_egl_get_key~ gets NoSymbol very 2 frames, so if you press Tab twice,
      what you get is Tab -> NoSymbol -> Tab -> NoSymbol. NoSymbol resets the
@@ -133,10 +133,13 @@
     suits our case
 
 ** TODO somehow nklear did not have effects on the first draw call
-   currently I have to use background color as a hack, which I hate it
+   currently I have to use background color as a hack, which I hate it, or you
+   can just have empty draw call
 ** TODO libEGL warning: FIXME: egl/x11 doesn't support front buffer rendering.
-   find out what it means
-** TODO find out why all the code point becomes `?`
+   Seems has something to do with ~EGLMakeCurrent()~.
+** DONE find out why all the code point becomes `?`
+   the ~nk_rune~ has to be available all the time as nuklear does not like to
+   manage memory, so you cannot just pass an temporary address.
 * summarizing and planning
 ** <2018-09-11 Tue>
 So this is the cycle of the big refactoring, today I am finally done. I switched
