@@ -69,18 +69,29 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, void *data)
 	struct desktop_shell *shell = shell_output->shell;
 	struct app_surface *panel = &shell_output->panel;
 
+	//a temporary hack
+	static int no_widget = 0;
 	//actual drawing
+	int i = 0;
 	size_t n_widgets =  wl_list_length(&shell->shell_widgets);
 	struct shell_widget *widget = NULL, *clicked = NULL;
 	nk_layout_row_begin(ctx, NK_STATIC, panel->h - 12, n_widgets);
 	wl_list_for_each(widget, &shell->shell_widgets, link) {
+		enum nk_buttons btn;
+		uint32_t sx, sy;
 		widget->ancre_cb(ctx, width, height, widget);
-		if (nk_widget_is_mouse_clicked(ctx, NK_BUTTON_LEFT))
+		/* if (nk_widget_is_mouse_clicked(ctx, NK_BUTTON_LEFT) || ) */
+		if (nk_egl_get_btn(ctx, &btn, &sx, &sy))
 			clicked = widget;
+		i++;
 	}
 	nk_layout_row_end(ctx);
 	if (!clicked)
 		return;
+	//TODO remove this two lines
+	no_widget += 1;
+	no_widget = no_widget % n_widgets;
+
 	//we should essentially use nuklear builtin functions
 	nk_egl_get_btn(ctx, &button, &sx, &sy);
 	//determine the launch point
@@ -97,12 +108,20 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, void *data)
 	//just return
 	if (clicked->widget.protocol || !clicked->draw_cb)
 		return;
+	//change this part!!!
 	struct wl_surface *widget_surface = wl_compositor_create_surface(shell->globals.compositor);
 	struct tw_ui *widget_proxy = taiwins_shell_launch_widget(shell->shell, widget_surface,
 								 shell_output->output,
 								 launch_point.x, launch_point.y);
+
 	appsurface_init(&clicked->widget, NULL, APP_WIDGET, widget_surface,
 			 (struct wl_proxy *)widget_proxy);
+	clicked->widget.w = 400;
+	clicked->widget.h = 400;
+	clicked->widget.s = 1;
+
+	appsurface_init_egl(&clicked->widget, &shell->eglenv);
+
 	nk_egl_launch(shell->widget_backend, &clicked->widget, clicked->draw_cb, clicked);
 }
 
@@ -277,7 +296,9 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	shell->shell = NULL;
 	shell->quit = false;
 	egl_env_init(&shell->eglenv, display);
-//	shell->widget_backend = nk_egl_create_backend(&shell->eglenv);
+	shell->widget_backend = nk_egl_create_backend(&shell->eglenv);
+	nk_egl_set_theme(shell->widget_backend, &taiwins_dark_theme);
+
 	wl_list_init(&shell->shell_widgets);
 	wl_list_insert(&shell->shell_widgets, &clock_widget.link);
 
