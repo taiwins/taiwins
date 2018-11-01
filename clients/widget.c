@@ -37,6 +37,34 @@ clock_widget_anchor(struct nk_context *ctx, float width, float height, void *dat
 	nk_label(ctx, formatedtime, NK_TEXT_CENTERED);
 }
 
+
+static void
+clock_widget_sample(struct nk_context *ctx, float width, float height, void *data)
+{
+	enum nk_buttons btn;
+	uint32_t sx, sy;
+	//TODO, change the draw function to app->draw_widget(app);
+	enum {EASY, HARD};
+	static int op = EASY;
+	static struct nk_text_edit text_edit;
+	static bool init_text_edit = false;
+	static char text_buffer[256];
+	if (!init_text_edit) {
+		init_text_edit = true;
+		nk_textedit_init_fixed(&text_edit, text_buffer, 256);
+	}
+
+	nk_layout_row_static(ctx, 30, 80, 2);
+	nk_button_label(ctx, "button");
+	nk_label(ctx, "another", NK_TEXT_LEFT);
+	nk_layout_row_dynamic(ctx, 30, 2);
+	if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
+	if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
+
+	nk_layout_row_dynamic(ctx, 25, 1);
+	nk_edit_buffer(ctx, NK_EDIT_FIELD, &text_edit, nk_filter_default);
+}
+
 static void clock_set_timer(struct shell_widget *w,
 			    struct nk_egl_backend *panel_backend,
 			    struct tw_event_queue *event_queue)
@@ -57,4 +85,5 @@ static void clock_set_timer(struct shell_widget *w,
 struct shell_widget clock_widget = {
 	.set_event_cb = clock_set_timer,
 	.ancre_cb = clock_widget_anchor,
+	.draw_cb = clock_widget_sample,
 };
