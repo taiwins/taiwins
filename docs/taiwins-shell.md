@@ -129,8 +129,6 @@ better just leverage nuklear UI to do it, it has many benifits. It is small and
 fast, it is responsive. It is kinda heavy though. 10ms on my desktop, hope it
 can be optimized.
 
-
-
 ### widgets
 Widget sits on the `WESTON_LAYER_POSITION_UI` layer, where panel also sits. So
 in that sense we cannot remove all the all the views in the panel anymore. When
