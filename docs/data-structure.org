@@ -21,12 +21,43 @@ I handled the time counter (with two threads), come on.
 
   - tw_event_loop :: introduced for ~tw_shell~ to handle system generated events
 		     like time lapse and wayland protocol events.
-		     * tw_event :: this leads to another interface for use to
-		     create its own event and watch the event. It didn't go as
-		     far as the ~wl_protocols~ where you create custom protocols
-		     and have handlers for them.
+    * tw_event :: this leads to another interface for use to
+    create its own event and watch the event. It didn't go as
+    far as the ~wl_protocols~ where you create custom protocols
+    and have handlers for them.
+
+  - shm_pool :: the allocator for shared buffers, binds to ~wl_buffer~.
+
+Then there are the UI elements
 ** UIs
    - app_surface :: now you have an app surface, it kinda binds to an
-		    ~wl_surface~.
+		    ~wl_surface~. The surface has it implementation of buffer
+		    and input events, it has the data but no actual methods to
+		    interact with it. ~app_surface~ was first created for
+		    distinguishing background surface and panel surface. So in a
+		    sense, now we have three different kinds of ~app_surface~,
+		    background, panel, widget.
+
+		    As an ~app_surface~, it has it's own ~<x,y,w,h>~ values. Or
+		    you can
+
+   - tw_ui :: plays the role like ~wl_shell_surface~ as a bridge between server
+	      and clients. Otherwise server does not know how to update it. With
+	      that in mind, the ~app_surface.proxy~ is the ~tw_ui~.
+
+*** The pitfalls of app_surface
+~app_surface~ has evolved for too long and too much overhead (Not as much as
+~nk_backend~). It has three constructors, know the EGL and shared buffer. It has
+init but only does part of the job. I should really make it whole, init with
+different implementation and that is it.
+
+If app_surface created with buffer, you call ~app_surface_fadc~. Otherwise it is
+done by subroutines. I don't like it. The commit job should be here
+
+
+*** nuklear backend
+The nuklear backend is the implementation of an GUI with the ~wl_buffer~ from
+~app_surface~. It was designed to support different surface at the same time
+then I found out I cannot really do it.
 
 ** Taiwins Shell specific structure.
