@@ -2,6 +2,9 @@ So far I've made so many data structures in *taiwins* for the organizing code,
 the problem is that every structure created on the fly, so the history of the
 design carries on.
 
+The problem of using widget is need of creating new surface, and assign
+nuklear_backend and apply many things...
+
 * The rotten issues in the project
 The short-sighted design of the taiwins, lack of knowledge and design skills;
 Lack of understanding of wayland and weston design (personally I think weston has
@@ -10,6 +13,7 @@ way more crumbosome design).
 Some quick hacks that I did to get things working. For example, I used to think
 every client has only one ~wl_surface~ and I was immediately wrong, also the way
 I handled the time counter (with two threads), come on.
+
 
 
 * Client data structures
@@ -38,12 +42,25 @@ Then there are the UI elements
 		    sense, now we have three different kinds of ~app_surface~,
 		    background, panel, widget.
 
-		    As an ~app_surface~, it has it's own ~<x,y,w,h>~ values. Or
-		    you can
+     - As an ~app_surface~, it has it's own ~<x,y,w,h>~ values.
+     - It also has input-events, to generate the a new frame.
+
 
    - tw_ui :: plays the role like ~wl_shell_surface~ as a bridge between server
 	      and clients. Otherwise server does not know how to update it. With
 	      that in mind, the ~app_surface.proxy~ is the ~tw_ui~.
+
+*** UI implementation
+    - background :: background is picture reading and posting, it could be
+		    implemented as animation, by calling a frame.
+
+    - nuklear_backend :: this GUI library is implemented with OpenGL, it should
+	 implement an app_surface like a sub class, then use it users can use
+	 simply app_surface to operate.
+
+    - icon :: This is one that complicates the implementation. It does not have
+	      its own data, but also need a frame. The frame is triggered by
+	      events.
 
 *** The pitfalls of app_surface
 ~app_surface~ has evolved for too long and too much overhead (Not as much as
@@ -52,8 +69,38 @@ init but only does part of the job. I should really make it whole, init with
 different implementation and that is it.
 
 If app_surface created with buffer, you call ~app_surface_fadc~. Otherwise it is
-done by subroutines. I don't like it. The commit job should be here
+done by subroutines. I don't like it. The commit job should be here.
 
+It also has its own input handler as an main feature. The initial design of the
+~app_surface~ was too limited, just as a surface with two ~wl_buffer~ and do the
+swap. It has no concept in drawing. The ~wl_buffer~ is bind to another buffer
+structure and user uses that for drawing. Since both interface is exposed to
+users, it can be confusing. The ideal case, ~app_surface~ should provide an
+a frame callback which gives users the buffer to draw on. And users of the
+interface should be worry free from which buffer I am using. The double buffer
+case is that people is worried about frame losing if the none of the frame is
+not available. You can always commit using new buffers, but if committing too
+much then it will make it to see the animation. But since I am not driving
+animation here, this is kinda useless.
+
+
+*** frame vs other event.
+I suppose if you do the animation, then you need to call the ~commit~ plus a
+~frame~ in the next done event.
+
+If you read what ~libweston~ is doing, they take the ~frame_callback~ insert to
+surface ~frame_callback_list~. And in the ~weston_output_repaint~ function. They
+take all the ~frame_callback~ from all the committed views then send them
+all. The release of the buffer is totally not related to it, especially if you
+don't even use an ~wl_buffer~.
+
+But second thought, don't you find the frame done callback is no different than
+other input callback? They are events as well. The parameter is the time(msecs)
+
+There are differences, the frame callback does not really work unless you
+commit. So the surface has to commit for the first time. So the procedure is
+that you have to apply a frame, then commit for the first time. In your frame
+callback, do the same.
 
 *** nuklear backend
 The nuklear backend is the implementation of an GUI with the ~wl_buffer~ from
