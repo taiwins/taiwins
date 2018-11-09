@@ -105,6 +105,27 @@ struct wl_globals {
 	struct app_style style;
 };
 
+/* the current design is more multiple 
+struct tw_input_listener {
+	void (*key) (void *data,
+		     xkb_keysym_t keysym,
+		     uint32_t modifier,
+		     int state);
+	
+	void (pointer_on) (void *data,
+			   struct wl_surface *actived_surface,
+			   uint32_t sx,
+			   uint32_t sy);
+	
+	void (pointer_btn) (void *data, )
+};
+
+typedef void (*keycb_t)(struct app_surface *, xkb_keysym_t, uint32_t, int);
+typedef void (*pointron_t)(struct app_surface *, uint32_t, uint32_t);
+typedef void (*pointrbtn_t)(struct app_surface *, enum taiwins_btn_t, bool, uint32_t, uint32_t);
+typedef void (*pointraxis_t)(struct app_surface *, int, int, uint32_t, uint32_t);
+
+
 
 /* here you need a data structure that glues the anonoymous_buff and wl_buffer wl_shm_pool */
 int wl_globals_announce(struct wl_globals *globals,

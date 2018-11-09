@@ -94,15 +94,13 @@ typedef void (*keycb_t)(struct app_surface *, xkb_keysym_t, uint32_t, int);
 typedef void (*pointron_t)(struct app_surface *, uint32_t, uint32_t);
 typedef void (*pointrbtn_t)(struct app_surface *, enum taiwins_btn_t, bool, uint32_t, uint32_t);
 typedef void (*pointraxis_t)(struct app_surface *, int, int, uint32_t, uint32_t);
+typedef void (*framerq_t)(struct app_surface *);
+typedef void (*frame_commit_t)(struct app_surface *);
 
-//the better way would be make it a inherited type
+/* this is an templated data structure, it has quite a few fields to fill up, it
+ * the initializer should be implement by sub-classes like nuklear backend or
+ * cairo or image swap-chain */
 struct app_surface {
-	/**
-	 * the parent pointer. It is only in the sub_surfaces, so the parent has
-	 * no information about where the subclasses are. TODO you need to
-	 * change the subclasses into list and expose the bbox information
-	*/
-	struct app_surface *parent;
 	//the structure to store wl_shell_surface, xdg_shell_surface or tw_ui
 	struct wl_proxy *protocol;
 	//geometry information
@@ -129,53 +127,77 @@ struct app_surface {
 			struct wl_egl_window *eglwin;
 			EGLSurface eglsurface;
 		};
+		/**
+		 * the parent pointer, means you will have to call the
+		 * parent->frame function to do the work
+		 */
+		struct app_surface *parent;
+		/* if we have an vulkan surface, it would be the same thing */
 	};
-	/* input */
+	/* callbacks */
 	struct {
 		keycb_t keycb;
 		pointron_t pointron;
 		pointrbtn_t pointrbtn;
 		pointraxis_t pointraxis;
+		framerq_t frame_request;
+		frame_commit_t frame_commit;
 	};
 	//destructor
 	void (*destroy)(struct app_surface *);
+	void *user_data; // the new section should be Null, if not, then it should be freed at destruction.
 };
+
+/** TODO
+ * new APIs for the appsurface
+ */
+
+/**
+ * /brief clean start a new appsurface
+ */
+void appsurface_start(struct app_surface *surf, struct wl_surface *);
+
+static inline void
+appsurface_release(struct app_surface *surf)
+{
+	//throw all the callbacks
+	surf->keycb = NULL;
+	surf->pointron = NULL;
+	surf->pointrbtn = NULL;
+	surf->pointraxis = NULL;
+	surf->destroy(surf);
+	if (surf->user_data)
+		free(surf->user_data);
+}
+
 
 /**
  * /brief initialize the appsurface to a default state
  *
  * no input, no subapp, no buffer, but has a wl_surface
  */
-void appsurface_init(struct app_surface *surf, struct app_surface *p,
-		     enum APP_SURFACE_TYPE type, struct wl_surface *wl_surface,
-		     struct wl_proxy *protocol);
+DEPRECATED(void appsurface_init(struct app_surface *surf, struct app_surface *p,
+				enum APP_SURFACE_TYPE type, struct wl_surface *wl_surface,
+				struct wl_proxy *protocol));
 
-static inline void
-appsurface_release(struct app_surface *surf)
-{
-	surf->keycb = NULL;
-	surf->pointron = NULL;
-	surf->pointrbtn = NULL;
-	surf->pointraxis = NULL;
-	surf->destroy(surf);
-}
+
 /**
  * /brief assign wl_buffers to the appsurface, thus it initialize the double
  * buffer state and commit state
  *
  */
-void appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
-			    const struct bbox *bbox);
-void appsurface_init_egl(struct app_surface *surf, struct egl_env *env);
+DEPRECATED(void appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
+				       const struct bbox *bbox));
+DEPRECATED(void appsurface_init_egl(struct app_surface *surf, struct egl_env *env));
 /**
  * /brief init all the input callbacks, zero is acceptable
  */
-void appsurface_init_input(struct app_surface *surf,
-			   keycb_t keycb, pointron_t on, pointrbtn_t btn, pointraxis_t axis);
+DEPRECATED(void appsurface_init_input(struct app_surface *surf,
+				      keycb_t keycb, pointron_t on, pointrbtn_t btn, pointraxis_t axis));
 
-void appsurface_fadc(struct app_surface *surf);
+DEPRECATED(void appsurface_fadc(struct app_surface *surf));
 
-void appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer);
+DEPRECATED(void appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer));
 
 
 cairo_format_t
