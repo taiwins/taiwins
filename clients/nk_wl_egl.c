@@ -293,9 +293,11 @@ nk_egl_prepare_font(struct nk_egl_backend *bkend)
 
 	char *fonts[MAX_FONTS];
 	size_t n_fonts = tw_theme_extract_fonts(&bkend->theme, fonts);
+	//TODO we need font-config in
 	if (n_fonts == 0) {
 		/* font = nk_font_atlas_add_default(&bkend->atlas, 16.0, &cfg); */
 		font = nk_font_atlas_add_from_file(&bkend->atlas,
+						   /* "/usr/share/fonts/truetype/ttf-bitstream-vera/Vera.ttf", */
 					   "/usr/share/fonts/TTF/Vera.ttf",
 					   16, &cfg);
 	} else {
@@ -771,6 +773,8 @@ nk_egl_launch(struct nk_egl_backend *bkend,
 		appsurface_init_input(app_surface, nk_keycb, nk_pointron, nk_pointrbtn, nk_pointraxis);
 		app_surface->parent = (struct app_surface *)bkend;
 		bkend->app_surface = app_surface;
+		bkend->cbtn = -1;
+		bkend->ckey = XKB_KEY_NoSymbol;
 	}
 
 	bkend->frame = func;
