@@ -49,6 +49,22 @@ Then there are the UI elements
    - tw_ui :: plays the role like ~wl_shell_surface~ as a bridge between server
 	      and clients. Otherwise server does not know how to update it. With
 	      that in mind, the ~app_surface.proxy~ is the ~tw_ui~.
+   - however, app_surface is designed to work with different proxies, ~tw_ui~
+     and ~wl_shell_surface~ or ~xdg_shell_surface~ should all work, it is an
+     wrap around ~wl_surface~ and provides convenient methods for commiting
+     surface and do a new frame.
+
+     + but you know not everyting relates to a surface is about frame, would it
+       be able to update something without drawing a new frame? We would not
+       know, you can still try to draw it, then if there is no change at
+       all. Then skip the GPU pipeline.
+
+       Another problem I have now is the treatment of frame-function in the
+       ~app_surface~. If you decide to provide a callback for it, then how will
+       the nuklear clients has its draw function? It is not just imposible, one
+       protential hack would be having user-data section in the in app_surface
+       implementation, but you would need to allocate different size of
+
 
 *** UI implementation
     - background :: background is picture reading and posting, it could be
