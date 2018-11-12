@@ -234,7 +234,7 @@ release_shell_output(struct shell_output *w)
 		&w->background,
 	};
 	for (int i = 0; i < 2; i++)
-		appsurface_release(surfaces[i]);
+		app_surface_release(surfaces[i]);
 
 	//you may destroy the buffer before released
 	shm_pool_release(&w->pool);

@@ -26,12 +26,6 @@ extern "C" {
 /////////////////////////////////Application style definition/////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////
 
-struct app_style {
-	int32_t background;
-	int32_t foreground;
-	int32_t fnt_pt;
-};
-
 
 unsigned char *load_image(const char *path, const enum wl_shm_format wlformat,
 	   int width, int height, unsigned char *data);
@@ -94,12 +88,28 @@ typedef void (*keycb_t)(struct app_surface *, xkb_keysym_t, uint32_t, int);
 typedef void (*pointron_t)(struct app_surface *, uint32_t, uint32_t);
 typedef void (*pointrbtn_t)(struct app_surface *, enum taiwins_btn_t, bool, uint32_t, uint32_t);
 typedef void (*pointraxis_t)(struct app_surface *, int, int, uint32_t, uint32_t);
-typedef void (*framerq_t)(struct app_surface *);
-typedef void (*frame_commit_t)(struct app_surface *);
+/* This actually implements the wl_callback callback. */
+typedef void (*frame_done_t)(struct app_surface *, uint32_t user_data);
+typedef void (*frame_swap_t)(struct app_surface *);
 
-/* this is an templated data structure, it has quite a few fields to fill up, it
- * the initializer should be implement by sub-classes like nuklear backend or
- * cairo or image swap-chain */
+/**
+ * /brief Templated wl_surface container
+ *
+ * The design goal of the surface is for user to have a few frame-update
+ * routines, so the user will never need to call the `wl_surface_damage`,
+ * `wl_surface_attach` and `wl_surface_commit`.
+ *
+ * An sample routine for wl_buffers? We need to provide a wl_buffer to draw,
+ * then it uses that buffer to commit. For that special case, it needs two draw
+ * calls, one does the attach->damage->commit, the other one does that
+ * framebuffer manipulation.
+ *
+ * In the nuklear's case, you need one callback for manipulating the surface and
+ * the other one has the control over nuklear context.
+ *
+ * And there could be other cases, so here we just have a callback for the
+ * swap-chain, the specific draw is implement else where.
+ */
 struct app_surface {
 	//the structure to store wl_shell_surface, xdg_shell_surface or tw_ui
 	struct wl_proxy *protocol;
@@ -111,7 +121,6 @@ struct app_surface {
 
 	struct wl_output *wl_output;
 	struct wl_surface *wl_surface;
-
 	/* buffer */
 	union {
 		struct {
@@ -140,8 +149,8 @@ struct app_surface {
 		pointron_t pointron;
 		pointrbtn_t pointrbtn;
 		pointraxis_t pointraxis;
-		framerq_t frame_request;
-		frame_commit_t frame_commit;
+		frame_done_t frame_done;
+		frame_swap_t frame_commit;
 	};
 	//destructor
 	void (*destroy)(struct app_surface *);
@@ -155,10 +164,13 @@ struct app_surface {
 /**
  * /brief clean start a new appsurface
  */
-void appsurface_start(struct app_surface *surf, struct wl_surface *);
+void app_surface_init(struct app_surface *surf, struct wl_surface *);
 
+/**
+ * /brief the universal release function
+ */
 static inline void
-appsurface_release(struct app_surface *surf)
+app_surface_release(struct app_surface *surf)
 {
 	//throw all the callbacks
 	surf->keycb = NULL;
@@ -169,6 +181,8 @@ appsurface_release(struct app_surface *surf)
 	if (surf->user_data)
 		free(surf->user_data);
 }
+
+
 
 
 /**

@@ -169,3 +169,46 @@ appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer)
 	//1) b2 free and b1 not. nothing to do
 	//2) b2 free and b1 free. nothing to do
 }
+
+
+void
+app_surface_init(struct app_surface *surf, struct wl_surface *wl_surface)
+{
+	*surf = (struct app_surface){0};
+	surf->wl_surface = wl_surface;
+}
+
+typedef void (*shm_buffer_draw_t)(struct app_surface *surf, struct wl_buffer *buffer,
+				  int32_t &dx, int32_t &dy, int32_t &dw, int32_t &dh);
+
+/*
+ * Here we implement a sample attach -> damage -> commit routine for the
+ * wl_buffer. It should be straightforward.
+ *
+ * I should expect a free surface to draw.
+ */
+static void
+wl_buffer_surface_swap(struct app_surface *surf)
+{
+	struct wl_buffer *free_buffer = NULL;
+	bool *dirty = NULL; bool *committed = NULL;
+	int32_t x, y, w, h;
+	shm_buffer_draw_t draw_cb = surf->user_data;
+
+	for (int i = 0; i < 2; i++) {
+		if (surf->committed[i] || surf->dirty[i])
+			continue;
+		free_buffer = surf->wl_buffer[i];
+		dirty = &surf->dirty[i];
+		committed = &surf->committed[i];
+		break;
+	}
+	if (!free_buffer) //I should never be here, should I stop in this function?
+		return;
+	//also, we should have frame callback here.
+
+	wl_surface_attach(surf->wl_surface, free_buffer, 0, 0);
+	draw_cb(surf, free_buffer, &x, &y, &w, &h);
+	wl_surface_damage(surf->wl_surface, x, y, w, h);
+	wl_surface_commit(surf->wl_surface);
+}

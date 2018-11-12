@@ -761,7 +761,7 @@ nk_egl_launch(struct nk_egl_backend *bkend,
 	      void *data)
 {
 	if (bkend->app_surface)
-		appsurface_release(bkend->app_surface);
+		app_surface_release(bkend->app_surface);
 
 	{
 		const unsigned int w = app_surface->w;
@@ -799,7 +799,7 @@ nk_egl_close(struct nk_egl_backend *bkend, struct app_surface *app_surface)
 {
 	if (!is_surfless_supported(bkend))
 		release_backend(bkend);
-	appsurface_release(app_surface);
+	app_surface_release(app_surface);
 	//reset the egl_surface
 	bkend->app_surface = NULL;
 	eglMakeCurrent(bkend->env->egl_display, NULL, NULL, NULL);

@@ -66,7 +66,7 @@ submit_launcher(void *data)
 	taiwins_launcher_submit(launcher->interface, launcher->decision_buffer, launcher->exec_id);
 	nk_textedit_init_fixed(&launcher->text_edit, launcher->chars, 256);
 	nk_egl_close(launcher->bkend, &launcher->surface);
-//	appsurface_release(&launcher->surface);
+//	app_surface_release(&launcher->surface);
 }
 
 
