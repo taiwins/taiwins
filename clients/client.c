@@ -509,36 +509,6 @@ wl_globals_announce(struct wl_globals *globals,
 }
 
 
-void
-wl_globals_bg_color_rgb(const struct wl_globals *globals, float *r, float *g, float *b)
-{
-	//because we are on the little edian system, the order is actually bgra
-	union color_encoder {
-		int32_t code;
-		char bgra[4];
-	} parser;
-
-	parser.code = globals->style.background;
-	*r = parser.bgra[2] / 256.0;
-	*g = parser.bgra[1] / 256.0;
-	*b = parser.bgra[0] / 256.0;
-}
-
-void
-wl_globals_fg_color_rgb(const struct wl_globals *globals, float *r, float *g, float *b)
-{
-	union color_encoder {
-		int32_t code;
-		char bgra[4];
-	} parser;
-
-	parser.code = globals->style.foreground;
-	*r = parser.bgra[2] / 256.0;
-	*g = parser.bgra[1] / 256.0;
-	*b = parser.bgra[0] / 256.0;
-}
-
-
 /*************************************************************
  *              event queue implementation                   *
  *************************************************************/
