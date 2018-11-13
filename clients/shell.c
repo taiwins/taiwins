@@ -126,6 +126,24 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, void *data)
 }
 
 static void
+shell_background_frame(struct app_surface *surf, struct wl_buffer *buffer,
+		 int32_t *dx, int32_t *dy, int32_t *dw, int32_t *dh)
+{
+	*dx = 0;
+	*dy = 0;
+	*dw = surf->w;
+	*dh = surf->h;
+	void *buffer_data = shm_pool_buffer_access(buffer);
+	char imgpath[100];
+
+	sprintf(imgpath, "%s/.wallpaper/wallpaper.png", getenv("HOME"));
+	if (load_image(imgpath, surf->pool->format, surf->w, surf->h,
+		       (unsigned char *)buffer_data) != buffer_data) {
+		fprintf(stderr, "failed to load image somehow\n");
+	}
+}
+
+static void
 tw_background_configure(void *data,
 			struct tw_ui *tw_ui,
 			uint32_t width,
@@ -134,35 +152,12 @@ tw_background_configure(void *data,
 {
 	struct shell_output *w = data;
 	struct app_surface *background = &w->background;
-
 	struct desktop_shell *shell = w->shell;
 
-	background->w = width;
-	background->h = height;
-	background->s = scale;
 	shm_pool_init(&w->pool, shell->globals.shm, 4096, shell->globals.buffer_format);
-	struct bbox bounding = {
-		.w = scale * width,
-		.h = scale * height,
-		.x = 0,
-		.y = 0,
-	};
-	appsurface_init_buffer(&w->background, &w->pool, &bounding);
-
-	if (background->committed[1])
-		return;
-	void *buffer1 = shm_pool_buffer_access(background->wl_buffer[1]);
-	printf("background surface wl_buffer %p, buffer: %p\n", background->wl_buffer[1],
-	       buffer1);
-	char imgpath[100];
-	sprintf(imgpath, "%s/.wallpaper/wallpaper.png", getenv("HOME"));
-	if (load_image(imgpath, WL_SHM_FORMAT_ARGB8888, background->w, background->h,
-		       (unsigned char *)buffer1) != buffer1) {
-		fprintf(stderr, "failed to load image somehow\n");
-	}
-	//this is like an nk_egl_launch, but we have really bad implementation
-	background->dirty[1] = true;
-	appsurface_fadc(background);
+	shm_buffer_impl_app_surface(background, &w->pool, shell_background_frame,
+				    width, height);
+	app_surface_frame(background, false);
 }
 
 static void
@@ -205,12 +200,13 @@ initialize_shell_output(struct shell_output *w, struct tw_output *tw_output,
 {
 	w->shell = shell;
 	w->output = tw_output;
+	struct app_surface *bg = &w->background;
 	struct wl_surface *bg_sf =
 		wl_compositor_create_surface(shell->globals.compositor);
 	struct tw_ui *bg_ui =
 		taiwins_shell_create_background(shell->shell, bg_sf, tw_output);
-	appsurface_init(&w->background, NULL, APP_BACKGROUND, bg_sf,
-			(struct wl_proxy *)bg_ui);
+	app_surface_init(bg, bg_sf, (struct wl_proxy *)bg_ui);
+	bg->wl_globals = &shell->globals;
 	tw_ui_add_listener(bg_ui, &tw_background_impl, w);
 
 	struct wl_surface *pn_sf =

@@ -172,14 +172,28 @@ appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer)
 
 
 void
-app_surface_init(struct app_surface *surf, struct wl_surface *wl_surface)
+app_surface_init(struct app_surface *surf, struct wl_surface *wl_surface,
+		 struct wl_proxy *proxy)
 {
 	*surf = (struct app_surface){0};
 	surf->wl_surface = wl_surface;
+	surf->protocol = proxy;
 }
 
-typedef void (*shm_buffer_draw_t)(struct app_surface *surf, struct wl_buffer *buffer,
-				  int32_t &dx, int32_t &dy, int32_t &dw, int32_t &dh);
+
+
+static void
+app_surface_frame_done(void *user_data, struct wl_callback *cb, uint32_t data)
+{
+	if (cb)
+		wl_callback_destroy(cb);
+	struct app_surface *surf = (struct app_surface *)user_data;
+	surf->do_frame(surf, data);
+}
+
+static struct wl_callback_listener app_surface_wl_frame_impl = {
+	.done = app_surface_frame_done,
+};
 
 /*
  * Here we implement a sample attach -> damage -> commit routine for the
@@ -188,7 +202,7 @@ typedef void (*shm_buffer_draw_t)(struct app_surface *surf, struct wl_buffer *bu
  * I should expect a free surface to draw.
  */
 static void
-wl_buffer_surface_swap(struct app_surface *surf)
+shm_buffer_surface_swap(struct app_surface *surf)
 {
 	struct wl_buffer *free_buffer = NULL;
 	bool *dirty = NULL; bool *committed = NULL;
@@ -206,9 +220,59 @@ wl_buffer_surface_swap(struct app_surface *surf)
 	if (!free_buffer) //I should never be here, should I stop in this function?
 		return;
 	//also, we should have frame callback here.
-
+	if (surf->need_animation) {
+		struct wl_callback *callback = wl_surface_frame(surf->wl_surface);
+		wl_callback_add_listener(callback, &app_surface_wl_frame_impl, surf);
+	}
 	wl_surface_attach(surf->wl_surface, free_buffer, 0, 0);
 	draw_cb(surf, free_buffer, &x, &y, &w, &h);
 	wl_surface_damage(surf->wl_surface, x, y, w, h);
 	wl_surface_commit(surf->wl_surface);
+}
+
+static void
+shm_buffer_destroy_app_surface(struct app_surface *surf)
+{
+	for (int i = 0; i < 2; i++) {
+		shm_pool_buffer_free(surf->wl_buffer[i]);
+		surf->dirty[i] = false;
+		surf->committed[i] = false;
+	}
+	surf->pool = NULL;
+	surf->user_data = NULL;
+}
+
+void
+shm_buffer_impl_app_surface(struct app_surface *surf, struct shm_pool *pool,
+			    shm_buffer_draw_t draw_call, uint32_t w, uint32_t h)
+{
+	surf->do_frame = shm_buffer_surface_swap;
+	surf->user_data = draw_call;
+	surf->destroy = shm_buffer_destroy_app_surface;
+	surf->pool = pool;
+	surf->w = w; surf->h = h; surf->s = 1;
+	surf->px = 0; surf->py = 0;
+	for (int i = 0; i < 2; i++) {
+		surf->wl_buffer[i] = shm_pool_alloc_buffer(pool, w, h);
+		surf->dirty[i] = false;
+		surf->committed[i] = false;
+	}
+	//TODO we should be able to resize the surface as well.
+}
+
+
+static void
+embeded_app_surface_do_frame(struct app_surface *surf, uint32_t data)
+{
+	surf->parent->do_frame(surf->parent, data);
+}
+
+void
+embeded_impl_app_surface(struct app_surface *surf, struct app_surface *parent,
+			 uint32_t w, uint32_t h, uint32_t px, uint32_t py)
+{
+	surf->parent = parent;
+	surf->do_frame = embeded_app_surface_do_frame;
+	surf->w = w; surf->h = h; surf->s = 1;
+	surf->px = px; surf->py = py;
 }
