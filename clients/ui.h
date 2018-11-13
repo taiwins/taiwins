@@ -80,7 +80,7 @@ enum taiwins_btn_t {
 	TWBTN_DCLICK,
 };
 
-
+struct wl_globals;
 struct app_surface;
 struct egl_env;
 
@@ -89,8 +89,7 @@ typedef void (*pointron_t)(struct app_surface *, uint32_t, uint32_t);
 typedef void (*pointrbtn_t)(struct app_surface *, enum taiwins_btn_t, bool, uint32_t, uint32_t);
 typedef void (*pointraxis_t)(struct app_surface *, int, int, uint32_t, uint32_t);
 /* This actually implements the wl_callback callback. */
-typedef void (*frame_done_t)(struct app_surface *, uint32_t user_data);
-typedef void (*frame_swap_t)(struct app_surface *);
+typedef void (*frame_t)(struct app_surface *, uint32_t user_data);
 
 /**
  * /brief Templated wl_surface container
@@ -119,8 +118,10 @@ struct app_surface {
 	unsigned int s;
 	enum APP_SURFACE_TYPE type;
 
+	struct wl_globals *wl_globals;
 	struct wl_output *wl_output;
 	struct wl_surface *wl_surface;
+	bool need_animation;
 	/* buffer */
 	union {
 		struct {
@@ -149,8 +150,7 @@ struct app_surface {
 		pointron_t pointron;
 		pointrbtn_t pointrbtn;
 		pointraxis_t pointraxis;
-		frame_done_t frame_done;
-		frame_swap_t frame_commit;
+		frame_t do_frame;
 	};
 	//destructor
 	void (*destroy)(struct app_surface *);
@@ -164,7 +164,7 @@ struct app_surface {
 /**
  * /brief clean start a new appsurface
  */
-void app_surface_init(struct app_surface *surf, struct wl_surface *);
+void app_surface_init(struct app_surface *surf, struct wl_surface *, struct wl_proxy *proxy);
 
 /**
  * /brief the universal release function
@@ -177,12 +177,63 @@ app_surface_release(struct app_surface *surf)
 	surf->pointron = NULL;
 	surf->pointrbtn = NULL;
 	surf->pointraxis = NULL;
-	surf->destroy(surf);
-	if (surf->user_data)
-		free(surf->user_data);
+	wl_surface_destroy(surf->wl_surface);
+	if (surf->destroy)
+		surf->destroy(surf);
+}
+
+/**
+ * /brief kick off the frames of the app_surface
+ *
+ * user call this function to start drawing. It triggers the frames untils
+ * app_surface_release is called.
+ */
+static inline void
+app_surface_frame(struct app_surface *surf, bool anime)
+{
+	//this is the best we
+	surf->need_animation = anime;
+	surf->do_frame(surf, 0);
 }
 
 
+cairo_format_t
+translate_wl_shm_format(enum wl_shm_format format);
+
+size_t
+stride_of_wl_shm_format(enum wl_shm_format format);
+
+
+static inline struct app_surface *
+app_surface_from_wl_surface(struct wl_surface *s)
+{
+	return (struct app_surface *)wl_surface_get_user_data(s);
+}
+
+
+/**
+ * /brief one of the implementation of app_surface
+ *
+ * In this case, the user_data is taken and used for callback, so we do not need
+ * to allocate new memory, since you won't have extra space for ther other
+ * user_data, expecting to embend app_surface in another data structure.
+ *
+ */
+typedef void (*shm_buffer_draw_t)(struct app_surface *surf, struct wl_buffer *buffer,
+				  int32_t *dx, int32_t *dy, int32_t *dw, int32_t *dh);
+
+void
+shm_buffer_impl_app_surface(struct app_surface *surf, struct shm_pool *pool,
+			    shm_buffer_draw_t draw_call, uint32_t w, uint32_t h);
+
+
+/**
+ * /brief second implementation we provide here is the parent surface
+ */
+void embeded_impl_app_surface(struct app_surface *surf, struct app_surface *parent,
+			      uint32_t w, uint32_t h, uint32_t px, uint32_t py);
+
+/***************************************** Deprecated *********************************************/
 
 
 /**
@@ -214,18 +265,6 @@ DEPRECATED(void appsurface_fadc(struct app_surface *surf));
 DEPRECATED(void appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer));
 
 
-cairo_format_t
-translate_wl_shm_format(enum wl_shm_format format);
-
-size_t
-stride_of_wl_shm_format(enum wl_shm_format format);
-
-
-static inline struct app_surface *
-app_surface_from_wl_surface(struct wl_surface *s)
-{
-	return (struct app_surface *)wl_surface_get_user_data(s);
-}
 
 
 #ifdef __cplusplus
