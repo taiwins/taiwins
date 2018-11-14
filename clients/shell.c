@@ -120,7 +120,7 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, void *data)
 	clicked->widget.h = 400;
 	clicked->widget.s = 1;
 
-	appsurface_init_egl(&clicked->widget, &shell->eglenv);
+	app_surface_init_egl(&clicked->widget, &shell->eglenv);
 
 	nk_egl_launch(shell->widget_backend, &clicked->widget, clicked->draw_cb, clicked);
 }
@@ -180,7 +180,7 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 					     output->panel_backend,
 					     &shell->client_event_queue);
 	nk_egl_set_theme(output->panel_backend, &taiwins_dark_theme);
-	appsurface_init_egl(panel, &shell->eglenv);
+	app_surface_init_egl(panel, &shell->eglenv);
 	nk_egl_launch(output->panel_backend, panel, shell_panel_frame, output);
 
 }
@@ -216,9 +216,7 @@ initialize_shell_output(struct shell_output *w, struct tw_output *tw_output,
 	appsurface_init(&w->panel, NULL, APP_PANEL, pn_sf,
 			(struct wl_proxy *)pn_ui);
 	tw_ui_add_listener(pn_ui, &tw_panel_impl, w);
-
 	//so we have one nk_egl_backend for the panel.
-
 	tw_output_set_user_data(tw_output, w);
 }
 

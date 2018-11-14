@@ -740,7 +740,42 @@ release_backend(struct nk_egl_backend *bkend)
 	}
 }
 
+struct nk_egl_instance {
+	struct nk_egl_backend *bkend;
+	nk_egl_draw_func_t draw_cb;
+};
+
+
 /********************* exposed APIS *************************/
+void nk_egl_swap_proc(struct app_surface *surf, uint32_t user_data)
+{
+	//TODO impl this
+}
+
+
+void nk_egl_impl_app_surface(struct app_surface *surf,
+			     struct nk_egl_backend *bkend,
+			     nk_egl_draw_func_t draw_func,
+			     uint32_t w, uint32_t h,
+			     uint32_t px, uint32_t py)
+{
+	struct nk_egl_instance *instance = malloc(sizeof(struct nk_egl_instance));
+	instance->bkend = bkend;
+	instance->draw_cb = draw_func;
+
+	surf->w = w;
+	surf->h = h;
+	surf->px = px;
+	surf->py = py;
+	//assume it is compiled
+	app_surface_init_egl(surf, (struct egl_env *)bkend->env);
+	if (surf->wl_globals) {
+		//TODO, include the theme in the wl_globals, so we can set it here.
+	}
+	assign_egl_surface(surf, bkend->env);
+}
+
+
 
 struct nk_egl_backend*
 nk_egl_create_backend(const struct egl_env *env)
