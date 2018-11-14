@@ -26,12 +26,12 @@
 #include <GL/gl.h>
 #include <wayland-egl.h>
 #include "egl.h"
+#include "../config.h"
 
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 
 //okay, hide it
 struct app_surface;
@@ -43,12 +43,17 @@ typedef void (*nk_egl_postcall_t)(void *userdata);
 
 struct nk_egl_backend *nk_egl_create_backend(const struct egl_env *env);
 void nk_egl_destroy_backend(struct nk_egl_backend *bkend);
-//force update a frame
+
+void nk_egl_impl_app_surface(struct app_surface *surf, struct nk_egl_backend *bkend,
+			     nk_egl_draw_func_t draw_func,
+			     uint32_t w, uint32_t h, uint32_t px, uint32_t py);
+
 void nk_egl_update(struct nk_egl_backend *bkend);
 
-void nk_egl_launch(struct nk_egl_backend *bkend, struct app_surface *app,
-		   nk_egl_draw_func_t draw_func, void *data);
-void nk_egl_close(struct nk_egl_backend *bkend, struct app_surface *app_surface);
+DEPRECATED(void nk_egl_launch(struct nk_egl_backend *bkend, struct app_surface *app,
+			     nk_egl_draw_func_t draw_func, void *data));
+
+DEPRECATED(void nk_egl_close(struct nk_egl_backend *bkend, struct app_surface *app_surface));
 
 bool nk_egl_set_theme(struct nk_egl_backend *bkend, const struct taiwins_theme *theme);
 

@@ -71,7 +71,7 @@ appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
 }
 
 void
-appsurface_init_egl(struct app_surface *surf, struct egl_env *env)
+app_surface_init_egl(struct app_surface *surf, struct egl_env *env)
 {
 	surf->egldisplay = env->egl_display;
 	surf->eglwin = wl_egl_window_create(surf->wl_surface,

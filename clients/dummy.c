@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
 	struct taiwins_theme theme = taiwins_dark_theme;
 	nk_egl_set_theme(App.bkend, &theme);
 
-	appsurface_init_egl(&App.surface, &App.env);
+	app_surface_init_egl(&App.surface, &App.env);
 
 	nk_egl_launch(App.bkend, &App.surface, sample_widget, &App);
 	fprintf(stdout, "here\n");
