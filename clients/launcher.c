@@ -152,7 +152,7 @@ start_launcher(void *data,
 	//TODO, use tw_ui element
 	appsurface_init(surface, NULL, APP_WIDGET,
 			wl_surface, ui);
-	appsurface_init_egl(&launcher->surface, &launcher->env);
+	app_surface_init_egl(&launcher->surface, &launcher->env);
 
 	//yeah, generally you will want a buffer from this
 

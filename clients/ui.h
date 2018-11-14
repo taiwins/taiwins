@@ -196,6 +196,13 @@ app_surface_frame(struct app_surface *surf, bool anime)
 	surf->do_frame(surf, 0);
 }
 
+/**
+ * /brief a helper function if you have egl_env
+ *
+ * I do not want to include this but there is a fixed way to allocate
+ * `wl_egl_window` and `EGLSurface`, even with nuklear
+ */
+void app_surface_init_egl(struct app_surface *surf, struct egl_env *env);
 
 cairo_format_t
 translate_wl_shm_format(enum wl_shm_format format);
@@ -253,7 +260,6 @@ DEPRECATED(void appsurface_init(struct app_surface *surf, struct app_surface *p,
  */
 DEPRECATED(void appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
 				       const struct bbox *bbox));
-DEPRECATED(void appsurface_init_egl(struct app_surface *surf, struct egl_env *env));
 /**
  * /brief init all the input callbacks, zero is acceptable
  */
