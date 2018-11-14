@@ -297,8 +297,8 @@ nk_egl_prepare_font(struct nk_egl_backend *bkend)
 	if (n_fonts == 0) {
 		/* font = nk_font_atlas_add_default(&bkend->atlas, 16.0, &cfg); */
 		font = nk_font_atlas_add_from_file(&bkend->atlas,
-						   /* "/usr/share/fonts/truetype/ttf-bitstream-vera/Vera.ttf", */
-					   "/usr/share/fonts/TTF/Vera.ttf",
+						   "/usr/share/fonts/truetype/ttf-bitstream-vera/Vera.ttf",
+					   /* "/usr/share/fonts/TTF/Vera.ttf", */
 					   16, &cfg);
 	} else {
 		n_fonts = (n_fonts > 3) ? 3: n_fonts;
