@@ -22,7 +22,7 @@ redraw_panel(void *data)
  * more versatile approach
  */
 static void
-clock_widget_anchor(struct nk_context *ctx, float width, float height, void *data)
+clock_widget_anchor(struct nk_context *ctx, float width, float height, struct app_surface *app)
 {
 	//it seems to work, we still need a library to figure out the text size
 	nk_layout_row_push(ctx, 100);
@@ -39,10 +39,10 @@ clock_widget_anchor(struct nk_context *ctx, float width, float height, void *dat
 
 
 static void
-clock_widget_sample(struct nk_context *ctx, float width, float height, void *data)
+clock_widget_sample(struct nk_context *ctx, float width, float height, struct app_surface *app)
 {
-	enum nk_buttons btn;
-	uint32_t sx, sy;
+	/* enum nk_buttons btn; */
+	/* uint32_t sx, sy; */
 	//TODO, change the draw function to app->draw_widget(app);
 	enum {EASY, HARD};
 	static int op = EASY;

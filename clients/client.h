@@ -27,7 +27,7 @@
 
 #include <sequential.h>
 #include <os/buffer.h>
-
+#include "../config.h"
 
 #include "ui.h"
 
@@ -102,6 +102,8 @@ struct wl_globals {
 			uint32_t serial;
 		};
 	} inputs;
+	//application theme settings
+	struct taiwins_theme theme;
 };
 
 
@@ -111,6 +113,9 @@ int wl_globals_announce(struct wl_globals *globals,
 			uint32_t name,
 			const char *interface,
 			uint32_t version);
+
+//unless you have better method to setup the theme, I think you can simply set it up my hand
+
 /* Constructor */
 void wl_globals_init(struct wl_globals *globals, struct wl_display *display);
 /* destructor */

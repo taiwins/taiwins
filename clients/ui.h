@@ -154,7 +154,8 @@ struct app_surface {
 	};
 	//destructor
 	void (*destroy)(struct app_surface *);
-	void *user_data; // the new section should be Null, if not, then it should be freed at destruction.
+	//XXX this user_data is controlled by implementation, do not set it!!!
+	void *user_data;
 };
 
 /** TODO

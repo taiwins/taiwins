@@ -38,8 +38,8 @@ struct app_surface;
 struct nk_egl_backend;
 struct taiwins_theme;
 
-typedef void (*nk_egl_draw_func_t)(struct nk_context *ctx, float width, float height, void *data);
-typedef void (*nk_egl_postcall_t)(void *userdata);
+typedef void (*nk_egl_draw_func_t)(struct nk_context *ctx, float width, float height, struct app_surface *app);
+typedef void (*nk_egl_postcall_t)(struct app_surface *app);
 
 struct nk_egl_backend *nk_egl_create_backend(const struct egl_env *env);
 void nk_egl_destroy_backend(struct nk_egl_backend *bkend);
@@ -55,7 +55,6 @@ DEPRECATED(void nk_egl_launch(struct nk_egl_backend *bkend, struct app_surface *
 
 DEPRECATED(void nk_egl_close(struct nk_egl_backend *bkend, struct app_surface *app_surface));
 
-bool nk_egl_set_theme(struct nk_egl_backend *bkend, const struct taiwins_theme *theme);
 
 //tell the nk_egl_backend to run a specific task after the the rendering,
 //provides also an option to clean up the state as well, it get's cleaned after evaluated.
