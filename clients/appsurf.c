@@ -195,6 +195,13 @@ static struct wl_callback_listener app_surface_wl_frame_impl = {
 	.done = app_surface_frame_done,
 };
 
+void
+app_surface_request_frame(struct app_surface *surf)
+{
+	struct wl_callback *callback = wl_surface_frame(surf->wl_surface);
+	wl_callback_add_listener(callback, &app_surface_wl_frame_impl, surf);
+}
+
 /*
  * Here we implement a sample attach -> damage -> commit routine for the
  * wl_buffer. It should be straightforward.
@@ -220,10 +227,8 @@ shm_buffer_surface_swap(struct app_surface *surf)
 	if (!free_buffer) //I should never be here, should I stop in this function?
 		return;
 	//also, we should have frame callback here.
-	if (surf->need_animation) {
-		struct wl_callback *callback = wl_surface_frame(surf->wl_surface);
-		wl_callback_add_listener(callback, &app_surface_wl_frame_impl, surf);
-	}
+	if (surf->need_animation)
+		app_surface_request_frame(surf);
 	wl_surface_attach(surf->wl_surface, free_buffer, 0, 0);
 	draw_cb(surf, free_buffer, &x, &y, &w, &h);
 	wl_surface_damage(surf->wl_surface, x, y, w, h);

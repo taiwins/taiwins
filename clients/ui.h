@@ -194,8 +194,18 @@ app_surface_frame(struct app_surface *surf, bool anime)
 {
 	//this is the best we
 	surf->need_animation = anime;
+	if (anime) {
+		surf->keycb = NULL;
+		surf->pointron = NULL;
+		surf->pointrbtn = NULL;
+		surf->pointraxis = NULL;
+	}
 	surf->do_frame(surf, 0);
 }
+
+/* request a frame to make run it later */
+void app_surface_request_frame(struct app_surface *surf);
+
 
 /**
  * /brief a helper function if you have egl_env

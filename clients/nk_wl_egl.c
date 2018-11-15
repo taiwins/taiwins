@@ -605,6 +605,9 @@ nk_egl_new_frame(struct app_surface *surf, uint32_t user_data)
 	float height = bkend->app_surface->h;
 	float scale  = bkend->app_surface->s;
 
+	if (surf->need_animation)
+		app_surface_request_frame(surf);
+
 	if (nk_begin(&bkend->ctx, "eglapp", nk_rect(0, 0, width, height),
 		     NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR)) {
 		bkend->frame(&bkend->ctx, width, height, bkend->app_surface);
@@ -778,7 +781,6 @@ nk_egl_impl_app_surface(struct app_surface *surf,
 	surf->pointrbtn = nk_pointrbtn;
 	surf->pointron = nk_pointron;
 	surf->pointraxis = nk_pointraxis;
-
 	//change the up-to-date information on backend
 	bkend->frame = draw_func;
 	bkend->compiled = compile_backend(bkend, surf->eglsurface);
