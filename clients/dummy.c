@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
 
 	App.bkend = nk_egl_create_backend(&App.env);
 	struct taiwins_theme theme = taiwins_dark_theme;
-	nk_egl_set_theme(App.bkend, &theme);
+//	nk_egl_set_theme(App.bkend, &theme);
 
 	app_surface_init_egl(&App.surface, &App.env);
 
