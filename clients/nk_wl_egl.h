@@ -44,6 +44,7 @@ typedef void (*nk_egl_postcall_t)(struct app_surface *app);
 struct nk_egl_backend *nk_egl_create_backend(const struct egl_env *env);
 void nk_egl_destroy_backend(struct nk_egl_backend *bkend);
 
+//TODO, add one more option for the animation system
 void nk_egl_impl_app_surface(struct app_surface *surf, struct nk_egl_backend *bkend,
 			     nk_egl_draw_func_t draw_func,
 			     uint32_t w, uint32_t h, uint32_t px, uint32_t py);
