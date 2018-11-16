@@ -834,7 +834,7 @@ nk_egl_launch(struct nk_egl_backend *bkend,
 
 	//now resize the window
 	bkend->compiled = compile_backend(bkend, app_surface->eglsurface);
-	assign_egl_surface(app_surface, bkend->env);
+	assign_egl_surface(app_surface->eglsurface, bkend->env);
 
 	nk_egl_new_frame(app_surface, 0);
 	//there seems to be no function about changing window size in egl
