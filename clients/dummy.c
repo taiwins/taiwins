@@ -55,9 +55,9 @@ static struct wl_registry_listener registry_listener = {
 
 
 static void
-sample_widget(struct nk_context *ctx, float width, float height, void *data)
+sample_widget(struct nk_context *ctx, float width, float height, struct app_surface *data)
 {
-	struct application *app = data;
+	struct application *app = &App;
 	enum nk_buttons btn;
 	uint32_t sx, sy;
 	//TODO, change the draw function to app->draw_widget(app);
@@ -140,6 +140,7 @@ int main(int argc, char *argv[])
 	if (!wl_display)
 		fprintf(stderr, "okay, I don't even have wayland display\n");
 	wl_globals_init(&App.global, wl_display);
+	App.global.theme = taiwins_dark_theme;
 
 	struct wl_registry *registry = wl_display_get_registry(wl_display);
 	wl_registry_add_listener(registry, &registry_listener, NULL);
@@ -150,7 +151,8 @@ int main(int argc, char *argv[])
 
 	struct wl_surface *wl_surface = wl_compositor_create_surface(App.global.compositor);
 	struct wl_shell_surface *shell_surface = wl_shell_get_shell_surface(App.shell, wl_surface);
-	appsurface_init(&App.surface, NULL, APP_WIDGET, wl_surface, (struct wl_proxy *)shell_surface);
+	app_surface_init(&App.surface, wl_surface, (struct wl_proxy *)shell_surface);
+	App.surface.wl_globals = &App.global;
 
 	wl_shell_surface_add_listener(shell_surface, &pingpong, NULL);
 	wl_shell_surface_set_toplevel(shell_surface);
@@ -162,12 +164,9 @@ int main(int argc, char *argv[])
 	App.surface.s = 1;
 
 	App.bkend = nk_egl_create_backend(&App.env);
-	struct taiwins_theme theme = taiwins_dark_theme;
-//	nk_egl_set_theme(App.bkend, &theme);
+	nk_egl_impl_app_surface(&App.surface, App.bkend, sample_widget, 200, 400, 0, 0);
+	app_surface_frame(&App.surface, false);
 
-	app_surface_init_egl(&App.surface, &App.env);
-
-	nk_egl_launch(App.bkend, &App.surface, sample_widget, &App);
 	fprintf(stdout, "here\n");
 	while (wl_display_dispatch(wl_display) != -1 && !App.done)
 		;
