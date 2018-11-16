@@ -49,7 +49,6 @@ void nk_egl_impl_app_surface(struct app_surface *surf, struct nk_egl_backend *bk
 			     nk_egl_draw_func_t draw_func,
 			     uint32_t w, uint32_t h, uint32_t px, uint32_t py);
 
-void nk_egl_update(struct nk_egl_backend *bkend);
 
 DEPRECATED(void nk_egl_launch(struct nk_egl_backend *bkend, struct app_surface *app,
 			     nk_egl_draw_func_t draw_func, void *data));
@@ -59,8 +58,7 @@ DEPRECATED(void nk_egl_close(struct nk_egl_backend *bkend, struct app_surface *a
 
 //tell the nk_egl_backend to run a specific task after the the rendering,
 //provides also an option to clean up the state as well, it get's cleaned after evaluated.
-void nk_egl_add_idle(struct nk_context *ctx,
-		     void (*task)(void *user_data));
+void nk_egl_add_idle(struct nk_context *ctx, nk_egl_postcall_t task);
 
 
 /* these two calls are not necessary */

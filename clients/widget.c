@@ -8,10 +8,73 @@
 static int
 redraw_panel(void *data)
 {
-	struct nk_egl_backend *backend = data;
-	nk_egl_update(backend);
+	struct app_surface *widget = data;
+	//this should call the
+	widget->do_frame(widget, 0);
 	return true;
 }
+
+
+void
+shell_widget_init_ancre(struct shell_widget *widget, struct app_surface *panel,
+			uint32_t w, uint32_t h, uint32_t px, uint32_t py)
+{
+	embeded_impl_app_surface(&widget->ancre, panel, w, h, px, py);
+	//now the draw function is set.
+}
+
+void
+shell_widget_event_from_timer(struct shell_widget *widget, struct timespec time,
+			      struct tw_event_queue *event_queue)
+{
+	struct tw_event redraw_widget = {
+		.data = widget,
+		.cb = redraw_panel,
+	};
+	tw_event_queue_add_timer(event_queue, &time, &redraw_widget);
+}
+
+
+void shell_widget_event_from_file(struct shell_widget *widget, const char *path,
+				  struct tw_event_queue *event_queue)
+{
+	int fd = 0;
+	uint32_t mask = 0;
+	//TODO, open the file and set the mask
+
+	struct tw_event redraw_widget = {
+		.data = widget,
+		.cb = redraw_panel,
+	};
+	tw_event_queue_add_source(event_queue, fd, &redraw_widget, mask);
+}
+
+
+void
+shell_widget_activate(struct shell_widget *widget, struct app_surface *panel, struct tw_event_queue *queue)
+{
+	if (widget->interval.tv_sec || widget->interval.tv_nsec)
+		shell_widget_event_from_timer(widget, widget->interval, queue);
+	if (widget->file_path)
+		shell_widget_event_from_file(widget, widget->file_path, queue);
+	//the size of the ancre here is irrelevant
+	embeded_impl_app_surface(&clock_widget.ancre, panel, 0, 0, 0, 0);
+}
+
+
+
+void
+shell_widget_launch(struct shell_widget *widget, struct wl_surface *surface, struct wl_proxy *p,
+		    struct nk_egl_backend *bkend, uint32_t x, uint32_t y)
+{
+	app_surface_init(&widget->widget, surface, p);
+	nk_egl_impl_app_surface(&widget->widget, bkend, widget->draw_cb,
+				widget->w, widget->h, x, y);
+	app_surface_frame(&widget->widget, false);
+}
+
+/******************************* The sample widgets *********************************/
+
 
 /*
  * This is a simple illustration of how to work with a row. We may really does
@@ -65,25 +128,17 @@ clock_widget_sample(struct nk_context *ctx, float width, float height, struct ap
 	nk_edit_buffer(ctx, NK_EDIT_FIELD, &text_edit, nk_filter_default);
 }
 
-static void clock_set_timer(struct shell_widget *w,
-			    struct nk_egl_backend *panel_backend,
-			    struct tw_event_queue *event_queue)
-{
-	struct tw_event redraw_widget = {
-		.data = panel_backend,
-		.cb = redraw_panel,
-	};
-
-	struct timespec interval = {
-		.tv_sec = 1,
-		.tv_nsec = 0,
-	};
-	tw_event_queue_add_timer(event_queue, &interval, &redraw_widget);
-}
 
 
 struct shell_widget clock_widget = {
-	.set_event_cb = clock_set_timer,
 	.ancre_cb = clock_widget_anchor,
 	.draw_cb = clock_widget_sample,
+	.w = 400,
+	.h = 400,
+	.widget.s = 1,
+	.interval = {
+		.tv_sec = 1,
+		.tv_nsec = 0,
+	},
+	.file_path = NULL,
 };

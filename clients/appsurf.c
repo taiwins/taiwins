@@ -178,6 +178,7 @@ app_surface_init(struct app_surface *surf, struct wl_surface *wl_surface,
 	*surf = (struct app_surface){0};
 	surf->wl_surface = wl_surface;
 	surf->protocol = proxy;
+	wl_surface_set_user_data(wl_surface, surf);
 }
 
 
@@ -276,6 +277,8 @@ void
 embeded_impl_app_surface(struct app_surface *surf, struct app_surface *parent,
 			 uint32_t w, uint32_t h, uint32_t px, uint32_t py)
 {
+	surf->wl_surface = NULL;
+	surf->protocol = NULL;
 	surf->parent = parent;
 	surf->do_frame = embeded_app_surface_do_frame;
 	surf->w = w; surf->h = h; surf->s = 1;

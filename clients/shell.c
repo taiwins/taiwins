@@ -24,6 +24,12 @@
 
 struct taiwins_shell *shelloftaiwins;
 
+struct widget_launch_info {
+	uint32_t x;
+	uint32_t y;
+	struct shell_widget *widget;
+};
+
 struct shell_output {
 	struct desktop_shell *shell;
 	struct tw_output *output;
@@ -31,6 +37,8 @@ struct shell_output {
 	//we may have better solution
 	struct app_surface background;
 	struct app_surface panel;
+	//a temporary struct
+	struct widget_launch_info widget_launch;
 
 	struct nk_egl_backend *panel_backend;
 	struct shm_pool pool;
@@ -96,6 +104,25 @@ tw_background_configure(void *data,
 }
 
 
+void
+launch_widget(struct app_surface *panel_surf)
+{
+	struct shell_output *shell_output =
+		container_of(panel_surf, struct shell_output, panel);
+	struct widget_launch_info *info = &shell_output->widget_launch;
+	struct desktop_shell *shell = shell_output->shell;
+	info->widget->widget.wl_globals = panel_surf->wl_globals;
+	struct wl_surface *widget_surface = wl_compositor_create_surface(shell->globals.compositor);
+	struct tw_ui *widget_proxy = taiwins_shell_launch_widget(shell->shell, widget_surface,
+								 shell_output->output,
+								 info->x, info->y);
+	/* we should release the previous surface as well */
+	shell_widget_launch(info->widget, widget_surface, (struct wl_proxy *)widget_proxy,
+			    shell->widget_backend,
+			    info->x, info->y);
+	*info = (struct widget_launch_info){0};
+}
+
 
 
 static void
@@ -103,7 +130,6 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 {
 	enum nk_buttons button;
 	uint32_t sx, sy;
-	struct nk_vec2 launch_point;
 	struct shell_output *shell_output =
 		container_of(panel_surf, struct shell_output, panel);
 	struct desktop_shell *shell = shell_output->shell;
@@ -118,7 +144,7 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	wl_list_for_each(widget, &shell->shell_widgets, link) {
 		enum nk_buttons btn;
 		uint32_t sx, sy;
-		widget->ancre_cb(ctx, width, height, widget);
+		widget->ancre_cb(ctx, width, height, &widget->ancre);
 		/* if (nk_widget_is_mouse_clicked(ctx, NK_BUTTON_LEFT) || ) */
 		if (nk_egl_get_btn(ctx, &btn, &sx, &sy))
 			clicked = widget;
@@ -131,39 +157,25 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	no_widget += 1;
 	no_widget = no_widget % n_widgets;
 
-	//we should essentially use nuklear builtin functions
+	struct widget_launch_info *info = &shell_output->widget_launch;
 	nk_egl_get_btn(ctx, &button, &sx, &sy);
+	info->widget = clicked;
 	//determine the launch point
 	if (sx + clicked->widget.w/2 >= panel_surf->w)
-		launch_point.x = panel_surf->w - clicked->widget.w;
+		info->x = panel_surf->w - clicked->widget.w;
 	else if (sx - clicked->widget.w/2 < 0)
-		launch_point.x = 0;
+		info->x = 0;
 	else
-		launch_point.x = sx - clicked->widget.w/2;
-	launch_point.y = sy;
-	//en preference, we do this after the panel commit
+		info->x = sx - clicked->widget.w/2;
+	info->y = sy;
 
 	//again, we should add a post cb here.
-	//the widget is already there or the widget does not need to draw, we
-	//just return
 	if (clicked->widget.protocol || !clicked->draw_cb)
 		return;
-	/* //change this part!!! */
-	/* struct wl_surface *widget_surface = wl_compositor_create_surface(shell->globals.compositor); */
-	/* struct tw_ui *widget_proxy = taiwins_shell_launch_widget(shell->shell, widget_surface, */
-	/*							 shell_output->output, */
-	/*							 launch_point.x, launch_point.y); */
-
-	/* appsurface_init(&clicked->widget, NULL, APP_WIDGET, widget_surface, */
-	/*		 (struct wl_proxy *)widget_proxy); */
-	/* clicked->widget.w = 400; */
-	/* clicked->widget.h = 400; */
-	/* clicked->widget.s = 1; */
-
-	/* app_surface_init_egl(&clicked->widget, &shell->eglenv); */
-
-	/* nk_egl_launch(shell->widget_backend, &clicked->widget, clicked->draw_cb, clicked); */
+	nk_egl_add_idle(ctx, launch_widget);
 }
+
+
 
 static void
 tw_panel_configure(void *data, struct tw_ui *tw_ui,
@@ -173,14 +185,12 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 	struct app_surface *panel = &output->panel;
 	struct desktop_shell *shell = output->shell;
 
-	//TODO detect if we are on the major output, if not, we paint it differently
+	//TODO detect if we are on the major output. If not, we do not add the
+	//widgets, and draw call should be different
 	output->panel_backend = nk_egl_create_backend(&output->shell->eglenv);
 	struct shell_widget *widget;
 	wl_list_for_each(widget, &shell->shell_widgets, link)
-		if (widget->set_event_cb)
-			widget->set_event_cb(widget,
-					     output->panel_backend,
-					     &shell->client_event_queue);
+		shell_widget_activate(widget, panel, &shell->client_event_queue);
 
 	nk_egl_impl_app_surface(panel, output->panel_backend, shell_panel_frame,
 				width, height, 0 ,0);

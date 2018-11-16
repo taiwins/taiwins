@@ -345,11 +345,11 @@ assign_egl_surface(EGLSurface eglsurface, const struct egl_env *env)
 	//TODO on Nvidia driver, I am getting GL_INVALID_OPERATION on this, but
 	//eglMakeCurrent succeed, a hack to make Nvidia happy
 	EGLint egl_error = eglGetError();
-	printf("egl error: %x\n", egl_error);
+	/* printf("egl error: %x\n", egl_error); */
 	assert(eglMakeCurrent(env->egl_display, eglsurface,
 			      eglsurface, env->egl_context));
 	egl_error = eglGetError();
-	printf("egl error: %x\n", egl_error);
+	/* printf("egl error: %x\n", egl_error); */
 	glGetError();
 	/* glViewport(0, 0, app_surface->w, app_surface->h); */
 	/* glScissor(0, 0, app_surface->w, app_surface->h); */
@@ -600,10 +600,13 @@ nk_egl_render(struct nk_egl_backend *bkend)
 static void
 nk_egl_new_frame(struct app_surface *surf, uint32_t user_data)
 {
+
+
 	struct nk_egl_backend *bkend = surf->user_data;
 	float width = bkend->app_surface->w;
 	float height = bkend->app_surface->h;
 	float scale  = bkend->app_surface->s;
+	assign_egl_surface(surf->eglsurface, bkend->env);
 
 	if (surf->need_animation)
 		app_surface_request_frame(surf);
@@ -785,6 +788,8 @@ nk_egl_impl_app_surface(struct app_surface *surf,
 	bkend->frame = draw_func;
 	bkend->compiled = compile_backend(bkend, surf->eglsurface);
 	bkend->app_surface = surf;
+	bkend->cbtn = -1;
+	bkend->ckey = XKB_KEY_NoSymbol;
 
 	if (surf->wl_globals) {
 		nk_egl_apply_color(bkend, &surf->wl_globals->theme);
@@ -835,11 +840,6 @@ nk_egl_launch(struct nk_egl_backend *bkend,
 	//there seems to be no function about changing window size in egl
 }
 
-void
-nk_egl_update(struct nk_egl_backend *bkend)
-{
-	nk_egl_new_frame(bkend->app_surface, 0);
-}
 
 void
 nk_egl_close(struct nk_egl_backend *bkend, struct app_surface *app_surface)
@@ -880,8 +880,7 @@ nk_egl_get_btn(struct nk_context *ctx, enum nk_buttons *button, uint32_t *sx, ui
 
 
 void
-nk_egl_add_idle(struct nk_context *ctx,
-		void (*task)(void *user_data))
+nk_egl_add_idle(struct nk_context *ctx, nk_egl_postcall_t task)
 {
 	struct nk_egl_backend *bkend = container_of(ctx, struct nk_egl_backend, ctx);
 	bkend->post_cb = task;
