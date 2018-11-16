@@ -48,6 +48,7 @@ struct desktop_shell {
 	struct wl_globals globals;
 	struct taiwins_shell *shell;
 	struct egl_env eglenv;
+	struct egl_env widget_env;
 
 	struct shell_output shell_outputs[16];
 
@@ -304,7 +305,8 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	shell->shell = NULL;
 	shell->quit = false;
 	egl_env_init(&shell->eglenv, display);
-	shell->widget_backend = nk_egl_create_backend(&shell->eglenv);
+	egl_env_init(&shell->widget_env, display);
+	shell->widget_backend = nk_egl_create_backend(&shell->widget_env);
 
 	wl_list_init(&shell->shell_widgets);
 	wl_list_insert(&shell->shell_widgets, &clock_widget.link);
@@ -324,6 +326,7 @@ desktop_shell_release(struct desktop_shell *shell)
 		release_shell_output(&shell->shell_outputs[i]);
 	wl_globals_release(&shell->globals);
 	egl_env_end(&shell->eglenv);
+	egl_env_end(&shell->widget_env);
 	shell->quit = true;
 	shell->client_event_queue.quit = true;
 #ifdef __DEBUG

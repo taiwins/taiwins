@@ -606,7 +606,6 @@ nk_egl_new_frame(struct app_surface *surf, uint32_t user_data)
 	float width = bkend->app_surface->w;
 	float height = bkend->app_surface->h;
 	float scale  = bkend->app_surface->s;
-	assign_egl_surface(surf->eglsurface, bkend->env);
 
 	if (surf->need_animation)
 		app_surface_request_frame(surf);
