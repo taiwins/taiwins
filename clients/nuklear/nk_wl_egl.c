@@ -81,7 +81,6 @@ struct nk_egl_backend {
 
 	const struct egl_env *env;
 
-
 	//opengl resources
 	GLuint glprog, vs, fs;//actually, we can evider vs, fs
 	GLuint vao, vbo, ebo;
