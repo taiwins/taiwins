@@ -11,9 +11,12 @@
 #include <GL/gl.h>
 #include <wayland-egl.h>
 #include <wayland-client.h>
-#include "client.h"
+#include "../client.h"
 //for the configurations
-#include "../config.h"
+#include "../../config.h"
+
+//so here I hope to see if I can seperate code of nuklear part with others
+
 //pull in the nuklear headers so we can access eglapp
 
 #define NK_IMPLEMENTATION
@@ -297,8 +300,8 @@ nk_egl_prepare_font(struct nk_egl_backend *bkend)
 	if (n_fonts == 0) {
 		/* font = nk_font_atlas_add_default(&bkend->atlas, 16.0, &cfg); */
 		font = nk_font_atlas_add_from_file(&bkend->atlas,
-						   "/usr/share/fonts/truetype/ttf-bitstream-vera/Vera.ttf",
-					   /* "/usr/share/fonts/TTF/Vera.ttf", */
+						   /* "/usr/share/fonts/truetype/ttf-bitstream-vera/Vera.ttf", */
+					   "/usr/share/fonts/TTF/Vera.ttf",
 					   16, &cfg);
 	} else {
 		n_fonts = (n_fonts > 3) ? 3: n_fonts;

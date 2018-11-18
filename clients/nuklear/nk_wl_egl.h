@@ -11,7 +11,7 @@
 #define NK_INCLUDE_FONT_BAKING
 #define NK_INCLUDE_DEFAULT_FONT
 #define NK_ZERO_COMMAND_MEMORY
-#include "../3rdparties/nuklear/nuklear.h"
+#include "../../3rdparties/nuklear/nuklear.h"
 
 #ifndef NK_EGL_CMD_SIZE
 #define NK_EGL_CMD_SIZE 4096
@@ -25,8 +25,8 @@
 #include <EGL/egl.h>
 #include <GL/gl.h>
 #include <wayland-egl.h>
-#include "egl.h"
-#include "../config.h"
+#include "../egl.h"
+#include "../../config.h"
 
 
 #ifdef __cplusplus

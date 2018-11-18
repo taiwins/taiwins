@@ -3,6 +3,8 @@ include_directories(
   ${PROTOCOLS_INCLUDE_DIR}
   )
 
+add_subdirectory(nuklear)
+
 #message("client library include: " ${CLIENT_INCLUDE_DIRS})
 #message("client library: " ${CLIENT_LIBRARIES})
 add_library(taiwins_client
@@ -12,12 +14,6 @@ add_library(taiwins_client
   egl.c
   buffer.c
   )
-
-add_library(nk_backend STATIC
-  nk_wl_egl.c)
-
-target_link_libraries(nk_backend
-  ${CLIENT_LIBRARIES})
 
 target_link_libraries(taiwins_client
   ${CLIENT_LIBRARIES}
@@ -29,6 +25,7 @@ add_executable(shell-taiwins
   shell.c
   widget.c
   )
+
 #message("the NVEGL libraries are ${NVEGL_LIBRARIES}")
 # set_target_properties(shell-taiwins
 #   PROPERTIES COMPILE_FLAGS
