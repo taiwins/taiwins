@@ -14,7 +14,7 @@
 #include "../config.h"
 #include "client.h"
 #include "ui.h"
-#include "nk_wl_egl.h"
+#include "nuklear/nk_wl_egl.h"
 
 
 struct desktop_launcher {

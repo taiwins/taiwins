@@ -10,7 +10,7 @@
 #include <GL/gl.h>
 #include <wayland-client.h>
 #include "ui.h"
-#include "nk_wl_egl.h"
+#include "nuklear/nk_wl_egl.h"
 #include "client.h"
 
 #ifdef __cplusplus

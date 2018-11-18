@@ -19,7 +19,7 @@
 #include "../config.h"
 #include "client.h"
 #include "egl.h"
-#include "nk_wl_egl.h"
+#include "nuklear/nk_wl_egl.h"
 #include "widget.h"
 
 struct taiwins_shell *shelloftaiwins;

@@ -3,7 +3,7 @@
 #include <wayland-util.h>
 #include "ui.h"
 #include "widget.h"
-#include "nk_wl_egl.h"
+#include "nuklear/nk_wl_egl.h"
 
 static int
 redraw_panel(void *data)
