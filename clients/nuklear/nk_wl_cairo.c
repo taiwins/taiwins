@@ -439,6 +439,9 @@ nk_wl_render(struct nk_wl_backend *bkend)
 	//otherwise can start the draw call now
 	nk_cairo_render(free_buffer, bkend, w, h,
 			translate_wl_shm_format(surf->pool->format));
+	wl_surface_attach(surf->wl_surface, free_buffer, 0, 0);
+	wl_surface_damage(surf->wl_surface, 0, 0, surf->w, surf->h);
+	wl_surface_commit(surf->wl_surface);
 }
 
 
