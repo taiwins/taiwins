@@ -173,14 +173,16 @@ void app_surface_init(struct app_surface *surf, struct wl_surface *, struct wl_p
 static inline void
 app_surface_release(struct app_surface *surf)
 {
+	if (surf->destroy)
+		surf->destroy(surf);
 	//throw all the callbacks
 	surf->keycb = NULL;
 	surf->pointron = NULL;
 	surf->pointrbtn = NULL;
 	surf->pointraxis = NULL;
 	wl_surface_destroy(surf->wl_surface);
-	if (surf->destroy)
-		surf->destroy(surf);
+	if (surf->protocol)
+		wl_proxy_destroy(surf->protocol);
 }
 
 /**

@@ -64,10 +64,7 @@ struct tw_event_queue *the_event_processor = &oneshell.client_event_queue;
 
 
 
-/******************************************************************************/
-/**************************** panneaux fonctions ******************************/
-/******************************************************************************/
-
+///////////////////////////////// background ////////////////////////////////////
 
 static void
 shell_background_frame(struct app_surface *surf, struct wl_buffer *buffer,
@@ -104,6 +101,29 @@ tw_background_configure(void *data,
 	app_surface_frame(background, false);
 }
 
+static void
+tw_background_should_close(void *data, struct tw_ui *ui_elem)
+{
+	//TODO, destroy the surface
+}
+
+//////////////////////////////// widget ///////////////////////////////////
+static void
+widget_configure(void *data, struct tw_ui *ui_elem,
+		 uint32_t width, uint32_t height, uint32_t scale) {}
+
+static void
+widget_should_close(void *data, struct tw_ui *ui_elem)
+{
+	struct shell_widget *widget = (struct shell_widget *)data;
+	app_surface_release(&widget->widget);
+}
+
+static struct  tw_ui_listener widget_impl = {
+	.configure = widget_configure,
+	.close = widget_should_close,
+};
+
 
 void
 launch_widget(struct app_surface *panel_surf)
@@ -117,6 +137,7 @@ launch_widget(struct app_surface *panel_surf)
 	struct tw_ui *widget_proxy = taiwins_shell_launch_widget(shell->shell, widget_surface,
 								 shell_output->output,
 								 info->x, info->y);
+	tw_ui_add_listener(widget_proxy, &widget_impl, info->widget);
 	/* we should release the previous surface as well */
 	shell_widget_launch(info->widget, widget_surface, (struct wl_proxy *)widget_proxy,
 			    shell->widget_backend,
@@ -124,6 +145,8 @@ launch_widget(struct app_surface *panel_surf)
 	*info = (struct widget_launch_info){0};
 }
 
+
+//////////////////////////////// panel ////////////////////////////////////
 
 
 static void

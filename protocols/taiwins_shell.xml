@@ -78,12 +78,12 @@
       <arg name="height" type="uint"/>
       <arg name="scale" type="uint"/>
     </event>
-
-    <event name="lose_input">
-      <description summary="this ui element loses its access to input">
-	we have to have an argument for this
+    <event name="close">
+      <description summary="Server no longer composites this UI element">
+	Server indicates the client to destroy the wl_surface. In the case for
+	panel and background, it happens when tw_output is no longer
+	available. For widgets, it is an indication to close.
       </description>
-      <arg name="timestamp" type="uint"/>
     </event>
 
     <enum name="type">

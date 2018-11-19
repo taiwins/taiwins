@@ -563,6 +563,10 @@ nk_egl_render(struct nk_egl_backend *bkend)
 		return;
 	}
 	memcpy(nk_last_cmds, cmds, bkend->ctx.memory.allocated);
+	//at one point egldisplay can only binds to one surface and context, we
+	//have to call it here to switch context
+	eglMakeCurrent(bkend->env->egl_display, bkend->app_surface->eglsurface,
+		       bkend->app_surface->eglsurface, bkend->env->egl_context);
 
 	const struct nk_draw_command *cmd;
 	nk_draw_index *offset = NULL;
@@ -762,6 +766,25 @@ release_backend(struct nk_egl_backend *bkend)
 
 
 /********************* exposed APIS *************************/
+static void
+nk_egl_destroy_app_surface(struct app_surface *app)
+{
+	struct nk_egl_backend *bkend = app->user_data;
+	if (!is_surfless_supported(bkend))
+		release_backend(bkend);
+	eglMakeCurrent(bkend->env->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE,
+		       bkend->env->egl_context);
+	eglDestroySurface(bkend->env->egl_display, app->eglsurface);
+	wl_egl_window_destroy(app->eglwin);
+	app->egldisplay = EGL_NO_DISPLAY;
+	app->eglwin = NULL;
+	app->eglsurface = EGL_NO_SURFACE;
+	app->user_data = NULL;
+	bkend->frame = NULL;
+	bkend->cbtn = -1;
+	bkend->ckey = XKB_KEY_NoSymbol;
+	bkend->app_surface = NULL;
+}
 
 /* this function is expected to be called every time when you want to open a surface.
  * the backend is occupied entirely by this app_surface through his lifetime */
@@ -779,6 +802,7 @@ nk_egl_impl_app_surface(struct app_surface *surf,
 	surf->s = 1;
 	surf->user_data = bkend;
 	surf->do_frame = nk_egl_new_frame;
+	surf->destroy = nk_egl_destroy_app_surface;
 	//assume it is compiled
 	app_surface_init_egl(surf, (struct egl_env *)bkend->env);
 	surf->keycb = nk_keycb;
@@ -791,6 +815,7 @@ nk_egl_impl_app_surface(struct app_surface *surf,
 	bkend->app_surface = surf;
 	bkend->cbtn = -1;
 	bkend->ckey = XKB_KEY_NoSymbol;
+
 
 	if (surf->wl_globals) {
 		nk_egl_apply_color(bkend, &surf->wl_globals->theme);
@@ -845,12 +870,13 @@ nk_egl_launch(struct nk_egl_backend *bkend,
 void
 nk_egl_close(struct nk_egl_backend *bkend, struct app_surface *app_surface)
 {
+	eglMakeCurrent(bkend->env->egl_display, NULL, NULL, NULL);
 	if (!is_surfless_supported(bkend))
 		release_backend(bkend);
 	app_surface_release(app_surface);
 	//reset the egl_surface
 	bkend->app_surface = NULL;
-	eglMakeCurrent(bkend->env->egl_display, NULL, NULL, NULL);
+
 }
 
 
