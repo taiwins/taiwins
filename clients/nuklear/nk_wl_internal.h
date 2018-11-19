@@ -39,8 +39,33 @@
 typedef void (*nk_wl_drawcall_t)(struct nk_context *ctx, float width, float height, struct app_surface *app);
 typedef void (*nk_wl_postcall_t)(struct app_surface *app);
 
+#ifndef NK_MAX_CMD_SIZE
+#define NK_MAX_CMD_SIZE (sizeof (union {	\
+	struct nk_command_scissor s;		\
+	struct nk_command_line l;		\
+	struct nk_command_curve q;		\
+	struct nk_command_rect r;		\
+	struct nk_command_rect_filled rf;	\
+	struct nk_command_rect_multi_color rmc; \
+	struct nk_command_triangle t;		\
+	struct nk_command_triangle_filled tf;	\
+	struct nk_command_circle c;		\
+	struct nk_command_circle_filled cf;	\
+	struct nk_command_arc a;		\
+	struct nk_command_arc_filled af;	\
+	struct nk_command_polygon pg;		\
+	struct nk_command_polygon_filled pgf;	\
+	struct nk_command_polyline pl;		\
+	struct nk_command_image im;		\
+	struct nk_command_text txt;		\
+	struct nk_command_custom cus;		\
+	}) )
+typedef unsigned char nk_max_cmd_t[NK_MAX_CMD_SIZE];
+#endif /* NK_MAX_CMD_SIZE */
 
 struct nk_wl_backend {
+	//I will need to make this ctx a pointer to have nk_wl_backend a
+	//consistant size
 	struct nk_context ctx;
 	struct nk_buffer cmds;
 
@@ -96,7 +121,8 @@ nk_wl_new_frame(struct app_surface *surf, uint32_t user_data)
 static inline bool
 nk_wl_need_redraw(struct nk_wl_backend *bkend)
 {
-	static char nk_last_draw[64*4096] = {0};
+	static nk_max_cmd_t nk_last_draw[100] = {0};
+//	static char nk_last_draw[NK_MAX_CMD_SIZE * 100] = {0};
 	void *cmds = nk_buffer_memory(&bkend->ctx.memory);
 	bool need_redraw = memcmp(cmds, nk_last_draw, bkend->ctx.memory.allocated);
 	if (!need_redraw)
@@ -358,6 +384,7 @@ nk_pointraxis(struct app_surface *surf, int pos, int direction, uint32_t sx, uin
 
 
 /********************************* setup *******************************************/
+static void
 nk_wl_impl_app_surface(struct app_surface *surf, struct nk_wl_backend *bkend,
 		       nk_wl_drawcall_t draw_cb, uint32_t w, uint32_t h,
 		       uint32_t x, uint32_t y)

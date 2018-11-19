@@ -13,3 +13,13 @@ target_link_libraries(nk_backend
 
 add_library(nk_cairo_backend STATIC
   nk_wl_cairo.c)
+
+
+add_executable(test_nk_cairo
+  dummy.c)
+
+target_link_libraries(test_nk_cairo
+  nk_cairo_backend
+  ${CLIENT_LIBRARIES}
+  taiwins_client
+  )
