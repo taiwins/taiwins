@@ -34,6 +34,7 @@
 struct nk_cairo_backend {
 	struct nk_wl_backend base;
 	nk_max_cmd_t last_cmds[2];
+	struct nk_user_font user_font;
 };
 
 
@@ -480,15 +481,20 @@ nk_cairo_impl_app_surface(struct app_surface *surf, struct nk_wl_backend *bkend,
 	//also you need to create two wl_buffers
 }
 
-static struct nk_wl_backend sample_backend;
+static struct nk_cairo_backend sample_backend;
+
+static float
+void_text_width_calculation(nk_handle handle, float height, const char *text, int len)
+{
+	return len * height / 2.0;
+}
 
 struct nk_wl_backend *
 nk_cairo_create_bkend(void)
 {
-	//this is why the static_assert does not work with nk_cairo_ops[], you
-	//can simply bypass the array protection and assign values on it
+	nk_init_default(&sample_backend.base.ctx, &sample_backend.user_font);
+	sample_backend.user_font.height = 16;
+	sample_backend.user_font.width = void_text_width_calculation;
 
-	// *((nk_cairo_op *)nk_cairo_ops+1) = NULL;
-	fprintf(stderr, "size of command size is %ld\n", NK_MAX_CMD_SIZE);
-	return &sample_backend;
+	return &sample_backend.base;
 }
