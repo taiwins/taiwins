@@ -3,7 +3,6 @@ include_directories(
   ${PROTOCOLS_INCLUDE_DIR}
   )
 
-add_subdirectory(nuklear)
 
 #message("client library include: " ${CLIENT_INCLUDE_DIRS})
 #message("client library: " ${CLIENT_LIBRARIES})
@@ -20,6 +19,9 @@ target_link_libraries(taiwins_client
   ${WAYLAND_CURSOR_LIBRARIES}
   ${TRDPTY_LIBRARIES}
   )
+
+add_subdirectory(nuklear)
+
 
 add_executable(shell-taiwins
   shell.c

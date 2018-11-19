@@ -233,6 +233,8 @@ shm_buffer_surface_swap(struct app_surface *surf)
 	wl_surface_attach(surf->wl_surface, free_buffer, 0, 0);
 	draw_cb(surf, free_buffer, &x, &y, &w, &h);
 	wl_surface_damage(surf->wl_surface, x, y, w, h);
+	//if output has transform, we need to add it here as well.
+	//wl_surface_set_buffer_transform && wl_surface_set_buffer_scale
 	wl_surface_commit(surf->wl_surface);
 }
 
