@@ -248,6 +248,24 @@ shm_buffer_destroy_app_surface(struct app_surface *surf)
 	surf->user_data = NULL;
 }
 
+static void
+shm_wl_buffer_release(void *data,
+		      struct wl_buffer *wl_buffer)
+{
+	struct app_surface *surf = (struct app_surface *)data;
+	for (int i = 0; i < 2; i++)
+		if (surf->wl_buffer[i] == wl_buffer) {
+			surf->dirty[i] = false;
+			surf->committed[i] = false;
+			break;
+		}
+}
+
+static struct wl_buffer_listener shm_wl_buffer_impl = {
+	.release = shm_wl_buffer_release,
+};
+
+
 void
 shm_buffer_impl_app_surface(struct app_surface *surf, struct shm_pool *pool,
 			    shm_buffer_draw_t draw_call, uint32_t w, uint32_t h)
@@ -262,6 +280,8 @@ shm_buffer_impl_app_surface(struct app_surface *surf, struct shm_pool *pool,
 		surf->wl_buffer[i] = shm_pool_alloc_buffer(pool, w, h);
 		surf->dirty[i] = false;
 		surf->committed[i] = false;
+		wl_buffer_add_listener(surf->wl_buffer[i],
+				       &shm_wl_buffer_impl, surf);
 	}
 	//TODO we should be able to resize the surface as well.
 }
