@@ -8,9 +8,9 @@
 static int
 redraw_panel(void *data)
 {
-	struct app_surface *widget = data;
+	struct app_surface *ancre = data;
 	//this should call the
-	widget->do_frame(widget, 0);
+	ancre->do_frame(ancre, 0);
 	return true;
 }
 
@@ -28,7 +28,7 @@ shell_widget_event_from_timer(struct shell_widget *widget, struct timespec time,
 			      struct tw_event_queue *event_queue)
 {
 	struct tw_event redraw_widget = {
-		.data = widget,
+		.data = &widget->ancre,
 		.cb = redraw_panel,
 	};
 	tw_event_queue_add_timer(event_queue, &time, &redraw_widget);

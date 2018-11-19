@@ -28,8 +28,10 @@ does_ui_lose_keyboard(struct weston_keyboard *keyboard,
 {
 	struct twshell_ui *ui_elem = data;
 	struct weston_surface *surface = ui_elem->binded;
-	if (keyboard->focus != surface && ui_elem->lose_keyboard) {
-		tw_ui_send_lose_input(ui_elem->resource, key);
+	//this is a tricky part, it should be desttroyed when focus, but I am
+	//not sure
+	if (keyboard->focus == surface && ui_elem->lose_keyboard) {
+		tw_ui_send_close(ui_elem->resource);
 		weston_binding_destroy(ui_elem->lose_keyboard);
 		ui_elem->lose_keyboard = NULL;
 	}
@@ -44,7 +46,7 @@ does_ui_lose_pointer(struct weston_pointer *pointer,
 	struct weston_surface *surface = ui_elem->binded;
 	if (pointer->focus != tw_default_view_from_surface(surface) &&
 		ui_elem->lose_pointer) {
-		tw_ui_send_lose_input(ui_elem->resource, button);
+		tw_ui_send_close(ui_elem->resource);
 		weston_binding_destroy(ui_elem->lose_pointer);
 		ui_elem->lose_pointer = NULL;
 	}
@@ -58,7 +60,7 @@ does_ui_lose_touch(struct weston_touch *touch,
 	struct weston_view *view =
 		tw_default_view_from_surface(ui_elem->binded);
 	if (touch->focus != view && ui_elem->lose_touch) {
-		tw_ui_send_lose_input(ui_elem->resource, 0);
+		tw_ui_send_close(ui_elem->resource);
 		weston_binding_destroy(ui_elem->lose_touch);
 		ui_elem->lose_touch = NULL;
 	}
@@ -355,9 +357,11 @@ create_ui_element(struct wl_client *client,
 		wl_client_post_no_memory(client);
 		return;
 	}
-	struct twshell_ui *elem = (type == TW_UI_TYPE_PANEL || type == TW_UI_TYPE_BACKGROUND) ?
-		twshell_ui_create_simple(tw_ui_resource, surface) :
-		twshell_ui_create_with_binding(tw_ui_resource, surface);
+	struct twshell_ui *elem = (type == TW_UI_TYPE_WIDGET) ?
+		twshell_ui_create_with_binding(tw_ui_resource, surface) :
+		twshell_ui_create_simple(tw_ui_resource, surface);
+
+
 	wl_resource_set_implementation(tw_ui_resource, NULL, elem, twshell_ui_unbind);
 	elem->x = x;
 	elem->y = y;

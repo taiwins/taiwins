@@ -82,7 +82,7 @@ app_surface_init_egl(struct app_surface *surf, struct egl_env *env)
 				       (EGLNativeWindowType)surf->eglwin,
 				       NULL);
 
-	surf->destroy = appsurface_destroy_with_egl;
+//	surf->destroy = appsurface_destroy_with_egl;
 	assert(surf->eglsurface);
 	assert(surf->eglwin);
 
