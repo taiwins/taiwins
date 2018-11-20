@@ -23,8 +23,6 @@ extern "C" {
 /* we define this stride to work with WL_SHM_FORMAT_ARGB888 */
 #define DECISION_STRIDE 32
 #define NUM_DECISIONS 500
-#define MAX_PATH_LEN 256
-#define MAX_FONTS 3
 
 
 #ifdef __GNUC__
@@ -42,74 +40,14 @@ struct taiwins_decision_key {
 	int  scale;
 } __attribute__ ((aligned (DECISION_STRIDE)));
 
-struct tw_rgba_t {
-	uint8_t r,g,b,a;
-};
-
-struct widget_colors {
-	struct tw_rgba_t normal;
-	struct tw_rgba_t hover;
-	struct tw_rgba_t active;
-};
 
 /*****************************************************************/
 /*                            theme                              */
 /*****************************************************************/
 
-/* the simpler version of style config, it is not gonna be as fancy as
- * nuklear(supporting nk_style_time(image or color) for all gui elements), but
- * it will have a consistent look
- */
-struct taiwins_theme {
-	uint32_t row_size; //this defines the text size as well
-	struct tw_rgba_t window_color;
-	struct tw_rgba_t border_color;
-	//text colors
-	struct tw_rgba_t text_color; //text_edit_cursor as well
-	struct tw_rgba_t text_active_color;
-	//widget color
-	struct widget_colors button;
-	struct widget_colors toggle;
-	struct widget_colors select;
-	struct tw_rgba_t slider_bg_color;
-	struct widget_colors slider;
-	struct widget_colors chart;
-	struct tw_rgba_t combo_color;
-
-	//we may need to extend this later
-	char ascii_font[MAX_PATH_LEN];
-	char icons_font[MAX_PATH_LEN];
-	char cjk_font[MAX_PATH_LEN];
-	//there could other fonts, but hope not so many
-};
-
-
-extern const struct taiwins_theme taiwins_dark_theme;
-extern const struct taiwins_theme taiwins_light_theme;
-
-/**
- * this function exams the theme(color and fonts are valid and do some convert)
- */
-bool tw_validate_theme(struct taiwins_theme *);
-size_t tw_theme_extract_fonts(struct taiwins_theme *, char *fonts[MAX_FONTS]);
 
 
 
-static inline int
-tw_font_pt2px(int pt_size, int ppi)
-{
-	if (ppi < 0)
-		ppi = 96;
-	return (int) (ppi / 72.0 * pt_size);
-}
-
-static inline int
-tw_font_px2pt(int px_size, int ppi)
-{
-	if (ppi < 0)
-		ppi = 96;
-	return (int) (72.0 * px_size / ppi);
-}
 
 
 

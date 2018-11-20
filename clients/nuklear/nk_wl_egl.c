@@ -293,7 +293,7 @@ nk_egl_prepare_font(struct nk_egl_backend *bkend)
 	nk_font_atlas_init_default(&bkend->atlas);
 	nk_font_atlas_begin(&bkend->atlas);
 
-	char *fonts[MAX_FONTS];
+	char *fonts[3];
 	size_t n_fonts = 0;
 	//TODO we need font-config in
 	if (n_fonts == 0) {
