@@ -109,6 +109,7 @@ nk_wl_new_frame(struct app_surface *surf, uint32_t user_data)
 	} nk_end(&bkend->ctx);
 
 	nk_wl_render(bkend);
+	nk_clear(&bkend->ctx);
 
 	if (bkend->post_cb) {
 		bkend->post_cb(bkend->app_surface);
