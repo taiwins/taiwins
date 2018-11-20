@@ -459,9 +459,6 @@ nk_cairo_buffer_release(void *data,
 		}
 }
 
-static struct wl_buffer_listener nk_cairo_buffer_impl = {
-	.release = nk_cairo_buffer_release,
-};
 
 
 void
@@ -475,8 +472,8 @@ nk_cairo_impl_app_surface(struct app_surface *surf, struct nk_wl_backend *bkend,
 		surf->wl_buffer[i] = shm_pool_alloc_buffer(pool, w, h);
 		surf->dirty[i] = NULL;
 		surf->committed[i] = NULL;
-		wl_buffer_add_listener(surf->wl_buffer[i],
-				       &nk_cairo_buffer_impl, surf);
+		shm_pool_set_buffer_release_notify(surf->wl_buffer[i],
+						   nk_cairo_buffer_release, surf);
 	}
 	//also you need to create two wl_buffers
 }
