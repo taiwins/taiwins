@@ -458,7 +458,7 @@ nk_cairo_buffer_release(void *data,
 		}
 }
 
-//As we hope here to implement in multiple fonts
+//How do we hope  implement in multiple fonts
 struct nk_cairo_user_font {
 	struct cairo_font_face_t *font_face;
 	struct wl_list link;
