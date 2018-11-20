@@ -65,7 +65,8 @@ appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
 		surf->wl_buffer[i] = shm_pool_alloc_buffer(shm, surf->w * stride, surf->h);
 		surf->dirty[i] = false;
 		surf->committed[i] = false;
-		shm_pool_wl_buffer_set_release(surf->wl_buffer[i], appsurface_buffer_release, surf);
+		shm_pool_set_buffer_release_notify(surf->wl_buffer[i],
+						   appsurface_buffer_release, surf);
 	}
 	surf->destroy = appsurface_destroy_with_buffer;
 }
@@ -282,8 +283,8 @@ shm_buffer_impl_app_surface(struct app_surface *surf, struct shm_pool *pool,
 		surf->wl_buffer[i] = shm_pool_alloc_buffer(pool, w, h);
 		surf->dirty[i] = false;
 		surf->committed[i] = false;
-		wl_buffer_add_listener(surf->wl_buffer[i],
-				       &shm_wl_buffer_impl, surf);
+		shm_pool_set_buffer_release_notify(surf->wl_buffer[i],
+						   shm_wl_buffer_release, surf);
 	}
 	//TODO we should be able to resize the surface as well.
 }

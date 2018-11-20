@@ -139,21 +139,26 @@ struct shm_pool {
 //we should also add format
 int shm_pool_init(struct shm_pool *pool, struct wl_shm *shm, size_t size, enum wl_shm_format format);
 
-/** allocated a peice of buffer
+/**
+ * /brief allocated a wl_buffer with allocated memory
  *
- * it could be a previously used or new one, but once the buffer is created, it
- * will not be really destroyed unless shm_pool_destroy is called.
+ * Do not set the listener or user_data for wl_buffer once it is created like
+ * this
  */
 struct wl_buffer *shm_pool_alloc_buffer(struct shm_pool *pool, size_t width, size_t height);
 
-/** declare this buffer is not in use anymore, so when we need a new one we can
- * reuse it
+/**
+ * /brief declare this buffer is not in use anymore
  */
 void shm_pool_buffer_free(struct wl_buffer *wl_buffer);
 
-void shm_pool_wl_buffer_set_release(struct wl_buffer *wl_buffer,
-				    void (*cb)(void *, struct wl_buffer *),
-				    void *data);
+/**
+ * /brief set wl_buffer_release_notify callback here since shm_pool_buffer node
+ * ocuppies the user_data of wl_buffer
+ */
+void shm_pool_set_buffer_release_notify(struct wl_buffer *wl_buffer,
+					void (*cb)(void *, struct wl_buffer *),
+					void *data);
 
 void *shm_pool_buffer_access(struct wl_buffer *wl_buffer);
 

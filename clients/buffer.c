@@ -80,9 +80,9 @@ static struct wl_buffer_listener buffer_listener = {
 };
 
 void
-shm_pool_wl_buffer_set_release(struct wl_buffer *wl_buffer,
-			       void (*cb)(void *, struct wl_buffer *),
-			       void *data)
+shm_pool_set_buffer_release_notify(struct wl_buffer *wl_buffer,
+				   void (*cb)(void *, struct wl_buffer *),
+				   void *data)
 {
 	struct wl_buffer_node *node = (struct wl_buffer_node *)
 		wl_buffer_get_user_data(wl_buffer);
@@ -117,6 +117,7 @@ shm_pool_alloc_buffer(struct shm_pool *pool, size_t width, size_t height)
 								pool->format);
 	struct wl_buffer_node *node_buffer = (struct wl_buffer_node *)
 		malloc(sizeof(*node_buffer));
+	list_init(&node_buffer->link);
 	node_buffer->pool = pool;
 	node_buffer->offset = offset;
 	node_buffer->wl_buffer = wl_buffer;
