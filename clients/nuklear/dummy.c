@@ -78,6 +78,7 @@ sample_widget(struct nk_context *ctx, float width, float height, struct app_surf
 
 	nk_layout_row_dynamic(ctx, 25, 1);
 	nk_edit_buffer(ctx, NK_EDIT_FIELD, &text_edit, nk_filter_default);
+	fprintf(stderr, "%s\n", text_buffer);
 }
 
 static
