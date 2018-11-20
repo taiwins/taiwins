@@ -30,10 +30,24 @@
 #include "../ui.h"
 #include "nk_wl_internal.h"
 
+struct nk_cairo_font {
+	cairo_font_face_t *font_face;
+	cairo_scaled_font_t *font_using;
+	struct nk_user_font nk_font;
+	int size;
+};
+
 struct nk_cairo_backend {
 	struct nk_wl_backend base;
+
 	nk_max_cmd_t last_cmds[2];
-	struct nk_user_font user_font;
+	struct nk_cairo_font user_font;
+	//this is a stack we keep right now, all other method failed.
+	struct {
+		struct wl_buffer *buffer_using;
+		cairo_t *cr_using;
+		cairo_scaled_font_t *font_using;
+	};
 };
 
 
@@ -311,8 +325,22 @@ nk_cairo_text(cairo_t *cr, const struct nk_command *cmd)
 {
 	const struct nk_command_text *t =
 		(const struct nk_command_text *)cmd;
+	nk_cairo_set_painter(cr, &t->foreground, 0);
+	cairo_scaled_font_t *s = t->font->userdata.ptr;
+	int num_glyphs;
 	cairo_glyph_t *glyphs = NULL;
-	//TODO finish this
+	int num_clusters;
+	cairo_text_cluster_t *clusters = NULL;
+	cairo_text_cluster_flags_t flags;
+	cairo_font_extents_t extents;
+	cairo_scaled_font_extents(s, &extents);
+	cairo_scaled_font_text_to_glyphs(
+		s, t->x, t->y+extents.ascent,
+		t->string, t->length, &glyphs, &num_glyphs, &clusters, &num_clusters, &flags);
+	cairo_show_text_glyphs(
+		cr, t->string, t->length, glyphs, num_glyphs, clusters, num_clusters, flags);
+	cairo_glyph_free(glyphs);
+	cairo_text_cluster_free(clusters);
 }
 
 static void
@@ -378,20 +406,12 @@ _Static_assert(NK_COMMAND_CUSTOM == 18, NO_COMMAND);
 
 static void
 nk_cairo_render(struct wl_buffer *buffer, struct nk_wl_backend *bkend,
-		int32_t w, int32_t h,
-		cairo_format_t format)
+		int32_t w, int32_t h, cairo_t *cr)
 {
 	const struct nk_command *cmd = NULL;
-	void *data = shm_pool_buffer_access(buffer);
-
-	cairo_surface_t *csurface =
-		cairo_image_surface_create_for_data(
-			(unsigned char *)data, format, w, h,
-			cairo_format_stride_for_width(format, w));
-	cairo_t *cr = cairo_create(csurface);
 	//1) clean this buffer using its background color, or maybe nuklear does
 	//that already
-
+	cairo_push_group(cr);
 	cairo_set_source_rgb(cr, bkend->main_color.r, bkend->main_color.g,
 			     bkend->main_color.b);
 	cairo_paint(cr);
@@ -399,49 +419,69 @@ nk_cairo_render(struct wl_buffer *buffer, struct nk_wl_backend *bkend,
 	//it is actually better to implement a table look up than switch command
 	nk_foreach(cmd, &bkend->ctx) {
 		nk_cairo_ops[cmd->type](cr, cmd);
-		/* switch (cmd->type) { */
-		/* case NK_COMMAND_NOP: */
-		/*	fprintf(stderr, "cairo: no nuklear operation\n"); */
-		/*	break; */
-		/* case NK_COMMAND_SCISSOR: */
-		/*	break; */
-		/* } */
 	}
+	cairo_pop_group_to_source(cr);
+	cairo_paint(cr);
+	cairo_surface_flush(cairo_get_target(cr));
 
-	cairo_destroy(cr);
-	cairo_surface_destroy(csurface);
+}
 
+static void
+nk_wl_call_preframe(struct nk_wl_backend *bkend, struct app_surface *surf)
+{
+	struct nk_cairo_backend *b =
+		container_of(bkend, struct nk_cairo_backend, base);
+	cairo_format_t format = translate_wl_shm_format(surf->pool->format);
+	int32_t w, h;
+	w = surf->w; h = surf->h;
+	for (int i = 0; i < 2; i++) {
+		if (surf->committed[i] || surf->dirty[i])
+			continue;
+		b->buffer_using = surf->wl_buffer[i];
+		break;
+	}
+	if (!b->buffer_using)
+		return;
+	cairo_surface_t *image_surface =
+		cairo_image_surface_create_for_data(
+			shm_pool_buffer_access(b->buffer_using),
+			format, w, h,
+			cairo_format_stride_for_width(format, w));
+	b->cr_using = cairo_create(image_surface);
+	cairo_surface_destroy(image_surface);
+	cairo_set_font_face(b->cr_using, b->user_font.font_face);
+	cairo_set_font_size(b->cr_using, b->user_font.size);
+	b->font_using = cairo_get_scaled_font(b->cr_using);
+	b->user_font.nk_font.userdata.ptr = b->font_using;
 }
 
 static void
 nk_wl_render(struct nk_wl_backend *bkend)
 {
+	struct nk_cairo_backend *b =
+		container_of(bkend, struct nk_cairo_backend, base);
 	struct app_surface *surf = bkend->app_surface;
 	//selecting the free frame
-	struct wl_buffer *free_buffer = NULL;
-	int32_t w, h;
+	struct wl_buffer *free_buffer = b->buffer_using;
+	cairo_t *cr = b->cr_using;
+	bool *to_commit = free_buffer == (surf->wl_buffer[0]) ?
+		&surf->committed[0] : &surf->committed[1];
 
-	w = surf->w; h = surf->h;
-	for (int i = 0; i < 2; i++) {
-		if (surf->committed[i] || surf->dirty[i])
-			continue;
-		free_buffer = surf->wl_buffer[i];
-		break;
-	}
 	if (!free_buffer)
 		return;
-	//there are two case: 1) it looks exactly like last frame, so we just
-	// return 2) it looks exactly like the last frame in this buffer, we can
-	// simply swap this buffer
 	if (!nk_wl_need_redraw(bkend))
-		return;
+		goto free_frame;
 
-	//otherwise can start the draw call now
-	nk_cairo_render(free_buffer, bkend, w, h,
-			translate_wl_shm_format(surf->pool->format));
+	nk_cairo_render(free_buffer, bkend, surf->w, surf->h, cr);
 	wl_surface_attach(surf->wl_surface, free_buffer, 0, 0);
 	wl_surface_damage(surf->wl_surface, 0, 0, surf->w, surf->h);
 	wl_surface_commit(surf->wl_surface);
+	*to_commit = true;
+free_frame:
+	cairo_destroy(b->cr_using);
+	b->buffer_using = NULL;
+	b->cr_using = NULL;
+	b->font_using = NULL;
 }
 
 
@@ -458,14 +498,24 @@ nk_cairo_buffer_release(void *data,
 		}
 }
 
-//How do we hope  implement in multiple fonts
-struct nk_cairo_user_font {
-	struct cairo_font_face_t *font_face;
-	struct wl_list link;
-};
+static float
+nk_cairo_cal_text_width(nk_handle handle, float height, const char *text, int len)
+{
+	cairo_scaled_font_t *s = handle.ptr;
+	cairo_glyph_t *glyphs = NULL;
+	int nglyphs;
+	cairo_text_extents_t extents;
+	cairo_scaled_font_text_to_glyphs(s, 0, 0, text, len,
+					 &glyphs, &nglyphs,
+					 NULL, NULL, NULL);
+	cairo_scaled_font_glyph_extents(s, glyphs, nglyphs, &extents);
+	cairo_glyph_free(glyphs);
+	return extents.x_advance;
+}
 
 
-static void nk_cairo_prepare_font(const char *font_file)
+static void
+nk_cairo_prepare_font(struct nk_cairo_backend *bkend, const char *font_file)
 {
 	int error;
 	FT_Library library;
@@ -479,6 +529,7 @@ static void nk_cairo_prepare_font(const char *font_file)
 	font_face = cairo_ft_font_face_create_for_ft_face(face, 0);
 	cairo_font_face_set_user_data(font_face, &key, face,
 				      (cairo_destroy_func_t)FT_Done_Face);
+	bkend->user_font.font_face = font_face;
 }
 
 void
@@ -500,18 +551,18 @@ nk_cairo_impl_app_surface(struct app_surface *surf, struct nk_wl_backend *bkend,
 
 static struct nk_cairo_backend sample_backend;
 
-static float
-void_text_width_calculation(nk_handle handle, float height, const char *text, int len)
-{
-	return len * height / 2.0;
-}
 
 struct nk_wl_backend *
 nk_cairo_create_bkend(void)
 {
-	nk_init_default(&sample_backend.base.ctx, &sample_backend.user_font);
-	sample_backend.user_font.height = 16;
-	sample_backend.user_font.width = void_text_width_calculation;
+	nk_init_default(&sample_backend.base.ctx, &sample_backend.user_font.nk_font);
+	sample_backend.user_font.nk_font.height = 16;
+	sample_backend.user_font.nk_font.width = nk_cairo_cal_text_width;
+	sample_backend.user_font.size = 14;
 
+	char font_path[256];
+	tw_find_font_path("vera", font_path, 256);
+	fprintf(stderr, "%s\n", font_path);
+	nk_cairo_prepare_font(&sample_backend, font_path);
 	return &sample_backend.base;
 }
