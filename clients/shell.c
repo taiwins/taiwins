@@ -166,7 +166,7 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	struct shell_widget *widget = NULL, *clicked = NULL;
 	nk_layout_row_begin(ctx, NK_STATIC, panel_surf->h - 12, n_widgets);
 	wl_list_for_each(widget, &shell->shell_widgets, link) {
-		nk_layout_row_push(ctx, 100);
+		nk_layout_row_push(ctx, 110);
 		//nk_widget_is_mouse_clicked need to be after row_push and
 		//before actually call to the widget.
 
@@ -222,6 +222,16 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 
 	nk_egl_impl_app_surface(panel, output->panel_backend, shell_panel_frame,
 				width, height, 0 ,0);
+	//reset the button theme, TODO, before we actually have a better way to
+	//set theme, we just keep it now for simplicity
+	struct nk_style *style = nk_egl_get_style(output->panel_backend);
+	style->button.border_color = nk_rgba(57, 67, 71, 215);
+	style->button.normal = nk_style_item_color(nk_rgba(57, 67, 71, 215));
+	style->button.hover = nk_style_item_color(nk_rgba(57, 67, 71, 215));
+	style->button.active = nk_style_item_color(nk_rgba(57, 57, 71, 215));
+	style->button.text_hover = nk_rgba(222, 222, 222, 255);
+	style->button.text_active = nk_rgba(255, 255, 255, 255);
+
 	app_surface_frame(panel, false);
 
 }

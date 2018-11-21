@@ -67,7 +67,9 @@ void
 shell_widget_launch(struct shell_widget *widget, struct wl_surface *surface, struct wl_proxy *p,
 		    struct nk_egl_backend *bkend, uint32_t x, uint32_t y)
 {
+	struct wl_globals *globals = widget->widget.wl_globals;
 	app_surface_init(&widget->widget, surface, p);
+	widget->widget.wl_globals = globals;
 	nk_egl_impl_app_surface(&widget->widget, bkend, widget->draw_cb,
 				widget->w, widget->h, x, y);
 	app_surface_frame(&widget->widget, false);
@@ -97,7 +99,8 @@ clock_widget_anchor(struct nk_context *ctx, float width, float height, struct ap
 
 	sprintf(formatedtime, "%s %02d:%02d:%02d",
 		daysoftheweek[tim->tm_wday], tim->tm_hour, tim->tm_min, tim->tm_sec);
-	nk_label(ctx, formatedtime, NK_TEXT_CENTERED);
+	nk_button_label(ctx, formatedtime);
+	/* nk_label(ctx, formatedtime, NK_TEXT_CENTERED); */
 }
 
 
