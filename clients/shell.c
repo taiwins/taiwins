@@ -166,12 +166,16 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	struct shell_widget *widget = NULL, *clicked = NULL;
 	nk_layout_row_begin(ctx, NK_STATIC, panel_surf->h - 12, n_widgets);
 	wl_list_for_each(widget, &shell->shell_widgets, link) {
-		enum nk_buttons btn;
-		uint32_t sx, sy;
-		widget->ancre_cb(ctx, width, height, &widget->ancre);
-		/* if (nk_widget_is_mouse_clicked(ctx, NK_BUTTON_LEFT) || ) */
-		if (nk_egl_get_btn(ctx, &btn, &sx, &sy))
+		nk_layout_row_push(ctx, 100);
+		//nk_widget_is_mouse_clicked need to be after row_push and
+		//before actually call to the widget.
+
+		//happen automatically for nk_layout_row_static or
+		//nk_layout_row_dynamic. So if you do not know how wide the
+		//widget occupies, there is nothing you can do.
+		if (nk_widget_is_mouse_clicked(ctx, NK_BUTTON_LEFT))
 			clicked = widget;
+		widget->ancre_cb(ctx, width, height, &widget->ancre);
 		i++;
 	}
 	nk_layout_row_end(ctx);
