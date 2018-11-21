@@ -106,12 +106,14 @@ nk_wl_new_frame(struct app_surface *surf, uint32_t user_data)
 		app_surface_request_frame(surf);
 	//so here we still need a hook
 	nk_wl_call_preframe(bkend, surf);
+
 	if (nk_begin(&bkend->ctx, "cairo_app", nk_rect(0, 0, width, height),
 		     NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR)) {
 		bkend->frame(&bkend->ctx, width, height, bkend->app_surface);
 	} nk_end(&bkend->ctx);
 
 	nk_wl_render(bkend);
+	//text edit has problems, I don't think it is here though
 	nk_clear(&bkend->ctx);
 
 	if (bkend->post_cb) {
@@ -129,9 +131,7 @@ nk_wl_need_redraw(struct nk_wl_backend *bkend)
 //	static char nk_last_draw[NK_MAX_CMD_SIZE * 100] = {0};
 	void *cmds = nk_buffer_memory(&bkend->ctx.memory);
 	bool need_redraw = memcmp(cmds, nk_last_draw, bkend->ctx.memory.allocated);
-	if (!need_redraw)
-		nk_clear(&bkend->ctx);
-	else
+	if (need_redraw)
 		memcpy(nk_last_draw, cmds, bkend->ctx.memory.allocated);
 	return need_redraw;
 }
