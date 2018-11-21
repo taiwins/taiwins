@@ -37,6 +37,7 @@ extern "C" {
 struct app_surface;
 struct nk_egl_backend;
 struct taiwins_theme;
+struct nk_style;
 
 typedef void (*nk_egl_draw_func_t)(struct nk_context *ctx, float width, float height, struct app_surface *app);
 typedef void (*nk_egl_postcall_t)(struct app_surface *app);
@@ -48,6 +49,8 @@ void nk_egl_destroy_backend(struct nk_egl_backend *bkend);
 void nk_egl_impl_app_surface(struct app_surface *surf, struct nk_egl_backend *bkend,
 			     nk_egl_draw_func_t draw_func,
 			     uint32_t w, uint32_t h, uint32_t px, uint32_t py);
+
+struct nk_style *nk_egl_get_style(struct nk_egl_backend *bkend);
 
 
 DEPRECATED(void nk_egl_launch(struct nk_egl_backend *bkend, struct app_surface *app,
