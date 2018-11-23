@@ -64,7 +64,7 @@
     table.
 *** DONE decoupling the desktop implementation                    :refactory:
 
-** [57%] client-side optimization
+** [75%] client-side optimization
 *** DONE switch to epoll on wl_display
     - possible solution :: maybe we can use epoll on wl_display, and add it to
 	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
@@ -76,9 +76,16 @@
 *** DONE fix the cursor input problem(maybe just forget about the cursor frame callback), what is this??
 *** TODO move the wl_cursor surface into shell?
     Maybe I am wrong. I do need the cursor for every application.
-*** TODO widget surface launch code.
+*** DONE widget surface launch code.
 *** TODO second widget, reading batteries
-*** TODO add another row for panel to have better look?
+*** CANC add another row for panel to have better look?
+*** DONE change the way the nk_button look for the icons.
+*** TODO decide the way to render icons more properly.
+    The ideal solution is render icons into glyphs. More conviniently is by
+    using SVGs, since you can find them anymore. But there is no valid c or
+    c++ implementation of svg2ttf. We need to rely on fontawesome for now. Now
+    you need to include this [https://github.com/juliettef/IconFontCppHeaders]
+    for mapping unicode symbols.
 ** [0%] launcher optimization
 *** TODO allow launcher to quit instead of launch weston-terminal all the time
 *** TODO the real launcher implementation
