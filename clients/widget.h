@@ -3,6 +3,7 @@
 
 #include <time.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
@@ -18,6 +19,19 @@ extern "C" {
 #endif
 
 struct shell_widget;
+
+/**
+ * /brief icon data format
+ *
+ * So we have decided to convert icons all into unicode, so all the anchors gets
+ * draw as glyphs.
+ *
+ * For this to work, we need a system to register svgs and upload it. Then map
+ * it to its unicode
+ */
+struct shell_widget_label {
+	uint32_t label[64];
+};
 
 /**
  * @brief shell widget structure
