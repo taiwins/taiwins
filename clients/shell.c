@@ -179,7 +179,7 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 		i++;
 	}
 	nk_layout_row_end(ctx);
-	if (!clicked)
+	if (!clicked || !widget->draw_cb)
 		return;
 	//TODO remove this two lines
 	no_widget += 1;

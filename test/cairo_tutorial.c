@@ -4,6 +4,10 @@
 #include <stdio.h>
 //#include <librsvg/rsvg.h>
 #include <cairo/cairo.h>
+#include <cairo/cairo-ft.h>
+#define NK_IMPLEMENTATION
+
+#include "../3rdparties/nuklear/nuklear.h"
 
 static inline int
 font_pt2px(int pt_size, int ppi)
@@ -48,38 +52,6 @@ static void cairo_clean(cairo_t *context, double x, double y, double w, double h
 	cairo_paint(context);
 }
 
-/*
-int main(int argc, char *argv[])
-{
-	int width = 400;
-	int height = 200;
-	cairo_format_t format = CAIRO_FORMAT_ARGB32;
-	int stride = cairo_format_stride_for_width(format, width);
-	unsigned char content[height * stride];
-	memset(content, 255, height * stride);
-	cairo_surface_t *target = cairo_image_surface_create_for_data(content, format, width, height, stride);
-	cairo_t *cr = cairo_create(target);
-
-	cairo_surface_t *font = rendertext("text");
-	cairo_set_source_surface(cr, font, 20, 100);
-	cairo_paint(cr);
-	cairo_clean(cr, 20, 100, 16 * strlen("text"), 32);
-	cairo_surface_t *another_text = rendertext("another");
-	cairo_set_source_surface(cr, another_text, 20, 100);
-	cairo_paint(cr);
-	cairo_surface_destroy(another_text);
-	cairo_clean(cr, 20, 100, 16 * strlen("another"), 32);
-	font = rendertext("abcdefg");
-	cairo_set_source_surface(cr, font, 20, 100);
-	cairo_paint(cr);
-//	cairo_clean(cr, 20, 100, 16 * strlen("another"), 32);
-	cairo_surface_write_to_png(target, "/tmp/debug.png");
-	cairo_surface_destroy(font);
-	cairo_surface_destroy(target);
-
-	return 0;
-}
-*/
 
 //we try out several painting patterns then
 static cairo_surface_t *
@@ -119,21 +91,62 @@ int main(int argc, char *argv[])
 	int width = 400;
 	int height = 200;
 	cairo_format_t format = CAIRO_FORMAT_ARGB32;
+	FT_Library library;
+	FT_Face face;
+	const cairo_user_data_key_t key;
+
+	FT_Init_FreeType(&library);
+
 	int stride = cairo_format_stride_for_width(format, width);
 	unsigned char content[height * stride];
 	memset(content, 255, height * stride);
 	cairo_surface_t *surface = cairo_image_surface_create_for_data(content, format, width, height, stride);
 	cairo_t *cr = cairo_create(surface);
+	int error = FT_New_Face(library,
+				"/usr/share/fonts/truetype/fa-regular-400.ttf",
+				0, &face);
+	cairo_font_face_t *font_face = cairo_ft_font_face_create_for_ft_face(face, 0);
+	fprintf(stderr, "cairo_font face: %p\n", font_face);
+	if (cairo_font_face_status(font_face) != CAIRO_STATUS_SUCCESS)
+		fprintf(stderr, "oh shit, I screwed something up\n");
+	cairo_set_font_face(cr, font_face);
+	cairo_set_font_size(cr, 20);
+	cairo_scaled_font_t *scaled_font = cairo_get_scaled_font(cr);
+	if (cairo_scaled_font_status(scaled_font) != CAIRO_STATUS_SUCCESS)
+		fprintf(stderr, "oh shit, scaled font didn\'t work\n");
 
-
-	char text[] = "we should see a cursor at the end.M";
-	cairo_surface_t *font_surf = rendertext_with_caret(text, 16);
-	cairo_set_source_surface(cr, font_surf, 20, 100);
+	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
 	cairo_paint(cr);
-	cairo_surface_write_to_png(surface, "/tmp/debug.png");
-//	cairo_set_source_surface(cr, font, 20, 100);
+	unsigned int unicodes[] = {0xF1C1, 0xF1C2, 0xF1C3, 0xF1C4, 0xF1C5, 0xF1C6};
+	char text[256];
+	int count = 0;
+	for (int i = 0; i < 6; i++) {
+		count += nk_utf_encode(unicodes[i], text+count, 256 - count);
+	}
+	text[count] = '\0';
 
+//	char text[] = "we should see a cursor at the end.M";
+	cairo_move_to(cr, 100, 100);
+	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+	{
+		int num_glyphs;
+		cairo_glyph_t *glyphs;
+		int num_clusters;
+		cairo_text_cluster_t *clusters;
+		cairo_text_cluster_flags_t flags;
+		cairo_font_extents_t extents;
+		cairo_scaled_font_extents(scaled_font, &extents);
+		fprintf(stderr, "%d\n", extents.ascent);
+		cairo_scaled_font_text_to_glyphs(scaled_font, 100, 100+extents.ascent,
+						 text, count, &glyphs, &num_glyphs, &clusters, &num_clusters, &flags);
+		cairo_show_text_glyphs(cr, text, count, glyphs, num_glyphs, clusters, num_clusters, flags);
+
+		/* cairo_glyph_free(glyphs); */
+		/* cairo_text_cluster_free(clusters); */
+	}
+	cairo_surface_write_to_png(surface, "/tmp/debug.png");
 	cairo_destroy(cr);
-	cairo_surface_destroy(font_surf);
+//	cairo_surface_destroy(font_surf);
+
 	cairo_surface_destroy(surface);
 }
