@@ -70,15 +70,24 @@ sample_widget(struct nk_context *ctx, float width, float height, struct app_surf
 	}
 
 	nk_layout_row_static(ctx, 30, 80, 2);
-	nk_button_label(ctx, "button");
-	nk_label(ctx, "another", NK_TEXT_LEFT);
+	int unicodes[] = {0xf1c1, 0xf1c2, 0xf1c3, 0xf1c4, 0xf1c5};
+	char strings[256];
+	int count = 0;
+	for (int i = 0; i < 5; i++) {
+		count += nk_utf_encode(unicodes[i], strings+count, 256-count);
+	}
+	strings[count] = '\0';
+	nk_button_label(ctx, strings);
+	nk_label(ctx, strings, NK_TEXT_LEFT);
 	nk_layout_row_dynamic(ctx, 30, 2);
 	if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
 	if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
-
+	nk_layout_row_dynamic(ctx, 30, 1);
+	if (nk_button_label(ctx, strings)) {
+		App.done = true;
+	}
 	nk_layout_row_dynamic(ctx, 25, 1);
-	nk_edit_buffer(ctx, NK_EDIT_FIELD, &text_edit, nk_filter_default);
-	fprintf(stderr, "%s\n", text_buffer);
+//	nk_edit_buffer(ctx, NK_EDIT_FIELD, &text_edit, nk_filter_default);
 }
 
 static

@@ -560,9 +560,9 @@ nk_cairo_create_bkend(void)
 	sample_backend.user_font.nk_font.width = nk_cairo_cal_text_width;
 	sample_backend.user_font.size = 14;
 
-	char font_path[256];
-	tw_find_font_path("vera", font_path, 256);
-	fprintf(stderr, "%s\n", font_path);
+	char *font_path = "/usr/share/fonts/truetype/fa-regular-400.ttf";// "/usr/share/fonts/truetype/fa-regular-400.ttf";
+//	tw_find_font_path("vera", font_path, 256);
+//	fprintf(stderr, "%s\n", font_path);
 	nk_cairo_prepare_font(&sample_backend, font_path);
 	return &sample_backend.base;
 }
