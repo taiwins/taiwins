@@ -23,3 +23,12 @@ target_link_libraries(test_nk_cairo
   ${CLIENT_LIBRARIES}
   taiwins_client
   )
+
+
+add_library(nk_vulkan
+  nk_wl_vulkan.c
+  )
+
+target_link_libraries(nk_vulkan
+  ${CLIENT_LIBRARIES}
+  )
