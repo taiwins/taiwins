@@ -9,11 +9,10 @@
 #ifndef VK_USE_PLATFORM_WAYLAND_KHR
 #define VK_USE_PLATFORM_WAYLAND_KHR
 #endif
+
 #include <vulkan/vulkan.h>
 
-#ifndef NK_IMPLEMENTATION
 #define NK_IMPLEMENTATION
-#endif
 
 #define NK_EGL_CMD_SIZE 4096
 #define MAX_VERTEX_BUFFER 512 * 128
@@ -41,6 +40,21 @@ struct nk_vulkan_backend {
 
 
 static void
+nk_wl_render(struct nk_wl_backend *bkend)
+{
+	fprintf(stderr, "this sucks\n");
+}
+
+
+static void
+nk_wl_call_preframe(struct nk_wl_backend *bkend, struct app_surface *surf)
+{
+}
+
+
+
+
+static void
 createInstance(bool enable_validation)
 {
 	VkApplicationInfo appinfo = {};
@@ -48,13 +62,16 @@ createInstance(bool enable_validation)
 	appinfo.pApplicationName = "nk_vulkan";
 	appinfo.applicationVersion = VK_MAKE_VERSION(0, 0, 0);
 	appinfo.pEngineName = "No Engine";
-	appinfo.engineVersion = VK_MAKE_VERSION(0, 0, 0);
+	appinfo.engineVersion = 1;
 	appinfo.apiVersion = VK_API_VERSION_1_1;
 
 	//define extensions
+	//nvidia is not supporting vk_khr_wayland
 	const char *instance_extensions[] = {
 		VK_KHR_SURFACE_EXTENSION_NAME,
-		VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME,
+		/* VK_KHR_XCB_SURFACE_EXTENSION_NAME, */
+		/* VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME, */
+		/* VK_KHR_SWAPCHAIN_EXTENSION_NAME, */
 	};
 	const char *validation_layers[] = {
 		"VK_LAYER_LUNARG_standard_validation",
@@ -63,7 +80,7 @@ createInstance(bool enable_validation)
 	VkInstanceCreateInfo create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	create_info.pApplicationInfo = &appinfo;
-	create_info.enabledExtensionCount = 2;
+	create_info.enabledExtensionCount = 1;
 	create_info.ppEnabledExtensionNames = instance_extensions;
 	if (!enable_validation)
 	//add validation layer
@@ -72,10 +89,11 @@ createInstance(bool enable_validation)
 		create_info.enabledLayerCount = 1;
 		create_info.ppEnabledLayerNames = validation_layers;
 	}
-
 	VkInstance instance;
 	//create the instance!
-	assert(vkCreateInstance(&create_info, NULL, &instance) == VK_SUCCESS);
+	VkResult result = vkCreateInstance(&create_info, NULL, &instance);
+	fprintf(stderr, "%d\n", result);
+//	assert(vkCreateInstance(&create_info, NULL, &instance) == VK_SUCCESS);
 
 }
 
@@ -83,10 +101,7 @@ struct nk_wl_backend *
 nk_vulkan_backend_create()
 {
 	struct nk_vulkan_backend *backend = malloc(sizeof(struct nk_vulkan_backend));
-
-
-
-
+	createInstance(false);
 	//yeah, creating device, okay, I do not need to
-	return backend;
+	return &backend->base;
 }

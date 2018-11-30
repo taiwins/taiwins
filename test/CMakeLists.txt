@@ -79,3 +79,13 @@ add_executable(test_fontconfig
 target_link_libraries(test_fontconfig
   ${CLIENT_LIBRARIES}
   )
+
+
+add_executable(test_nk_vulkan
+  test_nk_vulkan.c)
+
+
+target_link_libraries(test_nk_vulkan
+  ${CLIENT_LIBRARIES}
+  nk_vulkan
+  )
