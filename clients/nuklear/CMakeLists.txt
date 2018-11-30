@@ -1,6 +1,9 @@
+find_package(Vulkan REQUIRED)
+
 include_directories(
   ${CLIENT_INCLUDE_DIRS}
   ${PROTOCOLS_INCLUDE_DIR}
+  Vulkan::Vulkan
   )
 
 
@@ -25,10 +28,11 @@ target_link_libraries(test_nk_cairo
   )
 
 
-add_library(nk_vulkan
+add_library(nk_vulkan STATIC
   nk_wl_vulkan.c
   )
 
 target_link_libraries(nk_vulkan
-  ${CLIENT_LIBRARIES}
+  Vulkan::Vulkan
+  taiwins_client
   )
