@@ -49,6 +49,7 @@ find_package(Lua REQUIRED)
 find_package(NVEGL)
 find_package(fontconfig REQUIRED)
 find_package(Freetype REQUIRED)
+find_package(Vulkan REQUIRED)
 
 set(CMAKE_THREAD_PREFER_PTHREAD)
 find_package(Threads REQUIRED)

@@ -84,8 +84,16 @@ target_link_libraries(test_fontconfig
 add_executable(test_nk_vulkan
   test_nk_vulkan.c)
 
-
 target_link_libraries(test_nk_vulkan
   ${CLIENT_LIBRARIES}
-  nk_vulkan
+  nk_vulkan_backend
+  )
+
+
+add_executable(test_nk_cairo
+  test_nk_cairo.c)
+
+target_link_libraries(test_nk_cairo
+  nk_cairo_backend
+  ${CLIENT_LIBRARIES}
   )
