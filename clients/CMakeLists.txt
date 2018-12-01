@@ -42,7 +42,7 @@ target_link_libraries(shell-taiwins
   m
   proto_client_libraries
   taiwins_client
-  nk_backend
+  nk_egl_backend
   tcmalloc
 #  asan
   )
@@ -59,7 +59,7 @@ target_link_libraries(shell-launcher
   ${WAYLAND_CURSOR_LIBRARIES}
   m
   proto_client_libraries
-  nk_backend
+  nk_egl_backend
   taiwins_client
   )
 
@@ -75,6 +75,6 @@ add_executable(dummy
 target_link_libraries(dummy
   ${CLIENT_LIBRARIES}
   taiwins_client
-  nk_backend
+  nk_egl_backend
 #  asan
   )
