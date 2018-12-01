@@ -69,8 +69,7 @@ createInstance(bool enable_validation)
 	//nvidia is not supporting vk_khr_wayland
 	const char *instance_extensions[] = {
 		VK_KHR_SURFACE_EXTENSION_NAME,
-		/* VK_KHR_XCB_SURFACE_EXTENSION_NAME, */
-		/* VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME, */
+		VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME,
 		/* VK_KHR_SWAPCHAIN_EXTENSION_NAME, */
 	};
 	const char *validation_layers[] = {
@@ -80,7 +79,7 @@ createInstance(bool enable_validation)
 	VkInstanceCreateInfo create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	create_info.pApplicationInfo = &appinfo;
-	create_info.enabledExtensionCount = 1;
+	create_info.enabledExtensionCount = 2;
 	create_info.ppEnabledExtensionNames = instance_extensions;
 	if (!enable_validation)
 	//add validation layer
@@ -91,9 +90,7 @@ createInstance(bool enable_validation)
 	}
 	VkInstance instance;
 	//create the instance!
-	VkResult result = vkCreateInstance(&create_info, NULL, &instance);
-	fprintf(stderr, "%d\n", result);
-//	assert(vkCreateInstance(&create_info, NULL, &instance) == VK_SUCCESS);
+	assert(vkCreateInstance(&create_info, NULL, &instance) == VK_SUCCESS);
 
 }
 
