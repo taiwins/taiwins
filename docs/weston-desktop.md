@@ -28,6 +28,10 @@ composits the different planes. Currently here is a piece of code inside the
 boxes(x,y,w,h). You have to walk though the pixman examples to know how to use
 it.
 
+## wl_frame
+The key function is `weston_output_repaint`. You will see the accumulation of
+`frame_callback`, `weston_compositor_build_view_list`, and call to
+`renderer->repaint`, then send done to all the `frame_callback`.
 
 ## Taiwins-desktop implementation
 desktop has following concepts:

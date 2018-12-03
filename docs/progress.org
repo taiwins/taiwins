@@ -86,6 +86,14 @@
     c++ implementation of svg2ttf. We need to rely on fontawesome for now. Now
     you need to include this [https://github.com/juliettef/IconFontCppHeaders]
     for mapping unicode symbols.
+*** DOIN nk_vulkan backend
+    This work is not necessary, only serves the purpose of vulkan training. But
+    the API is rather verbose.
+*** TODO intergrate nk_wl_egl into nk_wl_backend
+    I implemented a template header of ~nk_wl_internal~, but never actually
+    applies it to nk_wl_egl, it should be done very soon, so I can totally
+    remove the deprecated functions.
+*** RODO nk_cairo_backend multiple font support
 ** [0%] launcher optimization
 *** TODO allow launcher to quit instead of launch weston-terminal all the time
 *** TODO the real launcher implementation
@@ -148,6 +156,34 @@
    the ~nk_rune~ has to be available all the time as nuklear does not like to
    manage memory, so you cannot just pass an temporary address.
 * summarizing and planning
+** <2018-12-03 Mon>
+Last two weeks I have been experiencing progress latency, it is a bit hopeless,
+the original plan is to finish taiwins this year, I have 28 days left.
+
+Right now I am at the point of struggling, there is no many new features need to
+implement, but the existing features are not complete. I should be focusing on
+finish those. cairo backend is the good way to do, easier to debug and nvidia
+friendly. The only only problem is that I need to implement multiple font
+support, I don't think it is that hard, only cairo natively supports only one
+font. I am not sure how slow it is if I implement as two font type
+split-draw. Or I need to go with cairo_user_font and use freetype to render it?
+
+After this is done, then we merge everything else in place. The icons gets
+render into unicodes. So we can leave user out of worry about nuklear inline
+code.
+
+Afterwards it should be the launch point debug so we can get the correct launch
+point. Right now lets just render widget into a block so we don't need to draw
+that small triangles. We add other callback to deal with it afterwards.
+
+Then it should be the end of taiwins_shell, totally functional shell.
+
+Launcher should be much simpler since it is much similar to shell.
+
+After that I can focus on the backend code. Get it to run under console with
+gbm. And implement other layouting algorithm. Okay, this is the road map for
+now.
+
 ** <2018-09-11 Tue>
 So this is the cycle of the big refactoring, today I am finally done. I switched
 panel implementation to ~nuklear~, so I am not no longer bothered by how to draw
