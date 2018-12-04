@@ -30,12 +30,62 @@
 #include "../ui.h"
 #include "nk_wl_internal.h"
 
+/////////////////////////////////// NK_CAIRO text handler /////////////////////////////////////
+
+
 struct nk_cairo_font {
+	//we need have a text font and an icon font, both of them should be FT_fontface
 	cairo_font_face_t *font_face;
 	cairo_scaled_font_t *font_using;
 	struct nk_user_font nk_font;
 	int size;
+	FT_Face text_font;
+	FT_Face icon_font;
 };
+
+static void
+nk_cairo_font_done(void *data)
+{
+	struct nk_cairo_font *user_font = (struct nk_cairo_font *)data;
+	FT_Done_Face(user_font->text_font);
+	FT_Done_Face(user_font->icon_font);
+}
+
+static cairo_status_t
+font_text_to_glyphs(
+	cairo_font_face_t *font_face,
+	const char *utf8,
+	int utf8_len,
+	cairo_glyph_t **glyphs,
+	int *num_glyphs,
+	cairo_text_cluster_t **clusters,
+	int *num_clusters,
+	cairo_text_cluster_flags_t *cluster_flags)
+{
+	//I shoud have two font face
+}
+
+/////////////////////////////////// NK_CAIRO backend /////////////////////////////////////
+
+
+//text APIs
+static cairo_status_t
+scaled_font_text_to_glyphs(
+	cairo_scaled_font_t *scaled_font,
+	const char *utf8,
+	int utf8_len,
+	cairo_glyph_t **glyphs,
+	int *num_glyphs,
+	cairo_text_cluster_t **clusters,
+	int *num_clusters,
+	cairo_text_cluster_flags_t *cluster_flags)
+{
+	cairo_font_face_t *font_face = cairo_scaled_font_get_font_face(scaled_font);
+	return font_text_to_glyphs(font_face, utf8, utf8_len, glyphs, num_glyphs,
+				   clusters, num_clusters, cluster_flags);
+}
+
+
 
 struct nk_cairo_backend {
 	struct nk_wl_backend base;
@@ -49,6 +99,8 @@ struct nk_cairo_backend {
 		cairo_scaled_font_t *font_using;
 	};
 };
+
+
 
 
 typedef void (*nk_cairo_op) (cairo_t *cr, const struct nk_command *cmd);
