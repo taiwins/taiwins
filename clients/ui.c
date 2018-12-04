@@ -90,35 +90,27 @@ validate_theme_font(struct taiwins_theme *theme)
 {
 	FcInit();
 	FcConfig *config = FcConfigGetCurrent();
-	char *font_names[3] = {
-		theme->ascii_font,
-		theme->cjk_font,
-		theme->icons_font,
-	};
-	for (int i = 0; i < 3; i++) {
-		if (strlen(font_names[i]) == 0)
-			continue;
-		FcChar8 *file = NULL;
-		const char *path;
-		FcResult result;
-		FcPattern *pat = FcNameParse((const FcChar8 *)font_names[i]);
-		FcConfigSubstitute(config, pat, FcMatchPattern);
-		FcDefaultSubstitute(pat);
-
-		FcPattern *font = FcFontMatch(config, pat, &result);
-		if (FcPatternGetString(font, FC_FILE, 0, &file) == FcResultMatch) {
-			path = (const char *)file;
-			assert(strlen(path) < 255);
-			strcpy(font_names[i], path);
-		}
-		FcPatternDestroy(font);
-		FcPatternDestroy(pat);
-	}
-	FcFini();
-	if (strlen(font_names[0]) == 0 ||
-	    strlen(font_names[2]) == 0)
+	if (strlen(theme->font) == 0)
 		return false;
 
+	FcChar8 *file = NULL;
+	const char *path;
+	FcResult result;
+	FcPattern *pat = FcNameParse((const FcChar8 *)theme->font);
+	FcConfigSubstitute(config, pat, FcMatchPattern);
+	FcDefaultSubstitute(pat);
+
+	FcPattern *font = FcFontMatch(config, pat, &result);
+	if (FcPatternGetString(font, FC_FILE, 0, &file) == FcResultMatch) {
+		path = (const char *)file;
+		assert(strlen(path) < 255);
+		strcpy(theme->font, path);
+	}
+	FcPatternDestroy(font);
+	FcPatternDestroy(pat);
+	FcFini();
+	if (strlen(theme->font) == 0)
+		return false;
 	return true;
 }
 
@@ -163,25 +155,6 @@ bool
 tw_validate_theme(struct taiwins_theme *theme)
 {
 	return validate_theme_colors(theme) && validate_theme_font(theme);
-}
-
-size_t
-tw_theme_extract_fonts(struct taiwins_theme *theme, char *fonts[3])
-{
-	size_t fidx = 0;
-	if (*theme->ascii_font)
-		fonts[fidx++] = theme->ascii_font;
-
-	if (*theme->cjk_font &&
-	    strcmp(theme->cjk_font, theme->ascii_font))
-		fonts[fidx++] = theme->cjk_font;
-
-	if (*theme->icons_font &&
-	    strcmp(theme->icons_font, theme->ascii_font) &&
-	    strcmp(theme->icons_font, theme->cjk_font))
-		fonts[fidx++] = theme->icons_font;
-
-	return fidx;
 }
 
 /* this cause memory leak, find out why! */
