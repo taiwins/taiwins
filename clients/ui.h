@@ -57,10 +57,8 @@ struct taiwins_theme {
 	struct widget_colors chart;
 	struct tw_rgba_t combo_color;
 
-	//we may need to extend this later
-	char ascii_font[256];
-	char icons_font[256];
-	char cjk_font[256];
+	//you only need to set one font right now, use it for normal text render, icons is done by system
+	char font[256];
 	//there could other fonts, but hope not so many
 };
 
@@ -75,8 +73,6 @@ bool tw_validate_theme(struct taiwins_theme *);
 
 /* return -1 if path is not long enough, even if you feed a empty string we should return a font */
 int tw_find_font_path(const char *font_name, char *path, size_t path_size);
-
-size_t tw_theme_extract_fonts(struct taiwins_theme *, char *fonts[3]);
 
 
 
