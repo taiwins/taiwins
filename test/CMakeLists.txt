@@ -97,3 +97,11 @@ target_link_libraries(test_nk_cairo
   nk_cairo_backend
   ${CLIENT_LIBRARIES}
   )
+
+
+add_executable(test_user_font
+  test_cairo_user_font.c)
+
+target_link_libraries(test_user_font
+  ${CLIENT_LIBRARIES}
+  )
