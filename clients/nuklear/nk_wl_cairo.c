@@ -32,6 +32,9 @@
 
 /////////////////////////////////// NK_CAIRO text handler /////////////////////////////////////
 
+//every font_face has a user_data array, in our case, we just bind to this
+//address
+#define NK_CR_FONT_KEY ((cairo_user_data_key_t *)1000)
 
 struct nk_cairo_font {
 	//we need have a text font and an icon font, both of them should be FT_fontface
@@ -62,11 +65,25 @@ font_text_to_glyphs(
 	int *num_clusters,
 	cairo_text_cluster_flags_t *cluster_flags)
 {
-	//I shoud have two font face
+	struct nk_cairo_font *user_font =
+		cairo_font_face_get_user_data(font_face, NK_CR_FONT_KEY);
+
+	//get number of unicodes to
+	nk_rune unicodes[utf8_len];
+	int len_decoded = 0;
+	int len = 0;
+	do {
+		len_decoded = nk_utf_decode(utf8 + len_decoded, unicodes + len,
+					    utf8_len - len_decoded);
+		len++;
+	} while(len_decoded < utf8_len);
+
+	//deal with kerning and all that
+	nk_rune pua[2] = {0xF0000, 0xFFFFF};
+	for (int i = 0; i < len; i++) {
+
+	}
 }
-
-/////////////////////////////////// NK_CAIRO backend /////////////////////////////////////
-
 
 //text APIs
 static cairo_status_t
@@ -84,6 +101,46 @@ scaled_font_text_to_glyphs(
 	return font_text_to_glyphs(font_face, utf8, utf8_len, glyphs, num_glyphs,
 				   clusters, num_clusters, cluster_flags);
 }
+
+
+static cairo_status_t
+scaled_font_render_glyphs(cairo_scaled_font_t *scaled_font, unsigned long unicode,
+			  cairo_t *cr, cairo_text_extents_t *extents)
+{
+	return CAIRO_STATUS_SUCCESS;
+}
+
+void
+nk_cairo_font_init(struct nk_cairo_font *font, const char *text_font, const char *icon_font)
+{
+	int error;
+	FT_Library library;
+	FT_Init_FreeType(&library);
+
+
+	char font_path[256];
+	tw_find_font_path(text_font, font_path, 256);
+	error = FT_New_Face(library, font_path, 0,
+			    &font->text_font);
+	//for the icon font, we need to actually verify the font charset, but
+	//lets skip it for now
+	tw_find_font_path(icon_font, font_path, 256);
+	error = FT_New_Face(library, font_path, 0,
+			    &font->icon_font);
+	font->font_face = cairo_user_font_face_create();
+	cairo_font_face_set_user_data(font->font_face, NK_CR_FONT_KEY, font,
+				      nk_cairo_font_done);
+
+	cairo_user_font_face_set_render_glyph_func(font->font_face,
+						   scaled_font_render_glyphs);
+	cairo_user_font_face_set_text_to_glyphs_func(font->font_face,
+						     scaled_font_text_to_glyphs);
+
+}
+
+/////////////////////////////////// NK_CAIRO backend /////////////////////////////////////
+
+
 
 
 
@@ -573,13 +630,13 @@ nk_cairo_prepare_font(struct nk_cairo_backend *bkend, const char *font_file)
 	FT_Library library;
 	FT_Face face;
 	cairo_font_face_t *font_face;
-	static const cairo_user_data_key_t key;
+	/* static const cairo_user_data_key_t key; */
 
 	FT_Init_FreeType(&library);
 	//a font could have different face.
 	error = FT_New_Face(library, font_file, 0, &face);
 	font_face = cairo_ft_font_face_create_for_ft_face(face, 0);
-	cairo_font_face_set_user_data(font_face, &key, face,
+	cairo_font_face_set_user_data(font_face, NK_CR_FONT_KEY, face,
 				      (cairo_destroy_func_t)FT_Done_Face);
 	bkend->user_font.font_face = font_face;
 }
