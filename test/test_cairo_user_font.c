@@ -195,9 +195,10 @@ void sample_text(cairo_t *cr)
 	cairo_text_cluster_flags_t flags;
 
 	cairo_scaled_font_extents(scaled_font, &extents);
-	cairo_scaled_font_text_to_glyphs(scaled_font, 100, 100+extents.ascent,
-					 sample_str, 9, &glyphs, &num_glyphs,
-					 NULL, &num_clusters, &flags);
+	cairo_status_t status =
+		cairo_scaled_font_text_to_glyphs(scaled_font, 100, 100+extents.ascent,
+						 sample_str, 9, &glyphs, &num_glyphs,
+						 NULL, &num_clusters, &flags);
 	cairo_glyph_free(glyphs);
 }
 
