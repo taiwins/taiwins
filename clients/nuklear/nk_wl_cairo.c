@@ -79,7 +79,7 @@ font_text_to_glyphs(
 	} while(len_decoded < utf8_len);
 
 	//deal with kerning and all that
-	nk_rune pua[2] = {0xF0000, 0xFFFFF};
+	nk_rune pua[2] = {0xE000, 0xF8FF};
 	for (int i = 0; i < len; i++) {
 
 	}
