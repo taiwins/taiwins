@@ -54,13 +54,14 @@ font_text_to_glyphs(
 	nk_rune unicodes[utf8_len];
 	int len_decoded = 0;
 	int len = 0;
-	do {
-		len_decoded = nk_utf_decode(utf8 + len_decoded, unicodes + len,
+	while (len_decoded < utf8_len) {
+		len_decoded += nk_utf_decode(utf8 + len_decoded, unicodes + len,
 					    utf8_len - len_decoded);
 		len++;
-	} while(len_decoded < utf8_len);
+	}
 
 	*glyphs = cairo_glyph_allocate(len);
+	*num_glyphs = len;
 	cairo_glyph_t *glyph_arr = *glyphs;
 
 	//generate cairo_glyphs
@@ -90,6 +91,10 @@ font_text_to_glyphs(
 						       .x = kern_vec.x, .y = kern_vec.y};
 		}
 	}
+	//do not deal with clusters
+	if (num_clusters)
+		*num_clusters = 0;
+
 	return CAIRO_STATUS_SUCCESS;
 }
 
@@ -199,6 +204,7 @@ void sample_text(cairo_t *cr)
 		cairo_scaled_font_text_to_glyphs(scaled_font, 100, 100+extents.ascent,
 						 sample_str, 9, &glyphs, &num_glyphs,
 						 NULL, &num_clusters, &flags);
+	cairo_show_text_glyphs(cr, sample_str, 9, glyphs, num_glyphs, NULL, 1, flags);
 	cairo_glyph_free(glyphs);
 }
 
@@ -213,8 +219,14 @@ int main(int argc, char *argv[])
 	cairo_set_font_face(cr, font.font_face);
 
 //	cairo_move_to(cr, 100, 100);
+	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+	cairo_paint(cr);
+	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+	cairo_move_to(cr, 100, 100);
 	sample_text(cr);
 
+
+	cairo_surface_write_to_png(surface, "/tmp/this_is.png");
 
 	cairo_destroy(cr);
 	cairo_surface_destroy(surface);
