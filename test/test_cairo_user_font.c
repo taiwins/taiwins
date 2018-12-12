@@ -52,29 +52,43 @@ font_text_to_glyphs(
 
 	//get number of unicodes
 	nk_rune unicodes[utf8_len];
+	cairo_text_cluster_t max_clusters[utf8_len];
 	int len_decoded = 0;
 	int len = 0;
+
 	while (len_decoded < utf8_len) {
-		len_decoded += nk_utf_decode(utf8 + len_decoded, unicodes + len,
+		int num_bytes = nk_utf_decode(utf8 + len_decoded, unicodes + len,
 					    utf8_len - len_decoded);
+		len_decoded += num_bytes;
+		max_clusters[len].num_bytes = num_bytes;
+		max_clusters[len].num_glyphs = 1;
 		len++;
+	}
+	//deal with clusters
+	if (clusters) {
+		*num_clusters = len;
+		*clusters = cairo_text_cluster_allocate(len);
+		memcpy(*clusters, max_clusters, len * sizeof(cairo_text_cluster_t));
 	}
 
 	*glyphs = cairo_glyph_allocate(len);
 	*num_glyphs = len;
-	cairo_glyph_t *glyph_arr = *glyphs;
 
 	//generate cairo_glyphs
 	{
+
 		FT_Face curr_face = is_in_pua(unicodes[0]) ?
 			user_font->icon_font : user_font->text_font;
 		FT_Face last_face;
 		unsigned int glyph_idx = FT_Get_Char_Index(curr_face, unicodes[0]);
+		FT_Load_Glyph(curr_face, glyph_idx, FT_LOAD_DEFAULT);
 		//this is how we interpolate the font_type, we shift it by 1 bit,
 		//the last bit to determine if it is a text font or icon font
 		int font_type = is_in_pua(unicodes[0]) ? 1 : 0;
-		glyph_arr[0] = (cairo_glyph_t) {.index = (glyph_idx << 1) + font_type,
-						.x= 0.0, .y = 0.0};
+		(*glyphs)[0].x = 0.0;
+		(*glyphs)[0].y = 0.0;
+		(*glyphs)[0].index = (glyph_idx << 1) + font_type;
+		FT_Vector advance = curr_face->glyph->advance;
 
 		for (int i = 1; i < len; i++) {
 			FT_Vector kern_vec = {0, 0};
@@ -84,16 +98,24 @@ font_text_to_glyphs(
 			unsigned int last_glyph = glyph_idx;
 			font_type = is_in_pua(unicodes[i]) ? 1 : 0;
 			glyph_idx = FT_Get_Char_Index(curr_face, unicodes[i]);
+			FT_Load_Glyph(curr_face, glyph_idx, FT_LOAD_DEFAULT);
 			if (curr_face == last_face)
 				FT_Get_Kerning(curr_face, last_glyph, glyph_idx, ft_kerning_default, &kern_vec);
+
+			advance.x += kern_vec.x;
+			advance.y += kern_vec.y;
+
 			//get glyph and kerning
-			glyph_arr[i] = (cairo_glyph_t){.index = (glyph_idx << 1) + font_type,
-						       .x = kern_vec.x, .y = kern_vec.y};
+			(*glyphs)[i].x = advance.x / 64.0;
+			(*glyphs)[i].y = advance.y / 64.0;
+			(*glyphs)[i].index = (glyph_idx << 1) + font_type;
+
+			advance.x += curr_face->glyph->advance.x;
+			advance.y += curr_face->glyph->advance.y;
+			fprintf(stderr, "the glyph %d is index:%lu, kern x: %f, kern y: %f\n", i,
+				(*glyphs)[i].index, (*glyphs)[i].x, (*glyphs)[i].y);
 		}
 	}
-	//do not deal with clusters
-	if (num_clusters)
-		*num_clusters = 0;
 
 	return CAIRO_STATUS_SUCCESS;
 }
@@ -142,6 +164,7 @@ scaled_font_render_glyphs(cairo_scaled_font_t *scaled_font, unsigned long glyph,
 	cairo_mask(cr, pattern);
 	return CAIRO_STATUS_SUCCESS;
 }
+
 static cairo_status_t
 nk_cairo_scale_font_init(cairo_scaled_font_t *scaled_font, cairo_t *cr, cairo_font_extents_t *extents)
 {
@@ -198,14 +221,17 @@ void sample_text(cairo_t *cr)
 	int num_glyphs;
 	int num_clusters;
 	cairo_text_cluster_flags_t flags;
+	cairo_text_cluster_t *clusters;
 
+	cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
 	cairo_scaled_font_extents(scaled_font, &extents);
 	cairo_status_t status =
 		cairo_scaled_font_text_to_glyphs(scaled_font, 100, 100+extents.ascent,
 						 sample_str, 9, &glyphs, &num_glyphs,
-						 NULL, &num_clusters, &flags);
-	cairo_show_text_glyphs(cr, sample_str, 9, glyphs, num_glyphs, NULL, 1, flags);
+						 &clusters, &num_clusters, &flags);
+	cairo_show_text_glyphs(cr, sample_str, 9, glyphs, num_glyphs, clusters, num_clusters, flags);
 	cairo_glyph_free(glyphs);
+	cairo_text_cluster_free(clusters);
 }
 
 
@@ -221,8 +247,8 @@ int main(int argc, char *argv[])
 //	cairo_move_to(cr, 100, 100);
 	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
 	cairo_paint(cr);
-	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-	cairo_move_to(cr, 100, 100);
+
+	/* cairo_move_to(cr, 100, 100); */
 	sample_text(cr);
 
 
