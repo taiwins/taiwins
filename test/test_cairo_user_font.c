@@ -106,8 +106,8 @@ font_text_to_glyphs(
 			advance.y += kern_vec.y;
 
 			//get glyph and kerning
-			(*glyphs)[i].x = advance.x / 64.0;
-			(*glyphs)[i].y = advance.y / 64.0;
+			(*glyphs)[i].x = i; //advance.x / (64.0 * user_font->size);
+			(*glyphs)[i].y = 0.0;//advance.y / 64.0;
 			(*glyphs)[i].index = (glyph_idx << 1) + font_type;
 
 			advance.x += curr_face->glyph->advance.x;
@@ -161,19 +161,26 @@ scaled_font_render_glyphs(cairo_scaled_font_t *scaled_font, unsigned long glyph,
 		cairo_image_surface_create_for_data(bitmap->buffer,
 						    CAIRO_FORMAT_A8, width, height, stride);
 	cairo_pattern_t *pattern = cairo_pattern_create_for_surface(glyph_surf);
+	cairo_set_source(cr, pattern);
 	cairo_mask(cr, pattern);
+	extents->x_advance = 1.0/1.6;
+	extents->width = 1.0 / 1.6;
+	cairo_pattern_destroy(pattern);
+	cairo_surface_destroy(glyph_surf);
 	return CAIRO_STATUS_SUCCESS;
 }
 
 static cairo_status_t
-nk_cairo_scale_font_init(cairo_scaled_font_t *scaled_font, cairo_t *cr, cairo_font_extents_t *extents)
+scaled_font_init(cairo_scaled_font_t *scaled_font, cairo_t *cr, cairo_font_extents_t *extents)
 {
 	//I do not know what to do with it now, maybe I should get the
 	//font_matrix, but what is that font matrix
 	/* cairo_matrix_t mat; */
 	/* cairo_scaled_font_get_font_matrix(scaled_font, &mat); */
 	/* double font_size = mat.xx; */
-	return CAIRO_STATUS_USER_FONT_NOT_IMPLEMENTED;
+	extents->ascent = 1.0;
+	extents->descent = 0;
+	return CAIRO_STATUS_SUCCESS;
 }
 
 void
@@ -184,6 +191,7 @@ nk_cairo_font_init(struct nk_cairo_font *font, const char *text_font, const char
 	FT_Init_FreeType(&library);
 	font->size = 0;
 	int pixel_size = 16;
+	font->size = pixel_size;
 
 //	char font_path[256];
 	const char *vera = "/usr/share/fonts/TTF/Vera.ttf";
@@ -207,6 +215,7 @@ nk_cairo_font_init(struct nk_cairo_font *font, const char *text_font, const char
 						   scaled_font_render_glyphs);
 	cairo_user_font_face_set_text_to_glyphs_func(font->font_face,
 						     scaled_font_text_to_glyphs);
+	cairo_user_font_face_set_init_func(font->font_face, scaled_font_init);
 
 }
 
@@ -223,13 +232,13 @@ void sample_text(cairo_t *cr)
 	cairo_text_cluster_flags_t flags;
 	cairo_text_cluster_t *clusters;
 
-	cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
 	cairo_scaled_font_extents(scaled_font, &extents);
 	cairo_status_t status =
 		cairo_scaled_font_text_to_glyphs(scaled_font, 100, 100+extents.ascent,
 						 sample_str, 9, &glyphs, &num_glyphs,
 						 &clusters, &num_clusters, &flags);
-	cairo_show_text_glyphs(cr, sample_str, 9, glyphs, num_glyphs, clusters, num_clusters, flags);
+	cairo_show_glyphs(cr, glyphs, num_glyphs);
 	cairo_glyph_free(glyphs);
 	cairo_text_cluster_free(clusters);
 }
@@ -248,7 +257,7 @@ int main(int argc, char *argv[])
 	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
 	cairo_paint(cr);
 
-	/* cairo_move_to(cr, 100, 100); */
+	cairo_move_to(cr, 100, 100);
 	sample_text(cr);
 
 
