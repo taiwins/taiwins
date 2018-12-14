@@ -114,15 +114,16 @@ int main(int argc, char *argv[])
 	cairo_scale(cr, glyph_width, glyph_height);
 	/* cairo_rectangle(cr, 10, 10, 100, 100); */
 	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-	cairo_pattern_t *linpat = cairo_pattern_create_linear(0, 0, 1, 1);
-	cairo_pattern_add_color_stop_rgb(linpat, 0, 0.3, 0.3, 0.8);
-	cairo_pattern_add_color_stop_rgb(linpat, 1, 0.0, 0.8, 0.3);
+	cairo_rectangle(cr, 0, 0, 1, 1);
+	/* cairo_pattern_t *linpat = cairo_pattern_create_linear(0, 0, 1, 1); */
+	/* cairo_pattern_add_color_stop_rgb(linpat, 0, 0.3, 0.3, 0.8); */
+	/* cairo_pattern_add_color_stop_rgb(linpat, 1, 0.0, 0.8, 0.3); */
 	/* cairo_fill(cr); */
 
 	/* cairo_pattern_t *radpat = cairo_pattern_create_radial(0.5, 0.5, 0.25, 0.5, 0.5, 0.75); */
 	/* cairo_pattern_add_color_stop_rgba (radpat, 0, 0, 0, 0, 1); */
 	/* cairo_pattern_add_color_stop_rgba (radpat, 0.5, 0, 0, 0, 0); */
-	cairo_set_source(cr, linpat);
+	/* cairo_set_source(cr, linpat); */
 	/* cairo_rectangle(cr, 0, 0, 1, 1); */
 	cairo_mask(cr, p);
 	/* cairo_fill(cr); */
