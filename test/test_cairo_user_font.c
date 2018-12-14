@@ -183,6 +183,65 @@ scaled_font_init(cairo_scaled_font_t *scaled_font, cairo_t *cr, cairo_font_exten
 	return CAIRO_STATUS_SUCCESS;
 }
 
+static FT_Vector
+nk_cairo_calc_advance(int32_t this_glyph, int32_t last_glyph,
+		      FT_Face this_face, FT_Face last_face)
+{
+	FT_Vector advance_vec = {0, 0};
+	if (this_face == last_face)
+		FT_Get_Kerning(this_face, last_glyph, this_glyph,
+			       ft_kerning_default, &advance_vec);
+
+	FT_Load_Glyph(this_face, this_glyph, FT_LOAD_DEFAULT);
+	advance_vec.x += this_face->glyph->advance.x;
+	advance_vec.y += this_face->glyph->advance.y;
+	return advance_vec;
+}
+
+//we need a fast way to calculate text width and rest is just rendering glyphs,
+//since we already know how to
+static double
+nk_cairo_text_width(struct nk_cairo_font *user_font, float height, const char *text,
+		    int utf8_len)
+{
+	//we do not need height
+	//since we do not need the generate all glyphs, we do not need the array
+	//of it
+	double width = 0.0;
+	int len_decoded = 0;
+	nk_rune ucs4_this, ucs4_last = 0;
+	FT_Face curr_face, last_face;
+	int32_t glyph_this, glyph_last = -1;
+
+	while (len_decoded < utf8_len) {
+
+		int num_bytes = nk_utf_decode(text + len_decoded,
+					      &ucs4_this, utf8_len - len_decoded);
+		len_decoded += num_bytes;
+		curr_face = is_in_pua(ucs4_this) ?
+			user_font->icon_font :
+			user_font->text_font;
+		glyph_this = FT_Get_Char_Index(curr_face, ucs4_this);
+		FT_Vector real_advance = nk_cairo_calc_advance(glyph_this, glyph_last,
+							       curr_face, last_face);
+
+		width += real_advance.x / 64.0;
+
+		ucs4_last = ucs4_this;
+		glyph_last = glyph_this;
+		last_face = curr_face;
+	}
+	return width;
+}
+
+
+static void
+nk_cairo_render_text(struct nk_cairo_font *font, const char *text, const int utf8_len)
+{
+	//convert the
+}
+
+
 void
 nk_cairo_font_init(struct nk_cairo_font *font, const char *text_font, const char *icon_font)
 {
