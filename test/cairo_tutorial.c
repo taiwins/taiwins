@@ -26,26 +26,6 @@ font_px2pt(int px_size, int ppi)
 	return (int) (72.0 * px_size / ppi);
 }
 
-
-//we try out several painting patterns then
-static cairo_surface_t * rendertext(const char *text)
-{
-	cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 16 * strlen(text), 32);
-	cairo_t *cr = cairo_create(surface);
-	cairo_text_extents_t extent;
-	cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 1.0);
-	cairo_select_font_face(cr, "sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-	cairo_set_font_size(cr, 18);
-	cairo_text_extents(cr, text, &extent);
-	fprintf(stderr, "text extends (%f, %f), and surface (%ld, %d)\n",
-		extent.width, extent.height, 16 * strlen(text), 32);
-	cairo_move_to(cr, 8 * strlen(text) - extent.width /2, 16 + extent.height/2);
-	cairo_show_text(cr, text);
-//	cairo_surface_write_to_png(surface, "/tmp/debug1.png");
-	cairo_destroy(cr);
-	return surface;
-}
-
 static void cairo_clean(cairo_t *context, double x, double y, double w, double h)
 {
 	cairo_rectangle(context, x, y, w, h);
@@ -53,7 +33,8 @@ static void cairo_clean(cairo_t *context, double x, double y, double w, double h
 	cairo_paint(context);
 }
 
-void print_bitmap(unsigned char *bitmap, int width, int height, int pitch)
+static void
+print_bitmap(unsigned char *bitmap, int width, int height, int pitch)
 {
 	char row[width+1];
 	row[width] = '\0';
