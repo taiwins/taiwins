@@ -294,7 +294,9 @@ nk_cairo_render_glyph(cairo_t *cr, FT_Face face, const nk_rune codepoint,
 		//horibearingY is a postive value
 		struct nk_vec2 render_point = *baseline;
 		float ybearing = face->glyph->metrics.horiBearingY / 64.0;
+		float xbearing = face->glyph->metrics.horiBearingX / 64.0;
 		render_point.y -= ybearing;
+		render_point.x += xbearing;
 
 		cairo_save(cr);
 		cairo_translate(cr, render_point.x, render_point.y);
@@ -418,7 +420,7 @@ int main(int argc, char *argv[])
 	cairo_set_font_face(cr, font.font_face);
 	struct nk_command_text cmd;
 	cmd.x = 100; cmd.y = 100;
-	nk_cairo_render_text(cr, &cmd, &font, "jikl", 4);
+	nk_cairo_render_text(cr, &cmd, &font, "ojffjijujMj", 11);
 
 	double text_width = nk_cairo_text_width(&font, 16, "abcdefghijkl", 12);
 	fprintf(stderr, "the text width is %f\n", text_width);
