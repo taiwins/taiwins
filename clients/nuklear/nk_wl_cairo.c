@@ -727,19 +727,18 @@ nk_cairo_buffer_release(void *data,
 		}
 }
 
-static float
-nk_cairo_cal_text_width(nk_handle handle, float height, const char *text, int len)
+static void
+nk_cairo_destroy_app_surface(struct app_surface *app)
 {
-	cairo_scaled_font_t *s = handle.ptr;
-	cairo_glyph_t *glyphs = NULL;
-	int nglyphs;
-	cairo_text_extents_t extents;
-	cairo_scaled_font_text_to_glyphs(s, 0, 0, text, len,
-					 &glyphs, &nglyphs,
-					 NULL, NULL, NULL);
-	cairo_scaled_font_glyph_extents(s, glyphs, nglyphs, &extents);
-	cairo_glyph_free(glyphs);
-	return extents.x_advance;
+	struct nk_wl_backend *b = app->user_data;
+	nk_wl_clean_app_surface(b);
+	app->user_data = NULL;
+	for (int i = 0; i < 2; i++) {
+		shm_pool_buffer_free(app->wl_buffer[i]);
+		app->dirty[i] = false;
+		app->committed[i] = false;
+	}
+	app->pool = NULL;
 }
 
 
@@ -757,17 +756,28 @@ nk_cairo_impl_app_surface(struct app_surface *surf, struct nk_wl_backend *bkend,
 		shm_pool_set_buffer_release_notify(surf->wl_buffer[i],
 						   nk_cairo_buffer_release, surf);
 	}
+	surf->destroy = nk_cairo_destroy_app_surface;
 	//also you need to create two wl_buffers
 }
-
-static struct nk_cairo_backend sample_backend;
 
 
 struct nk_wl_backend *
 nk_cairo_create_bkend(void)
 {
-	nk_init_default(&sample_backend.base.ctx, &sample_backend.user_font.nk_font);
-	nk_cairo_font_init(&sample_backend.user_font, NULL, NULL);
-	nk_cairo_font_set_size(&sample_backend.user_font, 16, 1.0);
-	return &sample_backend.base;
+	struct nk_cairo_backend *b = malloc(sizeof(struct nk_cairo_backend));
+
+	nk_init_fixed(&b->base.ctx, b->base.ctx_buffer, NK_MAX_CTX_MEM, &b->user_font.nk_font);
+	nk_cairo_font_init(&b->user_font, NULL, NULL);
+	nk_cairo_font_set_size(&b->user_font, 16, 1.0);
+	return &b->base;
+}
+
+
+void
+nk_cairo_destroy_bkend(struct nk_wl_backend *bkend)
+{
+	struct nk_cairo_backend *b =
+		container_of(bkend, struct nk_cairo_backend, base);
+	nk_cairo_font_done(&b->user_font);
+	nk_free(&bkend->ctx);
 }

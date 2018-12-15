@@ -5,6 +5,8 @@
 struct nk_wl_bkend;
 struct nk_context;
 struct nk_wl_backend * nk_cairo_create_bkend(void);
+void nk_cairo_destroy_bkend(struct nk_wl_backend *bkend);
+
 
 typedef void (*nk_wl_drawcall_t)(struct nk_context *ctx, float width, float height, struct app_surface *app);
 extern void
@@ -171,8 +173,10 @@ int main(int argc, char *argv[])
 	fprintf(stdout, "here\n");
 	while (wl_display_dispatch(wl_display) != -1 && !App.done)
 		;
-	wl_shell_surface_destroy(shell_surface);
 	app_surface_release(&App.surface);
+	nk_cairo_destroy_bkend(App.bkend);
+	shm_pool_release(&pool);
+
 	wl_globals_release(&App.global);
 	wl_registry_destroy(registry);
 	wl_display_disconnect(wl_display);
