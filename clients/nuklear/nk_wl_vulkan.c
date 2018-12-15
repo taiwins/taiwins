@@ -99,11 +99,6 @@ nk_wl_render(struct nk_wl_backend *bkend)
 }
 
 
-static void
-nk_wl_call_preframe(struct nk_wl_backend *bkend, struct app_surface *surf)
-{
-}
-
 #ifdef __DEBUG
 static inline bool
 check_validation_layer(const VkLayerProperties *layers, uint32_t layer_count,

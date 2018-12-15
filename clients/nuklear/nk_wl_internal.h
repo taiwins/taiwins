@@ -91,8 +91,6 @@ struct nk_wl_backend {
 
 /******************************** render *******************************************/
 static void nk_wl_render(struct nk_wl_backend *bkend);
-static void nk_wl_call_preframe(struct nk_wl_backend *bkend,
-				struct app_surface *surf);
 
 static void
 nk_wl_new_frame(struct app_surface *surf, uint32_t user_data)
@@ -104,8 +102,6 @@ nk_wl_new_frame(struct app_surface *surf, uint32_t user_data)
 
 	if (surf->need_animation)
 		app_surface_request_frame(surf);
-	//so here we still need a hook
-	nk_wl_call_preframe(bkend, surf);
 
 	if (nk_begin(&bkend->ctx, "cairo_app", nk_rect(0, 0, width, height),
 		     NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR)) {
