@@ -420,7 +420,16 @@ int main(int argc, char *argv[])
 	cairo_set_font_face(cr, font.font_face);
 	struct nk_command_text cmd;
 	cmd.x = 100; cmd.y = 100;
-	nk_cairo_render_text(cr, &cmd, &font, "ojffjijujMj", 11);
+
+	int unicodes[] = {'V', 'A', 0xf1c1, 'O', 0xf1c2, 0xf1c3, 0xf1c4, 0xf1c5};
+	char strings[256];
+	int count = 0;
+	for (int i = 0; i < 8; i++) {
+		count += nk_utf_encode(unicodes[i], strings+count, 256-count);
+	}
+	strings[count] = '\0';
+
+	nk_cairo_render_text(cr, &cmd, &font, strings, count);
 
 	double text_width = nk_cairo_text_width(&font, 16, "abcdefghijkl", 12);
 	fprintf(stderr, "the text width is %f\n", text_width);
