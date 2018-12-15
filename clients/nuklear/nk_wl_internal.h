@@ -406,6 +406,7 @@ nk_wl_impl_app_surface(struct app_surface *surf, struct nk_wl_backend *bkend,
 	bkend->cbtn = -1;
 	bkend->ckey = XKB_KEY_NoSymbol;
 	bkend->app_surface = surf;
+	bkend->post_cb = NULL;
 
 	if (surf->wl_globals) {
 		nk_wl_apply_color(bkend, &surf->wl_globals->theme);
