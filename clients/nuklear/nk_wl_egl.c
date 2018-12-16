@@ -127,20 +127,23 @@ nk_egl_prepare_font(struct nk_egl_backend *bkend, size_t font_size)
 	int w, h;
 	const void *image;
 	struct nk_font_config cfg = nk_font_config(font_size);
-	size_t len_range  = merge_unicode_range(nk_font_chinese_glyph_ranges(),
-						nk_font_korean_glyph_ranges(),
-						NULL);
+	const nk_rune pua_range[] = {	0xE000, 0xF8FF, };
+
+	size_t len_range  = merge_unicode_range(nk_font_default_glyph_ranges(),
+						pua_range, NULL);
 	b->unicode_range = malloc(sizeof(nk_rune) * (len_range+1));
-	merge_unicode_range(nk_font_chinese_glyph_ranges(),
-			    nk_font_korean_glyph_ranges(),
+
+	merge_unicode_range(nk_font_default_glyph_ranges(), pua_range,
 			    b->unicode_range);
 	cfg.range = b->unicode_range;
-	cfg.merge_mode = nk_false;
+
 
 	nk_font_atlas_init_default(&bkend->atlas);
 	nk_font_atlas_begin(&bkend->atlas);
+	cfg.merge_mode = nk_false;
 	font = nk_font_atlas_add_from_file(&bkend->atlas, vera, font_size, &cfg);
-	font = nk_font_atlas_add_from_file(&bkend->atlas, fa_a, font_size, &cfg);
+	/* cfg.merge_mode = nk_true; */
+	/* font = nk_font_atlas_add_from_file(&bkend->atlas, fa_a, font_size, &cfg); */
 	//why do we need rgba32, because you need to support image too, maybe
 	//you need a differetn shader?
 	image = nk_font_atlas_bake(&bkend->atlas, &w, &h, NK_FONT_ATLAS_RGBA32);
@@ -441,7 +444,6 @@ nk_wl_render(struct nk_wl_backend *b)
 			       GL_UNSIGNED_SHORT, offset);
 		offset += cmd->elem_count;
 	}
-	nk_clear(ctx);
 
 	_nk_egl_draw_end(bkend);
 	eglSwapBuffers(env->egl_display,
