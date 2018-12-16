@@ -9,8 +9,10 @@
 
 #include "ui.h"
 #include "client.h"
-#include "nuklear/nk_wl_egl.h"
+#include "nk_backends.h"
 #include "../config.h"
+#include "egl.h"
+
 
 
 //create a egl ui
@@ -19,7 +21,7 @@ static struct application {
 	struct wl_shell *shell;
 	struct wl_globals global;
 	struct app_surface surface;
-	struct nk_egl_backend *bkend;
+	struct nk_wl_backend *bkend;
 	struct wl_shell_surface *shell_surface;
 	struct egl_env env;
 	bool done;
@@ -80,10 +82,10 @@ sample_widget(struct nk_context *ctx, float width, float height, struct app_surf
 
 	nk_layout_row_dynamic(ctx, 25, 1);
 	nk_edit_buffer(ctx, NK_EDIT_FIELD, &text_edit, nk_filter_default);
-	if (nk_egl_get_keyinput(ctx) == XKB_KEY_Escape)
+	if (nk_wl_get_keyinput(ctx) == XKB_KEY_Escape)
 		app->done = true;
 
-	bool ret = nk_egl_get_btn(ctx, &btn, &sx, &sy);
+	bool ret = nk_wl_get_btn(ctx, &btn, &sx, &sy);
 	if (ret && btn == NK_BUTTON_MIDDLE) {
 		wl_shell_surface_resize(App.shell_surface, App.global.inputs.wl_seat,
 					App.global.inputs.serial,
@@ -112,7 +114,7 @@ handle_configure(void *data, struct wl_shell_surface *shell_surface,
 		 uint32_t edges, int32_t width, int32_t height)
 {
 	fprintf(stderr, "shell_surface has configure: %d, %d, %d\n", edges, width, height);
-	nk_egl_resize(App.bkend, width, height);
+//	nk_egl_resize(App.bkend, width, height);
 }
 
 struct wl_shell_surface_listener pingpong = {
@@ -163,7 +165,7 @@ int main(int argc, char *argv[])
 	App.surface.h = 400;
 	App.surface.s = 1;
 
-	App.bkend = nk_egl_create_backend(&App.env);
+	App.bkend = nk_egl_create_backend(wl_display, NULL);
 	nk_egl_impl_app_surface(&App.surface, App.bkend, sample_widget, 200, 400, 0, 0);
 	app_surface_frame(&App.surface, false);
 

@@ -20,7 +20,9 @@ struct egl_env {
 	EGLConfig config;
 };
 
-bool egl_env_init(struct egl_env *env, struct wl_display *disp);
+bool egl_env_init(struct egl_env *env, const struct wl_display *disp);
+/* create shared context so we can save some data */
+bool egl_env_init_shared(struct egl_env *this, const struct egl_env *another);
 void egl_env_end(struct egl_env *env);
 
 #ifdef __cplusplus

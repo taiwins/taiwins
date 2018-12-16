@@ -3,7 +3,6 @@
 #include <wayland-util.h>
 #include "ui.h"
 #include "widget.h"
-#include "nuklear/nk_wl_egl.h"
 
 static int
 redraw_panel(void *data)
@@ -65,7 +64,7 @@ shell_widget_activate(struct shell_widget *widget, struct app_surface *panel, st
 
 void
 shell_widget_launch(struct shell_widget *widget, struct wl_surface *surface, struct wl_proxy *p,
-		    struct nk_egl_backend *bkend, uint32_t x, uint32_t y)
+		    struct nk_wl_backend *bkend, uint32_t x, uint32_t y)
 {
 	struct wl_globals *globals = widget->widget.wl_globals;
 	app_surface_init(&widget->widget, surface, p);

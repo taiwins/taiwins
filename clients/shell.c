@@ -19,8 +19,8 @@
 #include "../config.h"
 #include "client.h"
 #include "egl.h"
-#include "nuklear/nk_wl_egl.h"
 #include "widget.h"
+#include "nk_backends.h"
 
 struct taiwins_shell *shelloftaiwins;
 
@@ -40,19 +40,17 @@ struct shell_output {
 	//a temporary struct
 	struct widget_launch_info widget_launch;
 
-	struct nk_egl_backend *panel_backend;
+	struct nk_wl_backend *panel_backend;
 	struct shm_pool pool;
 };
 
 struct desktop_shell {
 	struct wl_globals globals;
 	struct taiwins_shell *shell;
-	struct egl_env eglenv;
-	struct egl_env widget_env;
 
 	struct shell_output shell_outputs[16];
 
-	struct nk_egl_backend *widget_backend;
+	struct nk_wl_backend *widget_backend;
 	struct wl_list shell_widgets;
 	struct tw_event_queue client_event_queue;
 	//states
@@ -186,7 +184,7 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	no_widget = no_widget % n_widgets;
 
 	struct widget_launch_info *info = &shell_output->widget_launch;
-	nk_egl_get_btn(ctx, &button, &sx, &sy);
+	nk_wl_get_btn(ctx, &button, &sx, &sy);
 	info->widget = clicked;
 	//determine the launch point, this is the reason, you can't mesure it properly
 	if (sx + clicked->widget.w/2 >= panel_surf->w)
@@ -200,7 +198,7 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	//again, we should add a post cb here.
 	if (clicked->widget.protocol || !clicked->draw_cb)
 		return;
-	nk_egl_add_idle(ctx, launch_widget);
+	nk_wl_add_idle(ctx, launch_widget);
 }
 
 
@@ -215,7 +213,7 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 
 	//TODO detect if we are on the major output. If not, we do not add the
 	//widgets, and draw call should be different
-	output->panel_backend = nk_egl_create_backend(&output->shell->eglenv);
+	output->panel_backend = nk_egl_create_backend(output->shell->globals.display, NULL);
 	struct shell_widget *widget;
 	wl_list_for_each(widget, &shell->shell_widgets, link)
 		shell_widget_activate(widget, panel, &shell->client_event_queue);
@@ -224,7 +222,7 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 				width, height, 0 ,0);
 	//reset the button theme, TODO, before we actually have a better way to
 	//set theme, we just keep it now for simplicity
-	struct nk_style *style = nk_egl_get_style(output->panel_backend);
+	struct nk_style *style = nk_wl_get_curr_style(output->panel_backend);
 	style->button.border_color = nk_rgba(57, 67, 71, 215);
 	style->button.normal = nk_style_item_color(nk_rgba(57, 67, 71, 215));
 	style->button.hover = nk_style_item_color(nk_rgba(57, 67, 71, 215));
@@ -341,9 +339,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	shell->globals.theme = taiwins_dark_theme;
 	shell->shell = NULL;
 	shell->quit = false;
-	egl_env_init(&shell->eglenv, display);
-	egl_env_init(&shell->widget_env, display);
-	shell->widget_backend = nk_egl_create_backend(&shell->widget_env);
+	shell->widget_backend = nk_egl_create_backend(display, NULL);
 
 	wl_list_init(&shell->shell_widgets);
 	wl_list_insert(&shell->shell_widgets, &clock_widget.link);
@@ -362,8 +358,6 @@ desktop_shell_release(struct desktop_shell *shell)
 	for (int i = 0; i < desktop_shell_n_outputs(shell); i++)
 		release_shell_output(&shell->shell_outputs[i]);
 	wl_globals_release(&shell->globals);
-	egl_env_end(&shell->eglenv);
-	egl_env_end(&shell->widget_env);
 	shell->quit = true;
 	shell->client_event_queue.quit = true;
 #ifdef __DEBUG

@@ -11,8 +11,8 @@
 #include <GL/gl.h>
 #include <wayland-client.h>
 #include "ui.h"
-#include "nuklear/nk_wl_egl.h"
 #include "client.h"
+#include "nk_backends.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,10 +61,10 @@ struct shell_widget {
 	struct app_surface ancre;
 	struct app_surface widget;
 	struct wl_list link;
-	nk_egl_draw_func_t ancre_cb;
+	nk_wl_drawcall_t ancre_cb;
 	//widget callback
-	nk_egl_draw_func_t draw_cb;
-	nk_egl_postcall_t post_cb;
+	nk_wl_drawcall_t draw_cb;
+	nk_wl_postcall_t post_cb;
 	//it could be lua state.
 	void *user_data;
 	//the effort to make it purely data
@@ -84,13 +84,13 @@ void shell_widget_event_from_file(struct shell_widget *widget, const char *path,
 void shell_widget_activate(struct shell_widget *widget, struct app_surface *panel, struct tw_event_queue *queue);
 
 void shell_widget_launch(struct shell_widget *widget, struct wl_surface *surface, struct wl_proxy *p,
-			 struct nk_egl_backend *bkend, uint32_t x, uint32_t y);
+			 struct nk_wl_backend *bkend, uint32_t x, uint32_t y);
 
 
 /* this is probably totally not necessary, we need only the script */
-struct wl_list *shell_widget_create_with_funcs(nk_egl_draw_func_t draw_cb,
-					       nk_egl_postcall_t post_cb,
-					       nk_egl_draw_func_t update_cb,
+struct wl_list *shell_widget_create_with_funcs(nk_wl_drawcall_t draw_cb,
+					       nk_wl_postcall_t post_cb,
+					       nk_wl_drawcall_t update_cb,
 					       size_t width, size_t height,
 					       size_t scale);
 

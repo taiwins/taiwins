@@ -8,7 +8,9 @@ add_library(nk_egl_backend STATIC
   nk_wl_egl.c)
 
 target_link_libraries(nk_egl_backend
-  ${CLIENT_LIBRARIES})
+  ${CLIENT_LIBRARIES}
+  taiwins_client
+  )
 
 add_library(nk_cairo_backend STATIC
   nk_wl_cairo.c)
