@@ -842,7 +842,7 @@ nk_egl_create_backend(const struct egl_env *env)
 
 	return bkend;
 }
-
+/*
 void
 nk_egl_launch(struct nk_egl_backend *bkend,
 	      struct app_surface *app_surface,
@@ -870,7 +870,7 @@ nk_egl_launch(struct nk_egl_backend *bkend,
 	nk_egl_new_frame(app_surface, 0);
 	//there seems to be no function about changing window size in egl
 }
-
+*/
 
 void
 nk_egl_close(struct nk_egl_backend *bkend, struct app_surface *app_surface)

@@ -57,9 +57,6 @@ static struct wl_registry_listener registry_listener = {
 static void
 sample_widget(struct nk_context *ctx, float width, float height, struct app_surface *data)
 {
-	struct application *app = &App;
-	enum nk_buttons btn;
-	uint32_t sx, sy;
 	//TODO, change the draw function to app->draw_widget(app);
 	enum {EASY, HARD};
 	static int op = EASY;
