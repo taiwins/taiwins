@@ -22,6 +22,19 @@ app_surface_init_egl(struct app_surface *surf, struct egl_env *env)
 	assert(surf->eglwin);
 }
 
+void
+app_surface_clean_egl(struct app_surface *surf, struct egl_env *env)
+{
+	eglMakeCurrent(env->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE,
+		       env->egl_context);
+	eglDestroySurface(env->egl_display, surf->eglsurface);
+	wl_egl_window_destroy(surf->eglwin);
+	surf->eglwin = NULL;
+	surf->egldisplay = EGL_NO_DISPLAY;
+	surf->eglsurface = EGL_NO_SURFACE;
+}
+
+
 
 
 static void

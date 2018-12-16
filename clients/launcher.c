@@ -14,7 +14,7 @@
 #include "../config.h"
 #include "client.h"
 #include "ui.h"
-#include "nuklear/nk_wl_egl.h"
+#include "nk_backends.h"
 
 
 struct desktop_launcher {
@@ -32,8 +32,7 @@ struct desktop_launcher {
 	bool quit;
 	//rendering data
 	//for nuklear
-	struct nk_egl_backend *bkend;
-	struct egl_env env;
+	struct nk_wl_backend *bkend;
 	//a good hack is that this text_edit is stateless, we don't need to
 	//store anything once submitted
 	struct nk_text_edit text_edit;
@@ -92,11 +91,11 @@ draw_launcher(struct nk_context *ctx, float width, float height,
 	nk_layout_row_static(ctx, height - 30, width, 1);
 	nk_edit_buffer(ctx, NK_EDIT_FIELD, &launcher->text_edit, nk_filter_default);
 	//we could go into two different state, first is compeletion, then it is submission
-	if (nk_egl_get_keyinput(ctx) == XKB_KEY_NoSymbol) //key up
+	if (nk_wl_get_keyinput(ctx) == XKB_KEY_NoSymbol) //key up
 		return;
-	if (nk_egl_get_keyinput(ctx) == XKB_KEY_Tab)
+	if (nk_wl_get_keyinput(ctx) == XKB_KEY_Tab)
 		edit_state = COMPLETING;
-	else if (nk_egl_get_keyinput(ctx) == XKB_KEY_Return)
+	else if (nk_wl_get_keyinput(ctx) == XKB_KEY_Return)
 		edit_state = SUBMITTING;
 	else
 		edit_state = NORMAL;
@@ -111,7 +110,7 @@ draw_launcher(struct nk_context *ctx, float width, float height,
 	case SUBMITTING:
 		memset(previous_tab, 0, sizeof(previous_tab));
 		edit_state = NORMAL;
-		nk_egl_add_idle(ctx, submit_launcher);
+		nk_wl_add_idle(ctx, submit_launcher);
 		break;
 	case NORMAL:
 		memset(previous_tab, 0, sizeof(previous_tab));
@@ -191,8 +190,7 @@ init_launcher(struct desktop_launcher *launcher)
 							  sizeof(struct taiwins_decision_key),
 							  TAIWINS_LAUNCHER_CONF_NUM_DECISIONS);
 
-	egl_env_init(&launcher->env, launcher->globals.display);
-	launcher->bkend = nk_egl_create_backend(&launcher->env);
+	launcher->bkend = nk_egl_create_backend(launcher->globals.display, NULL);
 	nk_textedit_init_fixed(&launcher->text_edit, launcher->chars, 256);
 }
 
@@ -202,7 +200,6 @@ release_launcher(struct desktop_launcher *launcher)
 {
 	nk_textedit_free(&launcher->text_edit);
 	nk_egl_destroy_backend(launcher->bkend);
-	egl_env_end(&launcher->env);
 	shm_pool_release(&launcher->pool);
 
 	taiwins_launcher_destroy(launcher->interface);

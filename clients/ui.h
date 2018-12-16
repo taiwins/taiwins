@@ -25,7 +25,7 @@ extern "C" {
 //////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////Application style definition/////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////
-
+struct shm_pool;
 
 struct tw_rgba_t {
 	uint8_t r,g,b,a;
@@ -39,7 +39,9 @@ struct widget_colors {
 
 /* the simpler version of style config, it is not gonna be as fancy as
  * nuklear(supporting nk_style_time(image or color) for all gui elements), but
- * it will have a consistent look
+ * it will have a consistent look, the taiwins_theme struct is kinda a big blob,
+ * TODO we need a hashing technique to quick check if the theme is the same
+ * nuklear has a MumurHash function, we can use that actually
  */
 struct taiwins_theme {
 	uint32_t row_size; //this defines the text size as well
@@ -57,7 +59,8 @@ struct taiwins_theme {
 	struct widget_colors chart;
 	struct tw_rgba_t combo_color;
 
-	//you only need to set one font right now, use it for normal text render, icons is done by system
+	//you only need to set one font right now, use it for normal text
+	//render, icons is done by system
 	char font[256];
 	//there could other fonts, but hope not so many
 };
@@ -283,6 +286,8 @@ void app_surface_request_frame(struct app_surface *surf);
  * `wl_egl_window` and `EGLSurface`, even with nuklear
  */
 void app_surface_init_egl(struct app_surface *surf, struct egl_env *env);
+
+void app_surface_clean_egl(struct app_surface *surf, struct egl_env *env);
 
 cairo_format_t
 translate_wl_shm_format(enum wl_shm_format format);

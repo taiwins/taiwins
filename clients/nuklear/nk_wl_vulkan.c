@@ -14,6 +14,8 @@
 #include <vulkan/vulkan.h>
 
 #define NK_IMPLEMENTATION
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
 
 #define NK_EGL_CMD_SIZE 4096
 #define MAX_VERTEX_BUFFER 512 * 128
@@ -23,7 +25,6 @@
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
 #define NK_INCLUDE_STANDARD_VARARGS
-#define NK_INCLUDE_FONT_BAKING
 #define NK_INCLUDE_DEFAULT_FONT
 #define NK_ZERO_COMMAND_MEMORY
 
@@ -369,7 +370,7 @@ create_shaders(struct nk_vulkan_backend *b)
 ///exposed APIS
 void
 nk_vulkan_impl_app_surface(struct app_surface *surf, struct nk_wl_backend *bkend,
-			   nk_wl_drawcall_t draw_cb, struct shm_pool *pool,
+			   nk_wl_drawcall_t draw_cb,
 			   uint32_t w, uint32_t h, uint32_t x, uint32_t y)
 {
 	nk_wl_impl_app_surface(surf, bkend, draw_cb, w, h, x, y);

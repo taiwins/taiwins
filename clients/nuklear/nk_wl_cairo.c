@@ -678,7 +678,6 @@ nk_cairo_render(struct wl_buffer *buffer, struct nk_cairo_backend *b,
 
 }
 
-
 static void
 nk_wl_render(struct nk_wl_backend *bkend)
 {
@@ -747,6 +746,10 @@ nk_cairo_impl_app_surface(struct app_surface *surf, struct nk_wl_backend *bkend,
 			  nk_wl_drawcall_t draw_cb, struct shm_pool *pool,
 			  uint32_t w, uint32_t h, uint32_t x, uint32_t y)
 {
+	//you will also need to deal with scale later
+	struct nk_cairo_backend *b =
+		container_of(bkend, struct nk_cairo_backend, base);
+
 	nk_wl_impl_app_surface(surf, bkend, draw_cb, w, h, x, y);
 	surf->pool = pool;
 	for (int i = 0; i < 2; i++) {
@@ -757,7 +760,9 @@ nk_cairo_impl_app_surface(struct app_surface *surf, struct nk_wl_backend *bkend,
 						   nk_cairo_buffer_release, surf);
 	}
 	surf->destroy = nk_cairo_destroy_app_surface;
-	//also you need to create two wl_buffers
+	//change the font size here,
+	if (bkend->row_size != (int)(b->user_font.size * b->user_font.scale))
+		nk_cairo_font_set_size(&b->user_font, bkend->row_size, 1.0);
 }
 
 
@@ -765,6 +770,7 @@ struct nk_wl_backend *
 nk_cairo_create_bkend(void)
 {
 	struct nk_cairo_backend *b = malloc(sizeof(struct nk_cairo_backend));
+	b->base.theme_hash = 0;
 
 	nk_init_fixed(&b->base.ctx, b->base.ctx_buffer, NK_MAX_CTX_MEM, &b->user_font.nk_font);
 	nk_cairo_font_init(&b->user_font, NULL, NULL);

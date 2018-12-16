@@ -22,7 +22,6 @@
  */
 //#define NK_PRIVATE
 #define NK_INCLUDE_DEFAULT_ALLOCATOR
-#define NK_INCLUDE_FONT_BAKING
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
 #define NK_INCLUDE_STANDARD_VARARGS
@@ -68,10 +67,12 @@ struct nk_wl_backend {
 	//consistant size
 	struct nk_context ctx;
 	struct nk_buffer cmds;
-
+	//theme size
 	struct nk_colorf main_color;
+	//we now use this to determine if we are using the same theme
+	nk_hash theme_hash;
 	nk_rune *unicode_range;
-
+	uint32_t row_size; //current row size for the backend
 
 	//update to date information
 	struct app_surface *app_surface;
@@ -147,13 +148,20 @@ nk_colorf_from_tw_rgba(struct nk_colorf *nc, const struct tw_rgba_t *tc)
 	nc->b = (float)tc->b/255.0; nc->a = (float)tc->a/255.0;
 }
 
+static inline nk_hash
+nk_wl_hash_theme(const struct taiwins_theme* theme)
+{
+	return nk_murmur_hash(theme, sizeof(struct taiwins_theme), NK_FLAG(7));
+}
 
 static void
 nk_wl_apply_color(struct nk_wl_backend *bkend, const struct taiwins_theme *theme)
 {
-	if (theme->row_size == 0)
+	nk_hash thash = nk_wl_hash_theme(theme);
+	if (theme->row_size == 0 || thash == bkend->theme_hash)
 		return;
-
+	bkend->theme_hash = thash;
+	bkend->row_size = theme->row_size;
 	//TODO this is a shitty hack, somehow the first draw call did not work, we
 	//have to hack it in the background color
 	nk_colorf_from_tw_rgba(&bkend->main_color, &theme->window_color);
@@ -213,6 +221,7 @@ nk_wl_apply_color(struct nk_wl_backend *bkend, const struct taiwins_theme *theme
 
 
 /********************************* unicode ****************************************/
+#ifdef NK_INCLUDE_FONT_BAKING
 static inline void
 union_unicode_range(const nk_rune left[2], const nk_rune right[2], nk_rune out[2])
 {
@@ -277,6 +286,9 @@ merge_unicode_range(const nk_rune *left, const nk_rune *right, nk_rune *out)
 	memcpy(out, merged, (2*m+1) * sizeof(nk_rune));
 	return 2*m;
 }
+
+#endif /* NK_INCLUDE_FONT_BAKING */
+
 
 /********************************* input ****************************************/
 
@@ -426,7 +438,37 @@ nk_wl_clean_app_surface(struct nk_wl_backend *bkend)
 
 }
 
+/********************************* shared_api *******************************************/
 
+NK_API xkb_keysym_t
+nk_wl_get_keyinput(struct nk_context *ctx)
+{
+	struct nk_wl_backend *bkend = container_of(ctx, struct nk_wl_backend, ctx);
+	return bkend->ckey;
+}
+
+NK_API bool
+nk_wl_get_btn(struct nk_context *ctx, uint32_t *button, uint32_t *sx, uint32_t *sy)
+{
+	struct nk_wl_backend *bkend = container_of(ctx, struct nk_wl_backend, ctx);
+	*button = (bkend->cbtn >= 0) ? bkend->cbtn : NK_BUTTON_MAX;
+	*sx = bkend->sx;
+	*sy = bkend->sy;
+	return (bkend->cbtn) >= 0;
+}
+
+NK_API void
+nk_wl_add_idle(struct nk_context *ctx, nk_wl_postcall_t task)
+{
+	struct nk_wl_backend *bkend = container_of(ctx, struct nk_wl_backend, ctx);
+	bkend->post_cb = task;
+}
+
+NK_API const struct nk_style *
+nk_wl_get_curr_style(struct nk_wl_backend *bkend)
+{
+	return &bkend->ctx.style;
+}
 
 //there are quite a few code we can write here for sure.
 

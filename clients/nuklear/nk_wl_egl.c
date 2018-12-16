@@ -11,25 +11,19 @@
 #include <GL/gl.h>
 #include <wayland-egl.h>
 #include <wayland-client.h>
-#include "../client.h"
-//for the configurations
-#include "../../config.h"
-
-//so here I hope to see if I can seperate code of nuklear part with others
-
-//pull in the nuklear headers so we can access eglapp
 
 #define NK_IMPLEMENTATION
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
 #define NK_EGL_CMD_SIZE 4096
 #define MAX_VERTEX_BUFFER 512 * 128
 #define MAX_ELEMENT_BUFFER 128 * 128
 
-#include "nk_wl_egl.h"
 #define NK_SHADER_VERSION "#version 330 core\n"
-#define NK_MAX_CTX_MEM 64 * 64 * 1024
-#define MAX_VERTEX_BUFFER 512 * 128
-#define MAX_ELEMENT_BUFFER 128 * 128
 
+#include "../client.h"
+#include "../egl.h"
+#include "nk_wl_internal.h"
 #include <helpers.h>
 
 //vao layout
@@ -77,244 +71,78 @@ static const struct nk_draw_vertex_layout_element vertex_layout[] = {
  * rendering.
  */
 struct nk_egl_backend {
-	bool compiled;
-
-	const struct egl_env *env;
-
-	//opengl resources
-	GLuint glprog, vs, fs;//actually, we can evider vs, fs
-	GLuint vao, vbo, ebo;
-	GLuint font_tex;
-	GLint attrib_pos;
-	GLint attrib_uv;
-	GLint attrib_col;
-	//uniforms
-	//this texture is used for font and pictures though
-	GLint uniform_tex;
-	GLint uniform_proj;
-	//attribute inside
-	struct nk_context ctx;
-	struct nk_buffer cmds;
-	struct nk_draw_null_texture null;
+	struct nk_wl_backend base;
+	//OpenGL resource
+	struct {
+		struct egl_env env;
+		bool compiled;
+		GLuint glprog, vs, fs;
+		GLuint vao, vbo, ebo;
+		GLuint font_tex;
+		GLint attrib_pos;
+		GLint attrib_uv;
+		GLint attrib_col;
+		//uniforms
+		GLint uniform_tex;
+		GLint uniform_proj;
+	};
+	//nuklear resources
+	struct nk_buffer cmds;	//cmd to opengl vertices
 	struct nk_font_atlas atlas;
-	//themes
-	//we should remove this
-//	struct taiwins_theme theme;
-	struct nk_colorf main_color;
-	//free this
-	nk_rune *unicode_range;
+	struct nk_draw_null_texture null;
+	size_t font_size;
 
 	unsigned char cmd_buffer[NK_EGL_CMD_SIZE];
-	unsigned char ctx_buffer[NK_MAX_CTX_MEM];
-
-	//current information
-	struct app_surface *app_surface;
-	nk_egl_draw_func_t frame;
-	nk_egl_postcall_t post_cb;
-	size_t row_size;
-
-	struct {
-		xkb_keysym_t ckey; //cleaned up every frame
-		int32_t cbtn; //clean up every frame
-		uint32_t sx;
-		uint32_t sy;
-	};
 };
 
-///////////////////////////////////////////////////////////////////
-/////////////////////////// COLOR /////////////////////////////////
-///////////////////////////////////////////////////////////////////
-struct nk_style *
-nk_egl_get_style(struct nk_egl_backend *backend)
-{
-	return &backend->ctx.style;
-}
-
-static void
-nk_color_from_tw_rgba(struct nk_color *nc, const struct tw_rgba_t *tc)
-{
-	nc->r = tc->r; nc->g = tc->g;
-	nc->b = tc->b; nc->a = tc->a;
-}
-
-static void
-nk_colorf_from_tw_rgba(struct nk_colorf *nc, const struct tw_rgba_t *tc)
-{
-	nc->r = (float)tc->r/255.0; nc->g = (float)tc->g/255.0;
-	nc->b = (float)tc->b/255.0; nc->a = (float)tc->a/255.0;
-}
-
-static void
-nk_egl_apply_color(struct nk_egl_backend *bkend, const struct taiwins_theme *theme)
-{
-	if (theme->row_size == 0)
-		return;
-	//TODO this is a shitty hack, somehow the first draw call did not work, we
-	//have to hack it in the background color
-	nk_colorf_from_tw_rgba(&bkend->main_color, &theme->window_color);
-	struct nk_color table[NK_COLOR_COUNT];
-	nk_color_from_tw_rgba(&table[NK_COLOR_TEXT], &theme->text_color);
-	nk_color_from_tw_rgba(&table[NK_COLOR_WINDOW], &theme->window_color);
-	//no header
-	nk_color_from_tw_rgba(&table[NK_COLOR_HEADER], &theme->window_color);
-	nk_color_from_tw_rgba(&table[NK_COLOR_BORDER], &theme->border_color);
-	//button
-	nk_color_from_tw_rgba(&table[NK_COLOR_BUTTON], &theme->button.normal);
-	nk_color_from_tw_rgba(&table[NK_COLOR_BUTTON_HOVER],
-			      &theme->button.hover);
-	nk_color_from_tw_rgba(&table[NK_COLOR_BUTTON_ACTIVE],
-			      &theme->button.active);
-	//toggle
-	nk_color_from_tw_rgba(&table[NK_COLOR_TOGGLE],
-			      &theme->toggle.normal);
-	nk_color_from_tw_rgba(&table[NK_COLOR_TOGGLE_HOVER],
-			      &theme->toggle.hover);
-	nk_color_from_tw_rgba(&table[NK_COLOR_TOGGLE_CURSOR],
-			      &theme->toggle.active);
-	//select
-	nk_color_from_tw_rgba(&table[NK_COLOR_SELECT],
-			      &theme->select.normal);
-	nk_color_from_tw_rgba(&table[NK_COLOR_SELECT_ACTIVE],
-			      &theme->select.active);
-	//slider
-	nk_color_from_tw_rgba(&table[NK_COLOR_SLIDER],
-			      &theme->slider_bg_color);
-	nk_color_from_tw_rgba(&table[NK_COLOR_SLIDER_CURSOR],
-			      &theme->slider.normal);
-	nk_color_from_tw_rgba(&table[NK_COLOR_SLIDER_CURSOR_HOVER],
-			      &theme->slider.hover);
-	nk_color_from_tw_rgba(&table[NK_COLOR_SLIDER_CURSOR_ACTIVE],
-			      &theme->slider.active);
-	//property
-	table[NK_COLOR_PROPERTY] = table[NK_COLOR_SLIDER];
-	//edit
-	nk_color_from_tw_rgba(&table[NK_COLOR_EDIT], &theme->text_active_color);
-	nk_color_from_tw_rgba(&table[NK_COLOR_EDIT_CURSOR], &theme->text_color);
-	//combo
-	nk_color_from_tw_rgba(&table[NK_COLOR_COMBO], &theme->combo_color);
-	//chart
-	nk_color_from_tw_rgba(&table[NK_COLOR_CHART], &theme->chart.normal);
-	nk_color_from_tw_rgba(&table[NK_COLOR_CHART_COLOR], &theme->chart.active);
-	nk_color_from_tw_rgba(&table[NK_COLOR_CHART_COLOR_HIGHLIGHT],
-			      &theme->chart.hover);
-	//scrollbar
-	table[NK_COLOR_SCROLLBAR] = table[NK_COLOR_WINDOW];
-	table[NK_COLOR_SCROLLBAR_CURSOR] = table[NK_COLOR_WINDOW];
-	table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = table[NK_COLOR_WINDOW];
-	table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = table[NK_COLOR_WINDOW];
-	table[NK_COLOR_TAB_HEADER] = table[NK_COLOR_WINDOW];
-	nk_style_from_table(&bkend->ctx, table);
-}
 
 ///////////////////////////////////////////////////////////////////
 //////////////////////////// FONT /////////////////////////////////
 ///////////////////////////////////////////////////////////////////
 
-static inline void
-union_unicode_range(const nk_rune left[2], const nk_rune right[2], nk_rune out[2])
+static void
+nk_egl_release_font(struct nk_egl_backend *bkend)
 {
-	nk_rune tmp[2];
-	tmp[0] = left[0] < right[0] ? left[0] : right[0];
-	tmp[1] = left[1] > right[1] ? left[1] : right[1];
-	out[0] = tmp[0];
-	out[1] = tmp[1];
-}
-
-//return true if left and right are insersected, else false
-static inline bool
-intersect_unicode_range(const nk_rune left[2], const nk_rune right[2])
-{
-	return (left[0] <= right[1] && left[1] >= right[1]) ||
-		(left[0] <= right[0] && left[1] >= right[0]);
-}
-
-static int
-unicode_range_compare(const void *l, const void *r)
-{
-	const nk_rune *range_left = (const nk_rune *)l;
-	const nk_rune *range_right = (const nk_rune *)r;
-	return ((int)range_left[0] - (int)range_right[0]);
-}
-
-//we can only merge one range at a time
-static int
-merge_unicode_range(const nk_rune *left, const nk_rune *right, nk_rune *out)
-{
-	//get the range
-	int left_size = 0;
-	while(*(left+left_size)) left_size++;
-	int right_size = 0;
-	while(*(right+right_size)) right_size++;
-	//sort the range,
-	nk_rune sorted_ranges[left_size+right_size];
-	memcpy(sorted_ranges, left, sizeof(nk_rune) * left_size);
-	memcpy(sorted_ranges+left_size, right, sizeof(nk_rune) * right_size);
-	qsort(sorted_ranges, (left_size+right_size)/2, sizeof(nk_rune) * 2,
-	      unicode_range_compare);
-	//merge algorithm
-	nk_rune merged[left_size+right_size+1];
-	merged[0] = sorted_ranges[0];
-	merged[1] = sorted_ranges[1];
-	int m = 0;
-	for (int i = 0; i < (left_size+right_size) / 2; i++) {
-		if (intersect_unicode_range(&sorted_ranges[i*2],
-					    &merged[2*m]))
-			union_unicode_range(&sorted_ranges[i*2], &merged[2*m],
-					    &merged[2*m]);
-		else {
-			m++;
-			merged[2*m] = sorted_ranges[2*i];
-			merged[2*m+1] = sorted_ranges[2*i+1];
-		}
+	if (bkend->font_tex) {
+		glDeleteTextures(1, &bkend->font_tex);
+		nk_font_atlas_clear(&bkend->atlas);
+		bkend->font_tex = 0;
+		free(bkend->base.unicode_range);
+		bkend->base.unicode_range = NULL;
 	}
-	m++;
-	merged[2*m] = 0;
-
-	if (!out)
-		return 2*m;
-	memcpy(out, merged, (2*m+1) * sizeof(nk_rune));
-	return 2*m;
 }
 
-//I think we can chagne the fonts in the middel
 static struct nk_font*
-nk_egl_prepare_font(struct nk_egl_backend *bkend)
+nk_egl_prepare_font(struct nk_egl_backend *bkend, size_t font_size)
 {
+	nk_egl_release_font(bkend);
+	bkend->font_size = font_size;
+	struct nk_wl_backend *b = &bkend->base;
+
+	//right now we need to hard code the font files
+	const char *vera = "/usr/share/fonts/TTF/Vera.ttf";
+	const char *fa_a = "/usr/share/fonts/TTF/fa-regular-400.ttf";
+
 	struct nk_font *font;
 	int w, h;
 	const void *image;
-	struct nk_font_config cfg = nk_font_config(16);
+	struct nk_font_config cfg = nk_font_config(font_size);
 	size_t len_range  = merge_unicode_range(nk_font_chinese_glyph_ranges(),
 						nk_font_korean_glyph_ranges(),
 						NULL);
-	//we have to make this range available
-	bkend->unicode_range = malloc(sizeof(nk_rune) * (len_range+1));
+	b->unicode_range = malloc(sizeof(nk_rune) * (len_range+1));
 	merge_unicode_range(nk_font_chinese_glyph_ranges(),
-			    nk_font_korean_glyph_ranges(), bkend->unicode_range);
-	cfg.range = bkend->unicode_range;
+			    nk_font_korean_glyph_ranges(),
+			    b->unicode_range);
+	cfg.range = b->unicode_range;
 	cfg.merge_mode = nk_false;
-//	cfg.range = nk_font_chinese_glyph_ranges();
 
 	nk_font_atlas_init_default(&bkend->atlas);
 	nk_font_atlas_begin(&bkend->atlas);
-
-	char *fonts[3];
-	size_t n_fonts = 0;
-	//TODO we need font-config in
-	if (n_fonts == 0) {
-		/* font = nk_font_atlas_add_default(&bkend->atlas, 16.0, &cfg); */
-		font = nk_font_atlas_add_from_file(&bkend->atlas,
-						   /* "/usr/share/fonts/truetype/ttf-bitstream-vera/Vera.ttf", */
-					   "/usr/share/fonts/TTF/Vera.ttf",
-					   16, &cfg);
-	} else {
-		n_fonts = (n_fonts > 3) ? 3: n_fonts;
-		for (int i = 0; i < n_fonts; i++) {
-			font = nk_font_atlas_add_from_file(
-				&bkend->atlas, fonts[i],
-				tw_font_px2pt(bkend->row_size, 92), &cfg);
-		}
-	}
+	font = nk_font_atlas_add_from_file(&bkend->atlas, vera, font_size, &cfg);
+	font = nk_font_atlas_add_from_file(&bkend->atlas, fa_a, font_size, &cfg);
+	//why do we need rgba32, because you need to support image too, maybe
+	//you need a differetn shader?
 	image = nk_font_atlas_bake(&bkend->atlas, &w, &h, NK_FONT_ATLAS_RGBA32);
 	//upload to the texture
 	glGenTextures(1, &bkend->font_tex);
@@ -323,6 +151,7 @@ nk_egl_prepare_font(struct nk_egl_backend *bkend)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)w, (GLsizei)h, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
 	glBindTexture(GL_TEXTURE_2D, 0);
+	//now call this so the image is freed
 	nk_font_atlas_end(&bkend->atlas, nk_handle_id(bkend->font_tex), &bkend->null);
 	//I should be able to free the image here?
 	return font;
@@ -332,13 +161,12 @@ nk_egl_prepare_font(struct nk_egl_backend *bkend)
 ///////////////////////////// EGL /////////////////////////////////
 ///////////////////////////////////////////////////////////////////
 
-
 static inline bool
 is_surfless_supported(struct nk_egl_backend *bkend)
 {
-	const char *egl_extensions =  eglQueryString(bkend->env->egl_display, EGL_EXTENSIONS);
+	const char *egl_extensions =  eglQueryString(bkend->env.egl_display, EGL_EXTENSIONS);
 	//nvidia eglcontext does not bind to different surface with same context
-	const char *egl_vendor = eglQueryString(bkend->env->egl_display, EGL_VENDOR);
+	const char *egl_vendor = eglQueryString(bkend->env.egl_display, EGL_VENDOR);
 
 	return (strstr(egl_extensions, "EGL_KHR_create_context") != NULL &&
 		strstr(egl_extensions, "EGL_KHR_surfaceless_context") != NULL &&
@@ -356,8 +184,8 @@ assign_egl_surface(EGLSurface eglsurface, const struct egl_env *env)
 	assert(eglMakeCurrent(env->egl_display, eglsurface,
 			      eglsurface, env->egl_context));
 	egl_error = eglGetError();
+	(void)egl_error;
 	/* printf("egl error: %x\n", egl_error); */
-	glGetError();
 	/* glViewport(0, 0, app_surface->w, app_surface->h); */
 	/* glScissor(0, 0, app_surface->w, app_surface->h); */
 }
@@ -370,15 +198,16 @@ compile_backend(struct nk_egl_backend *bkend, EGLSurface eglsurface)
 
 	GLint status, loglen;
 	GLsizei stride;
+	struct egl_env *env = &bkend->env;
 	//part 0) testing the extension
 	/* assign_egl_surface(app_surface, bkend->env); */
 	//maybe I should try this on new driver
 	if (is_surfless_supported(bkend)) {
-		assert(eglMakeCurrent(bkend->env->egl_display,
+		assert(eglMakeCurrent(env->egl_display,
 				      EGL_NO_SURFACE, EGL_NO_SURFACE,
-				      bkend->env->egl_context));
+				      env->egl_context));
 	} else
-		assign_egl_surface(eglsurface, bkend->env);
+		assign_egl_surface(eglsurface, env);
 
 	//////////////////// part 1) OpenGL code
 	static const GLchar *vertex_shader =
@@ -466,22 +295,36 @@ compile_backend(struct nk_egl_backend *bkend, EGLSurface eglsurface)
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glUseProgram(0);
 	///////////////////////////////////
-	//part 2) nuklear init
-	//I guess it is probably easier to use the atlas
-	struct nk_font *font = nk_egl_prepare_font(bkend);
-	nk_init_fixed(&bkend->ctx, bkend->ctx_buffer, NK_MAX_CTX_MEM, &font->handle);
-	nk_buffer_init_fixed(&bkend->cmds, bkend->cmd_buffer, sizeof(bkend->cmd_buffer));
-	nk_buffer_clear(&bkend->cmds);
 	return true;
 }
 
+static void
+release_backend(struct nk_egl_backend *bkend)
+{
+	//release the font
+	nk_egl_release_font(bkend);
+	if (bkend->compiled) {
+		//opengl resource
+		glDeleteBuffers(1, &bkend->vbo);
+		glDeleteBuffers(1, &bkend->ebo);
+		glDeleteVertexArrays(1, &bkend->vao);
+		glDeleteShader(bkend->vs);
+		glDeleteShader(bkend->fs);
+		glDeleteShader(bkend->glprog);
+		//nuklear resource
+		//egl free context
+		eglMakeCurrent(bkend->env.egl_display, NULL, NULL, NULL);
+		bkend->compiled = false;
+	}
+}
 
 ///////////////////////////////////////////////////////////////////
-///////////////////////////// EGL /////////////////////////////////
+/////////////////////////// render ////////////////////////////////
 ///////////////////////////////////////////////////////////////////
 
 static void
-_nk_egl_draw_begin(struct nk_egl_backend *bkend, struct nk_buffer *vbuf, struct nk_buffer *ebuf,
+_nk_egl_draw_begin(struct nk_egl_backend *bkend,
+		   struct nk_buffer *vbuf, struct nk_buffer *ebuf,
 		   int width, int height)
 {
 	void *vertices = NULL;
@@ -498,8 +341,8 @@ _nk_egl_draw_begin(struct nk_egl_backend *bkend, struct nk_buffer *vbuf, struct 
 	//use program
 	glUseProgram(bkend->glprog);
 	glValidateProgram(bkend->glprog);
-	glClearColor(bkend->main_color.r, bkend->main_color.g,
-		     bkend->main_color.b, bkend->main_color.a);
+	glClearColor(bkend->base.main_color.r, bkend->base.main_color.g,
+		     bkend->base.main_color.b, bkend->base.main_color.a);
 	glClear(GL_COLOR_BUFFER_BIT);
 	//switches
 	glEnable(GL_BLEND);
@@ -538,7 +381,7 @@ _nk_egl_draw_begin(struct nk_egl_backend *bkend, struct nk_buffer *vbuf, struct 
 		config.line_AA = NK_ANTI_ALIASING_ON;
 		nk_buffer_init_fixed(vbuf, vertices, MAX_VERTEX_BUFFER);
 		nk_buffer_init_fixed(ebuf, elements, MAX_ELEMENT_BUFFER);
-		nk_convert(&bkend->ctx, &bkend->cmds, vbuf, ebuf, &config);
+		nk_convert(&bkend->base.ctx, &bkend->cmds, vbuf, ebuf, &config);
 	}
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 	glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
@@ -553,38 +396,35 @@ _nk_egl_draw_end(struct nk_egl_backend *bkend)
 	glBindVertexArray(0);
 	glDisable(GL_BLEND);
 	glDisable(GL_SCISSOR_TEST);
-
+	//do I need this?
 	nk_buffer_clear(&bkend->cmds);
 }
 
 static void
-nk_egl_render(struct nk_egl_backend *bkend)
+nk_wl_render(struct nk_wl_backend *b)
 {
-	static char nk_last_cmds[64 * 4096] = {0};
-	void *cmds = nk_buffer_memory(&bkend->ctx.memory);
-	bool need_redraw = memcmp(cmds, nk_last_cmds, bkend->ctx.memory.allocated);
-	if (!need_redraw) {
-		nk_clear(&bkend->ctx);
+	struct nk_egl_backend *bkend = container_of(b, struct nk_egl_backend, base);
+	struct egl_env *env = &bkend->env;
+	struct app_surface *app = b->app_surface;
+	struct nk_context *ctx = &b->ctx;
+	if (!nk_wl_need_redraw(b))
 		return;
-	}
-	memcpy(nk_last_cmds, cmds, bkend->ctx.memory.allocated);
-	//at one point egldisplay can only binds to one surface and context, we
-	//have to call it here to switch context
-	eglMakeCurrent(bkend->env->egl_display, bkend->app_surface->eglsurface,
-		       bkend->app_surface->eglsurface, bkend->env->egl_context);
+	//make current to current
+	eglMakeCurrent(env->egl_display, app->eglsurface,
+		       app->eglsurface, env->egl_context);
 
 	const struct nk_draw_command *cmd;
 	nk_draw_index *offset = NULL;
 	struct nk_buffer vbuf, ebuf;
 	//be awere of this.
-	int width = bkend->app_surface->w;
-	int height = bkend->app_surface->h;
-	int scale  = bkend->app_surface->s;
+	int width = b->app_surface->w;
+	int height = b->app_surface->h;
+	int scale  = b->app_surface->s;
 
 	_nk_egl_draw_begin(bkend, &vbuf, &ebuf, width, height);
 	//TODO MESA driver has a problem, the first draw call did not work, we can
 	//avoid it by draw a quad that does nothing
-	nk_draw_foreach(cmd, &bkend->ctx, &bkend->cmds) {
+	nk_draw_foreach(cmd, ctx, &bkend->cmds) {
 		if (!cmd->elem_count)
 			continue;
 		glBindTexture(GL_TEXTURE_2D, (GLuint)cmd->texture.id);
@@ -601,326 +441,91 @@ nk_egl_render(struct nk_egl_backend *bkend)
 			       GL_UNSIGNED_SHORT, offset);
 		offset += cmd->elem_count;
 	}
-	nk_clear(&bkend->ctx);
+	nk_clear(ctx);
 
 	_nk_egl_draw_end(bkend);
-	eglSwapBuffers(bkend->env->egl_display,
-		       bkend->app_surface->eglsurface);
+	eglSwapBuffers(env->egl_display,
+		       app->eglsurface);
 }
 
 static void
-nk_egl_new_frame(struct app_surface *surf, uint32_t user_data)
+nk_egl_destroy_app_surface(struct app_surface *app)
 {
-
-
-	struct nk_egl_backend *bkend = surf->user_data;
-	float width = bkend->app_surface->w;
-	float height = bkend->app_surface->h;
-	float scale  = bkend->app_surface->s;
-
-	if (surf->need_animation)
-		app_surface_request_frame(surf);
-
-	if (nk_begin(&bkend->ctx, "eglapp", nk_rect(0, 0, width, height),
-		     NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR)) {
-		bkend->frame(&bkend->ctx, width, height, bkend->app_surface);
-	} nk_end(&bkend->ctx);
-
-	nk_egl_render(bkend);
-	//call the post_cb if any
-	if (bkend->post_cb) {
-		bkend->post_cb(bkend->app_surface);
-		bkend->post_cb = NULL;
-	}
-
-	bkend->ckey = XKB_KEY_NoSymbol;
-	bkend->cbtn = -1;
-}
-
-
-static void
-nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int state)
-{
-	//nk_input_key and nk_input_unicode are different, you kinda need to
-	//registered all the keys
-	struct nk_egl_backend *bkend = (struct nk_egl_backend *)surf->user_data;
-	uint32_t keycode = xkb_keysym_to_utf32(keysym);
-	nk_input_begin(&bkend->ctx);
-	//now we deal with the ctrl-keys
-	if (modifier & TW_CTRL) {
-		//the emacs keybindings
-		nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_START, (keysym == XKB_KEY_a) && state);
-		nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_END, (keysym == XKB_KEY_e) && state);
-		nk_input_key(&bkend->ctx, NK_KEY_LEFT, (keysym == XKB_KEY_b) && state);
-		nk_input_key(&bkend->ctx, NK_KEY_RIGHT, (keysym == XKB_KEY_f) && state);
-		nk_input_key(&bkend->ctx, NK_KEY_TEXT_UNDO, (keysym == XKB_KEY_slash) && state);
-		//we should also support the clipboard later
-	}
-	else if (modifier & TW_ALT) {
-		nk_input_key(&bkend->ctx, NK_KEY_TEXT_WORD_LEFT, (keysym == XKB_KEY_b) && state);
-		nk_input_key(&bkend->ctx, NK_KEY_TEXT_WORD_RIGHT, (keysym == XKB_KEY_f) && state);
-	}
-	//no tabs, we don't essentially need a buffer here, give your own buffer. That is it.
-	else if (keycode >= 0x20 && keycode < 0x7E && state)
-		nk_input_unicode(&bkend->ctx, keycode);
-	else {
-		nk_input_key(&bkend->ctx, NK_KEY_DEL, (keysym == XKB_KEY_Delete) && state);
-		nk_input_key(&bkend->ctx, NK_KEY_ENTER, (keysym == XKB_KEY_Return) && state);
-		nk_input_key(&bkend->ctx, NK_KEY_TAB, keysym == XKB_KEY_Tab && state);
-		nk_input_key(&bkend->ctx, NK_KEY_BACKSPACE, (keysym == XKB_KEY_BackSpace) && state);
-		nk_input_key(&bkend->ctx, NK_KEY_UP, (keysym == XKB_KEY_UP) && state);
-		nk_input_key(&bkend->ctx, NK_KEY_DOWN, (keysym == XKB_KEY_DOWN) && state);
-		nk_input_key(&bkend->ctx, NK_KEY_SHIFT, (keysym == XKB_KEY_Shift_L ||
-							 keysym == XKB_KEY_Shift_R) && state);
-		nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_START, (keysym == XKB_KEY_Home) && state);
-		nk_input_key(&bkend->ctx, NK_KEY_TEXT_LINE_END, (keysym == XKB_KEY_End) && state);
-		nk_input_key(&bkend->ctx, NK_KEY_LEFT, (keysym == XKB_KEY_Left) && state);
-		nk_input_key(&bkend->ctx, NK_KEY_RIGHT, (keysym == XKB_KEY_Right) && state);
-	}
-//	fprintf(stderr, "we have the modifier %d\n", modifier);
-	if (state)
-		bkend->ckey = keysym;
-	else
-		bkend->ckey = XKB_KEY_NoSymbol;
-	nk_input_end(&bkend->ctx);
-	//we can actually just trigger the rendering if we have a symbol.
-	nk_egl_new_frame(surf, 0);
-}
-
-
-static void
-nk_pointron(struct app_surface *surf, uint32_t sx, uint32_t sy)
-{
-	struct nk_egl_backend *bkend = (struct nk_egl_backend *)surf->user_data;
-	nk_input_begin(&bkend->ctx);
-	nk_input_motion(&bkend->ctx, sx, sy);
-	nk_input_end(&bkend->ctx);
-	bkend->sx = sx;
-	bkend->sy = sy;
-
-	nk_egl_new_frame(surf, 0);
-}
-
-static void
-nk_pointrbtn(struct app_surface *surf, enum taiwins_btn_t btn, bool state, uint32_t sx, uint32_t sy)
-{
-	struct nk_egl_backend *bkend = (struct nk_egl_backend *)surf->user_data;
-	enum nk_buttons b;
-	switch (btn) {
-	case TWBTN_LEFT:
-		b = NK_BUTTON_LEFT;
-		break;
-	case TWBTN_RIGHT:
-		b = NK_BUTTON_RIGHT;
-		break;
-	case TWBTN_MID:
-		b = NK_BUTTON_MIDDLE;
-		break;
-	case TWBTN_DCLICK:
-		b = NK_BUTTON_DOUBLE;
-		break;
-	}
-
-	nk_input_begin(&bkend->ctx);
-	nk_input_button(&bkend->ctx, b, (int)sx, (int)sy, state);
-	nk_input_end(&bkend->ctx);
-
-	bkend->cbtn = (state) ? b : -1;
-	bkend->sx = sx;
-	bkend->sy = sy;
-
-	nk_egl_new_frame(surf, 0);
-}
-
-static void
-nk_pointraxis(struct app_surface *surf, int pos, int direction, uint32_t sx, uint32_t sy)
-{
-	struct nk_egl_backend *bkend = (struct nk_egl_backend *)surf->user_data;
-	nk_input_begin(&bkend->ctx);
-	nk_input_scroll(&bkend->ctx, nk_vec2(direction * (float)sx, (direction * (float)sy)));
-	nk_input_begin(&bkend->ctx);
-	nk_egl_new_frame(surf, 0);
-}
-
-
-
-static void
-release_backend(struct nk_egl_backend *bkend)
-{
-	if (bkend->compiled) {
-		//opengl resource
-		glDeleteBuffers(1, &bkend->vbo);
-		glDeleteBuffers(1, &bkend->ebo);
-		glDeleteVertexArrays(1, &bkend->vao);
-		glDeleteTextures(1, &bkend->font_tex);
-		glDeleteShader(bkend->vs);
-		glDeleteShader(bkend->fs);
-		glDeleteShader(bkend->glprog);
-		//nuklear resource
-		nk_font_atlas_clear(&bkend->atlas);
-		nk_free(&bkend->ctx);
-		//use the clear, cleanup is used for creating second font
-
-		nk_buffer_free(&bkend->cmds);
-		free(bkend->unicode_range);
-		//egl free context
-		eglMakeCurrent(bkend->env->egl_display, NULL, NULL, NULL);
-		bkend->compiled = false;
-	}
+	struct nk_wl_backend *b = app->user_data;
+	struct nk_egl_backend *bkend = container_of(b, struct nk_egl_backend, base);
+	if (!is_surfless_supported(bkend))
+		release_backend(bkend);
+	app_surface_clean_egl(app, &bkend->env);
+	nk_wl_clean_app_surface(b);
 }
 
 
 /********************* exposed APIS *************************/
-static void
-nk_egl_destroy_app_surface(struct app_surface *app)
-{
-	struct nk_egl_backend *bkend = app->user_data;
-	if (!is_surfless_supported(bkend))
-		release_backend(bkend);
-	eglMakeCurrent(bkend->env->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE,
-		       bkend->env->egl_context);
-	eglDestroySurface(bkend->env->egl_display, app->eglsurface);
-	wl_egl_window_destroy(app->eglwin);
-	app->egldisplay = EGL_NO_DISPLAY;
-	app->eglwin = NULL;
-	app->eglsurface = EGL_NO_SURFACE;
-	app->user_data = NULL;
-	bkend->frame = NULL;
-	bkend->cbtn = -1;
-	bkend->ckey = XKB_KEY_NoSymbol;
-	bkend->app_surface = NULL;
-}
 
 /* this function is expected to be called every time when you want to open a surface.
  * the backend is occupied entirely by this app_surface through his lifetime */
 void
-nk_egl_impl_app_surface(struct app_surface *surf,
-			struct nk_egl_backend *bkend,
-			nk_egl_draw_func_t draw_func,
-			uint32_t w, uint32_t h,
-			uint32_t px, uint32_t py)
+nk_egl_impl_app_surface(struct app_surface *surf, struct nk_wl_backend *bkend,
+			nk_wl_drawcall_t draw_cb,
+			uint32_t w, uint32_t h, uint32_t x, uint32_t y)
+
 {
-	surf->w = w;
-	surf->h = h;
-	surf->px = px;
-	surf->py = py;
-	surf->s = 1;
-	surf->user_data = bkend;
-	surf->do_frame = nk_egl_new_frame;
+	struct nk_egl_backend *b = container_of(bkend, struct nk_egl_backend, base);
+	nk_wl_impl_app_surface(surf, bkend, draw_cb, w, h, x, y);
 	surf->destroy = nk_egl_destroy_app_surface;
 	//assume it is compiled
-	app_surface_init_egl(surf, (struct egl_env *)bkend->env);
-	surf->keycb = nk_keycb;
-	surf->pointrbtn = nk_pointrbtn;
-	surf->pointron = nk_pointron;
-	surf->pointraxis = nk_pointraxis;
-	//change the up-to-date information on backend
-	bkend->frame = draw_func;
-	bkend->compiled = compile_backend(bkend, surf->eglsurface);
-	bkend->app_surface = surf;
-	bkend->cbtn = -1;
-	bkend->ckey = XKB_KEY_NoSymbol;
-
-
-	if (surf->wl_globals) {
-		nk_egl_apply_color(bkend, &surf->wl_globals->theme);
-		//TODO try to apply the font here as well.
+	app_surface_init_egl(surf, &b->env);
+	//font is not initialized here
+	b->compiled = compile_backend(b, surf->eglsurface);
+	if (b->font_size != bkend->row_size) {
+		//prepare new font
+		b->font_size = bkend->row_size;
+		struct nk_font *font = nk_egl_prepare_font(b, bkend->row_size);
+		nk_style_set_font(&bkend->ctx, &font->handle);
 	}
-	assign_egl_surface(surf->eglsurface, bkend->env);
+
+	assign_egl_surface(surf->eglsurface, &b->env);
 }
 
-
-
-struct nk_egl_backend*
-nk_egl_create_backend(const struct egl_env *env)
+struct nk_wl_backend*
+nk_egl_create_backend(const struct wl_display *display, const struct egl_env *shared_env)
 {
-	//we probably should uses
+	//we do not have any font here,
 	struct nk_egl_backend *bkend = (struct nk_egl_backend *)calloc(1, sizeof(*bkend));
-	bkend->env = env;
-	bkend->app_surface = NULL;
+	if (shared_env)
+		egl_env_init_shared(&bkend->env, shared_env);
+	else
+		egl_env_init(&bkend->env, display);
+	bkend->font_size = 0;
+	bkend->font_tex = 0;
+
 	bkend->compiled = false;
+	//part 2) nuklear init, font is initialized later
+	nk_init_fixed(&bkend->base.ctx, bkend->base.ctx_buffer, NK_MAX_CTX_MEM, NULL);
+	nk_buffer_init_fixed(&bkend->cmds, bkend->cmd_buffer, sizeof(bkend->cmd_buffer));
+	nk_buffer_clear(&bkend->cmds);
 
-	return bkend;
-}
-/*
-void
-nk_egl_launch(struct nk_egl_backend *bkend,
-	      struct app_surface *app_surface,
-	      nk_egl_draw_func_t func,
-	      void *data)
-{
-	if (bkend->app_surface)
-		app_surface_release(bkend->app_surface);
-
-	{
-		appsurface_init_input(app_surface, nk_keycb, nk_pointron, nk_pointrbtn, nk_pointraxis);
-		bkend->app_surface = app_surface;
-		bkend->cbtn = -1;
-		bkend->ckey = XKB_KEY_NoSymbol;
-		bkend->frame = func;
-		app_surface->user_data = bkend;
-	}
-
-	bkend->frame = func;
-
-	//now resize the window
-	bkend->compiled = compile_backend(bkend, app_surface->eglsurface);
-	assign_egl_surface(app_surface->eglsurface, bkend->env);
-
-	nk_egl_new_frame(app_surface, 0);
-	//there seems to be no function about changing window size in egl
-}
-*/
-
-void
-nk_egl_close(struct nk_egl_backend *bkend, struct app_surface *app_surface)
-{
-	eglMakeCurrent(bkend->env->egl_display, NULL, NULL, NULL);
-	if (!is_surfless_supported(bkend))
-		release_backend(bkend);
-	app_surface_release(app_surface);
-	//reset the egl_surface
-	bkend->app_surface = NULL;
-
+	return &bkend->base;
 }
 
-
 void
-nk_egl_destroy_backend(struct nk_egl_backend *bkend)
+nk_egl_destroy_backend(struct nk_wl_backend *b)
 {
+	struct nk_egl_backend *bkend =
+		container_of(b, struct nk_egl_backend, base);
 	release_backend(bkend);
+	egl_env_end(&bkend->env);
+	nk_free(&bkend->base.ctx);
+	nk_buffer_free(&bkend->cmds);
 	free(bkend);
+
 }
 
-
-xkb_keysym_t
-nk_egl_get_keyinput(struct nk_context *ctx)
-{
-	struct nk_egl_backend *bkend = container_of(ctx, struct nk_egl_backend, ctx);
-	return bkend->ckey;
-}
-
-bool
-nk_egl_get_btn(struct nk_context *ctx, enum nk_buttons *button, uint32_t *sx, uint32_t *sy)
-{
-	struct nk_egl_backend *bkend = container_of(ctx, struct nk_egl_backend, ctx);
-	*button = (bkend->cbtn >= 0) ? bkend->cbtn : NK_BUTTON_MAX;
-	*sx = bkend->sx;
-	*sy = bkend->sy;
-	return (bkend->cbtn) >= 0;
-}
-
-
-void
-nk_egl_add_idle(struct nk_context *ctx, nk_egl_postcall_t task)
-{
-	struct nk_egl_backend *bkend = container_of(ctx, struct nk_egl_backend, ctx);
-	bkend->post_cb = task;
-}
+//this need to include in a c file and we include it from there
 
 
 #ifdef __DEBUG
-
+/*
 void
 nk_egl_resize(struct nk_egl_backend *bkend, int32_t width, int32_t height)
 {
@@ -931,8 +536,8 @@ nk_egl_resize(struct nk_egl_backend *bkend, int32_t width, int32_t height)
 	glViewport(0, 0, width, height);
 	glScissor(0, 0, width, height);
 }
-
-
+*/
+/*
 void nk_egl_capture_framebuffer(struct nk_context *ctx, const char *path)
 {
 	EGLint gl_pack_alignment;
@@ -971,8 +576,8 @@ void nk_egl_capture_framebuffer(struct nk_context *ctx, const char *path)
 	cairo_surface_destroy(s);
 	free(data);
 }
-
-
+*/
+/*
 void
 nk_egl_debug_command(struct nk_egl_backend *bkend)
 {
@@ -1004,6 +609,7 @@ nk_egl_debug_command(struct nk_egl_backend *bkend)
 	}
 	fprintf(stderr, "\n");
 }
+*/
 
 /* void */
 /* nk_egl_debug_draw_command(struct nk_egl_backend *bkend) */

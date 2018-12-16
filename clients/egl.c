@@ -73,9 +73,8 @@ extern EGLBoolean loadEGLExternalPlatform(int major, int minor,
 					  EGLExtPlatform *platform);
 #endif
 
-
 bool
-egl_env_init(struct egl_env *env, struct wl_display *d)
+egl_env_init(struct egl_env *env, const struct wl_display *d)
 {
 #ifndef EGL_VERSION_1_5
 	fprintf(stderr, "the feature requires EGL 1.5 and it is not supported\n");
@@ -108,6 +107,21 @@ egl_env_init(struct egl_env *env, struct wl_display *d)
 	//now we can try to create a program and see if I need
 	return true;
 }
+
+bool
+egl_env_init_shared(struct egl_env *this, const struct egl_env *another)
+{
+	this->wl_display = another->wl_display;
+	this->egl_display = another->egl_display;
+	this->config = another->config;
+	this->egl_context = eglCreateContext(this->egl_display,
+					     this->config,
+					     (EGLContext)another->egl_context,
+					     egl_context_attribs);
+	assert(this->egl_context != EGL_NO_CONTEXT);
+	return true;
+}
+
 
 void
 egl_env_end(struct egl_env *env)
