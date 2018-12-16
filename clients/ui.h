@@ -320,38 +320,6 @@ shm_buffer_impl_app_surface(struct app_surface *surf, struct shm_pool *pool,
 void embeded_impl_app_surface(struct app_surface *surf, struct app_surface *parent,
 			      uint32_t w, uint32_t h, uint32_t px, uint32_t py);
 
-/***************************************** Deprecated *********************************************/
-
-
-/**
- * /brief initialize the appsurface to a default state
- *
- * no input, no subapp, no buffer, but has a wl_surface
- */
-DEPRECATED(void appsurface_init(struct app_surface *surf, struct app_surface *p,
-				enum APP_SURFACE_TYPE type, struct wl_surface *wl_surface,
-				struct wl_proxy *protocol));
-
-
-/**
- * /brief assign wl_buffers to the appsurface, thus it initialize the double
- * buffer state and commit state
- *
- */
-DEPRECATED(void appsurface_init_buffer(struct app_surface *surf, struct shm_pool *shm,
-				       const struct bbox *bbox));
-/**
- * /brief init all the input callbacks, zero is acceptable
- */
-DEPRECATED(void appsurface_init_input(struct app_surface *surf,
-				      keycb_t keycb, pointron_t on, pointrbtn_t btn, pointraxis_t axis));
-
-DEPRECATED(void appsurface_fadc(struct app_surface *surf));
-
-DEPRECATED(void appsurface_buffer_release(void *data, struct wl_buffer *wl_buffer));
-
-
-
 
 #ifdef __cplusplus
 }
