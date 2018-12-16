@@ -47,8 +47,8 @@
 *** TODO change the keyboard grab allowing the long pressing.
 *** DOIN updated to libweston-5
     - figure out the bug for libdrm backend.
-** [33%] Configurations
-*** TODO styles, nuklear and other widget styles.
+** [66%] Configurations
+*** DONE styles, nuklear and other widget styles.
     - background color.
     - Font size, font selection.
 *** DONE keyboard callbacks, this writes to a buffer, apparently.
@@ -64,7 +64,7 @@
     table.
 *** DONE decoupling the desktop implementation                    :refactory:
 
-** [75%] client-side optimization
+** [69%] client-side optimization
 *** DONE switch to epoll on wl_display
     - possible solution :: maybe we can use epoll on wl_display, and add it to
 	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
@@ -80,7 +80,9 @@
 *** TODO second widget, reading batteries
 *** CANC add another row for panel to have better look?
 *** DONE change the way the nk_button look for the icons.
-*** TODO decide the way to render icons more properly.
+*** DONE decide the way to render icons more properly.
+    Right now we rely on font awesome.
+
     The ideal solution is render icons into glyphs. More conviniently is by
     using SVGs, since you can find them anymore. But there is no valid c or
     c++ implementation of svg2ttf. We need to rely on fontawesome for now. Now
@@ -93,7 +95,7 @@
     I implemented a template header of ~nk_wl_internal~, but never actually
     applies it to nk_wl_egl, it should be done very soon, so I can totally
     remove the deprecated functions.
-*** RODO nk_cairo_backend multiple font support
+*** DONE nk_cairo_backend multiple font support
 ** [0%] launcher optimization
 *** TODO allow launcher to quit instead of launch weston-terminal all the time
 *** TODO the real launcher implementation
@@ -108,7 +110,7 @@
   - westons's zoom support.
 
 
-
+*** TODO svg2ttf implementation
 *** TODO supporting examing buffer
 *** TODO build weston along with taiwins(with meson maybe)
 * [33%] Bugs
@@ -156,6 +158,20 @@
    the ~nk_rune~ has to be available all the time as nuklear does not like to
    manage memory, so you cannot just pass an temporary address.
 * summarizing and planning
+** <2018-12-15 Sat>
+   Right now it is 1 AM at UTC-5, two weeks passed I have finally found the
+   solution to render multiple fonts in cairo, it is far from what I thought it
+   would be. I could not get ~cairo_user_font~ to work at all. So the solution
+   became ~cairo_mask~ and ~cairo_fill~. This is a victorious moment, because
+   this cairo implementation right now enjoys absolutly no memory leak. This
+   puts the end of the 2018.
+
+   Now we can actually get the taiwins shell ready. Get good point for the
+   launch point then create the actual protocal for ~tw_widgets~, I suppose I
+   need to give it a ~color_plus_unicodes~ approch.
+
+   Then the shell is done(leave the right align and scale factor to next year).
+
 ** <2018-12-03 Mon>
 Last two weeks I have been experiencing progress latency, it is a bit hopeless,
 the original plan is to finish taiwins this year, I have 28 days left.
@@ -181,8 +197,9 @@ Then it should be the end of taiwins_shell, totally functional shell.
 Launcher should be much simpler since it is much similar to shell.
 
 After that I can focus on the backend code. Get it to run under console with
-gbm. And implement other layouting algorithm. Okay, this is the road map for
-now.
+gbm. And implement other layouting algorithm. Alright, looks like a clear
+roadmap.
+
 
 ** <2018-09-11 Tue>
 So this is the cycle of the big refactoring, today I am finally done. I switched
