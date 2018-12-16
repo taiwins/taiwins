@@ -188,7 +188,7 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	struct widget_launch_info *info = &shell_output->widget_launch;
 	nk_egl_get_btn(ctx, &button, &sx, &sy);
 	info->widget = clicked;
-	//determine the launch point
+	//determine the launch point, this is the reason, you can't mesure it properly
 	if (sx + clicked->widget.w/2 >= panel_surf->w)
 		info->x = panel_surf->w - clicked->widget.w;
 	else if (sx - clicked->widget.w/2 < 0)
