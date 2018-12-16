@@ -60,13 +60,13 @@ auto_complete(struct desktop_launcher *launcher)
 }
 
 static void
-submit_launcher(void *data)
+submit_launcher(struct app_surface *surf)
 {
-	struct desktop_launcher *launcher = data;
+	struct desktop_launcher *launcher =
+		container_of(surf, struct desktop_launcher, surface);
 	taiwins_launcher_submit(launcher->interface, launcher->decision_buffer, launcher->exec_id);
 	nk_textedit_init_fixed(&launcher->text_edit, launcher->chars, 256);
-	nk_egl_close(launcher->bkend, &launcher->surface);
-//	app_surface_release(&launcher->surface);
+	app_surface_release(&launcher->surface);
 }
 
 
@@ -74,14 +74,16 @@ submit_launcher(void *data)
  * @brief a more serious launcher implementation
  */
 static void
-draw_launcher(struct nk_context *ctx, float width, float height, void *data)
+draw_launcher(struct nk_context *ctx, float width, float height,
+	      struct app_surface *surf)
 {
 	//TODO change the state machine
 	enum EDITSTATE {NORMAL, COMPLETING, SUBMITTING};
 	static enum EDITSTATE edit_state = NORMAL;
 	static char previous_tab[256] = {0};
 
-	struct desktop_launcher *launcher = data;
+	struct desktop_launcher *launcher =
+		container_of(surf, struct desktop_launcher, surface);
 
 	nk_layout_row_static(ctx, 30, 80, 2);
 	nk_button_label(ctx, "button");
@@ -149,15 +151,10 @@ start_launcher(void *data,
 	wl_surface = wl_compositor_create_surface(launcher->globals.compositor);
 	ui = taiwins_launcher_launch(taiwins_launcher, wl_surface);
 
-	//TODO, use tw_ui element
-	appsurface_init(surface, NULL, APP_WIDGET,
-			wl_surface, ui);
-	app_surface_init_egl(&launcher->surface, &launcher->env);
-
-	//yeah, generally you will want a buffer from this
-
-	nk_egl_launch(launcher->bkend, &launcher->surface,
-		      draw_launcher, launcher);
+	app_surface_init(surface, wl_surface, (struct wl_proxy *)ui);
+	nk_egl_impl_app_surface(surface, launcher->bkend, draw_launcher,
+				400, 400, 0, 0);
+	app_surface_frame(surface, false);
 }
 
 static void
