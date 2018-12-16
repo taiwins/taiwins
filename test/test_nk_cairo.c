@@ -86,7 +86,8 @@ sample_widget(struct nk_context *ctx, float width, float height, struct app_surf
 	if (nk_button_label(ctx, strings)) {
 		App.done = true;
 	}
-//	nk_edit_buffer(ctx, NK_EDIT_FIELD, &text_edit, nk_filter_default);
+	nk_layout_row_dynamic(ctx, 30, 1);
+	nk_edit_buffer(ctx, NK_EDIT_FIELD, &text_edit, nk_filter_default);
 }
 
 static
