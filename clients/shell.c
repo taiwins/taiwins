@@ -41,6 +41,7 @@ struct shell_output {
 
 	//a temporary struct
 	struct widget_launch_info widget_launch;
+	double widgets_span;
 
 	struct nk_wl_backend *panel_backend;
 	struct shm_pool pool;
@@ -153,7 +154,7 @@ widget_launch_point_flat(struct nk_vec2 *label_span, struct shell_widget *clicke
 {
 	struct nk_vec2 info;
 	if (label_span->x + clicked->w > panel_surf->w)
-		info.x = label_span->y - clicked->w;
+		info.x = panel_surf->w - clicked->w;
 	else if (label_span->y - clicked->w < 0)
 		info.x = label_span->x;
 	else
@@ -164,6 +165,33 @@ widget_launch_point_flat(struct nk_vec2 *label_span, struct shell_widget *clicke
 
 //I can probably find a way to run this frame once to determine how much space I
 //actually need to push, but this requires the ancre function has to side effects though
+static void
+shell_panel_measure_leading(struct nk_context *ctx, float width, float height, struct app_surface *panel_surf)
+{
+	struct shell_output *shell_output =
+		container_of(panel_surf, struct shell_output, panel);
+	struct desktop_shell *shell = shell_output->shell;
+	nk_text_width_f text_width = ctx->style.font->width;
+	struct shell_widget_label widget_label;
+	struct shell_widget *widget = NULL;
+
+	double total_width = 0.0;
+	size_t n_widgets =  wl_list_length(&shell->shell_widgets);
+	nk_layout_row_begin(ctx, NK_STATIC, panel_surf->h - 12, n_widgets);
+	wl_list_for_each(widget, &shell->shell_widgets, link) {
+		int len = widget->ancre_cb(widget, &widget_label);
+		double width =
+			text_width(ctx->style.font->userdata,
+				   ctx->style.font->height,
+				   widget_label.label, len);
+		nk_layout_row_push(ctx, width+10);
+		/* struct nk_rect bound = nk_widget_bounds(ctx); */
+		nk_button_text(ctx, widget_label.label, len);
+		total_width += width+10;
+	}
+	shell_output->widgets_span = total_width;
+}
+
 static void
 shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_surface *panel_surf)
 {
@@ -177,7 +205,11 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	struct shell_widget *widget = NULL, *clicked = NULL;
 	struct nk_vec2 label_span = nk_vec2(0, 0);
 
-	nk_layout_row_begin(ctx, NK_STATIC, panel_surf->h - 12, n_widgets);
+	nk_layout_row_begin(ctx, NK_STATIC, panel_surf->h-12, n_widgets+1);
+	int leading = panel_surf->w - (int)(shell_output->widgets_span+0.5)-20;
+	nk_layout_row_push(ctx, leading);
+	nk_spacing(ctx, 1);
+
 	wl_list_for_each(widget, &shell->shell_widgets, link) {
 		int len = widget->ancre_cb(widget, &widget_label);
 		double width =
@@ -207,7 +239,6 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	struct nk_vec2 p = widget_launch_point_flat(&label_span, clicked, panel_surf);
 	info->x = (int)p.x;
 	info->y = (int)p.y;
-	fprintf(stderr, "launch point: (%d, %d)\n", info->x, info->y);
 	nk_wl_add_idle(ctx, launch_widget);
 }
 
@@ -230,6 +261,7 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 
 	nk_egl_impl_app_surface(panel, output->panel_backend, shell_panel_frame,
 				width, height, 0 ,0);
+	nk_wl_test_draw(output->panel_backend, panel, shell_panel_measure_leading);
 	//reset the button theme, TODO, before we actually have a better way to
 	//set theme, we just keep it now for simplicity
 	const struct nk_style *theme = nk_wl_get_curr_style(output->panel_backend);
