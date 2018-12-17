@@ -7,12 +7,11 @@
 #include <string.h>
 #include <fcntl.h>
 
-#include "ui.h"
-#include "client.h"
-#include "nk_backends.h"
+#include "../clients/ui.h"
+#include "../clients/client.h"
+#include "../clients/nk_backends.h"
 #include "../config.h"
-#include "egl.h"
-
+#include "../clients/egl.h"
 
 
 //create a egl ui
@@ -72,9 +71,16 @@ sample_widget(struct nk_context *ctx, float width, float height, struct app_surf
 		init_text_edit = true;
 		nk_textedit_init_fixed(&text_edit, text_buffer, 256);
 	}
+	int unicodes[] = {0xf1c1, 'C', 0xf1c2, 0xf1c3, 0xf1c4, 0xf1c5};
+	char strings[256];
+	int count = 0;
+	for (int i = 0; i < 5; i++) {
+		count += nk_utf_encode(unicodes[i], strings+count, 256-count);
+	}
+	strings[count] = '\0';
 
 	nk_layout_row_static(ctx, 30, 80, 2);
-	nk_button_label(ctx, "button");
+	nk_button_label(ctx, strings);
 	nk_label(ctx, "another", NK_TEXT_LEFT);
 	nk_layout_row_dynamic(ctx, 30, 2);
 	if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
@@ -99,7 +105,6 @@ handle_ping(void *data,
 		     struct wl_shell_surface *wl_shell_surface,
 		     uint32_t serial)
 {
-	fprintf(stderr, "ping!!!\n");
 	wl_shell_surface_pong(wl_shell_surface, serial);
 }
 
@@ -113,8 +118,8 @@ static void
 handle_configure(void *data, struct wl_shell_surface *shell_surface,
 		 uint32_t edges, int32_t width, int32_t height)
 {
-	fprintf(stderr, "shell_surface has configure: %d, %d, %d\n", edges, width, height);
-//	nk_egl_resize(App.bkend, width, height);
+	fprintf(stderr, "shell_surface has configure: %d, %d, %d\n",
+		edges, width, height);
 }
 
 struct wl_shell_surface_listener pingpong = {
