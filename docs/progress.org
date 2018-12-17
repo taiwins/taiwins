@@ -64,7 +64,7 @@
     table.
 *** DONE decoupling the desktop implementation                    :refactory:
 
-** [84%] client-side optimization
+** [80%] client-side optimization
 *** DONE switch to epoll on wl_display
     - possible solution :: maybe we can use epoll on wl_display, and add it to
 	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
@@ -79,7 +79,9 @@
 *** DONE widget surface launch code.
 *** DOIN second widget, reading batteries
 *** TODO make changes into ~tw_event_queue~
-*** TODO find a way to add leading space in panel
+*** DONE find a way to add leading space in panel
+    ~nk_spacing~ is the good solution, but you need to calculate the layout size
+*** TODO fix the multiple launching bug
 *** CANC add another row for panel to have better look?
 *** DONE change the way the nk_button look for the icons.
 *** DONE decide the way to render icons more properly.
