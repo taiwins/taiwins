@@ -86,5 +86,8 @@ nk_wl_add_idle(struct nk_context *ctx, nk_wl_postcall_t task);
 NK_API const struct nk_style *
 nk_wl_get_curr_style(struct nk_wl_backend *bkend);
 
+NK_API void
+nk_wl_test_draw(struct nk_wl_backend *bkend, struct app_surface *app,
+		nk_wl_drawcall_t draw_call);
 
 #endif

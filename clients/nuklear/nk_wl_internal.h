@@ -470,6 +470,26 @@ nk_wl_get_curr_style(struct nk_wl_backend *bkend)
 	return &bkend->ctx.style;
 }
 
+
+NK_API void
+nk_wl_test_draw(struct nk_wl_backend *bkend, struct app_surface *app, nk_wl_drawcall_t draw_call)
+{
+	//here is how we manage the buffer
+	int width = app->w;
+	int height = app->h;
+
+	if (nk_begin(&bkend->ctx, "cairo_app", nk_rect(0, 0, width, height),
+		     NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR)) {
+		draw_call(&bkend->ctx, width, height, app);
+	} nk_end(&bkend->ctx);
+
+	nk_clear(&bkend->ctx);
+	bkend->post_cb = NULL;
+	bkend->ckey = XKB_KEY_NoSymbol;
+	bkend->cbtn = -1;
+}
+
+
 //there are quite a few code we can write here for sure.
 
 #endif /* EOF */
