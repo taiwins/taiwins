@@ -22,7 +22,6 @@ static struct application {
 	struct app_surface surface;
 	struct nk_wl_backend *bkend;
 	struct wl_shell_surface *shell_surface;
-	struct egl_env env;
 	bool done;
 } App;
 
@@ -97,6 +96,10 @@ sample_widget(struct nk_context *ctx, float width, float height, struct app_surf
 					App.global.inputs.serial,
 					WL_SHELL_SURFACE_RESIZE_BOTTOM);
 	}
+	nk_layout_row_dynamic(ctx, 25, 1);
+	if (nk_button_label(ctx, "quit")) {
+		app->done = true;
+	}
 }
 
 static
@@ -165,7 +168,6 @@ int main(int argc, char *argv[])
 	wl_shell_surface_set_toplevel(shell_surface);
 	App.shell_surface = shell_surface;
 
-	egl_env_init(&App.env, App.global.display);
 	App.surface.w = 200;
 	App.surface.h = 400;
 	App.surface.s = 1;
@@ -177,10 +179,8 @@ int main(int argc, char *argv[])
 	fprintf(stdout, "here\n");
 	while (wl_display_dispatch(wl_display) != -1 && !App.done)
 		;
-	nk_egl_destroy_backend(App.bkend);
-	egl_env_end(&App.env);
-	wl_shell_surface_destroy(shell_surface);
 	app_surface_release(&App.surface);
+	nk_egl_destroy_backend(App.bkend);
 	wl_globals_release(&App.global);
 	wl_registry_destroy(registry);
 	wl_display_disconnect(wl_display);
