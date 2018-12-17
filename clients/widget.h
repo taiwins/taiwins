@@ -67,13 +67,14 @@ void shell_widget_activate(struct shell_widget *widget, struct app_surface *pane
 
 static inline void
 shell_widget_launch(struct shell_widget *widget, struct wl_surface *surface, struct wl_proxy *p,
-		    struct nk_wl_backend *bkend, uint32_t x, uint32_t y)
+		    struct nk_wl_backend *bkend, struct shm_pool *pool, uint32_t x, uint32_t y)
 {
 	struct wl_globals *globals = widget->widget.wl_globals;
 	app_surface_init(&widget->widget, surface, p);
 	widget->widget.wl_globals = globals;
-	nk_egl_impl_app_surface(&widget->widget, bkend, widget->draw_cb,
-				widget->w, widget->h, x, y);
+	nk_cairo_impl_app_surface(&widget->widget, bkend, widget->draw_cb, pool, widget->w, widget->h, x, y);
+	/* nk_egl_impl_app_surface(&widget->widget, bkend, widget->draw_cb, */
+	/*			widget->w, widget->h, x, y); */
 	app_surface_frame(&widget->widget, false);
 }
 
