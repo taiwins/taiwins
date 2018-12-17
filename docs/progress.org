@@ -81,7 +81,7 @@
 *** TODO make changes into ~tw_event_queue~
 *** DONE find a way to add leading space in panel
     ~nk_spacing~ is the good solution, but you need to calculate the layout size
-*** TODO fix the multiple launching bug
+*** TODO fix the multiple launching bug in the panel
 *** CANC add another row for panel to have better look?
 *** DONE change the way the nk_button look for the icons.
 *** DONE decide the way to render icons more properly.
