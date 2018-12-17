@@ -64,7 +64,7 @@
     table.
 *** DONE decoupling the desktop implementation                    :refactory:
 
-** [69%] client-side optimization
+** [76%] client-side optimization
 *** DONE switch to epoll on wl_display
     - possible solution :: maybe we can use epoll on wl_display, and add it to
 	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
@@ -91,7 +91,7 @@
 *** DOIN nk_vulkan backend
     This work is not necessary, only serves the purpose of vulkan training. But
     the API is rather verbose.
-*** TODO intergrate nk_wl_egl into nk_wl_backend
+*** DONE intergrate nk_wl_egl into nk_wl_backend
     I implemented a template header of ~nk_wl_internal~, but never actually
     applies it to nk_wl_egl, it should be done very soon, so I can totally
     remove the deprecated functions.

@@ -34,6 +34,9 @@ struct shell_widget_label {
 };
 typedef int (*shell_widget_draw_label_t)(struct shell_widget *, struct shell_widget_label *);
 
+//free it afterwards
+typedef int (*shell_widget_path_find_t)(struct shell_widget *, char *path);
+
 /**
  * @brief shell widget structure
  *
@@ -50,9 +53,12 @@ struct shell_widget {
 	nk_wl_postcall_t post_cb;
 	//it could be lua state.
 	void *user_data;
-	//the effort to make it purely data
-	struct timespec interval;
-	char *file_path;
+	//either a timer, or a static/dynamic path
+	struct {
+		struct timespec interval;
+		char *file_path;
+		shell_widget_path_find_t path_find;
+	};
 	uint32_t w;
 	uint32_t h;
 };
