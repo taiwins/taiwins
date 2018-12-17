@@ -3,6 +3,7 @@
 #include <wayland-util.h>
 #include "ui.h"
 #include "widget.h"
+#include "../3rdparties/iconheader/IconsFontAwesome5.h"
 
 static int
 redraw_panel(void *data)
@@ -30,6 +31,7 @@ static void
 shell_widget_event_from_file(struct shell_widget *widget, const char *path,
 			     struct tw_event_queue *event_queue)
 {
+	//dude, what the hell is this?
 	int fd = 0;
 	uint32_t mask = 0;
 	//TODO, open the file and set the mask
@@ -45,10 +47,17 @@ shell_widget_event_from_file(struct shell_widget *widget, const char *path,
 void
 shell_widget_activate(struct shell_widget *widget, struct app_surface *panel, struct tw_event_queue *queue)
 {
+
 	if (widget->interval.tv_sec || widget->interval.tv_nsec)
 		shell_widget_event_from_timer(widget, widget->interval, queue);
 	else if (widget->file_path)
 		shell_widget_event_from_file(widget, widget->file_path, queue);
+	else if (widget->path_find) {
+		int len = widget->path_find(widget, NULL);
+		char path[len+1];
+		widget->path_find(widget, path);
+		shell_widget_event_from_file(widget, path, queue);
+	}
 	//the size of the ancre here is irrelevant
 	embeded_impl_app_surface(&clock_widget.ancre, panel, 0, 0, 0, 0);
 }
@@ -117,5 +126,32 @@ struct shell_widget clock_widget = {
 		.tv_sec = 1,
 		.tv_nsec = 0,
 	},
+	.file_path = NULL,
+};
+
+static int
+battery_anchor(struct shell_widget *widget, struct shell_widget_label *label)
+{
+
+}
+
+int
+battery_sysfile_find(struct shell_widget *widget, char *path)
+{
+	const char *energy_now = "/sys/class/power_supply/BAT1/energy_now";
+	if (path)
+		strcpy(path, energy_now);
+	return strlen(energy_now);
+}
+
+
+struct shell_widget battery_widget = {
+	.ancre_cb = battery_anchor,
+	.draw_cb = NULL,
+	.w = 200,
+	.h = 150,
+	.path_find = battery_sysfile_find,
+	.widget.s = 1,
+	.interval = {0},
 	.file_path = NULL,
 };

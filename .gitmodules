@@ -4,3 +4,6 @@
 [submodule "3rdparties/nuklear"]
 	path = 3rdparties/nuklear
 	url = https://github.com/xeechou/nuklear
+[submodule "3rdparties/iconheader"]
+	path = 3rdparties/iconheader
+	url = https://github.com/juliettef/IconFontCppHeaders

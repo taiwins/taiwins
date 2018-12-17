@@ -516,9 +516,15 @@ struct tw_event_source {
 	struct wl_list link;
 	struct epoll_event poll_event;
 	struct tw_event event;
-	void (* pre_hook) (void *);
+	void (* pre_hook) (struct tw_event_source *);
+	void (* close)(struct tw_event_source *);
 	int fd;
 };
+
+static void close_fd(struct tw_event_source *s)
+{
+	close(s->fd);
+}
 
 static struct tw_event_source*
 alloc_event_source(struct tw_event *e, uint32_t mask, int fd)
@@ -530,13 +536,17 @@ alloc_event_source(struct tw_event *e, uint32_t mask, int fd)
 	event_source->poll_event.events = mask;
 	event_source->fd = fd;
 	event_source->pre_hook = NULL;
+	event_source->close = close_fd;
 	return event_source;
 }
+
 
 static void
 destroy_event_source(struct tw_event_source *s)
 {
 	wl_list_remove(&s->link);
+	if (s->close)
+		s->close(s);
 	free(s);
 }
 
@@ -560,6 +570,8 @@ tw_event_queue_run(struct tw_event_queue *queue)
 	}
 	wl_list_for_each_safe(event_source, next, &queue->head, link) {
 		epoll_ctl(queue->pollfd, EPOLL_CTL_DEL, event_source->fd, NULL);
+		//this should get rid of memory leak
+		destroy_event_source(event_source);
 	}
 	close(queue->pollfd);
 	return;
@@ -594,9 +606,8 @@ tw_event_queue_add_source(struct tw_event_queue *queue, int fd,
 }
 
 static void
-read_timer(void *data)
+read_timer(struct tw_event_source *s)
 {
-	struct tw_event_source *s = data;
 	uint64_t nhit;
 	read(s->fd, &nhit, 8);
 }
@@ -658,6 +669,8 @@ tw_event_queue_add_wl_display(struct tw_event_queue *queue, struct wl_display *d
 		.cb = dispatch_wl_event,
 	};
 	struct tw_event_source *s = alloc_event_source(&dispatch_display, EPOLLIN | EPOLLET, fd);
+	//don't close wl_display in the end
+	s->close = NULL;
 	wl_list_insert(&queue->head, &s->link);
 
 	if (epoll_ctl(queue->pollfd, EPOLL_CTL_ADD, fd, &s->poll_event)) {
