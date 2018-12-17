@@ -42,7 +42,7 @@ target_link_libraries(shell-taiwins
   m
   proto_client_libraries
   taiwins_client
-  nk_egl_backend
+  nk_cairo_backend
   tcmalloc
 #  asan
   )

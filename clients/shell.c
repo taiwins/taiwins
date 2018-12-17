@@ -54,6 +54,7 @@ struct desktop_shell {
 	struct shell_output shell_outputs[16];
 
 	struct nk_wl_backend *widget_backend;
+	struct shm_pool pool;
 	struct wl_list shell_widgets;
 	struct tw_event_queue client_event_queue;
 	//states
@@ -141,7 +142,7 @@ launch_widget(struct app_surface *panel_surf)
 	tw_ui_add_listener(widget_proxy, &widget_impl, info->widget);
 	/* we should release the previous surface as well */
 	shell_widget_launch(info->widget, widget_surface, (struct wl_proxy *)widget_proxy,
-			    shell->widget_backend,
+			    shell->widget_backend, &shell->pool,
 			    info->x, info->y);
 	*info = (struct widget_launch_info){0};
 }
@@ -163,8 +164,6 @@ widget_launch_point_flat(struct nk_vec2 *label_span, struct shell_widget *clicke
 	return info;
 }
 
-//I can probably find a way to run this frame once to determine how much space I
-//actually need to push, but this requires the ancre function has to side effects though
 static void
 shell_panel_measure_leading(struct nk_context *ctx, float width, float height, struct app_surface *panel_surf)
 {
@@ -242,7 +241,6 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	nk_wl_add_idle(ctx, launch_widget);
 }
 
-
 static void
 tw_panel_configure(void *data, struct tw_ui *tw_ui,
 		   uint32_t width, uint32_t height, uint32_t scale)
@@ -254,29 +252,32 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 
 	//TODO detect if we are on the major output. If not, we do not add the
 	//widgets, and draw call should be different
-	output->panel_backend = nk_egl_create_backend(output->shell->globals.display, NULL);
+	output->panel_backend =  nk_cairo_create_bkend();
 	struct shell_widget *widget;
 	wl_list_for_each(widget, &shell->shell_widgets, link)
 		shell_widget_activate(widget, panel, &shell->client_event_queue);
 
-	nk_egl_impl_app_surface(panel, output->panel_backend, shell_panel_frame,
-				width, height, 0 ,0);
+	nk_cairo_impl_app_surface(panel, output->panel_backend, shell_panel_frame,
+				  &output->pool, width, height, 0, 0);
+	/* nk_egl_impl_app_surface(panel, output->panel_backend, shell_panel_frame, */
+	/*			width, height, 0 ,0); */
 	nk_wl_test_draw(output->panel_backend, panel, shell_panel_measure_leading);
-	//reset the button theme, TODO, before we actually have a better way to
-	//set theme, we just keep it now for simplicity
-	const struct nk_style *theme = nk_wl_get_curr_style(output->panel_backend);
-	memcpy(style, &theme->button, sizeof(struct nk_style_button));
-	struct nk_color text_normal = theme->button.text_normal;
-	style->normal = nk_style_item_color(theme->window.background);
-	style->hover = nk_style_item_color(theme->window.background);
-	style->active = nk_style_item_color(theme->window.background);
-	style->border_color = theme->window.background;
-	style->text_background = theme->window.background;
-	style->text_normal = text_normal;
-	style->text_hover = nk_rgba(text_normal.r+20, text_normal.g+20,
-				    text_normal.b+20, text_normal.a);
-	style->text_active = nk_rgba(text_normal.r+40, text_normal.g+40,
-				     text_normal.b+40, text_normal.a);
+	{
+		const struct nk_style *theme =
+			nk_wl_get_curr_style(output->panel_backend);
+		memcpy(style, &theme->button, sizeof(struct nk_style_button));
+		struct nk_color text_normal = theme->button.text_normal;
+		style->normal = nk_style_item_color(theme->window.background);
+		style->hover = nk_style_item_color(theme->window.background);
+		style->active = nk_style_item_color(theme->window.background);
+		style->border_color = theme->window.background;
+		style->text_background = theme->window.background;
+		style->text_normal = text_normal;
+		style->text_hover = nk_rgba(text_normal.r + 20, text_normal.g + 20,
+					    text_normal.b + 20, text_normal.a);
+		style->text_active = nk_rgba(text_normal.r + 40, text_normal.g + 40,
+					     text_normal.b + 40, text_normal.a);
+	}
 
 	app_surface_frame(panel, false);
 
@@ -387,7 +388,8 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	shell->globals.theme = taiwins_dark_theme;
 	shell->shell = NULL;
 	shell->quit = false;
-	shell->widget_backend = nk_egl_create_backend(display, NULL);
+
+	shell->widget_backend = nk_cairo_create_bkend();
 
 	wl_list_init(&shell->shell_widgets);
 	wl_list_insert(&shell->shell_widgets, &clock_widget.link);
@@ -398,6 +400,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 		!tw_event_queue_add_wl_display(&shell->client_event_queue, display);
 	vector_init(&shell->uinit_outputs, sizeof(struct tw_output *), NULL);
 }
+
 
 static void
 desktop_shell_release(struct desktop_shell *shell)
@@ -434,6 +437,15 @@ desktop_shell_init_rest_outputs(struct desktop_shell *shell)
 					shell);
 	}
 }
+
+static void
+desktop_shell_prepare(struct desktop_shell *shell)
+{
+	desktop_shell_init_rest_outputs(shell);
+	shm_pool_init(&shell->pool, shell->globals.shm, 4096, shell->globals.buffer_format);
+}
+
+
 /************************** desktop_shell_interface ********************************/
 /*********************************** end *******************************************/
 
@@ -488,7 +500,8 @@ main(int argc, char **argv)
 	wl_registry_add_listener(registry, &registry_listener, &oneshell);
 	wl_display_dispatch(display);
 	wl_display_roundtrip(display);
-	desktop_shell_init_rest_outputs(&oneshell);
+	//we should delete every thing and process here, it is easier
+	desktop_shell_prepare(&oneshell);
 
 	wl_display_flush(display);
 	tw_event_queue_run(&oneshell.client_event_queue);
