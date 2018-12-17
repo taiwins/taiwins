@@ -253,6 +253,7 @@ app_surface_release(struct app_surface *surf)
 	wl_surface_destroy(surf->wl_surface);
 	if (surf->protocol)
 		wl_proxy_destroy(surf->protocol);
+	surf->protocol = NULL;
 }
 
 /**
