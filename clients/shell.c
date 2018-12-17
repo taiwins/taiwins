@@ -152,16 +152,18 @@ widget_launch_point_flat(struct nk_vec2 *label_span, struct shell_widget *clicke
 			 struct app_surface *panel_surf)
 {
 	struct nk_vec2 info;
-	if (label_span->x + clicked->widget.w > panel_surf->w)
-		info.x = label_span->y - clicked->widget.w;
-	else if (label_span->y - clicked->widget.w < 0)
-		info.y = label_span->x;
+	if (label_span->x + clicked->w > panel_surf->w)
+		info.x = label_span->y - clicked->w;
+	else if (label_span->y - clicked->w < 0)
+		info.x = label_span->x;
 	else
-		info.y = label_span->x;
+		info.x = label_span->x;
 	info.y = panel_surf->h;
 	return info;
 }
 
+//I can probably find a way to run this frame once to determine how much space I
+//actually need to push, but this requires the ancre function has to side effects though
 static void
 shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_surface *panel_surf)
 {
@@ -174,7 +176,6 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	size_t n_widgets =  wl_list_length(&shell->shell_widgets);
 	struct shell_widget *widget = NULL, *clicked = NULL;
 	struct nk_vec2 label_span = nk_vec2(0, 0);
-	double expand = 0;
 
 	nk_layout_row_begin(ctx, NK_STATIC, panel_surf->h - 12, n_widgets);
 	wl_list_for_each(widget, &shell->shell_widgets, link) {
@@ -185,17 +186,18 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 				   widget_label.label, len);
 
 		nk_layout_row_push(ctx, width+10);
-		if (nk_button_text_styled(ctx, &shell_output->label_style,
-					  widget_label.label, len)) {
+		struct nk_rect bound = nk_widget_bounds(ctx);
+		if (nk_widget_is_mouse_clicked(ctx, NK_BUTTON_LEFT)) {
 			clicked = widget;
-			label_span = nk_vec2(expand, expand + width+10);
+			label_span.x = bound.x;
+			label_span.y = bound.x+bound.w;
 		}
-		expand += width + 10;
+		nk_button_text_styled(ctx, &shell_output->label_style,
+				      widget_label.label, len);
 	}
 	nk_layout_row_end(ctx);
 	if (!clicked || !widget->draw_cb)
 		return;
-
 	struct widget_launch_info *info = &shell_output->widget_launch;
 	info->widget = clicked;
 
@@ -205,9 +207,9 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	struct nk_vec2 p = widget_launch_point_flat(&label_span, clicked, panel_surf);
 	info->x = (int)p.x;
 	info->y = (int)p.y;
+	fprintf(stderr, "launch point: (%d, %d)\n", info->x, info->y);
 	nk_wl_add_idle(ctx, launch_widget);
 }
-
 
 
 static void
@@ -357,6 +359,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 
 	wl_list_init(&shell->shell_widgets);
 	wl_list_insert(&shell->shell_widgets, &clock_widget.link);
+	wl_list_insert(&shell->shell_widgets, &what_up_widget.link);
 
 	tw_event_queue_init(&shell->client_event_queue);
 	shell->client_event_queue.quit =

@@ -64,7 +64,7 @@
     table.
 *** DONE decoupling the desktop implementation                    :refactory:
 
-** [76%] client-side optimization
+** [84%] client-side optimization
 *** DONE switch to epoll on wl_display
     - possible solution :: maybe we can use epoll on wl_display, and add it to
 	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
@@ -74,10 +74,12 @@
 *** DONE shell panel refactoring
     replace the panel to nuklear implementation
 *** DONE fix the cursor input problem(maybe just forget about the cursor frame callback), what is this??
-*** TODO move the wl_cursor surface into shell?
+*** CANC move the wl_cursor surface into shell?
     Maybe I am wrong. I do need the cursor for every application.
 *** DONE widget surface launch code.
-*** TODO second widget, reading batteries
+*** DOIN second widget, reading batteries
+*** TODO make changes into ~tw_event_queue~
+*** TODO find a way to add leading space in panel
 *** CANC add another row for panel to have better look?
 *** DONE change the way the nk_button look for the icons.
 *** DONE decide the way to render icons more properly.

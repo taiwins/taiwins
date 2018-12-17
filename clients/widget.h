@@ -90,6 +90,7 @@ struct wl_list *shell_widget_create_with_script(const char *script_content);
 
 /************** The sample widgets *******************/
 extern struct shell_widget clock_widget;
+extern struct shell_widget what_up_widget;
 
 #ifdef __cplusplus
 }

@@ -135,7 +135,7 @@ battery_anchor(struct shell_widget *widget, struct shell_widget_label *label)
 
 }
 
-int
+static int
 battery_sysfile_find(struct shell_widget *widget, char *path)
 {
 	const char *energy_now = "/sys/class/power_supply/BAT1/energy_now";
@@ -151,6 +151,25 @@ struct shell_widget battery_widget = {
 	.w = 200,
 	.h = 150,
 	.path_find = battery_sysfile_find,
+	.widget.s = 1,
+	.interval = {0},
+	.file_path = NULL,
+};
+
+static int
+whatup_ancre(struct shell_widget *widget, struct shell_widget_label *label)
+{
+	strcpy(label->label, "what-up!");
+	return 8;
+}
+
+
+struct shell_widget what_up_widget = {
+	.ancre_cb = whatup_ancre,
+	.draw_cb = NULL,
+	.w = 200,
+	.h = 150,
+	.path_find = NULL,
 	.widget.s = 1,
 	.interval = {0},
 	.file_path = NULL,
