@@ -64,7 +64,7 @@
     table.
 *** DONE decoupling the desktop implementation                    :refactory:
 
-** [80%] client-side optimization
+** [81%] client-side optimization
 *** DONE switch to epoll on wl_display
     - possible solution :: maybe we can use epoll on wl_display, and add it to
 	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
@@ -81,7 +81,7 @@
 *** TODO make changes into ~tw_event_queue~
 *** DONE find a way to add leading space in panel
     ~nk_spacing~ is the good solution, but you need to calculate the layout size
-*** TODO fix the multiple launching bug in the panel
+*** DONE fix the multiple launching bug in the panel
 *** CANC add another row for panel to have better look?
 *** DONE change the way the nk_button look for the icons.
 *** DONE decide the way to render icons more properly.
@@ -119,7 +119,7 @@
 *** TODO svg2ttf implementation
 *** TODO supporting examing buffer
 *** TODO build weston along with taiwins(with meson maybe)
-* [33%] Bugs
+* [20%] Bugs
 ** a completion based text_edit
    - ~nk_egl_get_key~ gets NoSymbol very 2 frames, so if you press Tab twice,
      what you get is Tab -> NoSymbol -> Tab -> NoSymbol. NoSymbol resets the
@@ -163,6 +163,8 @@
 ** DONE find out why all the code point becomes `?`
    the ~nk_rune~ has to be available all the time as nuklear does not like to
    manage memory, so you cannot just pass an temporary address.
+** TODO nuklear input handling has problems, the button clicked state retains
+** TODO nvidia egl driver keeps giving me errors after closing an app
 * summarizing and planning
 ** <2018-12-15 Sat>
    Right now it is 1 AM at UTC-5, two weeks passed I have finally found the
