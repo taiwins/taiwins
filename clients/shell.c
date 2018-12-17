@@ -147,54 +147,64 @@ launch_widget(struct app_surface *panel_surf)
 
 
 //////////////////////////////// panel ////////////////////////////////////
-
+static inline struct nk_vec2
+widget_launch_point_flat(struct nk_vec2 *label_span, struct shell_widget *clicked,
+			 struct app_surface *panel_surf)
+{
+	struct nk_vec2 info;
+	if (label_span->x + clicked->widget.w > panel_surf->w)
+		info.x = label_span->y - clicked->widget.w;
+	else if (label_span->y - clicked->widget.w < 0)
+		info.y = label_span->x;
+	else
+		info.y = label_span->x;
+	info.y = panel_surf->h;
+	return info;
+}
 
 static void
 shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_surface *panel_surf)
 {
-	enum nk_buttons button;
-	uint32_t sx, sy;
 	struct shell_output *shell_output =
 		container_of(panel_surf, struct shell_output, panel);
 	struct desktop_shell *shell = shell_output->shell;
 	struct shell_widget_label widget_label;
 	nk_text_width_f text_width = ctx->style.font->width;
-
-	//a temporary hack
-	//actual drawing
+	//drawing labels
 	size_t n_widgets =  wl_list_length(&shell->shell_widgets);
 	struct shell_widget *widget = NULL, *clicked = NULL;
+	struct nk_vec2 label_span = nk_vec2(0, 0);
+	double expand = 0;
+
 	nk_layout_row_begin(ctx, NK_STATIC, panel_surf->h - 12, n_widgets);
 	wl_list_for_each(widget, &shell->shell_widgets, link) {
-		int label_len = widget->ancre_cb(widget, &widget_label);
-		text_width(ctx->style.font->userdata,
-			   ctx->style.font->height,
-			   widget_label.label, label_len);
+		int len = widget->ancre_cb(widget, &widget_label);
+		double width =
+			text_width(ctx->style.font->userdata,
+				   ctx->style.font->height,
+				   widget_label.label, len);
 
-		nk_layout_row_push(ctx, 110);
+		nk_layout_row_push(ctx, width+10);
 		if (nk_button_text_styled(ctx, &shell_output->label_style,
-					  widget_label.label, label_len))
+					  widget_label.label, len)) {
 			clicked = widget;
+			label_span = nk_vec2(expand, expand + width+10);
+		}
+		expand += width + 10;
 	}
 	nk_layout_row_end(ctx);
 	if (!clicked || !widget->draw_cb)
 		return;
 
 	struct widget_launch_info *info = &shell_output->widget_launch;
-	nk_wl_get_btn(ctx, &button, &sx, &sy);
 	info->widget = clicked;
-	//determine the launch point, this is the reason, you can't mesure it properly
-	if (sx + clicked->widget.w/2 >= panel_surf->w)
-		info->x = panel_surf->w - clicked->widget.w;
-	else if (sx - clicked->widget.w/2 < 0)
-		info->x = 0;
-	else
-		info->x = sx - clicked->widget.w/2;
-	info->y = sy;
 
 	//again, we should add a post cb here.
 	if (clicked->widget.protocol || !clicked->draw_cb)
 		return;
+	struct nk_vec2 p = widget_launch_point_flat(&label_span, clicked, panel_surf);
+	info->x = (int)p.x;
+	info->y = (int)p.y;
 	nk_wl_add_idle(ctx, launch_widget);
 }
 
