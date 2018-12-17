@@ -37,6 +37,8 @@ struct shell_output {
 	//we may have better solution
 	struct app_surface background;
 	struct app_surface panel;
+	struct nk_style_button label_style;
+
 	//a temporary struct
 	struct widget_launch_info widget_launch;
 
@@ -155,33 +157,28 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	struct shell_output *shell_output =
 		container_of(panel_surf, struct shell_output, panel);
 	struct desktop_shell *shell = shell_output->shell;
+	struct shell_widget_label widget_label;
+	nk_text_width_f text_width = ctx->style.font->width;
 
 	//a temporary hack
-	static int no_widget = 0;
 	//actual drawing
-	int i = 0;
 	size_t n_widgets =  wl_list_length(&shell->shell_widgets);
 	struct shell_widget *widget = NULL, *clicked = NULL;
 	nk_layout_row_begin(ctx, NK_STATIC, panel_surf->h - 12, n_widgets);
 	wl_list_for_each(widget, &shell->shell_widgets, link) {
-		nk_layout_row_push(ctx, 110);
-		//nk_widget_is_mouse_clicked need to be after row_push and
-		//before actually call to the widget.
+		int label_len = widget->ancre_cb(widget, &widget_label);
+		text_width(ctx->style.font->userdata,
+			   ctx->style.font->height,
+			   widget_label.label, label_len);
 
-		//happen automatically for nk_layout_row_static or
-		//nk_layout_row_dynamic. So if you do not know how wide the
-		//widget occupies, there is nothing you can do.
-		if (nk_widget_is_mouse_clicked(ctx, NK_BUTTON_LEFT))
+		nk_layout_row_push(ctx, 110);
+		if (nk_button_text_styled(ctx, &shell_output->label_style,
+					  widget_label.label, label_len))
 			clicked = widget;
-		widget->ancre_cb(ctx, width, height, &widget->ancre);
-		i++;
 	}
 	nk_layout_row_end(ctx);
 	if (!clicked || !widget->draw_cb)
 		return;
-	//TODO remove this two lines
-	no_widget += 1;
-	no_widget = no_widget % n_widgets;
 
 	struct widget_launch_info *info = &shell_output->widget_launch;
 	nk_wl_get_btn(ctx, &button, &sx, &sy);
@@ -210,6 +207,7 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 	struct shell_output *output = data;
 	struct app_surface *panel = &output->panel;
 	struct desktop_shell *shell = output->shell;
+	struct nk_style_button *style = &output->label_style;
 
 	//TODO detect if we are on the major output. If not, we do not add the
 	//widgets, and draw call should be different
@@ -222,13 +220,19 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 				width, height, 0 ,0);
 	//reset the button theme, TODO, before we actually have a better way to
 	//set theme, we just keep it now for simplicity
-	struct nk_style *style = nk_wl_get_curr_style(output->panel_backend);
-	style->button.border_color = nk_rgba(57, 67, 71, 215);
-	style->button.normal = nk_style_item_color(nk_rgba(57, 67, 71, 215));
-	style->button.hover = nk_style_item_color(nk_rgba(57, 67, 71, 215));
-	style->button.active = nk_style_item_color(nk_rgba(57, 57, 71, 215));
-	style->button.text_hover = nk_rgba(222, 222, 222, 255);
-	style->button.text_active = nk_rgba(255, 255, 255, 255);
+	const struct nk_style *theme = nk_wl_get_curr_style(output->panel_backend);
+	memcpy(style, &theme->button, sizeof(struct nk_style_button));
+	struct nk_color text_normal = theme->button.text_normal;
+	style->normal = nk_style_item_color(theme->window.background);
+	style->hover = nk_style_item_color(theme->window.background);
+	style->active = nk_style_item_color(theme->window.background);
+	style->border_color = theme->window.background;
+	style->text_background = theme->window.background;
+	style->text_normal = text_normal;
+	style->text_hover = nk_rgba(text_normal.r+20, text_normal.g+20,
+				    text_normal.b+20, text_normal.a);
+	style->text_active = nk_rgba(text_normal.r+40, text_normal.g+40,
+				     text_normal.b+40, text_normal.a);
 
 	app_surface_frame(panel, false);
 

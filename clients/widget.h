@@ -30,38 +30,21 @@ struct shell_widget;
  * it to its unicode
  */
 struct shell_widget_label {
-	uint32_t label[64];
+	char label[256];
 };
+typedef int (*shell_widget_draw_label_t)(struct shell_widget *, struct shell_widget_label *);
 
 /**
  * @brief shell widget structure
  *
- * The structure supposed to be universal, and exposed to shell. For example,
- * panel takes the shell_widget structure, and it should be able to draw icons
- * with it. The shell should be able to launch the widget with it and so on.
- *
- * The widget takes the following assumptions:
- *
- * 1) the widget is an nuklear application, so it needs an nk_backend to start
- * it. nk_egl has launch function, so we do not need to keep an copy of
- * nk_egl_backend here.
- *
- * 2) the ancre is drawing on the parent surface as an sub nuklear application,
- * it does not need an surface.
- *
- * 3) the widget does not need to worry about start the widget as well. It is
- * done in the panel. because it does not know where to draw the widget.
- *
- * The widget, however, needs to know the size it occupies. In many case it does
- * not know in advance of this.
- *
- * Right now it is better, since the shell_widget event only has one thing, draw its parent!
+ * the icons is drawn into unicodes.
+ * The beautiful thing about shell_widget is that it is pure data.
  */
 struct shell_widget {
 	struct app_surface ancre;
 	struct app_surface widget;
 	struct wl_list link;
-	nk_wl_drawcall_t ancre_cb;
+	shell_widget_draw_label_t ancre_cb;
 	//widget callback
 	nk_wl_drawcall_t draw_cb;
 	nk_wl_postcall_t post_cb;
@@ -74,18 +57,19 @@ struct shell_widget {
 	uint32_t h;
 };
 
-
-/* since right now the only event that widget has is draw its parent */
-void shell_widget_event_from_timer(struct shell_widget *widget, struct timespec time,
-				   struct tw_event_queue *event_queue);
-void shell_widget_event_from_file(struct shell_widget *widget, const char *path,
-				  struct tw_event_queue *event_queue);
-
 void shell_widget_activate(struct shell_widget *widget, struct app_surface *panel, struct tw_event_queue *queue);
 
-void shell_widget_launch(struct shell_widget *widget, struct wl_surface *surface, struct wl_proxy *p,
-			 struct nk_wl_backend *bkend, uint32_t x, uint32_t y);
-
+static inline void
+shell_widget_launch(struct shell_widget *widget, struct wl_surface *surface, struct wl_proxy *p,
+		    struct nk_wl_backend *bkend, uint32_t x, uint32_t y)
+{
+	struct wl_globals *globals = widget->widget.wl_globals;
+	app_surface_init(&widget->widget, surface, p);
+	widget->widget.wl_globals = globals;
+	nk_egl_impl_app_surface(&widget->widget, bkend, widget->draw_cb,
+				widget->w, widget->h, x, y);
+	app_surface_frame(&widget->widget, false);
+}
 
 /* this is probably totally not necessary, we need only the script */
 struct wl_list *shell_widget_create_with_funcs(nk_wl_drawcall_t draw_cb,
