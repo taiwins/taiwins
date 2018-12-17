@@ -109,7 +109,9 @@
   - screen capture and screen record(audio support?).
   - westons's zoom support.
 
-
+*** TODO update with damage
+    currently you do only ~wl_surface_damage(0, 0, w, h)~, which causes whole
+    buffer to redraw, I think there is a better solution for that.
 *** TODO svg2ttf implementation
 *** TODO supporting examing buffer
 *** TODO build weston along with taiwins(with meson maybe)
