@@ -363,7 +363,7 @@ _nk_egl_draw_begin(struct nk_egl_backend *bkend,
 	glBindVertexArray(bkend->vao);
 	glBindBuffer(GL_ARRAY_BUFFER, bkend->vbo);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bkend->ebo);
-
+	assert(glGetError() == GL_NO_ERROR);
 	//I guess it is not really a good idea to allocate buffer every frame.
 	//if we already have the glBufferData, we would just mapbuffer
 	vertices = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
