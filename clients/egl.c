@@ -61,7 +61,7 @@ debug_egl_config_attribs(EGLDisplay dsp, EGLConfig cfg)
 			   EGL_BUFFER_SIZE, &size);
 	fprintf(stderr, "\tcfg %p has buffer size %d\n", cfg, size);
 	yes = eglGetConfigAttrib(dsp, cfg, EGL_BIND_TO_TEXTURE_RGBA, NULL);
-	fprintf(stderr, "\tcfg %p can %s bound to the rgba buffer", cfg,
+	fprintf(stderr, "\tcfg %p can %s bound to the rgba buffer\n", cfg,
 		yes ? "" : "not");
 }
 
