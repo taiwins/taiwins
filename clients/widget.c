@@ -58,7 +58,6 @@ shell_widget_activate(struct shell_widget *widget, struct app_surface *panel, st
 
 /******************************* The sample widgets *********************************/
 
-
 /*
  * This is a simple illustration of how to work with a row. We may really does
  * not know how much space the widget occupies inadvance.
@@ -111,8 +110,8 @@ clock_widget_sample(struct nk_context *ctx, float width, float height, struct ap
 struct shell_widget clock_widget = {
 	.ancre_cb = clock_widget_anchor,
 	.draw_cb = clock_widget_sample,
-	.w = 400,
-	.h = 400,
+	.w = 200,
+	.h = 150,
 	.widget.s = 1,
 	.interval = {
 		.tv_sec = 1,
