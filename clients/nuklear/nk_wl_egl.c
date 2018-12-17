@@ -100,6 +100,9 @@ struct nk_egl_backend {
 //////////////////////////// FONT /////////////////////////////////
 ///////////////////////////////////////////////////////////////////
 
+static const nk_rune basic_range[] = {0x0020, 0x00ff, 0};
+static const nk_rune pua_range[] = {0xE000, 0xF8FF, 0,};
+
 static void
 nk_egl_release_font(struct nk_egl_backend *bkend)
 {
@@ -107,7 +110,7 @@ nk_egl_release_font(struct nk_egl_backend *bkend)
 		glDeleteTextures(1, &bkend->font_tex);
 		nk_font_atlas_clear(&bkend->atlas);
 		bkend->font_tex = 0;
-		free(bkend->base.unicode_range);
+		/* free(bkend->base.unicode_range); */
 		bkend->base.unicode_range = NULL;
 	}
 }
@@ -117,7 +120,6 @@ nk_egl_prepare_font(struct nk_egl_backend *bkend, size_t font_size)
 {
 	nk_egl_release_font(bkend);
 	bkend->font_size = font_size;
-	struct nk_wl_backend *b = &bkend->base;
 
 	//right now we need to hard code the font files
 	const char *vera = "/usr/share/fonts/TTF/Vera.ttf";
@@ -127,23 +129,19 @@ nk_egl_prepare_font(struct nk_egl_backend *bkend, size_t font_size)
 	int w, h;
 	const void *image;
 	struct nk_font_config cfg = nk_font_config(font_size);
-	const nk_rune pua_range[] = {	0xE000, 0xF8FF, };
 
 	size_t len_range  = merge_unicode_range(nk_font_default_glyph_ranges(),
 						pua_range, NULL);
-	b->unicode_range = malloc(sizeof(nk_rune) * (len_range+1));
-
-	merge_unicode_range(nk_font_default_glyph_ranges(), pua_range,
-			    b->unicode_range);
-	cfg.range = b->unicode_range;
-
 
 	nk_font_atlas_init_default(&bkend->atlas);
 	nk_font_atlas_begin(&bkend->atlas);
+	cfg.range = basic_range;
 	cfg.merge_mode = nk_false;
 	font = nk_font_atlas_add_from_file(&bkend->atlas, vera, font_size, &cfg);
-	/* cfg.merge_mode = nk_true; */
-	/* font = nk_font_atlas_add_from_file(&bkend->atlas, fa_a, font_size, &cfg); */
+
+	cfg.merge_mode = nk_true;
+	cfg.range = pua_range;
+	nk_font_atlas_add_from_file(&bkend->atlas, fa_a, font_size, &cfg);
 	//why do we need rgba32, because you need to support image too, maybe
 	//you need a differetn shader?
 	image = nk_font_atlas_bake(&bkend->atlas, &w, &h, NK_FONT_ATLAS_RGBA32);
@@ -156,6 +154,7 @@ nk_egl_prepare_font(struct nk_egl_backend *bkend, size_t font_size)
 	glBindTexture(GL_TEXTURE_2D, 0);
 	//now call this so the image is freed
 	nk_font_atlas_end(&bkend->atlas, nk_handle_id(bkend->font_tex), &bkend->null);
+	nk_font_atlas_cleanup(&bkend->atlas);
 	//I should be able to free the image here?
 	return font;
 }
