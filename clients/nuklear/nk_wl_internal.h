@@ -292,6 +292,18 @@ merge_unicode_range(const nk_rune *left, const nk_rune *right, nk_rune *out)
 
 /********************************* input ****************************************/
 
+/* Clear the retained input state
+ *
+ * unfortunatly we have to reset the input after the input so we do get retained
+ * intput state
+ */
+static inline void
+nk_input_reset(struct nk_context *ctx)
+{
+	nk_input_begin(ctx);
+	nk_input_end(ctx);
+}
+
 static void
 nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int state)
 {
@@ -339,6 +351,7 @@ nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int s
 	nk_input_end(&bkend->ctx);
 
 	nk_wl_new_frame(surf, 0);
+	nk_input_reset(&bkend->ctx);
 }
 
 static void
@@ -351,6 +364,7 @@ nk_pointron(struct app_surface *surf, uint32_t sx, uint32_t sy)
 	bkend->sx = sx;
 	bkend->sy = sy;
 	nk_wl_new_frame(surf, 0);
+	nk_input_reset(&bkend->ctx);
 }
 
 static void
@@ -377,11 +391,13 @@ nk_pointrbtn(struct app_surface *surf, enum taiwins_btn_t btn, bool state, uint3
 	nk_input_button(&bkend->ctx, b, (int)sx, (int)sy, state);
 	nk_input_end(&bkend->ctx);
 
-	bkend->cbtn = (state) ? b : -1;
+	bkend->cbtn = (state) ? b : -2;
 	bkend->sx = sx;
 	bkend->sy = sy;
 
 	nk_wl_new_frame(surf, 0);
+	nk_input_reset(&bkend->ctx);
+
 }
 
 static void
@@ -392,6 +408,7 @@ nk_pointraxis(struct app_surface *surf, int pos, int direction, uint32_t sx, uin
 	nk_input_scroll(&bkend->ctx, nk_vec2(direction * (float)sx, (direction * (float)sy)));
 	nk_input_begin(&bkend->ctx);
 	nk_wl_new_frame(surf, 0);
+	nk_input_reset(&bkend->ctx);
 }
 
 
