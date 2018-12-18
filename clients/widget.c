@@ -6,24 +6,38 @@
 #include "../3rdparties/iconheader/IconsFontAwesome5.h"
 
 static int
-redraw_panel(void *data)
+redraw_panel(void *data, int fd)
 {
-	struct app_surface *ancre = data;
+	struct shell_widget *widget = data;
+	//we set the fd here so
+	widget->fd = fd;
 	//panel gets redrawed for once we have a event
-	ancre->do_frame(ancre, 0);
-	return true;
+	widget->ancre.do_frame(&widget->ancre, 0);
+	return TW_EVENT_NOOP;
 }
 
+static int
+redraw_panel_for_timer(void *data, int fd)
+{
+	struct shell_widget *widget = data;
+	widget->fd = fd;
+	widget->ancre.do_frame(&widget->ancre, 0);
+	if (!(widget->interval).it_interval.tv_sec &&
+		!widget->interval.it_interval.tv_nsec)
+		return TW_EVENT_DEL;
+	else
+		return TW_EVENT_NOOP;
+}
 
 static void
-shell_widget_event_from_timer(struct shell_widget *widget, struct timespec time,
+shell_widget_event_from_timer(struct shell_widget *widget, struct itimerspec *time,
 			      struct tw_event_queue *event_queue)
 {
 	struct tw_event redraw_widget = {
-		.data = &widget->ancre,
-		.cb = redraw_panel,
+		.data = widget,
+		.cb = redraw_panel_for_timer,
 	};
-	tw_event_queue_add_timer(event_queue, &time, &redraw_widget);
+	tw_event_queue_add_timer(event_queue, time, &redraw_widget);
 }
 
 
@@ -31,10 +45,13 @@ static void
 shell_widget_event_from_file(struct shell_widget *widget, const char *path,
 			     struct tw_event_queue *event_queue)
 {
-	//dude, what the hell is this?
-	int fd = 0;
+	int fd = open(path, O_RDONLY | O_CLOEXEC);
+	if (!fd)
+		return;
+	//you don't need to set the fd here
+	widget->fd = fd;
+	//if mask is zero the client api will deal with a default flag
 	uint32_t mask = 0;
-	//TODO, open the file and set the mask
 
 	struct tw_event redraw_widget = {
 		.data = widget,
@@ -47,9 +64,8 @@ shell_widget_event_from_file(struct shell_widget *widget, const char *path,
 void
 shell_widget_activate(struct shell_widget *widget, struct app_surface *panel, struct tw_event_queue *queue)
 {
-
-	if (widget->interval.tv_sec || widget->interval.tv_nsec)
-		shell_widget_event_from_timer(widget, widget->interval, queue);
+	if (widget->interval.it_value.tv_sec || widget->interval.it_value.tv_nsec)
+		shell_widget_event_from_timer(widget, &widget->interval, queue);
 	else if (widget->file_path)
 		shell_widget_event_from_file(widget, widget->file_path, queue);
 	else if (widget->path_find) {
@@ -123,8 +139,14 @@ struct shell_widget clock_widget = {
 	.h = 150,
 	.widget.s = 1,
 	.interval = {
-		.tv_sec = 1,
-		.tv_nsec = 0,
+		.it_value = {
+			.tv_sec = 1,
+			.tv_nsec = 0,
+		},
+		.it_interval = {
+			.tv_sec = 1,
+			.tv_nsec = 0,
+		},
 	},
 	.file_path = NULL,
 };
@@ -144,7 +166,6 @@ battery_sysfile_find(struct shell_widget *widget, char *path)
 	return strlen(energy_now);
 }
 
-
 struct shell_widget battery_widget = {
 	.ancre_cb = battery_anchor,
 	.draw_cb = NULL,
@@ -152,7 +173,7 @@ struct shell_widget battery_widget = {
 	.h = 150,
 	.path_find = battery_sysfile_find,
 	.widget.s = 1,
-	.interval = {0},
+	.interval = {{0}, {0}},
 	.file_path = NULL,
 };
 
@@ -163,7 +184,6 @@ whatup_ancre(struct shell_widget *widget, struct shell_widget_label *label)
 	return 8;
 }
 
-
 struct shell_widget what_up_widget = {
 	.ancre_cb = whatup_ancre,
 	.draw_cb = NULL,
@@ -171,6 +191,6 @@ struct shell_widget what_up_widget = {
 	.h = 150,
 	.path_find = NULL,
 	.widget.s = 1,
-	.interval = {0},
+	.interval = {{0},{0}},
 	.file_path = NULL,
 };

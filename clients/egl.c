@@ -80,7 +80,7 @@ egl_env_init(struct egl_env *env, const struct wl_display *d)
 	fprintf(stderr, "the feature requires EGL 1.5 and it is not supported\n");
 	return false;
 #endif
-	env->wl_display = d;
+	env->wl_display = (struct wl_display *)d;
 	EGLint major, minor;
 	EGLint n;
 	EGLConfig egl_cfg;

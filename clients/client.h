@@ -36,9 +36,12 @@ extern "C" {
 #endif
 
 //this is accessible API
+enum tw_event_op { TW_EVENT_NOOP, TW_EVENT_DEL };
+
 struct tw_event {
 	void *data;
-	int (*cb)(void *);
+	//this return TW_EVENT_NOOP or tw_event_del
+	int (*cb)(void *, int fd);
 };
 
 //client side event processor
@@ -56,7 +59,7 @@ bool tw_event_queue_init(struct tw_event_queue *queue);
 bool tw_event_queue_add_source(struct tw_event_queue *queue, int fd,
 			       struct tw_event *event, uint32_t mask);
 
-bool tw_event_queue_add_timer(struct tw_event_queue *queue, const struct timespec *interval,
+bool tw_event_queue_add_timer(struct tw_event_queue *queue, const struct itimerspec *interval,
 			      struct tw_event *event);
 
 bool tw_event_queue_add_wl_display(struct tw_event_queue *queue, struct wl_display *d);
