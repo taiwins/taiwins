@@ -6,14 +6,18 @@
 #include "../3rdparties/iconheader/IconsFontAwesome5.h"
 
 static int
-redraw_panel(void *data, int fd)
+redraw_panel_for_file(void *data, int fd)
 {
 	struct shell_widget *widget = data;
 	//we set the fd here so
 	widget->fd = fd;
 	//panel gets redrawed for once we have a event
 	widget->ancre.do_frame(&widget->ancre, 0);
-	return TW_EVENT_NOOP;
+	//if somehow my fd changes, it means I no longer watch this fd anymore
+	if (widget->fd != fd)
+		return TW_EVENT_DEL;
+	else
+		return TW_EVENT_NOOP;
 }
 
 static int
@@ -55,7 +59,7 @@ shell_widget_event_from_file(struct shell_widget *widget, const char *path,
 
 	struct tw_event redraw_widget = {
 		.data = widget,
-		.cb = redraw_panel,
+		.cb = redraw_panel_for_file,
 	};
 	tw_event_queue_add_source(event_queue, fd, &redraw_widget, mask);
 }
