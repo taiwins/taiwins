@@ -55,10 +55,14 @@ struct shell_widget {
 	void *user_data;
 	//either a timer, or a static/dynamic path
 	struct {
-		struct timespec interval;
+		//a immediate/reccurent timer
+		struct itimerspec interval;
 		char *file_path;
 		shell_widget_path_find_t path_find;
 	};
+	//runtime access data
+	int fd;
+
 	uint32_t w;
 	uint32_t h;
 };

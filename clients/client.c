@@ -540,7 +540,6 @@ alloc_event_source(struct tw_event *e, uint32_t mask, int fd)
 	return event_source;
 }
 
-
 static void
 destroy_event_source(struct tw_event_source *s)
 {
@@ -564,7 +563,11 @@ tw_event_queue_run(struct tw_event_queue *queue)
 			event_source = events[i].data.ptr;
 			if (event_source->pre_hook)
 				event_source->pre_hook(event_source);
-			event_source->event.cb(event_source->event.data);
+			int output = event_source->event.cb(
+				event_source->event.data,
+				event_source->fd);
+			if (output == TW_EVENT_DEL)
+				destroy_event_source(event_source);
 		}
 
 	}
@@ -594,6 +597,8 @@ bool
 tw_event_queue_add_source(struct tw_event_queue *queue, int fd,
 			  struct tw_event *e, uint32_t mask)
 {
+	if (!mask)
+		mask = EPOLLIN | EPOLLET;
 	struct tw_event_source *s = alloc_event_source(e, mask, fd);
 	wl_list_insert(&queue->head, &s->link);
 
@@ -601,7 +606,7 @@ tw_event_queue_add_source(struct tw_event_queue *queue, int fd,
 		destroy_event_source(s);
 		return false;
 	}
-	e->cb(e->data);
+	e->cb(e->data, s->fd);
 	return true;
 }
 
@@ -614,17 +619,13 @@ read_timer(struct tw_event_source *s)
 
 bool
 tw_event_queue_add_timer(struct tw_event_queue *queue,
-			 const struct timespec *interval, struct tw_event *e)
+			 const struct itimerspec *spec, struct tw_event *e)
 {
 	int fd;
-	struct itimerspec spec = {
-		.it_interval = *interval,
-		.it_value = *interval,
-	};
 	fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
 	if (!fd)
 		goto err;
-	if (timerfd_settime(fd, 0, &spec, NULL))
+	if (timerfd_settime(fd, 0, spec, NULL))
 		goto err_settime;
 	struct tw_event_source *s = alloc_event_source(e, EPOLLIN | EPOLLET, fd);
 	s->pre_hook = read_timer;
@@ -644,8 +645,9 @@ err:
 }
 
 static int
-dispatch_wl_event(void *data)
+dispatch_wl_event(void *data, int fd)
 {
+	(void)fd;
 	struct tw_event_queue *queue = data;
 	struct wl_display *display = queue->wl_display;
 	while (wl_display_prepare_read(display) != 0)
@@ -656,7 +658,7 @@ dispatch_wl_event(void *data)
 
 	wl_display_dispatch_pending(display);
 	wl_display_flush(display);
-	return 0;
+	return TW_EVENT_NOOP;
 }
 
 bool
