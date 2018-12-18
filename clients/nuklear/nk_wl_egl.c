@@ -13,6 +13,7 @@
 #include <wayland-client.h>
 
 #define NK_IMPLEMENTATION
+#define NK_INCLUDE_STANDARD_IO
 #define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
 #define NK_INCLUDE_FONT_BAKING
 #define NK_EGL_CMD_SIZE 4096
