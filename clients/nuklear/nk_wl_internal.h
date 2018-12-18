@@ -23,7 +23,6 @@
 //#define NK_PRIVATE
 #define NK_INCLUDE_DEFAULT_ALLOCATOR
 #define NK_INCLUDE_FIXED_TYPES
-#define NK_INCLUDE_STANDARD_IO
 #define NK_INCLUDE_STANDARD_VARARGS
 
 //this will make our struct various size, so lets put the buffer in the end
