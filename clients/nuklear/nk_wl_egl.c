@@ -124,7 +124,7 @@ nk_egl_prepare_font(struct nk_egl_backend *bkend, size_t font_size)
 
 	//right now we need to hard code the font files
 	const char *vera = "/usr/share/fonts/TTF/Vera.ttf";
-	const char *fa_a = "/usr/share/fonts/TTF/fa-regular-400.ttf";
+	const char *fa_a = "/usr/share/fonts/TTF/fa-solid-900.ttf";
 
 	struct nk_font *font;
 	int w, h;
