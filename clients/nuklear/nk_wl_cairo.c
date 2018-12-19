@@ -262,7 +262,7 @@ nk_cairo_font_init(struct nk_cairo_font *font, const char *text_font, const char
 
 //	char font_path[256];
 	const char *vera = "/usr/share/fonts/TTF/Vera.ttf";
-	const char *fa_a = "/usr/share/fonts/TTF/fa-regular-400.ttf";
+	const char *fa_a = "/usr/share/fonts/TTF/fa-solid-900.ttf";
 
 	//tw_find_font_path(text_font, font_path, 256);
 	error = FT_New_Face(font->ft_lib, vera, 0,
