@@ -23,8 +23,8 @@ static int
 battery_anchor(struct shell_widget *widget, struct shell_widget_label *label)
 {
 	//this is the current design
-	const char *energy_full = battery_sys_files.energy_now;
-	const char *energy_now = battery_sys_files.energy_full;
+	const char *energy_full = battery_sys_files.energy_full;
+	const char *energy_now = battery_sys_files.energy_now;
 	const char *online = battery_sys_files.charging;
 
 	char energies[256]; int ef = 0, en = 0, ol = 0;
@@ -60,8 +60,8 @@ battery_anchor(struct shell_widget *widget, struct shell_widget_label *label)
 static int
 battery_sysfile_find(struct shell_widget *widget, char *path)
 {
-	char batt_file[256];
-	char adp_file[256];
+	char batt_file[128];
+	char adp_file[128];
 	const char *power_supply = "/sys/class/power_supply";
 	int bat_no = -1; int adp_no = -1;
 	struct dirent *batt;
@@ -69,19 +69,19 @@ battery_sysfile_find(struct shell_widget *widget, char *path)
 	if (!dir || is_dir_empty(dir))
 		return 0;
 	batt = dir_find_pattern(dir, "BAT%d", &bat_no);
-	strncpy(batt_file, batt->d_name, 256);
+	strncpy(batt_file, batt->d_name, 128);
 	seekdir(dir, 0);
 
 	batt = dir_find_pattern(dir, "ADP%d", &adp_no);
-	strncpy(adp_file, batt->d_name, 256);
+	strncpy(adp_file, batt->d_name, 128);
 	closedir(dir);
 
 	//we need to have additional checks
 	if (bat_no == -1)
 		return 0;
 	sprintf(battery_sys_files.energy_now, "%s/%s/%s", power_supply, batt_file, "energy_now");
-	sprintf(battery_sys_files.energy_full, "%s/%s/%s", power_supply, batt_file, "energy_now");
-	if (adp_no == -1)
+	sprintf(battery_sys_files.energy_full, "%s/%s/%s", power_supply, batt_file, "energy_full");
+	if (adp_no != -1)
 		sprintf(battery_sys_files.charging, "%s/%s/%s", power_supply, adp_file, "online");
 
 	int total_len = strlen(battery_sys_files.energy_now);
