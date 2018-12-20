@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
+#include <dirent.h>
+#include <unistd.h>
 #include <wayland-util.h>
 #include "ui.h"
 #include "widget.h"
@@ -188,16 +190,34 @@ battery_anchor(struct shell_widget *widget, struct shell_widget_label *label)
 	else
 		len = strncpy(label->label, ICON_FA_BATTERY_FULL, 256);
 	return len;
-
 }
 
 static int
 battery_sysfile_find(struct shell_widget *widget, char *path)
 {
-	const char *energy_now = "/sys/class/power_supply/BAT1/energy_now";
+	char battery_str[256];
+	const char *energy_now = "energy_now";
+	const char *power_supply = "/sys/class/power_supply";
+	int bat_no = -1;
+	struct dirent *batt;
+	DIR *dir = opendir(power_supply);
+	if (!dir)
+		return 0;
+	//okay, we will read
+	while ((batt = readdir(dir)) != NULL) {
+		if (sscanf(batt->d_name, "BAT%d", &bat_no) != 0) {
+			snprintf(battery_str, 256, "%s/%s/%s", power_supply, battery_str, energy_now);
+			break;
+		}
+	}
+	closedir(dir);
+	if (bat_no == -1)
+		return 0;
+	int total_len = strlen(battery_str);
+
 	if (path)
-		strcpy(path, energy_now);
-	return strlen(energy_now);
+		strcpy(path, battery_str);
+	return total_len;
 }
 
 struct shell_widget battery_widget = {
