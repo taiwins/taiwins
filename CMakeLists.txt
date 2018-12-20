@@ -80,6 +80,7 @@ target_link_libraries(taiwins_config
 
 add_subdirectory("3rdparties/ctypes")
 add_subdirectory("3rdparties/nuklear")
+add_subdirectory("3rdparties/iconheader")
 
 set(COMPOSITOR_LIBRARIES
   ${Libweston_LIBRARIES}
@@ -105,6 +106,7 @@ list(REMOVE_DUPLICATES COMPOSITOR_INCLUDE_DIRS)
 set(TRDPTY_INCLUDE_DIRS
   ${CTYPES_INCLUDE_DIR}
   ${NUKLEAR_INCLUDE_DIR}
+  ${ICON_INCLUDE_DIR}
   )
 set(TRDPTY_LIBRARIES
   ${CTYPES_LIBRARIES}

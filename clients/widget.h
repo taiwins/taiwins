@@ -52,7 +52,6 @@ struct shell_widget {
 	nk_wl_drawcall_t draw_cb;
 	nk_wl_postcall_t post_cb;
 	//it could be lua state.
-	void *user_data;
 	//either a timer, or a static/dynamic path
 	struct {
 		//a immediate/reccurent timer
@@ -62,6 +61,7 @@ struct shell_widget {
 	};
 	//runtime access data
 	int fd;
+	void *user_data;
 
 	uint32_t w;
 	uint32_t h;
@@ -96,6 +96,7 @@ struct wl_list *shell_widget_create_with_script(const char *script_content);
 /************** The sample widgets *******************/
 extern struct shell_widget clock_widget;
 extern struct shell_widget what_up_widget;
+extern struct shell_widget battery_widget;
 
 #ifdef __cplusplus
 }

@@ -394,6 +394,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	wl_list_init(&shell->shell_widgets);
 	wl_list_insert(&shell->shell_widgets, &clock_widget.link);
 	wl_list_insert(&shell->shell_widgets, &what_up_widget.link);
+	wl_list_insert(&shell->shell_widgets, &battery_widget.link);
 
 	tw_event_queue_init(&shell->client_event_queue);
 	shell->client_event_queue.quit =

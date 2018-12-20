@@ -1,6 +1,7 @@
 include_directories(
   ${CLIENT_INCLUDE_DIRS}
   ${PROTOCOLS_INCLUDE_DIR}
+  ${TRDPTY_INCLUDE_DIRS}
   )
 
 
@@ -26,6 +27,8 @@ add_subdirectory(nuklear)
 add_executable(shell-taiwins
   shell.c
   widget.c
+  widgets/clock.c
+  widgets/battery.c
   )
 
 #message("the NVEGL libraries are ${NVEGL_LIBRARIES}")
