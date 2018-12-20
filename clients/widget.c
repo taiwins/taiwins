@@ -1,9 +1,10 @@
 #include <stdio.h>
+#include <fcntl.h>
 #include <string.h>
 #include <wayland-util.h>
 #include "ui.h"
 #include "widget.h"
-#include "../3rdparties/iconheader/IconsFontAwesome5.h"
+#include "../3rdparties/iconheader/IconsFontAwesome5_c.h"
 
 static int
 redraw_panel_for_file(void *data, int fd)
@@ -158,6 +159,35 @@ struct shell_widget clock_widget = {
 static int
 battery_anchor(struct shell_widget *widget, struct shell_widget_label *label)
 {
+	//this is the current design
+	const char *energy_full = "/sys/class/power_supply/BAT1/energy_full";
+	const char *energy_now = "/sys/class/power_supply/BAT1/energy_now";
+	const char *online = "/sys/class/power_supply/ADP1/online";
+
+	char energies[256];
+	file_read(energy_full, energies, 256);
+	int ef = atoi((const char *)energies);
+	file_read(energy_now, energies, 256);
+	int en = atoi((const char *)energies);
+	file_read(online, energies, 256);
+	int ol = atoi((const char *)energies);
+
+	float percent = (float)en / (float)ef;
+	int len;
+
+	if (ol == 1)
+		len = strncpy(label->label, ICON_FA_CHARGING_STATION, 256);
+	else if (percent <= 0.1)
+		len = strncpy(label->label, ICON_FA_BATTERY_EMPTY, 256);
+	else if (percent > 0.1 && percent <= 0.3)
+		len = strncpy(label->label, ICON_FA_BATTERY_QUARTER, 256);
+	else if (percent > 0.3 && percent <= 0.6)
+		len = strncpy(label->label, ICON_FA_BATTERY_HALF, 256);
+	else if (percent > 0.6 && percent <= 0.8)
+		len = strncpy(label->label, ICON_FA_BATTERY_THREE_QUARTERS, 256);
+	else
+		len = strncpy(label->label, ICON_FA_BATTERY_FULL, 256);
+	return len;
 
 }
 
