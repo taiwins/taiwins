@@ -106,3 +106,12 @@ add_executable(test_user_font
 target_link_libraries(test_user_font
   ${CLIENT_LIBRARIES}
   )
+
+
+add_executable(test_event_queue
+  test_event_queue.c)
+
+target_link_libraries(test_event_queue
+  ${CLIENT_LIBRARIES}
+  taiwins_client
+  )

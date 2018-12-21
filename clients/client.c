@@ -6,6 +6,8 @@
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
 #include <poll.h>
+#include <sys/inotify.h>
+#include <libudev.h>
 
 #include <linux/input.h>
 #include <xkbcommon/xkbcommon.h>
@@ -18,6 +20,7 @@
 
 #include <sequential.h>
 #include <os/buffer.h>
+#include <os/file.h>
 
 #include "client.h"
 #include "ui.h"
@@ -518,13 +521,19 @@ struct tw_event_source {
 	struct tw_event event;
 	void (* pre_hook) (struct tw_event_source *);
 	void (* close)(struct tw_event_source *);
-	int fd;
+	int fd;//timer, or inotify fd
+	union {
+		int wd;//the actual watch id, we create one inotify per source.
+		struct udev_monitor *mon;
+	};
+
 };
 
 static void close_fd(struct tw_event_source *s)
 {
 	close(s->fd);
 }
+
 
 static struct tw_event_source*
 alloc_event_source(struct tw_event *e, uint32_t mask, int fd)
@@ -557,7 +566,8 @@ tw_event_queue_run(struct tw_event_queue *queue)
 	//poll->produce-event-or-timeout
 	while (!queue->quit) {
 		//it turned out this is crucial other wise we have nothing to read...
-		wl_display_flush(queue->wl_display);
+		if (queue->wl_display)
+			wl_display_flush(queue->wl_display);
 		int count = epoll_wait(queue->pollfd, events, 32, -1);
 		for (int i = 0; i < count; i++) {
 			event_source = events[i].data.ptr;
@@ -593,6 +603,44 @@ tw_event_queue_init(struct tw_event_queue *queue)
 	return true;
 }
 
+
+
+static void
+read_inotify(struct tw_event_source *s)
+{
+	struct inotify_event events[100];
+	read(s->fd, events, sizeof(events));
+}
+
+static void
+close_inotify_watch(struct tw_event_source *s)
+{
+	inotify_rm_watch(s->fd, s->wd);
+	close(s->fd);
+}
+
+//so tis would be
+bool
+tw_event_queue_add_file(struct tw_event_queue *queue, const char *path,
+			struct tw_event *e, uint32_t mask)
+{
+	if (!mask)
+		mask = IN_MODIFY | IN_DELETE;
+	if (!is_file_exist(path))
+		return false;
+	int fd = inotify_init1(IN_CLOEXEC);
+	struct tw_event_source *s = alloc_event_source(e, EPOLLIN | EPOLLET, fd);
+	s->close = close_inotify_watch;
+	s->pre_hook = read_inotify;
+
+	if (epoll_ctl(queue->pollfd, EPOLL_CTL_ADD, fd, &s->poll_event)) {
+		destroy_event_source(s);
+		return false;
+	}
+	s->wd = inotify_add_watch(fd, path, mask);
+	return true;
+}
+
 bool
 tw_event_queue_add_source(struct tw_event_queue *queue, int fd,
 			  struct tw_event *e, uint32_t mask)
@@ -601,6 +649,7 @@ tw_event_queue_add_source(struct tw_event_queue *queue, int fd,
 		mask = EPOLLIN | EPOLLET;
 	struct tw_event_source *s = alloc_event_source(e, mask, fd);
 	wl_list_insert(&queue->head, &s->link);
+	/* s->pre_hook = read_inotify; */
 
 	if (epoll_ctl(queue->pollfd, EPOLL_CTL_ADD, fd, &s->poll_event)) {
 		destroy_event_source(s);
