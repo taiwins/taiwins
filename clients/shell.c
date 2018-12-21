@@ -24,11 +24,6 @@
 
 struct taiwins_shell *shelloftaiwins;
 
-struct widget_launch_info {
-	uint32_t x;
-	uint32_t y;
-	struct shell_widget *widget;
-};
 
 struct shell_output {
 	struct desktop_shell *shell;
@@ -40,12 +35,20 @@ struct shell_output {
 	struct nk_style_button label_style;
 
 	//a temporary struct
-	struct widget_launch_info widget_launch;
 	double widgets_span;
 
 	struct nk_wl_backend *panel_backend;
 	struct shm_pool pool;
 };
+
+//state of current widget and widget to launch
+struct widget_launch_info {
+	uint32_t x;
+	uint32_t y;
+	struct shell_widget *widget;
+	struct shell_widget *current;
+};
+
 
 struct desktop_shell {
 	struct wl_globals globals;
@@ -56,6 +59,7 @@ struct desktop_shell {
 	struct nk_wl_backend *widget_backend;
 	struct shm_pool pool;
 	struct wl_list shell_widgets;
+	struct widget_launch_info widget_launch;
 	struct tw_event_queue client_event_queue;
 	//states
 	vector_t uinit_outputs;
@@ -117,8 +121,10 @@ widget_configure(void *data, struct tw_ui *ui_elem,
 static void
 widget_should_close(void *data, struct tw_ui *ui_elem)
 {
-	struct shell_widget *widget = (struct shell_widget *)data;
+	struct widget_launch_info *info = (struct widget_launch_info *)data;
+	struct shell_widget *widget = info->current;
 	app_surface_release(&widget->widget);
+	info->current = NULL;
 }
 
 static struct  tw_ui_listener widget_impl = {
@@ -132,19 +138,27 @@ launch_widget(struct app_surface *panel_surf)
 {
 	struct shell_output *shell_output =
 		container_of(panel_surf, struct shell_output, panel);
-	struct widget_launch_info *info = &shell_output->widget_launch;
 	struct desktop_shell *shell = shell_output->shell;
+	struct widget_launch_info *info = &shell->widget_launch;
+	if (info->current == info->widget)
+		return;
+	else if (info->current != NULL) {
+		//if there is a widget launched and is not current widget
+		app_surface_release(&info->current->widget);
+		info->current = NULL;
+	}
+
 	info->widget->widget.wl_globals = panel_surf->wl_globals;
 	struct wl_surface *widget_surface = wl_compositor_create_surface(shell->globals.compositor);
 	struct tw_ui *widget_proxy = taiwins_shell_launch_widget(shell->shell, widget_surface,
 								 shell_output->output,
 								 info->x, info->y);
-	tw_ui_add_listener(widget_proxy, &widget_impl, info->widget);
+	tw_ui_add_listener(widget_proxy, &widget_impl, info);
 	/* we should release the previous surface as well */
 	shell_widget_launch(info->widget, widget_surface, (struct wl_proxy *)widget_proxy,
 			    shell->widget_backend, &shell->pool,
 			    info->x, info->y);
-	*info = (struct widget_launch_info){0};
+	info->current = info->widget;
 }
 
 
@@ -222,19 +236,17 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 			clicked = widget;
 			label_span.x = bound.x;
 			label_span.y = bound.x+bound.w;
+			printf("The clicked is %p\n", clicked);
 		}
 		nk_button_text_styled(ctx, &shell_output->label_style,
 				      widget_label.label, len);
 	}
 	nk_layout_row_end(ctx);
-	if (!clicked || !widget->draw_cb)
+	//check if widget is already launched
+	if (!clicked || clicked->widget.protocol || !clicked->draw_cb)
 		return;
-	struct widget_launch_info *info = &shell_output->widget_launch;
+	struct widget_launch_info *info = &shell->widget_launch;
 	info->widget = clicked;
-
-	//again, we should add a post cb here.
-	if (clicked->widget.protocol || !clicked->draw_cb)
-		return;
 	struct nk_vec2 p = widget_launch_point_flat(&label_span, clicked, panel_surf);
 	info->x = (int)p.x;
 	info->y = (int)p.y;
@@ -444,6 +456,7 @@ desktop_shell_prepare(struct desktop_shell *shell)
 {
 	desktop_shell_init_rest_outputs(shell);
 	shm_pool_init(&shell->pool, shell->globals.shm, 4096, shell->globals.buffer_format);
+	shell->widget_launch = (struct widget_launch_info){0};
 }
 
 
