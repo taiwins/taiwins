@@ -80,7 +80,7 @@ battery_sysfile_find(struct shell_widget *widget, char *path)
 	if (bat_no == -1)
 		return 0;
 	sprintf(battery_sys_files.energy_now, "%s/%s/%s", power_supply, batt_file, "energy_now");
-	sprintf(battery_sys_files.energy_full, "%s/%s/%s", power_supply, batt_file, "energy_full");
+	sprintf(battery_sys_files.energy_full, "%s/%s/%s", power_supply, batt_file, "energy_full_design");
 	if (adp_no != -1)
 		sprintf(battery_sys_files.charging, "%s/%s/%s", power_supply, adp_file, "online");
 
