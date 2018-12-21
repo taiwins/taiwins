@@ -236,7 +236,6 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 			clicked = widget;
 			label_span.x = bound.x;
 			label_span.y = bound.x+bound.w;
-			printf("The clicked is %p\n", clicked);
 		}
 		nk_button_text_styled(ctx, &shell_output->label_style,
 				      widget_label.label, len);
