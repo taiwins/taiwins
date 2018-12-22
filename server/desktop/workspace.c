@@ -2,28 +2,9 @@
 #include <stdlib.h>
 #include "workspace.h"
 #include "layout.h"
+#include "../taiwins.h"
 
 
-struct workspace {
-	struct wl_list floating_layout_link;
-	struct wl_list tiling_layout_link;
-	//workspace does not distinguish the outputs.
-	//so when we `switch_workspace, all the output has to update.
-	//The layouting algorithm may have to worry about output
-	struct weston_layer hidden_layer;
-	struct weston_layer tiling_layer;
-	struct weston_layer floating_layer;
-	//Recent views::
-	//we need a recent_views struct for user to switch among views. FIRST a
-	//link list would be ideal but weston view struct does not have a link
-	//for it. The SECOND best choice is a link-list that wraps the view in
-	//it, but this requires extensive memory allocation. The NEXT best thing
-	//is a stack. Since the recent views and stack share the same logic. We
-	//will need a unique stack which can eliminate the duplicated elements.
-
-	//the only tiling layer here will create the problem when we want to do
-	//the stacking layout, for example. Only show two views.
-};
 
 size_t workspace_size =  sizeof(struct workspace);
 
@@ -62,8 +43,23 @@ workspace_release(struct workspace *ws)
 			weston_surface_destroy(surface);
 		}
 	}
+	struct layout *l, *n;
+	wl_list_for_each_safe(l, n, &ws->floating_layout_link, link)
+		floatlayout_destroy(l);
 }
 
+
+static inline struct weston_view *
+workspace_get_top_view(const struct workspace *ws)
+{
+	struct weston_view *view;
+	wl_list_for_each(view,
+			 &ws->floating_layer.view_list.link, layer_link.link)
+		return view;
+	wl_list_for_each(view, &ws->tiling_layer.view_list.link, layer_link.link)
+		return view;
+	return NULL;
+}
 
 static struct layout *
 workspace_get_layout_for_view(const struct workspace *ws, const struct weston_view *v)
@@ -91,6 +87,11 @@ arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
 	struct layout *layout = workspace_get_layout_for_view(ws, v);
 	if (!layout)
 		return;
+	//so this is the very smart part of the operation, you know the largest
+	//possible number of operations, and give pass that into layouting
+	//algorithm, so you don't need any memory allocations
+
+	//this should be max(2, ws->tiling_layer.view_list)
 	int len = wl_list_length(&ws->floating_layer.view_list.link) +
 		wl_list_length(&ws->tiling_layer.view_list.link) + 1;
 	struct disposer_op ops[len];
@@ -107,13 +108,26 @@ arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
 
 
 void
-workspace_switch(struct workspace *to, struct workspace *from)
+workspace_switch(struct workspace *to, struct workspace *from,
+		 struct weston_keyboard *keyboard)
 {
 	weston_layer_unset_position(&from->floating_layer);
 	weston_layer_unset_position(&from->tiling_layer);
 
 	weston_layer_set_position(&to->tiling_layer, WESTON_LAYER_POSITION_NORMAL);
 	weston_layer_set_position(&to->floating_layer , WESTON_LAYER_POSITION_NORMAL+1);
+	struct weston_view *view = workspace_get_top_view(to);
+
+	if (!keyboard)
+		return;
+	if (keyboard->focus)
+		if (keyboard->focus)
+			tw_lose_surface_focus(keyboard->focus);
+	if (view)
+		weston_keyboard_set_focus(keyboard, view->surface);
+
+	weston_compositor_damage_all(to->floating_layer.compositor);
+	weston_compositor_schedule_repaint(to->floating_layer.compositor);
 }
 
 
@@ -192,6 +206,15 @@ is_view_on_workspace(const struct weston_view *v, const struct workspace *ws)
 	return (layer == &ws->floating_layer || layer == &ws->tiling_layer);
 
 }
+
+bool
+is_workspace_empty(const struct workspace *ws)
+{
+	return wl_list_empty(&ws->tiling_layer.view_list.link) &&
+		wl_list_empty(&ws->floating_layer.view_list.link) &&
+		wl_list_empty(&ws->hidden_layer.view_list.link);
+}
+
 
 void
 workspace_add_view(struct workspace *w, struct weston_view *view)

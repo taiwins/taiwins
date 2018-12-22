@@ -73,10 +73,10 @@ struct tw_keypress {
 	uint32_t kc_linux;
 };
 
-//yoo, I should define bunch of hotkey function.
+//right now it is inadiquate
 typedef void (*shortcut_func_t)(void);
 
-//at the layer, you only need to know one key
+
 struct tw_keymap_tree {
 	//struct list_t *keyseq;
 	xkb_keysym_t keysym;

@@ -129,6 +129,15 @@ int main(int argc, char *argv[])
 					     twdesktop_move_binding, desktop);
 	weston_compositor_add_button_binding(compositor, BTN_LEFT, 0, twdesktop_click_focus_binding, desktop);
 	weston_compositor_add_touch_binding(compositor, 0, twdesktop_touch_focus_binding, desktop);
+	weston_compositor_add_key_binding(compositor, KEY_LEFT, MODIFIER_CTRL,
+					  twdesktop_workspace_switch_binding, desktop);
+	weston_compositor_add_key_binding(compositor, KEY_RIGHT, MODIFIER_CTRL,
+					  twdesktop_workspace_switch_binding, desktop);
+	for (int i = 0; i < 9; i++)
+		weston_compositor_add_key_binding(compositor, KEY_1+i, MODIFIER_CTRL,
+						  twdesktop_workspace_switch_binding, desktop);
+	weston_compositor_add_key_binding(compositor, KEY_B, MODIFIER_CTRL,
+					  twdesktop_workspace_switch_recent_binding, desktop);
 
 
 	wl_display_run(display);
@@ -139,6 +148,8 @@ int main(int argc, char *argv[])
 	// - weston_compositor_exit
 	// - weston_compositor_shutdown: remove all the bindings, output, renderer,
 	// - weston_compositor_destroy, this call finally free the compositor
+	end_twdesktop(desktop);
+
 	weston_compositor_shutdown(compositor);
 	weston_compositor_destroy(compositor);
 	wl_display_destroy(display);
