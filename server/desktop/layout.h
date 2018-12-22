@@ -54,7 +54,7 @@ typedef	void (*disposer_fun_t)(const enum disposer_command command,
 			       struct weston_view *v, struct layout *l,
 			       struct disposer_op *ops);
 
-
+//why I create this link based layout in the first place?
 struct layout {
 	bool clean;
 	//simplement les N permiere sont visible, tout sera visible si il est -1.

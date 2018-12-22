@@ -4,9 +4,9 @@
 #include <unistd.h>
 #include <compositor.h>
 #include <libweston-desktop.h>
-#include <sequential.h>
 #include <wayland-server.h>
-
+#include <helpers.h>
+#include <sequential.h>
 
 
 #include "../taiwins.h"
@@ -14,18 +14,17 @@
 #include "layout.h"
 #include "workspace.h"
 
+#define MAX_WORKSPACE 8
 
 struct twdesktop {
 	//does the desktop should have the shell ui layout? If that is the case,
 	//we should get the shell as well.
-
 	struct weston_compositor *compositor;
-	//taiwins_launcher
+	//why do I need the launcher here?
 	struct twlauncher *launcher;
 	/* managing current status */
 	struct workspace *actived_workspace[2];
-	//we may need a hidden layer
-	vector_t workspaces;
+	struct workspace workspaces[9];
 
 	struct weston_desktop *api;
 
@@ -35,6 +34,11 @@ struct twdesktop {
 };
 static struct twdesktop onedesktop;
 
+static inline off_t
+get_workspace_index(struct workspace *ws, struct twdesktop *d)
+{
+	return ws - d->workspaces;
+}
 
 
 /**
@@ -142,6 +146,8 @@ static struct weston_desktop_api desktop_impl =  {
 	.surface_removed = twdesk_surface_removed,
 	.committed = twdesk_surface_committed,
 	.move = twdesk_surface_move,
+	//we need to add resize, fullscreen requested,
+	//maximized requested, minimize requested
 	.struct_size = sizeof(struct weston_desktop_api),
 };
 /*** libweston-desktop implementation ***/
@@ -150,10 +156,8 @@ static void
 twdesktop_output_created(struct wl_listener *listener, void *data)
 {
 	struct weston_output *output = data;
-	for (int i = 0; i < onedesktop.workspaces.len; i++) {
-		struct workspace *w = (struct workspace *)
-			vector_at(&onedesktop.workspaces, i);
-		workspace_add_output(w, output);
+	for (int i = 0; i < MAX_WORKSPACE+1; i++) {
+		workspace_add_output(&onedesktop.workspaces[i], output);
 	}
 }
 
@@ -161,10 +165,10 @@ static void
 twdesktop_output_destroyed(struct wl_listener *listener, void *data)
 {
 	struct weston_output *output = data;
-	for (int i = 0; i < onedesktop.workspaces.len; i++) {
-		struct workspace *w = (struct workspace *)
-			vector_at(&onedesktop.workspaces, i);
-		//you somehow need to move the views to other output.
+
+	for (int i = 0; i < MAX_WORKSPACE+1; i++) {
+		struct workspace *w = &onedesktop.workspaces[i];
+		//you somehow need to move the views to other output
 		workspace_remove_output(w, output);
 	}
 }
@@ -175,15 +179,13 @@ announce_desktop(struct weston_compositor *ec, struct twlauncher *launcher)
 	//initialize the desktop
 	onedesktop.compositor = ec;
 	onedesktop.launcher = launcher;
+	struct workspace *wss = &onedesktop.workspaces;
 	{
-		vector_t *workspaces = &onedesktop.workspaces;
-		vector_init(workspaces, workspace_size, free_workspace);
-		vector_resize(workspaces, 9);
-		for (int i = 0; i < workspaces->len; i++)
-			workspace_init((struct workspace *)vector_at(workspaces, i), ec);
-		onedesktop.actived_workspace[0] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
-		onedesktop.actived_workspace[1] = (struct workspace *)vector_at(&onedesktop.workspaces, 0);
-		workspace_switch(onedesktop.actived_workspace[0], onedesktop.actived_workspace[0]);
+		for (int i = 0; i < MAX_WORKSPACE+1; i++)
+			workspace_init(&wss[i], ec);
+		onedesktop.actived_workspace[0] = &wss[0];
+		onedesktop.actived_workspace[1] = &wss[1];
+		workspace_switch(onedesktop.actived_workspace[0], onedesktop.actived_workspace[0], NULL);
 	}
 	/// create the desktop api
 	//NOTE this creates the xwayland layer, which is WAYLAND_LAYER_POSITION_NORMAL+1
@@ -212,6 +214,17 @@ announce_desktop(struct weston_compositor *ec, struct twlauncher *launcher)
 	return &onedesktop;
 }
 
+
+void
+end_twdesktop(struct twdesktop *desktop)
+{
+	//remove listeners
+	wl_list_remove(&desktop->output_create_listener.link);
+	wl_list_remove(&desktop->output_destroy_listener.link);
+	for (int i = 0; i < MAX_WORKSPACE+1; i++)
+		workspace_release(&desktop->workspaces[i]);
+	weston_desktop_destroy(desktop->api);
+}
 
 static struct weston_pointer_grab_interface twdesktop_moving_grab;
 
@@ -527,6 +540,41 @@ twdesktop_touch_activate_view(struct weston_touch *touch,
 	}
 }
 
+static void
+twdesktop_workspace_switch(struct weston_keyboard *keyboard,
+			   const struct timespec *time, uint32_t key,
+			   void *data)
+{
+	struct twdesktop *desktop = data;
+	struct workspace *ws = desktop->actived_workspace[0];
+	off_t ws_idx = get_workspace_index(ws, desktop);
+	desktop->actived_workspace[1] = ws;
+	if (key >= KEY_1 && key <= KEY_9) {
+		ws_idx = key - KEY_1;
+	} else if (key == KEY_LEFT)
+		ws_idx = max(0, ws_idx-1);
+	else if (key == KEY_RIGHT) {
+		ws_idx = min(MAX_WORKSPACE, ws_idx+1);
+	}
+	desktop->actived_workspace[0] = &desktop->workspaces[ws_idx];
+	workspace_switch(&desktop->workspaces[ws_idx], ws, keyboard);
+}
+
+
+static void
+twdesktop_workspace_switch_recent(struct weston_keyboard *keyboard,
+				  const struct timespec *time, uint32_t key,
+				  void *data)
+{
+	struct twdesktop *desktop = data;
+	swap(desktop->actived_workspace[0], desktop->actived_workspace[1]);
+	workspace_switch(desktop->actived_workspace[0], desktop->actived_workspace[1], keyboard);
+}
+
+weston_key_binding_handler_t twdesktop_workspace_switch_binding = &twdesktop_workspace_switch;
+weston_key_binding_handler_t twdesktop_workspace_switch_recent_binding =
+	&twdesktop_workspace_switch_recent;
+//why am I doing this?
 weston_axis_binding_handler_t twdesktop_zoom_binding = &twdesktop_zoom_axis;
 weston_axis_binding_handler_t twdesktop_alpha_binding = &twdesktop_alpha_axis;
 weston_button_binding_handler_t twdesktop_move_binding = &twdesktop_move_btn;

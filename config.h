@@ -73,12 +73,13 @@ struct taiwins_btnpress {
 	enum taiwins_modifier_mask mod;
 };
 
-
+//we need to think about this, because if we allow this, we need to have run-binding and
 struct taiwins_binding {
 	union {
 		struct taiwins_keypress keypress;
 		struct taiwins_btnpress btnpress;
 	};
+//	void () (struct taiwins_binding *b, )
 	//we need a generalized run-binding, this can be later
 };
 
