@@ -45,12 +45,21 @@
   - different layouting support
   - resize EGL windows.
   - compositing
-** [25%] server-side optimization
+** [42%] server-side optimization
+*** CANC rename all the ctype functions
+    screw that, I am not gonna do it.
 *** DONE singals for adding new output and seats
 *** TODO change the keyboard grab allowing the long pressing.
 *** DOIN updated to libweston-5
     - figure out the bug for libdrm backend.
-*** TODO deal with window resizing
+*** TODO finishing weston_desktop protocols
+    - resizing.
+    - maximizing.
+    - minimizing
+*** TODO switch bindings into our ~run_binding~ callbacks
+*** DONE have functional workspace implementation
+    - workspace is implemented as keybindings
+*** TODO refactring that layout implementation in workspace, it is ugly
 ** [66%] Configurations
 *** DONE styles, nuklear and other widget styles.
     - background color.
@@ -58,8 +67,8 @@
 *** DONE keyboard callbacks, this writes to a buffer, apparently.
 *** TODO shortcuts `taiwins_zoom`, `taiwins_alpha`. Move them into ~config.h~
 
-** [60%] libweston-desktop implementation                            :server:
-*** TODO implement the libweston-desktop protocol                     :proto:
+** [50%] libweston-desktop implementation                            :server:
+*** DOIN implement the libweston-desktop protocol                     :proto:
 *** DONE desktop layer architecture
 *** DONE simple random floating implementation
 *** TODO tiling layout
@@ -69,6 +78,7 @@
 *** DONE decoupling the desktop implementation                    :refactory:
 
 ** [83%] client-side optimization
+*** TODO add udev monitoring and inotify monitoring to event_queue
 *** DONE switch to epoll on wl_display
     - possible solution :: maybe we can use epoll on wl_display, and add it to
 	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
