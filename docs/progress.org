@@ -67,7 +67,7 @@
 *** DONE keyboard callbacks, this writes to a buffer, apparently.
 *** TODO shortcuts `taiwins_zoom`, `taiwins_alpha`. Move them into ~config.h~
 
-** [50%] libweston-desktop implementation                            :server:
+** [42%] libweston-desktop implementation                            :server:
 *** DOIN implement the libweston-desktop protocol                     :proto:
 *** DONE desktop layer architecture
 *** DONE simple random floating implementation
@@ -76,7 +76,11 @@
     for this to work, we probably will need ~radix tree~ or ~trie~ or hash
     table.
 *** DONE decoupling the desktop implementation                    :refactory:
-
+*** TODO include a ~last-focused-view-list~ per workspace?
+    First thought, it would be pain in the ass to allocate views and at finding
+    views at deleting. But actually since most of the case you are deleting the
+    current view, which is on the top of ~view-list~. So it wouldn't be slow
+    actually.
 ** [83%] client-side optimization
 *** TODO add udev monitoring and inotify monitoring to event_queue
 *** DONE switch to epoll on wl_display

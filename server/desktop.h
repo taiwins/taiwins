@@ -8,14 +8,14 @@ extern "C" {
 #endif
 
 
-struct twdesktop;
-struct twcommander;
+struct tw_desktop;
+struct tw_console;
 
-struct twcommander *announce_commander(struct weston_compositor *compositor,
+struct tw_console *announce_console(struct weston_compositor *compositor,
 				       struct twshell *shell, const char *exec_path);
 
-struct twdesktop *announce_desktop(struct weston_compositor *compositor);
-void end_twdesktop(struct twdesktop *desktop);
+struct tw_desktop *announce_desktop(struct weston_compositor *compositor);
+void end_desktop(struct tw_desktop *desktop);
 
 
 /////////////// Desktop bindings ///////////////////////
@@ -24,22 +24,22 @@ void end_twdesktop(struct twdesktop *desktop);
 //and bind them in the another file
 
 //// operations on the output
-extern weston_axis_binding_handler_t twdesktop_zoom_binding;
+extern weston_axis_binding_handler_t tw_desktop_zoom_binding;
 
 //// operations on workspaces
-extern weston_key_binding_handler_t twdesktop_workspace_switch_binding;
-extern weston_key_binding_handler_t twdesktop_workspace_switch_recent_binding;
+extern weston_key_binding_handler_t tw_desktop_workspace_switch_binding;
+extern weston_key_binding_handler_t tw_desktop_workspace_switch_recent_binding;
 
 //// operations on the views
-extern weston_axis_binding_handler_t twdesktop_alpha_binding;
-extern weston_button_binding_handler_t twdesktop_move_binding;
-extern weston_button_binding_handler_t twdesktop_click_focus_binding;
-extern weston_touch_binding_handler_t twdesktop_touch_focus_binding;
-extern weston_touch_binding_handler_t twdesktop_active_tchbinding;
-extern weston_key_binding_handler_t twdesktop_resize_keybinding;
-extern weston_key_binding_handler_t twdesktop_deplace_binding;
-extern weston_key_binding_handler_t twdesktop_focus_binding;
-extern weston_key_binding_handler_t twdesktop_change_view_ws_binding;
+extern weston_axis_binding_handler_t tw_desktop_alpha_binding;
+extern weston_button_binding_handler_t tw_desktop_move_binding;
+extern weston_button_binding_handler_t tw_desktop_click_focus_binding;
+extern weston_touch_binding_handler_t tw_desktop_touch_focus_binding;
+extern weston_touch_binding_handler_t tw_desktop_active_tchbinding;
+extern weston_key_binding_handler_t tw_desktop_resize_keybinding;
+extern weston_key_binding_handler_t tw_desktop_deplace_binding;
+extern weston_key_binding_handler_t tw_desktop_focus_binding;
+extern weston_key_binding_handler_t tw_desktop_change_view_ws_binding;
 
 /// now we have to figure out how to have user define the keys, but we should
 /// wait the input system is ready

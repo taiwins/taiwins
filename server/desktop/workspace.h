@@ -10,6 +10,7 @@
 extern "C" {
 #endif
 
+
 struct workspace {
 	struct wl_list floating_layout_link;
 	struct wl_list tiling_layout_link;
@@ -20,17 +21,22 @@ struct workspace {
 	struct weston_layer tiling_layer;
 	struct weston_layer floating_layer;
 	struct weston_layer fullscreen_layer;
-	//Recent views::
-	//we need a recent_views struct for user to switch among views. FIRST a
-	//link list would be ideal but weston view struct does not have a link
-	//for it. The SECOND best choice is a link-list that wraps the view in
-	//it, but this requires extensive memory allocation. The NEXT best thing
-	//is a stack. Since the recent views and stack share the same logic. We
-	//will need a unique stack which can eliminate the duplicated elements.
+
+	//this list will be used in creating/deleting views. switch workspace,
+	//switch views by key, click views will be horrible though. You have to
+	//go through the list
+	//what about a hashed link-list ? Will it be faster?
+	struct wl_list recent_views;
 
 	//the only tiling layer here will create the problem when we want to do
 	//the stacking layout, for example. Only show two views.
 };
+
+struct focused_view {
+	struct weston_view *ev;
+	struct wl_list link;
+};
+
 
 extern size_t workspace_size;
 

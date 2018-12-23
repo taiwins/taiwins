@@ -98,14 +98,25 @@
   </interface>
 
   <!-- launcher interface -->
-  <interface name="taiwins_launcher" version="1">
-    <description summary="the launcher interface of taiwins">
-      The event and request below follows the order of usage. Since this object
-      is a global interface, it creates by events. So we have to be careful.
-    </description>
+  <interface name="taiwins_console" version="1">
+    <description summary="the console interface of taiwins">
+      This interface acts as a shell to submit multiple commands to the
+      server. It is also the port to do fork-exec.
 
+      It has a difficult structure, the procedure complex, 1. When keybinding
+      actived, server indicates the client to start the commander. 2. The client
+      then needs to create the surface and request an UI element in order to
+      draw on it. 3. Then after the commit, the UI appears and works like other
+      application. 4. The client can choose to close the destroy the surface and
+      the ui element and do nothing. 5. If it needs submit information to the
+      server. It can do that now. 6. Then If server needs it to exec an
+      application. It will pass the `exec` command to the client.
+
+      The first 3 event/request works like TCP/IP, clients waits for ACK to do
+      the next. But once started. It can perform quickly.
+    </description>
     <event name="start">
-      <description summary="instruct the client to call set_launcher">
+      <description summary="instruct the client to call launch">
 	launching information about the launcher itself
       </description>
       <arg name="width" type="fixed"/>

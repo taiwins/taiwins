@@ -18,14 +18,10 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include "backend.h"
 #include "shell.h"
-#include "desktop/desktop.h"
+#include "desktop.h"
 #include "taiwins.h"
 
 
-//this is a really bad idea
-struct tw_resources {
-
-};
 
 //remove this two later
 static struct weston_seat g_seat;
@@ -93,7 +89,6 @@ taiwins_quit(struct weston_keyboard *keyboard,
 
 }
 
-
 int main(int argc, char *argv[])
 {
 	struct wl_list children_list;
@@ -101,13 +96,10 @@ int main(int argc, char *argv[])
 	const char *launcherpath = (argc > 2) ? argv[2] : NULL;
 	struct wl_display *display = wl_display_create();
 
-
 	weston_log_set_handler(tw_log, tw_log);
-
 	//quit if we already have a wayland server
 	if (wl_display_add_socket(display, NULL) == -1)
 		goto connect_err;
-
 
 	struct weston_compositor *compositor = weston_compositor_create(display, tw_get_backend());
 	weston_compositor_add_key_binding(compositor, KEY_F12, 0, taiwins_quit, display);
@@ -118,26 +110,26 @@ int main(int argc, char *argv[])
 	weston_compositor_wake(compositor);
 	//good moment to add the extensions
 	struct twshell *shell = announce_twshell(compositor, shellpath);
-	struct twlauncher *launcher = announce_twlauncher(compositor, shell, launcherpath);
-	struct twdesktop *desktop = announce_desktop(compositor, launcher);
+	struct tw_console *console = announce_console(compositor, shell, launcherpath);
+	struct tw_desktop *desktop = announce_desktop(compositor);
 
 	weston_compositor_add_axis_binding(compositor, WL_POINTER_AXIS_VERTICAL_SCROLL,
-					   MODIFIER_SUPER | MODIFIER_ALT, twdesktop_zoom_binding, desktop);
+					   MODIFIER_SUPER | MODIFIER_ALT, tw_desktop_zoom_binding, desktop);
 	weston_compositor_add_axis_binding(compositor, WL_POINTER_AXIS_VERTICAL_SCROLL,
-					   MODIFIER_SUPER | MODIFIER_ALT, twdesktop_alpha_binding, desktop);
+					   MODIFIER_SUPER | MODIFIER_ALT, tw_desktop_alpha_binding, desktop);
 	weston_compositor_add_button_binding(compositor, BTN_LEFT, MODIFIER_SUPER,
-					     twdesktop_move_binding, desktop);
-	weston_compositor_add_button_binding(compositor, BTN_LEFT, 0, twdesktop_click_focus_binding, desktop);
-	weston_compositor_add_touch_binding(compositor, 0, twdesktop_touch_focus_binding, desktop);
+					     tw_desktop_move_binding, desktop);
+	weston_compositor_add_button_binding(compositor, BTN_LEFT, 0, tw_desktop_click_focus_binding, desktop);
+	weston_compositor_add_touch_binding(compositor, 0, tw_desktop_touch_focus_binding, desktop);
 	weston_compositor_add_key_binding(compositor, KEY_LEFT, MODIFIER_CTRL,
-					  twdesktop_workspace_switch_binding, desktop);
+					  tw_desktop_workspace_switch_binding, desktop);
 	weston_compositor_add_key_binding(compositor, KEY_RIGHT, MODIFIER_CTRL,
-					  twdesktop_workspace_switch_binding, desktop);
+					  tw_desktop_workspace_switch_binding, desktop);
 	for (int i = 0; i < 9; i++)
 		weston_compositor_add_key_binding(compositor, KEY_1+i, MODIFIER_CTRL,
-						  twdesktop_workspace_switch_binding, desktop);
+						  tw_desktop_workspace_switch_binding, desktop);
 	weston_compositor_add_key_binding(compositor, KEY_B, MODIFIER_CTRL,
-					  twdesktop_workspace_switch_recent_binding, desktop);
+					  tw_desktop_workspace_switch_recent_binding, desktop);
 
 
 	wl_display_run(display);
@@ -148,7 +140,7 @@ int main(int argc, char *argv[])
 	// - weston_compositor_exit
 	// - weston_compositor_shutdown: remove all the bindings, output, renderer,
 	// - weston_compositor_destroy, this call finally free the compositor
-	end_twdesktop(desktop);
+	end_desktop(desktop);
 
 	weston_compositor_shutdown(compositor);
 	weston_compositor_destroy(compositor);
