@@ -83,4 +83,25 @@ customization. For pointer and touch, you can easily set moving up and done as
 
 
 ## weston-renderer implementation
-TODO
+The one key function to look at is the `weston_output_repaint`. This is the
+frame callback, called in maybe `eventloop`. It does a few things:
+
+- it need to build up the `view_list` of current frame, extract from layers, and
+  sort them in order.
+
+- move views to planes, if backend supports multiple planes, it does that.
+
+- initialize the `frame_callback` list, this is where the `frame_done` gets sent
+
+- next it accumenate the damage, when you set `weston_view_damage_ below`, it
+  gets accumulated here.
+
+- Then it calls renderer to repaint.
+
+- sends all the `frame_callbacks`.
+
+- output has an animation list. It does that as well.
+
+## weston-view coordinates
+see the `compositor_accumulate_damamge`, there is nothing about output
+weston_view has a geometry, this geometry is in global coordinates.

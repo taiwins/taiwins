@@ -51,11 +51,11 @@ target_link_libraries(shell-taiwins
 
 
 
-add_executable(shell-launcher
-  launcher.c
+add_executable(shell-console
+  console.c
   )
 
-target_link_libraries(shell-launcher
+target_link_libraries(shell-console
   ${CLIENT_LIBRARIES}
   ${TRDPTY_LIBRARIES}
   ${WAYLAND_CURSOR_LIBRARIES}
