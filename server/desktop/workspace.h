@@ -19,6 +19,7 @@ struct workspace {
 	struct weston_layer hidden_layer;
 	struct weston_layer tiling_layer;
 	struct weston_layer floating_layer;
+	struct weston_layer fullscreen_layer;
 	//Recent views::
 	//we need a recent_views struct for user to switch among views. FIRST a
 	//link list would be ideal but weston view struct does not have a link

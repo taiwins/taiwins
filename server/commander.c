@@ -16,7 +16,7 @@
  * this struct handles the request and sends the event from
  * taiwins_launcher.
  */
-struct twlauncher {
+struct twcommander {
 	// client  info
 	char path[256];
 	struct wl_client *client;
@@ -30,11 +30,11 @@ struct twlauncher {
 	struct wl_listener close_launcher_listener;
 };
 
-static struct twlauncher onelauncher;
+static struct twcommander onelauncher;
 
 void launcher_surface_destroy_cb(struct wl_listener *listener, void *data)
 {
-	struct twlauncher *launcher = container_of(listener, struct twlauncher, close_launcher_listener);
+	struct twcommander *launcher = container_of(listener, struct twcommander, close_launcher_listener);
 	launcher->surface = NULL;
 }
 
@@ -46,7 +46,7 @@ close_launcher(struct wl_client *client,
 		       uint32_t exec_id)
 {
 	fprintf(stderr, "the launcher client is %p\n", client);
-	struct twlauncher *lch = (struct twlauncher *)wl_resource_get_user_data(resource);
+	struct twcommander *lch = (struct twcommander *)wl_resource_get_user_data(resource);
 	lch->decision_buffer = wl_shm_buffer_get(wl_buffer);
 	taiwins_launcher_send_exec(resource, exec_id);
 }
@@ -58,7 +58,7 @@ set_launcher(struct wl_client *client,
 	     uint32_t ui_elem,
 	     struct wl_resource *wl_surface)
 {
-	struct twlauncher *lch = wl_resource_get_user_data(resource);
+	struct twcommander *lch = wl_resource_get_user_data(resource);
 	twshell_create_ui_elem(lch->shell, client, ui_elem, wl_surface, NULL, 100, 100, TW_UI_TYPE_WIDGET);
 	lch->surface = tw_surface_from_resource(wl_surface);
 	wl_resource_add_destroy_listener(wl_surface, &lch->close_launcher_listener);
@@ -82,7 +82,7 @@ bind_launcher(struct wl_client *client, void *data, uint32_t version, uint32_t i
 {
 	/* int pid, uid, gid; */
 	/* wl_client_get_credentials(client, &pid, &uid, &gid); */
-	struct twlauncher *launcher = data;
+	struct twcommander *launcher = data;
 	struct wl_resource *wl_resource = wl_resource_create(client, &taiwins_launcher_interface,
 							  TWDESKP_VERSION, id);
 
@@ -104,7 +104,7 @@ should_start_launcher(struct weston_keyboard *keyboard,
 		      const struct timespec *time, uint32_t key,
 		      void *data)
 {
-	struct twlauncher *lch = data;
+	struct twcommander *lch = data;
 	if ((lch->surface) && wl_list_length(&lch->surface->views))
 		return;
 	fprintf(stderr, "should start launcher\n");
@@ -114,18 +114,15 @@ should_start_launcher(struct weston_keyboard *keyboard,
 				    wl_fixed_from_int(1));
 }
 
-
 static void
 launch_launcher_client(void *data)
 {
-	struct twlauncher *launcher = data;
+	struct twcommander *launcher = data;
 	launcher->client = tw_launch_client(launcher->compositor, launcher->path);
 	wl_client_get_credentials(launcher->client, &launcher->pid, &launcher->uid, &launcher->gid);
 }
 
-
-
-struct twlauncher *announce_twlauncher(struct weston_compositor *compositor,
+struct twcommander *announce_commander(struct weston_compositor *compositor,
 				       struct twshell *shell, const char *path)
 {
 	onelauncher.surface = NULL;
@@ -136,7 +133,7 @@ struct twlauncher *announce_twlauncher(struct weston_compositor *compositor,
 	onelauncher.close_launcher_listener.notify = launcher_surface_destroy_cb;
 
 	wl_global_create(compositor->wl_display, &taiwins_launcher_interface, TWDESKP_VERSION, &onelauncher, bind_launcher);
-	weston_compositor_add_key_binding(compositor, KEY_P, 0, should_start_launcher, &onelauncher);
+	weston_compositor_add_key_binding(compositor, KEY_P, MODIFIER_CTRL, should_start_launcher, &onelauncher);
 
 	if (path) {
 		assert(strlen(path) +1 <= sizeof(onelauncher.path));

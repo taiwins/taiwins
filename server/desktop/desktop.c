@@ -8,9 +8,8 @@
 #include <helpers.h>
 #include <sequential.h>
 
-
 #include "../taiwins.h"
-#include "desktop.h"
+#include "../desktop.h"
 #include "layout.h"
 #include "workspace.h"
 
@@ -21,7 +20,6 @@ struct twdesktop {
 	//we should get the shell as well.
 	struct weston_compositor *compositor;
 	//why do I need the launcher here?
-	struct twlauncher *launcher;
 	/* managing current status */
 	struct workspace *actived_workspace[2];
 	struct workspace workspaces[9];
@@ -174,12 +172,11 @@ twdesktop_output_destroyed(struct wl_listener *listener, void *data)
 }
 
 struct twdesktop *
-announce_desktop(struct weston_compositor *ec, struct twlauncher *launcher)
+announce_desktop(struct weston_compositor *ec)
 {
 	//initialize the desktop
 	onedesktop.compositor = ec;
-	onedesktop.launcher = launcher;
-	struct workspace *wss = &onedesktop.workspaces;
+	struct workspace *wss = onedesktop.workspaces;
 	{
 		for (int i = 0; i < MAX_WORKSPACE+1; i++)
 			workspace_init(&wss[i], ec);

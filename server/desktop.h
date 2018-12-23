@@ -1,7 +1,7 @@
 #ifndef TW_DESKTOP_H
 #define TW_DESKTOP_H
 
-#include "../shell.h"
+#include "shell.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -9,13 +9,12 @@ extern "C" {
 
 
 struct twdesktop;
-struct twlauncher;
+struct twcommander;
 
-struct twlauncher *announce_twlauncher(struct weston_compositor *compositor,
+struct twcommander *announce_commander(struct weston_compositor *compositor,
 				       struct twshell *shell, const char *exec_path);
 
-/** TODO add desktop protocols **/
-struct twdesktop *announce_desktop(struct weston_compositor *compositor, struct twlauncher *launcher);
+struct twdesktop *announce_desktop(struct weston_compositor *compositor);
 void end_twdesktop(struct twdesktop *desktop);
 
 
