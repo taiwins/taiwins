@@ -7,8 +7,8 @@ add_library(twshell STATIC
   shell.c
   )
 
-add_library(twlauncher STATIC
-  launcher.c)
+add_library(twcommander STATIC
+  commander.c)
 
 target_link_libraries(twshell
   proto_server_libraries
@@ -33,6 +33,6 @@ target_link_libraries(taiwins
   ${COMPOSITOR_LIBRARIES}
   ${TRDPTY_LIBRARIES}
   twshell
-  twlauncher
+  twcommander
   taiwins_desktop
   )
