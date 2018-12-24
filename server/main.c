@@ -24,8 +24,6 @@
 
 
 //remove this two later
-static struct weston_seat g_seat;
-struct weston_seat *seat0;
 
 static int
 tw_log(const char *format, va_list args)
@@ -33,6 +31,7 @@ tw_log(const char *format, va_list args)
 	return vfprintf(stderr, format, args);
 }
 
+/*
 static bool
 setup_input(struct weston_compositor *compositor)
 {
@@ -67,6 +66,7 @@ setup_input(struct weston_compositor *compositor)
 //	weston_seat_init_touch(seat0);
 	return true;
 }
+*/
 
 static void
 taiwins_quit(struct weston_keyboard *keyboard,
@@ -91,7 +91,6 @@ taiwins_quit(struct weston_keyboard *keyboard,
 
 int main(int argc, char *argv[])
 {
-	struct wl_list children_list;
 	const char *shellpath = (argc > 1) ? argv[1] : NULL;
 	const char *launcherpath = (argc > 2) ? argv[2] : NULL;
 	struct wl_display *display = wl_display_create();
@@ -109,27 +108,28 @@ int main(int argc, char *argv[])
 	fprintf(stderr, "backend registred\n");
 	weston_compositor_wake(compositor);
 	//good moment to add the extensions
-	struct twshell *shell = announce_twshell(compositor, shellpath);
-	struct tw_console *console = announce_console(compositor, shell, launcherpath);
-	struct tw_desktop *desktop = announce_desktop(compositor);
+	struct shell *sh = announce_shell(compositor, shellpath);
+	struct console *con = announce_console(compositor, sh, launcherpath);
+	struct desktop *desktop = announce_desktop(compositor);
+	(void)(con);
 
 	weston_compositor_add_axis_binding(compositor, WL_POINTER_AXIS_VERTICAL_SCROLL,
-					   MODIFIER_SUPER | MODIFIER_ALT, tw_desktop_zoom_binding, desktop);
+					   MODIFIER_SUPER | MODIFIER_ALT, desktop_zoom_binding, desktop);
 	weston_compositor_add_axis_binding(compositor, WL_POINTER_AXIS_VERTICAL_SCROLL,
-					   MODIFIER_SUPER | MODIFIER_ALT, tw_desktop_alpha_binding, desktop);
+					   MODIFIER_SUPER | MODIFIER_ALT, desktop_alpha_binding, desktop);
 	weston_compositor_add_button_binding(compositor, BTN_LEFT, MODIFIER_SUPER,
-					     tw_desktop_move_binding, desktop);
-	weston_compositor_add_button_binding(compositor, BTN_LEFT, 0, tw_desktop_click_focus_binding, desktop);
-	weston_compositor_add_touch_binding(compositor, 0, tw_desktop_touch_focus_binding, desktop);
+					     desktop_move_binding, desktop);
+	weston_compositor_add_button_binding(compositor, BTN_LEFT, 0, desktop_click_focus_binding, desktop);
+	weston_compositor_add_touch_binding(compositor, 0, desktop_touch_focus_binding, desktop);
 	weston_compositor_add_key_binding(compositor, KEY_LEFT, MODIFIER_CTRL,
-					  tw_desktop_workspace_switch_binding, desktop);
+					  desktop_workspace_switch_binding, desktop);
 	weston_compositor_add_key_binding(compositor, KEY_RIGHT, MODIFIER_CTRL,
-					  tw_desktop_workspace_switch_binding, desktop);
+					  desktop_workspace_switch_binding, desktop);
 	for (int i = 0; i < 9; i++)
 		weston_compositor_add_key_binding(compositor, KEY_1+i, MODIFIER_CTRL,
-						  tw_desktop_workspace_switch_binding, desktop);
+						  desktop_workspace_switch_binding, desktop);
 	weston_compositor_add_key_binding(compositor, KEY_B, MODIFIER_CTRL,
-					  tw_desktop_workspace_switch_recent_binding, desktop);
+					  desktop_workspace_switch_recent_binding, desktop);
 
 
 	wl_display_run(display);
@@ -146,9 +146,6 @@ int main(int argc, char *argv[])
 	weston_compositor_destroy(compositor);
 	wl_display_destroy(display);
 	return 0;
-setup_err:
-	weston_compositor_shutdown(compositor);
-	weston_compositor_destroy(compositor);
 connect_err:
 	wl_display_destroy(display);
 	return -1;

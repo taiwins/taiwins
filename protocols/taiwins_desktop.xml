@@ -1,6 +1,6 @@
 <protocol name="taiwins_desktop">
 
-  <interface name="taiwins_shell" version="1">
+  <interface name="tw_shell" version="1">
     <description summary="create desktop widgets and helpers">
       Traditional user interfaces can rely on this interface to define the
       foundations of typical desktops. Currently it's possible to set up
@@ -98,7 +98,7 @@
   </interface>
 
   <!-- launcher interface -->
-  <interface name="taiwins_console" version="1">
+  <interface name="tw_console" version="1">
     <description summary="the console interface of taiwins">
       This interface acts as a shell to submit multiple commands to the
       server. It is also the port to do fork-exec.
