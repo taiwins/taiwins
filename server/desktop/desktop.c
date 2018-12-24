@@ -152,6 +152,10 @@ static struct weston_desktop_api desktop_impl =  {
 /*** libweston-desktop implementation ***/
 
 static void
+desktop_add_keybindings(struct weston_compositor *compositor, struct desktop *desktop);
+
+
+static void
 desktop_output_created(struct wl_listener *listener, void *data)
 {
 	struct weston_output *output = data;
@@ -171,6 +175,7 @@ desktop_output_destroyed(struct wl_listener *listener, void *data)
 		workspace_remove_output(w, output);
 	}
 }
+
 
 struct desktop *
 announce_desktop(struct weston_compositor *ec)
@@ -207,8 +212,9 @@ announce_desktop(struct weston_compositor *ec)
 			desktop_output_created(&DESKTOP.output_create_listener,
 						 output);
 	}
+	//last step, add keybindings
+	desktop_add_keybindings(ec, &DESKTOP);
 
-//	wl_global_create(ec->wl_display, &taiwins_launcher_interface, TWDESKP_VERSION, &DESKTOP, bind_desktop);
 	return &DESKTOP;
 }
 
@@ -517,6 +523,7 @@ desktop_click_activate_view(struct weston_pointer *pointer,
 		weston_desktop_client_ping(
 			weston_desktop_surface_get_client(s));
 	}
+	//TODO have shell_focus_view as well!!
 }
 
 static void
@@ -569,13 +576,28 @@ desktop_workspace_switch_recent(struct weston_keyboard *keyboard,
 	workspace_switch(desktop->actived_workspace[0], desktop->actived_workspace[1], keyboard);
 }
 
-weston_key_binding_handler_t desktop_workspace_switch_binding = &desktop_workspace_switch;
-weston_key_binding_handler_t desktop_workspace_switch_recent_binding =
-	&desktop_workspace_switch_recent;
-//why am I doing this?
-weston_axis_binding_handler_t desktop_zoom_binding = &desktop_zoom_axis;
-weston_axis_binding_handler_t desktop_alpha_binding = &desktop_alpha_axis;
-weston_button_binding_handler_t desktop_move_binding = &desktop_move_btn;
-weston_button_binding_handler_t desktop_click_focus_binding = &desktop_click_activate_view;
-weston_touch_binding_handler_t  desktop_touch_focus_binding = &desktop_touch_activate_view;
-//weston_key_binding_handler_t desktop_deplace_binding = &desktop_deplace_key;
+
+static void
+desktop_add_keybindings(struct weston_compositor *compositor, struct desktop *desktop)
+{
+	weston_compositor_add_axis_binding(compositor, WL_POINTER_AXIS_VERTICAL_SCROLL,
+					   MODIFIER_SUPER | MODIFIER_ALT, desktop_zoom_axis, desktop);
+	weston_compositor_add_axis_binding(compositor, WL_POINTER_AXIS_VERTICAL_SCROLL,
+					   MODIFIER_SUPER | MODIFIER_ALT, desktop_alpha_axis, desktop);
+	weston_compositor_add_button_binding(compositor, BTN_LEFT, MODIFIER_SUPER,
+					     desktop_move_btn, desktop);
+	//focus bindings
+	weston_compositor_add_button_binding(compositor, BTN_LEFT, 0, desktop_click_activate_view, desktop);
+	weston_compositor_add_touch_binding(compositor, 0, desktop_touch_activate_view, desktop);
+
+	//switch bindings
+	weston_compositor_add_key_binding(compositor, KEY_LEFT, MODIFIER_CTRL,
+					  desktop_workspace_switch, desktop);
+	weston_compositor_add_key_binding(compositor, KEY_RIGHT, MODIFIER_CTRL,
+					  desktop_workspace_switch, desktop);
+	for (int i = 0; i < 9; i++)
+		weston_compositor_add_key_binding(compositor, KEY_1+i, MODIFIER_CTRL,
+						  desktop_workspace_switch, desktop);
+	weston_compositor_add_key_binding(compositor, KEY_B, MODIFIER_CTRL,
+					  desktop_workspace_switch_recent, desktop);
+}
