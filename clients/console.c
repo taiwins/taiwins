@@ -8,7 +8,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include <wayland-client.h>
-#include <wayland-taiwins-shell-client-protocol.h>
+#include <wayland-taiwins-desktop-client-protocol.h>
 #include <os/exec.h>
 
 #include "../config.h"
@@ -18,7 +18,7 @@
 
 
 struct desktop_console {
-	struct taiwins_console *interface;
+	struct tw_console *interface;
 	struct wl_globals globals;
 	struct app_surface surface;
 	struct shm_pool pool;
@@ -63,7 +63,7 @@ submit_console(struct app_surface *surf)
 {
 	struct desktop_console *console =
 		container_of(surf, struct desktop_console, surface);
-	taiwins_console_submit(console->interface, console->decision_buffer, console->exec_id);
+	tw_console_submit(console->interface, console->decision_buffer, console->exec_id);
 
 	app_surface_release(&console->surface);
 }
@@ -122,7 +122,7 @@ draw_console(struct nk_context *ctx, float width, float height,
 //fuck, I wish that I have c++
 static void
 update_app_config(void *data,
-		  struct taiwins_console *taiwins_console,
+		  struct tw_console *tw_console,
 		  const char *app_name,
 		  uint32_t floating,
 		  wl_fixed_t scale)
@@ -134,7 +134,7 @@ update_app_config(void *data,
 
 static void
 start_console(void *data,
-	       struct taiwins_console *taiwins_console,
+	       struct tw_console *tw_console,
 	       wl_fixed_t width,
 	       wl_fixed_t height,
 	       wl_fixed_t scale)
@@ -147,7 +147,7 @@ start_console(void *data,
 	int h = wl_fixed_to_int(height);
 
 	wl_surface = wl_compositor_create_surface(console->globals.compositor);
-	ui = taiwins_console_launch(taiwins_console, wl_surface);
+	ui = tw_console_launch(tw_console, wl_surface);
 
 	app_surface_init(surface, wl_surface, (struct wl_proxy *)ui);
 	surface->wl_globals = &console->globals;
@@ -157,7 +157,7 @@ start_console(void *data,
 }
 
 static void
-exec_application(void *data, struct taiwins_console *console, uint32_t id)
+exec_application(void *data, struct tw_console *console, uint32_t id)
 {
 	struct desktop_console *desktop_console = data;
 	if (!strlen(desktop_console->chars))
@@ -176,7 +176,7 @@ exec_application(void *data, struct taiwins_console *console, uint32_t id)
 	desktop_console->exec_id++;
 }
 
-struct taiwins_console_listener console_impl = {
+struct tw_console_listener console_impl = {
 	.application_configure = update_app_config,
 	.start = start_console,
 	.exec = exec_application,
@@ -189,11 +189,11 @@ init_console(struct desktop_console *console)
 	memset(console->chars, 0, sizeof(console->chars));
 	console->quit = false;
 	shm_pool_init(&console->pool, console->globals.shm,
-		      TAIWINS_CONSOLE_CONF_NUM_DECISIONS * sizeof(struct taiwins_decision_key),
+		      TW_CONSOLE_CONF_NUM_DECISIONS * sizeof(struct taiwins_decision_key),
 		      console->globals.buffer_format);
 	console->decision_buffer = shm_pool_alloc_buffer(&console->pool,
 							  sizeof(struct taiwins_decision_key),
-							  TAIWINS_CONSOLE_CONF_NUM_DECISIONS);
+							  TW_CONSOLE_CONF_NUM_DECISIONS);
 
 	console->bkend = nk_egl_create_backend(console->globals.display, NULL);
 	nk_textedit_init_fixed(&console->text_edit, console->chars, 256);
@@ -207,7 +207,7 @@ release_console(struct desktop_console *console)
 	nk_egl_destroy_backend(console->bkend);
 	shm_pool_release(&console->pool);
 
-	taiwins_console_destroy(console->interface);
+	tw_console_destroy(console->interface);
 	wl_globals_release(&console->globals);
 
 	console->quit = true;
@@ -223,11 +223,11 @@ void announce_globals(void *data,
 {
 	struct desktop_console *console = (struct desktop_console *)data;
 
-	if (strcmp(interface, taiwins_console_interface.name) == 0) {
+	if (strcmp(interface, tw_console_interface.name) == 0) {
 		fprintf(stderr, "console registé\n");
-		console->interface = (struct taiwins_console *)
-			wl_registry_bind(wl_registry, name, &taiwins_console_interface, version);
-		taiwins_console_add_listener(console->interface, &console_impl, console);
+		console->interface = (struct tw_console *)
+			wl_registry_bind(wl_registry, name, &tw_console_interface, version);
+		tw_console_add_listener(console->interface, &console_impl, console);
 	} else
 		wl_globals_announce(&console->globals, wl_registry, name, interface, version);
 }

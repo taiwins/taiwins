@@ -37,7 +37,7 @@
 
 *** DONE change the ui element start or close implimentation
 
-* Stage two: optimization
+* [14%] Stage two: optimization
   - supporting multiple monitors/seats.
   - weston view focus defocus
   - a few different extensions.
@@ -45,7 +45,9 @@
   - different layouting support
   - resize EGL windows.
   - compositing
-** [42%] server-side optimization
+** DONE renaming tw_shell -> shell, tw_desktop -> desktop.
+   so the protocols can directly use tw_shell instead of taiwins_shell
+** DOIN [42%] server-side optimization
 *** CANC rename all the ctype functions
     screw that, I am not gonna do it.
 *** DONE singals for adding new output and seats
@@ -60,14 +62,14 @@
 *** DONE have functional workspace implementation
     - workspace is implemented as keybindings
 *** TODO refactring that layout implementation in workspace, it is ugly
-** [66%] Configurations
+** DOIN [66%] Configurations
 *** DONE styles, nuklear and other widget styles.
     - background color.
     - Font size, font selection.
 *** DONE keyboard callbacks, this writes to a buffer, apparently.
 *** TODO shortcuts `taiwins_zoom`, `taiwins_alpha`. Move them into ~config.h~
 
-** [42%] libweston-desktop implementation                            :server:
+** DOIN [42%] libweston-desktop implementation                       :server:
 *** DOIN implement the libweston-desktop protocol                     :proto:
 *** DONE desktop layer architecture
 *** DONE simple random floating implementation
@@ -81,7 +83,7 @@
     views at deleting. But actually since most of the case you are deleting the
     current view, which is on the top of ~view-list~. So it wouldn't be slow
     actually.
-** [83%] client-side optimization
+** DOIN [83%] client-side optimization
 *** TODO add udev monitoring and inotify monitoring to event_queue
 *** DONE switch to epoll on wl_display
     - possible solution :: maybe we can use epoll on wl_display, and add it to
@@ -127,11 +129,11 @@
     applies it to nk_wl_egl, it should be done very soon, so I can totally
     remove the deprecated functions.
 *** DONE nk_cairo_backend multiple font support
-** [0%] launcher optimization
-*** TODO renaming launcher into commander, since it will does much more than just launching
+** DOIN [33%] launcher optimization
+*** DONE renaming launcher into commander, since it will does much more than just launching
 *** TODO allow launcher to quit instead of launch weston-terminal all the time
 *** TODO the real launcher implementation
-** [50%] protocols                                                    :proto:
+** DOIN [50%] protocols                                               :proto:
 *** DONE `tw_output` protocols to represent logical output
 *** TODO `tw_desktop` output to recieve desktop events
 

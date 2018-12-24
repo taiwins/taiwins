@@ -13,7 +13,7 @@
 #include <poll.h>
 //damn it, you need to poll that thing as well
 
-#include <wayland-taiwins-shell-client-protocol.h>
+#include <wayland-taiwins-desktop-client-protocol.h>
 #include <wayland-client.h>
 #include <sequential.h>
 #include "../config.h"
@@ -22,7 +22,6 @@
 #include "widget.h"
 #include "nk_backends.h"
 
-struct taiwins_shell *shelloftaiwins;
 
 
 struct shell_output {
@@ -52,7 +51,7 @@ struct widget_launch_info {
 
 struct desktop_shell {
 	struct wl_globals globals;
-	struct taiwins_shell *shell;
+	struct tw_shell *interface;
 
 	struct shell_output shell_outputs[16];
 
@@ -150,7 +149,7 @@ launch_widget(struct app_surface *panel_surf)
 
 	info->widget->widget.wl_globals = panel_surf->wl_globals;
 	struct wl_surface *widget_surface = wl_compositor_create_surface(shell->globals.compositor);
-	struct tw_ui *widget_proxy = taiwins_shell_launch_widget(shell->shell, widget_surface,
+	struct tw_ui *widget_proxy = tw_shell_launch_widget(shell->interface, widget_surface,
 								 shell_output->output,
 								 info->x, info->y);
 	tw_ui_add_listener(widget_proxy, &widget_impl, info);
@@ -313,7 +312,7 @@ initialize_shell_output(struct shell_output *w, struct tw_output *tw_output,
 	struct wl_surface *bg_sf =
 		wl_compositor_create_surface(shell->globals.compositor);
 	struct tw_ui *bg_ui =
-		taiwins_shell_create_background(shell->shell, bg_sf, tw_output);
+		tw_shell_create_background(shell->interface, bg_sf, tw_output);
 	app_surface_init(bg, bg_sf, (struct wl_proxy *)bg_ui);
 	bg->wl_globals = &shell->globals;
 	tw_ui_add_listener(bg_ui, &tw_background_impl, w);
@@ -321,7 +320,7 @@ initialize_shell_output(struct shell_output *w, struct tw_output *tw_output,
 	struct wl_surface *pn_sf =
 		wl_compositor_create_surface(shell->globals.compositor);
 	struct tw_ui *pn_ui =
-		taiwins_shell_create_panel(shell->shell, pn_sf, tw_output);
+		tw_shell_create_panel(shell->interface, pn_sf, tw_output);
 	app_surface_init(&w->panel, pn_sf, (struct wl_proxy *)pn_ui);
 	w->panel.wl_globals = &shell->globals;
 	tw_ui_add_listener(pn_ui, &tw_panel_impl, w);
@@ -351,7 +350,7 @@ release_shell_output(struct shell_output *w)
 static inline bool
 desktop_shell_ready(struct desktop_shell *shell)
 {
-	return shell->shell && is_shm_format_valid(shell->globals.buffer_format);
+	return shell->interface && is_shm_format_valid(shell->globals.buffer_format);
 }
 
 /* just know this code has side effect: it works even you removed and plug back
@@ -397,7 +396,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 {
 	wl_globals_init(&shell->globals, display);
 	shell->globals.theme = taiwins_dark_theme;
-	shell->shell = NULL;
+	shell->interface = NULL;
 	shell->quit = false;
 
 	shell->widget_backend = nk_cairo_create_bkend();
@@ -417,7 +416,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 static void
 desktop_shell_release(struct desktop_shell *shell)
 {
-	taiwins_shell_destroy(shell->shell);
+	tw_shell_destroy(shell->interface);
 
 	for (int i = 0; i < desktop_shell_n_outputs(shell); i++)
 		release_shell_output(&shell->shell_outputs[i]);
@@ -472,11 +471,10 @@ void announce_globals(void *data,
 {
 	struct desktop_shell *twshell = (struct desktop_shell *)data;
 
-	if (strcmp(interface, taiwins_shell_interface.name) == 0) {
+	if (strcmp(interface, tw_shell_interface.name) == 0) {
 		fprintf(stderr, "shell registé\n");
-		twshell->shell = (struct taiwins_shell *)
-			wl_registry_bind(wl_registry, name, &taiwins_shell_interface, version);
-		shelloftaiwins = twshell->shell;
+		twshell->interface = (struct tw_shell *)
+			wl_registry_bind(wl_registry, name, &tw_shell_interface, version);
 	} else if (!strcmp(interface, tw_output_interface.name)) {
 		struct tw_output *tw_output =
 			wl_registry_bind(wl_registry, name, &tw_output_interface, version);
