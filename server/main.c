@@ -113,24 +113,6 @@ int main(int argc, char *argv[])
 	struct desktop *desktop = announce_desktop(compositor);
 	(void)(con);
 
-	weston_compositor_add_axis_binding(compositor, WL_POINTER_AXIS_VERTICAL_SCROLL,
-					   MODIFIER_SUPER | MODIFIER_ALT, desktop_zoom_binding, desktop);
-	weston_compositor_add_axis_binding(compositor, WL_POINTER_AXIS_VERTICAL_SCROLL,
-					   MODIFIER_SUPER | MODIFIER_ALT, desktop_alpha_binding, desktop);
-	weston_compositor_add_button_binding(compositor, BTN_LEFT, MODIFIER_SUPER,
-					     desktop_move_binding, desktop);
-	weston_compositor_add_button_binding(compositor, BTN_LEFT, 0, desktop_click_focus_binding, desktop);
-	weston_compositor_add_touch_binding(compositor, 0, desktop_touch_focus_binding, desktop);
-	weston_compositor_add_key_binding(compositor, KEY_LEFT, MODIFIER_CTRL,
-					  desktop_workspace_switch_binding, desktop);
-	weston_compositor_add_key_binding(compositor, KEY_RIGHT, MODIFIER_CTRL,
-					  desktop_workspace_switch_binding, desktop);
-	for (int i = 0; i < 9; i++)
-		weston_compositor_add_key_binding(compositor, KEY_1+i, MODIFIER_CTRL,
-						  desktop_workspace_switch_binding, desktop);
-	weston_compositor_add_key_binding(compositor, KEY_B, MODIFIER_CTRL,
-					  desktop_workspace_switch_recent_binding, desktop);
-
 
 	wl_display_run(display);
 //	wl_display_terminate(display);
