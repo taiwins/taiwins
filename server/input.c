@@ -8,6 +8,12 @@
 #include <unistd.h>
 #include "input.h"
 
+static inline bool
+tw_press_eq(struct tw_press *a, struct tw_press *b)
+{
+	return a->keysym == b->keysym && a->modifier == b->modifier;
+}
+
 
 static inline xkb_keycode_t
 kc_linux2xkb(uint32_t kc_linux)
@@ -190,7 +196,7 @@ tw_binding_add_key(struct tw_binding_node *root, struct weston_keyboard *keyboar
 {
 	struct tw_binding_node *subtree = root;
 	for (int i = 0; i < MAX_KEY_SEQ_LEN; i++) {
-		uint32_t mod = presses[i].modiifer;
+		uint32_t mod = presses[i].modifier;
 		xkb_keysym_t sym = presses[i].keysym;
 		int hit = -1;
 
@@ -253,11 +259,36 @@ tw_binding_add_btn(struct tw_binding_node *root,
 	return false;
 }
 
+static void
+cache_input(const struct vtree_node *node, void *data)
+{
+	vector_t *v = data;
+	const struct tw_binding_node *t = container_of(node, const struct tw_binding_node, node);
+	struct tw_press p = {
+		.keysym = t->keysym,
+		.modifier = t->modifier,
+	};
+
+	for (int i = 0; i < v->len; i++) {
+		struct tw_press *k = vector_at(v, i);
+		if (tw_press_eq(&p, k))
+		    return;
+	}
+	vector_append(v, &p);
+}
 
 void
 tw_input_apply_to_compositor(const struct tw_binding_node *root,
 			     struct weston_compositor *ec)
 {
+	vector_t v;
+	vector_init(&v, sizeof(struct tw_press), NULL);
 	//we need to create a local cache to search
-//	for (int i = 0; i < root->)
+	vtree_iterate(&root->node, &v, cache_input);
+	if (root->type == TW_BINDING_key) {
+		for (int i = 0; i < v.len; i++) {
+		}
+	}
+	vector_destroy(&v);
+
 }
