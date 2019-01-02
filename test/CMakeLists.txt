@@ -67,10 +67,12 @@ target_link_libraries(test_pixman
 
 add_executable(test_input
   test-input_nosurface.c
+  input.1.c
   )
 
 target_link_libraries(test_input
   ${CLIENT_LIBRARIES}
+  ${TRDPTY_LIBRARIES}
   )
 
 
