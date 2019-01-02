@@ -557,9 +557,9 @@ desktop_workspace_switch(struct weston_keyboard *keyboard,
 	if (key >= KEY_1 && key <= KEY_9) {
 		ws_idx = key - KEY_1;
 	} else if (key == KEY_LEFT)
-		ws_idx = max(0, ws_idx-1);
+		ws_idx = MAX(0, ws_idx-1);
 	else if (key == KEY_RIGHT) {
-		ws_idx = min(MAX_WORKSPACE, ws_idx+1);
+		ws_idx = MIN(MAX_WORKSPACE, ws_idx+1);
 	}
 	desktop->actived_workspace[0] = &desktop->workspaces[ws_idx];
 	workspace_switch(&desktop->workspaces[ws_idx], ws, keyboard);
@@ -572,7 +572,7 @@ desktop_workspace_switch_recent(struct weston_keyboard *keyboard,
 				  void *data)
 {
 	struct desktop *desktop = data;
-	swap(desktop->actived_workspace[0], desktop->actived_workspace[1]);
+	SWAP(desktop->actived_workspace[0], desktop->actived_workspace[1]);
 	workspace_switch(desktop->actived_workspace[0], desktop->actived_workspace[1], keyboard);
 }
 

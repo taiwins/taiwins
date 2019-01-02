@@ -75,7 +75,7 @@ shell_ui_unbind(struct wl_resource *resource)
 		ui_elem->lose_pointer,
 		ui_elem->lose_touch,
 	};
-	for (int i = 0; i < numof(bindings); i++)
+	for (int i = 0; i < NUMOF(bindings); i++)
 		if (bindings[i] != NULL)
 			weston_binding_destroy(bindings[i]);
 	free(ui_elem);

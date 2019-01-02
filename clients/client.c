@@ -407,7 +407,7 @@ seat_name(void *data, struct wl_seat *wl_seat, const char *name)
 {
 	struct wl_globals *globals = (struct wl_globals *)data;
 	strncpy(globals->inputs.name, name,
-		min(numof(globals->inputs.name), strlen(name)));
+		MIN(NUMOF(globals->inputs.name), strlen(name)));
 	fprintf(stderr, "we have this seat with a name called %s\n", name);
 }
 
