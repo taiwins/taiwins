@@ -6,7 +6,7 @@
 #include <sequential.h>
 #include <tree.h>
 #include <unistd.h>
-#include "input.h"
+#include "input.1.h"
 
 
 static inline xkb_keycode_t
