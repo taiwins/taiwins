@@ -8,10 +8,19 @@
 #include <unistd.h>
 #include "input.h"
 
+struct tw_press {
+	union {
+		xkb_keycode_t keycode;
+		uint32_t btn;
+		enum wl_pointer_axis axis;
+	};
+	uint32_t modifier;
+};
+
 static inline bool
 tw_press_eq(struct tw_press *a, struct tw_press *b)
 {
-	return a->keysym == b->keysym && a->modifier == b->modifier;
+	return a->keycode == b->keycode && a->modifier == b->modifier;
 }
 
 
@@ -20,6 +29,12 @@ kc_linux2xkb(uint32_t kc_linux)
 {
 	//this should only work on x11, but very weird it works all the time
 	return kc_linux+8;
+}
+
+static inline uint32_t
+kc_xkb2linux(xkb_keycode_t keycode)
+{
+	return keycode - 8;
 }
 
 static uint32_t
@@ -40,7 +55,7 @@ modifier_mask_from_xkb_state(struct xkb_state *state)
 
 void tw_binding_node_init(struct tw_binding_node *node)
 {
-	node->keysym = 0;
+	node->keycode = 0;
 	node->modifier = 0;
 	node->type = TW_BINDING_key;
 	vtree_node_init(&node->node, offsetof(struct tw_binding_node, node));
@@ -60,7 +75,7 @@ run_binding(struct tw_binding_node *subtree, enum tw_binding_type type, void *de
 		struct tw_binding_node *binding = (struct tw_binding_node *)
 			container_of(tnode, struct tw_binding_node, node);
 		//take advantage of the union
-		hit = binding->keysym == press;
+		hit = binding->keycode == press;
 		if (mod_mask !=  binding->modifier ||
 		    binding->type != type || !hit)
 			continue;
@@ -88,7 +103,7 @@ run_binding(struct tw_binding_node *subtree, enum tw_binding_type type, void *de
 }
 
 static void
-run_key_binding(struct weston_keyboard *keyboard, uint32_t time,
+run_key_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 		uint32_t key, void *data)
 {
 	static struct tw_binding_node *subtree = NULL;
@@ -96,16 +111,13 @@ run_key_binding(struct weston_keyboard *keyboard, uint32_t time,
 	if (subtree == NULL)
 		subtree = data;
 	xkb_keycode_t keycode = kc_linux2xkb(key);
-	xkb_keysym_t keysym =
-		xkb_state_key_get_one_sym(keyboard->xkb_state.state,
-			keycode);
 	uint32_t mod_mask = modifier_mask_from_xkb_state(keyboard->xkb_state.state);
 	subtree = run_binding(subtree, TW_BINDING_key, keyboard,
-			      mod_mask, keysym, NULL);
+			      mod_mask, keycode, NULL);
 }
 
 
-void
+static void
 run_btn_binding(struct weston_pointer *pointer, const struct timespec *time,
 		uint32_t button, void *data)
 {
@@ -122,7 +134,8 @@ run_btn_binding(struct weston_pointer *pointer, const struct timespec *time,
 }
 
 
-void run_axis_binding(struct weston_pointer *pointer,
+static void
+run_axis_binding(struct weston_pointer *pointer,
 		      const struct timespec *time,
 		      struct weston_pointer_axis_event *event,
 		      void *data)
@@ -139,7 +152,8 @@ void run_axis_binding(struct weston_pointer *pointer,
 			      mod_mask, event->axis, event);
 }
 
-void run_touch_binding(struct weston_touch *touch,
+static void
+run_touch_binding(struct weston_touch *touch,
 		       const struct timespec *time,
 		       void *data)
 {
@@ -159,18 +173,19 @@ void run_touch_binding(struct weston_touch *touch,
 static inline bool
 is_end_key_seq(const struct tw_key_press presses[MAX_KEY_SEQ_LEN], int i)
 {
+	//keycode cannot be zero, it starts from 8
 	return (i == MAX_KEY_SEQ_LEN-1 ||
-		presses[i+1].keysym == XKB_KEY_NoSymbol);
+		presses[i+1].keycode == 0);
 }
 
 static inline struct tw_binding_node *
-make_key_binding_node(xkb_keysym_t sym, uint32_t mod, uint32_t option,
+make_key_binding_node(xkb_keycode_t code, uint32_t mod, uint32_t option,
 		  tw_key_binding fuc, const void *data, bool end)
 {
 	//allocate new ones
 	struct tw_binding_node *binding = malloc(sizeof(struct tw_binding_node));
 	tw_binding_node_init(binding);
-	binding->keysym = sym;
+	binding->keycode = code;
 	binding->modifier = mod;
 	binding->type = TW_BINDING_key;
 	if (end) {
@@ -197,17 +212,17 @@ tw_binding_add_key(struct tw_binding_node *root, struct weston_keyboard *keyboar
 	struct tw_binding_node *subtree = root;
 	for (int i = 0; i < MAX_KEY_SEQ_LEN; i++) {
 		uint32_t mod = presses[i].modifier;
-		xkb_keysym_t sym = presses[i].keysym;
+		xkb_keycode_t code = presses[i].keycode;
 		int hit = -1;
 
-		if (sym == XKB_KEY_NoSymbol)
+		if (code == 0)
 			break;
 		for (int j = 0; j < subtree->node.children.len; j++) {
 			struct vtree_node *tnode = vtree_ith_child(&subtree->node, j);
 			struct tw_binding_node *binding = (struct tw_binding_node *)
 				container_of(tnode, struct tw_binding_node, node);
 			if (binding->type == TW_BINDING_key &&
-			    binding->keysym == sym &&
+			    binding->keycode == code &&
 			    binding->modifier == mod) {
 				hit = j;
 				break;
@@ -215,7 +230,7 @@ tw_binding_add_key(struct tw_binding_node *root, struct weston_keyboard *keyboar
 		}
 		if (hit == -1) {
 			struct tw_binding_node *binding =
-				make_key_binding_node(sym, mod, option, fuc, data,
+				make_key_binding_node(code, mod, option, fuc, data,
 						  is_end_key_seq(presses, i));
 			vtree_node_add_child(&subtree->node, &binding->node);
 			subtree = binding;
@@ -265,10 +280,11 @@ cache_input(const struct vtree_node *node, void *data)
 	vector_t *v = data;
 	const struct tw_binding_node *t = container_of(node, const struct tw_binding_node, node);
 	struct tw_press p = {
-		.keysym = t->keysym,
+		.keycode = t->keycode,
 		.modifier = t->modifier,
 	};
-
+	if (p.keycode == 0)
+		return;
 	for (int i = 0; i < v->len; i++) {
 		struct tw_press *k = vector_at(v, i);
 		if (tw_press_eq(&p, k))
@@ -281,14 +297,38 @@ void
 tw_input_apply_to_compositor(const struct tw_binding_node *root,
 			     struct weston_compositor *ec)
 {
+	void *data = (void *)root;
 	vector_t v;
 	vector_init(&v, sizeof(struct tw_press), NULL);
 	//we need to create a local cache to search
 	vtree_iterate(&root->node, &v, cache_input);
 	if (root->type == TW_BINDING_key) {
 		for (int i = 0; i < v.len; i++) {
+			struct tw_press *press = vector_at(&v, i);
+			weston_compositor_add_key_binding(
+				ec, kc_xkb2linux(press->keycode),
+				press->modifier, run_key_binding, data);
+		}
+	} else if (root->type == TW_BINDING_btn) {
+		for (int i = 0; i < v.len; i++) {
+			struct tw_press *press = vector_at(&v, i);
+			weston_compositor_add_button_binding(
+				ec, press->btn, press->modifier, run_btn_binding, data);
+		}
+	} else if (root->type == TW_BINDING_tch) {
+		for (int i = 0; i < v.len; i++) {
+			struct tw_press *press = vector_at(&v, i);
+			weston_compositor_add_touch_binding(
+				ec, press->modifier, run_touch_binding,
+				data);
+		}
+	} else if (root->type == TW_BINDING_axis) {
+		for (int i = 0; i < v.len; i++) {
+			struct tw_press *press = vector_at(&v, i);
+			weston_compositor_add_axis_binding(
+				ec, press->axis, press->modifier,
+				run_axis_binding, data);
 		}
 	}
 	vector_destroy(&v);
-
 }
