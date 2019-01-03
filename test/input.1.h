@@ -18,19 +18,20 @@ extern "C" {
 
 
 struct tw_key_press {
-	xkb_keysym_t keysym;
-	uint32_t modiifer;
+	xkb_keycode_t keycode;
+	uint32_t modifier;
 };
 
 struct tw_btn_press {
 	uint32_t btn;
-	uint32_t modiifer;
+	uint32_t modifier;
 };
 
 struct tw_axis_motion {
 	enum wl_pointer_axis axis_event;
-	uint32_t modiifer;
+	uint32_t modifier;
 };
+
 
 //define it as input agnostic handler
 enum tw_binding_type {
@@ -48,7 +49,7 @@ typedef void (*tw_axis_binding)(struct weston_pointer *pointer, uint32_t option,
 
 struct tw_binding_node {
 	union {
-		xkb_keysym_t keysym;
+		xkb_keycode_t keycode;
 		uint32_t btn;
 		enum wl_pointer_axis axis;
 	};
@@ -67,6 +68,7 @@ struct tw_binding_node {
 	};
 };
 //how you are supposed to define the grabs
+
 
 void tw_binding_node_init(struct tw_binding_node *node);
 void tw_binding_destroy_nodes(struct tw_binding_node *root);

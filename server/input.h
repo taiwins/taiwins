@@ -18,7 +18,7 @@ extern "C" {
 
 
 struct tw_key_press {
-	xkb_keysym_t keysym;
+	xkb_keycode_t keycode;
 	uint32_t modifier;
 };
 
@@ -32,14 +32,6 @@ struct tw_axis_motion {
 	uint32_t modifier;
 };
 
-struct tw_press {
-	union {
-		xkb_keysym_t keysym;
-		uint32_t btn;
-		enum wl_pointer_axis axis;
-	};
-	uint32_t modifier;
-};
 
 //define it as input agnostic handler
 enum tw_binding_type {
@@ -57,7 +49,7 @@ typedef void (*tw_axis_binding)(struct weston_pointer *pointer, uint32_t option,
 
 struct tw_binding_node {
 	union {
-		xkb_keysym_t keysym;
+		xkb_keycode_t keycode;
 		uint32_t btn;
 		enum wl_pointer_axis axis;
 	};
