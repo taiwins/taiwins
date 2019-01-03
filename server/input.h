@@ -74,7 +74,7 @@ void tw_binding_node_init(struct tw_binding_node *node);
 void tw_binding_destroy_nodes(struct tw_binding_node *root);
 
 bool
-tw_binding_add_key(struct tw_binding_node *root, struct weston_keyboard *keyboard,
+tw_binding_add_key(struct tw_binding_node *root,
 			 const struct tw_key_press presses[MAX_KEY_SEQ_LEN],
 			 const tw_key_binding binding, uint32_t option,
 			 const void *data);

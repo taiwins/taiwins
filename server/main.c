@@ -105,9 +105,23 @@ static struct tw_key_press cxc[MAX_KEY_SEQ_LEN] = {
 	{0},
 };
 
+static struct tw_btn_press cl[MAX_KEY_SEQ_LEN] = {
+	{BTN_LEFT, MODIFIER_CTRL},
+	{0},
+	{0},
+	{0},
+	{0},
+};
+
+
 void print_key(struct weston_keyboard *keyboard, uint32_t option, void *data)
 {
 	fprintf(stderr, "hey, look, we just pressed %c!\n", option);
+}
+
+void print_btn(struct weston_pointer *pointer, uint32_t option, void *data)
+{
+	fprintf(stderr, "hey, look, we just hit a button %c\n", option);
 }
 
 int main(int argc, char *argv[])
@@ -134,11 +148,19 @@ int main(int argc, char *argv[])
 	struct desktop *desktop = announce_desktop(compositor);
 	(void)(con);
 
-	struct tw_binding_node *node = xmalloc(sizeof(struct tw_binding_node));
-	tw_binding_node_init(node); //init as root
-	tw_binding_add_key(node, NULL, cxx, print_key, 'x', NULL);
-	tw_binding_add_key(node, NULL, cxc, print_key, 'c', NULL);
-	tw_bindings_apply_to_compositor(node, compositor);
+	struct tw_binding_node *keybindings = xmalloc(sizeof(struct tw_binding_node));
+	tw_binding_node_init(keybindings); //init as root
+	tw_binding_add_key(keybindings, cxx, print_key, 'x', NULL);
+	tw_binding_add_key(keybindings, cxc, print_key, 'c', NULL);
+	tw_bindings_apply_to_compositor(keybindings, compositor);
+
+
+	struct tw_binding_node *btnbindings = xmalloc(sizeof(struct tw_binding_node));
+	tw_binding_node_init(btnbindings);
+	btnbindings->type = TW_BINDING_btn;
+	tw_binding_add_btn(btnbindings, cl, print_btn, 'l', NULL);
+	tw_bindings_apply_to_compositor(btnbindings, compositor);
+
 
 	wl_display_run(display);
 //	wl_display_terminate(display);
@@ -149,7 +171,9 @@ int main(int argc, char *argv[])
 	// - weston_compositor_shutdown: remove all the bindings, output, renderer,
 	// - weston_compositor_destroy, this call finally free the compositor
 	end_desktop(desktop);
-	tw_binding_destroy_nodes(node);
+	tw_binding_destroy_nodes(keybindings);
+	tw_binding_destroy_nodes(btnbindings);
+
 
 	weston_compositor_shutdown(compositor);
 	weston_compositor_destroy(compositor);
