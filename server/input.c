@@ -23,6 +23,13 @@ tw_press_eq(struct tw_press *a, struct tw_press *b)
 	return a->keycode == b->keycode && a->modifier == b->modifier;
 }
 
+//this one does not work for axis event
+static inline bool
+tw_press_seq_end(const struct tw_press presses[MAX_KEY_SEQ_LEN], int i)
+{
+	return (i == MAX_KEY_SEQ_LEN-1 || presses[i+1].keycode == 0);
+
+}
 
 static inline xkb_keycode_t
 kc_linux2xkb(uint32_t kc_linux)
@@ -120,6 +127,10 @@ run_binding(struct tw_binding_node *subtree, enum tw_binding_type type, void *de
 	return (hit) ? node : NULL;
 }
 
+
+/* we still have one problem here, if last key stroke is in the binding and this
+ * one is not. Then it will not get notified. And we are still in the binding zoom
+ */
 static void
 run_key_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 		uint32_t key, void *data)
@@ -224,24 +235,17 @@ run_touch_binding(struct weston_touch *touch,
 
 /////////////////////////////////// ADD BINDINGS ///////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////
-static inline bool
-is_end_key_seq(const struct tw_key_press presses[MAX_KEY_SEQ_LEN], int i)
-{
-	//keycode cannot be zero, it starts from 8
-	return (i == MAX_KEY_SEQ_LEN-1 ||
-		presses[i+1].keycode == 0);
-}
 
 static inline struct tw_binding_node *
-make_key_binding_node(xkb_keycode_t code, uint32_t mod, uint32_t option,
-		  tw_key_binding fuc, const void *data, bool end)
+make_binding_node(xkb_keycode_t code, uint32_t mod, uint32_t option,
+		  tw_key_binding fuc, const void *data, bool end, enum tw_binding_type type)
 {
 	//allocate new ones
 	struct tw_binding_node *binding = malloc(sizeof(struct tw_binding_node));
 	tw_binding_node_init(binding);
 	binding->keycode = code;
 	binding->modifier = mod;
-	binding->type = TW_BINDING_key;
+	binding->type = type;
 	if (end) {
 		binding->key_binding = fuc;
 		binding->option = option;
@@ -256,12 +260,12 @@ make_key_binding_node(xkb_keycode_t code, uint32_t mod, uint32_t option,
 	return binding;
 }
 
-
-bool
-tw_binding_add_key(struct tw_binding_node *root, struct weston_keyboard *keyboard,
-			 const struct tw_key_press presses[MAX_KEY_SEQ_LEN],
-			 const tw_key_binding fuc, uint32_t option,
-			 const void *data)
+/* this does not work for axis */
+static bool
+tw_binding_add_seq(struct tw_binding_node *root,
+		   const struct tw_press presses[MAX_KEY_SEQ_LEN],
+		   const tw_key_binding fuc, uint32_t option,
+		   enum tw_binding_type type, const void *data)
 {
 	struct tw_binding_node *subtree = root;
 	for (int i = 0; i < MAX_KEY_SEQ_LEN; i++) {
@@ -284,8 +288,8 @@ tw_binding_add_key(struct tw_binding_node *root, struct weston_keyboard *keyboar
 		}
 		if (hit == -1) {
 			struct tw_binding_node *binding =
-				make_key_binding_node(code, mod, option, fuc, data,
-						  is_end_key_seq(presses, i));
+				make_binding_node(code, mod, option, fuc, data,
+						  tw_press_seq_end(presses, i), type);
 			vtree_node_add_child(&subtree->node, &binding->node);
 			subtree = binding;
 		}
@@ -295,7 +299,7 @@ tw_binding_add_key(struct tw_binding_node *root, struct weston_keyboard *keyboar
 			struct tw_binding_node *binding = (struct tw_binding_node *)
 				container_of(tnode, struct tw_binding_node, node);
 			//case 0: both internal node, we skip
-			if (!is_end_key_seq(presses, i) && binding->key_binding == NULL) {
+			if (!tw_press_seq_end(presses, i) && binding->key_binding == NULL) {
 				subtree = binding;
 				continue;
 			}
@@ -309,24 +313,60 @@ tw_binding_add_key(struct tw_binding_node *root, struct weston_keyboard *keyboar
 	return true;
 }
 
-
 bool
-tw_binding_add_axis(struct tw_binding_node *root,
-			  const struct tw_axis_motion *motion,
-			  const tw_axis_binding binding, uint32_t option,
-			  const void *data)
+tw_binding_add_key(struct tw_binding_node *root,
+			 const struct tw_key_press presses[MAX_KEY_SEQ_LEN],
+			 const tw_key_binding fuc, uint32_t option,
+			 const void *data)
 {
-	return false;
+	struct tw_press cp_presses[MAX_KEY_SEQ_LEN] = {
+		{{presses[0].keycode}, presses[0].modifier},
+		{{presses[1].keycode}, presses[1].modifier},
+		{{presses[2].keycode}, presses[2].modifier},
+		{{presses[3].keycode}, presses[3].modifier},
+		{{presses[4].keycode}, presses[4].modifier},
+	};
+	return tw_binding_add_seq(root, cp_presses, fuc, option, TW_BINDING_key, data);
 }
 
 bool
 tw_binding_add_btn(struct tw_binding_node *root,
 			 const struct tw_btn_press presses[MAX_KEY_SEQ_LEN],
-			 const tw_btn_binding binding, uint32_t option,
+			 const tw_btn_binding func, uint32_t option,
 			 const void *data)
 {
-	return false;
+	//it works exactly like
+	struct tw_press cp_presses[MAX_KEY_SEQ_LEN] = {
+	    {{presses[0].btn}, presses[0].modifier},
+	    {{presses[1].btn}, presses[1].modifier},
+	    {{presses[2].btn}, presses[2].modifier},
+	    {{presses[3].btn}, presses[3].modifier},
+	    {{presses[4].btn}, presses[4].modifier},
+	};
+	return tw_binding_add_seq(root, cp_presses, (const tw_key_binding)func, option,
+				  TW_BINDING_btn, data);
 }
+
+bool
+tw_binding_add_axis(struct tw_binding_node *root,
+		    const struct tw_axis_motion *motion,
+		    const tw_axis_binding func, uint32_t option,
+		    const void *data)
+{
+	//axis binding should be only one level
+	struct tw_binding_node *binding = malloc(sizeof(struct tw_binding_node));
+	tw_binding_node_init(binding);
+	binding->axis = motion->axis_event;
+	binding->modifier = motion->modifier;
+	binding->type = TW_BINDING_axis;
+	binding->axis_binding = func;
+	binding->option = option;
+	binding->user_data = (void *)data;
+	vtree_node_add_child(&root->node, &binding->node);
+	return true;
+}
+
+
 
 static void
 cache_input(const struct vtree_node *node, void *data)
