@@ -62,24 +62,38 @@ void tw_binding_node_init(struct tw_binding_node *node)
 	node->key_binding = NULL;
 }
 
+void
+tw_binding_destroy_nodes(struct tw_binding_node *root)
+{
+	vtree_destroy(&root->node, free);
+}
+
+
 /////////////////////////////////// RUN BINDINGS ///////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * /brief general binding handler
+ *
+ * /return NULL if hit nothing, a sub branch if hit a middle node. At last
+ * return the subtree if it hits a binding
+ */
 static struct tw_binding_node *
 run_binding(struct tw_binding_node *subtree, enum tw_binding_type type, void *dev,
 	    uint32_t mod_mask, uint32_t press, struct weston_pointer_axis_event *event)
 {
-	struct tw_binding_node *node = subtree;
+	//now you have two
+	struct tw_binding_node *node = NULL;
 	bool hit = false;
 	for (int i = 0; i < subtree->node.children.len; i++) {
 		struct vtree_node *tnode = vtree_ith_child(&subtree->node, i);
 		struct tw_binding_node *binding = (struct tw_binding_node *)
 			container_of(tnode, struct tw_binding_node, node);
 		//take advantage of the union
-		hit = binding->keycode == press;
-		if (mod_mask !=  binding->modifier ||
-		    binding->type != type || !hit)
+		hit = binding->keycode == press && mod_mask == binding->modifier;
+		if (!hit || binding->type != type)
 			continue;
-		//test about binding
+		//hit, but test if we are in the internal node
 		node = (binding->key_binding) ? subtree : binding;
 		//now run the bindings
 		if (type == TW_BINDING_key && binding->key_binding) {
@@ -99,7 +113,11 @@ run_binding(struct tw_binding_node *subtree, enum tw_binding_type type, void *de
 			break;
 		}
 	}
-	return node;
+	//`if (hit == false)` this could happend. It happens when binding system
+	//gives the key does not fit along the binding tree. For example, C-x x
+	//causes the system to recongnize both C-x and x as binding. If you only
+	//input x. It should be treated as normal input
+	return (hit) ? node : NULL;
 }
 
 static void
@@ -110,10 +128,24 @@ run_key_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 
 	if (subtree == NULL)
 		subtree = data;
+	/* struct wl_display *display = keyboard->seat->compositor->wl_display; */
 	xkb_keycode_t keycode = kc_linux2xkb(key);
 	uint32_t mod_mask = modifier_mask_from_xkb_state(keyboard->xkb_state.state);
-	subtree = run_binding(subtree, TW_BINDING_key, keyboard,
-			      mod_mask, keycode, NULL);
+	struct tw_binding_node *pass =
+		run_binding(subtree, TW_BINDING_key, keyboard,
+			    mod_mask, keycode, NULL);
+	//we have a confusing part of the code, because
+	//if we didn't hit anything, we pass the event donw
+	if (!pass) {
+		//we maybe should deal with the modifiers as well
+		weston_keyboard_send_key(keyboard, time, key, WL_KEYBOARD_KEY_STATE_PRESSED);
+		weston_keyboard_send_key(keyboard, time, key, WL_KEYBOARD_KEY_STATE_RELEASED);
+		subtree = NULL;
+	} //case 1: if we hit a binding
+	else if (pass == subtree)
+		subtree = data;
+	else //case 2/3
+		subtree = pass;
 }
 
 
@@ -129,8 +161,19 @@ run_btn_binding(struct weston_pointer *pointer, const struct timespec *time,
 		0;
 	if (!subtree)
 		subtree = data;
-	subtree = run_binding(subtree, TW_BINDING_btn, pointer,
-			      mod_mask, button, NULL);
+
+	struct tw_binding_node *pass =
+		run_binding(subtree, TW_BINDING_btn, pointer,
+			    mod_mask, button, NULL);
+	if (!pass) {
+		weston_pointer_send_button(pointer, time, button, WL_POINTER_BUTTON_STATE_PRESSED);
+		weston_pointer_send_button(pointer, time, button, WL_POINTER_BUTTON_STATE_RELEASED);
+		subtree = NULL;
+	}
+	if (pass == subtree) //hit
+		subtree = data;
+	else //internal node
+		subtree = pass;
 }
 
 
@@ -148,8 +191,15 @@ run_axis_binding(struct weston_pointer *pointer,
 	uint32_t mod_mask = keyboard ?
 		modifier_mask_from_xkb_state(keyboard->xkb_state.state) :
 		0;
-	subtree = run_binding(subtree, TW_BINDING_axis, pointer,
-			      mod_mask, event->axis, event);
+	struct tw_binding_node *pass =
+		run_binding(subtree, TW_BINDING_axis, pointer,
+			    mod_mask, event->axis, event);
+	if (!pass)
+		weston_pointer_send_axis(pointer, time, event);
+	if (pass == subtree) //hit
+		subtree = data;
+	else //internal
+		subtree = pass;
 }
 
 static void
@@ -163,8 +213,12 @@ run_touch_binding(struct weston_touch *touch,
 		modifier_mask_from_xkb_state(keyboard->xkb_state.state) : 0;
 	if (!subtree)
 		subtree = data;
-
-	subtree = run_binding(subtree, TW_BINDING_tch, touch, mod_mask, 0, NULL);
+	struct tw_binding_node *pass =
+		run_binding(subtree, TW_BINDING_tch, touch, mod_mask, 0, NULL);
+	if (pass == subtree)
+		subtree = data;
+	else
+		subtree = pass;
 }
 
 
@@ -294,7 +348,7 @@ cache_input(const struct vtree_node *node, void *data)
 }
 
 void
-tw_input_apply_to_compositor(const struct tw_binding_node *root,
+tw_bindings_apply_to_compositor(const struct tw_binding_node *root,
 			     struct weston_compositor *ec)
 {
 	void *data = (void *)root;

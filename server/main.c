@@ -20,7 +20,7 @@
 #include "shell.h"
 #include "desktop.h"
 #include "taiwins.h"
-
+#include "input.h"
 
 
 //remove this two later
@@ -89,6 +89,27 @@ taiwins_quit(struct weston_keyboard *keyboard,
 
 }
 
+static struct tw_key_press cxx[MAX_KEY_SEQ_LEN] = {
+	{KEY_X+8, MODIFIER_CTRL},
+	{KEY_X+8, 0},
+	{0},
+	{0},
+	{0},
+};
+
+static struct tw_key_press cxc[MAX_KEY_SEQ_LEN] = {
+	{KEY_X+8, MODIFIER_CTRL},
+	{KEY_C+8, 0},
+	{0},
+	{0},
+	{0},
+};
+
+void print_key(struct weston_keyboard *keyboard, uint32_t option, void *data)
+{
+	fprintf(stderr, "hey, look, we just pressed %c!\n", option);
+}
+
 int main(int argc, char *argv[])
 {
 	const char *shellpath = (argc > 1) ? argv[1] : NULL;
@@ -113,6 +134,11 @@ int main(int argc, char *argv[])
 	struct desktop *desktop = announce_desktop(compositor);
 	(void)(con);
 
+	struct tw_binding_node *node = xmalloc(sizeof(struct tw_binding_node));
+	tw_binding_node_init(node); //init as root
+	tw_binding_add_key(node, NULL, cxx, print_key, 'x', NULL);
+	tw_binding_add_key(node, NULL, cxc, print_key, 'c', NULL);
+	tw_bindings_apply_to_compositor(node, compositor);
 
 	wl_display_run(display);
 //	wl_display_terminate(display);
@@ -123,6 +149,7 @@ int main(int argc, char *argv[])
 	// - weston_compositor_shutdown: remove all the bindings, output, renderer,
 	// - weston_compositor_destroy, this call finally free the compositor
 	end_desktop(desktop);
+	tw_binding_destroy_nodes(node);
 
 	weston_compositor_shutdown(compositor);
 	weston_compositor_destroy(compositor);
