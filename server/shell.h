@@ -6,6 +6,7 @@
 #include <wayland-server.h>
 #include <wayland-taiwins-desktop-server-protocol.h>
 #include <sequential.h>
+#include "input.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -27,7 +28,11 @@ struct shell;
 struct shell *announce_shell(struct weston_compositor *compositor, const char *path);
 struct wl_client *shell_get_client(struct shell *shell);
 
-void add_shell_bindings(struct weston_compositor *ec);
+void add_shell_bindings(struct shell *shell, struct tw_binding_node *key_bindings,
+			struct tw_binding_node *btn_bindings,
+			struct tw_binding_node *axis_bindings,
+			struct tw_binding_node *touch_bindings);
+
 
 void
 shell_create_ui_elem(struct shell *shell, struct wl_client *client,
