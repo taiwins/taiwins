@@ -89,41 +89,6 @@ taiwins_quit(struct weston_keyboard *keyboard,
 
 }
 
-static struct tw_key_press cxx[MAX_KEY_SEQ_LEN] = {
-	{KEY_X+8, MODIFIER_CTRL},
-	{KEY_X+8, 0},
-	{0},
-	{0},
-	{0},
-};
-
-static struct tw_key_press cxc[MAX_KEY_SEQ_LEN] = {
-	{KEY_X+8, MODIFIER_CTRL},
-	{KEY_C+8, 0},
-	{0},
-	{0},
-	{0},
-};
-
-static struct tw_btn_press cl[MAX_KEY_SEQ_LEN] = {
-	{BTN_LEFT, MODIFIER_CTRL},
-	{0},
-	{0},
-	{0},
-	{0},
-};
-
-
-void print_key(struct weston_keyboard *keyboard, uint32_t option, void *data)
-{
-	fprintf(stderr, "hey, look, we just pressed %c!\n", option);
-}
-
-void print_btn(struct weston_pointer *pointer, uint32_t option, void *data)
-{
-	fprintf(stderr, "hey, look, we just hit a button %c\n", option);
-}
-
 int main(int argc, char *argv[])
 {
 	const char *shellpath = (argc > 1) ? argv[1] : NULL;
@@ -148,19 +113,23 @@ int main(int argc, char *argv[])
 	struct desktop *desktop = announce_desktop(compositor);
 	(void)(con);
 
+	//deal with bindings
 	struct tw_binding_node *keybindings = xmalloc(sizeof(struct tw_binding_node));
 	tw_binding_node_init(keybindings); //init as root
-	tw_binding_add_key(keybindings, cxx, print_key, 'x', NULL);
-	tw_binding_add_key(keybindings, cxc, print_key, 'c', NULL);
-	tw_bindings_apply_to_compositor(keybindings, compositor);
-
 
 	struct tw_binding_node *btnbindings = xmalloc(sizeof(struct tw_binding_node));
 	tw_binding_node_init(btnbindings);
 	btnbindings->type = TW_BINDING_btn;
-	tw_binding_add_btn(btnbindings, cl, print_btn, 'l', NULL);
-	tw_bindings_apply_to_compositor(btnbindings, compositor);
 
+	struct tw_binding_node *axis_bindings = xmalloc(sizeof(struct tw_binding_node));
+	tw_binding_node_init(axis_bindings);
+	axis_bindings->type = TW_BINDING_axis;
+
+	add_shell_bindings(sh, keybindings, btnbindings, axis_bindings, NULL);
+
+	tw_bindings_apply_to_compositor(keybindings, compositor);
+	tw_bindings_apply_to_compositor(btnbindings, compositor);
+	tw_bindings_apply_to_compositor(axis_bindings, compositor);
 
 	wl_display_run(display);
 //	wl_display_terminate(display);

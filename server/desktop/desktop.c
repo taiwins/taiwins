@@ -283,44 +283,6 @@ pointer_motion_delta(struct weston_pointer *p,
 }
 
 
-static void
-zoom_axis(struct weston_pointer *pointer, const struct timespec *time,
-	   struct weston_pointer_axis_event *event, struct weston_compositor *ec)
-{
-	double augment;
-	struct weston_output *output;
-	struct weston_seat *seat = pointer->seat;
-
-	wl_list_for_each(output, &ec->output_list, link) {
-		if (pixman_region32_contains_point(&output->region,
-						   wl_fixed_to_int(pointer->x),
-						   wl_fixed_to_int(pointer->y), NULL))
-		{
-			float sign = (event->has_discrete) ? -1.0 : 1.0;
-
-			if (event->axis == WL_POINTER_AXIS_VERTICAL_SCROLL)
-				augment = output->zoom.increment * sign * event->value / 20.0;
-			else
-				augment = 0.0;
-
-			output->zoom.level += augment;
-
-			if (output->zoom.level < 0.0)
-				output->zoom.level = 0.0;
-			else if (output->zoom.level > output->zoom.max_level)
-				output->zoom.level = output->zoom.max_level;
-
-			if (!output->zoom.active) {
-				if (output->zoom.level <= 0.0)
-					continue;
-				weston_output_activate_zoom(output, seat);
-			}
-
-			output->zoom.spring_z.target = output->zoom.level;
-			weston_output_update_zoom(output);
-		}
-	}
-}
 
 static void
 alpha_axis(struct weston_pointer *pointer, const struct timespec *time,
@@ -426,15 +388,6 @@ static struct weston_pointer_grab_interface desktop_moving_grab = {
 };
 
 
-static void
-desktop_zoom_axis(struct weston_pointer *pointer,
-		    const struct timespec *time,
-		    struct weston_pointer_axis_event *event,
-		    void *data)
-{
-	struct desktop *desktop = data;
-	zoom_axis(pointer, time, event, desktop->compositor);
-}
 
 static void
 desktop_alpha_axis(struct weston_pointer *pointer,
@@ -580,8 +533,6 @@ desktop_workspace_switch_recent(struct weston_keyboard *keyboard,
 static void
 desktop_add_keybindings(struct weston_compositor *compositor, struct desktop *desktop)
 {
-	weston_compositor_add_axis_binding(compositor, WL_POINTER_AXIS_VERTICAL_SCROLL,
-					   MODIFIER_SUPER | MODIFIER_ALT, desktop_zoom_axis, desktop);
 	weston_compositor_add_axis_binding(compositor, WL_POINTER_AXIS_VERTICAL_SCROLL,
 					   MODIFIER_SUPER | MODIFIER_ALT, desktop_alpha_axis, desktop);
 	weston_compositor_add_button_binding(compositor, BTN_LEFT, MODIFIER_SUPER,

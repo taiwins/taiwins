@@ -113,12 +113,6 @@ run_binding(struct tw_binding_node *subtree, enum tw_binding_type type, void *de
 					     binding->option, binding->user_data);
 			break;
 		}
-		else if (type == TW_BINDING_axis && binding->axis_binding) {
-			binding->axis_binding((struct weston_pointer *)dev,
-					      binding->option, event,
-					      binding->user_data);
-			break;
-		}
 	}
 	//`if (hit == false)` this could happend. It happens when binding system
 	//gives the key does not fit along the binding tree. For example, C-x x
@@ -194,23 +188,22 @@ run_axis_binding(struct weston_pointer *pointer,
 		      struct weston_pointer_axis_event *event,
 		      void *data)
 {
-	static struct tw_binding_node *subtree = NULL;
-	if (!subtree)
-		subtree = data;
+	struct tw_binding_node *root = data;
 	//not sure if this really works
 	struct weston_keyboard *keyboard = pointer->seat->keyboard_state;
 	uint32_t mod_mask = keyboard ?
 		modifier_mask_from_xkb_state(keyboard->xkb_state.state) :
 		0;
-	struct tw_binding_node *pass =
-		run_binding(subtree, TW_BINDING_axis, pointer,
-			    mod_mask, event->axis, event);
-	if (!pass)
-		weston_pointer_send_axis(pointer, time, event);
-	if (pass == subtree) //hit
-		subtree = data;
-	else //internal
-		subtree = pass;
+	uint32_t axis = event->axis;
+	uint32_t idx = mod_mask + (axis << 4);
+	struct vtree_node *n = *(struct vtree_node **)
+		vector_at(&root->node.children, idx);
+	if (n) {
+		struct tw_binding_node *binding =
+			container_of(n, struct tw_binding_node, node);
+		binding->axis_binding(pointer, binding->option, event,
+				      binding->user_data);
+	}
 }
 
 static void
@@ -388,8 +381,8 @@ cache_input(const struct vtree_node *node, void *data)
 }
 
 void
-tw_bindings_apply_to_compositor(const struct tw_binding_node *root,
-			     struct weston_compositor *ec)
+tw_bindings_apply_to_compositor(struct tw_binding_node *root,
+				struct weston_compositor *ec)
 {
 	void *data = (void *)root;
 	vector_t v;
@@ -417,12 +410,19 @@ tw_bindings_apply_to_compositor(const struct tw_binding_node *root,
 				data);
 		}
 	} else if (root->type == TW_BINDING_axis) {
-		for (int i = 0; i < v.len; i++) {
-			struct tw_press *press = vector_at(&v, i);
-			weston_compositor_add_axis_binding(
-				ec, press->axis, press->modifier,
-				run_axis_binding, data);
+		struct vtree_node *nodes[32] = {0};
+		for (int i = 0; i < root->node.children.len; i++) {
+			struct vtree_node *n = vtree_ith_child(&root->node, i);
+			struct tw_binding_node *b = container_of(n, struct tw_binding_node, node);
+			size_t idx = (b->axis << 4) + b->modifier;
+			nodes[idx] = n;
+			weston_compositor_add_axis_binding(ec, b->axis, b->modifier, run_axis_binding, data);
 		}
+		//resort it so we can have enough space to have immediate access
+		vector_resize(&root->node.children, 32);
+		for (int i = 0; i < 32; i++)
+			*(struct vtree_node **)vector_at(&root->node.children, i) =
+				(nodes[i]) ? nodes[i] : NULL;
 	}
 	vector_destroy(&v);
 }

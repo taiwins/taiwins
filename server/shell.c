@@ -9,6 +9,7 @@
 
 #include "taiwins.h"
 #include "shell.h"
+#include "input.h"
 
 struct shell_ui {
 	struct wl_resource *resource;
@@ -501,6 +502,63 @@ launch_shell_client(void *data)
 	shell->shell_client = tw_launch_client(shell->ec, shell->path);
 	wl_client_get_credentials(shell->shell_client, &shell->pid, &shell->uid, &shell->gid);
 }
+
+static void
+zoom_axis(struct weston_pointer *pointer, uint32_t option,
+	   struct weston_pointer_axis_event *event, void *data)
+{
+	struct weston_compositor *ec = pointer->seat->compositor;
+	double augment;
+	struct weston_output *output;
+	struct weston_seat *seat = pointer->seat;
+
+	wl_list_for_each(output, &ec->output_list, link) {
+		if (pixman_region32_contains_point(&output->region,
+						   wl_fixed_to_int(pointer->x),
+						   wl_fixed_to_int(pointer->y), NULL))
+		{
+			float sign = (event->has_discrete) ? -1.0 : 1.0;
+
+			if (event->axis == WL_POINTER_AXIS_VERTICAL_SCROLL)
+				augment = output->zoom.increment * sign * event->value / 20.0;
+			else
+				augment = 0.0;
+
+			output->zoom.level += augment;
+
+			if (output->zoom.level < 0.0)
+				output->zoom.level = 0.0;
+			else if (output->zoom.level > output->zoom.max_level)
+				output->zoom.level = output->zoom.max_level;
+
+			if (!output->zoom.active) {
+				if (output->zoom.level <= 0.0)
+					continue;
+				weston_output_activate_zoom(output, seat);
+			}
+
+			output->zoom.spring_z.target = output->zoom.level;
+			weston_output_update_zoom(output);
+		}
+	}
+}
+
+
+void
+add_shell_bindings(struct shell *shell,
+		   struct tw_binding_node *key_bindings,
+		   struct tw_binding_node *btn_bindings,
+		   struct tw_binding_node *axis_bindings,
+		   struct tw_binding_node *touch_bindings)
+{
+	//the lookup binding
+	struct tw_axis_motion motion;
+
+	motion.modifier = MODIFIER_CTRL | MODIFIER_SUPER;
+	motion.axis_event = WL_POINTER_AXIS_VERTICAL_SCROLL;
+	tw_binding_add_axis(axis_bindings, &motion, zoom_axis, 0, shell);
+}
+
 
 /**
  * @brief announce the taiwins shell protocols.

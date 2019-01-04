@@ -67,6 +67,8 @@ struct tw_binding_node {
 		tw_axis_binding axis_binding;
 	};
 };
+
+
 //how you are supposed to define the grabs
 
 
@@ -93,7 +95,7 @@ tw_binding_add_axis(struct tw_binding_node *root,
 			  const void *data);
 
 void
-tw_bindings_apply_to_compositor(const struct tw_binding_node *root,
+tw_bindings_apply_to_compositor(struct tw_binding_node *root,
 			     struct weston_compositor *ec);
 
 
