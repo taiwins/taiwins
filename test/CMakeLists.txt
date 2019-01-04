@@ -62,6 +62,7 @@ add_executable(test_pixman
   )
 
 target_link_libraries(test_pixman
+  ${PIXMAN_LIBRARIES}
   ${CLIENT_LIBARARIES})
 
 
