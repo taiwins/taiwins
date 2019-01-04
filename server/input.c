@@ -133,6 +133,8 @@ run_key_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 
 	if (subtree == NULL)
 		subtree = data;
+	if (keyboard->grab != &keyboard->default_grab)
+		return;
 	/* struct wl_display *display = keyboard->seat->compositor->wl_display; */
 	xkb_keycode_t keycode = kc_linux2xkb(key);
 	uint32_t mod_mask = modifier_mask_from_xkb_state(keyboard->xkb_state.state);
@@ -159,13 +161,16 @@ run_btn_binding(struct weston_pointer *pointer, const struct timespec *time,
 		uint32_t button, void *data)
 {
 	static struct tw_binding_node *subtree = NULL;
+	if (!subtree)
+		subtree = data;
+	if (pointer->grab != &pointer->default_grab)
+		return;
+
 	//not sure if this really works
 	struct weston_keyboard *keyboard = pointer->seat->keyboard_state;
 	uint32_t mod_mask = keyboard ?
 		modifier_mask_from_xkb_state(keyboard->xkb_state.state) :
 		0;
-	if (!subtree)
-		subtree = data;
 
 	struct tw_binding_node *pass =
 		run_binding(subtree, TW_BINDING_btn, pointer,
@@ -189,6 +194,8 @@ run_axis_binding(struct weston_pointer *pointer,
 		      void *data)
 {
 	struct tw_binding_node *root = data;
+	if (pointer->grab != &pointer->default_grab)
+		return;
 	//not sure if this really works
 	struct weston_keyboard *keyboard = pointer->seat->keyboard_state;
 	uint32_t mod_mask = keyboard ?
@@ -212,6 +219,9 @@ run_touch_binding(struct weston_touch *touch,
 		       void *data)
 {
 	static struct tw_binding_node *subtree = NULL;
+
+	if (touch->grab != &touch->default_grab)
+		return;
 	struct weston_keyboard *keyboard = touch->seat->keyboard_state;
 	uint32_t mod_mask = keyboard ?
 		modifier_mask_from_xkb_state(keyboard->xkb_state.state) : 0;
