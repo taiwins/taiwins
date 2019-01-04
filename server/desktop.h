@@ -18,6 +18,16 @@ struct desktop *announce_desktop(struct weston_compositor *compositor);
 void end_desktop(struct desktop *desktop);
 
 
+void desktop_add_bindings(struct desktop *d, struct tw_binding_node *key_bindings,
+			  struct tw_binding_node *btn_bindings,
+			  struct tw_binding_node *axis_bindings,
+			  struct tw_binding_node *touch_bindings);
+
+void console_add_bindings(struct console *d, struct tw_binding_node *key_bindings,
+			  struct tw_binding_node *btn_bindings,
+			  struct tw_binding_node *axis_bindings,
+			  struct tw_binding_node *touch_bindings);
+
 
 #ifdef  __cplusplus
 }

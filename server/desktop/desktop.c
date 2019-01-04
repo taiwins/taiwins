@@ -16,6 +16,12 @@
 
 #define MAX_WORKSPACE 8
 
+//enums used in the options
+enum desktop_switch_workspace_option {
+	SWITCH_WS_LEFT, SWITCH_WS_RIGHT
+};
+
+
 struct desktop {
 	//does the desktop should have the shell ui layout? If that is the case,
 	//we should get the shell as well.
@@ -54,10 +60,14 @@ struct grab_interface {
 };
 
 static struct grab_interface *
-grab_interface_create_for(struct weston_view *view, struct weston_seat *seat, struct desktop *desktop);
+grab_interface_create_for_pointer(struct weston_view *view, struct weston_seat *seat, struct desktop *desktop,
+	struct weston_pointer_grab_interface *i);
 
 static void
 grab_interface_destroy(struct grab_interface *gi);
+
+
+static struct weston_pointer_grab_interface desktop_moving_grab;
 
 
 /*********************************************************************/
@@ -133,7 +143,8 @@ twdesk_surface_move(struct weston_desktop_surface *desktop_surface,
 	struct weston_view *view = tw_default_view_from_surface(surface);
 //	struct weston_touch *touch = weston_seat_get_touch(seat);
 	if (pointer && pointer->focus && pointer->button_count > 0) {
-		gi = grab_interface_create_for(view, seat, desktop);
+		gi = grab_interface_create_for_pointer(view, seat, desktop,
+						       &desktop_moving_grab);
 		weston_pointer_start_grab(pointer, &gi->pointer_grab);
 	}
 }
@@ -150,9 +161,6 @@ static struct weston_desktop_api desktop_impl =  {
 	.struct_size = sizeof(struct weston_desktop_api),
 };
 /*** libweston-desktop implementation ***/
-
-static void
-desktop_add_keybindings(struct weston_compositor *compositor, struct desktop *desktop);
 
 
 static void
@@ -213,7 +221,7 @@ announce_desktop(struct weston_compositor *ec)
 						 output);
 	}
 	//last step, add keybindings
-	desktop_add_keybindings(ec, &DESKTOP);
+	// desktop_add_keybindings(ec, &DESKTOP);
 
 	return &DESKTOP;
 }
@@ -230,13 +238,13 @@ end_desktop(struct desktop *desktop)
 	weston_desktop_destroy(desktop->api);
 }
 
-static struct weston_pointer_grab_interface desktop_moving_grab;
 
 /**
  * constructor, view can be null, but seat cannot. we need compositor
  */
 static struct grab_interface *
-grab_interface_create_for(struct weston_view *view, struct weston_seat *seat, struct desktop *desktop)
+grab_interface_create_for_pointer(struct weston_view *view, struct weston_seat *seat, struct desktop *desktop,
+	struct weston_pointer_grab_interface *g)
 {
 	assert(seat);
 	struct grab_interface *gi = calloc(sizeof(struct grab_interface), 1);
@@ -244,7 +252,7 @@ grab_interface_create_for(struct weston_view *view, struct weston_seat *seat, st
 	gi->compositor = seat->compositor;
 	gi->desktop = desktop;
 	//TODO find out the corresponding grab interface
-	gi->pointer_grab.interface = &desktop_moving_grab;
+	gi->pointer_grab.interface = g;
 	gi->pointer_grab.pointer = weston_seat_get_pointer(seat);
 	//right now we do not have other grab
 	return gi;
@@ -285,8 +293,8 @@ pointer_motion_delta(struct weston_pointer *p,
 
 
 static void
-alpha_axis(struct weston_pointer *pointer, const struct timespec *time,
-	   struct weston_pointer_axis_event *event, struct weston_view *view)
+alpha_axis(struct weston_pointer *pointer, struct weston_pointer_axis_event *event,
+	   struct weston_view *view)
 {
 	float increment = 0.07;
 	float sign = (event->has_discrete) ? -1.0 : 1.0;
@@ -391,76 +399,36 @@ static struct weston_pointer_grab_interface desktop_moving_grab = {
 
 static void
 desktop_alpha_axis(struct weston_pointer *pointer,
-		     const struct timespec *time,
-		     struct weston_pointer_axis_event *event,
-		     void *data)
+		   uint32_t option,
+		   struct weston_pointer_axis_event *event,
+		   void *data)
 {
 	struct desktop *desktop = data;
 	//find a view.
 	if (!pointer->focus ||
 	    !is_view_on_desktop(pointer->focus, desktop))
 		return;
-	alpha_axis(pointer, time, event, pointer->focus);
+	alpha_axis(pointer, event, pointer->focus);
 }
 
-
-/* I have to implement this like a grab */
 static void
-desktop_move_btn(struct weston_pointer *pointer, const struct timespec *time,
-		   uint32_t button, void *data)
+desktop_move_btn(struct weston_pointer *pointer, uint32_t option, void *data)
 {
 	struct grab_interface *gi = NULL;
 	struct weston_seat *seat = pointer->seat;
 	struct weston_view *view = pointer->focus;
 	struct desktop *desktop = data;
 	if (pointer->button_count > 0 && view && is_view_on_desktop(view, desktop)) {
-		gi = grab_interface_create_for(view, seat, desktop);
+		gi = grab_interface_create_for_pointer(view, seat, desktop,
+						       &desktop_moving_grab);
 		weston_pointer_start_grab(pointer, &gi->pointer_grab);
 	}
 
 }
 
-/*this is useless, we do not know where to move the view*/
-static void
-desktop_deplace_key(struct weston_keyboard *keyboard,
-		      const struct timespec *time,
-		      uint32_t key,
-		      void *data)
-{
-	//okay, this works, but we will need other things
-	struct desktop *desktop = data;
-	enum disposer_command command;
-	struct disposer_op arg;
-	struct weston_view *view = keyboard->seat->pointer_state->focus;
-	struct workspace *ws = desktop->actived_workspace[0];
-	if (!view)
-		return;
-	arg.visible = true;
-	arg.v = view;
-	arg.end = false;
-	switch (key) {
-	case KEY_UP:
-		command = DPSR_up;
-		break;
-	case KEY_DOWN:
-		command = DPSR_down;
-		break;
-	case KEY_LEFT:
-		command = DPSR_left;
-		break;
-	case KEY_RIGHT:
-		command = DPSR_right;
-		break;
-	default:
-		return;
-	}
-	arrange_view_for_workspace(ws, view, command, &arg);
-}
-
 static void
 desktop_click_activate_view(struct weston_pointer *pointer,
-			      const struct timespec *time,
-			      uint32_t button, void *data)
+			    uint32_t option, void *data)
 {
 	struct desktop *desktop = data;
 	struct workspace *ws = desktop->actived_workspace[0];
@@ -481,8 +449,7 @@ desktop_click_activate_view(struct weston_pointer *pointer,
 
 static void
 desktop_touch_activate_view(struct weston_touch *touch,
-			      const struct timespec *time,
-			      void *data)
+			    uint32_t option, void *data)
 {
 	struct desktop *desktop = data;
 	if (touch->grab != &touch->default_grab || !touch->focus)
@@ -498,22 +465,19 @@ desktop_touch_activate_view(struct weston_touch *touch,
 	}
 }
 
+
 static void
 desktop_workspace_switch(struct weston_keyboard *keyboard,
-			   const struct timespec *time, uint32_t key,
-			   void *data)
+			 uint32_t option, void *data)
 {
 	struct desktop *desktop = data;
 	struct workspace *ws = desktop->actived_workspace[0];
 	off_t ws_idx = get_workspace_index(ws, desktop);
 	desktop->actived_workspace[1] = ws;
-	if (key >= KEY_1 && key <= KEY_9) {
-		ws_idx = key - KEY_1;
-	} else if (key == KEY_LEFT)
+	if (option == SWITCH_WS_LEFT)
 		ws_idx = MAX(0, ws_idx-1);
-	else if (key == KEY_RIGHT) {
+	else
 		ws_idx = MIN(MAX_WORKSPACE, ws_idx+1);
-	}
 	desktop->actived_workspace[0] = &desktop->workspaces[ws_idx];
 	workspace_switch(&desktop->workspaces[ws_idx], ws, keyboard);
 }
@@ -521,8 +485,7 @@ desktop_workspace_switch(struct weston_keyboard *keyboard,
 
 static void
 desktop_workspace_switch_recent(struct weston_keyboard *keyboard,
-				  const struct timespec *time, uint32_t key,
-				  void *data)
+				uint32_t option, void *data)
 {
 	struct desktop *desktop = data;
 	SWAP(desktop->actived_workspace[0], desktop->actived_workspace[1]);
@@ -530,25 +493,38 @@ desktop_workspace_switch_recent(struct weston_keyboard *keyboard,
 }
 
 
-static void
-desktop_add_keybindings(struct weston_compositor *compositor, struct desktop *desktop)
+void
+desktop_add_bindings(struct desktop *d, struct tw_binding_node *key_bindings,
+		     struct tw_binding_node *btn_bindings,
+		     struct tw_binding_node *axis_bindings,
+		     struct tw_binding_node *touch_bindings)
 {
-	weston_compositor_add_axis_binding(compositor, WL_POINTER_AXIS_VERTICAL_SCROLL,
-					   MODIFIER_SUPER | MODIFIER_ALT, desktop_alpha_axis, desktop);
-	weston_compositor_add_button_binding(compositor, BTN_LEFT, MODIFIER_SUPER,
-					     desktop_move_btn, desktop);
-	//focus bindings
-	weston_compositor_add_button_binding(compositor, BTN_LEFT, 0, desktop_click_activate_view, desktop);
-	weston_compositor_add_touch_binding(compositor, 0, desktop_touch_activate_view, desktop);
-
-	//switch bindings
-	weston_compositor_add_key_binding(compositor, KEY_LEFT, MODIFIER_CTRL,
-					  desktop_workspace_switch, desktop);
-	weston_compositor_add_key_binding(compositor, KEY_RIGHT, MODIFIER_CTRL,
-					  desktop_workspace_switch, desktop);
-	for (int i = 0; i < 9; i++)
-		weston_compositor_add_key_binding(compositor, KEY_1+i, MODIFIER_CTRL,
-						  desktop_workspace_switch, desktop);
-	weston_compositor_add_key_binding(compositor, KEY_B, MODIFIER_CTRL,
-					  desktop_workspace_switch_recent, desktop);
+	//moving btn
+	struct tw_btn_press move_press[MAX_KEY_SEQ_LEN] = {
+		{BTN_LEFT, MODIFIER_SUPER}, {0}, {0}, {0}, {0}
+	};
+	tw_binding_add_btn(btn_bindings, move_press, desktop_move_btn, 0, d);
+	//double tap focus
+	struct tw_btn_press focus_press[MAX_KEY_SEQ_LEN] = {
+		{BTN_LEFT, 0}, {BTN_LEFT, 0}, {0}, {0}, {0}
+	};
+	tw_binding_add_btn(btn_bindings, focus_press, desktop_click_activate_view,
+			   0, d);
+	//switch workspace
+	struct tw_key_press switch_ws_left[MAX_KEY_SEQ_LEN] = {
+		{KEY_LEFT+8, MODIFIER_CTRL}, {0}, {0}, {0}, {0}
+	};
+	struct tw_key_press switch_ws_right[MAX_KEY_SEQ_LEN] = {
+		{KEY_RIGHT+8, MODIFIER_CTRL}, {0}, {0}, {0}, {0}
+	};
+	struct tw_key_press switch_ws_back[MAX_KEY_SEQ_LEN] = {
+		{KEY_B+8, MODIFIER_SUPER | MODIFIER_ALT},
+		{KEY_B+8, MODIFIER_SUPER | MODIFIER_ALT}, {0}, {0}, {0}
+	};
+	tw_binding_add_key(key_bindings, switch_ws_left, desktop_workspace_switch,
+			   SWITCH_WS_LEFT, d);
+	tw_binding_add_key(key_bindings, switch_ws_right, desktop_workspace_switch,
+			   SWITCH_WS_RIGHT, d);
+	tw_binding_add_key(key_bindings, switch_ws_back, desktop_workspace_switch_recent,
+			   0, d);
 }

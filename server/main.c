@@ -126,6 +126,8 @@ int main(int argc, char *argv[])
 	axis_bindings->type = TW_BINDING_axis;
 
 	add_shell_bindings(sh, keybindings, btnbindings, axis_bindings, NULL);
+	desktop_add_bindings(desktop, keybindings, btnbindings, axis_bindings, NULL);
+	console_add_bindings(con, keybindings, btnbindings, axis_bindings, NULL);
 
 	tw_bindings_apply_to_compositor(keybindings, compositor);
 	tw_bindings_apply_to_compositor(btnbindings, compositor);
