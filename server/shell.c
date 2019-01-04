@@ -553,7 +553,7 @@ add_shell_bindings(struct shell *shell,
 {
 	//the lookup binding
 	struct tw_axis_motion motion;
-
+	//add the zoom binding
 	motion.modifier = MODIFIER_CTRL | MODIFIER_SUPER;
 	motion.axis_event = WL_POINTER_AXIS_VERTICAL_SCROLL;
 	tw_binding_add_axis(axis_bindings, &motion, zoom_axis, 0, shell);
