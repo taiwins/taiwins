@@ -336,13 +336,15 @@ move_grab_pointer_motion(struct weston_pointer_grab *grab,
 	weston_pointer_move(grab->pointer, event);
 	if (!gi->view)
 		return;
+	//so this function will have no effect on tiling views
+
 	//TODO constrain the pointer.
 	if (!workspace_move_view(ws, gi->view,
 					  &(struct weston_position) {
 						  gi->view->geometry.x + dx,
 							  gi->view->geometry.y + dy}))
 	{
-		struct disposer_op arg = {
+		struct layout_op arg = {
 			.v = gi->view,
 			.pos = {
 				gi->view->geometry.x + dx,
@@ -354,6 +356,35 @@ move_grab_pointer_motion(struct weston_pointer_grab *grab,
 		arrange_view_for_workspace(ws, gi->view, DPSR_deplace, &arg);
 	}
 }
+
+
+static void
+resize_grab_pointer_motion(struct weston_pointer_grab *grab,
+			   const struct timespec *time,
+			   struct weston_pointer_motion_event *event)
+{
+	double dx, dy;
+	struct grab_interface *gi = container_of(grab, struct grab_interface, pointer_grab);
+	struct desktop *d = gi->desktop;
+
+	struct workspace *ws = d->actived_workspace[0];
+	//this func change the pointer->x pointer->y
+	pointer_motion_delta(grab->pointer, event, &dx, &dy);
+	weston_pointer_move(grab->pointer, event);
+	if (!gi->view)
+		return;
+
+	//then we have to encode the resizing event into
+	//now we deterine the motion
+	struct layout_op arg = {
+		.v = gi->view,
+		.visible = true,
+		.dx = dx,
+		.dy = dy,
+	};
+	arrange_view_for_workspace(ws, gi->view, DPSR_resize, &arg);
+}
+
 
 static void
 noop_grab_pointer_motion(struct weston_pointer_grab *grab, const struct timespec *time,

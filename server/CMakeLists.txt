@@ -18,6 +18,8 @@ target_link_libraries(twshell
 add_library(taiwins_desktop STATIC
   desktop/desktop.c
   desktop/layout.c
+  desktop/layout_floating.c
+  desktop/layout_tiling.c
   desktop/workspace.c
   )
 

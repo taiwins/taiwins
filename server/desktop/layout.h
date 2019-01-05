@@ -19,9 +19,8 @@ extern "C" {
 #define _GNU_SOURCE
 #endif
 
-
 /* the commands pass to layout algorithm */
-enum disposer_command {
+enum layout_command {
 	DPSR_focus, //useful in floating.
 	DPSR_add,
 	DPSR_del,
@@ -38,39 +37,45 @@ enum disposer_command {
  * responce immediately but currently I have no other way and when to apply the
  * operations is not clear either.
  */
-struct disposer_op {
+struct layout_op {
 	struct weston_view *v;
 	struct weston_position pos;
 	struct weston_size size;
 	float scale;
 	bool end;
 	bool visible;
+	//this is the resizing event. It may affect
+	double dx, dy;
 };
 
-
 struct layout;
-typedef	void (*disposer_fun_t)(const enum disposer_command command,
-			       const struct disposer_op *arg,
-			       struct weston_view *v, struct layout *l,
-			       struct disposer_op *ops);
+typedef	void (*layout_fun_t)(const enum layout_command command,
+			     const struct layout_op *arg,
+			     struct weston_view *v, struct layout *l,
+			     struct layout_op *ops);
 
 //why I create this link based layout in the first place?
 struct layout {
 	bool clean;
-	//simplement les N permiere sont visible, tout sera visible si il est -1.
-	int nvisible;
 	struct wl_list link;
-	//if NULL, the layout works on all the output
-	struct weston_output *output;
 	struct weston_layer *layer;
-	disposer_fun_t commander;
+	layout_fun_t command;
+	void *user_data; //this user_dat is useful
 };
 
+void layout_init(struct layout *l, struct weston_layer *layer);
+void layout_release(struct layout *l);
+
+void layout_add_output(struct layout *l, struct weston_output *o);
+void layout_rm_output(struct layout *l, struct weston_output *o);
+
 //the weston_output is not ready when we create it
-struct layout *floatlayout_create(struct weston_layer *ly, struct weston_output *o);
-void floatlayout_destroy(struct layout *l);
+void floating_layout_init(struct layout *layout, struct weston_layer *ly);
+void floating_layout_end(struct layout *l);
 
 
+void tiling_layout_init(struct layout *layout, struct weston_layer *ly);
+void tiling_layout_end(struct layout *l);
 
 
 #ifdef  __cplusplus
