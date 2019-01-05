@@ -12,8 +12,8 @@ extern "C" {
 
 
 struct workspace {
-	struct wl_list floating_layout_link;
-	struct wl_list tiling_layout_link;
+	struct layout floating_layout;
+	struct layout tiling_layout;
 	//workspace does not distinguish the outputs.
 	//so when we `switch_workspace, all the output has to update.
 	//The layouting algorithm may have to worry about output
@@ -46,8 +46,8 @@ void workspace_switch(struct workspace *to, struct workspace *from,
 		      struct weston_keyboard *keyboard);
 
 void arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
-				const enum disposer_command command,
-				const struct disposer_op *arg);
+				const enum layout_command command,
+				const struct layout_op *arg);
 
 bool is_view_on_workspace(const struct weston_view *v, const struct workspace *ws);
 bool is_workspace_empty(const struct workspace *ws);
@@ -57,6 +57,8 @@ bool workspace_focus_view(struct workspace *ws, struct weston_view *v);
 void workspace_add_view(struct workspace *w, struct weston_view *view);
 bool workspace_move_view(struct workspace *w, struct weston_view *v,
 				  const struct weston_position *pos);
+
+
 void workspace_add_output(struct workspace *wp, struct weston_output *output);
 void workspace_remove_output(struct workspace *w, struct weston_output *output);
 

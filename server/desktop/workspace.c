@@ -15,11 +15,12 @@ size_t workspace_size =  sizeof(struct workspace);
 void
 workspace_init(struct workspace *wp, struct weston_compositor *compositor)
 {
-	wl_list_init(&wp->floating_layout_link);
-	wl_list_init(&wp->tiling_layout_link);
 	weston_layer_init(&wp->tiling_layer, compositor);
 	weston_layer_init(&wp->floating_layer, compositor);
 	weston_layer_init(&wp->hidden_layer, compositor);
+	//init layout
+	floating_layout_init(&wp->floating_layout, &wp->floating_layer);
+	tiling_layout_init(&wp->tiling_layout, &wp->tiling_layer);
 }
 
 void
@@ -43,9 +44,8 @@ workspace_release(struct workspace *ws)
 			weston_surface_destroy(surface);
 		}
 	}
-	struct layout *l, *n;
-	wl_list_for_each_safe(l, n, &ws->floating_layout_link, link)
-		floatlayout_destroy(l);
+	floating_layout_end(&ws->floating_layout);
+	tiling_layout_end(&ws->tiling_layout);
 }
 
 
@@ -64,25 +64,18 @@ workspace_get_top_view(const struct workspace *ws)
 static struct layout *
 workspace_get_layout_for_view(const struct workspace *ws, const struct weston_view *v)
 {
-	struct layout *l;
 	if (!v || (v->layer_link.layer != &ws->floating_layer &&
 		   v->layer_link.layer != &ws->tiling_layer))
 		return NULL;
-	wl_list_for_each(l, &ws->floating_layout_link, link) {
-		if (l->layer == &ws->floating_layer)
-			return l;
-	}
-	wl_list_for_each(l, &ws->tiling_layout_link, link) {
-		if (l->layer == &ws->tiling_layer)
-			return l;
-	}
+	if (ws->floating_layout.layer == &ws->floating_layer)
+		return (struct layout *)&ws->floating_layout;
 	return NULL;
 }
 
 void
 arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
-			const enum disposer_command command,
-			const struct disposer_op *arg)
+			const enum layout_command command,
+			const struct layout_op *arg)
 {
 	struct layout *layout = workspace_get_layout_for_view(ws, v);
 	if (!layout)
@@ -94,9 +87,9 @@ arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
 	//this should be max(2, ws->tiling_layer.view_list)
 	int len = wl_list_length(&ws->floating_layer.view_list.link) +
 		wl_list_length(&ws->tiling_layer.view_list.link) + 1;
-	struct disposer_op ops[len];
+	struct layout_op ops[len];
 	memset(ops, 0, sizeof(ops));
-	layout->commander(command, arg, v, layout, ops);
+	layout->command(command, arg, v, layout, ops);
 	for (int i = 0; i < len; i++) {
 		if (ops[i].end)
 			break;
@@ -178,26 +171,16 @@ workspace_focus_view(struct workspace *ws, struct weston_view *v)
 void
 workspace_add_output(struct workspace *wp, struct weston_output *output)
 {
-	if (wl_list_empty(&wp->floating_layout_link)) {
-		struct layout *fl = floatlayout_create(&wp->floating_layer, output);
-		wl_list_insert(&wp->floating_layout_link, &fl->link);
-	}
+	//for floating layout, we do need to do anything
 	//TODO create the tiling_layout as well.
+	layout_add_output(&wp->tiling_layout, output);
 }
 
 void
 workspace_remove_output(struct workspace *w, struct weston_output *output)
 {
-	struct layout *l, *next;
-	wl_list_for_each_safe(l, next, &w->floating_layout_link, link) {
-		wl_list_remove(&l->link);
-		floatlayout_destroy(l);
-		//some how you need to move all the layer here
-	}
-	wl_list_for_each_safe(l, next, &w->tiling_layout_link, link) {
-	}
+	layout_rm_output(&w->tiling_layout, output);
 }
-
 
 bool
 is_view_on_workspace(const struct weston_view *v, const struct workspace *ws)
@@ -221,7 +204,7 @@ workspace_add_view(struct workspace *w, struct weston_view *view)
 {
 	if (wl_list_empty(&view->layer_link.link))
 		weston_layer_entry_insert(&w->floating_layer.view_list, &view->layer_link);
-	struct disposer_op arg = {
+	struct layout_op arg = {
 		.v = view,
 	};
 	arrange_view_for_workspace(w, view, DPSR_add, &arg);
