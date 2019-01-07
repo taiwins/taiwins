@@ -30,6 +30,9 @@ struct tiling_view {
 	//you can check empty by view or check the size of the node
 	struct weston_view *v;
 	struct vtree_node node;
+	//we have 32 layers of split
+	int8_t coding[32];
+	int8_t level;
 };
 
 struct tiling_output {
@@ -98,7 +101,8 @@ tiling_view_find(struct tiling_view *root, struct weston_view *v)
 }
 
 static struct tiling_view *
-tiling_new_view(struct weston_view *v, bool vertical, float portion)
+tiling_new_view(struct weston_view *v, struct tiling_view *parent,
+		bool vertical, float portion)
 {
 	struct tiling_view *tv = xmalloc(sizeof(struct tiling_view));
 	vtree_node_init(&tv->node,
@@ -106,12 +110,32 @@ tiling_new_view(struct weston_view *v, bool vertical, float portion)
 	tv->vertical = vertical;
 	tv->v = v;
 	tv->portion = portion;
+	tv->level = MIN(parent->level+1, 32);
+	return tv;
 }
 
-
-static void
+static inline void
 tiling_destroy_view(struct tiling_view *v)
 {
+	free(v);
+}
+
+static struct weston_geometry
+tiling_subtree_space(struct tiling_view *v,
+		     struct tiling_view *root,
+		     struct weston_output *o)
+{
+	queue_t queue;
+
+	struct weston_geometry geo = {
+		o->x, o->y, o->width, o->height,
+	};
+	struct tiling_view *to_look = root;
+	//we have to use DFS search now
+	while (to_look != v) {
+
+	}
+	queue_destroy(&queue);
 }
 
 void
@@ -131,29 +155,30 @@ tiling_add(const enum layout_command command, const struct layout_op *arg,
 	struct weston_view *focused_view =
 		container_of(layer->view_list.link.next,
 			     struct weston_view, layer_link.link);
-	struct tiling_output *to =
-		tiling_output_find(l, focused_view->output);
-	struct tiling_view *tv =
-		tiling_view_find(to->root, focused_view);
-	struct tiling_view *pv =
-		container_of(tv->node.parent, struct tiling_view, node);
-
-	double new_portion = 1.0 - (double)pv->node.children.len /
+	struct tiling_view *pv = NULL;
+	{
+		struct tiling_output *to =
+			tiling_output_find(l, focused_view->output);
+		struct tiling_view *tv =
+			tiling_view_find(to->root, focused_view);
+		pv = container_of(tv->node.parent, struct tiling_view, node);
+	}
+	double ocuppied = 1.0 - (double)pv->node.children.len /
 		(double)pv->node.children.len+1;
-	double rest_portion = 1.0 - new_portion;
-
-	struct tiling_view *new_view = tiling_new_view(v, false, new_portion);
+	double occupied_rest = 1.0 - ocuppied;
+	//creating new view here
+	struct tiling_view *new_view = tiling_new_view(v, false, pv, ocuppied);
 
 	for (int i = 0; i < pv->node.children.len; i++) {
 		struct tiling_view *sv = container_of(
 			*(struct vtree_node **)vector_at(&pv->node.children, i),
 			struct tiling_view,
 			node);
-		sv->portion *= rest_portion;
+		sv->portion *= occupied_rest;
 	}
 	//now officially adding the node to the children, remember, we add it to
-	//the end
-	vtree_node_add_child(&pv->node, &new_view->node);
+	vtree_node_insert(&pv->node, &new_view->node, 0);
+	//now you need to find the space for pv
 
 }
 
