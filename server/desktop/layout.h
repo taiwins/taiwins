@@ -74,7 +74,8 @@ void floating_layout_init(struct layout *layout, struct weston_layer *ly);
 void floating_layout_end(struct layout *l);
 
 
-void tiling_layout_init(struct layout *layout, struct weston_layer *ly);
+void tiling_layout_init(struct layout *layout, struct weston_layer *ly,
+			struct layout *floating);
 void tiling_layout_end(struct layout *l);
 
 

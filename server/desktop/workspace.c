@@ -20,7 +20,8 @@ workspace_init(struct workspace *wp, struct weston_compositor *compositor)
 	weston_layer_init(&wp->hidden_layer, compositor);
 	//init layout
 	floating_layout_init(&wp->floating_layout, &wp->floating_layer);
-	tiling_layout_init(&wp->tiling_layout, &wp->tiling_layer);
+	tiling_layout_init(&wp->tiling_layout, &wp->tiling_layer,
+			   &wp->floating_layout);
 }
 
 void
