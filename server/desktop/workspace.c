@@ -68,8 +68,10 @@ workspace_get_layout_for_view(const struct workspace *ws, const struct weston_vi
 	if (!v || (v->layer_link.layer != &ws->floating_layer &&
 		   v->layer_link.layer != &ws->tiling_layer))
 		return NULL;
-	if (ws->floating_layout.layer == &ws->floating_layer)
+	if (v->layer_link.layer == &ws->floating_layer)
 		return (struct layout *)&ws->floating_layout;
+	else if (v->layer_link.layer == &ws->tiling_layer)
+		return (struct layout *)&ws->tiling_layout;
 	return NULL;
 }
 
@@ -170,12 +172,19 @@ workspace_focus_view(struct workspace *ws, struct weston_view *v)
 
 
 void
-workspace_add_output(struct workspace *wp, struct weston_output *output)
+workspace_add_output(struct workspace *wp, struct taiwins_output *output)
 {
 	//for floating layout, we do need to do anything
 	//TODO create the tiling_layout as well.
 	layout_add_output(&wp->tiling_layout, output);
 }
+
+void
+workspace_resize_output(struct workspace *wp, struct taiwins_output *output)
+{
+	layout_resize_output(&wp->tiling_layout, output);
+}
+
 
 void
 workspace_remove_output(struct workspace *w, struct weston_output *output)
@@ -204,7 +213,7 @@ void
 workspace_add_view(struct workspace *w, struct weston_view *view)
 {
 	if (wl_list_empty(&view->layer_link.link))
-		weston_layer_entry_insert(&w->floating_layer.view_list, &view->layer_link);
+		weston_layer_entry_insert(&w->tiling_layer.view_list, &view->layer_link);
 	struct layout_op arg = {
 		.v = view,
 	};

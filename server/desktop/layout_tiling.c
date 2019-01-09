@@ -4,6 +4,7 @@
 #include <sequential.h>
 #include <tree.h>
 #include "layout.h"
+#include <libweston-desktop.h>
 
 
 static void
@@ -31,7 +32,7 @@ struct tiling_view {
 	float portion;
 	//you can check empty by view or check the size of the node
 	struct weston_view *v;
-	struct tiling_output *o;
+	struct weston_output *output;
 	struct vtree_node node;
 	//we have 32 layers of split
 	int8_t coding[32];
@@ -46,6 +47,7 @@ struct tiling_output {
 	//the gap is here to determine the size between views
 	uint32_t inner_gap;
 	uint32_t outer_gap;
+	struct weston_geometry curr_geo;
 };
 
 struct tiling_user_data {
@@ -53,6 +55,34 @@ struct tiling_user_data {
 	//the floating layout which is on
 	struct layout *floating;
 };
+
+static inline struct tiling_view *
+tiling_new_view(struct weston_view *v)
+{
+	struct tiling_view *tv = xmalloc(sizeof(struct tiling_view));
+	vtree_node_init(&tv->node,
+			offsetof(struct tiling_view, node));
+	tv->v = v;
+	return tv;
+}
+
+static void
+tiling_destroy_view(void *data)
+{
+	struct tiling_view *view = data;
+	if (view->v)
+		weston_desktop_surface_unlink_view(view->v);
+	free(data);
+}
+
+
+static void
+free_tiling_output(void *data)
+{
+	struct tiling_output *output = data;
+	vtree_destroy(&output->root->node, tiling_destroy_view);
+}
+
 
 void
 tiling_layout_init(struct layout *l, struct weston_layer *ly, struct layout *floating)
@@ -66,33 +96,48 @@ tiling_layout_init(struct layout *l, struct weston_layer *ly, struct layout *flo
 	l->command = emplace_tiling;
 	//change this, now you have to consider the option that someone unplug
 	//the monitor
-	vector_init(&user_data->outputs, sizeof(struct vtree_node *), NULL);
+	vector_init(&user_data->outputs, sizeof(struct tiling_output), free_tiling_output);
 }
 
 void
 tiling_layout_end(struct layout *l)
 {
 	struct tiling_user_data *user_data =  l->user_data;
-
 	layout_release(l);
-	//okay, we need to destroy all the views explicitly
-	for (int i = 0; i < user_data->outputs.len; i++) {
-		struct tiling_output *output = vector_at(&user_data->outputs, i);
-		//change this, we need to destroy every single views
-		vtree_destroy(&output->root->node, NULL);
-	}
 	vector_destroy(&user_data->outputs);
 	free(l->user_data);
 }
 
-
-void tiling_add_output(struct layout *l, struct weston_output *o)
+//right now we just assume output is stable. If you turn off the monitor we
+//should lost this output though
+void tiling_add_output(struct layout *l, struct taiwins_output *o)
 {
+	struct tiling_user_data *user_data =  l->user_data;
+	struct tiling_output output;
+	//setup the data
+	output.o = o->output;
+	output.inner_gap = o->inner_gap;
+	output.outer_gap = o->outer_gap;
+	output.curr_geo = o->desktop_area;
+	//setup the first node
+	output.root = tiling_new_view(NULL);
+	output.root->level = 0;
+	output.root->output = o->output;
+	output.root->portion = 1.0;
+	output.root->vertical = false;
+
+	vector_append(&user_data->outputs, &output);
 }
 
 void tiling_rm_output(struct layout *l, struct weston_output *o)
 {
+	struct tiling_user_data *user_data =  l->user_data;
 
+	for (int i = 0; i < user_data->outputs.len; i++) {
+		struct tiling_output *to = vector_at(&user_data->outputs, i);
+		if (to->o == o)
+			vector_erase(&user_data->outputs, i);
+	}
 }
 
 static inline struct tiling_output *
@@ -106,6 +151,17 @@ tiling_output_find(struct layout *l, struct weston_output *wo)
 			return o;
 	}
 	return NULL;
+}
+
+void tiling_resize_output(struct layout *l, struct taiwins_output *o)
+{
+	struct tiling_output *output = tiling_output_find(l, o->output);
+	output->curr_geo = o->desktop_area;
+	output->inner_gap = o->inner_gap;
+	output->outer_gap = o->outer_gap;
+	//I do need to make this a tili
+	/* tiling_arrange_subtree(output->root, output, */
+	/*	       struct layout_op *data_out, struct tiling_output *o) */
 }
 
 static int
@@ -124,15 +180,6 @@ tiling_view_find(struct tiling_view *root, struct weston_view *v)
 	return container_of(tnode, struct tiling_view, node);
 }
 
-static inline struct tiling_view *
-tiling_new_view(struct weston_view *v)
-{
-	struct tiling_view *tv = xmalloc(sizeof(struct tiling_view));
-	vtree_node_init(&tv->node,
-			offsetof(struct tiling_view, node));
-	tv->v = v;
-	return tv;
-}
 
 static void
 tiling_view_insert(struct tiling_view *parent, struct tiling_view *tv, off_t offset)
@@ -141,30 +188,24 @@ tiling_view_insert(struct tiling_view *parent, struct tiling_view *tv, off_t off
 	//we just make the assert here
 	assert(tv->level <= 31);
 	memcpy(tv->coding, parent->coding, sizeof(int8_t) * 32);
-	tv->coding[tv->level] = offset;
-	tv->o = parent->o;
+	tv->coding[tv->level-1] = offset;
+	tv->output = parent->output;
 	tv->vertical = parent->vertical;
 	//now officially adding the node to the children, remember, we add it to
 	vtree_node_insert(&parent->node, &tv->node, offset);
 	//now you need to find the space for pv
 }
 
-static inline void
-tiling_destroy_view(struct tiling_view *v)
-{
-	free(v);
-}
 
 static struct weston_geometry
 tiling_subtree_space(struct tiling_view *v,
 		     struct tiling_view *root,
-		     struct weston_output *o)
+		     struct tiling_output *output)
 {
 	struct tiling_view *subtree = root;
-	struct weston_geometry geo = {
-		o->x, o->y, o->width, o->height,
-	};
-	for (int i = 0; i < v->level+1; i++) {
+	struct weston_geometry geo = output->curr_geo;
+
+	for (int i = 0; i < v->level; i++) {
 		struct vtree_node *node =
 			vtree_ith_child(&subtree->node,
 					v->coding[i]);
@@ -186,26 +227,26 @@ tiling_subtree_space(struct tiling_view *v,
 }
 
 static int
-tilting_arrange_subtree(struct tiling_view *subtree, struct weston_geometry *geo,
-			struct layout_op *data_out)
+tiling_arrange_subtree(struct tiling_view *subtree, struct weston_geometry *geo,
+		       struct layout_op *data_out, struct tiling_output *o)
 {
 	//leaf
 	if (subtree->v) {
 		data_out->v = subtree->v;
 		data_out->pos.x = geo->x + ((subtree->vertical) ?
-					    subtree->o->outer_gap :
-					    subtree->o->inner_gap);
+					    o->outer_gap :
+					    o->inner_gap);
 		data_out->pos.y = geo->y + ((subtree->vertical) ?
-					    subtree->o->inner_gap :
-					    subtree->o->outer_gap);
+					    o->inner_gap :
+					    o->outer_gap);
 		data_out->size.width =
 			geo->width - ((subtree->vertical) ?
-				      subtree->o->outer_gap :
-				      subtree->o->inner_gap);
+				      o->outer_gap :
+				      o->inner_gap);
 		data_out->size.height =
 			geo->height - ((subtree->vertical) ?
-				       subtree->o->inner_gap :
-				       subtree->o->outer_gap);
+				       o->inner_gap :
+				       o->outer_gap);
 		data_out->end = false;
 		return 1;
 	}
@@ -224,7 +265,7 @@ tilting_arrange_subtree(struct tiling_view *subtree, struct weston_geometry *geo
 		sub_space.y += (subtree->vertical) ? leading * geo->height : 0;
 		sub_space.height = (subtree->vertical) ? n->portion * geo->height : geo->height;
 		leading += n->portion;
-		count += tilting_arrange_subtree(n, &sub_space, &data_out[count]);
+		count += tiling_arrange_subtree(n, &sub_space, &data_out[count], o);
 	}
 	return count;
 }
@@ -239,6 +280,7 @@ tiling_find_launch_point(struct layout *l)
 	struct tiling_view *pv = NULL;
 	//if the layout is not empty.
 	struct tiling_view *tv;
+	//TODO this doesn't work, we inserted the view into list already
 	if (wl_list_length(&layer->view_list.link) > 0) {
 		struct weston_view *focused_view =
 			container_of(layer->view_list.link.next, struct weston_view,
@@ -277,7 +319,8 @@ tiling_add(const enum layout_command command, const struct layout_op *arg,
 {
 	//find launch point
 	struct tiling_view *pv = tiling_find_launch_point(l);
-	struct tiling_view *root = pv->o->root;
+	struct tiling_output *tiling_output = tiling_output_find(l, pv->output);
+	struct tiling_view *root = tiling_output->root;
 
 	double occupied = 1.0 - (double)pv->node.children.len /
 		(double)pv->node.children.len+1;
@@ -295,8 +338,8 @@ tiling_add(const enum layout_command command, const struct layout_op *arg,
 	}
 	tiling_view_insert(pv, new_view, 0);
 	struct weston_geometry space =
-		tiling_subtree_space(new_view, root, pv->o->o);
-	int count = tilting_arrange_subtree(pv, &space, ops);
+		tiling_subtree_space(new_view, root, tiling_output);
+	int count = tiling_arrange_subtree(pv, &space, ops, tiling_output);
 	ops[count].end = true;
 }
 

@@ -220,7 +220,8 @@ run_keybinding(struct weston_keyboard *keyboard,
 
 	bool hit = false;
 	for (int i = 0; i < vtree_len(&tree->node); i++) {
-		struct tw_keymap_tree *binding = vtree_ith_child(&tree->node, i);
+		struct tw_keymap_tree *binding = container_of(vtree_ith_child(&tree->node, i),
+							      struct tw_keymap_tree, node);
 		if (modifier_mask != binding->modifier)
 			continue;
 		if (binding->keysym == keysym && binding->keyfun) {
@@ -256,7 +257,8 @@ run_keybinding_wayland(struct xkb_state *state,
 
 	bool hit = false;
 	for (int i = 0; i < vtree_len(&tree->node); i++) {
-		struct tw_keymap_tree *binding = vtree_ith_child(&tree->node, i);
+		struct tw_keymap_tree *binding = container_of(vtree_ith_child(&tree->node, i),
+							      struct tw_keymap_tree, node);
 		if (modifier_mask != binding->modifier)
 			continue;
 		if (binding->keysym == keysym && binding->keyfun) {

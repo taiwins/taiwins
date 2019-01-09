@@ -10,6 +10,7 @@
 #include <helpers.h>
 #include <wayland-server.h>
 #include <compositor.h>
+#include "../taiwins.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -31,6 +32,7 @@ enum layout_command {
 	DPSR_right, //useful in tiling.
 	DPSR_resize, //useful in tiling
 	//DPSR_top, //not useful in neither
+	//I should have resize_output event
 };
 
 /* the operation correspond to the command, I am not sure if it is good to have
@@ -39,12 +41,13 @@ enum layout_command {
  */
 struct layout_op {
 	struct weston_view *v;
+	//output
 	struct weston_position pos;
 	struct weston_size size;
+	//input
 	float scale;
 	bool end;
 	bool visible;
-	//this is the resizing event. It may affect
 	double dx, dy;
 };
 
@@ -66,8 +69,10 @@ struct layout {
 void layout_init(struct layout *l, struct weston_layer *layer);
 void layout_release(struct layout *l);
 
-void layout_add_output(struct layout *l, struct weston_output *o);
+void layout_add_output(struct layout *l, struct taiwins_output *o);
 void layout_rm_output(struct layout *l, struct weston_output *o);
+void layout_resize_output(struct layout *l, struct taiwins_output *o);
+
 
 //the weston_output is not ready when we create it
 void floating_layout_init(struct layout *layout, struct weston_layer *ly);

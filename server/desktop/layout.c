@@ -2,6 +2,7 @@
 #include <helpers.h>
 #include <sequential.h>
 #include <tree.h>
+#include "../taiwins.h"
 #include "layout.h"
 
 
@@ -21,8 +22,9 @@ emplace_tiling(const enum layout_command command, const struct layout_op *arg,
 	       struct weston_view *v, struct layout *l,
 	       struct layout_op *ops);
 
-extern void tiling_add_output(struct layout *l, struct weston_output *o);
+extern void tiling_add_output(struct layout *l, struct taiwins_output *o);
 extern void tiling_rm_output(struct layout *l, struct weston_output *o);
+extern void tiling_resize_output(struct layout *l, struct taiwins_output *o);
 
 
 void
@@ -49,7 +51,7 @@ layout_release(struct layout *l)
 }
 
 void
-layout_add_output(struct layout *l, struct weston_output *o)
+layout_add_output(struct layout *l, struct taiwins_output *o)
 {
 	if (l->command == emplace_tiling)
 		tiling_add_output(l, o);
@@ -60,4 +62,12 @@ layout_rm_output(struct layout *l, struct weston_output *o)
 {
 	if (l->command == emplace_tiling)
 		tiling_rm_output(l, o);
+}
+
+
+void
+layout_resize_output(struct layout *l, struct taiwins_output *o)
+{
+	if (l->command == emplace_tiling)
+		tiling_resize_output(l, o);
 }

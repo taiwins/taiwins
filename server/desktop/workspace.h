@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <compositor.h>
+#include "../taiwins.h"
 #include "unistd.h"
 #include "layout.h"
 
@@ -52,15 +53,15 @@ void arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
 bool is_view_on_workspace(const struct weston_view *v, const struct workspace *ws);
 bool is_workspace_empty(const struct workspace *ws);
 
-
+//we probably should leave this function to arrange_view_for_workspace
 bool workspace_focus_view(struct workspace *ws, struct weston_view *v);
 void workspace_add_view(struct workspace *w, struct weston_view *view);
 bool workspace_move_view(struct workspace *w, struct weston_view *v,
 				  const struct weston_position *pos);
 
-
-void workspace_add_output(struct workspace *wp, struct weston_output *output);
+void workspace_add_output(struct workspace *wp, struct taiwins_output *output);
 void workspace_remove_output(struct workspace *w, struct weston_output *output);
+void workspace_resize_output(struct workspace *wp, struct taiwins_output *output);
 
 
 #ifdef  __cplusplus

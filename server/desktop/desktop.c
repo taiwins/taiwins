@@ -35,6 +35,7 @@ struct desktop {
 
 	struct wl_listener destroy_listener;
 	struct wl_listener output_create_listener;
+	struct wl_listener output_resize_listener;
 	struct wl_listener output_destroy_listener;
 };
 static struct desktop DESKTOP;
@@ -167,10 +168,33 @@ static void
 desktop_output_created(struct wl_listener *listener, void *data)
 {
 	struct weston_output *output = data;
+	struct taiwins_output taiwins_output = {
+		.output = output,
+		.desktop_area = {
+			output->x, output->y + 32,
+			output->width, output->height - 32,
+		},
+	};
 	for (int i = 0; i < MAX_WORKSPACE+1; i++) {
-		workspace_add_output(&DESKTOP.workspaces[i], output);
+		workspace_add_output(&DESKTOP.workspaces[i], &taiwins_output);
 	}
 }
+
+static void
+desktop_output_resized(struct wl_listener *listenr, void *data)
+{
+	struct weston_output *output = data;
+	struct taiwins_output taiwins_output = {
+		.output = output,
+		.desktop_area = {
+			output->x, output->y + 32,
+			output->width, output->height - 32,
+		},
+	};
+	for (int i = 0; i < MAX_WORKSPACE+1; i++)
+		workspace_resize_output(&DESKTOP.workspaces[i], &taiwins_output);
+}
+
 
 static void
 desktop_output_destroyed(struct wl_listener *listener, void *data)
@@ -206,13 +230,17 @@ announce_desktop(struct weston_compositor *ec)
 
 		wl_list_init(&DESKTOP.output_create_listener.link);
 		wl_list_init(&DESKTOP.output_destroy_listener.link);
+		wl_list_init(&DESKTOP.output_resize_listener.link);
 
 		DESKTOP.output_create_listener.notify = desktop_output_created;
 		DESKTOP.output_destroy_listener.notify = desktop_output_destroyed;
+		DESKTOP.output_resize_listener.notify = desktop_output_resized;
 
 		//add existing output
 		wl_signal_add(&ec->output_created_signal,
 			      &DESKTOP.output_create_listener);
+		wl_signal_add(&ec->output_resized_signal,
+			      &DESKTOP.output_resize_listener);
 		wl_signal_add(&ec->output_destroyed_signal,
 			      &DESKTOP.output_destroy_listener);
 
