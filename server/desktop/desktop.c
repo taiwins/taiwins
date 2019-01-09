@@ -74,6 +74,44 @@ static struct weston_pointer_grab_interface desktop_moving_grab;
 /*********************************************************************/
 /****************      weston_desktop impl            ****************/
 /*********************************************************************/
+
+/*
+ * here we are facing this problem, desktop_view has an additional geometry. The
+ * content within that geometry is visible. Malheureusement, this geometry is
+ * only available at commit. AND IT CAN CHANGE
+ *
+ * what we can do is that we map this view into an offscreen space, then remap
+ * it back. When on the commit, we can have them back
+ */
+
+/**
+ * /brief detect the current state of view coordinates
+ */
+static inline bool
+is_view_coords_offscreen(const struct weston_view *v)
+{
+	struct weston_output *o = v->output;
+	return ( v->geometry.x > (o->x + o->width) ) &&
+		( v->geometry.y > (o->y + o->height) );
+}
+
+static inline void
+view_geometry_remap(const struct weston_view *v, float *x, float *y)
+{
+	struct weston_output *o = v->output;
+	*x = (v->geometry.x - (o->x + o->width));
+	*y = (v->geometry.y - (o->y + o->height));
+}
+
+static inline void
+view_map_offscreen(struct weston_view *v, float x, float y)
+{
+	struct weston_output *o = v->output;
+	x += o->x + o->width;
+	y += o->y + o->height;
+	weston_view_set_position(v, x, y);
+}
+
 static inline bool
 is_view_on_desktop(const struct weston_view *v, const struct desktop *desk)
 {
@@ -127,8 +165,16 @@ twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 	struct weston_surface *surface =  weston_desktop_surface_get_surface(desktop_surface);
 	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
+	struct weston_geometry geo = weston_desktop_surface_get_geometry(desktop_surface);
+	if (is_view_coords_offscreen(view)) {
+		float x, y;
+		view_geometry_remap(view, &x, &y);
+		weston_view_set_position(view, x - geo.x, y - geo.y);
+		weston_view_geometry_dirty(view);
+	}
+	//we need to hack this
 	//hacky way, we don't know which layer to insert though, need to decide by the layout program
-
+	//we should damage the accumelated damage
 	weston_view_damage_below(view);
 	weston_view_schedule_repaint(view);
 }
@@ -174,6 +220,8 @@ desktop_output_created(struct wl_listener *listener, void *data)
 			output->x, output->y + 32,
 			output->width, output->height - 32,
 		},
+		.inner_gap = 10,
+		.outer_gap = 10,
 	};
 	for (int i = 0; i < MAX_WORKSPACE+1; i++) {
 		workspace_add_output(&DESKTOP.workspaces[i], &taiwins_output);

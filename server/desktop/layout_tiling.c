@@ -240,13 +240,13 @@ tiling_arrange_subtree(struct tiling_view *subtree, struct weston_geometry *geo,
 					    o->inner_gap :
 					    o->outer_gap);
 		data_out->size.width =
-			geo->width - ((subtree->vertical) ?
-				      o->outer_gap :
-				      o->inner_gap);
+			geo->width - 2 * ((subtree->vertical) ?
+					  o->outer_gap :
+					  o->inner_gap);
 		data_out->size.height =
-			geo->height - ((subtree->vertical) ?
-				       o->inner_gap :
-				       o->outer_gap);
+			geo->height - 2 * ((subtree->vertical) ?
+					   o->inner_gap :
+					   o->outer_gap);
 		data_out->end = false;
 		return 1;
 	}
@@ -273,6 +273,7 @@ tiling_arrange_subtree(struct tiling_view *subtree, struct weston_geometry *geo,
 static struct tiling_view*
 tiling_find_launch_point(struct layout *l)
 {
+	//this works for now
 	struct weston_layer *layer = l->layer;
 	struct tiling_user_data *user_data = l->user_data;
 	struct weston_layer *floating_layer = user_data->floating->layer;
@@ -280,7 +281,6 @@ tiling_find_launch_point(struct layout *l)
 	struct tiling_view *pv = NULL;
 	//if the layout is not empty.
 	struct tiling_view *tv;
-	//TODO this doesn't work, we inserted the view into list already
 	if (wl_list_length(&layer->view_list.link) > 0) {
 		struct weston_view *focused_view =
 			container_of(layer->view_list.link.next, struct weston_view,
@@ -323,7 +323,7 @@ tiling_add(const enum layout_command command, const struct layout_op *arg,
 	struct tiling_view *root = tiling_output->root;
 
 	double occupied = 1.0 - (double)pv->node.children.len /
-		(double)pv->node.children.len+1;
+		((double)pv->node.children.len+1);
 	double occupied_rest = 1.0 - occupied;
 	//creating new view here
 	struct tiling_view *new_view = tiling_new_view(v);
@@ -338,7 +338,7 @@ tiling_add(const enum layout_command command, const struct layout_op *arg,
 	}
 	tiling_view_insert(pv, new_view, 0);
 	struct weston_geometry space =
-		tiling_subtree_space(new_view, root, tiling_output);
+		tiling_subtree_space(pv, root, tiling_output);
 	int count = tiling_arrange_subtree(pv, &space, ops, tiling_output);
 	ops[count].end = true;
 }

@@ -50,6 +50,10 @@ floating_add(const enum layout_command command, const struct layout_op *arg,
 	assert(!ops[0].end);
 	ops[0].pos.x = rand() % (geo.width / 2);
 	ops[0].pos.y = rand() % (geo.height / 2);
+	//so this is invalid size
+	ops[0].size.width = 0;
+	ops[0].size.height = 0;
+
 	ops[0].end = false;
 	ops[0].v = v;
 	ops[1].end = 1;

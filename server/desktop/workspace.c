@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
+#include <libweston-desktop.h>
 #include "workspace.h"
 #include "layout.h"
 #include "../taiwins.h"
@@ -7,6 +8,24 @@
 
 
 size_t workspace_size =  sizeof(struct workspace);
+
+
+static inline void
+view_map_offscreen(struct weston_view *v, float x, float y)
+{
+	struct weston_output *o = v->output;
+	x += o->x + o->width;
+	y += o->y + o->height;
+	weston_view_set_position(v, x, y);
+}
+
+static inline void
+view_geometry_remap(const struct weston_view *v, float *x, float *y)
+{
+	struct weston_output *o = v->output;
+	*x = (v->geometry.x - (o->x + o->width));
+	*y = (v->geometry.y - (o->y + o->height));
+}
 
 
 /**
@@ -67,7 +86,7 @@ workspace_get_layout_for_view(const struct workspace *ws, const struct weston_vi
 {
 	if (!v || (v->layer_link.layer != &ws->floating_layer &&
 		   v->layer_link.layer != &ws->tiling_layer))
-		return NULL;
+		return (struct layout *)&ws->tiling_layout;
 	if (v->layer_link.layer == &ws->floating_layer)
 		return (struct layout *)&ws->floating_layout;
 	else if (v->layer_link.layer == &ws->tiling_layer)
@@ -97,7 +116,15 @@ arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
 		if (ops[i].end)
 			break;
 		//TODO, check the validty of the operations
-		weston_view_set_position(v, ops[i].pos.x, ops[i].pos.y);
+		struct weston_surface *surface = ops[i].v->surface;
+		struct weston_desktop_surface *desk_surf = weston_surface_get_desktop_surface(surface);
+		/* struct weston_geometry geo = weston_desktop_surface_get_geometry(desk_surf); */
+		view_map_offscreen(ops[i].v, ops[i].pos.x, ops[i].pos.y);
+		/* weston_view_set_position(ops[i].v, ops[i].pos.x - 32, ops[i].pos.y - 32); */
+		/* weston_view_set_mask(ops[i].v, ops[i].pos.x, ops[i].pos.y, ops[i].size.width, ops[i].size.height); */
+		if (ops[i].size.height) {
+			weston_desktop_surface_set_size(desk_surf, ops[i].size.width, ops[i].size.height);
+		}
 		weston_view_schedule_repaint(v);
 	}
 }
@@ -212,12 +239,12 @@ is_workspace_empty(const struct workspace *ws)
 void
 workspace_add_view(struct workspace *w, struct weston_view *view)
 {
-	if (wl_list_empty(&view->layer_link.link))
-		weston_layer_entry_insert(&w->tiling_layer.view_list, &view->layer_link);
 	struct layout_op arg = {
 		.v = view,
 	};
 	arrange_view_for_workspace(w, view, DPSR_add, &arg);
+	if (wl_list_empty(&view->layer_link.link))
+		weston_layer_entry_insert(&w->tiling_layer.view_list, &view->layer_link);
 }
 
 bool workspace_move_view(struct workspace *w, struct weston_view *view,
