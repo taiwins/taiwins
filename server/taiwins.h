@@ -13,6 +13,22 @@ extern "C" {
 #define _GNU_SOURCE
 #endif
 
+/**
+ * /brief taiwins output information
+ *
+ * here we define some template structures. It is passed as pure data, and they
+ * are not persistent. So don't store them as pointers.
+ */
+struct taiwins_output {
+	struct weston_output *output;
+	//available space used in desktop area. We don't have the configureation
+	//code yet, once it is available, it can be used to create this struct.
+	struct weston_geometry desktop_area;
+	uint32_t inner_gap;
+	uint32_t outer_gap;
+};
+
+
 ///////////////////////// UTILS Functions ///////////////////////// this maybe a
 //stupid idea to use weston prefix, since libweston could add the function with
 //same name
