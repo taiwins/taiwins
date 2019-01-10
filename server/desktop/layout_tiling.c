@@ -184,6 +184,17 @@ tiling_view_find(struct tiling_view *root, struct weston_view *v)
 static void
 tiling_view_insert(struct tiling_view *parent, struct tiling_view *tv, off_t offset)
 {
+	double occupied = 1.0 - (double)parent->node.children.len /
+		((double)parent->node.children.len+1);
+	double occupied_rest = 1.0 - occupied;
+	//re-assign all the portions
+	for (int i = 0; i < parent->node.children.len; i++) {
+		struct tiling_view *sv = container_of(
+			vtree_ith_child(&parent->node, i), struct tiling_view,
+			node);
+		sv->portion *= occupied_rest;
+	}
+	tv->portion = occupied;
 	tv->level = parent->level+1;
 	//we just make the assert here
 	assert(tv->level <= 31);
@@ -191,11 +202,15 @@ tiling_view_insert(struct tiling_view *parent, struct tiling_view *tv, off_t off
 	tv->coding[tv->level-1] = offset;
 	tv->output = parent->output;
 	tv->vertical = parent->vertical;
-	//now officially adding the node to the children, remember, we add it to
 	vtree_node_insert(&parent->node, &tv->node, offset);
-	//now you need to find the space for pv
+	//reset the nodes coding
+	for (int i = 0; i < parent->node.children.len; i++) {
+		struct tiling_view *sv = container_of(
+			vtree_ith_child(&parent->node, i), struct tiling_view,
+			node);
+		sv->coding[sv->level-1] = i;
+	}
 }
-
 
 static struct weston_geometry
 tiling_subtree_space(struct tiling_view *v,
@@ -322,20 +337,8 @@ tiling_add(const enum layout_command command, const struct layout_op *arg,
 	struct tiling_output *tiling_output = tiling_output_find(l, pv->output);
 	struct tiling_view *root = tiling_output->root;
 
-	double occupied = 1.0 - (double)pv->node.children.len /
-		((double)pv->node.children.len+1);
-	double occupied_rest = 1.0 - occupied;
-	//creating new view here
 	struct tiling_view *new_view = tiling_new_view(v);
-	new_view->portion = occupied;
 
-	for (int i = 0; i < pv->node.children.len; i++) {
-		struct tiling_view *sv = container_of(
-			*(struct vtree_node **)vector_at(&pv->node.children, i),
-			struct tiling_view,
-			node);
-		sv->portion *= occupied_rest;
-	}
 	tiling_view_insert(pv, new_view, 0);
 	struct weston_geometry space =
 		tiling_subtree_space(pv, root, tiling_output);
