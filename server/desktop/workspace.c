@@ -223,7 +223,8 @@ bool
 is_view_on_workspace(const struct weston_view *v, const struct workspace *ws)
 {
 	const struct weston_layer *layer = v->layer_link.layer;
-	return (layer == &ws->floating_layer || layer == &ws->tiling_layer);
+	return (layer == &ws->floating_layer || layer == &ws->tiling_layer ||
+		layer == &ws->fullscreen_layer || layer == &ws->hidden_layer);
 
 }
 
@@ -245,6 +246,19 @@ workspace_add_view(struct workspace *w, struct weston_view *view)
 	arrange_view_for_workspace(w, view, DPSR_add, &arg);
 	if (wl_list_empty(&view->layer_link.link))
 		weston_layer_entry_insert(&w->tiling_layer.view_list, &view->layer_link);
+}
+
+bool
+workspace_remove_view(struct workspace *w, struct weston_view *view)
+{
+	if (!w || !view)
+		return false;
+	struct layout_op arg = {
+		.v = view,
+	};
+	arrange_view_for_workspace(w, view, DPSR_del, &arg);
+	weston_view_unmap(view);
+	return true;
 }
 
 bool workspace_move_view(struct workspace *w, struct weston_view *view,

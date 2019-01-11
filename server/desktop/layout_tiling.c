@@ -30,6 +30,8 @@ struct tiling_view {
 	//vertical split or horizental split
 	bool vertical;
 	float portion;
+	//the interval is updated when inserting/deleting/resizing
+	float interval[2];
 	//you can check empty by view or check the size of the node
 	struct weston_view *v;
 	struct weston_output *output;
@@ -75,6 +77,11 @@ tiling_destroy_view(void *data)
 	free(data);
 }
 
+static inline void
+tiling_free_view(struct tiling_view *v)
+{
+	free(v);
+}
 
 static void
 free_tiling_output(void *data)
@@ -153,7 +160,8 @@ tiling_output_find(struct layout *l, struct weston_output *wo)
 	return NULL;
 }
 
-void tiling_resize_output(struct layout *l, struct taiwins_output *o)
+void
+tiling_resize_output(struct layout *l, struct taiwins_output *o)
 {
 	struct tiling_output *output = tiling_output_find(l, o->output);
 	output->curr_geo = o->desktop_area;
@@ -180,13 +188,59 @@ tiling_view_find(struct tiling_view *root, struct weston_view *v)
 	return container_of(tnode, struct tiling_view, node);
 }
 
+static inline struct weston_geometry
+tiling_space_divide(const struct weston_geometry *space, float start, float end,
+		    bool vertical)
+{
+	struct weston_geometry geo = {0};
 
-static void
-tiling_view_insert(struct tiling_view *parent, struct tiling_view *tv, off_t offset)
+	if (vertical) {
+		geo.x = space->x;
+		geo.width = space->width;
+		geo.y = space->y + start * space->height;
+		geo.height = space->height * (end - start);
+	} else {
+		geo.x = space->x + geo.width * start;
+		geo.width = space->width * (end-start);
+		geo.y = space->y;
+		geo.height = space->height;
+	}
+
+	return geo;
+}
+
+//update inveval and coding
+static inline void
+tiling_update_children(struct tiling_view *parent)
+{
+	float leading = 0.0;
+	for (int i = 0; i < parent->node.children.len; i++) {
+		struct tiling_view *sv = container_of(
+			vtree_ith_child(&parent->node, i), struct tiling_view,
+			node);
+		sv->coding[sv->level-1] = i;
+		sv->interval[0] = leading;
+		sv->interval[1] = (i == (parent->node.children.len-1)) ? 1.0 :
+			leading + sv->portion;
+		leading += sv->portion;
+	}
+}
+/* it could failed to insert the view */
+static bool
+tiling_view_insert(struct tiling_view *parent, struct tiling_view *tv, off_t offset,
+		   const struct weston_geometry *parent_geo, const struct tiling_output *output)
 {
 	double occupied = 1.0 - (double)parent->node.children.len /
 		((double)parent->node.children.len+1);
 	double occupied_rest = 1.0 - occupied;
+	//test whether it is possible to insert the view
+	double gap = MAX(output->inner_gap, output->outer_gap);
+	struct weston_geometry space =
+		tiling_space_divide(parent_geo, 0.0, occupied, parent->vertical);
+	if (space.width - gap * 2 <= 0 ||
+	    space.height - gap * 2 <= 0)
+		return false;
+
 	//re-assign all the portions
 	for (int i = 0; i < parent->node.children.len; i++) {
 		struct tiling_view *sv = container_of(
@@ -196,44 +250,115 @@ tiling_view_insert(struct tiling_view *parent, struct tiling_view *tv, off_t off
 	}
 	tv->portion = occupied;
 	tv->level = parent->level+1;
-	//we just make the assert here
+	//assert just in case
 	assert(tv->level <= 31);
 	memcpy(tv->coding, parent->coding, sizeof(int8_t) * 32);
 	tv->coding[tv->level-1] = offset;
 	tv->output = parent->output;
 	tv->vertical = parent->vertical;
 	vtree_node_insert(&parent->node, &tv->node, offset);
-	//reset the nodes coding
+
+	//update the subtree
+	tiling_update_children(parent);
+	return true;
+}
+
+static struct tiling_view *
+tiling_view_erase(struct tiling_view *view)
+{
+	//you cannot remove a non-leaf node
+	if (view->node.children.len)
+		return view;
+	//try to get the portion here, I don't know if removing everything it is
+	//a good idea
+	double rest_occupied = 1.0 - view->portion;
+	off_t index = view->coding[view->level-1];
+	struct tiling_view *parent = view->node.parent ?
+		container_of(view->node.parent, struct tiling_view, node) : NULL;
+	vtree_node_remove(view->node.parent, index);
+	tiling_free_view(view);
+	if (!parent)
+		return NULL;
+	//updating children info
+	float leading = 0.0;
 	for (int i = 0; i < parent->node.children.len; i++) {
 		struct tiling_view *sv = container_of(
 			vtree_ith_child(&parent->node, i), struct tiling_view,
 			node);
 		sv->coding[sv->level-1] = i;
+		sv->portion /= rest_occupied;
+		sv->interval[0] = leading;
+		sv->interval[1] = (i == (parent->node.children.len-1)) ?
+			1.0 : leading + sv->portion;
+		leading += sv->portion;
 	}
+	//if the loop above was executed, This recursive code would not run. But
+	//otherwise, if this parent is a empty node: means 1) it is not root (it
+	//has parent). 2) It does not has children. 3) it has no view. Then this
+	//parent is safe to remove
+	if (parent && !parent->v && !parent->node.children.len && parent->node.parent)
+		return tiling_view_erase(parent);
+	return parent;
 }
 
+static void
+tiling_view_resize(struct tiling_view *view, float delta,
+		   const struct weston_geometry *parent_geo, const struct tiling_output *output)
+{
+	struct tiling_view *parent = view->node.parent ?
+		container_of(view->node.parent, struct tiling_view, node) : NULL;
+	//I am the only node
+	if (!parent || parent->node.children.len == 1)
+		return;
+	//okay, now I am not the only node, then test for limits
+	if (delta + view->portion < 0.1 || delta+view->portion > 0.9)
+		return;
+	//update portion
+	float occupied_orig = 1.0 - (view->portion);
+	float occupied_new = 1.0 - (delta + view->portion);
+	view->portion += delta;
+	for (int i = 0; i < parent->node.children.len; i++) {
+		struct tiling_view *tv = container_of(
+			vtree_ith_child(&parent->node, i),
+			struct tiling_view, node);
+		if (tv != view)
+			view->portion *= occupied_new / occupied_orig;
+	}
+	tiling_update_children(parent);
+}
+
+/**
+ * /brief shift a view in its parent list
+ *
+ */
+static void
+tiling_view_shift(struct tiling_view *view, bool forward)
+{
+	struct vtree_node *node = &view->node;
+}
+
+/**
+ * /brief dividing a space of subtree from its parent
+ */
 static struct weston_geometry
 tiling_subtree_space(struct tiling_view *v,
 		     struct tiling_view *root,
-		     struct tiling_output *output)
+		     const struct weston_geometry *space)
 {
 	struct tiling_view *subtree = root;
-	struct weston_geometry geo = output->curr_geo;
+	struct weston_geometry geo = *space;
 
-	for (int i = 0; i < v->level; i++) {
+	//from 0 to level - 1
+	for (int i = root->level; i < v->level; i++) {
 		struct vtree_node *node =
 			vtree_ith_child(&subtree->node,
 					v->coding[i]);
-		float leading = 0.0;
-		for (int j = 0; j < v->coding[i]; j++)
-			leading += container_of(vtree_ith_child(&subtree->node, j),
-						struct tiling_view, node)->portion;
 		struct tiling_view *n = container_of(node, struct tiling_view, node);
 		if (subtree->vertical) {
-			geo.y = geo.y + geo.height * leading;
+			geo.y = geo.y + geo.height * n->interval[0];
 			geo.height = n->portion * geo.height;
 		} else {
-			geo.x = geo.x + geo.width * leading;
+			geo.x = geo.x + geo.width * n->interval[0];
 			geo.width = n->portion * geo.width;
 		}
 		subtree = n;
@@ -243,7 +368,7 @@ tiling_subtree_space(struct tiling_view *v,
 
 static int
 tiling_arrange_subtree(struct tiling_view *subtree, struct weston_geometry *geo,
-		       struct layout_op *data_out, struct tiling_output *o)
+		       struct layout_op *data_out, const struct tiling_output *o)
 {
 	//leaf
 	if (subtree->v) {
@@ -267,19 +392,18 @@ tiling_arrange_subtree(struct tiling_view *subtree, struct weston_geometry *geo,
 	}
 	//internal node
 	int count = 0;
-	float leading = 0.0;
 	for (int i = 0; i < subtree->node.children.len; i++) {
 		struct vtree_node *node =
 			vtree_ith_child(&subtree->node, i);
 		struct tiling_view *n = container_of(node, struct tiling_view, node);
 
 		struct weston_geometry sub_space = *geo;
-		sub_space.x += (subtree->vertical) ? 0 : leading * geo->width;
-		sub_space.width = (subtree->vertical) ? geo->width : n->portion * geo->width;
+		float portion = n->interval[1] - n->interval[0];
+		sub_space.x += (subtree->vertical) ? 0 : n->interval[0] * geo->width;
+		sub_space.width = (subtree->vertical) ? geo->width : portion * geo->width;
+		sub_space.y += (subtree->vertical) ? n->interval[0] * geo->height : 0;
+		sub_space.height = (subtree->vertical) ? portion * geo->height : geo->height;
 
-		sub_space.y += (subtree->vertical) ? leading * geo->height : 0;
-		sub_space.height = (subtree->vertical) ? n->portion * geo->height : geo->height;
-		leading += n->portion;
 		count += tiling_arrange_subtree(n, &sub_space, &data_out[count], o);
 	}
 	return count;
@@ -336,16 +460,37 @@ tiling_add(const enum layout_command command, const struct layout_op *arg,
 	struct tiling_view *pv = tiling_find_launch_point(l);
 	struct tiling_output *tiling_output = tiling_output_find(l, pv->output);
 	struct tiling_view *root = tiling_output->root;
+	struct weston_geometry space =
+		tiling_subtree_space(pv, root, &tiling_output->curr_geo);
 
 	struct tiling_view *new_view = tiling_new_view(v);
-
-	tiling_view_insert(pv, new_view, 0);
-	struct weston_geometry space =
-		tiling_subtree_space(pv, root, tiling_output);
-	int count = tiling_arrange_subtree(pv, &space, ops, tiling_output);
-	ops[count].end = true;
+	//we could fail to insert
+	if (tiling_view_insert(pv, new_view, 0,
+			       &space, tiling_output)) {
+		int count = tiling_arrange_subtree(pv, &space, ops, tiling_output);
+		ops[count].end = true;
+	} else {
+		tiling_free_view(new_view);
+		ops[0].end = true;
+	}
 }
 
+static void
+tiling_del(const enum layout_command command, const struct layout_op *arg,
+	   struct weston_view *v, struct layout *l,
+	   struct layout_op *ops)
+{
+	struct tiling_output *tiling_output = tiling_output_find(l, v->output);
+	struct tiling_view *view = tiling_view_find(tiling_output->root, v);
+	struct tiling_view *parent = tiling_view_erase(view);
+	if (parent) {
+		struct weston_geometry space =
+			tiling_subtree_space(parent, tiling_output->root,
+					     &tiling_output->curr_geo);
+		int count = tiling_arrange_subtree(parent, &space, ops, tiling_output);
+		ops[count].end = true;
+	}
+}
 
 void
 emplace_tiling(const enum layout_command command, const struct layout_op *arg,
@@ -361,7 +506,7 @@ emplace_tiling(const enum layout_command command, const struct layout_op *arg,
 	static struct placement_node t_ops[] = {
 		{DPSR_focus, emplace_noop},
 		{DPSR_add, tiling_add},
-		{DPSR_del, emplace_noop},
+		{DPSR_del, tiling_del},
 		{DPSR_deplace, emplace_noop},
 		{DPSR_up, emplace_noop},
 		{DPSR_down, emplace_noop},

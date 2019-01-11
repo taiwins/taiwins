@@ -144,6 +144,15 @@ tw_lose_surface_focus(struct weston_surface *surface)
 	}
 }
 
+void
+tw_focus_surface(struct weston_surface *surface)
+{
+	struct weston_seat *active_seat = container_of(surface->compositor->seat_list.next,
+						       struct weston_seat, link);
+	struct weston_keyboard *keyboard = active_seat->keyboard_state;
+	weston_keyboard_set_focus(keyboard, surface);
+}
+
 struct weston_output *
 tw_get_focused_output(struct weston_compositor *compositor)
 {

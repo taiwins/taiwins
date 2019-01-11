@@ -58,6 +58,8 @@ bool workspace_focus_view(struct workspace *ws, struct weston_view *v);
 void workspace_add_view(struct workspace *w, struct weston_view *view);
 bool workspace_move_view(struct workspace *w, struct weston_view *v,
 				  const struct weston_position *pos);
+bool workspace_remove_view(struct workspace *w, struct weston_view *v);
+
 
 void workspace_add_output(struct workspace *wp, struct taiwins_output *output);
 void workspace_remove_output(struct workspace *w, struct weston_output *output);

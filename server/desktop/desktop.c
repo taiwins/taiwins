@@ -46,6 +46,18 @@ get_workspace_index(struct workspace *ws, struct desktop *d)
 	return ws - d->workspaces;
 }
 
+static inline struct workspace*
+get_workspace_for_view(struct weston_view *v, struct desktop *d)
+{
+	struct workspace *wp = NULL;
+	for (int i = 0; i < MAX_WORKSPACE+1; i++) {
+		wp = &d->workspaces[i];
+		if (is_view_on_workspace(v, wp))
+			break;
+	}
+	return wp;
+}
+
 
 /**
  * grab decleration, with different options.
@@ -137,22 +149,39 @@ twdesk_surface_added(struct weston_desktop_surface *surface,
 	view->output = tw_get_focused_output(wt_surface->compositor);
 	wt_surface->output = view->output;
 	//focus on it
-	struct weston_seat *active_seat = container_of(desktop->compositor->seat_list.next,
-						       struct weston_seat, link);
-	struct weston_keyboard *keyboard = active_seat->keyboard_state;
 	struct workspace *wsp = desktop->actived_workspace[0];
-
-	weston_keyboard_set_focus(keyboard, wt_surface);
 	workspace_add_view(wsp, view);
+	tw_focus_surface(wt_surface);
 }
 
 static void
 twdesk_surface_removed(struct weston_desktop_surface *surface,
 		       void *user_data)
 {
+	struct desktop *desktop = user_data;
+	struct weston_layer *layer_to_focus = NULL;
 	struct weston_surface *wt_surface = weston_desktop_surface_get_surface(surface);
-	//remove or destroy?
+	struct weston_view *view, *next;
+	wl_list_for_each_safe(view, next, &wt_surface->views, surface_link) {
+		layer_to_focus = view->layer_link.layer;
+		struct workspace *wp = get_workspace_for_view(view, desktop);
+		workspace_remove_view(wp, view);
+		if (!weston_surface_is_mapped(wt_surface))
+			weston_view_destroy(view);
+	}
+	//you do not need to destroy the surface, it gets destroyed when client
+	//destroys
+	weston_surface_set_label_func(wt_surface, NULL);
 	weston_surface_unmap(wt_surface);
+	//right now we need to focus on a view
+	//try to focus on a view. This is temporary code
+	if (layer_to_focus &&
+	    wl_list_length(&layer_to_focus->view_list.link)) {
+		view = container_of(layer_to_focus->view_list.link.next,
+				    struct weston_view, layer_link.link);
+		wt_surface = view->surface;
+		tw_focus_surface(wt_surface);
+	}
 }
 
 
