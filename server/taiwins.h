@@ -87,7 +87,9 @@ void tw_end_client(struct wl_client *client);
 
 
 void tw_lose_surface_focus(struct weston_surface *surface);
+void tw_focus_surface(struct weston_surface *surface);
 struct weston_output *tw_get_focused_output(struct weston_compositor *compositor);
+
 
 ///////////////////////// UTILS Functions /////////////////////////
 
