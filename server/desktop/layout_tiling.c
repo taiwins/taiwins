@@ -565,9 +565,11 @@ tiling_resize(const enum layout_command command, const struct layout_op *arg,
 	struct weston_geometry space =
 		tiling_subtree_space(parent, tiling_output->root,
 				     &tiling_output->curr_geo);
-	//TODO	this will cause sigfault if v is NULL;
-	float rx = arg->sx / v->surface->width;
-	float ry = arg->sy / v->surface->height;
+	struct weston_geometry view_space =
+		tiling_subtree_space(view, parent, &tiling_output->curr_geo);
+	//get the ratio from global coordinates
+	float rx = (arg->sx - view_space.x) / view_space.width;
+	float ry = (arg->sy - view_space.y) / view_space.height;
 	//deal with current parent.
 	float ph = 0.0, pt = 0.0;
 	if (parent->vertical) {
@@ -585,14 +587,7 @@ tiling_resize(const enum layout_command command, const struct layout_op *arg,
 		NULL;
 	ops[0].end = true;
 	if (gparent) {
-		//TODO I need to modifier the sx, sy though
-		struct weston_geometry view_space =
-			tiling_space_divide(&space, view->interval[0], view->interval[1],
-					    parent->vertical);
-		struct layout_op narg = *arg;
-		narg.sx += view_space.x;
-		narg.sy += view_space.y;
-		tiling_resize(command, &narg, parent->v, l, ops);
+		tiling_resize(command, arg, parent->v, l, ops);
 	} else if (resized) {
 		int count = tiling_arrange_subtree(parent, &space, ops, tiling_output);
 		ops[count].end = true;
