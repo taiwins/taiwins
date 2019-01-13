@@ -81,6 +81,7 @@ grab_interface_destroy(struct grab_interface *gi);
 
 
 static struct weston_pointer_grab_interface desktop_moving_grab;
+static struct weston_pointer_grab_interface desktop_resizing_grab;
 
 
 /*********************************************************************/
@@ -95,41 +96,11 @@ static struct weston_pointer_grab_interface desktop_moving_grab;
  * what we can do is that we map this view into an offscreen space, then remap
  * it back. When on the commit, we can have them back
  */
-
-/**
- * /brief detect the current state of view coordinates
- */
-static inline bool
-is_view_coords_offscreen(const struct weston_view *v)
-{
-	struct weston_output *o = v->output;
-	return ( v->geometry.x > (o->x + o->width) ) &&
-		( v->geometry.y > (o->y + o->height) );
-}
-
-static inline void
-view_geometry_remap(const struct weston_view *v, float *x, float *y)
-{
-	struct weston_output *o = v->output;
-	*x = (v->geometry.x - (o->x + o->width));
-	*y = (v->geometry.y - (o->y + o->height));
-}
-
-static inline void
-view_map_offscreen(struct weston_view *v, float x, float y)
-{
-	struct weston_output *o = v->output;
-	x += o->x + o->width;
-	y += o->y + o->height;
-	weston_view_set_position(v, x, y);
-}
-
 static inline bool
 is_view_on_desktop(const struct weston_view *v, const struct desktop *desk)
 {
 	return is_view_on_workspace(v, desk->actived_workspace[0]);
 }
-
 
 static void
 twdesk_surface_added(struct weston_desktop_surface *surface,
@@ -150,6 +121,9 @@ twdesk_surface_added(struct weston_desktop_surface *surface,
 	wt_surface->output = view->output;
 	//focus on it
 	struct workspace *wsp = desktop->actived_workspace[0];
+	struct recent_view *rv = recent_view_create(view);
+	weston_desktop_surface_set_user_data(surface, rv);
+
 	workspace_add_view(wsp, view);
 	tw_focus_surface(wt_surface);
 }
@@ -159,51 +133,51 @@ twdesk_surface_removed(struct weston_desktop_surface *surface,
 		       void *user_data)
 {
 	struct desktop *desktop = user_data;
-	struct weston_layer *layer_to_focus = NULL;
 	struct weston_surface *wt_surface = weston_desktop_surface_get_surface(surface);
 	struct weston_view *view, *next;
+	//although this should never happen, but if desktop destroyed is not on
+	//current view, we have to deal with that as well.
 	wl_list_for_each_safe(view, next, &wt_surface->views, surface_link) {
-		layer_to_focus = view->layer_link.layer;
 		struct workspace *wp = get_workspace_for_view(view, desktop);
 		workspace_remove_view(wp, view);
 		if (!weston_surface_is_mapped(wt_surface))
 			weston_view_destroy(view);
 	}
-	//you do not need to destroy the surface, it gets destroyed when client
-	//destroys
+	//you do not need to destroy the surface, it gets destroyed
+	//when client destroys himself
 	weston_surface_set_label_func(wt_surface, NULL);
 	weston_surface_unmap(wt_surface);
-	//right now we need to focus on a view
-	//try to focus on a view. This is temporary code
-	if (layer_to_focus &&
-	    wl_list_length(&layer_to_focus->view_list.link)) {
-		view = container_of(layer_to_focus->view_list.link.next,
-				    struct weston_view, layer_link.link);
-		wt_surface = view->surface;
+	//destroy the recent view
+	struct recent_view *rv =
+		weston_desktop_surface_get_user_data(surface);
+	recent_view_destroy(rv);
+	//focus a surface
+	struct workspace *ws = desktop->actived_workspace[0];
+	if (wl_list_length(&ws->recent_views)) {
+		rv = container_of(ws->recent_views.next,
+				  struct recent_view, link);
+		wt_surface = rv->view->surface;
+		workspace_focus_view(ws, rv->view);
 		tw_focus_surface(wt_surface);
 	}
 }
-
 
 static void
 twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
 			 int32_t sx, int32_t sy, void *data)
 {
-	//again, we don't know which view is committed as well.
-	fprintf(stderr, "committed\n");
-
 	struct weston_surface *surface =  weston_desktop_surface_get_surface(desktop_surface);
+	struct recent_view *rv = weston_desktop_surface_get_user_data(desktop_surface);
 	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
 	struct weston_geometry geo = weston_desktop_surface_get_geometry(desktop_surface);
-	if (is_view_coords_offscreen(view)) {
+	//check the current surface geometry
+	if (geo.x != rv->old_geometry.x || geo.y != rv->old_geometry.y) {
 		float x, y;
-		view_geometry_remap(view, &x, &y);
+		recent_view_get_origin_coord(rv, &x, &y);
 		weston_view_set_position(view, x - geo.x, y - geo.y);
 		weston_view_geometry_dirty(view);
+		rv->old_geometry = geo;
 	}
-	//we need to hack this
-	//hacky way, we don't know which layer to insert though, need to decide by the layout program
-	//we should damage the accumelated damage
 	weston_view_damage_below(view);
 	weston_view_schedule_repaint(view);
 }
@@ -226,12 +200,30 @@ twdesk_surface_move(struct weston_desktop_surface *desktop_surface,
 }
 
 
-//doesn't seems to work!!!
+static void
+twdesk_surface_resize(struct weston_desktop_surface *desktop_surface,
+		      struct weston_seat *seat, uint32_t serial,
+		      enum weston_desktop_surface_edge edges, void *user_data)
+{
+	struct grab_interface *gi;
+	struct desktop *desktop = user_data;
+	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
+	struct weston_surface *surface = weston_desktop_surface_get_surface(desktop_surface);
+	struct weston_view *view = tw_default_view_from_surface(surface);
+	if (pointer && pointer->focus && pointer->button_count > 0) {
+		gi = grab_interface_create_for_pointer(view, seat, desktop,
+						       &desktop_resizing_grab);
+		weston_pointer_start_grab(pointer, &gi->pointer_grab);
+	}
+}
+
+
 static struct weston_desktop_api desktop_impl =  {
 	.surface_added = twdesk_surface_added,
 	.surface_removed = twdesk_surface_removed,
 	.committed = twdesk_surface_committed,
 	.move = twdesk_surface_move,
+	.resize = twdesk_surface_resize,
 	//we need to add resize, fullscreen requested,
 	//maximized requested, minimize requested
 	.struct_size = sizeof(struct weston_desktop_api),
@@ -455,7 +447,6 @@ move_grab_pointer_motion(struct weston_pointer_grab *grab,
 				gi->view->geometry.x + dx,
 				gi->view->geometry.y + dy,
 			},
-			.visible = true,
 		};
 		//this can be problematic
 		arrange_view_for_workspace(ws, gi->view, DPSR_deplace, &arg);
@@ -481,11 +472,17 @@ resize_grab_pointer_motion(struct weston_pointer_grab *grab,
 
 	//then we have to encode the resizing event into
 	//now we deterine the motion
+	float x = event->x; float y = event->y;
+	weston_view_from_global_float(gi->view, x, y, &x, &y);
+	x /= gi->view->surface->width;
+	y /= gi->view->surface->height;
+
 	struct layout_op arg = {
 		.v = gi->view,
-		.visible = true,
 		.dx = dx,
 		.dy = dy,
+		.sx = x,
+		.sy = y,
 	};
 	arrange_view_for_workspace(ws, gi->view, DPSR_resize, &arg);
 }
@@ -497,7 +494,6 @@ noop_grab_pointer_motion(struct weston_pointer_grab *grab, const struct timespec
 {
 	weston_pointer_move(grab->pointer, event);
 }
-
 
 static void
 pointer_grab_cancel(struct weston_pointer_grab *grab)
@@ -531,6 +527,16 @@ static struct weston_pointer_grab_interface desktop_moving_grab = {
 	.axis_source = noop_grab_axis_source,
 };
 
+
+static struct weston_pointer_grab_interface desktop_resizing_grab = {
+	.focus = noop_grab_focus,
+	.motion = resize_grab_pointer_motion,
+	.button = move_grab_button,
+	.axis = noop_grab_axis,
+	.frame = noop_grab_frame,
+	.cancel = pointer_grab_cancel,
+	.axis_source = noop_grab_axis_source,
+};
 
 
 static void
@@ -628,6 +634,42 @@ desktop_workspace_switch_recent(struct weston_keyboard *keyboard,
 	workspace_switch(desktop->actived_workspace[0], desktop->actived_workspace[1], keyboard);
 }
 
+//not sure if we want to make it here
+enum desktop_view_resize_option {
+	RESIZE_LEFT, RESIZE_RIGHT,
+	RESIZE_UP, RESIZE_DOWN,
+};
+
+static void
+desktop_view_resize(struct weston_keyboard *keyboard,
+		    uint32_t option, void *data)
+{
+	//as a keybinding, we only operate on the lower button of the view
+	struct desktop *desktop = data;
+	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
+	struct workspace *ws = get_workspace_for_view(view, desktop);
+	struct layout_op arg = {
+		.v = view,
+	};
+	switch (option) {
+	case RESIZE_LEFT:
+		arg.dx = -10;
+		break;
+	case RESIZE_RIGHT:
+		arg.dx = 10;
+		break;
+	case RESIZE_UP:
+		arg.dy = -10;
+		break;
+	case RESIZE_DOWN:
+		arg.dy = 10;
+	default:
+		arg.dx = 10;
+	}
+	arg.sx = 0.99;
+	arg.sy = 0.99;
+	arrange_view_for_workspace(ws, view, DPSR_resize, &arg);
+}
 
 void
 desktop_add_bindings(struct desktop *d, struct tw_binding_node *key_bindings,
@@ -657,10 +699,20 @@ desktop_add_bindings(struct desktop *d, struct tw_binding_node *key_bindings,
 		{KEY_B+8, MODIFIER_SUPER | MODIFIER_ALT},
 		{KEY_B+8, MODIFIER_SUPER | MODIFIER_ALT}, {0}, {0}, {0}
 	};
+	struct tw_key_press resize_left[MAX_KEY_SEQ_LEN] = {
+		{KEY_LEFT+8, MODIFIER_ALT}, {0}, {0}, {0}, {0},
+	};
+	struct tw_key_press resize_right[MAX_KEY_SEQ_LEN] = {
+		{KEY_RIGHT+8, MODIFIER_ALT}, {0}, {0}, {0}, {0},
+	};
+
 	tw_binding_add_key(key_bindings, switch_ws_left, desktop_workspace_switch,
 			   SWITCH_WS_LEFT, d);
 	tw_binding_add_key(key_bindings, switch_ws_right, desktop_workspace_switch,
 			   SWITCH_WS_RIGHT, d);
 	tw_binding_add_key(key_bindings, switch_ws_back, desktop_workspace_switch_recent,
 			   0, d);
+
+	tw_binding_add_key(key_bindings, resize_left, desktop_view_resize, RESIZE_LEFT, d);
+	tw_binding_add_key(key_bindings, resize_right, desktop_view_resize, RESIZE_RIGHT, d);
 }

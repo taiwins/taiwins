@@ -33,11 +33,21 @@ struct workspace {
 	//the stacking layout, for example. Only show two views.
 };
 
-struct focused_view {
-	struct weston_view *ev;
+struct recent_view {
+	struct weston_view *view;
+	struct weston_geometry old_geometry;
 	struct wl_list link;
 };
 
+struct recent_view *recent_view_create(struct weston_view *view);
+void recent_view_destroy(struct recent_view *);
+
+static inline void
+recent_view_get_origin_coord(const struct recent_view *v, float *x, float *y)
+{
+	*x = v->view->geometry.x + v->old_geometry.x;
+	*y = v->view->geometry.y + v->old_geometry.y;
+}
 
 extern size_t workspace_size;
 

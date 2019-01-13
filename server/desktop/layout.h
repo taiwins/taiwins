@@ -44,11 +44,20 @@ struct layout_op {
 	//output
 	struct weston_position pos;
 	struct weston_size size;
-	//input
 	float scale;
 	bool end;
-	bool visible;
-	double dx, dy;
+	//input
+	union {
+		//resizing/moving parameters,
+		struct {
+			//to allow most complex resizing operations, we need sx,
+			//sy to represent cornors. sx, sy is the current
+			//position of the cursor inside the view
+			double dx, dy;
+			double sx, sy;
+		};
+		float set_scale;
+	};
 };
 
 struct layout;
