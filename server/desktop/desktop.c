@@ -140,6 +140,7 @@ twdesk_surface_removed(struct weston_desktop_surface *surface,
 	wl_list_for_each_safe(view, next, &wt_surface->views, surface_link) {
 		struct workspace *wp = get_workspace_for_view(view, desktop);
 		workspace_remove_view(wp, view);
+		weston_view_unmap(view);
 		if (!weston_surface_is_mapped(wt_surface))
 			weston_view_destroy(view);
 	}
@@ -472,10 +473,9 @@ resize_grab_pointer_motion(struct weston_pointer_grab *grab,
 
 	//then we have to encode the resizing event into
 	//now we deterine the motion
-	float x = event->x; float y = event->y;
+	float x = wl_fixed_to_int(grab->pointer->x);
+	float y = wl_fixed_to_int(grab->pointer->y);
 	weston_view_from_global_float(gi->view, x, y, &x, &y);
-	x /= gi->view->surface->width;
-	y /= gi->view->surface->height;
 
 	struct layout_op arg = {
 		.v = gi->view,
@@ -666,9 +666,31 @@ desktop_view_resize(struct weston_keyboard *keyboard,
 	default:
 		arg.dx = 10;
 	}
-	arg.sx = 0.99;
-	arg.sy = 0.99;
+	arg.sx = view->surface->width-1;
+	arg.sy = view->surface->height-1;
 	arrange_view_for_workspace(ws, view, DPSR_resize, &arg);
+}
+
+static void
+desktop_toggle_vertical(struct weston_keyboard *keyboard, uint32_t option, void *data)
+{
+	struct desktop *desktop = data;
+	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
+	struct workspace *ws = get_workspace_for_view(view, desktop);
+	struct layout_op arg = {
+		.v = view,
+	};
+	arrange_view_for_workspace(ws, view, DPSR_toggle, &arg);
+}
+
+static void
+desktop_toggle_floating(struct weston_keyboard *keyboard, uint32_t option, void *data)
+{
+	struct desktop *desktop = data;
+	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
+	struct workspace *ws = get_workspace_for_view(view, desktop);
+	if (ws)
+		workspace_switch_layout(ws, view);
 }
 
 void
@@ -705,6 +727,13 @@ desktop_add_bindings(struct desktop *d, struct tw_binding_node *key_bindings,
 	struct tw_key_press resize_right[MAX_KEY_SEQ_LEN] = {
 		{KEY_RIGHT+8, MODIFIER_ALT}, {0}, {0}, {0}, {0},
 	};
+	struct tw_key_press toggle_vertical[MAX_KEY_SEQ_LEN] = {
+		{KEY_SPACE+8, MODIFIER_ALT}, {0}, {0}, {0}, {0},
+	};
+	struct tw_key_press toggle_floating[MAX_KEY_SEQ_LEN] = {
+		{KEY_SPACE+8, MODIFIER_ALT | MODIFIER_SHIFT},
+		{0}, {0}, {0}, {0}
+	};
 
 	tw_binding_add_key(key_bindings, switch_ws_left, desktop_workspace_switch,
 			   SWITCH_WS_LEFT, d);
@@ -715,4 +744,6 @@ desktop_add_bindings(struct desktop *d, struct tw_binding_node *key_bindings,
 
 	tw_binding_add_key(key_bindings, resize_left, desktop_view_resize, RESIZE_LEFT, d);
 	tw_binding_add_key(key_bindings, resize_right, desktop_view_resize, RESIZE_RIGHT, d);
+	tw_binding_add_key(key_bindings, toggle_vertical, desktop_toggle_vertical, 0, d);
+	tw_binding_add_key(key_bindings, toggle_floating, desktop_toggle_floating, 0, d);
 }

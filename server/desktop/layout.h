@@ -26,10 +26,7 @@ enum layout_command {
 	DPSR_add,
 	DPSR_del,
 	DPSR_deplace, //useful in floating.
-	DPSR_up, //useful in tiling.
-	DPSR_down, //useful in tiling.
-	DPSR_left, //useful in tiling.
-	DPSR_right, //useful in tiling.
+	DPSR_toggle, //toggle vertical or horizental, useful in tiling
 	DPSR_resize, //useful in tiling
 	//DPSR_top, //not useful in neither
 	//I should have resize_output event

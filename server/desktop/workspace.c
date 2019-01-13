@@ -14,6 +14,7 @@ recent_view_create(struct weston_view *v)
 	struct recent_view *rv = xmalloc(sizeof(struct recent_view));
 	wl_list_init(&rv->link);
 	rv->view = v;
+	rv->tiling = true;
 	rv->old_geometry = weston_desktop_surface_get_geometry(ds);
 	weston_desktop_surface_set_user_data(ds, rv);
 	return rv;
@@ -27,6 +28,15 @@ recent_view_destroy(struct recent_view *rv)
 	wl_list_remove(&rv->link);
 	free(rv);
 	weston_desktop_surface_set_user_data(ds, NULL);
+}
+
+static inline struct recent_view *
+get_recent_view(struct weston_view *v)
+{
+	struct weston_surface *surface = v->surface;
+	struct weston_desktop_surface *desk_surf = weston_surface_get_desktop_surface(surface);
+	struct recent_view *rv = weston_desktop_surface_get_user_data(desk_surf);
+	return rv;
 }
 
 size_t workspace_size =  sizeof(struct workspace);
@@ -89,9 +99,14 @@ workspace_get_top_view(const struct workspace *ws)
 static struct layout *
 workspace_get_layout_for_view(const struct workspace *ws, const struct weston_view *v)
 {
+	//if it is never in the layers
 	if (!v || (v->layer_link.layer != &ws->floating_layer &&
-		   v->layer_link.layer != &ws->tiling_layer))
-		return (struct layout *)&ws->tiling_layout;
+		   v->layer_link.layer != &ws->tiling_layer)) {
+		const struct recent_view *rv = get_recent_view((struct weston_view *)v);
+		const struct layout *l = rv->tiling ? &ws->tiling_layout :
+			&ws->floating_layout;
+		return (struct layout *)l;
+	}
 	if (v->layer_link.layer == &ws->floating_layer)
 		return (struct layout *)&ws->floating_layout;
 	else if (v->layer_link.layer == &ws->tiling_layer)
@@ -279,12 +294,13 @@ workspace_remove_view(struct workspace *w, struct weston_view *view)
 		.v = view,
 	};
 	arrange_view_for_workspace(w, view, DPSR_del, &arg);
-	weston_view_unmap(view);
+	weston_layer_entry_remove(&view->layer_link);
 	return true;
 }
 
-bool workspace_move_view(struct workspace *w, struct weston_view *view,
-			 const struct weston_position *pos)
+bool
+workspace_move_view(struct workspace *w, struct weston_view *view,
+		    const struct weston_position *pos)
 {
 	struct weston_layer *layer = view->layer_link.layer;
 	if (layer == &w->floating_layer) {
@@ -293,4 +309,17 @@ bool workspace_move_view(struct workspace *w, struct weston_view *view,
 		return true;
 	}
 	return false;
+}
+
+
+void
+workspace_switch_layout(struct workspace *w, struct weston_view *view)
+{
+	struct weston_layer *layer = view->layer_link.layer;
+	struct recent_view *rv = get_recent_view(view);
+	if (layer != &w->floating_layer && layer != &w->tiling_layer)
+		return;
+	workspace_remove_view(w, view);
+	rv->tiling = !rv->tiling;
+	workspace_add_view(w, view);
 }

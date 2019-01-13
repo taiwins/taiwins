@@ -339,7 +339,7 @@ tiling_view_erase(struct tiling_view *view)
  * we try to have the most complex effect resizing effect here, depends on where
  * you have your have your cursor.
  */
-static void
+static bool
 tiling_view_resize(struct tiling_view *view,
 		   float delta_head, float delta_tail,
 		   const struct weston_geometry *parent_geo,
@@ -349,7 +349,15 @@ tiling_view_resize(struct tiling_view *view,
 		container_of(view->node.parent, struct tiling_view, node) : NULL;
 	//I am the only node
 	if (!parent || parent->node.children.len <= 1)
-		return;
+		return false;
+	//deal with delta_tail, delta_head
+	if (view->coding[view->level-1] == parent->node.children.len-1)
+		delta_tail = 0.0;
+	if (view->coding[view->level-1] == 0)
+		delta_head = 0.0;
+	if (delta_head == 0.0 && delta_tail == 0.0)
+		return false;
+
 	//get new portions
 	float portions[parent->node.children.len];
 	int index = view->coding[view->level-1];
@@ -370,13 +378,14 @@ tiling_view_resize(struct tiling_view *view,
 	}
 	if (!is_subtree_valid(parent_geo, parent->vertical, portions,
 			      parent->node.children.len, output))
-		return;
+		return false;
 
 	for (int i = 0; i < parent->node.children.len; i++) {
 		struct tiling_view *tv = tiling_view_ith_node(parent, i);
 		tv->portion = portions[i];
 	}
 	tiling_update_children(parent);
+	return true;
 }
 
 /**
@@ -556,27 +565,61 @@ tiling_resize(const enum layout_command command, const struct layout_op *arg,
 	struct weston_geometry space =
 		tiling_subtree_space(parent, tiling_output->root,
 				     &tiling_output->curr_geo);
+	//TODO	this will cause sigfault if v is NULL;
+	float rx = arg->sx / v->surface->width;
+	float ry = arg->sy / v->surface->height;
 	//deal with current parent.
 	float ph = 0.0, pt = 0.0;
 	if (parent->vertical) {
-		ph = (arg->sy) <= 0.5 ? arg->dy / space.height : 0.0;
-		pt = (arg->sy) >  0.5 ? arg->dy / space.height : 0.0;
+		ph = (ry) <= 0.5 ? arg->dy / space.height : 0.0;
+		pt = (ry) >  0.5 ? arg->dy / space.height : 0.0;
 	} else {
-		ph = (arg->sx) <= 0.5 ? arg->dx / space.width : 0.0;
-		pt = (arg->sx) >  0.5 ? arg->dx / space.width : 0.0;
+		ph = (rx) <= 0.5 ? arg->dx / space.width : 0.0;
+		pt = (rx) >  0.5 ? arg->dx / space.width : 0.0;
 	}
-	tiling_view_resize(view, ph, pt, &space,
-			   tiling_output);
+	bool resized = tiling_view_resize(view, ph, pt, &space,
+					  tiling_output);
 	//try to resize the parent->parent,
 	struct tiling_view *gparent = (parent->node.parent) ?
 		container_of(parent->node.parent, struct tiling_view, node) :
 		NULL;
-	if (!gparent) {
+	ops[0].end = true;
+	if (gparent) {
 		//TODO I need to modifier the sx, sy though
+		struct weston_geometry view_space =
+			tiling_space_divide(&space, view->interval[0], view->interval[1],
+					    parent->vertical);
+		struct layout_op narg = *arg;
+		narg.sx += view_space.x;
+		narg.sy += view_space.y;
+		tiling_resize(command, &narg, parent->v, l, ops);
+	} else if (resized) {
 		int count = tiling_arrange_subtree(parent, &space, ops, tiling_output);
 		ops[count].end = true;
-	} else
-		tiling_resize(command, arg, parent->v, l, ops);
+	}
+}
+
+/**
+ * /brief toggle vertical
+ */
+static void
+tiling_toggle(const enum layout_command command, const struct layout_op *arg,
+	      struct weston_view *v, struct layout *l,
+	      struct layout_op *ops)
+{
+	struct tiling_output *tiling_output = tiling_output_find(l, v->output);
+	struct tiling_view *view = tiling_view_find(tiling_output->root, v);
+	struct tiling_view *parent = container_of(view->node.parent,
+						  struct tiling_view, node);
+	struct weston_geometry space =
+		tiling_subtree_space(parent, tiling_output->root,
+				     &tiling_output->curr_geo);
+
+	if (parent) {
+		parent->vertical = !parent->vertical;
+		int count = tiling_arrange_subtree(parent, &space, ops, tiling_output);
+		ops[count].end = true;
+	}
 }
 
 void
@@ -595,10 +638,7 @@ emplace_tiling(const enum layout_command command, const struct layout_op *arg,
 		{DPSR_add, tiling_add},
 		{DPSR_del, tiling_del},
 		{DPSR_deplace, emplace_noop},
-		{DPSR_up, emplace_noop},
-		{DPSR_down, emplace_noop},
-		{DPSR_left, emplace_noop},
-		{DPSR_right, emplace_noop},
+		{DPSR_toggle, tiling_toggle},
 		{DPSR_resize, tiling_resize},
 	};
 	assert(t_ops[command].command == command);
