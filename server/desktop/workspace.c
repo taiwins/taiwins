@@ -6,27 +6,30 @@
 #include "../taiwins.h"
 
 
+struct recent_view *
+recent_view_create(struct weston_view *v)
+{
+	struct weston_desktop_surface *ds =
+		weston_surface_get_desktop_surface(v->surface);
+	struct recent_view *rv = xmalloc(sizeof(struct recent_view));
+	wl_list_init(&rv->link);
+	rv->view = v;
+	rv->old_geometry = weston_desktop_surface_get_geometry(ds);
+	weston_desktop_surface_set_user_data(ds, rv);
+	return rv;
+}
+
+void
+recent_view_destroy(struct recent_view *rv)
+{
+	struct weston_desktop_surface *ds =
+		weston_surface_get_desktop_surface(rv->view->surface);
+	wl_list_remove(&rv->link);
+	free(rv);
+	weston_desktop_surface_set_user_data(ds, NULL);
+}
 
 size_t workspace_size =  sizeof(struct workspace);
-
-
-static inline void
-view_map_offscreen(struct weston_view *v, float x, float y)
-{
-	struct weston_output *o = v->output;
-	x += o->x + o->width;
-	y += o->y + o->height;
-	weston_view_set_position(v, x, y);
-}
-
-static inline void
-view_geometry_remap(const struct weston_view *v, float *x, float *y)
-{
-	struct weston_output *o = v->output;
-	*x = (v->geometry.x - (o->x + o->width));
-	*y = (v->geometry.y - (o->y + o->height));
-}
-
 
 /**
  * workspace implementation
@@ -37,10 +40,12 @@ workspace_init(struct workspace *wp, struct weston_compositor *compositor)
 	weston_layer_init(&wp->tiling_layer, compositor);
 	weston_layer_init(&wp->floating_layer, compositor);
 	weston_layer_init(&wp->hidden_layer, compositor);
+	weston_layer_init(&wp->fullscreen_layer, compositor);
 	//init layout
 	floating_layout_init(&wp->floating_layout, &wp->floating_layer);
 	tiling_layout_init(&wp->tiling_layout, &wp->tiling_layer,
 			   &wp->floating_layout);
+	wl_list_init(&wp->recent_views);
 }
 
 void
@@ -106,7 +111,6 @@ arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
 	//possible number of operations, and give pass that into layouting
 	//algorithm, so you don't need any memory allocations
 
-	//this should be max(2, ws->tiling_layer.view_list)
 	int len = wl_list_length(&ws->floating_layer.view_list.link) +
 		wl_list_length(&ws->tiling_layer.view_list.link) + 1;
 	struct layout_op ops[len];
@@ -118,13 +122,14 @@ arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
 		//TODO, check the validty of the operations
 		struct weston_surface *surface = ops[i].v->surface;
 		struct weston_desktop_surface *desk_surf = weston_surface_get_desktop_surface(surface);
-		/* struct weston_geometry geo = weston_desktop_surface_get_geometry(desk_surf); */
-		view_map_offscreen(ops[i].v, ops[i].pos.x, ops[i].pos.y);
-		/* weston_view_set_position(ops[i].v, ops[i].pos.x - 32, ops[i].pos.y - 32); */
-		/* weston_view_set_mask(ops[i].v, ops[i].pos.x, ops[i].pos.y, ops[i].size.width, ops[i].size.height); */
-		if (ops[i].size.height) {
+		struct recent_view *rv = weston_desktop_surface_get_user_data(desk_surf);
+		weston_view_set_position(ops[i].v,
+					 ops[i].pos.x - rv->old_geometry.x,
+					 ops[i].pos.y - rv->old_geometry.y);
+		if (ops[i].size.height && ops[i].size.width) {
 			weston_desktop_surface_set_size(desk_surf, ops[i].size.width, ops[i].size.height);
 		}
+		weston_view_geometry_dirty(ops[i].v);
 		weston_view_schedule_repaint(v);
 	}
 }
@@ -172,29 +177,41 @@ bool
 workspace_focus_view(struct workspace *ws, struct weston_view *v)
 {
 	struct weston_layer *l = (v) ? v->layer_link.layer : NULL;
-	if (!l || (l != &ws->floating_layer && l != &ws->tiling_layer))
-		return false;
-	//move float to hidden is a bit tricky
+	if (!is_view_on_workspace(v, ws))
+		return NULL;
+	//view on floating layer, it is the easiest
 	if (l == &ws->floating_layer) {
 		weston_layer_entry_remove(&v->layer_link);
 		weston_layer_entry_insert(&ws->floating_layer.view_list,
 					  &v->layer_link);
-		//we should somehow ping on it
-	} else if (l == &ws->tiling_layer) {
+		//we should some how ping on it
+	}  else if (l == &ws->tiling_layer) {
+		//right now the implementation is moving all the views to hidden layer
 		workspace_clear_floating(ws);
 		weston_layer_entry_remove(&v->layer_link);
 		weston_layer_entry_insert(&ws->tiling_layer.view_list,
 					  &v->layer_link);
-	} else if (l == &ws->hidden_layer) {
+	}
+	else if (l == &ws->hidden_layer) {
 		weston_layer_entry_remove(&v->layer_link);
 		weston_layer_entry_insert(&ws->floating_layer.view_list,
 					  &v->layer_link);
-
 	}
+	else if (l == &ws->fullscreen_layer) {
+		weston_layer_entry_remove(&v->layer_link);
+		weston_layer_entry_insert(&ws->fullscreen_layer.view_list,
+					  &v->layer_link);
+	}
+	//manage the recent views
+	struct weston_desktop_surface *dsurf = weston_surface_get_desktop_surface(v->surface);
+	struct recent_view *rv = weston_desktop_surface_get_user_data(dsurf);
+	wl_list_remove(&rv->link);
+	wl_list_init(&rv->link);
+	wl_list_insert(&ws->recent_views, &rv->link);
+
 	weston_view_damage_below(v);
 	weston_view_schedule_repaint(v);
 	return true;
-	//it is not possible to be here.
 }
 
 
@@ -222,6 +239,8 @@ workspace_remove_output(struct workspace *w, struct weston_output *output)
 bool
 is_view_on_workspace(const struct weston_view *v, const struct workspace *ws)
 {
+	if (!v || !ws)
+		return false;
 	const struct weston_layer *layer = v->layer_link.layer;
 	return (layer == &ws->floating_layer || layer == &ws->tiling_layer ||
 		layer == &ws->fullscreen_layer || layer == &ws->hidden_layer);
@@ -243,9 +262,12 @@ workspace_add_view(struct workspace *w, struct weston_view *view)
 	struct layout_op arg = {
 		.v = view,
 	};
+
 	arrange_view_for_workspace(w, view, DPSR_add, &arg);
+
 	if (wl_list_empty(&view->layer_link.link))
 		weston_layer_entry_insert(&w->tiling_layer.view_list, &view->layer_link);
+	workspace_focus_view(w, view);
 }
 
 bool
