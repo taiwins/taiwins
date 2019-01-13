@@ -475,7 +475,6 @@ resize_grab_pointer_motion(struct weston_pointer_grab *grab,
 	//now we deterine the motion
 	float x = wl_fixed_to_int(grab->pointer->x);
 	float y = wl_fixed_to_int(grab->pointer->y);
-	weston_view_from_global_float(gi->view, x, y, &x, &y);
 
 	struct layout_op arg = {
 		.v = gi->view,
@@ -666,8 +665,10 @@ desktop_view_resize(struct weston_keyboard *keyboard,
 	default:
 		arg.dx = 10;
 	}
-	arg.sx = view->surface->width-1;
-	arg.sy = view->surface->height-1;
+	weston_view_to_global_float(view,
+				    view->surface->width-1,
+				    view->surface->height-1,
+				    &arg.sx, &arg.sy);
 	arrange_view_for_workspace(ws, view, DPSR_resize, &arg);
 }
 

@@ -50,8 +50,8 @@ struct layout_op {
 			//to allow most complex resizing operations, we need sx,
 			//sy to represent cornors. sx, sy is the current
 			//position of the cursor inside the view
-			double dx, dy;
-			double sx, sy;
+			float dx, dy;
+			float sx, sy;
 		};
 		float set_scale;
 	};
