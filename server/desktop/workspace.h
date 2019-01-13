@@ -37,6 +37,7 @@ struct recent_view {
 	struct weston_view *view;
 	struct weston_geometry old_geometry;
 	struct wl_list link;
+	bool tiling;
 };
 
 struct recent_view *recent_view_create(struct weston_view *view);
@@ -69,6 +70,8 @@ void workspace_add_view(struct workspace *w, struct weston_view *view);
 bool workspace_move_view(struct workspace *w, struct weston_view *v,
 				  const struct weston_position *pos);
 bool workspace_remove_view(struct workspace *w, struct weston_view *v);
+
+void workspace_switch_layout(struct workspace *w, struct weston_view *v);
 
 
 void workspace_add_output(struct workspace *wp, struct taiwins_output *output);

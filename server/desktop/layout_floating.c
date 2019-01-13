@@ -44,7 +44,8 @@ floating_add(const enum layout_command command, const struct layout_op *arg,
 {
 	struct weston_output *o = v->output;
 	struct weston_geometry geo = {
-		o->x, o->y, o->width, o->height,
+		v->output->x, v->output->y,
+		v->output->width, v->output->height,
 	};
 
 	assert(!ops[0].end);
@@ -64,29 +65,12 @@ floating_deplace(const enum layout_command command, const struct layout_op *arg,
 		 struct weston_view *v, struct layout *l,
 		 struct layout_op *ops)
 {
-	//okay, get the output of the view
-	struct weston_output *o = v->output;
-	struct weston_geometry geo = {
-		o->x, o->y, o->width, o->height,
-	};
-
 	struct weston_position curr_pos = {
 		v->geometry.x,
 		v->geometry.y
 	};
-	//this is useless
-	if (command == DPSR_up)
-		curr_pos.y -= 0.01 * geo.height;
-	else if (command == DPSR_down)
-		curr_pos.y += 0.01 * geo.height;
-	else if (command == DPSR_left)
-		curr_pos.x -= 0.01 * geo.width;
-	else if (command == DPSR_right)
-		curr_pos.x += 0.01 * geo.width;
-	else {
-		assert(!(arg[0].end));
-		curr_pos = arg[0].pos;
-	}
+	curr_pos.x += arg->dx;
+	curr_pos.y += arg->dy;
 	//here is the delimma, we should maybe make the
 	ops[0].pos = curr_pos;
 	ops[0].end = false;
@@ -123,10 +107,7 @@ emplace_float(const enum layout_command command, const struct layout_op *arg,
 		{DPSR_add, floating_add},
 		{DPSR_del, emplace_noop},
 		{DPSR_deplace, floating_deplace},
-		{DPSR_up, floating_deplace},
-		{DPSR_down, floating_deplace},
-		{DPSR_left, floating_deplace},
-		{DPSR_right, floating_deplace},
+		{DPSR_toggle, emplace_noop},
 		{DPSR_resize, floating_resize},
 	};
 	assert(float_ops[command].command == command);
