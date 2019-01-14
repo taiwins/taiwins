@@ -490,7 +490,7 @@ tiling_find_launch_point(struct layout *l)
 		tv = tiling_view_find(to->root, focused_view);
 	} else if (wl_list_length(&floating_layer->view_list.link) > 0) {
 		struct weston_view *focused_view =
-			container_of(layer->view_list.link.next, struct weston_view,
+			container_of(floating_layer->view_list.link.next, struct weston_view,
 				     layer_link.link);
 		struct tiling_output *to =
 			tiling_output_find(l, focused_view->output);
