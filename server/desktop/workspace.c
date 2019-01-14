@@ -33,8 +33,7 @@ recent_view_destroy(struct recent_view *rv)
 static inline struct recent_view *
 get_recent_view(struct weston_view *v)
 {
-	struct weston_surface *surface = v->surface;
-	struct weston_desktop_surface *desk_surf = weston_surface_get_desktop_surface(surface);
+	struct weston_desktop_surface *desk_surf = weston_surface_get_desktop_surface(v->surface);
 	struct recent_view *rv = weston_desktop_surface_get_user_data(desk_surf);
 	return rv;
 }
@@ -134,10 +133,10 @@ arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
 	for (int i = 0; i < len; i++) {
 		if (ops[i].end)
 			break;
-		//TODO, check the validty of the operations
-		struct weston_surface *surface = ops[i].v->surface;
-		struct weston_desktop_surface *desk_surf = weston_surface_get_desktop_surface(surface);
-		struct recent_view *rv = weston_desktop_surface_get_user_data(desk_surf);
+		struct weston_desktop_surface *desk_surf =
+			weston_surface_get_desktop_surface(v->surface);
+		struct recent_view *rv =
+			weston_desktop_surface_get_user_data(desk_surf);
 		weston_view_set_position(ops[i].v,
 					 ops[i].pos.x - rv->old_geometry.x,
 					 ops[i].pos.y - rv->old_geometry.y);
@@ -218,8 +217,7 @@ workspace_focus_view(struct workspace *ws, struct weston_view *v)
 					  &v->layer_link);
 	}
 	//manage the recent views
-	struct weston_desktop_surface *dsurf = weston_surface_get_desktop_surface(v->surface);
-	struct recent_view *rv = weston_desktop_surface_get_user_data(dsurf);
+	struct recent_view *rv = get_recent_view(v);
 	wl_list_remove(&rv->link);
 	wl_list_init(&rv->link);
 	wl_list_insert(&ws->recent_views, &rv->link);
@@ -279,9 +277,11 @@ workspace_add_view(struct workspace *w, struct weston_view *view)
 	};
 
 	arrange_view_for_workspace(w, view, DPSR_add, &arg);
-
-	if (wl_list_empty(&view->layer_link.link))
+	struct recent_view *rv = get_recent_view(view);
+	if (rv->tiling)
 		weston_layer_entry_insert(&w->tiling_layer.view_list, &view->layer_link);
+	else
+		weston_layer_entry_insert(&w->floating_layer.view_list, &view->layer_link);
 	workspace_focus_view(w, view);
 }
 
@@ -295,6 +295,7 @@ workspace_remove_view(struct workspace *w, struct weston_view *view)
 	};
 	arrange_view_for_workspace(w, view, DPSR_del, &arg);
 	weston_layer_entry_remove(&view->layer_link);
+	wl_list_init(&view->layer_link.link);
 	return true;
 }
 
