@@ -43,6 +43,16 @@ struct recent_view {
 struct recent_view *recent_view_create(struct weston_view *view);
 void recent_view_destroy(struct recent_view *);
 
+static inline struct recent_view *
+get_recent_view(struct weston_view *v)
+{
+	struct weston_desktop_surface *desk_surf = weston_surface_get_desktop_surface(v->surface);
+	struct recent_view *rv = weston_desktop_surface_get_user_data(desk_surf);
+	return rv;
+}
+
+
+
 static inline void
 recent_view_get_origin_coord(const struct recent_view *v, float *x, float *y)
 {

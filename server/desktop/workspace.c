@@ -30,13 +30,6 @@ recent_view_destroy(struct recent_view *rv)
 	weston_desktop_surface_set_user_data(ds, NULL);
 }
 
-static inline struct recent_view *
-get_recent_view(struct weston_view *v)
-{
-	struct weston_desktop_surface *desk_surf = weston_surface_get_desktop_surface(v->surface);
-	struct recent_view *rv = weston_desktop_surface_get_user_data(desk_surf);
-	return rv;
-}
 
 size_t workspace_size =  sizeof(struct workspace);
 
@@ -142,6 +135,8 @@ arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
 					 ops[i].pos.y - rv->old_geometry.y);
 		if (ops[i].size.height && ops[i].size.width) {
 			weston_desktop_surface_set_size(desk_surf, ops[i].size.width, ops[i].size.height);
+			rv->old_geometry.width = ops[i].size.width;
+			rv->old_geometry.height = ops[i].size.height;
 		}
 		weston_view_geometry_dirty(ops[i].v);
 		weston_view_schedule_repaint(v);

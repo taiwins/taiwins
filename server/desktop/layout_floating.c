@@ -1,8 +1,9 @@
 #include <stdlib.h>
 #include <helpers.h>
 #include <sequential.h>
+#include <libweston-desktop.h>
 #include "layout.h"
-
+#include "workspace.h"
 
 static void
 emplace_float(const enum layout_command command, const struct layout_op *arg,
@@ -42,7 +43,6 @@ floating_add(const enum layout_command command, const struct layout_op *arg,
 	     struct weston_view *v, struct layout *l,
 	     struct layout_op *ops)
 {
-	struct weston_output *o = v->output;
 	struct weston_geometry geo = {
 		v->output->x, v->output->y,
 		v->output->width, v->output->height,
@@ -83,13 +83,32 @@ floating_resize(const enum layout_command command, const struct layout_op *arg,
 		struct weston_view *v, struct layout *l,
 		struct layout_op *ops)
 {
-	//what the hell is this
-	ops[0].pos.x = -100000;
-	ops[0].pos.y = -100000;
-	ops[0].size = arg->size;
-	ops[0].end = 0;
+	struct weston_geometry geo = get_recent_view(v)->old_geometry;
+	struct weston_geometry buttom_right = {
+		.x = v->geometry.x + geo.x + geo.width,
+		.y = v->geometry.y + geo.y + geo.height,
+	};
+
+	ops[0].pos.x = v->geometry.x + geo.x;
+	ops[0].pos.y = v->geometry.y + geo.y;
 	ops[0].v = v;
-	ops[1].end = 1;
+	ops[0].end = false;
+
+	float x, y, rx, ry;
+	weston_view_from_global_float(v, arg->sx, arg->sy, &x, &y);
+	rx = x / (float)v->surface->width;
+	ry = y / (float)v->surface->height;
+	//only the buttom right part does not affect the position
+	if (rx < 0.5 || ry < 0.5) {
+		ops[0].pos.x += arg->dx;
+		ops[0].pos.y += arg->dy;
+		ops[0].size.width = buttom_right.x - (int32_t)ops[0].pos.x;
+		ops[0].size.height = buttom_right.y - (int32_t)ops[0].pos.y;
+	} else {
+		ops[0].size.width = geo.width + (int32_t)arg->dx;
+		ops[0].size.height = geo.height + (int32_t)arg->dy;
+	}
+	ops[1].end = true;
 }
 
 void
