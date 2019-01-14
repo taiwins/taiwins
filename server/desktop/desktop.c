@@ -260,6 +260,8 @@ desktop_output_resized(struct wl_listener *listenr, void *data)
 			output->x, output->y + 32,
 			output->width, output->height - 32,
 		},
+		.inner_gap = 10,
+		.outer_gap = 10,
 	};
 	for (int i = 0; i < MAX_WORKSPACE+1; i++)
 		workspace_resize_output(&DESKTOP.workspaces[i], &taiwins_output);
