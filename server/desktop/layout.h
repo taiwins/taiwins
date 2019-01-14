@@ -28,6 +28,8 @@ enum layout_command {
 	DPSR_deplace, //useful in floating.
 	DPSR_toggle, //toggle vertical or horizental, useful in tiling
 	DPSR_resize, //useful in tiling
+	DPSR_split,
+	DPSR_merge,
 	DPSR_output_resize,
 };
 
@@ -54,6 +56,7 @@ struct layout_op {
 		};
 		float set_scale;
 		struct weston_output *o;
+		bool vertical_split;
 	};
 };
 

@@ -128,6 +128,8 @@ emplace_float(const enum layout_command command, const struct layout_op *arg,
 		{DPSR_deplace, floating_deplace},
 		{DPSR_toggle, emplace_noop},
 		{DPSR_resize, floating_resize},
+		{DPSR_split, emplace_noop},
+		{DPSR_merge, emplace_noop},
 		{DPSR_output_resize, emplace_noop},
 	};
 	assert(float_ops[command].command == command);
