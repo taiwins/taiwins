@@ -54,11 +54,13 @@
 *** TODO change the keyboard grab allowing the long pressing.
 *** DOIN updated to libweston-5
     - figure out the bug for libdrm backend.
-*** TODO finishing weston_desktop protocols
-    - resizing.
+*** DOIN finishing weston_desktop protocols
+    - resizing. DONE
     - maximizing.
     - minimizing
-*** TODO switch bindings into our ~run_binding~ callbacks
+    - recent views
+*** DOIN switch bindings into our ~run_binding~ callbacks
+    looks like I need a patched version of libweston to get it to work
 *** DONE have functional workspace implementation
     - workspace is implemented as keybindings
 *** DONE refactring that layout implementation in workspace, it is ugly
@@ -137,6 +139,8 @@
 *** TODO `tw_desktop` output to recieve desktop events
 
 * Stage three: extensions
+*** TODO deal with scale
+    you can start it by experiment with updating ~weston_matrix~
 *** TODO ML based layout
 *** TODO rendering/compositing optimization.
   - screen capture and screen record(audio support?).

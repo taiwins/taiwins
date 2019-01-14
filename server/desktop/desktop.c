@@ -696,6 +696,22 @@ desktop_toggle_floating(struct weston_keyboard *keyboard, uint32_t option, void 
 		workspace_switch_layout(ws, view);
 }
 
+static void
+desktop_recent_view(struct weston_keyboard *keyboard, uint32_t option, void *data)
+{
+	struct desktop *desktop = data;
+	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
+	struct workspace *ws = get_workspace_for_view(view, desktop);
+	struct recent_view *rv = get_recent_view(view);
+	wl_list_remove(&rv->link);
+	wl_list_insert(ws->recent_views.prev, &rv->link);
+	struct recent_view *nrv =
+		container_of(ws->recent_views.next,
+			     struct recent_view, link);
+	workspace_focus_view(ws, nrv->view);
+	tw_focus_surface(nrv->view->surface);
+}
+
 void
 desktop_add_bindings(struct desktop *d, struct tw_binding_node *key_bindings,
 		     struct tw_binding_node *btn_bindings,
@@ -737,6 +753,9 @@ desktop_add_bindings(struct desktop *d, struct tw_binding_node *key_bindings,
 		{KEY_SPACE+8, MODIFIER_ALT | MODIFIER_SHIFT},
 		{0}, {0}, {0}, {0}
 	};
+	struct tw_key_press next_view[MAX_KEY_SEQ_LEN] = {
+		{KEY_J+8, MODIFIER_ALT | MODIFIER_SHIFT},
+	};
 
 	tw_binding_add_key(key_bindings, switch_ws_left, desktop_workspace_switch,
 			   SWITCH_WS_LEFT, d);
@@ -749,4 +768,5 @@ desktop_add_bindings(struct desktop *d, struct tw_binding_node *key_bindings,
 	tw_binding_add_key(key_bindings, resize_right, desktop_view_resize, RESIZE_RIGHT, d);
 	tw_binding_add_key(key_bindings, toggle_vertical, desktop_toggle_vertical, 0, d);
 	tw_binding_add_key(key_bindings, toggle_floating, desktop_toggle_floating, 0, d);
+	tw_binding_add_key(key_bindings, next_view, desktop_recent_view, 0, d);
 }

@@ -29,8 +29,6 @@ enum layout_command {
 	DPSR_toggle, //toggle vertical or horizental, useful in tiling
 	DPSR_resize, //useful in tiling
 	DPSR_output_resize,
-	//DPSR_top, //not useful in neither
-	//I should have resize_output event
 };
 
 /* the operation correspond to the command, I am not sure if it is good to have
