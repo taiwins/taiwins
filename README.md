@@ -6,7 +6,10 @@
 ### finally moved to desktop implementation, showing windows is seamless
 ![use-emacs](imgs/use-emacs.png)
 
-currently on [desktop implementation](docs/weston-desktop.md)
+### Now the tiling layout algorithm is implemented
+![tiling](imgs/resizing.png)
+
+currently on [desktop implementation](docs/progress.org)
 
 
 ## how to build
@@ -35,4 +38,4 @@ build steps:
 Here is currently how I test the program
 
 	cd build
-	./bin/taiwins ./bin/shell-taiwins ./bin/shell-launcher
+	./bin/taiwins ./bin/shell-taiwins ./bin/shell-console
