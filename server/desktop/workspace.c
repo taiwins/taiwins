@@ -106,18 +106,16 @@ workspace_get_layout_for_view(const struct workspace *ws, const struct weston_vi
 	return NULL;
 }
 
-void
-arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
+static void
+arrange_view_for_layout(struct workspace *ws, struct layout *layout,
+			struct weston_view *v,
 			const enum layout_command command,
 			const struct layout_op *arg)
 {
-	struct layout *layout = workspace_get_layout_for_view(ws, v);
-	if (!layout)
-		return;
+
 	//so this is the very smart part of the operation, you know the largest
 	//possible number of operations, and give pass that into layouting
 	//algorithm, so you don't need any memory allocations
-
 	int len = wl_list_length(&ws->floating_layer.view_list.link) +
 		wl_list_length(&ws->tiling_layer.view_list.link) + 1;
 	struct layout_op ops[len];
@@ -127,7 +125,7 @@ arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
 		if (ops[i].end)
 			break;
 		struct weston_desktop_surface *desk_surf =
-			weston_surface_get_desktop_surface(v->surface);
+			weston_surface_get_desktop_surface(ops[i].v->surface);
 		struct recent_view *rv =
 			weston_desktop_surface_get_user_data(desk_surf);
 		weston_view_set_position(ops[i].v,
@@ -139,7 +137,23 @@ arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
 			rv->old_geometry.height = ops[i].size.height;
 		}
 		weston_view_geometry_dirty(ops[i].v);
-		weston_view_schedule_repaint(v);
+	}
+}
+void
+arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
+			const enum layout_command command,
+			const struct layout_op *arg)
+{
+	if (!v) {
+		arrange_view_for_layout(ws, &ws->floating_layout, NULL,
+					     command, arg);
+		arrange_view_for_layout(ws, &ws->tiling_layout, NULL,
+					     command, arg);
+	} else {
+		struct layout *layout = workspace_get_layout_for_view(ws, v);
+		if (!layout)
+			return;
+		arrange_view_for_layout(ws, layout, v, command, arg);
 	}
 }
 
@@ -235,6 +249,10 @@ void
 workspace_resize_output(struct workspace *wp, struct taiwins_output *output)
 {
 	layout_resize_output(&wp->tiling_layout, output);
+	const struct layout_op arg = {
+		.o = output->output,
+	};
+	arrange_view_for_workspace(wp, NULL, DPSR_output_resize, &arg);
 }
 
 

@@ -167,9 +167,6 @@ tiling_resize_output(struct layout *l, struct taiwins_output *o)
 	output->curr_geo = o->desktop_area;
 	output->inner_gap = o->inner_gap;
 	output->outer_gap = o->outer_gap;
-	//I do need to make this a tili
-	/* tiling_arrange_subtree(output->root, output, */
-	/*	       struct layout_op *data_out, struct tiling_output *o) */
 }
 
 static inline struct tiling_view *
@@ -594,6 +591,19 @@ tiling_resize(const enum layout_command command, const struct layout_op *arg,
 	}
 }
 
+static void
+tiling_update(const enum layout_command command, const struct layout_op *arg,
+	      struct weston_view *v, struct layout *l,
+	      struct layout_op *ops)
+{
+	struct tiling_output *tiling_output =
+		tiling_output_find(l, (struct weston_output *)arg->o);
+
+	int count = tiling_arrange_subtree(tiling_output->root, &tiling_output->curr_geo,
+					   ops, tiling_output);
+	ops[count].end = true;
+}
+
 /**
  * /brief toggle vertical
  */
@@ -635,6 +645,7 @@ emplace_tiling(const enum layout_command command, const struct layout_op *arg,
 		{DPSR_deplace, emplace_noop},
 		{DPSR_toggle, tiling_toggle},
 		{DPSR_resize, tiling_resize},
+		{DPSR_output_resize, tiling_update},
 	};
 	assert(t_ops[command].command == command);
 	t_ops[command].fun(command, arg, v, l, ops);
