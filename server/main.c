@@ -89,6 +89,7 @@ taiwins_quit(struct weston_keyboard *keyboard,
 
 }
 
+
 int main(int argc, char *argv[])
 {
 	const char *shellpath = (argc > 1) ? argv[1] : NULL;
@@ -134,6 +135,7 @@ int main(int argc, char *argv[])
 	tw_bindings_apply_to_compositor(axis_bindings, compositor);
 
 	wl_display_run(display);
+
 //	wl_display_terminate(display);
 	//now you destroy the desktops
 
@@ -146,7 +148,7 @@ int main(int argc, char *argv[])
 	tw_binding_destroy_nodes(btnbindings);
 
 
-	weston_compositor_shutdown(compositor);
+	/* weston_compositor_shutdown(compositor); */
 	weston_compositor_destroy(compositor);
 	wl_display_destroy(display);
 	return 0;
