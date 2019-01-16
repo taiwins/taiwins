@@ -47,13 +47,14 @@
   - compositing
 ** DONE renaming tw_shell -> shell, tw_desktop -> desktop.
    so the protocols can directly use tw_shell instead of taiwins_shell
-** DOIN [50%] server-side optimization
+** DOIN [62%] server-side optimization
 *** CANC rename all the ctype functions
     screw that, I am not gonna do it.
 *** DONE singals for adding new output and seats
 *** TODO change the keyboard grab allowing the long pressing.
-*** DOIN updated to libweston-5
+*** DONE updated to libweston-5
     - figure out the bug for libdrm backend.
+      turned out it is my stupid pointer assignment
 *** DOIN finishing weston_desktop protocols
     - resizing. DONE
     - maximizing.
