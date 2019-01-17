@@ -1,21 +1,3 @@
-So far I've made so many data structures in *taiwins* for the organizing code,
-the problem is that every structure created on the fly, so the history of the
-design carries on.
-
-The problem of using widget is need of creating new surface, and assign
-nuklear_backend and apply many things...
-
-* The rotten issues in the project
-The short-sighted design of the taiwins, lack of knowledge and design skills;
-Lack of understanding of wayland and weston design (personally I think weston has
-way more crumbosome design).
-
-Some quick hacks that I did to get things working. For example, I used to think
-every client has only one ~wl_surface~ and I was immediately wrong, also the way
-I handled the time counter (with two threads), come on.
-
-
-
 * Client data structures
   - wl_global :: the global structure that fits the need of an wayland client.
 		 It contains things like ~wl_shm~, ~wl_shm_format~,
