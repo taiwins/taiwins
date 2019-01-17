@@ -1,18 +1,15 @@
 ## Taiwins, a morden window manager based on libweston
 
-### project under development.
-![current progress](imgs/with-nuklear.png)
+Taiwins is a wayland tiling window manager project based on **libweston**. It is
+designed to be mordern and modular. It has built-in shell and widget
+implementation thus it is extensible, it supports popular tiling window manager
+features like gapping.
 
-### finally moved to desktop implementation, showing windows is seamless
-![use-emacs](imgs/use-emacs.png)
-
-### Now the tiling layout algorithm is implemented
-![tiling](imgs/resizing.png)
-
-currently on [desktop implementation](docs/progress.org)
+It is currently usable but still under developement. You can refer to [desktop
+implementation](docs/progress.org) for current progress.
 
 
-## how to build
+## How to build
 you will need following dependencies
 - Pixman
 - libweston(if you have an nvidia graphics card you may need weston-eglstream)
@@ -35,7 +32,21 @@ build steps:
 	cmake ..
 	make -j8
 
-Here is currently how I test the program
+## How to run
+
+Here is currently how I run the compositor, it has no configuration now, will be
+added as lua script later.
 
 	cd build
 	./bin/taiwins ./bin/shell-taiwins ./bin/shell-console
+
+
+### Screenshots
+- widget example
+![current progress](imgs/with-nuklear.png)
+
+- opening application in floating mode
+![use-emacs](imgs/use-emacs.png)
+
+- opening application in tiling mode
+![tiling](imgs/resizing.png)
