@@ -1,7 +1,7 @@
 ## How to do layout in the workspace
 The first you need to do is the providing interfaces.
 
-### Anyway, the tree-based tiling window manager provides following operations:
+### tree-based tiling window manager provides following operations:
 
 - **creating/removing new window**: at current level. The levels are represented by internal
   nodes, when you create new window, it inserts a new window under that level,
