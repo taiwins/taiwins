@@ -5,8 +5,8 @@ designed to be mordern and modular. It has built-in shell and widget
 implementation thus it is extensible, it supports popular tiling window manager
 features like gapping.
 
-It is currently usable but still under developement. You can refer to [desktop
-implementation](docs/progress.org) for current progress.
+It is currently usable but still under developement. You can refer to
+[progress](docs/progress.org) for current progress.
 
 
 ## How to build
