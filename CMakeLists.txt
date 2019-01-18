@@ -45,7 +45,7 @@ pkg_search_module(Libweston-Desktop libweston-desktop-5 libweston-desktop-4 libw
 find_package(Wayland REQUIRED)
 find_package(Cairo REQUIRED)
 find_package(OpenGL REQUIRED COMPONENTS EGL OpenGL)
-find_package(Lua REQUIRED)
+find_package(LuaJIT REQUIRED)
 find_package(NVEGL)
 find_package(fontconfig REQUIRED)
 find_package(Freetype REQUIRED)
