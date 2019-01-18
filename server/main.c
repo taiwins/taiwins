@@ -133,6 +133,8 @@ int main(int argc, char *argv[])
 	tw_bindings_apply_to_compositor(keybindings, compositor);
 	tw_bindings_apply_to_compositor(btnbindings, compositor);
 	tw_bindings_apply_to_compositor(axis_bindings, compositor);
+	compositor->kb_repeat_delay = 400;
+	compositor->kb_repeat_rate = 40;
 
 	wl_display_run(display);
 
