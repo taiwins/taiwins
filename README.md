@@ -40,6 +40,21 @@ added as lua script later.
 	cd build
 	./bin/taiwins ./bin/shell-taiwins ./bin/shell-console
 
+### key-bindings
+Those bindings are hard-coded right now
+
+- `F12` : quit taiwins
+- `Ctrl+LEFT/RIGHT` switch to previous/next workspace
+- `Alt+Super+b` switch to last workspace
+- `Alt+LEFT` resize window to the left (only in tiling mode)
+- `Alt+RIGHT` resize window to the right (only in tiling mode)
+- `Ctrl+Space` toggle vertical/horizental layout (only in tiling mode)
+- `Alt+Shift+Space` toggle window floating/tiling
+- `Alt+Shift+j` cycle through applications
+- `Ctrl+v` creating vertical sub-layout (only in tiling mode)
+- `Ctrl+h` creating horizental sub-layout (only in tiling mode)
+- `Ctrl+m` merge current application to parent layout
+- `Ctrl+p` calling **shell-console** to launch application
 
 ### Screenshots
 - widget example
