@@ -96,7 +96,7 @@ tiling_layout_init(struct layout *l, struct weston_layer *ly, struct layout *flo
 {
 	layout_init(l, ly);
 
-	l->user_data = xmalloc(sizeof(struct tiling_user_data));
+	l->user_data = malloc(sizeof(struct tiling_user_data));
 	struct tiling_user_data *user_data =  l->user_data;
 	user_data->floating = floating;
 
