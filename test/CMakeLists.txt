@@ -118,3 +118,12 @@ target_link_libraries(test_event_queue
   ${CLIENT_LIBRARIES}
   taiwins_client
   )
+
+
+add_executable(test_lua
+  luatest.c
+  )
+
+target_link_libraries(test_lua
+  ${CLIENT_LIBRARIES}
+  )
