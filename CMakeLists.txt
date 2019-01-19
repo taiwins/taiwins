@@ -6,21 +6,26 @@ project(taiwins
 
 
 ##############setup all the variables, standdards####################
+add_definitions(-D_GNU_SOURCE)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug)
 endif()
+
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   add_definitions(-D__DEBUG)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -fsanitize=address")
 endif()
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+if(CMAKE_BUILD_TYPE MATCHES Release)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -O2")
+endif()
 
-add_definitions(
-  -D_GNU_SOURCE
-  )
+
+
 
 #####################################################################
 
@@ -62,16 +67,6 @@ else()
   message("we are building with mesa opengl")
 endif(NVEGL_FOUND)
 
-#####################################################################
-############################# configs ###############################
-#####################################################################
-add_library(taiwins_config STATIC
-  config.c)
-
-target_link_libraries(taiwins_config
-  ${FONTCONFIG_LIBRARIES}
-  m
-  )
 
 
 #####################################################################
@@ -144,8 +139,19 @@ list(REMOVE_DUPLICATES CLIENT_LIBRARIES)
 include_directories(${COMPOSITOR_INCLUDE_DIRS})
 include_directories(${TRDPTY_INCLUDE_DIRS})
 
+#####################################################################
+############################# configs ###############################
+#####################################################################
+add_library(taiwins_config STATIC
+  config.c)
+
+target_link_libraries(taiwins_config
+  ${FONTCONFIG_LIBRARIES}
+  m
+  )
 
 #####################################################################
+message("build options: ${CMAKE_C_FLAGS}")
 message("3rdparty includes: ${TRDPTY_INCLUDE_DIRS}")
 message("3rdparty lib: ${TRDPTY_LIBRARIES}")
 
