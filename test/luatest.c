@@ -1,4 +1,6 @@
+#include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 
 #include <lua.h>
@@ -23,9 +25,19 @@ static int checkapp(lua_State *L)
 	return 0;
 }
 
+static void
+error(lua_State *L, const char *fmt, ...)
+{
+	va_list argp;
+	va_start(argp, fmt);
+	vfprintf(stderr, fmt, argp);
+	va_end(argp);
+	lua_close(L);
+}
+
+
 int main(int argc, char *argv[])
 {
-
 	lua_State *L;
 	int status;
 	L = luaL_newstate();
