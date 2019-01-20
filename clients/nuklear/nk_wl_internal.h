@@ -384,6 +384,9 @@ nk_pointrbtn(struct app_surface *surf, enum taiwins_btn_t btn, bool state, uint3
 	case TWBTN_DCLICK:
 		b = NK_BUTTON_DOUBLE;
 		break;
+	default:
+		b = NK_BUTTON_MAX;
+		break;
 	}
 
 	nk_input_begin(&bkend->ctx);
