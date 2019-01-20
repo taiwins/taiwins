@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
 	end_desktop(desktop);
 	tw_binding_destroy_nodes(keybindings);
 	tw_binding_destroy_nodes(btnbindings);
-
+	tw_binding_destroy_nodes(axis_bindings);
 
 	/* weston_compositor_shutdown(compositor); */
 	weston_compositor_destroy(compositor);

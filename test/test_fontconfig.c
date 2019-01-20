@@ -150,6 +150,7 @@ save_the_font_images(const nk_rune *glyph_range)
 	cairo_surface_write_to_png(image_surface, "/tmp/save_as_png.png");
 	cairo_surface_destroy(image_surface);
 	nk_font_atlas_end(&atlas, nk_handle_id(0), NULL);
+	nk_font_atlas_clear(&atlas);
 	//I will need to write a allocator for nuklear though, this sucks.
 }
 

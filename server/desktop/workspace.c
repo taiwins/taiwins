@@ -116,8 +116,10 @@ arrange_view_for_layout(struct workspace *ws, struct layout *layout,
 	//so this is the very smart part of the operation, you know the largest
 	//possible number of operations, and give pass that into layouting
 	//algorithm, so you don't need any memory allocations
+	//here we have a extra buffer
 	int len = wl_list_length(&ws->floating_layer.view_list.link) +
-		wl_list_length(&ws->tiling_layer.view_list.link) + 1;
+		wl_list_length(&ws->tiling_layer.view_list.link) +
+		((command == DPSR_add) ? 2 : 1);
 	struct layout_op ops[len];
 	memset(ops, 0, sizeof(ops));
 	layout->command(command, arg, v, layout, ops);

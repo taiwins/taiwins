@@ -96,7 +96,7 @@ tiling_layout_init(struct layout *l, struct weston_layer *ly, struct layout *flo
 {
 	layout_init(l, ly);
 
-	l->user_data = xmalloc(sizeof(struct tiling_user_data));
+	l->user_data = malloc(sizeof(struct tiling_user_data));
 	struct tiling_user_data *user_data =  l->user_data;
 	user_data->floating = floating;
 
@@ -112,7 +112,7 @@ tiling_layout_end(struct layout *l)
 	struct tiling_user_data *user_data =  l->user_data;
 	layout_release(l);
 	vector_destroy(&user_data->outputs);
-	free(l->user_data);
+	free(user_data);
 }
 
 //right now we just assume output is stable. If you turn off the monitor we
