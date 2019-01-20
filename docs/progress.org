@@ -47,7 +47,7 @@
   - compositing
 ** DONE renaming tw_shell -> shell, tw_desktop -> desktop.
    so the protocols can directly use tw_shell instead of taiwins_shell
-** DOIN [62%] server-side optimization
+** DOIN [55%] server-side optimization
 *** DONE rename all the ctype functions.
     I did move them into uppercase macros.
 
@@ -66,6 +66,7 @@
 *** DONE have functional workspace implementation
     - workspace is implemented as keybindings
 *** DONE refactring that layout implementation in workspace, it is ugly
+*** TODO setup the xkb context and all that stuff
 ** DOIN [50%] Configurations
 *** TODO introduce the lua code
 *** DONE styles, nuklear and other widget styles.
@@ -87,9 +88,12 @@
     luckly that we have ~weston_desktop_suface_set_user_data~, it seems to fit
     perfectly in that position
 
-** DOIN [75%] client-side optimization
+** DOIN [71%] client-side optimization
 *** TODO add udev monitoring and inotify monitoring to event_queue
-*** TODO properly handling the frame callbacks
+*** TODO properly handling the frame callbacks for ~app_surface~
+    one solution is implementing all the input handling in the wayland frame
+    callback. But this wont be agonositc though.
+*** TODO implement scale for shell and console
 *** DONE switch to epoll on wl_display
     - possible solution :: maybe we can use epoll on wl_display, and add it to
 	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't
@@ -127,8 +131,10 @@
     you need to include this [https://github.com/juliettef/IconFontCppHeaders]
     for mapping unicode symbols.
 *** DOIN nk_vulkan backend
-    This work is not necessary, only serves the purpose of vulkan training. But
-    the API is rather verbose.
+    This work is not necessary, only serves the purpose of vulkan
+    training. Since nvidia really does not have the ~VK_KHR_wayland_surface~, we
+    have to implement it in a total different way. Once you are done with
+    it. You can implement ~vulkan-hpp~.
 *** DONE intergrate nk_wl_egl into nk_wl_backend
     I implemented a template header of ~nk_wl_internal~, but never actually
     applies it to nk_wl_egl, it should be done very soon, so I can totally
