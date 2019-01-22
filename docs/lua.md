@@ -13,9 +13,31 @@ How should I say, if you want to do things like providing lua functions as
 callback to use in the system, then you have to provide api to use in api.
 Then all you have to do in the c side is ~lua_loadfile~ :-p.
 
+For this part we want to have a global function to retrieve all the handles for
+lua.
+
+	local configurator = get_taiwins_configureator()
+
+some code likes this. Afterwards you can simply have
+
+	configurator.bind_close_taiwins("C-xC-c")
+	configurator.bind(lua_function, "C-cC-f")
+	configurator.set_theme("dark")
+
+We can also have `user_data` which binds with it. So we can get the `user_data`
+instead of save it somewhere as global variable.
+
 
 ### nuklear bindings
-This part you have no choice but to provide
+This part you have no choice but to provide functions.
+
+lua script has two functions:
+`run_label` and `run_binding`. The lua functions are called by corresponding c
+functions. They does two things.
+
+- create `user_data` as a opaque data that contains the nk_context. Then use
+  `setmetatable` so later we can use `user_data` in the c functions. You also
+  need to create gc for metatables.
 
 
 ### To call a lua fuction
@@ -50,3 +72,5 @@ field.
 - `lua_push*` : push a actual value for that field.
 - `lua_settable` : the index should be -3, points to the table.
 - `lua_setglobal` : set our table name and pop it from the stack.
+
+### so we can create the table as global.
