@@ -24,7 +24,6 @@
 
 #include "client.h"
 #include "ui.h"
-#include "../config.h"
 
 ////////////////////////////wayland listeners///////////////////////////
 
