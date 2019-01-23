@@ -28,6 +28,29 @@
 
 ////////////////////////////wayland listeners///////////////////////////
 
+static inline uint32_t
+tw_mod_mask_from_xkb_state(struct xkb_state *state)
+{
+	uint32_t mask = TW_NOMOD;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_ALT;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_CTRL;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_SUPER;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_SHIFT;
+	return mask;
+}
+
+static inline xkb_keycode_t
+kc_linux2xkb(uint32_t kc_linux)
+{
+	//this should only work on x11, but very weird it works all the time
+	return kc_linux+8;
+}
+
+
 //okay, this is when we chose the best format
 static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
