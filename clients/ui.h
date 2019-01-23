@@ -17,7 +17,6 @@
 #include <wayland-client.h>
 #include <sequential.h>
 
-#include "../config.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
