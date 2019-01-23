@@ -150,6 +150,15 @@ enum taiwins_btn_t {
 	TWBTN_DCLICK,
 };
 
+enum taiwins_modifier_mask {
+	TW_NOMOD = 0,
+	TW_ALT = 1,
+	TW_CTRL = 2,
+	TW_SUPER = 4,
+	TW_SHIFT = 8,
+};
+
+
 struct wl_globals;
 struct app_surface;
 struct egl_env;
