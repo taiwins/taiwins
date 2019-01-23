@@ -25,14 +25,29 @@ compositor:set_color_format("xrgb8888")
 -- now more on the usability part
 compositor:set_default_layout("floating")
 
--- outputs, anythins
-compositor
+-- outputs, you can setup the default rules for creating output. Or
+-- you can actually make a function for that. Default rules could be like
+compositor:set_output_rule("do_nothing")
+
+-- Then we need to actual set the output by config.
+compositor:set_outputs({
+      eDP1 = {
+	 mode = "3200x1800",
+	 scale = 2,
+	 clone = "HDMI1"
+      },
+      HDMI1 = {
+	 mode = "1920x1080",
+	 scale = 1,
+      },
+})
 -- try to choose a theme. This theme does not
 
 -- we can have the compositor to read about themes and verify its
 -- existence. then send it to the shell later.
 -- or you can implement the same set of the api, for client you can simply
 -- ignore a bunch of stuff
+shell:set_theme_dir("")
 shell:set_theme("light_blue")
 shell:set_position("top")
 
@@ -45,7 +60,7 @@ shell:set_widget_dir(os.getenv("XDG_CONFIG_DIR") .."/taiwins/widgets")
 shell:set_cursor_theme("highcolor")
 shell:set_cursor_size(24)
 
--- set menus
+-- set right click menus
 shell:set_menu({
       theme = {
 	 width = 200,
