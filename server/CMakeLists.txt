@@ -28,6 +28,7 @@ add_executable(taiwins
   input.c
   backend.c
   taiwins.c
+  config.c
   )
 
 

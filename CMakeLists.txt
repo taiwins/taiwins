@@ -84,6 +84,7 @@ set(COMPOSITOR_LIBRARIES
   ${XKBCOMMON_LIBRARIES}
   ${PIXMAN_LIBRARIES}
   ${FONTCONFIG_LIBRARIES}
+  ${LUA_LIBRARIES}
   taiwins_config
   )
 list(REMOVE_DUPLICATES COMPOSITOR_LIBRARIES)
@@ -95,6 +96,7 @@ set(COMPOSITOR_INCLUDE_DIRS
   ${WAYLAND_SERVER_INCLUDE_DIR}
   ${PIXMAN_INCLUDE_DIRS}
   ${FONTCONFIG_INCLUDE_DIR}
+  ${LUA_INCLUDE_DIR}
   )
 list(REMOVE_DUPLICATES COMPOSITOR_INCLUDE_DIRS)
 
@@ -147,7 +149,12 @@ add_library(taiwins_config STATIC
 
 target_link_libraries(taiwins_config
   ${FONTCONFIG_LIBRARIES}
+  ${CTYPES_LIBRARIES}
   m
+  )
+
+target_include_directories(taiwins_config PRIVATE
+  ${CTYPES_INCLUDE_DIR}
   )
 
 #####################################################################
