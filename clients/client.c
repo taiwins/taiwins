@@ -87,6 +87,22 @@ static struct wl_shm_listener shm_listener = {
 };
 
 
+static int
+handle_key_repeat(struct tw_event *e, int fd)
+{
+	struct app_surface *surf = e->data;
+	xkb_keysym_t keysym = e->arg.u;
+	struct wl_globals *globals = surf->wl_globals;
+	if (globals && surf->keycb &&
+	    globals->inputs.key_pressed &&
+		keysym == globals->inputs.keysym) {
+		surf->keycb(surf, globals->inputs.keysym, globals->inputs.modifiers,
+			    globals->inputs.key_pressed);
+		return TW_EVENT_NOOP;
+	} else
+		return TW_EVENT_DEL;
+}
+
 static inline bool
 is_repeat_info_valid(const struct itimerspec ri)
 {
@@ -111,12 +127,27 @@ handle_key(void *data,
 	uint32_t modifier = tw_mod_mask_from_xkb_state(globals->inputs.kstate);
 
 	globals->inputs.serial = serial;
+	globals->inputs.key_pressed = state == WL_KEYBOARD_KEY_STATE_PRESSED;
+	globals->inputs.keysym = keysym;
+	globals->inputs.modifiers = modifier;
+
 	/* char keyname[100]; */
 	/* xkb_keysym_get_name(keysym, keyname, 100); */
 	/* fprintf(stderr, "the key pressed is %s\n", keyname); */
-	//every surface it self is an app_surface, in thise case
 	struct wl_surface *focused = globals->inputs.focused_surface;
 	struct app_surface *appsurf = (focused) ? app_surface_from_wl_surface(focused) : NULL;
+	if (appsurf && is_repeat_info_valid(globals->inputs.repeat_info) && state) {
+		struct tw_event repeat_event = {
+			.data = appsurf,
+			.cb = handle_key_repeat,
+			.arg = {
+				.u = keysym,
+			},
+		};
+		tw_event_queue_add_timer(&globals->event_queue,
+					 &globals->inputs.repeat_info,
+					 &repeat_event);
+	}
 
 	keycb_t keycb = (appsurf && appsurf->keycb) ? appsurf->keycb : NULL;
 	if (keycb)
@@ -134,20 +165,10 @@ void handle_modifiers(void *data,
 		      uint32_t group)
 {
 	struct wl_globals *globals = (struct wl_globals *)data;
-//	fprintf(stderr, "We pressed a modifier\n");
-	//I guess this serial number is different for each event
-	//wayland uses layout group. you need to know what xkb_matched_layout is
 	xkb_state_update_mask(globals->inputs.kstate,
 			      mods_depressed, mods_latched, mods_locked, 0, 0, group);
 	globals->inputs.serial = serial;
-	//every surface it self is an app_surface, in thise case
-//	struct wl_surface *focused = globals->inputs.focused_surface;
-//	struct app_surface *appsurf = app_surface_from_wl_surface(focused);
-//	if (appsurf->modcb)
-//		appsurf->modcb(appsurf, );
 }
-
-
 
 static void
 handle_keymap(void *data, struct wl_keyboard *wl_keyboard,
@@ -181,11 +202,11 @@ handle_repeat_info(void *data,
 	globals->inputs.repeat_info = (struct itimerspec) {
 		.it_value = {
 			.tv_sec = 0,
-			.tv_nsec = delay * 1000,
+			.tv_nsec = delay * 1000000,
 		},
 		.it_interval = {
 			.tv_sec = 0,
-			.tv_nsec = rate * 1000,
+			.tv_nsec = rate * 1000000,
 		},
 	};
 }
@@ -201,11 +222,6 @@ handle_keyboard_enter(void *data,
 	globals->inputs.focused_surface = surface;
 	globals->inputs.serial = serial;
 	fprintf(stderr, "keyboard got focus\n");
-	/* struct wl_surface *focused = globals->inputs.focused_surface; */
-	/* struct app_surface *appsurf = app_surface_from_wl_surface(focused); */
-	/* //I suppose the modifier key is called as well */
-	/* if (appsurf->keycb) */
-	/*	appsurf->keycb(appsurf, XKB_KEY_NoSymbol, TW_NOMOD, 0); */
 }
 
 static void
@@ -302,9 +318,7 @@ pointer_leave(void *data,
 	globals->inputs.focused_surface = NULL;
 	globals->inputs.cursor_events = POINTER_LEAVE;
 	globals->inputs.serial = serial;
-
 }
-
 
 static void
 pointer_motion(void *data,
@@ -318,11 +332,8 @@ pointer_motion(void *data,
 	globals->inputs.cy = wl_fixed_to_int(surface_y);
 	globals->inputs.cursor_events |= POINTER_MOTION;
 	globals->inputs.serial = serial;
-
 }
 
-
-//frame function call the callbacks
 static void
 pointer_frame(void *data,
 	      struct wl_pointer *wl_pointer)
@@ -355,6 +366,7 @@ pointer_frame(void *data,
 	if ((event & POINTER_BTN_MID) && ptr_btn)
 		ptr_btn(appsurf, TWBTN_MID, globals->inputs.cursor_state,
 				   globals->inputs.cx, globals->inputs.cy);
+
 	/* fprintf(stderr, "we are getting a cursor event it is %s.\n", */
 	/*	(event & POINTER_MOTION) ? "motion" : */
 	/*	(event & POINTER_BTN_LEFT) ? "button" : "other"); */
@@ -567,7 +579,7 @@ tw_event_queue_run(struct tw_event_queue *queue)
 			if (event_source->pre_hook)
 				event_source->pre_hook(event_source);
 			int output = event_source->event.cb(
-				event_source->event.data,
+				&event_source->event,
 				event_source->fd);
 			if (output == TW_EVENT_DEL)
 				destroy_event_source(event_source);
@@ -690,10 +702,10 @@ err:
 //////////////////////// WL_DISPLAY ////////////////////////////
 
 static int
-dispatch_wl_display(void *data, int fd)
+dispatch_wl_display(struct tw_event *e, int fd)
 {
 	(void)fd;
-	struct tw_event_queue *queue = data;
+	struct tw_event_queue *queue = e->data;
 	struct wl_display *display = queue->wl_display;
 	while (wl_display_prepare_read(display) != 0)
 		wl_display_dispatch_pending(display);

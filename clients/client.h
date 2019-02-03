@@ -19,6 +19,7 @@
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
+#include <wayland-util.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <wayland-egl.h>
@@ -40,8 +41,9 @@ enum tw_event_op { TW_EVENT_NOOP, TW_EVENT_DEL };
 
 struct tw_event {
 	void *data;
+	union wl_argument arg;
 	//this return TW_EVENT_NOOP or tw_event_del
-	int (*cb)(void *, int fd);
+	int (*cb)(struct tw_event *event, int fd);
 };
 
 //client side event processor
@@ -109,12 +111,19 @@ struct wl_globals {
 			struct wl_surface *focused_surface; //the surface that cursor is on
 			struct wl_callback_listener cursor_done_listener;
 		};
+		//current state of input
 		struct {
+			//cursor
 			uint32_t cursor_events;
 			bool cursor_state;
 			uint32_t cx, cy; //current coordinate of the cursor
 			uint32_t axis;
 			bool axis_pos;
+			//keyboard
+			bool key_pressed;
+			xkb_keysym_t keysym;
+			uint32_t modifiers;
+
 			uint32_t serial;
 		};
 	} inputs;

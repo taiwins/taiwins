@@ -410,11 +410,12 @@ nk_wl_render(struct nk_wl_backend *b)
 	struct egl_env *env = &bkend->env;
 	struct app_surface *app = b->app_surface;
 	struct nk_context *ctx = &b->ctx;
-	if (!nk_wl_need_redraw(b))
+	if (nk_wl_maybe_skip(b))
 		return;
 	//make current to current
 	eglMakeCurrent(env->egl_display, app->eglsurface,
 		       app->eglsurface, env->egl_context);
+
 
 	const struct nk_draw_command *cmd;
 	nk_draw_index *offset = NULL;

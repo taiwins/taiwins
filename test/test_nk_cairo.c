@@ -167,9 +167,8 @@ int main(int argc, char *argv[])
 
 	app_surface_frame(&App.surface, false);
 
-	fprintf(stdout, "here\n");
-	while (wl_display_dispatch(wl_display) != -1 && !App.done)
-		;
+	wl_globals_dispatch_event_queue(&App.global);
+
 	app_surface_release(&App.surface);
 	nk_cairo_destroy_bkend(App.bkend);
 	shm_pool_release(&pool);

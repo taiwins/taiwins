@@ -32,15 +32,22 @@ clock_widget_sample(struct nk_context *ctx, float width, float height, struct ap
 	enum {EASY, HARD};
 	static int op = EASY;
 	static struct nk_text_edit text_edit;
+	static bool inanimation = false;
 	static bool init_text_edit = false;
 	static char text_buffer[256];
 	if (!init_text_edit) {
 		init_text_edit = true;
 		nk_textedit_init_fixed(&text_edit, text_buffer, 256);
 	}
+	bool last_frame = inanimation;
 
 	nk_layout_row_static(ctx, 30, 80, 2);
-	nk_button_label(ctx, "button");
+	inanimation = (nk_button_label(ctx, "button")) ? !inanimation : inanimation;
+	if (inanimation && !last_frame)
+		app_surface_request_frame(app);
+	else if (!inanimation)
+		app_surface_end_frame_request(app);
+
 	nk_label(ctx, "another", NK_TEXT_LEFT);
 	nk_layout_row_dynamic(ctx, 30, 2);
 	if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;

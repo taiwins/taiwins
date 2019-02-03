@@ -10,10 +10,10 @@
 #include "widget.h"
 
 static int
-redraw_panel_for_file(void *data, int fd)
+redraw_panel_for_file(struct tw_event *e, int fd)
 {
-	struct shell_widget *widget = data;
-	//we set the fd here so
+	struct shell_widget *widget = e->data;
+	//you set it here it will never work
 	widget->fd = fd;
 	//panel gets redrawed for once we have a event
 	widget->ancre.do_frame(&widget->ancre, 0);
@@ -25,13 +25,14 @@ redraw_panel_for_file(void *data, int fd)
 }
 
 static int
-redraw_panel_for_timer(void *data, int fd)
+redraw_panel_for_timer(struct tw_event *e, int fd)
 {
-	struct shell_widget *widget = data;
+	struct shell_widget *widget = e->data;
 	widget->fd = fd;
 	widget->ancre.do_frame(&widget->ancre, 0);
+	//test if this is a one time event
 	if (!(widget->interval).it_interval.tv_sec &&
-		!widget->interval.it_interval.tv_nsec)
+	    !widget->interval.it_interval.tv_nsec)
 		return TW_EVENT_DEL;
 	else
 		return TW_EVENT_NOOP;
