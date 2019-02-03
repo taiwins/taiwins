@@ -52,12 +52,14 @@ static struct wl_callback_listener app_surface_done_listener = {
 
 void
 app_surface_init(struct app_surface *surf, struct wl_surface *wl_surface,
-		 struct wl_proxy *proxy)
+		 struct wl_proxy *proxy, struct wl_globals *globals)
 {
+
 	*surf = (struct app_surface){0};
 	surf->wl_surface = wl_surface;
 	surf->protocol = proxy;
 	wl_surface_set_user_data(wl_surface, surf);
+	surf->wl_globals = globals;
 }
 
 

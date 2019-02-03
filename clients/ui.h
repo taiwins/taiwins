@@ -11,7 +11,6 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-
 //doesnt support jpeg in this way, but there is a cairo-jpeg project
 #include <cairo/cairo.h>
 #include <wayland-client.h>
@@ -41,6 +40,8 @@ struct widget_colors {
  * it will have a consistent look, the taiwins_theme struct is kinda a big blob,
  * TODO we need a hashing technique to quick check if the theme is the same
  * nuklear has a MumurHash function, we can use that actually
+ *
+ * I should rename it to widget_theme
  */
 struct taiwins_theme {
 	uint32_t row_size; //this defines the text size as well
@@ -75,7 +76,6 @@ bool tw_validate_theme(struct taiwins_theme *);
 
 /* return -1 if path is not long enough, even if you feed a empty string we should return a font */
 int tw_find_font_path(const char *font_name, char *path, size_t path_size);
-
 
 
 static inline int
@@ -242,7 +242,8 @@ struct app_surface {
 /**
  * /brief clean start a new appsurface
  */
-void app_surface_init(struct app_surface *surf, struct wl_surface *, struct wl_proxy *proxy);
+void app_surface_init(struct app_surface *surf, struct wl_surface *, struct wl_proxy *proxy,
+	struct wl_globals *globals);
 
 /**
  * /brief the universal release function

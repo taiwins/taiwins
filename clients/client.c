@@ -87,6 +87,14 @@ static struct wl_shm_listener shm_listener = {
 };
 
 
+static inline bool
+is_repeat_info_valid(const struct itimerspec ri)
+{
+	//add timer for the
+	return  (ri.it_value.tv_nsec || ri.it_value.tv_sec) &&
+		(ri.it_interval.tv_sec || ri.it_interval.tv_nsec);
+}
+
 static void
 handle_key(void *data,
 	   struct wl_keyboard *wl_keyboard,
@@ -96,6 +104,7 @@ handle_key(void *data,
 	   uint32_t state)
 {
 	struct wl_globals *globals = (struct wl_globals *)data;
+
 	xkb_keycode_t keycode = kc_linux2xkb(key);
 	xkb_keysym_t  keysym  = xkb_state_key_get_one_sym(globals->inputs.kstate,
 							  keycode);
@@ -108,6 +117,7 @@ handle_key(void *data,
 	//every surface it self is an app_surface, in thise case
 	struct wl_surface *focused = globals->inputs.focused_surface;
 	struct app_surface *appsurf = (focused) ? app_surface_from_wl_surface(focused) : NULL;
+
 	keycb_t keycb = (appsurf && appsurf->keycb) ? appsurf->keycb : NULL;
 	if (keycb)
 		keycb(appsurf, keysym, modifier,
@@ -197,6 +207,7 @@ handle_keyboard_enter(void *data,
 	/* if (appsurf->keycb) */
 	/*	appsurf->keycb(appsurf, XKB_KEY_NoSymbol, TW_NOMOD, 0); */
 }
+
 static void
 handle_keyboard_leave(void *data,
 		    struct wl_keyboard *wl_keyboard,
@@ -208,7 +219,6 @@ handle_keyboard_leave(void *data,
 	globals->inputs.serial = serial;
 	fprintf(stderr, "keyboard lost focus\n");
 }
-
 
 static
 struct wl_keyboard_listener keyboard_listener = {
@@ -247,14 +257,12 @@ enum POINTER_EVENT_CODE {
 
 };
 
-
 static void
 pointer_cursor_done(void *data, struct wl_callback *callback, uint32_t callback_data)
 {
 	/* fprintf(stderr, "cursor set!\n"); */
 	wl_callback_destroy(callback);
 }
-
 
 static void
 pointer_enter(void *data,
@@ -471,7 +479,6 @@ seat_capabilities(void *data,
 		globals->inputs.wl_touch = wl_seat_get_touch(wl_seat);
 		fprintf(stderr, "got a touchpad\n");
 	}
-
 }
 
 
