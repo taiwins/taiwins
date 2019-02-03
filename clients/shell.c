@@ -144,13 +144,18 @@ launch_widget(struct app_surface *panel_surf)
 	info->widget->widget.wl_globals = panel_surf->wl_globals;
 	struct wl_surface *widget_surface = wl_compositor_create_surface(shell->globals.compositor);
 	struct tw_ui *widget_proxy = tw_shell_launch_widget(shell->interface, widget_surface,
-								 shell_output->output,
-								 info->x, info->y);
+							    shell_output->output,
+							    info->x, info->y);
 	tw_ui_add_listener(widget_proxy, &widget_impl, info);
-	/* we should release the previous surface as well */
-	shell_widget_launch(info->widget, widget_surface, (struct wl_proxy *)widget_proxy,
-			    shell->widget_backend, &shell->pool,
-			    info->x, info->y);
+	//launch widget
+	app_surface_init(&info->widget->widget, widget_surface,
+			 (struct wl_proxy *)widget_proxy, panel_surf->wl_globals);
+	nk_cairo_impl_app_surface(&info->widget->widget, shell->widget_backend,
+				  info->widget->draw_cb, &shell->pool,
+				  info->widget->w, info->widget->h, info->x, info->y);
+
+	app_surface_frame(&info->widget->widget, false);
+
 	info->current = info->widget;
 }
 
@@ -307,16 +312,17 @@ initialize_shell_output(struct shell_output *w, struct tw_output *tw_output,
 		wl_compositor_create_surface(shell->globals.compositor);
 	struct tw_ui *bg_ui =
 		tw_shell_create_background(shell->interface, bg_sf, tw_output);
-	app_surface_init(bg, bg_sf, (struct wl_proxy *)bg_ui);
-	bg->wl_globals = &shell->globals;
+	app_surface_init(bg, bg_sf, (struct wl_proxy *)bg_ui,
+			 &shell->globals);
 	tw_ui_add_listener(bg_ui, &tw_background_impl, w);
 
 	struct wl_surface *pn_sf =
 		wl_compositor_create_surface(shell->globals.compositor);
 	struct tw_ui *pn_ui =
 		tw_shell_create_panel(shell->interface, pn_sf, tw_output);
-	app_surface_init(&w->panel, pn_sf, (struct wl_proxy *)pn_ui);
-	w->panel.wl_globals = &shell->globals;
+	app_surface_init(&w->panel, pn_sf, (struct wl_proxy *)pn_ui,
+			 &shell->globals);
+
 	tw_ui_add_listener(pn_ui, &tw_panel_impl, w);
 	//so we have one nk_egl_backend for the panel.
 	tw_output_set_user_data(tw_output, w);

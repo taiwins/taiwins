@@ -149,7 +149,8 @@ start_console(void *data,
 	wl_surface = wl_compositor_create_surface(console->globals.compositor);
 	ui = tw_console_launch(tw_console, wl_surface);
 
-	app_surface_init(surface, wl_surface, (struct wl_proxy *)ui);
+	app_surface_init(surface, wl_surface, (struct wl_proxy *)ui,
+			 &console->globals);
 	surface->wl_globals = &console->globals;
 	nk_egl_impl_app_surface(surface, console->bkend, draw_console,
 				w, h, 0, 0);
