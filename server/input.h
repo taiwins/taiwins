@@ -41,6 +41,15 @@ enum tw_binding_type {
 	TW_BINDING_tch,
 };
 
+struct tw_press {
+	union {
+		xkb_keycode_t keycode;
+		uint32_t btn;
+		enum wl_pointer_axis axis;
+		bool tch;
+	};
+	uint32_t modifier;
+};
 
 typedef void (*tw_key_binding)(struct weston_keyboard *keyboard, uint32_t option, void *data);
 typedef void (*tw_btn_binding)(struct weston_pointer *pointer, uint32_t option, void *data);
@@ -97,6 +106,11 @@ tw_binding_add_axis(struct tw_binding_node *root,
 void
 tw_bindings_apply_to_compositor(struct tw_binding_node *root,
 			     struct weston_compositor *ec);
+
+
+//giving parsing ability to the input system
+bool parse_one_press(const char *code_str, const enum tw_binding_type type,
+		     struct tw_press *press);
 
 
 #ifdef  __cplusplus

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <math.h>
 
 #include <lua.h>
 #include <lauxlib.h>
@@ -35,6 +36,26 @@ error(lua_State *L, const char *fmt, ...)
 	lua_close(L);
 }
 
+static int l_sin(lua_State *L)
+{
+	double d = lua_tonumber(L, 1);
+	lua_pushnumber(L, sin(d));
+	return 1;
+}
+
+static const struct luaL_Reg mylib[] = {
+	{"mysin", l_sin},
+	{NULL, NULL},
+};
+
+
+int
+luaopen_mylib(lua_State *L)
+{
+	lua_newtable(L);
+
+	return 1;
+}
 
 int main(int argc, char *argv[])
 {
@@ -42,21 +63,20 @@ int main(int argc, char *argv[])
 	int status;
 	L = luaL_newstate();
 	luaL_openlibs(L);
-	status = luaL_loadfile(L, argv[1]);
-	if (status) {
-		fprintf(stderr, "probleme with loading scirpt\n");
-		return false;
-	}
-	//XXX you have to run this first!!!
-	lua_pcall(L, 0, 0, 0);
+	//we need to define some global
+	lua_pushcfunction(L, l_sin);
+	lua_setglobal(L, "mysin");
 	//then we need to set the global variables, push the egl application
 	//pointer on the stack.
+
 	void *ptr = lua_newuserdata(L, sizeof(void *));
 	*(struct luaData **)ptr = &test_app;
 	lua_pushlightuserdata(L, ptr);
 	lua_setglobal(L, "application"); //it pops
 	lua_pushcfunction(L, checkapp);
 	lua_setglobal(L, "check_variable"); //it pops, so we shouldn't have any problem with that
+
+	status = luaL_dofile(L, argv[1]);
 
 	lua_getglobal(L, "dummy");
 	lua_pushnumber(L, 1);

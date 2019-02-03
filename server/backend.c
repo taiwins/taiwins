@@ -54,7 +54,7 @@ drm_head_enable(struct weston_head *head, struct weston_compositor *compositor)
 	api->set_mode(output, WESTON_DRM_BACKEND_OUTPUT_PREFERRED, NULL);
 	api->set_gbm_format(output, NULL);
 	api->set_seat(output, NULL);
-	weston_output_set_scale(output, 1);
+	weston_output_set_scale(output, 2);
 	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
 	weston_output_enable(output);
 
@@ -225,7 +225,7 @@ tw_setup_backend(struct weston_compositor *compositor)
 	weston_compositor_flush_heads_changed(compositor);
 
 	/* weston_log("we have heads now\n"); */
-	compositor->vt_switching = 1;
+	compositor->vt_switching = true;
 	return true;
 }
 

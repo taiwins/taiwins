@@ -6,191 +6,327 @@
 #include <lualib.h>
 #include <compositor.h>
 #include <sequential.h>
-#include "../config.h"
+#include <xkbcommon/xkbcommon.h>
+#include <xkbcommon/xkbcommon-compose.h>
+#include <xkbcommon/xkbcommon-names.h>
+#include "input.h"
+#include "config.h"
 
-struct taiwins_binding {
-	//the top five code
-	struct {
-		uint32_t code;
-		uint32_t modifier;
-	} binding[5];
-
-	char name[128];
-	void *func;
-};
 
 struct taiwins_config {
-	//I find this could be a rather smart design, since you dont really want
-	//to expose all the bindings at here, you can declare it, then you can
-	//have library to populate it, with its name and, well, why not use a
-	//hash table for this
 	struct weston_compositor *compositor;
+	lua_State *L;
 	vector_t bindings;
 	//this is the place to store all the lua functions
 	vector_t lua_bindings;
-	//you will need some names about the keybinding
+	//we need this variable to mark configurator failed
+	log_func_t print;
+	//in terms of xkb_rules, we try to parse it as much as we can
+	struct xkb_rule_names rules;
+	//we will have quit a few data field
+	bool default_floating;
+	bool quit;
 };
+
+#define REGISTER_METHOD(l, name, func)		\
+	({lua_pushcfunction(l, func);		\
+		lua_setfield(l, -2, name);	\
+	})
 
 
 static inline void
-config_register_binding(struct taiwins_config *config, const char *name, void *func)
+_lua_error(struct taiwins_config *config, const char *fmt, ...)
 {
-	struct taiwins_binding b;
+	va_list argp;
+	va_start(argp, fmt);
+	config->print(fmt, argp);
+	va_end(argp);
+}
+
+
+static bool
+parse_binding(struct taiwins_binding *b, const char *seq_string)
+{
+	char seq_copy[128];
+	strncpy(seq_copy, seq_string, 128);
+	char *save_ptr;
+	char *c = strtok_r(seq_copy, " ,;", &save_ptr);
+	int count = 0;
+	bool parsed = true;
+	while (c != NULL && count < 5 && parsed) {
+		parsed = parsed &&
+			parse_one_press(c, b->type, &b->press[count]);
+		c = strtok_r(NULL, " ,;", &save_ptr);
+		count += (parsed) ? 1 : 0;
+	}
+	if (count > 5)
+		return false;
+	if (count < 5)
+		b->press[count].keycode = 0;
+	return true && parsed;
+}
+
+
+void
+taiwins_config_register_binding(struct taiwins_config *config,
+				const char *name, void *func)
+{
+	struct taiwins_binding b = {0};
 	strncpy(b.name, name, 128);
 	b.func = func;
 	vector_append(&config->bindings, &b);
 }
 
 
-#define REGISER_METHOD(l, name, func)		\
-	({lua_pushcfunction(l, func);		\
-		lua_setfield(l, -2, name);	\
-	})
-
-struct config_data {
-	struct weston_compositor *compositor;
-	struct taiwins_config config;
-
-};
-
-static struct modifier_table {
-	const char *name;
-	int32_t mods;
-} modifier_tables[] =
+static inline struct taiwins_binding *
+taiwins_config_find_binding(struct taiwins_config *c, const char *name)
 {
-	//we need to publish this table
-	{"C-", MODIFIER_CTRL},
-	{"Ctrl-", MODIFIER_CTRL},
-	{"M-", MODIFIER_ALT},
-	{"Alt-", MODIFIER_ALT},
-	{"s-", MODIFIER_SUPER},
-	{"Super-", MODIFIER_SUPER},
-	//combinations, we don't support random orders for now
-	{"C-M-", MODIFIER_CTRL | MODIFIER_ALT},
-	{"Ctrl-Meta-", MODIFIER_CTRL | MODIFIER_ALT},
-	{"C-s-", MODIFIER_CTRL | MODIFIER_SUPER},
-	{"Ctrl-Super-", MODIFIER_CTRL | MODIFIER_SUPER},
-	{"M-s-", MODIFIER_ALT | MODIFIER_SUPER},
-	{"Alt-Super-", MODIFIER_ALT | MODIFIER_SUPER},
-
-	//with shift
-	{"S-C-", MODIFIER_CTRL | MODIFIER_SHIFT},
-	{"Super-Ctrl-", MODIFIER_CTRL | MODIFIER_SHIFT},
-	{"S-M-", MODIFIER_ALT | MODIFIER_SHIFT},
-	{"Super-Alt-", MODIFIER_ALT | MODIFIER_SHIFT},
-	{"S-s-", MODIFIER_SUPER | MODIFIER_SHIFT},
-
-};
-
-
-
-//afterwards, we will intergrate it in the input
-//we need to test these functions
-static void
-binding_code_parse(const char *code_str, int32_t *mod, int32_t *code)
-{
-	//try to match the modifiers
-	if (!strcmp("C", code_str))
-		*mod = MODIFIER_CTRL;
-	else if (strcmp("Ctrl", code_str))
-		*mod = MODIFIER_ALT;
-	else if (strcmp("M", code_str));
-
-	//now we have to parse a key
-}
-
-static bool
-binding_parse(struct taiwins_binding *b, const char *seq_string)
-{
-	char seq_copy[128];
-	strncpy(seq_copy, seq_string, 128);
-	char *save_ptr;
-	char *c = strtok_r(seq_copy, " ", &save_ptr);
-	int count = 0;
-	while (c != NULL && count < 5) {
-		int32_t mod, code;
-		binding_code_parse(c, &mod, &code);
-
-		c = strtok_r(NULL, " ", &save_ptr);
+	struct taiwins_binding *b = NULL;
+	for (int i = 0; i < c->bindings.len; i++) {
+		struct taiwins_binding *candidate =
+			vector_at(&c->bindings, i);
+		if (strcmp(candidate->name, name) == 0) {
+			b = candidate;
+			break;
+		}
 	}
-	if (count >= 5)
-		return false;
-	return true;
+	return b;
 }
 
+//////////////////////////////////////////////////////////////////
+////////////////////// server functions //////////////////////////
+//////////////////////////////////////////////////////////////////
 
-static int
-lua_bind_key(lua_State *L)
+struct _lua_config {
+	struct taiwins_config *config;
+};
+
+static inline struct taiwins_config *
+to_user_config(lua_State *L)
+{
+	lua_getfield(L, LUA_REGISTRYINDEX, "__config");
+	struct taiwins_config *c = lua_touserdata(L, -1);
+	lua_pop(L, 1);
+	return c;
+}
+
+static inline int
+_lua_bind(lua_State *L, enum tw_binding_type binding_type)
 {
 	//first argument
-	struct config_data *cd = lua_touserdata(L, 1);
-	//if the pushed value is a string, we try to find it in our binding
-	//table.  otherwise, it should be a lua function. Then we create this
-	//binding by its name. Later. you will need functors.
-
+	struct taiwins_config *cd = to_user_config(L);
 	struct taiwins_binding *binding_to_find = NULL;
 	const char *key = NULL;
 	//matching string, or lua function
 	if (lua_isstring(L, 2)) {
 		key = lua_tostring(L, 2);
-		//search in the bindings
+		binding_to_find = taiwins_config_find_binding(cd, key);
+		if (!binding_to_find || binding_to_find->type != binding_type)
+			goto err_binding;
 	} else if (lua_isfunction(L, 2) && !lua_iscfunction(L, 2)) {
 		//we need to find a way to store this function
 		//push the value and store it in the register with a different name
 		lua_pushvalue(L, 2);
-		binding_to_find = vector_newelem(&cd->config.lua_bindings);
-		sprintf(binding_to_find->name, "luabinding:%d", cd->config.lua_bindings.len);
+		binding_to_find = vector_newelem(&cd->lua_bindings);
+		binding_to_find->type = binding_type;
+		sprintf(binding_to_find->name, "luabinding:%d", cd->lua_bindings.len);
 		lua_setfield(L, LUA_REGISTRYINDEX, binding_to_find->name);
 		//now we need to get the binding
-
-	} else {
-		//panic??
-	}
-	//now get the last parameter
-	//the last parameter it should has
+	} else
+		goto err_binding;
 	const char *binding_seq = lua_tostring(L, 3);
-	if (!binding_parse(binding_to_find, binding_seq))
-		//panic??
-		;
+	if (!binding_seq || !parse_binding(binding_to_find, binding_seq))
+		goto err_binding;
+	return 0;
+err_binding:
+	cd->quit = true;
+	return 0;
+}
+
+static int
+_lua_bind_key(lua_State *L)
+{
+	return _lua_bind(L, TW_BINDING_key);
+}
+
+static int
+_lua_bind_btn(lua_State *L)
+{
+	return _lua_bind(L, TW_BINDING_btn);
+}
+
+static int
+_lua_bind_axis(lua_State *L)
+{
+	return _lua_bind(L, TW_BINDING_axis);
+}
+
+static int
+_lua_bind_tch(lua_State *L)
+{
+	return _lua_bind(L, TW_BINDING_tch);
+}
+
+static int
+_lua_noop(lua_State *L)
+{
+	return 0;
+}
+
+static int
+_lua_set_keyboard_model(lua_State *L)
+{
+	struct taiwins_config *c = to_user_config(L);
+	if (!lua_isstring(L, 2)) {
+		c->quit = true;
+		return 0;
+	}
+	const char *model = lua_tostring(L, 2);
+	c->rules.model = strdup(model);
+	return 0;
+}
+
+static int
+_lua_set_keyboard_layout(lua_State *L)
+{
+	struct taiwins_config *c = to_user_config(L);
+	if (!lua_isstring(L, 2)) {
+		c->quit = true;
+		return 0;
+	}
+	const char *layout = lua_tostring(L, 2);
+	c->rules.layout = strdup(layout);
+	return 0;
+}
+
+static int
+_lua_set_keyboard_options(lua_State *L)
+{
+	struct taiwins_config *c = to_user_config(L);
+	if (!lua_isstring(L, 2)) {
+		c->quit = true;
+		return 0;
+	}
+	const char *options = lua_tostring(L, 2);
+	c->rules.options = strdup(options);
+	return 0;
+}
+
+static int
+_lua_set_repeat_info(lua_State *L)
+{
+	struct taiwins_config *c = to_user_config(L);
+	if (lua_gettop(L) != 3 ||
+	    !lua_isnumber(L, 2) ||
+	    !lua_isnumber(L, 3)) {
+		c->quit = true;
+		return 0;
+	}
+	int32_t rate = lua_tointeger(L, 2);
+	int32_t delay = lua_tointeger(L, 3);
+	c->compositor->kb_repeat_rate = rate;
+	c->compositor->kb_repeat_delay = delay;
 
 	return 0;
 }
 
-//for the configuration, we don't even need to
+
+
 static int
-lua_get_compositor(lua_State *L)
+_lua_get_config(lua_State *L)
 {
-	//create the compositor on the lua, I think I can simply use newtable
-	struct config_data *cd = lua_newuserdata(L, sizeof(struct config_data));
-	//all the metatable
-	luaL_getmetatable(L, "compositor");
-	/* lua_getfield(L, -1, "__compositor"); */
-	/* struct config_data *config_data = lua_touserdata(L, -1); */
-	/* lua_pop(L, 1); */
-	lua_setmetatable(L, -2);
-	//it is so bad, because we don't have any information about what to setup in the table.
-	lua_getfield(L, LUA_REGISTRYINDEX, "__compositor");
-	struct weston_compositor *compositor = lua_touserdata(L, -1);
+	//since light user data has no metatable, we have to create wrapper for it
+	lua_getfield(L, LUA_REGISTRYINDEX, "__config");
+	struct taiwins_config *c = lua_touserdata(L, -1);
+	//now we need to make another userdata
 	lua_pop(L, 1);
-	cd->compositor = compositor;
-	//now later on
+	struct _lua_config *lc = lua_newuserdata(L, sizeof(struct _lua_config));
+	lc->config = c;
+	luaL_getmetatable(L, "compositor");
+	lua_setmetatable(L, -2);
 	return 1;
 }
 
 
-static void prepare_compositor(lua_State *L, struct weston_compositor *compositor)
-{
-	//we need to register a global method
+//////////////////////////////////////////////////////////////////
+////////////////////////////// API ///////////////////////////////
+//////////////////////////////////////////////////////////////////
 
+struct taiwins_config*
+taiwins_config_create(struct weston_compositor *ec, log_func_t log)
+{
+	lua_State *L = luaL_newstate();
+	if (!L)
+		return NULL;
+	luaL_openlibs(L);
+	struct taiwins_config *config =
+		calloc(1, sizeof(struct taiwins_config));
+	config->compositor = ec;
+	config->print = log;
+	config->quit = false;
+	config->L = L;
+	vector_init(&config->bindings, sizeof(struct taiwins_binding), NULL);
+	vector_init(&config->lua_bindings, sizeof(struct taiwins_binding), NULL);
+	//we can make this into a light-user-data
+	lua_pushlightuserdata(L, config);
+	//now we have zero elements on stack
+	lua_setfield(L, LUA_REGISTRYINDEX, "__config");
+
+	//create metatable and the userdata
 	luaL_newmetatable(L, "compositor");
 	//you can also use settable
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -2, "__index");
+	//register all the callbacks
+	REGISTER_METHOD(L, "bind_key", _lua_bind_key);
+	REGISTER_METHOD(L, "bind_btn", _lua_bind_btn);
+	REGISTER_METHOD(L, "bind_axis", _lua_bind_axis);
+	REGISTER_METHOD(L, "bind_touch", _lua_bind_tch);
+	REGISTER_METHOD(L, "keyboard_model", _lua_set_keyboard_model);
+	REGISTER_METHOD(L, "keyboard_layout", _lua_set_keyboard_layout);
+	REGISTER_METHOD(L, "keyboard_options", _lua_set_keyboard_options);
+	REGISTER_METHOD(L, "repeat_info", _lua_set_repeat_info);
 
-	lua_pushlightuserdata(L, compositor);
-	lua_setfield(L, LUA_REGISTRYINDEX, "__compositor");
+	lua_pushcfunction(L, _lua_get_config);
+	lua_setfield(L, LUA_GLOBALSINDEX, "require_compositor");
+	lua_pop(L, 1);
 
-	//now we register
+	return config;
+}
 
 
+void
+taiwins_config_destroy(struct taiwins_config *config)
+{
+	vector_destroy(&config->bindings);
+	vector_destroy(&config->lua_bindings);
+	if (config->rules.layout)
+		free((void *)config->rules.layout);
+	if (config->rules.model)
+		free((void *)config->rules.model);
+	if (config->rules.options)
+		free((void *)config->rules.options);
+	if (config->rules.variant)
+		free((void *)config->rules.variant);
+	lua_close(config->L);
+	free(config);
+}
+
+bool
+taiwins_run_config(struct taiwins_config *config, const char *path)
+{
+	int error = luaL_loadfile(config->L, path);
+	if (error)
+		_lua_error(config, "%s is not a valid config file", path);
+	else
+		lua_pcall(config->L, 0, 0, 0);
+	return (!error);
+}
+
+
+void
+taiwins_apply_default_config(struct weston_compositor *ec)
+{
+	ec->kb_repeat_delay = 400;
+	ec->kb_repeat_rate = 40;
 }
