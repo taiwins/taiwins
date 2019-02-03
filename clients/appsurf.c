@@ -34,22 +34,6 @@ app_surface_clean_egl(struct app_surface *surf, struct egl_env *env)
 	surf->eglsurface = EGL_NO_SURFACE;
 }
 
-
-
-
-static void
-app_surface_done(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
-{
-	if (wl_callback)
-		wl_callback_destroy(wl_callback);
-}
-
-
-static struct wl_callback_listener app_surface_done_listener = {
-	.done = app_surface_done
-};
-
-
 void
 app_surface_init(struct app_surface *surf, struct wl_surface *wl_surface,
 		 struct wl_proxy *proxy, struct wl_globals *globals)
@@ -67,10 +51,14 @@ app_surface_init(struct app_surface *surf, struct wl_surface *wl_surface,
 static void
 app_surface_frame_done(void *user_data, struct wl_callback *cb, uint32_t data)
 {
+	fprintf(stderr, "now I am in animation\n");
 	if (cb)
 		wl_callback_destroy(cb);
 	struct app_surface *surf = (struct app_surface *)user_data;
+	if (surf->need_animation)
+		app_surface_request_frame(surf);
 	surf->do_frame(surf, data);
+	surf->last_serial = data;
 }
 
 static struct wl_callback_listener app_surface_wl_frame_impl = {
@@ -80,6 +68,7 @@ static struct wl_callback_listener app_surface_wl_frame_impl = {
 void
 app_surface_request_frame(struct app_surface *surf)
 {
+	surf->need_animation = true;
 	struct wl_callback *callback = wl_surface_frame(surf->wl_surface);
 	wl_callback_add_listener(callback, &app_surface_wl_frame_impl, surf);
 }

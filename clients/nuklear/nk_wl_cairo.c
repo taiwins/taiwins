@@ -694,12 +694,11 @@ nk_wl_render(struct nk_wl_backend *bkend)
 		to_dirty = &surf->dirty[i];
 		break;
 	}
-
-	//selecting the free frame
-	if (!nk_wl_need_redraw(bkend))
+	if (nk_wl_maybe_skip(bkend))
 		return;
 	if (!free_buffer)
 		return;
+
 	*to_dirty = true;
 
 	nk_cairo_render(free_buffer, b, surf, surf->w, surf->h);

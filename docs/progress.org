@@ -37,7 +37,7 @@
 
 *** DONE change the ui element start or close implimentation
 
-* [14%] Stage two: feature completion
+* [12%] Stage two: feature completion
   - supporting multiple monitors/seats.
   - weston view focus defocus
   - a few different extensions.
@@ -45,6 +45,7 @@
   - different layouting support
   - resize EGL windows.
   - compositing
+** TODO fix the memory leak in the ~taiwins_server~, massive leaks related to console implementation!
 ** DONE renaming tw_shell -> shell, tw_desktop -> desktop.
    so the protocols can directly use tw_shell instead of taiwins_shell
 ** DOIN [55%] server-side optimization
@@ -67,19 +68,20 @@
     - workspace is implemented as keybindings
 *** DONE refactring that layout implementation in workspace, it is ugly
 *** TODO setup the xkb context and all that stuff
-** DOIN [50%] Configurations
-*** TODO introduce the lua code
+** DOIN [60%] Configurations
+*** DONE introduce the lua code
+*** TODO finish the server side lua configuration
 *** DONE styles, nuklear and other widget styles.
     - background color.
     - Font size, font selection.
 *** DONE keyboard callbacks, this writes to a buffer, apparently.
 *** TODO shortcuts `taiwins_zoom`, `taiwins_alpha`. Move them into ~config.h~
 
-** DOIN [57%] libweston-desktop implementation                       :server:
+** DOIN [71%] libweston-desktop implementation                       :server:
 *** DOIN implement the libweston-desktop protocol                     :proto:
 *** DONE desktop layer architecture
 *** DONE simple random floating implementation
-*** DOIN tiling layout
+*** DONE tiling layout
 *** TODO client search buffer                                         :proto:
     for this to work, we probably will need ~radix tree~ or ~trie~ or hash
     table.
@@ -88,12 +90,26 @@
     luckly that we have ~weston_desktop_suface_set_user_data~, it seems to fit
     perfectly in that position
 
-** DOIN [71%] client-side optimization
+** DOIN [77%] client-side optimization
 *** TODO add udev monitoring and inotify monitoring to event_queue
-*** TODO properly handling the frame callbacks for ~app_surface~
-    one solution is implementing all the input handling in the wayland frame
-    callback. But this wont be agonositc though.
+*** DONE properly handling the frame callbacks for ~app_surface~
+    We try to implement as agnostic as possible. 1: ~do_frame~ no longer test
+    ~need_animation~ and request frames. 2: input callback stays as the
+    independed logic, you don't need an additional set of input handler for
+    the frame case.
+
+    Once ~app_surface_request_frame~ triggers, it will request a frame and
+    execute ~do_frame~ in the done callback. And request another if it still
+    drives the animation. On the other hand, the input callbacks will also call
+    the ~do_frame~. But they do not request new frames. So those are seperated.
+
+    Only problem is that nk_backend has an optimization, it skip the commit if
+    possible, if we are in the frame. We have no choice but commit even if there
+    is nothing new to show. Right now nuklear backends do a empty commit if no
+    thing happens.
+
 *** TODO implement scale for shell and console
+*** DONE move event_queue into wl_globals so we can access it in app_surface
 *** DONE switch to epoll on wl_display
     - possible solution :: maybe we can use epoll on wl_display, and add it to
 	 our event_queue, so we can call ~wl_display_dispatch_pending~. We don't

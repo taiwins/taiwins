@@ -100,9 +100,6 @@ nk_wl_new_frame(struct app_surface *surf, uint32_t user_data)
 	int width = bkend->app_surface->w;
 	int height = bkend->app_surface->h;
 
-	if (surf->need_animation)
-		app_surface_request_frame(surf);
-
 	if (nk_begin(&bkend->ctx, "cairo_app", nk_rect(0, 0, width, height),
 		     NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR)) {
 		bkend->frame(&bkend->ctx, width, height, bkend->app_surface);
@@ -124,12 +121,26 @@ static inline bool
 nk_wl_need_redraw(struct nk_wl_backend *bkend)
 {
 	static nk_max_cmd_t nk_last_draw[100] = {0};
-//	static char nk_last_draw[NK_MAX_CMD_SIZE * 100] = {0};
 	void *cmds = nk_buffer_memory(&bkend->ctx.memory);
 	bool need_redraw = memcmp(cmds, nk_last_draw, bkend->ctx.memory.allocated);
 	if (need_redraw)
 		memcpy(nk_last_draw, cmds, bkend->ctx.memory.allocated);
 	return need_redraw;
+}
+
+//this function has side effects
+static inline bool
+nk_wl_maybe_skip(struct nk_wl_backend *bkend)
+{
+	bool need_redraw = nk_wl_need_redraw(bkend);
+	bool need_commit = need_redraw || bkend->app_surface->need_animation;
+	if (!need_commit)
+		return true;
+	if (!need_redraw) {
+		wl_surface_commit(bkend->app_surface->wl_surface);
+		return true;
+	}
+	return false;
 }
 
 /******************************** nuklear colors ***********************************/
@@ -342,14 +353,13 @@ nk_keycb(struct app_surface *surf, xkb_keysym_t keysym, uint32_t modifier, int s
 		nk_input_key(&bkend->ctx, NK_KEY_LEFT, (keysym == XKB_KEY_Left) && state);
 		nk_input_key(&bkend->ctx, NK_KEY_RIGHT, (keysym == XKB_KEY_Right) && state);
 	}
-//	fprintf(stderr, "we have the modifier %d\n", modifier);
 	if (state)
 		bkend->ckey = keysym;
 	else
 		bkend->ckey = XKB_KEY_NoSymbol;
 	nk_input_end(&bkend->ctx);
 
-	nk_wl_new_frame(surf, 0);
+	nk_wl_new_frame(surf, surf->last_serial);
 	nk_input_reset(&bkend->ctx);
 }
 
@@ -362,7 +372,7 @@ nk_pointron(struct app_surface *surf, uint32_t sx, uint32_t sy)
 	nk_input_end(&bkend->ctx);
 	bkend->sx = sx;
 	bkend->sy = sy;
-	nk_wl_new_frame(surf, 0);
+	nk_wl_new_frame(surf, surf->last_serial);
 	nk_input_reset(&bkend->ctx);
 }
 
@@ -397,7 +407,7 @@ nk_pointrbtn(struct app_surface *surf, enum taiwins_btn_t btn, bool state, uint3
 	bkend->sx = sx;
 	bkend->sy = sy;
 
-	nk_wl_new_frame(surf, 0);
+	nk_wl_new_frame(surf, surf->last_serial);
 	nk_input_reset(&bkend->ctx);
 
 }
@@ -409,7 +419,7 @@ nk_pointraxis(struct app_surface *surf, int pos, int direction, uint32_t sx, uin
 	nk_input_begin(&bkend->ctx);
 	nk_input_scroll(&bkend->ctx, nk_vec2(direction * (float)sx, (direction * (float)sy)));
 	nk_input_begin(&bkend->ctx);
-	nk_wl_new_frame(surf, 0);
+	nk_wl_new_frame(surf, surf->last_serial);
 	nk_input_reset(&bkend->ctx);
 }
 

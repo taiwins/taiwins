@@ -488,8 +488,6 @@ static struct wl_registry_listener registry_listener = {
 	.global_remove = announce_global_remove
 };
 
-
-
 int
 main(int argc, char **argv)
 {
@@ -510,9 +508,10 @@ main(int argc, char **argv)
 
 	wl_display_flush(display);
 	wl_globals_dispatch_event_queue(&oneshell.globals);
-//	desktop_shell_release(&oneshell);
+	//clear up
+	desktop_shell_release(&oneshell);
 	wl_registry_destroy(registry);
 	wl_display_disconnect(display);
-//	desktop_shell_release(oneshell);
+
 	return 0;
 }

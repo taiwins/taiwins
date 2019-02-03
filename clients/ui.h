@@ -199,6 +199,7 @@ struct app_surface {
 	struct wl_output *wl_output;
 	struct wl_surface *wl_surface;
 	bool need_animation;
+	uint32_t last_serial;
 	/* buffer */
 	union {
 		struct {
@@ -206,6 +207,7 @@ struct app_surface {
 			struct wl_buffer  *wl_buffer[2];
 			bool dirty[2];
 			bool committed[2];
+			//add pixman_region to accumelate the damage
 		};
 		struct {
 			/* we do not necessary need it but when it comes to
@@ -246,6 +248,18 @@ void app_surface_init(struct app_surface *surf, struct wl_surface *, struct wl_p
 	struct wl_globals *globals);
 
 /**
+ * /brief request a frame for the appsurface
+ *
+ *  You can use this callback to start the animation sequence for the surface,
+ *  so frame the next draw call, the app will be in animation. You can stop the
+ *  animation by calling `app_surface_end_frame_request`. The function is
+ *  intentioned to be used directly in the `frame_callback` kick start the
+ *  animation.
+ */
+void app_surface_request_frame(struct app_surface *surf);
+
+
+/**
  * /brief the universal release function
  */
 static inline void
@@ -264,8 +278,14 @@ app_surface_release(struct app_surface *surf)
 	surf->protocol = NULL;
 }
 
+static inline void
+app_surface_end_frame_request(struct app_surface *surf)
+{
+	surf->need_animation = false;
+}
+
 /**
- * /brief kick off the frames of the app_surface
+ * /brief kick off the drawing for the surface
  *
  * user call this function to start drawing. It triggers the frames untils
  * app_surface_release is called.
@@ -275,17 +295,10 @@ app_surface_frame(struct app_surface *surf, bool anime)
 {
 	//this is the best we
 	surf->need_animation = anime;
-	if (anime) {
-		surf->keycb = NULL;
-		surf->pointron = NULL;
-		surf->pointrbtn = NULL;
-		surf->pointraxis = NULL;
-	}
+	if (anime)
+		app_surface_request_frame(surf);
 	surf->do_frame(surf, 0);
 }
-
-/* request a frame to make run it later */
-void app_surface_request_frame(struct app_surface *surf);
 
 
 /**
