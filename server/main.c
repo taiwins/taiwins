@@ -20,15 +20,18 @@
 #include "shell.h"
 #include "desktop.h"
 #include "taiwins.h"
+#include "config.h"
 #include "input.h"
 
 
 //remove this two later
 
+static FILE *logfile = NULL;
+
 static int
 tw_log(const char *format, va_list args)
 {
-	return vfprintf(stderr, format, args);
+	return vfprintf(logfile, format, args);
 }
 
 /*
@@ -77,24 +80,17 @@ taiwins_quit(struct weston_keyboard *keyboard,
 	fprintf(stderr, "quitting taiwins\n");
 	struct wl_display *wl_display = data;
 	wl_display_terminate(wl_display);
-	/* if (c->xkb_info) { */
-	/*	xkb_keymap_unref(c->xkb_info->keymap); */
-	/*	free(c->xkb_info); */
-	/*	c->xkb_info = NULL; */
-	/* } */
-	/* if (c->xkb_context) { */
-	/*	xkb_context_unref(c->xkb_context); */
-	/*	c->xkb_context = NULL; */
-	/* } */
-
 }
 
 
-int main(int argc, char *argv[])
+int main(int argc, char *argv[], char *envp[])
 {
+	logfile = fopen("/tmp/taiwins_log", "w");
+
 	const char *shellpath = (argc > 1) ? argv[1] : NULL;
 	const char *launcherpath = (argc > 2) ? argv[2] : NULL;
 	struct wl_display *display = wl_display_create();
+	char config_file[100];
 
 	weston_log_set_handler(tw_log, tw_log);
 	//quit if we already have a wayland server
@@ -103,6 +99,15 @@ int main(int argc, char *argv[])
 
 	struct weston_compositor *compositor = weston_compositor_create(display, tw_get_backend());
 	weston_compositor_add_key_binding(compositor, KEY_F12, 0, taiwins_quit, display);
+	weston_log_set_handler(tw_log, tw_log);
+	//apply the config now
+	struct taiwins_config *config = taiwins_config_create(compositor, tw_log);
+	char *xdg_dir = getenv("XDG_CONFIG_HOME");
+	if (!xdg_dir)
+		xdg_dir = getenv("HOME");
+	strcpy(config_file, xdg_dir);
+	strcat(config_file, "config.lua");
+	taiwins_run_config(config, config_file);
 
 	tw_setup_backend(compositor);
 	//it seems that we don't need to setup the input, maybe in other cases
@@ -137,6 +142,8 @@ int main(int argc, char *argv[])
 	compositor->kb_repeat_rate = 40;
 
 	wl_display_run(display);
+	taiwins_config_destroy(config);
+
 
 //	wl_display_terminate(display);
 	//now you destroy the desktops

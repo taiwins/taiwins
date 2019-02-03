@@ -127,3 +127,11 @@ add_executable(test_lua
 target_link_libraries(test_lua
   ${CLIENT_LIBRARIES}
   )
+
+
+add_executable(test_register
+  test_binding_register.c)
+
+target_link_libraries(test_register
+  ${CLIENT_LIBRARIES}
+  ${TRDRTY_LIBRARIES})

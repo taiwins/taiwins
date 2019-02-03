@@ -17,13 +17,15 @@ end
 compositor:bind_axis(random_function, kbd("C-up"))
 
 -- general setup
-compositor:set_key_layout("ctrl:swap_lalt_lctl")
+compositor:keyboard_layout("ctrl:swap_lalt_lctl")
 compositor:set_kb_delay(400)
 compositor:set_kb_repeat(40)
 compositor:set_color_format("xrgb8888")
 
 -- now more on the usability part
 compositor:set_default_layout("floating")
+-- set the environment variables
+compositor:set_envar("name", "value")
 
 -- outputs, you can setup the default rules for creating output. Or
 -- you can actually make a function for that. Default rules could be like
@@ -41,8 +43,8 @@ compositor:set_outputs({
 	 scale = 1,
       },
 })
--- try to choose a theme. This theme does not
 
+-- try to choose a theme. This theme does not
 -- we can have the compositor to read about themes and verify its
 -- existence. then send it to the shell later.
 -- or you can implement the same set of the api, for client you can simply

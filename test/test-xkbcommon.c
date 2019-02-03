@@ -76,12 +76,12 @@ void handle_key(void *data,
 		uint32_t key,
 		uint32_t state)
 {
+	fprintf(stderr, "the keycode is %d\n", key);
 	if (key == KEY_ESC)
 		QUIT = true;
 	if (!state) //lets hope the server side has this as well
 		return;
 	struct seat *seat0 = (struct seat *)data;
-	run_keybinding_wayland(seat0->kstate, time, key, data);
 
 }
 static
@@ -214,6 +214,7 @@ void seat_capabilities(void *data,
 //	void *keytable = NULL;
 	struct seat *seat0 = (struct seat *)data;
 	if (capabilities & WL_SEAT_CAPABILITY_KEYBOARD) {
+		/*
 		seat0->keyboard = wl_seat_get_keyboard(wl_seat);
 		fprintf(stderr, "got a keyboard\n");
 		wl_keyboard_add_listener(seat0->keyboard, &keyboard_listener, seat0);
@@ -255,6 +256,7 @@ void seat_capabilities(void *data,
 		update_tw_keypress_cache(&kp_audiops, NULL);
 		update_tw_keypress_cache(&kp_audiopv, NULL);
 //		debug_keybindtree();
+*/
 	}
 	if (capabilities & WL_SEAT_CAPABILITY_POINTER) {
 		seat0->pointer = wl_seat_get_pointer(wl_seat);
