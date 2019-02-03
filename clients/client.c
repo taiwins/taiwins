@@ -163,18 +163,29 @@ handle_keymap(void *data, struct wl_keyboard *wl_keyboard,
 //shit, this must be how you implement delay.
 static void
 handle_repeat_info(void *data,
-			    struct wl_keyboard *wl_keyboard,
-			    int32_t rate,
-			    int32_t delay)
+		   struct wl_keyboard *wl_keyboard,
+		   int32_t rate,
+		   int32_t delay)
 {
+	struct wl_globals *globals = (struct wl_globals *)data;
+	globals->inputs.repeat_info = (struct itimerspec) {
+		.it_value = {
+			.tv_sec = 0,
+			.tv_nsec = delay * 1000,
+		},
+		.it_interval = {
+			.tv_sec = 0,
+			.tv_nsec = rate * 1000,
+		},
+	};
 }
 
 static void
 handle_keyboard_enter(void *data,
-			   struct wl_keyboard *wl_keyboard,
-			   uint32_t serial,
-			   struct wl_surface *surface,
-			   struct wl_array *keys)
+		      struct wl_keyboard *wl_keyboard,
+		      uint32_t serial,
+		      struct wl_surface *surface,
+		      struct wl_array *keys)
 {
 	struct wl_globals *globals = (struct wl_globals *)data;
 	globals->inputs.focused_surface = surface;
@@ -471,69 +482,6 @@ static struct wl_seat_listener seat_listener = {
 };
 
 
-
-//wl_globals functions
-
-void
-wl_globals_init(struct wl_globals *globals, struct wl_display *display)
-{
-	//do this first, so all the pointers are null
-	*globals = (struct wl_globals){0};
-	globals->display = display;
-	globals->buffer_format = 0xFFFFFFFF;
-}
-
-
-void
-wl_globals_release(struct wl_globals *globals)
-{
-	//destroy the input
-	if (globals->inputs.cursor_theme) {
-		//there is no need to destroy the cursor wl_buffer or wl_cursor,
-		//it gets cleaned up automatically in theme_destroy
-		wl_cursor_theme_destroy(globals->inputs.cursor_theme);
-		wl_surface_destroy(globals->inputs.cursor_surface);
-		globals->inputs.cursor_theme = NULL;
-		globals->inputs.cursor = NULL;
-		globals->inputs.cursor_buffer = NULL;
-		globals->inputs.cursor_surface = NULL;
-		globals->inputs.focused_surface = NULL;
-	}
-	if (globals->inputs.wl_pointer) {
-		wl_pointer_destroy(globals->inputs.wl_pointer);
-	}
-	if (globals->inputs.wl_keyboard)
-		wl_keyboard_destroy(globals->inputs.wl_keyboard);
-	wl_seat_destroy(globals->inputs.wl_seat);
-	wl_shm_destroy(globals->shm);
-	wl_compositor_destroy(globals->compositor);
-}
-
-
-
-int
-wl_globals_announce(struct wl_globals *globals,
-		    struct wl_registry *wl_registry,
-		    uint32_t name,
-		    const char *interface,
-		    uint32_t version)
-{
-	if (strcmp(interface, wl_seat_interface.name) == 0) {
-		globals->inputs.wl_seat = wl_registry_bind(wl_registry, name, &wl_seat_interface, version);
-		wl_seat_add_listener(globals->inputs.wl_seat, &seat_listener, globals);
-	} else if (strcmp(interface, wl_compositor_interface.name) == 0) {
-		globals->compositor = wl_registry_bind(wl_registry, name, &wl_compositor_interface, version);
-	} else if (strcmp(interface, wl_shm_interface.name) == 0)  {
-		globals->shm = wl_registry_bind(wl_registry, name, &wl_shm_interface, version);
-		wl_shm_add_listener(globals->shm, &shm_listener, globals);
-	} else {
-		fprintf(stderr, "announcing global %s\n", interface);
-		return 0;
-	}
-	return 1;
-}
-
-
 /*************************************************************
  *              event queue implementation                   *
  *************************************************************/
@@ -571,7 +519,7 @@ alloc_event_source(struct tw_event *e, uint32_t mask, int fd)
 	return event_source;
 }
 
-static void
+static inline void
 destroy_event_source(struct tw_event_source *s)
 {
 	wl_list_remove(&s->link);
@@ -580,17 +528,33 @@ destroy_event_source(struct tw_event_source *s)
 	free(s);
 }
 
+static inline void
+tw_event_queue_close(struct tw_event_queue *queue)
+{
+	struct tw_event_source *event_source, *next;
+	wl_list_for_each_safe(event_source, next, &queue->head, link) {
+		epoll_ctl(queue->pollfd, EPOLL_CTL_DEL, event_source->fd, NULL);
+		destroy_event_source(event_source);
+	}
+	close(queue->pollfd);
+}
+
 void
 tw_event_queue_run(struct tw_event_queue *queue)
 {
 	struct epoll_event events[32];
-	struct tw_event_source *event_source, *next;
+	struct tw_event_source *event_source;
+
 	//poll->produce-event-or-timeout
 	while (!queue->quit) {
-		//it turned out this is crucial other wise we have nothing to read...
-		if (queue->wl_display)
+		if (queue->wl_display) {
 			wl_display_flush(queue->wl_display);
+		}
 		int count = epoll_wait(queue->pollfd, events, 32, -1);
+		//right now if we run into any trouble, we just quit, I don't
+		//think it is a good idea
+		queue->quit = queue->quit && (count != -1);
+
 		for (int i = 0; i < count; i++) {
 			event_source = events[i].data.ptr;
 			if (event_source->pre_hook)
@@ -603,12 +567,7 @@ tw_event_queue_run(struct tw_event_queue *queue)
 		}
 
 	}
-	wl_list_for_each_safe(event_source, next, &queue->head, link) {
-		epoll_ctl(queue->pollfd, EPOLL_CTL_DEL, event_source->fd, NULL);
-		//this should get rid of memory leak
-		destroy_event_source(event_source);
-	}
-	close(queue->pollfd);
+	tw_event_queue_close(queue);
 	return;
 }
 
@@ -626,6 +585,7 @@ tw_event_queue_init(struct tw_event_queue *queue)
 }
 
 
+//////////////////////// INOTIFY //////////////////////////////
 
 static void
 read_inotify(struct tw_event_source *s)
@@ -641,7 +601,7 @@ close_inotify_watch(struct tw_event_source *s)
 	close(s->fd);
 }
 
-//so tis would be
+
 bool
 tw_event_queue_add_file(struct tw_event_queue *queue, const char *path,
 			struct tw_event *e, uint32_t mask)
@@ -663,6 +623,9 @@ tw_event_queue_add_file(struct tw_event_queue *queue, const char *path,
 	return true;
 }
 
+
+//////////////////// GENERAL SOURCE ////////////////////////////
+
 bool
 tw_event_queue_add_source(struct tw_event_queue *queue, int fd,
 			  struct tw_event *e, uint32_t mask)
@@ -680,6 +643,8 @@ tw_event_queue_add_source(struct tw_event_queue *queue, int fd,
 	e->cb(e->data, s->fd);
 	return true;
 }
+
+/////////////////////////// TIMER //////////////////////////////
 
 static void
 read_timer(struct tw_event_source *s)
@@ -715,8 +680,10 @@ err:
 	return false;
 }
 
+//////////////////////// WL_DISPLAY ////////////////////////////
+
 static int
-dispatch_wl_event(void *data, int fd)
+dispatch_wl_display(void *data, int fd)
 {
 	(void)fd;
 	struct tw_event_queue *queue = data;
@@ -726,8 +693,9 @@ dispatch_wl_event(void *data, int fd)
 	wl_display_flush(display);
 	if (wl_display_read_events(display) == -1)
 		queue->quit = true;
-
-	wl_display_dispatch_pending(display);
+	//this quit is kinda different
+	if (wl_display_dispatch_pending(display) == -1)
+		queue->quit = true;
 	wl_display_flush(display);
 	return TW_EVENT_NOOP;
 }
@@ -739,7 +707,7 @@ tw_event_queue_add_wl_display(struct tw_event_queue *queue, struct wl_display *d
 	queue->wl_display = display;
 	struct tw_event dispatch_display = {
 		.data = queue,
-		.cb = dispatch_wl_event,
+		.cb = dispatch_wl_display,
 	};
 	struct tw_event_source *s = alloc_event_source(&dispatch_display, EPOLLIN | EPOLLET, fd);
 	//don't close wl_display in the end
@@ -751,4 +719,73 @@ tw_event_queue_add_wl_display(struct tw_event_queue *queue, struct wl_display *d
 		return false;
 	}
 	return true;
+}
+
+/*************************************************************
+ *               wl_globals implementation                   *
+ *************************************************************/
+
+void
+wl_globals_init(struct wl_globals *globals, struct wl_display *display)
+{
+	//do this first, so all the pointers are null
+	*globals = (struct wl_globals){0};
+	globals->display = display;
+	globals->buffer_format = 0xFFFFFFFF;
+	tw_event_queue_init(&globals->event_queue);
+	globals->event_queue.quit =
+		!tw_event_queue_add_wl_display(&globals->event_queue, display);
+}
+
+void
+wl_globals_release(struct wl_globals *globals)
+{
+	//we distroy everything except wl_display, since we get that from user,
+	//it is up to user to clear it
+
+	//destroy the input
+	if (globals->inputs.cursor_theme) {
+		//there is no need to destroy the cursor wl_buffer or wl_cursor,
+		//it gets cleaned up automatically in theme_destroy
+		wl_cursor_theme_destroy(globals->inputs.cursor_theme);
+		wl_surface_destroy(globals->inputs.cursor_surface);
+		globals->inputs.cursor_theme = NULL;
+		globals->inputs.cursor = NULL;
+		globals->inputs.cursor_buffer = NULL;
+		globals->inputs.cursor_surface = NULL;
+		globals->inputs.focused_surface = NULL;
+	}
+	if (globals->inputs.wl_pointer) {
+		wl_pointer_destroy(globals->inputs.wl_pointer);
+	}
+	if (globals->inputs.wl_keyboard)
+		wl_keyboard_destroy(globals->inputs.wl_keyboard);
+	wl_seat_destroy(globals->inputs.wl_seat);
+	wl_shm_destroy(globals->shm);
+	wl_compositor_destroy(globals->compositor);
+	tw_event_queue_close(&globals->event_queue);
+}
+
+//we need to have a global remove function here
+
+int
+wl_globals_announce(struct wl_globals *globals,
+		    struct wl_registry *wl_registry,
+		    uint32_t name,
+		    const char *interface,
+		    uint32_t version)
+{
+	if (strcmp(interface, wl_seat_interface.name) == 0) {
+		globals->inputs.wl_seat = wl_registry_bind(wl_registry, name, &wl_seat_interface, version);
+		wl_seat_add_listener(globals->inputs.wl_seat, &seat_listener, globals);
+	} else if (strcmp(interface, wl_compositor_interface.name) == 0) {
+		globals->compositor = wl_registry_bind(wl_registry, name, &wl_compositor_interface, version);
+	} else if (strcmp(interface, wl_shm_interface.name) == 0)  {
+		globals->shm = wl_registry_bind(wl_registry, name, &wl_shm_interface, version);
+		wl_shm_add_listener(globals->shm, &shm_listener, globals);
+	} else {
+		fprintf(stderr, "announcing global %s\n", interface);
+		return 0;
+	}
+	return 1;
 }

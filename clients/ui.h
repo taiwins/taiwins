@@ -170,22 +170,21 @@ typedef void (*pointraxis_t)(struct app_surface *, int, int, uint32_t, uint32_t)
 typedef void (*frame_t)(struct app_surface *, uint32_t user_data);
 
 /**
- * /brief Templated wl_surface container
+ * /brief Abstract wl_surface container
  *
- * The design goal of the surface is for user to have a few frame-update
- * routines, so the user will never need to call the `wl_surface_damage`,
- * `wl_surface_attach` and `wl_surface_commit`.
+ * The design goal of the surface is to use app_surface as general wl_surface
+ * handler for both buffer based application and graphics based
+ * application. User no longer need to explictly call
+ * wl_surface_damage/attach/commit. Instead, user will use the fixed routine
+ * app_surface_frame to draw a frame.
  *
- * An sample routine for wl_buffers? We need to provide a wl_buffer to draw,
- * then it uses that buffer to commit. For that special case, it needs two draw
- * calls, one does the attach->damage->commit, the other one does that
- * framebuffer manipulation.
+ * In the passive mode, the app_surface should draw on input. But there are case
+ * you want to drive the frame, wayland provides this facility, then the input
+ * is accumulated and the frame callback apply the input. Sadly, the appsurface
+ * does not apply to this structure now. We will need the actual refactoring for
+ * that.
  *
- * In the nuklear's case, you need one callback for manipulating the surface and
- * the other one has the control over nuklear context.
- *
- * And there could be other cases, so here we just have a callback for the
- * swap-chain, the specific draw is implement else where.
+ * Also, you need to use the timer to us
  */
 struct app_surface {
 	//the structure to store wl_shell_surface, xdg_shell_surface or tw_ui

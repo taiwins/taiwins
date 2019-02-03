@@ -11,10 +11,10 @@
 #include <wayland-taiwins-desktop-client-protocol.h>
 #include <os/exec.h>
 
-#include "../config.h"
 #include "client.h"
 #include "ui.h"
 #include "nk_backends.h"
+#include "../config.h"
 
 
 struct desktop_console {

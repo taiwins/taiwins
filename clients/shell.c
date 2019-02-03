@@ -16,7 +16,6 @@
 #include <wayland-taiwins-desktop-client-protocol.h>
 #include <wayland-client.h>
 #include <sequential.h>
-#include "../config.h"
 #include "client.h"
 #include "egl.h"
 #include "widget.h"
@@ -59,14 +58,9 @@ struct desktop_shell {
 	struct shm_pool pool;
 	struct wl_list shell_widgets;
 	struct widget_launch_info widget_launch;
-	struct tw_event_queue client_event_queue;
 	//states
 	vector_t uinit_outputs;
-	bool quit;
 } oneshell; //singleton
-
-struct tw_event_queue *the_event_processor = &oneshell.client_event_queue;
-
 
 
 ///////////////////////////////// background ////////////////////////////////////
@@ -265,7 +259,7 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 	output->panel_backend =  nk_cairo_create_bkend();
 	struct shell_widget *widget;
 	wl_list_for_each(widget, &shell->shell_widgets, link)
-		shell_widget_activate(widget, panel, &shell->client_event_queue);
+		shell_widget_activate(widget, panel, &shell->globals.event_queue);
 
 	nk_cairo_impl_app_surface(panel, output->panel_backend, shell_panel_frame,
 				  &output->pool, width, height, 0, 0);
@@ -397,7 +391,6 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	wl_globals_init(&shell->globals, display);
 	shell->globals.theme = taiwins_dark_theme;
 	shell->interface = NULL;
-	shell->quit = false;
 
 	shell->widget_backend = nk_cairo_create_bkend();
 
@@ -406,9 +399,6 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	wl_list_insert(&shell->shell_widgets, &what_up_widget.link);
 	wl_list_insert(&shell->shell_widgets, &battery_widget.link);
 
-	tw_event_queue_init(&shell->client_event_queue);
-	shell->client_event_queue.quit =
-		!tw_event_queue_add_wl_display(&shell->client_event_queue, display);
 	vector_init(&shell->uinit_outputs, sizeof(struct tw_output *), NULL);
 }
 
@@ -421,8 +411,6 @@ desktop_shell_release(struct desktop_shell *shell)
 	for (int i = 0; i < desktop_shell_n_outputs(shell); i++)
 		release_shell_output(&shell->shell_outputs[i]);
 	wl_globals_release(&shell->globals);
-	shell->quit = true;
-	shell->client_event_queue.quit = true;
 #ifdef __DEBUG
 	cairo_debug_reset_static_data();
 #endif
@@ -515,7 +503,7 @@ main(int argc, char **argv)
 	desktop_shell_prepare(&oneshell);
 
 	wl_display_flush(display);
-	tw_event_queue_run(&oneshell.client_event_queue);
+	wl_globals_dispatch_event_queue(&oneshell.globals);
 //	desktop_shell_release(&oneshell);
 	wl_registry_destroy(registry);
 	wl_display_disconnect(display);
