@@ -27,7 +27,7 @@
 
 #include <sequential.h>
 #include <os/buffer.h>
-#include "../config.h"
+
 
 #include "ui.h"
 
@@ -91,6 +91,7 @@ struct wl_globals {
 		struct wl_pointer *wl_pointer;
 		struct wl_touch *wl_touch;
 		char name[64];
+		struct itimerspec repeat_info;
 		struct {
 			/* xkbinfo */
 			struct xkb_context *kcontext;
@@ -119,6 +120,7 @@ struct wl_globals {
 	} inputs;
 	//application theme settings
 	struct taiwins_theme theme;
+	struct tw_event_queue event_queue;
 };
 
 
@@ -135,6 +137,13 @@ int wl_globals_announce(struct wl_globals *globals,
 void wl_globals_init(struct wl_globals *globals, struct wl_display *display);
 /* destructor */
 void wl_globals_release(struct wl_globals *globals);
+
+static inline void
+wl_globals_dispatch_event_queue(struct wl_globals *globals)
+{
+	tw_event_queue_run(&globals->event_queue);
+}
+
 bool is_shm_format_valid(uint32_t format);
 
 
