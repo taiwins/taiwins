@@ -290,8 +290,6 @@ struct nk_cairo_backend {
 };
 
 
-
-
 typedef void (*nk_cairo_op) (cairo_t *cr, const struct nk_command *cmd);
 
 #ifndef NK_COLOR_TO_FLOAT

@@ -45,15 +45,16 @@
   - different layouting support
   - resize EGL windows.
   - compositing
-** TODO fix the memory leak in the ~taiwins_server~, massive leaks related to console implementation!
+** TODO fix the memory leak in the ~taiwins_server~, massive leaks related to console implementation
 ** DONE renaming tw_shell -> shell, tw_desktop -> desktop.
    so the protocols can directly use tw_shell instead of taiwins_shell
-** DOIN [55%] server-side optimization
+** DOIN [66%] server-side optimization
 *** DONE rename all the ctype functions.
     I did move them into uppercase macros.
 
 *** DONE singals for adding new output and seats
-*** TODO change the keyboard grab allowing the long pressing.
+*** DONE change the keyboard grab allowing the long pressing.
+    This is done in the clients
 *** DONE updated to libweston-5
     - figure out the bug for libdrm backend.
       turned out it is my stupid pointer assignment
@@ -90,7 +91,7 @@
     luckly that we have ~weston_desktop_suface_set_user_data~, it seems to fit
     perfectly in that position
 
-** DOIN [77%] client-side optimization
+** DOIN [81%] client-side optimization
 *** TODO add udev monitoring and inotify monitoring to event_queue
 *** DONE properly handling the frame callbacks for ~app_surface~
     We try to implement as agnostic as possible. 1: ~do_frame~ no longer test
@@ -108,7 +109,9 @@
     is nothing new to show. Right now nuklear backends do a empty commit if no
     thing happens.
 
-*** TODO implement scale for shell and console
+*** DONE implement scale for shell and console
+    This is partially solved for now, I get blurry text as output as compaired
+    to other elements. Need to revisit it later
 *** DONE move event_queue into wl_globals so we can access it in app_surface
 *** DONE switch to epoll on wl_display
     - possible solution :: maybe we can use epoll on wl_display, and add it to
@@ -124,7 +127,7 @@
 *** DONE widget surface launch code.
 *** DONE second widget, reading batteries
 *** TODO adding support for notification
-*** TODO adding support for cursor menu
+*** TODO adding support for cursor menu(right-click)
     right click and left click provides different functions
     - preferably right click open an menu and left click opens selection.
     - for this work you need the support for resizing
@@ -164,9 +167,10 @@
 *** DONE `tw_output` protocols to represent logical output
 *** TODO `tw_desktop` output to recieve desktop events
 
-* Stage three: extensions
-*** TODO deal with scale
-    you can start it by experiment with updating ~weston_matrix~
+* [0%]Stage three: extensions
+*** TODO deal with scale in font
+    previously we solved the scale but left the problem with blury text. Need to
+    revisit the nuklear backends for (cairo/egl) to solve it.
 *** TODO ML based layout
 *** TODO rendering/compositing optimization.
   - screen capture and screen record(audio support?).
