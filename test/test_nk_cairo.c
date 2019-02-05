@@ -12,7 +12,7 @@ typedef void (*nk_wl_drawcall_t)(struct nk_context *ctx, float width, float heig
 extern void
 nk_cairo_impl_app_surface(struct app_surface *surf, struct nk_wl_backend *bkend,
 			  nk_wl_drawcall_t draw_cb, struct shm_pool *pool,
-			  uint32_t w, uint32_t h, uint32_t x, uint32_t y);
+			  uint32_t w, uint32_t h, uint32_t x, uint32_t y, int32_t s);
 
 
 
@@ -161,8 +161,9 @@ int main(int argc, char *argv[])
 	shm_pool_init(&pool, App.global.shm, 4096, App.global.buffer_format);
 
 	App.bkend = nk_cairo_create_bkend();
+	//the drawing is easy, but input handler is not
 	nk_cairo_impl_app_surface(&App.surface, App.bkend, sample_widget, &pool,
-				  200, 400, 0, 0);
+				  200, 400, 0, 0, 2);
 
 
 	app_surface_frame(&App.surface, false);

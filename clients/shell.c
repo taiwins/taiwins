@@ -152,7 +152,7 @@ launch_widget(struct app_surface *panel_surf)
 			 (struct wl_proxy *)widget_proxy, panel_surf->wl_globals);
 	nk_cairo_impl_app_surface(&info->widget->widget, shell->widget_backend,
 				  info->widget->draw_cb, &shell->pool,
-				  info->widget->w, info->widget->h, info->x, info->y);
+				  info->widget->w, info->widget->h, info->x, info->y, 2);
 
 	app_surface_frame(&info->widget->widget, false);
 
@@ -267,7 +267,7 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 		shell_widget_activate(widget, panel, &shell->globals.event_queue);
 
 	nk_cairo_impl_app_surface(panel, output->panel_backend, shell_panel_frame,
-				  &output->pool, width, height, 0, 0);
+				  &output->pool, width, height, 0, 0, 2);
 	/* nk_egl_impl_app_surface(panel, output->panel_backend, shell_panel_frame, */
 	/*			width, height, 0 ,0); */
 	nk_wl_test_draw(output->panel_backend, panel, shell_panel_measure_leading);

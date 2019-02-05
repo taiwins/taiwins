@@ -153,7 +153,7 @@ start_console(void *data,
 			 &console->globals);
 	surface->wl_globals = &console->globals;
 	nk_egl_impl_app_surface(surface, console->bkend, draw_console,
-				w, h, 0, 0);
+				w, h, 0, 0, 1);
 	app_surface_frame(surface, false);
 }
 
