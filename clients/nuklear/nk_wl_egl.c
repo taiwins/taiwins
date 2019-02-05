@@ -189,7 +189,7 @@ assign_egl_surface(EGLSurface eglsurface, const struct egl_env *env)
 	egl_error = eglGetError();
 	(void)egl_error;
 	/* printf("egl error: %x\n", egl_error); */
-	/* glViewport(0, 0, app_surface->w, app_surface->h); */
+	/* glViewport(0, 0, app_surface->w * app_surface, app_surface->h); */
 	/* glScissor(0, 0, app_surface->w, app_surface->h); */
 }
 
@@ -415,7 +415,7 @@ nk_wl_render(struct nk_wl_backend *b)
 	//make current to current
 	eglMakeCurrent(env->egl_display, app->eglsurface,
 		       app->eglsurface, env->egl_context);
-
+	glViewport(0, 0, app->w * app->s, app->h * app->s);
 
 	const struct nk_draw_command *cmd;
 	nk_draw_index *offset = NULL;
@@ -470,11 +470,11 @@ nk_egl_destroy_app_surface(struct app_surface *app)
 void
 nk_egl_impl_app_surface(struct app_surface *surf, struct nk_wl_backend *bkend,
 			nk_wl_drawcall_t draw_cb,
-			uint32_t w, uint32_t h, uint32_t x, uint32_t y)
+			uint32_t w, uint32_t h, uint32_t x, uint32_t y, int32_t s)
 
 {
 	struct nk_egl_backend *b = container_of(bkend, struct nk_egl_backend, base);
-	nk_wl_impl_app_surface(surf, bkend, draw_cb, w, h, x, y);
+	nk_wl_impl_app_surface(surf, bkend, draw_cb, w, h, x, y, s);
 	surf->destroy = nk_egl_destroy_app_surface;
 	//assume it is compiled
 	app_surface_init_egl(surf, &b->env);

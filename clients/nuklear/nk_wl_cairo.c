@@ -652,8 +652,8 @@ nk_cairo_render(struct wl_buffer *buffer, struct nk_cairo_backend *b,
 	cairo_surface_t *image_surface =
 		cairo_image_surface_create_for_data(
 			shm_pool_buffer_access(buffer),
-			format, w, h,
-			cairo_format_stride_for_width(format, w));
+			format, w * surf->s, h * surf->s,
+			cairo_format_stride_for_width(format, w * surf->s));
 	cairo_t *cr = cairo_create(image_surface);
 	cairo_surface_destroy(image_surface);
 
@@ -664,7 +664,7 @@ nk_cairo_render(struct wl_buffer *buffer, struct nk_cairo_backend *b,
 	cairo_set_source_rgb(cr, bkend->main_color.r, bkend->main_color.g,
 			     bkend->main_color.b);
 	cairo_paint(cr);
-
+	cairo_scale(cr, surf->s, surf->s);
 	//it is actually better to implement a table look up than switch command
 	nk_foreach(cmd, &bkend->ctx) {
 		nk_cairo_ops[cmd->type](cr, cmd);
@@ -741,16 +741,15 @@ nk_cairo_destroy_app_surface(struct app_surface *app)
 void
 nk_cairo_impl_app_surface(struct app_surface *surf, struct nk_wl_backend *bkend,
 			  nk_wl_drawcall_t draw_cb, struct shm_pool *pool,
-			  uint32_t w, uint32_t h, uint32_t x, uint32_t y)
+			  uint32_t w, uint32_t h, uint32_t x, uint32_t y, int32_t s)
 {
-	//you will also need to deal with scale later
 	struct nk_cairo_backend *b =
 		container_of(bkend, struct nk_cairo_backend, base);
 
-	nk_wl_impl_app_surface(surf, bkend, draw_cb, w, h, x, y);
+	nk_wl_impl_app_surface(surf, bkend, draw_cb, w, h, x, y, s);
 	surf->pool = pool;
 	for (int i = 0; i < 2; i++) {
-		surf->wl_buffer[i] = shm_pool_alloc_buffer(pool, w, h);
+		surf->wl_buffer[i] = shm_pool_alloc_buffer(pool, w * s, h * s);
 		surf->dirty[i] = NULL;
 		surf->committed[i] = NULL;
 		shm_pool_set_buffer_release_notify(surf->wl_buffer[i],

@@ -428,13 +428,13 @@ nk_pointraxis(struct app_surface *surf, int pos, int direction, uint32_t sx, uin
 static void
 nk_wl_impl_app_surface(struct app_surface *surf, struct nk_wl_backend *bkend,
 		       nk_wl_drawcall_t draw_cb, uint32_t w, uint32_t h,
-		       uint32_t x, uint32_t y)
+		       uint32_t x, uint32_t y, int32_t scale)
 {
 	surf->w = w;
 	surf->h = h;
 	surf->px = x;
 	surf->py = y;
-	surf->s = 1;
+	surf->s = scale;
 	surf->user_data = bkend;
 	surf->do_frame = nk_wl_new_frame;
 	//input
@@ -453,6 +453,7 @@ nk_wl_impl_app_surface(struct app_surface *surf, struct nk_wl_backend *bkend,
 		nk_wl_apply_color(bkend, &surf->wl_globals->theme);
 		//TODO try to apply the font here as well.
 	}
+	wl_surface_set_buffer_scale(surf->wl_surface, scale);
 }
 
 static void

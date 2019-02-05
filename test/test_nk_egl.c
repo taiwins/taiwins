@@ -180,7 +180,7 @@ int main(int argc, char *argv[])
 	App.surface.s = 1;
 
 	App.bkend = nk_egl_create_backend(wl_display, NULL);
-	nk_egl_impl_app_surface(&App.surface, App.bkend, sample_widget, 200, 400, 0, 0);
+	nk_egl_impl_app_surface(&App.surface, App.bkend, sample_widget, 200, 400, 0, 0, 2);
 	app_surface_frame(&App.surface, false);
 
 	fprintf(stdout, "here\n");
