@@ -276,6 +276,7 @@ app_surface_release(struct app_surface *surf)
 	if (surf->protocol)
 		wl_proxy_destroy(surf->protocol);
 	surf->protocol = NULL;
+	surf->wl_surface = NULL;
 }
 
 static inline void

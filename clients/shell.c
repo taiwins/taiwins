@@ -26,10 +26,16 @@
 struct shell_output {
 	struct desktop_shell *shell;
 	struct tw_output *output;
-	//for right now we just need to draw the icons from left to right. Later
-	//we may have better solution
+	//options
+	struct {
+		bool main_output;
+		struct bbox bbox;
+		unsigned int scale;
+	};
+
 	struct app_surface background;
 	struct app_surface panel;
+
 	struct nk_style_button label_style;
 
 	//a temporary struct
@@ -51,15 +57,13 @@ struct widget_launch_info {
 struct desktop_shell {
 	struct wl_globals globals;
 	struct tw_shell *interface;
-
+	//you have about 16 outputs to spear
 	struct shell_output shell_outputs[16];
 
 	struct nk_wl_backend *widget_backend;
 	struct shm_pool pool;
 	struct wl_list shell_widgets;
 	struct widget_launch_info widget_launch;
-	//states
-	vector_t uinit_outputs;
 } oneshell; //singleton
 
 
@@ -84,7 +88,7 @@ shell_background_frame(struct app_surface *surf, struct wl_buffer *buffer,
 }
 
 static void
-tw_background_configure(void *data,
+shell_background_configure(void *data,
 			struct tw_ui *tw_ui,
 			uint32_t width,
 			uint32_t height,
@@ -101,7 +105,7 @@ tw_background_configure(void *data,
 }
 
 static void
-tw_background_should_close(void *data, struct tw_ui *ui_elem)
+shell_background_should_close(void *data, struct tw_ui *ui_elem)
 {
 	//TODO, destroy the surface
 }
@@ -152,7 +156,8 @@ launch_widget(struct app_surface *panel_surf)
 			 (struct wl_proxy *)widget_proxy, panel_surf->wl_globals);
 	nk_cairo_impl_app_surface(&info->widget->widget, shell->widget_backend,
 				  info->widget->draw_cb, &shell->pool,
-				  info->widget->w, info->widget->h, info->x, info->y, 2);
+				  info->widget->w, info->widget->h, info->x, info->y,
+				  shell_output->scale);
 
 	app_surface_frame(&info->widget->widget, false);
 
@@ -251,7 +256,7 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 }
 
 static void
-tw_panel_configure(void *data, struct tw_ui *tw_ui,
+shell_panel_configure(void *data, struct tw_ui *tw_ui,
 		   uint32_t width, uint32_t height, uint32_t scale)
 {
 	struct shell_output *output = data;
@@ -259,15 +264,14 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 	struct desktop_shell *shell = output->shell;
 	struct nk_style_button *style = &output->label_style;
 
-	//TODO detect if we are on the major output. If not, we do not add the
-	//widgets, and draw call should be different
+	//major output is handled some where else
 	output->panel_backend =  nk_cairo_create_bkend();
 	struct shell_widget *widget;
 	wl_list_for_each(widget, &shell->shell_widgets, link)
 		shell_widget_activate(widget, panel, &shell->globals.event_queue);
 
 	nk_cairo_impl_app_surface(panel, output->panel_backend, shell_panel_frame,
-				  &output->pool, width, height, 0, 0, 2);
+				  &output->pool, width, height, 0, 0, output->scale);
 	/* nk_egl_impl_app_surface(panel, output->panel_backend, shell_panel_frame, */
 	/*			width, height, 0 ,0); */
 	nk_wl_test_draw(output->panel_backend, panel, shell_panel_measure_leading);
@@ -292,44 +296,88 @@ tw_panel_configure(void *data, struct tw_ui *tw_ui,
 
 }
 
-static struct tw_ui_listener tw_panel_impl = {
-	.configure = tw_panel_configure
+static struct tw_ui_listener shell_panel_impl = {
+	.configure = shell_panel_configure
 };
 
-static struct tw_ui_listener tw_background_impl = {
-	.configure = tw_background_configure
+static struct tw_ui_listener shell_background_impl = {
+	.configure = shell_background_configure
 };
 
+
+///////////////////////////////////////////////////////////////////////////
 
 static void
-initialize_shell_output(struct shell_output *w, struct tw_output *tw_output,
-			struct desktop_shell *shell)
+shell_output_add_shell_desktop(struct shell_output *w,
+			       struct desktop_shell *shell, bool main_output)
 {
 	w->shell = shell;
-	w->output = tw_output;
+	w->main_output = main_output;
+
+	if (w->background.wl_surface)
+		app_surface_release(&w->background);
+
 	struct app_surface *bg = &w->background;
 	struct wl_surface *bg_sf =
 		wl_compositor_create_surface(shell->globals.compositor);
 	struct tw_ui *bg_ui =
-		tw_shell_create_background(shell->interface, bg_sf, tw_output);
+		tw_shell_create_background(shell->interface, bg_sf, w->output);
 	app_surface_init(bg, bg_sf, (struct wl_proxy *)bg_ui,
 			 &shell->globals);
-	tw_ui_add_listener(bg_ui, &tw_background_impl, w);
+	tw_ui_add_listener(bg_ui, &shell_background_impl, w);
+	//only add panel for main output
+	if (main_output) {
+		if (w->panel.wl_surface)
+			app_surface_release(&w->panel);
+		struct wl_surface *pn_sf =
+			wl_compositor_create_surface(shell->globals.compositor);
+		struct tw_ui *pn_ui =
+			tw_shell_create_panel(shell->interface, pn_sf, w->output);
+		app_surface_init(&w->panel, pn_sf, (struct wl_proxy *)pn_ui,
+				 &shell->globals);
 
-	struct wl_surface *pn_sf =
-		wl_compositor_create_surface(shell->globals.compositor);
-	struct tw_ui *pn_ui =
-		tw_shell_create_panel(shell->interface, pn_sf, tw_output);
-	app_surface_init(&w->panel, pn_sf, (struct wl_proxy *)pn_ui,
-			 &shell->globals);
-
-	tw_ui_add_listener(pn_ui, &tw_panel_impl, w);
-	//so we have one nk_egl_backend for the panel.
-	tw_output_set_user_data(tw_output, w);
+		tw_ui_add_listener(pn_ui, &shell_panel_impl, w);
+	}
 }
 
+
 static void
-release_shell_output(struct shell_output *w)
+shell_output_configure(void *data,
+		       struct tw_output *tw_output,
+		       uint32_t width,
+		       uint32_t height,
+		       uint32_t scale,
+		       int32_t x,
+		       int32_t y)
+{
+	struct shell_output *w = data;
+	w->bbox.x = x; w->bbox.y = y;
+	w->bbox.w = width; w->bbox.h = height;
+	w->scale = scale;
+	//in the initial step, this actually never called
+	if (w->shell)
+		shell_output_add_shell_desktop(w, w->shell, w->main_output);
+}
+
+
+static struct tw_output_listener shell_output_impl = {
+	.configure = shell_output_configure,
+};
+
+
+static void
+shell_output_init(struct shell_output *w, struct tw_output *tw_output)
+{
+	w->shell = NULL;
+	w->output = tw_output;
+	tw_output_add_listener(tw_output, &shell_output_impl, w);
+	w->bbox = (struct bbox) {0,0, 1000 ,1000};
+	w->scale = 1;
+}
+
+
+static void
+shell_output_release(struct shell_output *w)
 {
 	struct app_surface *surfaces[] = {
 		&w->panel,
@@ -399,13 +447,12 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	shell->interface = NULL;
 
 	shell->widget_backend = nk_cairo_create_bkend();
-
+	//right now we just hard coded some link
 	wl_list_init(&shell->shell_widgets);
 	wl_list_insert(&shell->shell_widgets, &clock_widget.link);
 	wl_list_insert(&shell->shell_widgets, &what_up_widget.link);
 	wl_list_insert(&shell->shell_widgets, &battery_widget.link);
 
-	vector_init(&shell->uinit_outputs, sizeof(struct tw_output *), NULL);
 }
 
 
@@ -415,39 +462,28 @@ desktop_shell_release(struct desktop_shell *shell)
 	tw_shell_destroy(shell->interface);
 
 	for (int i = 0; i < desktop_shell_n_outputs(shell); i++)
-		release_shell_output(&shell->shell_outputs[i]);
+		shell_output_release(&shell->shell_outputs[i]);
 	wl_globals_release(&shell->globals);
 #ifdef __DEBUG
 	cairo_debug_reset_static_data();
 #endif
 }
 
-static void
-desktop_shell_try_add_tw_output(struct desktop_shell *shell, struct tw_output *tw_output)
+static inline void
+desktop_shell_add_tw_output(struct desktop_shell *shell, struct tw_output *tw_output)
 {
-	if (desktop_shell_ready(shell)) {
-		int n = desktop_shell_n_outputs(shell);
-		initialize_shell_output(&shell->shell_outputs[n], tw_output, shell);
-	} else
-		vector_append(&shell->uinit_outputs, &tw_output);
-}
-static void
-desktop_shell_init_rest_outputs(struct desktop_shell *shell)
-{
-	for (int n = desktop_shell_n_outputs(shell), j = 0;
-	     j < shell->uinit_outputs.len; j++) {
-		struct shell_output *w = &shell->shell_outputs[n+j];
-
-		initialize_shell_output(w, *(struct tw_output **)vector_at(&shell->uinit_outputs, j),
-					shell);
-	}
+	int n = desktop_shell_n_outputs(shell);
+	shell_output_init(&shell->shell_outputs[n], tw_output);
 }
 
 static void
 desktop_shell_prepare(struct desktop_shell *shell)
 {
-	desktop_shell_init_rest_outputs(shell);
-	shm_pool_init(&shell->pool, shell->globals.shm, 4096, shell->globals.buffer_format);
+	for (int i = 0; i < desktop_shell_n_outputs(shell); i++)
+		shell_output_add_shell_desktop(&shell->shell_outputs[i], shell, i == 0);
+	//widget buffer(since we are using cairo for rendering)
+	shm_pool_init(&shell->pool, shell->globals.shm, 4096,
+		      shell->globals.buffer_format);
 	shell->widget_launch = (struct widget_launch_info){0};
 }
 
@@ -472,7 +508,7 @@ void announce_globals(void *data,
 	} else if (!strcmp(interface, tw_output_interface.name)) {
 		struct tw_output *tw_output =
 			wl_registry_bind(wl_registry, name, &tw_output_interface, version);
-		desktop_shell_try_add_tw_output(twshell, tw_output);
+		desktop_shell_add_tw_output(twshell, tw_output);
 	} else
 		wl_globals_announce(&twshell->globals, wl_registry, name, interface, version);
 }
