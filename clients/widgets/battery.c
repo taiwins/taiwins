@@ -66,8 +66,10 @@ battery_sysfile_find(struct shell_widget *widget, char *path)
 	int bat_no = -1; int adp_no = -1;
 	struct dirent *batt;
 	DIR *dir = opendir(power_supply);
-	if (!dir || is_dir_empty(dir))
+	if (!dir || is_dir_empty(dir)) {
+		closedir(dir);
 		return 0;
+	}
 	batt = dir_find_pattern(dir, "BAT%d", &bat_no);
 	strncpy(batt_file, batt->d_name, 128);
 	seekdir(dir, 0);
