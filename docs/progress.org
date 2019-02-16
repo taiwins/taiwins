@@ -70,6 +70,7 @@
 *** DONE refactring that layout implementation in workspace, it is ugly
 *** TODO setup the xkb context and all that stuff
 ** DOIN [60%] Configurations
+*** TODO crazy idea. Implement client side configuration into protocols? So I can set the configure on the fly?
 *** DONE introduce the lua code
 *** TODO finish the server side lua configuration
 *** DONE styles, nuklear and other widget styles.
