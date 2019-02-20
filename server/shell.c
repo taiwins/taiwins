@@ -190,7 +190,7 @@ bind_tw_output(struct wl_client *client, void *data, uint32_t version, uint32_t 
 	tw_output_send_configure(resource,
 				 output->width, output->height,
 				 output->scale,
-				 output->x, output->y);
+				 output->x, output->y, true);
 }
 
 

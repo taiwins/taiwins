@@ -28,7 +28,6 @@ struct shell_output {
 	struct tw_output *output;
 	//options
 	struct {
-		bool main_output;
 		struct bbox bbox;
 		unsigned int scale;
 	};
@@ -59,6 +58,7 @@ struct desktop_shell {
 	struct tw_shell *interface;
 	//you have about 16 outputs to spear
 	struct shell_output shell_outputs[16];
+	off_t main_output;
 
 	struct nk_wl_backend *widget_backend;
 	struct shm_pool pool;
@@ -312,7 +312,6 @@ shell_output_add_shell_desktop(struct shell_output *w,
 			       struct desktop_shell *shell, bool main_output)
 {
 	w->shell = shell;
-	w->main_output = main_output;
 
 	if (w->background.wl_surface)
 		app_surface_release(&w->background);
@@ -348,15 +347,17 @@ shell_output_configure(void *data,
 		       uint32_t height,
 		       uint32_t scale,
 		       int32_t x,
-		       int32_t y)
+		       int32_t y,
+		       uint32_t major)
 {
+	//TODO set this output major
 	struct shell_output *w = data;
 	w->bbox.x = x; w->bbox.y = y;
 	w->bbox.w = width; w->bbox.h = height;
 	w->scale = scale;
 	//in the initial step, this actually never called
 	if (w->shell)
-		shell_output_add_shell_desktop(w, w->shell, w->main_output);
+		shell_output_add_shell_desktop(w, w->shell, major);
 }
 
 
@@ -415,30 +416,6 @@ desktop_shell_n_outputs(struct desktop_shell *shell)
 	return 16;
 }
 
-static inline void
-desktop_shell_refill_outputs(struct desktop_shell *shell)
-{
-	for (int i = 0, j=0; i < 16 && j <= i; i++) {
-		//check i
-		if (shell->shell_outputs[j].output == NULL)
-			continue;
-		//check j
-		if (i==j)
-			j++;
-		else
-			shell->shell_outputs[j++] = shell->shell_outputs[i];
-	}
-}
-
-static inline int
-desktop_shell_ith_output(struct desktop_shell *shell, struct tw_output *output)
-{
-	for (int i = 0; i < 16; i++)
-		if (shell->shell_outputs[i].output == output)
-			return i;
-	return -1;
-}
-
 static void
 desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 {
@@ -479,6 +456,7 @@ desktop_shell_add_tw_output(struct desktop_shell *shell, struct tw_output *tw_ou
 static void
 desktop_shell_prepare(struct desktop_shell *shell)
 {
+	//TODO we should change the logic here, if
 	for (int i = 0; i < desktop_shell_n_outputs(shell); i++)
 		shell_output_add_shell_desktop(&shell->shell_outputs[i], shell, i == 0);
 	//widget buffer(since we are using cairo for rendering)
