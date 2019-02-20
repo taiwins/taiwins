@@ -58,6 +58,7 @@
       <arg name="scale" type="uint"/>
       <arg name="x" type="int" summary="x position in the compositor"/>
       <arg name="y" type="int" summary="y position in the compositor"/>
+      <arg name="major" type="uint" summary="whether a major output"/>
     </event>
   </interface>
 
@@ -143,9 +144,8 @@
 	somewhere else.
       </description>
       <arg name="buffer" type="object" interface="wl_buffer"/>
-      <arg name="exec_id" type="uint" summary="exec action for the launcher">
-	The exec_id has to be here because we could actually close the launcher
-	without submitting an exec request
+      <arg name="exec_id" type="uint">
+	<description summary="exec_id is records current index of process starting"/>
       </arg>
     </request>
 
@@ -177,8 +177,34 @@
     </enum>
   </interface>
 
-  <!-- <interface name="taiwins_launcher" version="1"> -->
+  <interface name="tw_configurator" version="1">
+    <description summary="dynamic configuration support">
+      In stead of having every client to parse the configuration file, we can
+      abuse the wayland protocol system to create a unified system for changing
+      and adapting config changes in the run time.
+    </description>
 
-  <!-- </interface> -->
+    <enum name="panel_pos">
+      <entry name="top" value="0"/>
+      <entry name="button" value="1"/>
+      <entry name="left" value="2"/>
+      <entry name="right" value="3"/>
+    </enum>
+
+    <event name="config">
+      <description summary="generic (key, value) configuration"/>
+      <arg name="key" type="string"/>
+      <arg name="value" type="string"/>
+    </event>
+
+    <event name="panel_pos">
+      <arg name="pos" type="uint"/>
+    </event>
+
+    <request name="set_panel_pos">
+      <arg name="pos" type="uint"/>
+    </request>
+
+  </interface>
 
 </protocol>
