@@ -30,6 +30,7 @@ struct shell_output {
 	struct {
 		struct bbox bbox;
 		unsigned int scale;
+		off_t index;
 	};
 
 	struct app_surface background;
@@ -350,13 +351,17 @@ shell_output_configure(void *data,
 		       int32_t y,
 		       uint32_t major)
 {
-	//TODO set this output major
 	struct shell_output *w = data;
+	//this logic here is to descover any changes
+	bool need_update = w->bbox.w != width || w->bbox.h != height || w->scale != scale ||
+		major ^ (w->index == w->shell->main_output);
 	w->bbox.x = x; w->bbox.y = y;
 	w->bbox.w = width; w->bbox.h = height;
 	w->scale = scale;
+
+	w->shell->main_output = (major) ? w->index : w->shell->main_output;
 	//in the initial step, this actually never called
-	if (w->shell)
+	if (w->shell->interface && need_update)
 		shell_output_add_shell_desktop(w, w->shell, major);
 }
 
@@ -390,8 +395,6 @@ shell_output_release(struct shell_output *w)
 	//you may destroy the buffer before released
 	shm_pool_release(&w->pool);
 }
-
-
 
 
 /************************** desktop_shell_interface ********************************/
@@ -451,6 +454,8 @@ desktop_shell_add_tw_output(struct desktop_shell *shell, struct tw_output *tw_ou
 {
 	int n = desktop_shell_n_outputs(shell);
 	shell_output_init(&shell->shell_outputs[n], tw_output);
+	shell->shell_outputs[n].index = n;
+	shell->shell_outputs[n].shell = shell;
 }
 
 static void
@@ -458,7 +463,8 @@ desktop_shell_prepare(struct desktop_shell *shell)
 {
 	//TODO we should change the logic here, if
 	for (int i = 0; i < desktop_shell_n_outputs(shell); i++)
-		shell_output_add_shell_desktop(&shell->shell_outputs[i], shell, i == 0);
+		shell_output_add_shell_desktop(&shell->shell_outputs[i], shell,
+					       shell->main_output == i);
 	//widget buffer(since we are using cairo for rendering)
 	shm_pool_init(&shell->pool, shell->globals.shm, 4096,
 		      shell->globals.buffer_format);
