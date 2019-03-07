@@ -77,7 +77,6 @@
       </description>
       <arg name="width" type="uint"/>
       <arg name="height" type="uint"/>
-      <arg name="scale" type="uint"/>
     </event>
     <event name="close">
       <description summary="Server no longer composites this UI element">
@@ -181,7 +180,12 @@
     <description summary="dynamic configuration support">
       In stead of having every client to parse the configuration file, we can
       abuse the wayland protocol system to create a unified system for changing
-      and adapting config changes in the run time.
+      and adapting config changes in the run time. This has disadvantage as
+      well, you have to be able to orgnize the elements in the atomic way so you
+      can change it at the runtime. Compare to static configuration. It is much
+      more difficult. What about just embeding all of this configurations in the
+      corresponding tw_ui? TW_UI is a general ui element, you could expect to
+      have
     </description>
 
     <enum name="panel_pos">
@@ -197,13 +201,20 @@
       <arg name="value" type="string"/>
     </event>
 
-    <event name="panel_pos">
+    <event name="panel_conf">
       <arg name="pos" type="uint"/>
+      <arg name="pt_size" type="uint"/>
     </event>
 
     <request name="set_panel_pos">
       <arg name="pos" type="uint"/>
     </request>
+
+    <event name="theme">
+    </event>
+
+    <event name="wallpaper_conf">
+    </event>
 
   </interface>
 

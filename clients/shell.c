@@ -92,8 +92,7 @@ static void
 shell_background_configure(void *data,
 			struct tw_ui *tw_ui,
 			uint32_t width,
-			uint32_t height,
-			uint32_t scale)
+			uint32_t height)
 {
 	struct shell_output *w = data;
 	struct app_surface *background = &w->background;
@@ -114,7 +113,7 @@ shell_background_should_close(void *data, struct tw_ui *ui_elem)
 //////////////////////////////// widget ///////////////////////////////////
 static void
 widget_configure(void *data, struct tw_ui *ui_elem,
-		 uint32_t width, uint32_t height, uint32_t scale) {}
+		 uint32_t width, uint32_t height) {}
 
 static void
 widget_should_close(void *data, struct tw_ui *ui_elem)
@@ -258,7 +257,7 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 
 static void
 shell_panel_configure(void *data, struct tw_ui *tw_ui,
-		   uint32_t width, uint32_t height, uint32_t scale)
+		   uint32_t width, uint32_t height)
 {
 	struct shell_output *output = data;
 	struct app_surface *panel = &output->panel;
