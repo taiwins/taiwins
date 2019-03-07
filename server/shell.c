@@ -369,12 +369,12 @@ create_ui_element(struct wl_client *client,
 
 	switch (type) {
 	case TW_UI_TYPE_PANEL:
-		tw_ui_send_configure(tw_ui_resource, output->width, 32, 1);
+		tw_ui_send_configure(tw_ui_resource, output->width, 32);
 		elem->layer = &shell->ui_layer;
 		set_surface(shell, surface, output, tw_ui_resource, commit_ui_surface, x, y);
 		break;
 	case TW_UI_TYPE_BACKGROUND:
-		tw_ui_send_configure(tw_ui_resource, output->width, output->height, 1);
+		tw_ui_send_configure(tw_ui_resource, output->width, output->height);
 		elem->layer = &shell->background_layer;
 		set_surface(shell, surface, output, tw_ui_resource, commit_background, x, y);
 		break;
