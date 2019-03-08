@@ -16,12 +16,10 @@
 #include <wayland-taiwins-desktop-client-protocol.h>
 #include <wayland-client.h>
 #include <sequential.h>
-#include "client.h"
-#include "egl.h"
+#include <client.h>
+#include <egl.h>
 #include "widget.h"
-#include "nk_backends.h"
-
-
+#include <nk_backends.h>
 
 struct shell_output {
 	struct desktop_shell *shell;

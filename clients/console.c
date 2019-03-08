@@ -11,9 +11,9 @@
 #include <wayland-taiwins-desktop-client-protocol.h>
 #include <os/exec.h>
 
-#include "client.h"
-#include "ui.h"
-#include "nk_backends.h"
+#include <client.h>
+#include <ui.h>
+#include <nk_backends.h>
 #include "../config.h"
 
 

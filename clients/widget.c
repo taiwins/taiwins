@@ -6,7 +6,7 @@
 #include <wayland-util.h>
 #include <os/file.h>
 
-#include "ui.h"
+#include <ui.h>
 #include "widget.h"
 
 static int
