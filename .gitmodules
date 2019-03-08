@@ -1,9 +1,9 @@
 [submodule "3rdparties/ctypes"]
 	path = 3rdparties/ctypes
 	url = https://github.com/xeechou/ctypes
-[submodule "3rdparties/nuklear"]
-	path = 3rdparties/nuklear
-	url = https://github.com/xeechou/nuklear
 [submodule "3rdparties/iconheader"]
 	path = 3rdparties/iconheader
 	url = https://github.com/xeechou/IconFontCppHeaders
+[submodule "3rdparties/twclient"]
+	path = 3rdparties/twclient
+	url = https://github.com/xeechou/twclient

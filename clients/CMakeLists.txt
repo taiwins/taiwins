@@ -4,26 +4,6 @@ include_directories(
   ${TRDPTY_INCLUDE_DIRS}
   )
 
-
-#message("client library include: " ${CLIENT_INCLUDE_DIRS})
-#message("client library: " ${CLIENT_LIBRARIES})
-add_library(taiwins_client
-  client.c
-  appsurf.c
-  ui.c
-  egl.c
-  buffer.c
-  )
-
-target_link_libraries(taiwins_client
-  ${CLIENT_LIBRARIES}
-  ${WAYLAND_CURSOR_LIBRARIES}
-  ${TRDPTY_LIBRARIES}
-  )
-
-add_subdirectory(nuklear)
-
-
 add_executable(shell-taiwins
   shell.c
   widget.c
@@ -31,36 +11,23 @@ add_executable(shell-taiwins
   widgets/battery.c
   )
 
-#message("the NVEGL libraries are ${NVEGL_LIBRARIES}")
-# set_target_properties(shell-taiwins
-#   PROPERTIES COMPILE_FLAGS
-#   "-fsanitize=address -fno-omit-frame-pointer")
-
-
 target_link_libraries(shell-taiwins
   ${CLIENT_LIBRARIES}
   ${TRDPTY_LIBRARIES}
   ${WAYLAND_CURSOR_LIBRARIES}
-  ${NVEGL_LIBRARIES}
   m
   proto_client_libraries
-  taiwins_client
-  nk_cairo_backend
-#  asan
   )
-
-
 
 add_executable(shell-console
   console.c
   )
 
 target_link_libraries(shell-console
+  nk_egl_backend
   ${CLIENT_LIBRARIES}
   ${TRDPTY_LIBRARIES}
   ${WAYLAND_CURSOR_LIBRARIES}
   m
   proto_client_libraries
-  nk_egl_backend
-  taiwins_client
   )
