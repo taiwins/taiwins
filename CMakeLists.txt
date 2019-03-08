@@ -75,7 +75,6 @@ endif(NVEGL_FOUND)
 add_subdirectory("3rdparties/ctypes")
 add_subdirectory("3rdparties/twclient")
 
-add_subdirectory("3rdparties/nuklear")
 add_subdirectory("3rdparties/iconheader")
 
 set(COMPOSITOR_LIBRARIES

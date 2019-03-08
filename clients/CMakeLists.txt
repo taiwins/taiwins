@@ -1,14 +1,14 @@
-include_directories(
-  ${CLIENT_INCLUDE_DIRS}
-  ${PROTOCOLS_INCLUDE_DIR}
-  ${TRDPTY_INCLUDE_DIRS}
-  )
-
 add_executable(shell-taiwins
   shell.c
   widget.c
   widgets/clock.c
   widgets/battery.c
+  )
+
+target_include_directories(shell-taiwins PUBLIC
+  ${CLIENT_INCLUDE_DIRS}
+  ${PROTOCOLS_INCLUDE_DIR}
+  ${TRDPTY_INCLUDE_DIRS}
   )
 
 target_link_libraries(shell-taiwins
@@ -21,6 +21,12 @@ target_link_libraries(shell-taiwins
 
 add_executable(shell-console
   console.c
+  )
+
+target_include_directories(shell-console PUBLIC
+  ${CLIENT_INCLUDE_DIRS}
+  ${PROTOCOLS_INCLUDE_DIR}
+  ${TRDPTY_INCLUDE_DIRS}
   )
 
 target_link_libraries(shell-console

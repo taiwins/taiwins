@@ -10,9 +10,9 @@
 #include <EGL/egl.h>
 #include <GL/gl.h>
 #include <wayland-client.h>
-#include "ui.h"
-#include "client.h"
-#include "nk_backends.h"
+#include <ui.h>
+#include <client.h>
+#include <nk_backends.h>
 
 #ifdef __cplusplus
 extern "C" {
