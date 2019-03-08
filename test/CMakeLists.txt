@@ -15,9 +15,10 @@ add_executable(test_nk_egl
   )
 
 target_link_libraries(test_nk_egl
-  taiwins_client
+  # taiwins_client
   nk_egl_backend
   ${CLIENT_LIBRARIES}
+  ${TRDPTY_LIBRARIES}
   )
 
 
@@ -90,6 +91,7 @@ add_executable(test_nk_vulkan
 
 target_link_libraries(test_nk_vulkan
   ${CLIENT_LIBRARIES}
+  ${TRDPTY_LIBRARIES}
   nk_vulkan_backend
   )
 
@@ -99,6 +101,7 @@ add_executable(test_nk_cairo
 
 target_link_libraries(test_nk_cairo
   nk_cairo_backend
+  ${TRDPTY_LIBRARIES}
   ${CLIENT_LIBRARIES}
   )
 

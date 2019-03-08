@@ -72,8 +72,9 @@ endif(NVEGL_FOUND)
 #####################################################################
 ################# setup the project variables #######################
 #####################################################################
-
 add_subdirectory("3rdparties/ctypes")
+add_subdirectory("3rdparties/twclient")
+
 add_subdirectory("3rdparties/nuklear")
 add_subdirectory("3rdparties/iconheader")
 
@@ -103,11 +104,19 @@ list(REMOVE_DUPLICATES COMPOSITOR_INCLUDE_DIRS)
 set(TRDPTY_INCLUDE_DIRS
   ${CTYPES_INCLUDE_DIR}
   ${NUKLEAR_INCLUDE_DIR}
+  ${TWCLIENT_INCLUDE_DIRS}
   ${ICON_INCLUDE_DIR}
   )
+list(REMOVE_DUPLICATES TRDPTY_INCLUDE_DIRS)
+
+
 set(TRDPTY_LIBRARIES
   ${CTYPES_LIBRARIES}
+  ${TWCLIENT_LIBRARIES}
+  nk_cairo_backend
   )
+list(REMOVE_DUPLICATES TRDPTY_LIBRARIES)
+
 
 set(CLIENT_INCLUDE_DIRS
   ${XKBCOMMON_INCLUDE_DIRS}
@@ -164,5 +173,5 @@ message("3rdparty lib: ${TRDPTY_LIBRARIES}")
 
 add_subdirectory(protocols)
 add_subdirectory(server)
-add_subdirectory(test)
+# add_subdirectory(test)
 add_subdirectory(clients)
