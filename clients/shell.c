@@ -253,6 +253,24 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	nk_wl_add_idle(ctx, launch_widget);
 }
 
+
+/*
+static void
+shell_panel_update(struct app_surface *surf, uint32_t user_data)
+{
+	//In other case. You may want to draw other stuff, you will want to
+	//clean the texture.  using api like nk_wl_clean_canvas(surf). Then we
+	//know if it is clean. What if you want to have opengl draw calls? It is
+	//possible, you can create the program once ctx is created.
+	struct nk_context *ctx = surf->user_data->ctx;
+	if (nk_begin(ctx, "panel", nk_rect(0, 0, surf->w, surf->h),
+		     NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR)) {
+		shell_panel_frame(ctx, surf->w, surf->h, surf);
+	} nk_end(ctx);
+	nk_wl_render(ctx->user_data);
+}
+*/
+
 static void
 shell_panel_configure(void *data, struct tw_ui *tw_ui,
 		   uint32_t width, uint32_t height)
