@@ -45,8 +45,7 @@ find_package(Pixman REQUIRED)
 find_package(PkgConfig)
 find_package(XKBCommon REQUIRED)
 find_package(LibInput REQUIRED)
-pkg_search_module(Libweston libweston-5 libweston-4 libweston>=4 REQUIRED)
-pkg_search_module(Libweston-Desktop libweston-desktop-5 libweston-desktop-4 libweston-desktop>=4 REQUIRED)
+find_package(Libweston REQUIRED)
 find_package(Wayland REQUIRED)
 find_package(Cairo REQUIRED)
 find_package(OpenGL REQUIRED COMPONENTS EGL OpenGL)
@@ -58,7 +57,6 @@ find_package(Vulkan REQUIRED)
 
 set(CMAKE_THREAD_PREFER_PTHREAD)
 find_package(Threads REQUIRED)
-
 
 if(NVEGL_FOUND)
  message("we are building with nvidia support")
@@ -78,8 +76,7 @@ add_subdirectory("3rdparties/twclient")
 add_subdirectory("3rdparties/iconheader")
 
 set(COMPOSITOR_LIBRARIES
-  ${Libweston_LIBRARIES}
-  ${Libweston-Desktop_LIBRARIES}
+  ${LIBWESTON_LIBRARIES}
   ${WAYLAND_SERVER_LIBRARIES}
   ${XKBCOMMON_LIBRARIES}
   ${PIXMAN_LIBRARIES}
@@ -90,8 +87,7 @@ set(COMPOSITOR_LIBRARIES
 list(REMOVE_DUPLICATES COMPOSITOR_LIBRARIES)
 
 set(COMPOSITOR_INCLUDE_DIRS
-  ${Libweston_INCLUDE_DIRS}
-  ${Libweston-Desktop_INCLUDE_DIRS}
+  ${LIBWESTON_INCLUDE_DIRS}
   ${XKBCOMMON_INCLUDE_DIRS}
   ${WAYLAND_SERVER_INCLUDE_DIR}
   ${PIXMAN_INCLUDE_DIRS}

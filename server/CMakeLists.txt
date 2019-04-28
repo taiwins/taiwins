@@ -23,6 +23,11 @@ add_library(taiwins_desktop STATIC
   desktop/workspace.c
   )
 
+target_include_directories(taiwins_desktop PRIVATE
+  ${COMPOSITOR_INCLUDE_DIRS}
+  ${PROTOCOLS_INCLUDE_DIR}
+  )
+
 add_executable(taiwins
   main.c
   input.c
