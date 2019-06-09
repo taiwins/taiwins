@@ -35,31 +35,43 @@ clock_widget_sample(struct nk_context *ctx, float width, float height, struct ap
 	static bool inanimation = false;
 	static bool init_text_edit = false;
 	static char text_buffer[256];
-	static int active = false;
-	static int active1;
+	static int checked = false;
+	static bool active;
+	/* static int selected = false; */
+	static int slider = 10;
+	static struct nk_colorf color;
 	if (!init_text_edit) {
 		init_text_edit = true;
 		nk_textedit_init_fixed(&text_edit, text_buffer, 256);
 	}
 	bool last_frame = inanimation;
 
-	nk_layout_row_static(ctx, 30, 80, 2);
-	inanimation = (nk_button_label(ctx, "button")) ? !inanimation : inanimation;
+	float spans[] = {0.5, 0.5};
+	nk_layout_row(ctx, NK_DYNAMIC, 30, 2, spans);
+	/* nk_layout_row_static(ctx, 30, 80, 2); */
+	inanimation = //nk_button_symbol(ctx, NK_SYMBOL_X) ? !inanimation : inanimation;
+
+		nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_UP, "a", NK_TEXT_ALIGN_MIDDLE) ? !inanimation : inanimation;
 	if (inanimation && !last_frame)
 		app_surface_request_frame(app);
 	else if (!inanimation)
 		app_surface_end_frame_request(app);
 	active = nk_option_label(ctx, "another", active);
 
-	/* nk_label(ctx, "another", NK_TEXT_LEFT); */
+	checked = nk_radio_label(ctx, "radio", &checked);
+
 	nk_layout_row_dynamic(ctx, 30, 2);
 	if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
 	if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
 
-	nk_layout_row_dynamic(ctx, 25, 1);
-	nk_edit_buffer(ctx, NK_EDIT_FIELD, &text_edit, nk_filter_default);
-	nk_layout_row_dynamic(ctx, 30, 1);
-	nk_selectable_label(ctx, "label_1", NK_TEXT_LEFT, &active1);
+	nk_layout_row_dynamic(ctx, 50, 1);
+	/* nk_edit_buffer(ctx, NK_EDIT_FIELD, &text_edit, nk_filter_default); */
+	/* nk_layout_row_dynamic(ctx, 25, 1); */
+	/* selected = nk_select_symbol_label(ctx, NK_SYMBOL_TRIANGLE_LEFT, "select me", NK_TEXT_RIGHT, selected); */
+
+	nk_color_pick(ctx, &color, NK_RGB);
+	/* nk_slider_int(ctx, 0, &slider, 16, 1); */
+
 }
 
 struct shell_widget clock_widget = {
