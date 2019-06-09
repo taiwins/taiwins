@@ -35,6 +35,8 @@ clock_widget_sample(struct nk_context *ctx, float width, float height, struct ap
 	static bool inanimation = false;
 	static bool init_text_edit = false;
 	static char text_buffer[256];
+	static int active = false;
+	static int active1;
 	if (!init_text_edit) {
 		init_text_edit = true;
 		nk_textedit_init_fixed(&text_edit, text_buffer, 256);
@@ -47,14 +49,17 @@ clock_widget_sample(struct nk_context *ctx, float width, float height, struct ap
 		app_surface_request_frame(app);
 	else if (!inanimation)
 		app_surface_end_frame_request(app);
+	active = nk_option_label(ctx, "another", active);
 
-	nk_label(ctx, "another", NK_TEXT_LEFT);
+	/* nk_label(ctx, "another", NK_TEXT_LEFT); */
 	nk_layout_row_dynamic(ctx, 30, 2);
 	if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
 	if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
 
 	nk_layout_row_dynamic(ctx, 25, 1);
 	nk_edit_buffer(ctx, NK_EDIT_FIELD, &text_edit, nk_filter_default);
+	nk_layout_row_dynamic(ctx, 30, 1);
+	nk_selectable_label(ctx, "label_1", NK_TEXT_LEFT, &active1);
 }
 
 struct shell_widget clock_widget = {

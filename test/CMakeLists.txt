@@ -10,16 +10,6 @@ include_directories(
 add_subdirectory(cursor)
 include_directories(cursor)
 
-add_executable(test_nk_egl
-  test_nk_egl.c
-  )
-
-target_link_libraries(test_nk_egl
-  # taiwins_client
-  nk_egl_backend
-  ${CLIENT_LIBRARIES}
-  ${TRDPTY_LIBRARIES}
-  )
 
 
 add_executable(test_xkbcommon
@@ -86,25 +76,6 @@ target_link_libraries(test_fontconfig
   )
 
 
-add_executable(test_nk_vulkan
-  test_nk_vulkan.c)
-
-target_link_libraries(test_nk_vulkan
-  ${CLIENT_LIBRARIES}
-  ${TRDPTY_LIBRARIES}
-  nk_vulkan_backend
-  )
-
-
-add_executable(test_nk_cairo
-  test_nk_cairo.c)
-
-target_link_libraries(test_nk_cairo
-  nk_cairo_backend
-  ${TRDPTY_LIBRARIES}
-  ${CLIENT_LIBRARIES}
-  )
-
 
 add_executable(test_user_font
   test_cairo_user_font.c)
@@ -114,13 +85,6 @@ target_link_libraries(test_user_font
   )
 
 
-add_executable(test_event_queue
-  test_event_queue.c)
-
-target_link_libraries(test_event_queue
-  ${CLIENT_LIBRARIES}
-  taiwins_client
-  )
 
 
 add_executable(test_lua
@@ -138,3 +102,10 @@ add_executable(test_register
 target_link_libraries(test_register
   ${CLIENT_LIBRARIES}
   ${TRDRTY_LIBRARIES})
+
+
+add_executable(test_cairo_transform
+  test_cairo_concept.c)
+
+target_link_libraries(test_cairo_transform
+  ${CLIENT_LIBRARIES})
