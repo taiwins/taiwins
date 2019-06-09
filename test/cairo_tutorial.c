@@ -8,7 +8,7 @@
 #include <cairo/cairo-ft.h>
 #define NK_IMPLEMENTATION
 
-#include "../3rdparties/nuklear/nuklear.h"
+#include "nuklear.h"
 
 static inline int
 font_pt2px(int pt_size, int ppi)

@@ -14,7 +14,7 @@
 #define NK_INCLUDE_FONT_BAKING
 #define NK_INCLUDE_DEFAULT_FONT
 #define NK_ZERO_COMMAND_MEMORY
-#include "../3rdparties/nuklear/nuklear.h"
+#include "nuklear.h"
 
 void print_pattern(FcPattern *pat)
 {

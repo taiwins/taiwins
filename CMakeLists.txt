@@ -172,5 +172,5 @@ message("3rdparty lib: ${TRDPTY_LIBRARIES}")
 
 add_subdirectory(protocols)
 add_subdirectory(server)
-# add_subdirectory(test)
+add_subdirectory(test)
 add_subdirectory(clients)

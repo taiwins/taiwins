@@ -4,7 +4,7 @@
 #include <cairo/cairo-ft.h>
 
 #define NK_IMPLEMENTATION
-#include "../3rdparties/nuklear/nuklear.h"
+#include "nuklear.h"
 
 
 #define NK_CR_FONT_KEY ((cairo_user_data_key_t *)1000)
