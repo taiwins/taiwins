@@ -63,8 +63,9 @@
     - maximizing.
     - minimizing
     - recent views
-*** DOIN switch bindings into our ~run_binding~ callbacks
-    looks like I need a patched version of libweston to get it to work
+*** TODO switch bindings into our ~run_binding~ callbacks
+    We want to implement the emacs kind of input handling. It seems using grab
+    is the way to achive that.
 *** DONE have functional workspace implementation
     - workspace is implemented as keybindings
 *** DONE refactring that layout implementation in workspace, it is ugly
