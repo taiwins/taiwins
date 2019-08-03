@@ -13,10 +13,14 @@ static int
 redraw_panel_for_file(struct tw_event *e, int fd)
 {
 	struct shell_widget *widget = e->data;
+	struct app_event ae = {
+		.type = TW_TIMER,
+		.time = widget->ancre.wl_globals->inputs.millisec,
+	};
 	//you set it here it will never work
 	widget->fd = fd;
 	//panel gets redrawed for once we have a event
-	widget->ancre.do_frame(&widget->ancre, 0);
+	widget->ancre.do_frame(&widget->ancre, &ae);
 	//if somehow my fd changes, it means I no longer watch this fd anymore
 	if (widget->fd != fd)
 		return TW_EVENT_DEL;
@@ -28,8 +32,13 @@ static int
 redraw_panel_for_timer(struct tw_event *e, int fd)
 {
 	struct shell_widget *widget = e->data;
+	struct app_event ae = {
+		.type = TW_TIMER,
+		.time = widget->ancre.wl_globals->inputs.millisec,
+	};
+
 	widget->fd = fd;
-	widget->ancre.do_frame(&widget->ancre, 0);
+	widget->ancre.do_frame(&widget->ancre, &ae);
 	//test if this is a one time event
 	if (!(widget->interval).it_interval.tv_sec &&
 	    !widget->interval.it_interval.tv_nsec)

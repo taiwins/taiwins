@@ -72,6 +72,8 @@ static void
 shell_background_frame(struct app_surface *surf, struct wl_buffer *buffer,
 		 int32_t *dx, int32_t *dy, int32_t *dw, int32_t *dh)
 {
+	//now it respond only app_surface_frame, we only need to add idle task
+	//as for app_surface_frame later
 	*dx = 0;
 	*dy = 0;
 	*dw = surf->w;
@@ -108,6 +110,8 @@ shell_background_should_close(void *data, struct tw_ui *ui_elem)
 	//TODO, destroy the surface
 }
 
+
+
 //////////////////////////////// widget ///////////////////////////////////
 static void
 widget_configure(void *data, struct tw_ui *ui_elem,
@@ -127,7 +131,7 @@ static struct  tw_ui_listener widget_impl = {
 	.close = widget_should_close,
 };
 
-
+//later we can take advantage of the idle queue for this.
 void
 launch_widget(struct app_surface *panel_surf)
 {
@@ -142,8 +146,7 @@ launch_widget(struct app_surface *panel_surf)
 		app_surface_release(&info->current->widget);
 		info->current = NULL;
 	}
-
-	info->widget->widget.wl_globals = panel_surf->wl_globals;
+	/* info->widget->widget.wl_globals = panel_surf->wl_globals; */
 	struct wl_surface *widget_surface = wl_compositor_create_surface(shell->globals.compositor);
 	struct tw_ui *widget_proxy = tw_shell_launch_widget(shell->interface, widget_surface,
 							    shell_output->output,
@@ -155,7 +158,8 @@ launch_widget(struct app_surface *panel_surf)
 	nk_cairo_impl_app_surface(&info->widget->widget, shell->widget_backend,
 				  info->widget->draw_cb, &shell->pool,
 				  info->widget->w, info->widget->h, info->x, info->y,
-				  shell_output->scale);
+				  shell_output->scale,
+				  NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER);
 
 	app_surface_frame(&info->widget->widget, false);
 
@@ -287,7 +291,8 @@ shell_panel_configure(void *data, struct tw_ui *tw_ui,
 		shell_widget_activate(widget, panel, &shell->globals.event_queue);
 
 	nk_cairo_impl_app_surface(panel, output->panel_backend, shell_panel_frame,
-				  &output->pool, width, height, 0, 0, output->scale);
+				  &output->pool, width, height, 0, 0, output->scale,
+				  NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER);
 	/* nk_egl_impl_app_surface(panel, output->panel_backend, shell_panel_frame, */
 	/*			width, height, 0 ,0); */
 	nk_wl_test_draw(output->panel_backend, panel, shell_panel_measure_leading);
@@ -317,7 +322,8 @@ static struct tw_ui_listener shell_panel_impl = {
 };
 
 static struct tw_ui_listener shell_background_impl = {
-	.configure = shell_background_configure
+	.configure = shell_background_configure,
+	.close = shell_background_should_close,
 };
 
 
