@@ -1,3 +1,8 @@
+#cmake for libweston
+#
+#this cmake script is still adequate unitl weston-7, in which they changed again
+#the interface, re-arranged header files.
+
 find_package(PkgConfig)
 
 pkg_search_module(Libweston libweston-6 libweston-5 libweston-4 libweston>=4 REQUIRED)

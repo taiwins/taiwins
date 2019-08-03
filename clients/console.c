@@ -153,7 +153,8 @@ start_console(void *data,
 			 &console->globals);
 	surface->wl_globals = &console->globals;
 	nk_egl_impl_app_surface(surface, console->bkend, draw_console,
-				w, h, 0, 0, 1);
+				w, h, 0, 0, 1,
+				NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER);
 	app_surface_frame(surface, false);
 }
 
@@ -196,7 +197,7 @@ init_console(struct desktop_console *console)
 							  sizeof(struct taiwins_decision_key),
 							  TW_CONSOLE_CONF_NUM_DECISIONS);
 
-	console->bkend = nk_egl_create_backend(console->globals.display, NULL);
+	console->bkend = nk_egl_create_backend(console->globals.display);
 	nk_textedit_init_fixed(&console->text_edit, console->chars, 256);
 }
 
