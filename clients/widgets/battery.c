@@ -71,10 +71,14 @@ battery_sysfile_find(struct shell_widget *widget, char *path)
 		return 0;
 	}
 	batt = dir_find_pattern(dir, "BAT%d", &bat_no);
+	if (!batt)
+		return 0;
 	strncpy(batt_file, batt->d_name, 128);
 	seekdir(dir, 0);
 
 	batt = dir_find_pattern(dir, "ADP%d", &adp_no);
+	if (!batt)
+		return 0;
 	strncpy(adp_file, batt->d_name, 128);
 	closedir(dir);
 

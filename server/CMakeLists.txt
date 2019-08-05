@@ -44,3 +44,7 @@ target_link_libraries(taiwins
   twconsole
   taiwins_desktop
   )
+
+
+add_library(bindings
+  bindings.c)

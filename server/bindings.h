@@ -28,7 +28,7 @@ extern "C" {
  * /brief key press types
  */
 struct tw_key_press {
-	xkb_keycode_t keycode;
+	uint32_t keycode;
 	uint32_t modifier;
 };
 
@@ -73,6 +73,7 @@ struct tw_press {
 
 typedef weston_button_binding_handler_t tw_btn_binding;
 typedef weston_axis_binding_handler_t tw_axis_binding;
+typedef weston_touch_binding_handler_t tw_touch_binding;
 /* we provide additional extensions to keyboard bindings */
 typedef void (*tw_key_binding)(struct weston_keyboard *keyboard,
 			       const struct timespec *time, uint32_t key,
@@ -101,6 +102,10 @@ bool tw_bindings_add_axis(struct tw_bindings *root,
 			  const tw_axis_binding binding,
 			  void *data);
 
+bool tw_bindings_add_touch(struct tw_bindings *root,
+			   enum weston_keyboard_modifier modifier,
+			   const tw_touch_binding binding,
+			   void *data);
 
 
 struct tw_press tw_bindings_parse_str(const char *code_str, const enum tw_binding_type type);
