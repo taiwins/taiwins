@@ -16,7 +16,6 @@
 struct taiwins_config {
 	struct weston_compositor *compositor;
 	lua_State *L;
-	vector_t bindings;
 	//this is the place to store all the lua functions
 	vector_t lua_bindings;
 	//we need this variable to mark configurator failed
@@ -26,6 +25,8 @@ struct taiwins_config {
 	//we will have quit a few data field
 	bool default_floating;
 	bool quit;
+	//this huge struct
+	struct taiwins_binding builtin_bindings[TW_BUILTIN_BINDING_SIZE];
 };
 
 #define REGISTER_METHOD(l, name, func)		\
@@ -67,6 +68,7 @@ parse_binding(struct taiwins_binding *b, const char *seq_string)
 }
 
 
+/*
 void
 taiwins_config_register_binding(struct taiwins_config *config,
 				const char *name, void *func)
@@ -92,6 +94,7 @@ taiwins_config_find_binding(struct taiwins_config *c, const char *name)
 	}
 	return b;
 }
+*/
 
 //////////////////////////////////////////////////////////////////
 ////////////////////// server functions //////////////////////////
