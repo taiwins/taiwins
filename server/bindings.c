@@ -140,34 +140,32 @@ static struct weston_keyboard_grab_interface tw_keybinding_grab = {
 };
 
 
-static void tw_start_keybinding(struct weston_keyboard *keyboard,
-				const struct timespec *time,
-				uint32_t key,
-				void *data)
+static void
+tw_start_keybinding(struct weston_keyboard *keyboard,
+		    const struct timespec *time,
+		    uint32_t key,
+		    void *data)
 {
+	//if you read the code of libweston, in the function
+	//weston_compositor_run_key_binding it does a little trick. Because the
+	//grab is called right after, so it installs a special grab to swallow
+	//the key and free it. But this only happens if and only if user does
+	//not install a grab in the keybinding, which is what we are exactly
+	//doing here.
+
+	//so when ever the keybinding is called here, we know for sure we want
+	//to start a key binding sequence now.
+
+	//The grab is very powerful, you can use it to implement things like
+	//double click
 	struct tw_bindings *bindings = data;
-
-	if (keyboard->grab != &keyboard->default_grab)
-		return;
-	xkb_keycode_t keycode = kc_linux2xkb(key);
-	uint32_t mod_mask = modifier_mask_from_xkb_state(keyboard->xkb_state.state);
-	//now we simply need to find the
-	for (int i = 0; i < vtree_len(&(bindings->root_node->node)); i++) {
-		struct tw_binding_node *node =
-			vtree_container(vtree_ith_child(&(bindings->root_node->node), i));
-		//we examing that then
-		if (node->modifier == mod_mask && node->keycode == keycode) {
-			struct keybinding_container *container =
-				malloc(sizeof(struct keybinding_container));
-			container->node = node;
-			container->grab.interface = &tw_keybinding_grab;
-			weston_keyboard_start_grab(keyboard, &container->grab);
-			break;
-		}
-	}
-
+	struct keybinding_container *container =
+		malloc(sizeof(struct keybinding_container));
+	container->node = bindings->root_node;
+	container->grab.interface = &tw_keybinding_grab;
+	weston_keyboard_start_grab(keyboard,
+				   &container->grab);
 }
-
 
 
 /////////////////////////////////////////////////////////////////////
@@ -304,7 +302,7 @@ tw_bindings_add_key(struct tw_bindings *root,
 		if (hit == -1 && i == 0) {
 			weston_compositor_add_key_binding(
 				root->ec, linux_code, mod,
-				tw_start_keybinding, data);
+				tw_start_keybinding, root);
 		}
 		if (hit == -1) {
 			//add node to the system
@@ -333,4 +331,17 @@ tw_bindings_add_key(struct tw_bindings *root,
 		}
 	}
 	return true;
+}
+
+
+static void print_node(const struct vtree_node *n)
+{
+	const struct tw_binding_node *node = container_of(n, const struct tw_binding_node, node);
+	fprintf(stderr, "%d, %d\n", node->keycode-8, node->modifier);
+}
+
+void
+tw_bindings_print(struct tw_bindings *root)
+{
+	vtree_print(&root->root_node->node, print_node, 0);
 }

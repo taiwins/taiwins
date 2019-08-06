@@ -30,10 +30,11 @@ target_include_directories(taiwins_desktop PRIVATE
 
 add_executable(taiwins
   main.c
-  input.c
   backend.c
   taiwins.c
   config.c
+  bindings.c
+  parser.c
   )
 
 
@@ -44,7 +45,3 @@ target_link_libraries(taiwins
   twconsole
   taiwins_desktop
   )
-
-
-add_library(bindings
-  bindings.c)

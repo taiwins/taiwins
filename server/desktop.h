@@ -2,6 +2,7 @@
 #define TW_DESKTOP_H
 
 #include "shell.h"
+#include "bindings.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -18,15 +19,10 @@ struct desktop *announce_desktop(struct weston_compositor *compositor);
 void end_desktop(struct desktop *desktop);
 
 
-void desktop_add_bindings(struct desktop *d, struct tw_binding_node *key_bindings,
-			  struct tw_binding_node *btn_bindings,
-			  struct tw_binding_node *axis_bindings,
-			  struct tw_binding_node *touch_bindings);
+void desktop_add_bindings(struct desktop *d, struct tw_bindings *bindings);
 
-void console_add_bindings(struct console *d, struct tw_binding_node *key_bindings,
-			  struct tw_binding_node *btn_bindings,
-			  struct tw_binding_node *axis_bindings,
-			  struct tw_binding_node *touch_bindings);
+void console_add_bindings(struct console *d, struct tw_bindings *key_bindings);
+
 
 
 #ifdef  __cplusplus

@@ -9,7 +9,7 @@
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-compose.h>
 #include <xkbcommon/xkbcommon-names.h>
-#include "input.h"
+#include "bindings.h"
 #include "config.h"
 
 
@@ -55,7 +55,7 @@ parse_binding(struct taiwins_binding *b, const char *seq_string)
 	bool parsed = true;
 	while (c != NULL && count < 5 && parsed) {
 		parsed = parsed &&
-			parse_one_press(c, b->type, &b->press[count]);
+			tw_parse_binding(c, b->type, &b->press[count]);
 		c = strtok_r(NULL, " ,;", &save_ptr);
 		count += (parsed) ? 1 : 0;
 	}
