@@ -9,7 +9,7 @@
 
 #include "taiwins.h"
 #include "shell.h"
-#include "input.h"
+#include "bindings.h"
 
 struct shell_ui {
 	struct wl_resource *resource;
@@ -504,7 +504,7 @@ launch_shell_client(void *data)
 }
 
 static void
-zoom_axis(struct weston_pointer *pointer, uint32_t option,
+zoom_axis(struct weston_pointer *pointer, const struct timespec *time,
 	   struct weston_pointer_axis_event *event, void *data)
 {
 	struct weston_compositor *ec = pointer->seat->compositor;
@@ -545,18 +545,15 @@ zoom_axis(struct weston_pointer *pointer, uint32_t option,
 
 
 void
-add_shell_bindings(struct shell *shell,
-		   struct tw_binding_node *key_bindings,
-		   struct tw_binding_node *btn_bindings,
-		   struct tw_binding_node *axis_bindings,
-		   struct tw_binding_node *touch_bindings)
+shell_add_bindings(struct shell *shell,
+		   struct tw_bindings *bindings)
 {
 	//the lookup binding
 	struct tw_axis_motion motion;
 	//add the zoom binding
 	motion.modifier = MODIFIER_CTRL | MODIFIER_SUPER;
 	motion.axis_event = WL_POINTER_AXIS_VERTICAL_SCROLL;
-	tw_binding_add_axis(axis_bindings, &motion, zoom_axis, 0, shell);
+	tw_bindings_add_axis(bindings, &motion, zoom_axis, shell);
 }
 
 

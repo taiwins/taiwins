@@ -107,8 +107,11 @@ bool tw_bindings_add_touch(struct tw_bindings *root,
 			   const tw_touch_binding binding,
 			   void *data);
 
+void tw_bindings_print(struct tw_bindings *root);
 
-struct tw_press tw_bindings_parse_str(const char *code_str, const enum tw_binding_type type);
+
+bool tw_parse_binding(const char *code_str, const enum tw_binding_type type,
+		      struct tw_press *press);
 
 
 #ifdef  __cplusplus

@@ -8,6 +8,7 @@
 #include <wayland-server.h>
 #include <wayland-taiwins-desktop-server-protocol.h>
 
+#include "bindings.h"
 #include "taiwins.h"
 #include "shell.h"
 
@@ -108,8 +109,8 @@ bind_console(struct wl_client *client, void *data, uint32_t version, uint32_t id
 }
 
 static void
-should_start_console(struct weston_keyboard *keyboard,
-		     uint32_t option, void *data)
+should_start_console(struct weston_keyboard *keyboard, const struct timespec *time,
+		     uint32_t key, uint32_t option, void *data)
 {
 	struct console *lch = data;
 	if (!lch->client) //we do not have a console
@@ -155,14 +156,10 @@ struct console *announce_console(struct weston_compositor *compositor,
 }
 
 
-void console_add_bindings(struct console *c, struct tw_binding_node *key_bindings,
-			  struct tw_binding_node *btn_bindings,
-			  struct tw_binding_node *axis_bindings,
-			  struct tw_binding_node *touch_bindings)
+void console_add_bindings(struct console *c, struct tw_bindings *bindings)
 {
 	struct tw_key_press open_console[MAX_KEY_SEQ_LEN] = {
-		{KEY_P+8, MODIFIER_CTRL}, {0}, {0}, {0}, {0}
+		{KEY_P, MODIFIER_CTRL}, {0}, {0}, {0}, {0}
 	};
-	tw_binding_add_key(key_bindings, open_console, should_start_console, 0, c);
-
+	tw_bindings_add_key(bindings, open_console, should_start_console, 0, c);
 }

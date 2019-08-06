@@ -37,7 +37,7 @@
 
 *** DONE change the ui element start or close implimentation
 
-* [12%] Stage two: feature completion
+* TODO [12%] Stage two: feature completion
   - supporting multiple monitors/seats.
   - weston view focus defocus
   - a few different extensions.
@@ -48,7 +48,7 @@
 ** TODO fix the memory leak in the ~taiwins_server~, massive leaks related to console implementation
 ** DONE renaming tw_shell -> shell, tw_desktop -> desktop.
    so the protocols can directly use tw_shell instead of taiwins_shell
-** DOIN [66%] server-side optimization
+** TODO [77%] server-side optimization
 *** DONE rename all the ctype functions.
     I did move them into uppercase macros.
 
@@ -63,7 +63,7 @@
     - maximizing.
     - minimizing
     - recent views
-*** TODO switch bindings into our ~run_binding~ callbacks
+*** DONE switch bindings into our ~run_binding~ callbacks
     We want to implement the emacs kind of input handling. It seems using grab
     is the way to achive that.
 *** DONE have functional workspace implementation
@@ -78,7 +78,7 @@
     - background color.
     - Font size, font selection.
 *** DONE keyboard callbacks, this writes to a buffer, apparently.
-*** TODO shortcuts `taiwins_zoom`, `taiwins_alpha`. Move them into ~config.h~
+*** TODO move all the binding names in the config, so we can freeze ~desktop.c~
 
 ** DOIN [71%] libweston-desktop implementation                       :server:
 *** DOIN implement the libweston-desktop protocol                     :proto:

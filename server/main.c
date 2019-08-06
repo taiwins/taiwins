@@ -21,8 +21,7 @@
 #include "desktop.h"
 #include "taiwins.h"
 #include "config.h"
-#include "input.h"
-
+#include "bindings.h"
 
 //remove this two later
 
@@ -117,27 +116,15 @@ int main(int argc, char *argv[], char *envp[])
 	struct shell *sh = announce_shell(compositor, shellpath);
 	struct console *con = announce_console(compositor, sh, launcherpath);
 	struct desktop *desktop = announce_desktop(compositor);
+	struct tw_bindings *bindings = tw_bindings_create(compositor);
 	(void)(con);
 
-	//deal with bindings
-	struct tw_binding_node *keybindings = xmalloc(sizeof(struct tw_binding_node));
-	tw_binding_node_init(keybindings); //init as root
+	shell_add_bindings(sh, bindings);
+	desktop_add_bindings(desktop, bindings);
+	console_add_bindings(con, bindings);
 
-	struct tw_binding_node *btnbindings = xmalloc(sizeof(struct tw_binding_node));
-	tw_binding_node_init(btnbindings);
-	btnbindings->type = TW_BINDING_btn;
+	tw_bindings_print(bindings);
 
-	struct tw_binding_node *axis_bindings = xmalloc(sizeof(struct tw_binding_node));
-	tw_binding_node_init(axis_bindings);
-	axis_bindings->type = TW_BINDING_axis;
-
-	add_shell_bindings(sh, keybindings, btnbindings, axis_bindings, NULL);
-	desktop_add_bindings(desktop, keybindings, btnbindings, axis_bindings, NULL);
-	console_add_bindings(con, keybindings, btnbindings, axis_bindings, NULL);
-
-	tw_bindings_apply_to_compositor(keybindings, compositor);
-	tw_bindings_apply_to_compositor(btnbindings, compositor);
-	tw_bindings_apply_to_compositor(axis_bindings, compositor);
 	compositor->kb_repeat_delay = 400;
 	compositor->kb_repeat_rate = 40;
 
@@ -153,9 +140,7 @@ int main(int argc, char *argv[], char *envp[])
 	// - weston_compositor_shutdown: remove all the bindings, output, renderer,
 	// - weston_compositor_destroy, this call finally free the compositor
 	end_desktop(desktop);
-	tw_binding_destroy_nodes(keybindings);
-	tw_binding_destroy_nodes(btnbindings);
-	tw_binding_destroy_nodes(axis_bindings);
+	tw_bindings_destroy(bindings);
 
 	/* weston_compositor_shutdown(compositor); */
 	weston_compositor_destroy(compositor);

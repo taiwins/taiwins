@@ -11,6 +11,7 @@
 
 #include "../taiwins.h"
 #include "../desktop.h"
+#include "../bindings.h"
 #include "layout.h"
 #include "workspace.h"
 
@@ -555,7 +556,8 @@ desktop_alpha_axis(struct weston_pointer *pointer,
 }
 
 static void
-desktop_move_btn(struct weston_pointer *pointer, uint32_t option, void *data)
+desktop_click_move(struct weston_pointer *pointer,
+		 const struct timespec *time, uint32_t button, void *data)
 {
 	struct grab_interface *gi = NULL;
 	struct weston_seat *seat = pointer->seat;
@@ -571,7 +573,8 @@ desktop_move_btn(struct weston_pointer *pointer, uint32_t option, void *data)
 
 static void
 desktop_click_activate_view(struct weston_pointer *pointer,
-			    uint32_t option, void *data)
+			    const struct timespec *time,
+			    uint32_t button, void *data)
 {
 	struct desktop *desktop = data;
 	struct workspace *ws = desktop->actived_workspace[0];
@@ -592,7 +595,8 @@ desktop_click_activate_view(struct weston_pointer *pointer,
 
 static void
 desktop_touch_activate_view(struct weston_touch *touch,
-			    uint32_t option, void *data)
+			    const struct timespec *time,
+			    void *data)
 {
 	struct desktop *desktop = data;
 	if (touch->grab != &touch->default_grab || !touch->focus)
@@ -611,7 +615,9 @@ desktop_touch_activate_view(struct weston_touch *touch,
 
 static void
 desktop_workspace_switch(struct weston_keyboard *keyboard,
-			 uint32_t option, void *data)
+			 const struct timespec *time,
+			 uint32_t key, uint32_t option,
+			 void *data)
 {
 	struct desktop *desktop = data;
 	struct workspace *ws = desktop->actived_workspace[0];
@@ -628,7 +634,9 @@ desktop_workspace_switch(struct weston_keyboard *keyboard,
 
 static void
 desktop_workspace_switch_recent(struct weston_keyboard *keyboard,
-				uint32_t option, void *data)
+				const struct timespec *time,
+				uint32_t key, uint32_t option,
+				void *data)
 {
 	struct desktop *desktop = data;
 	SWAP(desktop->actived_workspace[0], desktop->actived_workspace[1]);
@@ -643,6 +651,7 @@ enum desktop_view_resize_option {
 
 static void
 desktop_view_resize(struct weston_keyboard *keyboard,
+		    const struct timespec *time, uint32_t key,
 		    uint32_t option, void *data)
 {
 	//as a keybinding, we only operate on the lower button of the view
@@ -675,7 +684,9 @@ desktop_view_resize(struct weston_keyboard *keyboard,
 }
 
 static void
-desktop_toggle_vertical(struct weston_keyboard *keyboard, uint32_t option, void *data)
+desktop_toggle_vertical(struct weston_keyboard *keyboard,
+			const struct timespec *time, uint32_t key,
+			uint32_t option, void *data)
 {
 	struct desktop *desktop = data;
 	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
@@ -687,7 +698,9 @@ desktop_toggle_vertical(struct weston_keyboard *keyboard, uint32_t option, void 
 }
 
 static void
-desktop_toggle_floating(struct weston_keyboard *keyboard, uint32_t option, void *data)
+desktop_toggle_floating(struct weston_keyboard *keyboard,
+			const struct timespec *time, uint32_t key,
+			uint32_t option, void *data)
 {
 	struct desktop *desktop = data;
 	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
@@ -697,7 +710,9 @@ desktop_toggle_floating(struct weston_keyboard *keyboard, uint32_t option, void 
 }
 
 static void
-desktop_split_view(struct weston_keyboard *keyboard, uint32_t option, void *data)
+desktop_split_view(struct weston_keyboard *keyboard,
+		   const struct timespec *time, uint32_t key,
+		   uint32_t option, void *data)
 {
 	struct desktop *desktop = data;
 	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
@@ -713,7 +728,9 @@ desktop_split_view(struct weston_keyboard *keyboard, uint32_t option, void *data
 }
 
 static void
-desktop_merge_view(struct weston_keyboard *keyboard, uint32_t option, void *data)
+desktop_merge_view(struct weston_keyboard *keyboard,
+		   const struct timespec *time, uint32_t key,
+		   uint32_t option, void *data)
 {
 	struct desktop *desktop = data;
 	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
@@ -726,7 +743,9 @@ desktop_merge_view(struct weston_keyboard *keyboard, uint32_t option, void *data
 }
 
 static void
-desktop_recent_view(struct weston_keyboard *keyboard, uint32_t option, void *data)
+desktop_recent_view(struct weston_keyboard *keyboard,
+		    const struct timespec *time, uint32_t key,
+		    uint32_t option, void *data)
 {
 	struct desktop *desktop = data;
 	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
@@ -742,74 +761,69 @@ desktop_recent_view(struct weston_keyboard *keyboard, uint32_t option, void *dat
 }
 
 void
-desktop_add_bindings(struct desktop *d, struct tw_binding_node *key_bindings,
-		     struct tw_binding_node *btn_bindings,
-		     struct tw_binding_node *axis_bindings,
-		     struct tw_binding_node *touch_bindings)
+desktop_add_bindings(struct desktop *d, struct tw_bindings *bindings)
 {
-	//moving btn
-	struct tw_btn_press move_press[MAX_KEY_SEQ_LEN] = {
-		{BTN_LEFT, MODIFIER_SUPER}, {0}, {0}, {0}, {0}
-	};
-	tw_binding_add_btn(btn_bindings, move_press, desktop_move_btn, 0, d);
-	//double tap focus
-	struct tw_btn_press focus_press[MAX_KEY_SEQ_LEN] = {
-		{BTN_LEFT, 0}, {BTN_LEFT, 0}, {0}, {0}, {0}
-	};
-	tw_binding_add_btn(btn_bindings, focus_press, desktop_click_activate_view,
-			   0, d);
+	struct tw_btn_press move_press = {BTN_LEFT, MODIFIER_SUPER,};
+	tw_bindings_add_btn(bindings, &move_press, desktop_click_move, d);
+
+	//activate views
+	struct tw_btn_press focus_press = {BTN_LEFT, 0};
+	tw_bindings_add_btn(bindings, &focus_press,
+			    desktop_click_activate_view, d);
+	tw_bindings_add_touch(bindings, 0, desktop_touch_activate_view, d);
 	//switch workspace
 	struct tw_key_press switch_ws_left[MAX_KEY_SEQ_LEN] = {
-		{KEY_LEFT+8, MODIFIER_CTRL}, {0}, {0}, {0}, {0}
+		{KEY_LEFT, MODIFIER_CTRL}, {0}, {0}, {0}, {0}
 	};
 	struct tw_key_press switch_ws_right[MAX_KEY_SEQ_LEN] = {
-		{KEY_RIGHT+8, MODIFIER_CTRL}, {0}, {0}, {0}, {0}
+		{KEY_RIGHT, MODIFIER_CTRL}, {0}, {0}, {0}, {0}
 	};
 	struct tw_key_press switch_ws_back[MAX_KEY_SEQ_LEN] = {
-		{KEY_B+8, MODIFIER_SUPER | MODIFIER_ALT},
-		{KEY_B+8, MODIFIER_SUPER | MODIFIER_ALT}, {0}, {0}, {0}
+		{KEY_B, MODIFIER_SUPER | MODIFIER_ALT},
+		{KEY_B, MODIFIER_SUPER | MODIFIER_ALT}, {0}, {0}, {0}
 	};
 	struct tw_key_press resize_left[MAX_KEY_SEQ_LEN] = {
-		{KEY_LEFT+8, MODIFIER_ALT}, {0}, {0}, {0}, {0},
+		{KEY_LEFT, MODIFIER_ALT}, {0}, {0}, {0}, {0},
 	};
 	struct tw_key_press resize_right[MAX_KEY_SEQ_LEN] = {
-		{KEY_RIGHT+8, MODIFIER_ALT}, {0}, {0}, {0}, {0},
+		{KEY_RIGHT, MODIFIER_ALT}, {0}, {0}, {0}, {0},
 	};
 	struct tw_key_press toggle_vertical[MAX_KEY_SEQ_LEN] = {
-		{KEY_SPACE+8, MODIFIER_CTRL}, {0}, {0}, {0}, {0},
+		{KEY_SPACE, MODIFIER_CTRL}, {0}, {0}, {0}, {0},
 	};
 	struct tw_key_press toggle_floating[MAX_KEY_SEQ_LEN] = {
-		{KEY_SPACE+8, MODIFIER_ALT | MODIFIER_SHIFT},
+		{KEY_SPACE, MODIFIER_ALT | MODIFIER_SHIFT},
 		{0}, {0}, {0}, {0}
 	};
 	struct tw_key_press next_view[MAX_KEY_SEQ_LEN] = {
-		{KEY_J+8, MODIFIER_ALT | MODIFIER_SHIFT},
+		{KEY_J, MODIFIER_ALT | MODIFIER_SHIFT},
 	};
 	struct tw_key_press vsplit[MAX_KEY_SEQ_LEN] = {
-		{KEY_V+8, MODIFIER_CTRL},
+		{KEY_V, MODIFIER_CTRL},
 		{0}, {0}, {0}, {0},
 	};
 	struct tw_key_press hsplit[MAX_KEY_SEQ_LEN] = {
-		{KEY_H+8, MODIFIER_CTRL},
+		{KEY_H, MODIFIER_CTRL},
 		{0}, {0}, {0}, {0},
 	};
 	struct tw_key_press merge[MAX_KEY_SEQ_LEN] = {
-		{KEY_M+8, MODIFIER_CTRL},
+		{KEY_M, MODIFIER_CTRL},
 		{0}, {0}, {0}, {0}
 	};
-	tw_binding_add_key(key_bindings, switch_ws_left, desktop_workspace_switch,
-			   SWITCH_WS_LEFT, d);
-	tw_binding_add_key(key_bindings, switch_ws_right, desktop_workspace_switch,
-			   SWITCH_WS_RIGHT, d);
-	tw_binding_add_key(key_bindings, switch_ws_back, desktop_workspace_switch_recent,
+
+	tw_bindings_add_key(bindings, switch_ws_left, desktop_workspace_switch,
+			    SWITCH_WS_LEFT, d);
+	tw_bindings_add_key(bindings, switch_ws_right, desktop_workspace_switch,
+			    SWITCH_WS_RIGHT, d);
+	tw_bindings_add_key(bindings, switch_ws_back, desktop_workspace_switch_recent,
 			   0, d);
 
-	tw_binding_add_key(key_bindings, resize_left, desktop_view_resize, RESIZE_LEFT, d);
-	tw_binding_add_key(key_bindings, resize_right, desktop_view_resize, RESIZE_RIGHT, d);
-	tw_binding_add_key(key_bindings, toggle_vertical, desktop_toggle_vertical, 0, d);
-	tw_binding_add_key(key_bindings, toggle_floating, desktop_toggle_floating, 0, d);
-	tw_binding_add_key(key_bindings, next_view, desktop_recent_view, 0, d);
-	tw_binding_add_key(key_bindings, vsplit, desktop_split_view, 0, d);
-	tw_binding_add_key(key_bindings, hsplit, desktop_split_view, 1, d);
-	tw_binding_add_key(key_bindings, merge, desktop_merge_view, 0, d);
+	tw_bindings_add_key(bindings, resize_left, desktop_view_resize, RESIZE_LEFT, d);
+	tw_bindings_add_key(bindings, resize_right, desktop_view_resize, RESIZE_RIGHT, d);
+	tw_bindings_add_key(bindings, toggle_vertical, desktop_toggle_vertical, 0, d);
+	tw_bindings_add_key(bindings, toggle_floating, desktop_toggle_floating, 0, d);
+	tw_bindings_add_key(bindings, next_view, desktop_recent_view, 0, d);
+	tw_bindings_add_key(bindings, vsplit, desktop_split_view, 0, d);
+	tw_bindings_add_key(bindings, hsplit, desktop_split_view, 1, d);
+	tw_bindings_add_key(bindings, merge, desktop_merge_view, 0, d);
 }
