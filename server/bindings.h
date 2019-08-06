@@ -61,15 +61,7 @@ enum tw_binding_type {
 	TW_BINDING_tch,
 };
 
-struct tw_press {
-	union {
-		xkb_keycode_t keycode;
-		uint32_t btn;
-		enum wl_pointer_axis axis;
-		bool tch;
-	};
-	uint32_t modifier;
-};
+
 
 typedef weston_button_binding_handler_t tw_btn_binding;
 typedef weston_axis_binding_handler_t tw_axis_binding;
@@ -109,6 +101,16 @@ bool tw_bindings_add_touch(struct tw_bindings *root,
 
 void tw_bindings_print(struct tw_bindings *root);
 
+
+
+struct tw_press {
+	union {
+		struct tw_key_press keypress[MAX_KEY_SEQ_LEN];
+		struct tw_btn_press btnpress;
+		struct tw_axis_motion axisaction;
+	};
+	enum tw_binding_type type;
+};
 
 bool tw_parse_binding(const char *code_str, const enum tw_binding_type type,
 		      struct tw_press *press);
