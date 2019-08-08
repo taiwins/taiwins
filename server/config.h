@@ -15,33 +15,21 @@ extern "C" {
 struct taiwins_binding {
 	struct tw_press press;
 	char name[128];
+	//we should at least have a interface
+	union {
+		tw_btn_binding btn_func;
+		tw_axis_binding axis_func;
+		tw_touch_binding touch_func;
+		tw_key_binding key_func;
+	};
 	void *func;
+	void *user_data;
 };
-
-
-typedef int (*tw_binding_apply_t)(struct taiwins_binding *b, void *userdata);
-struct taiwins_config;
-
-
-struct taiwins_config *taiwins_config_create(struct weston_compositor *ec, log_func_t messenger);
-
-bool taiwins_run_config(struct taiwins_config *, const char *);
-
-void taiwins_config_destroy(struct taiwins_config *);
-
-void taiwins_apply_default_config(struct weston_compositor *ec);
-
-void taiwins_config_register_binding(struct taiwins_config *config,
-				     const char *name, void *func);
-
-bool taiwins_config_apply_bindings(struct taiwins_config *config,
-				   tw_binding_apply_t func, void *data);
-
 
 /////////////////////////////////////////////////////////
 // list of builtin bindings
 /////////////////////////////////////////////////////////
-enum taiwins_builtin_binding {
+enum taiwins_builtin_binding_t {
 	//console
 	TW_OPEN_CONSOLE_BINDING,
 	//shell
@@ -65,6 +53,38 @@ enum taiwins_builtin_binding {
 	//sizeof
 	TW_BUILTIN_BINDING_SIZE
 };
+
+
+typedef int (*tw_user_binding_t)(struct taiwins_binding *b);
+struct taiwins_config;
+typedef bool (*tw_binding_apply_func_t)(void *data, struct tw_bindings *bindings);
+
+struct taiwins_config *taiwins_config_create(struct weston_compositor *ec, log_func_t messenger);
+
+/**
+ * /brief run the config file, call this before apply bindings
+ */
+bool taiwins_run_config(struct taiwins_config *, const char *);
+
+void taiwins_apply_default_config(struct weston_compositor *ec);
+
+void taiwins_config_destroy(struct taiwins_config *);
+
+/* we seperate config with bindings. They don't point to each other */
+void taiwins_config_run_apply_binding(struct taiwins_config *, struct tw_bindings *);
+/**
+ * /brief get the configuration for keybinding
+ */
+const struct taiwins_binding *taiwins_config_get_builtin_binding(struct taiwins_config *,
+								 enum taiwins_builtin_binding_t);
+
+void taiwins_config_add_apply_binding(struct taiwins_config *, void *user_data);
+
+
+/* this is for registering lua functions */
+//it could be a keybinding, touch binding
+void taiwins_config_register_user_binding(struct taiwins_config *config,
+					  const char *name, void *func);
 
 
 //then you can add other bindings
