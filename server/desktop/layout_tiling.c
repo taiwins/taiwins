@@ -68,15 +68,6 @@ tiling_new_view(struct weston_view *v)
 	return tv;
 }
 
-static void
-tiling_destroy_view(void *data)
-{
-	struct tiling_view *view = data;
-	if (view->v)
-		weston_desktop_surface_unlink_view(view->v);
-	free(data);
-}
-
 static inline void
 tiling_free_view(struct tiling_view *v)
 {
@@ -84,12 +75,20 @@ tiling_free_view(struct tiling_view *v)
 }
 
 static void
-free_tiling_output(void *data)
+_free_tiling_output_view(void *data)
 {
-	struct tiling_output *output = data;
-	vtree_destroy(&output->root->node, tiling_destroy_view);
+	struct tiling_view *view = data;
+	if (view->v)
+		weston_desktop_surface_unlink_view(view->v);
+	free(data);
 }
 
+static void
+_free_tiling_output(void *data)
+{
+	struct tiling_output *output = data;
+	vtree_destroy(&output->root->node, _free_tiling_output_view);
+}
 
 void
 tiling_layout_init(struct layout *l, struct weston_layer *ly, struct layout *floating)
@@ -103,7 +102,7 @@ tiling_layout_init(struct layout *l, struct weston_layer *ly, struct layout *flo
 	l->command = emplace_tiling;
 	//change this, now you have to consider the option that someone unplug
 	//the monitor
-	vector_init(&user_data->outputs, sizeof(struct tiling_output), free_tiling_output);
+	vector_init(&user_data->outputs, sizeof(struct tiling_output), _free_tiling_output);
 }
 
 void
@@ -321,10 +320,11 @@ tiling_view_erase(struct tiling_view *view)
 			1.0 : leading + sv->portion;
 		leading += sv->portion;
 	}
-	//if the loop above was executed, This recursive code would not run. But
-	//otherwise, if this parent is a empty node: means 1) it is not root (it
-	//has parent). 2) It does not has children. 3) it has no view. Then this
-	//parent is safe to remove
+	//if the loop above was executed, This recursive code would not run.
+	//otherwise, It means this parent is a empty node:
+	// 1) it is not root (it has parent).
+	// 2) It does not has children.
+	// 3) it has no view. Then this parent is safe to remove
 	if (parent && !parent->v && !parent->node.children.len && parent->node.parent)
 		return tiling_view_erase(parent);
 	return parent;
@@ -393,6 +393,9 @@ static inline void
 tiling_view_shift(struct tiling_view *view, bool forward)
 {
 	vtree_node_shift(&view->node, forward);
+	if (view->node.parent)
+		tiling_update_children(
+			(struct tiling_view *)vtree_container(view->node.parent));
 }
 
 /**
@@ -654,6 +657,7 @@ tiling_merge(const enum layout_command command, const struct layout_op *arg,
 	     struct weston_view *v, struct layout *l,
 	     struct layout_op *ops)
 {
+	//remove current view and then insert at grandparent list
 	struct tiling_output *tiling_output = tiling_output_find(l, v->output);
 	struct tiling_view *view = tiling_view_find(tiling_output->root, v);
 	struct tiling_view *parent = container_of(view->node.parent,

@@ -29,6 +29,7 @@ struct console {
 	struct wl_shm_buffer *decision_buffer;
 	struct weston_surface *surface;
 	struct wl_listener close_console_listener;
+	struct wl_global *global;
 };
 
 static struct console CONSOLE;
@@ -88,8 +89,6 @@ unbind_console(struct wl_resource *r)
 static void
 bind_console(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
-	/* int pid, uid, gid; */
-	/* wl_client_get_credentials(client, &pid, &uid, &gid); */
 	struct console *console = data;
 	struct wl_resource *wl_resource = wl_resource_create(client, &tw_console_interface,
 							  TWDESKP_VERSION, id);
@@ -133,8 +132,19 @@ launch_console_client(void *data)
 	wl_client_get_credentials(console->client, &console->pid, &console->uid, &console->gid);
 }
 
+static void
+console_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *config)
+{
+	struct console *c = data;
+	const struct tw_key_press *open_console =
+		taiwins_config_get_builtin_binding(config, TW_OPEN_CONSOLE_BINDING)->keypress;
+	tw_bindings_add_key(bindings, open_console, should_start_console, 0, c);
+}
+
+
 struct console *announce_console(struct weston_compositor *compositor,
-				       struct shell *shell, const char *path)
+				 struct shell *shell, const char *path,
+				 struct taiwins_config *config)
 {
 	CONSOLE.surface = NULL;
 	CONSOLE.resource = NULL;
@@ -143,7 +153,9 @@ struct console *announce_console(struct weston_compositor *compositor,
 	wl_list_init(&CONSOLE.close_console_listener.link);
 	CONSOLE.close_console_listener.notify = console_surface_destroy_cb;
 
-	wl_global_create(compositor->wl_display, &tw_console_interface, TWDESKP_VERSION, &CONSOLE, bind_console);
+	CONSOLE.global =
+		wl_global_create(compositor->wl_display, &tw_console_interface, TWDESKP_VERSION, &CONSOLE,
+				 bind_console);
 
 	if (path) {
 		assert(strlen(path) +1 <= sizeof(CONSOLE.path));
@@ -151,15 +163,7 @@ struct console *announce_console(struct weston_compositor *compositor,
 		struct wl_event_loop *loop = wl_display_get_event_loop(compositor->wl_display);
 		wl_event_loop_add_idle(loop, launch_console_client, &CONSOLE);
 	}
-
+	taiwins_config_register_bindings_funcs(config, taiwins_config_get_bindings(config), console_add_bindings, &CONSOLE);
 	return &CONSOLE;
-}
-
-
-void console_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *config)
-{
-	struct console *c = data;
-	const struct tw_key_press *open_console =
-		taiwins_config_get_builtin_binding(config, TW_OPEN_CONSOLE_BINDING)->keypress;
-	tw_bindings_add_key(bindings, open_console, should_start_console, 0, c);
+	//TODO register the destroy signal
 }

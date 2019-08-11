@@ -545,7 +545,7 @@ zoom_axis(struct weston_pointer *pointer, const struct timespec *time,
 }
 
 
-void
+static void
 shell_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c)
 {
 	struct shell *shell = data;
@@ -561,7 +561,8 @@ shell_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_conf
  * We should start the client at this point as well.
  */
 struct shell*
-announce_shell(struct weston_compositor *ec, const char *path)
+announce_shell(struct weston_compositor *ec, const char *path,
+	struct taiwins_config *config)
 {
 	oneshell.ec = ec;
 	oneshell.ready = false;
@@ -594,6 +595,7 @@ announce_shell(struct weston_compositor *ec, const char *path)
 		wl_list_for_each(output, &ec->output_list, link)
 			shell_output_created(&oneshell.output_create_listener, output);
 	}
-
+	taiwins_config_register_bindings_funcs(config, taiwins_config_get_bindings(config),
+					       shell_add_bindings, &oneshell);
 	return &oneshell;
 }
