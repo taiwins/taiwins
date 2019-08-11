@@ -12,11 +12,11 @@ include_directories(cursor)
 
 
 
-add_executable(test_xkbcommon
-  test-xkbcommon.c
-  input.c
-  input_data.c
-  )
+# add_executable(test_xkbcommon
+#   test-xkbcommon.c
+#   input.c
+#   input_data.c
+#   )
 
 add_executable(test_hash
   testhash.c
@@ -25,12 +25,12 @@ target_link_libraries(test_hash
   ${TRDPTY_LIBRARIES}
   )
 
-target_link_libraries(test_xkbcommon
-  ${CLIENT_LIBRARIES}
-  ${TRDPTY_LIBRARIES}
-  twcursor
-  m
-  )
+# target_link_libraries(test_xkbcommon
+#   ${CLIENT_LIBRARIES}
+#   ${TRDPTY_LIBRARIES}
+#   twcursor
+#   m
+#   )
 
 add_executable(test_cairo
   cairo_tutorial.c
@@ -57,15 +57,15 @@ target_link_libraries(test_pixman
   ${CLIENT_LIBARARIES})
 
 
-add_executable(test_input
-  test-input_nosurface.c
-  input.1.c
-  )
+# add_executable(test_input
+#   test-input_nosurface.c
+#   input.1.c
+#   )
 
-target_link_libraries(test_input
-  ${CLIENT_LIBRARIES}
-  ${TRDPTY_LIBRARIES}
-  )
+# target_link_libraries(test_input
+#   ${CLIENT_LIBRARIES}
+#   ${TRDPTY_LIBRARIES}
+#   )
 
 
 add_executable(test_fontconfig

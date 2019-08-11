@@ -8,8 +8,9 @@
 #include <linux/input.h>
 
 #include "taiwins.h"
-#include "shell.h"
+#include "desktop.h"
 #include "bindings.h"
+#include "config.h"
 
 struct shell_ui {
 	struct wl_resource *resource;
@@ -545,14 +546,11 @@ zoom_axis(struct weston_pointer *pointer, const struct timespec *time,
 
 
 void
-shell_add_bindings(struct shell *shell,
-		   struct tw_bindings *bindings)
+shell_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c)
 {
+	struct shell *shell = data;
 	//the lookup binding
-	struct tw_axis_motion motion;
-	//add the zoom binding
-	motion.modifier = MODIFIER_CTRL | MODIFIER_SUPER;
-	motion.axis_event = WL_POINTER_AXIS_VERTICAL_SCROLL;
+	struct tw_axis_motion motion = taiwins_config_get_builtin_binding(c, TW_ZOOM_AXIS_BINDING)->axisaction;
 	tw_bindings_add_axis(bindings, &motion, zoom_axis, shell);
 }
 

@@ -34,7 +34,7 @@ add_executable(taiwins
   taiwins.c
   config.c
   bindings.c
-  parser.c
+  # parser.c
   )
 
 

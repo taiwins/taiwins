@@ -8,9 +8,9 @@
 #include <wayland-server.h>
 #include <wayland-taiwins-desktop-server-protocol.h>
 
-#include "bindings.h"
 #include "taiwins.h"
-#include "shell.h"
+#include "desktop.h"
+#include "config.h"
 
 
 /**
@@ -156,10 +156,10 @@ struct console *announce_console(struct weston_compositor *compositor,
 }
 
 
-void console_add_bindings(struct console *c, struct tw_bindings *bindings)
+void console_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *config)
 {
-	struct tw_key_press open_console[MAX_KEY_SEQ_LEN] = {
-		{KEY_P, MODIFIER_CTRL}, {0}, {0}, {0}, {0}
-	};
+	struct console *c = data;
+	const struct tw_key_press *open_console =
+		taiwins_config_get_builtin_binding(config, TW_OPEN_CONSOLE_BINDING)->keypress;
 	tw_bindings_add_key(bindings, open_console, should_start_console, 0, c);
 }
