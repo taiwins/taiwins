@@ -18,6 +18,7 @@
 
 struct taiwins_config {
 	struct weston_compositor *compositor;
+	struct tw_bindings *bindings;
 	lua_State *L;
 	//we need this variable to mark configurator failed
 	log_func_t print;
@@ -96,7 +97,18 @@ to_user_config(lua_State *L)
 	lua_pop(L, 1);
 	return c;
 }
-/*
+
+static struct taiwins_binding *
+taiwins_config_find_binding(struct taiwins_config *config,
+			    const char *name)
+{
+	for (int i = 0; i < TW_BUILTIN_BINDING_SIZE; i++) {
+		if (strcmp(config->builtin_bindings[i].name, name) == 0)
+			return &config->builtin_bindings[i];
+	}
+	return NULL;
+}
+
 static inline int
 _lua_bind(lua_State *L, enum tw_binding_type binding_type)
 {
@@ -104,13 +116,13 @@ _lua_bind(lua_State *L, enum tw_binding_type binding_type)
 	struct taiwins_config *cd = to_user_config(L);
 	struct taiwins_binding *binding_to_find = NULL;
 	const char *key = NULL;
-	//matching string, or lua function
-	if (lua_isstring(L, 2)) {
+
+	if (lua_isstring(L, 2)) { //if it is a built-in binding
 		key = lua_tostring(L, 2);
 		binding_to_find = taiwins_config_find_binding(cd, key);
 		if (!binding_to_find || binding_to_find->type != binding_type)
 			goto err_binding;
-	} else if (lua_isfunction(L, 2) && !lua_iscfunction(L, 2)) {
+	} else if (lua_isfunction(L, 2) && !lua_iscfunction(L, 2)) { //user binding
 		//we need to find a way to store this function
 		//push the value and store it in the register with a different name
 		lua_pushvalue(L, 2);
@@ -122,8 +134,9 @@ _lua_bind(lua_State *L, enum tw_binding_type binding_type)
 	} else
 		goto err_binding;
 	const char *binding_seq = lua_tostring(L, 3);
-	if (!binding_seq || !parse_binding(binding_to_find, binding_seq))
-		goto err_binding;
+
+	/* if (!binding_seq || !parse_binding(binding_to_find, binding_seq)) */
+	/*	goto err_binding; */
 	return 0;
 err_binding:
 	cd->quit = true;
@@ -154,11 +167,13 @@ _lua_bind_tch(lua_State *L)
 	return _lua_bind(L, TW_BINDING_tch);
 }
 
+/*
 static int
 _lua_noop(lua_State *L)
 {
 	return 0;
 }
+*/
 
 static int
 _lua_set_keyboard_model(lua_State *L)
@@ -199,6 +214,9 @@ _lua_set_keyboard_options(lua_State *L)
 	return 0;
 }
 
+
+
+/* usage: compositor.set_repeat_info(100, 40) */
 static int
 _lua_set_repeat_info(lua_State *L)
 {
@@ -218,7 +236,6 @@ _lua_set_repeat_info(lua_State *L)
 }
 
 
-
 static int
 _lua_get_config(lua_State *L)
 {
@@ -234,7 +251,6 @@ _lua_get_config(lua_State *L)
 	return 1;
 }
 
-*/
 //////////////////////////////////////////////////////////////////
 ////////////////////////////// API ///////////////////////////////
 //////////////////////////////////////////////////////////////////
@@ -332,20 +348,22 @@ taiwins_config_apply_default(struct taiwins_config *c)
 struct taiwins_config*
 taiwins_config_create(struct weston_compositor *ec, log_func_t log)
 {
-	/* lua_State *L = luaL_newstate(); */
-	/* if (!L) */
-	/*	return NULL; */
-	/* luaL_openlibs(L); */
-	struct taiwins_config *config =
-		calloc(1, sizeof(struct taiwins_config));
+	lua_State *L = NULL;
+	struct taiwins_config *config = NULL;
+
+	L = luaL_newstate();
+	if (!L)
+		return NULL;
+	luaL_openlibs(L);
+	config = calloc(1, sizeof(struct taiwins_config));
+	config->L = L;
 	config->compositor = ec;
 	config->print = log;
 	config->quit = false;
 	wl_list_init(&config->apply_bindings);
-	/* config->L = L; */
 	taiwins_config_apply_default(config);
-	/*
 	vector_init(&config->lua_bindings, sizeof(struct taiwins_binding), NULL);
+
 	//we can make this into a light-user-data
 	lua_pushlightuserdata(L, config);
 	//now we have zero elements on stack
@@ -369,10 +387,9 @@ taiwins_config_create(struct weston_compositor *ec, log_func_t log)
 	lua_pushcfunction(L, _lua_get_config);
 	lua_setfield(L, LUA_GLOBALSINDEX, "require_compositor");
 	lua_pop(L, 1);
-	*/
+
 	return config;
 }
-
 
 void
 taiwins_config_destroy(struct taiwins_config *config)
@@ -386,19 +403,30 @@ taiwins_config_destroy(struct taiwins_config *config)
 		free((void *)config->rules.options);
 	if (config->rules.variant)
 		free((void *)config->rules.variant);
-	/* lua_close(config->L); */
+	lua_close(config->L);
 	free(config);
+}
+
+void
+taiwins_config_set_bindings(struct taiwins_config *config, struct tw_bindings *b)
+{
+	config->bindings = b;
+}
+
+struct tw_bindings*
+taiwins_config_get_bindings(struct taiwins_config *config)
+{
+	return config->bindings;
 }
 
 bool
 taiwins_run_config(struct taiwins_config *config, const char *path)
 {
-	/* int error = luaL_loadfile(config->L, path); */
-	/* if (error) */
-	/*	_lua_error(config, "%s is not a valid config file", path); */
-	/* else */
-	/*	lua_pcall(config->L, 0, 0, 0); */
-	/* return (!error); */
+	int error = luaL_loadfile(config->L, path);
+	if (error)
+		_lua_error(config, "%s is not a valid config file", path);
+	else
+		lua_pcall(config->L, 0, 0, 0);
 	struct apply_bindings_t *pos, *tmp;
 
 	wl_list_for_each_safe(pos, tmp, &config->apply_bindings, node)
@@ -406,7 +434,7 @@ taiwins_run_config(struct taiwins_config *config, const char *path)
 		pos->func(pos->data, pos->bindings, config);
 		free(pos);
 	}
-	return true;
+	return (!error);
 }
 
 const struct taiwins_binding *

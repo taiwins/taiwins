@@ -17,7 +17,6 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include "backend.h"
-#include "shell.h"
 #include "desktop.h"
 #include "taiwins.h"
 #include "config.h"
@@ -111,16 +110,15 @@ int main(int argc, char *argv[], char *envp[])
 	fprintf(stderr, "backend registred\n");
 	weston_compositor_wake(compositor);
 	//good moment to add the extensions
-	struct shell *sh = announce_shell(compositor, shellpath);
-	struct console *con = announce_console(compositor, sh, launcherpath);
-	struct desktop *desktop = announce_desktop(compositor);
-	struct tw_bindings *bindings = tw_bindings_create(compositor);
 	struct taiwins_config *config = taiwins_config_create(compositor, tw_log);
+	struct tw_bindings *bindings = tw_bindings_create(compositor);
+	taiwins_config_set_bindings(config, bindings);
 
-	//add builtin bindings
-	taiwins_config_register_bindings_funcs(config, bindings, shell_add_bindings, sh);
-	taiwins_config_register_bindings_funcs(config, bindings, desktop_add_bindings, desktop);
-	taiwins_config_register_bindings_funcs(config, bindings, console_add_bindings, con);
+	struct shell *sh = announce_shell(compositor, shellpath, config);
+	struct console *con = announce_console(compositor, sh, launcherpath, config);
+	struct desktop *desktop = announce_desktop(compositor, config);
+	(void)con;
+
 	taiwins_run_config(config, config_file);
 
 	/* tw_bindings_print(bindings); */
@@ -141,6 +139,7 @@ int main(int argc, char *argv[], char *envp[])
 	// - weston_compositor_destroy, this call finally free the compositor
 	end_desktop(desktop);
 	tw_bindings_destroy(bindings);
+	taiwins_config_destroy(config);
 
 	/* weston_compositor_shutdown(compositor); */
 	weston_compositor_destroy(compositor);

@@ -281,9 +281,11 @@ desktop_output_destroyed(struct wl_listener *listener, void *data)
 	}
 }
 
+static void
+desktop_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c);
 
 struct desktop *
-announce_desktop(struct weston_compositor *ec)
+announce_desktop(struct weston_compositor *ec, struct taiwins_config *config)
 {
 	//initialize the desktop
 	DESKTOP.compositor = ec;
@@ -322,8 +324,7 @@ announce_desktop(struct weston_compositor *ec)
 						 output);
 	}
 	//last step, add keybindings
-	// desktop_add_keybindings(ec, &DESKTOP);
-
+	taiwins_config_register_bindings_funcs(config, taiwins_config_get_bindings(config), desktop_add_bindings, &DESKTOP);
 	return &DESKTOP;
 }
 
@@ -760,7 +761,7 @@ desktop_recent_view(struct weston_keyboard *keyboard,
 	tw_focus_surface(nrv->view->surface);
 }
 
-void
+static void
 desktop_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c)
 {
 	struct desktop *d = data;

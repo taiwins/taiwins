@@ -71,6 +71,15 @@ struct taiwins_config *taiwins_config_create(struct weston_compositor *ec, log_f
 void taiwins_config_destroy(struct taiwins_config *);
 
 /**
+ * /brief set bindings
+ */
+void taiwins_config_set_bindings(struct taiwins_config *, struct tw_bindings *);
+/**
+ * /brief get bindings
+ */
+struct tw_bindings* taiwins_config_get_bindings(struct taiwins_config *config);
+
+/**
  * /brief register an apply_binding function, call this before run_config
  */
 void taiwins_config_register_bindings_funcs(struct taiwins_config *c, struct tw_bindings *, tw_bindings_apply_func_t func, void *data);

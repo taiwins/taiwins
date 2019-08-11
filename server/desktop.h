@@ -26,22 +26,18 @@ struct taiwins_config;
  *
  * this adds the signal to destroy the shell as well, add bindings should be here
  */
-struct shell *announce_shell(struct weston_compositor *compositor, const char *path);
+struct shell *announce_shell(struct weston_compositor *compositor, const char *path,
+			     struct taiwins_config *config);
 /**
  * /breif annouce console server
  */
 struct console *announce_console(struct weston_compositor *compositor,
-				       struct shell *shell, const char *exec_path);
+				 struct shell *shell, const char *exec_path,
+				 struct taiwins_config *config);
 
-struct desktop *announce_desktop(struct weston_compositor *compositor);
-
-
-
-void shell_add_bindings(void *data, struct tw_bindings *b, struct taiwins_config *c);
-
-void desktop_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c);
-
-void console_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c);
+struct desktop *announce_desktop(struct weston_compositor *compositor,
+				 struct taiwins_config *config);
+void end_desktop(struct desktop *desktop);
 
 
 struct wl_client *shell_get_client(struct shell *shell);
@@ -52,7 +48,6 @@ shell_create_ui_elem(struct shell *shell, struct wl_client *client,
 		     struct wl_resource *tw_output,
 		     uint32_t x, uint32_t y, enum tw_ui_type type);
 
-void end_desktop(struct desktop *desktop);
 
 
 
