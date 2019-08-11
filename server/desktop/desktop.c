@@ -11,7 +11,7 @@
 
 #include "../taiwins.h"
 #include "../desktop.h"
-#include "../bindings.h"
+#include "../config.h"
 #include "layout.h"
 #include "workspace.h"
 
@@ -761,56 +761,34 @@ desktop_recent_view(struct weston_keyboard *keyboard,
 }
 
 void
-desktop_add_bindings(struct desktop *d, struct tw_bindings *bindings)
+desktop_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c)
 {
-	struct tw_btn_press move_press = {BTN_LEFT, MODIFIER_SUPER,};
+	struct desktop *d = data;
+
+	//////////////////////////////////////////////////////////
+	//move press
+	struct tw_btn_press move_press =
+		taiwins_config_get_builtin_binding(c, TW_MOVE_PRESS_BINDING)->btnpress;
 	tw_bindings_add_btn(bindings, &move_press, desktop_click_move, d);
 
-	//activate views
-	struct tw_btn_press focus_press = {BTN_LEFT, 0};
+	//////////////////////////////////////////////////////////
+	//focus press
+	struct tw_btn_press focus_press =
+		taiwins_config_get_builtin_binding(c, TW_FOCUS_PRESS_BINDING)->btnpress;
 	tw_bindings_add_btn(bindings, &focus_press,
 			    desktop_click_activate_view, d);
 	tw_bindings_add_touch(bindings, 0, desktop_touch_activate_view, d);
-	//switch workspace
-	struct tw_key_press switch_ws_left[MAX_KEY_SEQ_LEN] = {
-		{KEY_LEFT, MODIFIER_CTRL}, {0}, {0}, {0}, {0}
-	};
-	struct tw_key_press switch_ws_right[MAX_KEY_SEQ_LEN] = {
-		{KEY_RIGHT, MODIFIER_CTRL}, {0}, {0}, {0}, {0}
-	};
-	struct tw_key_press switch_ws_back[MAX_KEY_SEQ_LEN] = {
-		{KEY_B, MODIFIER_SUPER | MODIFIER_ALT},
-		{KEY_B, MODIFIER_SUPER | MODIFIER_ALT}, {0}, {0}, {0}
-	};
-	struct tw_key_press resize_left[MAX_KEY_SEQ_LEN] = {
-		{KEY_LEFT, MODIFIER_ALT}, {0}, {0}, {0}, {0},
-	};
-	struct tw_key_press resize_right[MAX_KEY_SEQ_LEN] = {
-		{KEY_RIGHT, MODIFIER_ALT}, {0}, {0}, {0}, {0},
-	};
-	struct tw_key_press toggle_vertical[MAX_KEY_SEQ_LEN] = {
-		{KEY_SPACE, MODIFIER_CTRL}, {0}, {0}, {0}, {0},
-	};
-	struct tw_key_press toggle_floating[MAX_KEY_SEQ_LEN] = {
-		{KEY_SPACE, MODIFIER_ALT | MODIFIER_SHIFT},
-		{0}, {0}, {0}, {0}
-	};
-	struct tw_key_press next_view[MAX_KEY_SEQ_LEN] = {
-		{KEY_J, MODIFIER_ALT | MODIFIER_SHIFT},
-	};
-	struct tw_key_press vsplit[MAX_KEY_SEQ_LEN] = {
-		{KEY_V, MODIFIER_CTRL},
-		{0}, {0}, {0}, {0},
-	};
-	struct tw_key_press hsplit[MAX_KEY_SEQ_LEN] = {
-		{KEY_H, MODIFIER_CTRL},
-		{0}, {0}, {0}, {0},
-	};
-	struct tw_key_press merge[MAX_KEY_SEQ_LEN] = {
-		{KEY_M, MODIFIER_CTRL},
-		{0}, {0}, {0}, {0}
-	};
 
+	//////////////////////////////////////////////////////////
+	//switch workspace
+	const struct tw_key_press *switch_ws_left =
+		taiwins_config_get_builtin_binding(c, TW_SWITCH_WS_LEFT_BINDING)->keypress;
+
+	const struct tw_key_press *switch_ws_right =
+		taiwins_config_get_builtin_binding(c, TW_SWITCH_WS_RIGHT_BINDING)->keypress;
+
+	const struct tw_key_press *switch_ws_back =
+		taiwins_config_get_builtin_binding(c, TW_SWITCH_WS_RECENT_BINDING)->keypress;
 	tw_bindings_add_key(bindings, switch_ws_left, desktop_workspace_switch,
 			    SWITCH_WS_LEFT, d);
 	tw_bindings_add_key(bindings, switch_ws_right, desktop_workspace_switch,
@@ -818,8 +796,30 @@ desktop_add_bindings(struct desktop *d, struct tw_bindings *bindings)
 	tw_bindings_add_key(bindings, switch_ws_back, desktop_workspace_switch_recent,
 			   0, d);
 
+	//////////////////////////////////////////////////////////
+	//resize view
+	const struct tw_key_press *resize_left =
+		taiwins_config_get_builtin_binding(c, TW_RESIZE_ON_LEFT_BINDING)->keypress;
+	const struct tw_key_press *resize_right =
+		taiwins_config_get_builtin_binding(c, TW_RESIZE_ON_RIGHT_BINDING)->keypress;
 	tw_bindings_add_key(bindings, resize_left, desktop_view_resize, RESIZE_LEFT, d);
 	tw_bindings_add_key(bindings, resize_right, desktop_view_resize, RESIZE_RIGHT, d);
+
+	//////////////////////////////////////////////////////////
+	//toggle views
+	const struct tw_key_press *toggle_vertical =
+		taiwins_config_get_builtin_binding(c, TW_TOGGLE_VERTICAL_BINDING)->keypress;
+	const struct tw_key_press *toggle_floating =
+		taiwins_config_get_builtin_binding(c, TW_TOGGLE_FLOATING_BINDING)->keypress;
+	const struct tw_key_press *next_view =
+		taiwins_config_get_builtin_binding(c, TW_NEXT_VIEW_BINDING)->keypress;
+	const struct tw_key_press *vsplit =
+		taiwins_config_get_builtin_binding(c, TW_VSPLIT_WS_BINDING)->keypress;
+	const struct tw_key_press *hsplit =
+		taiwins_config_get_builtin_binding(c, TW_HSPLIT_WS_BINDING)->keypress;
+	const struct tw_key_press *merge =
+		taiwins_config_get_builtin_binding(c, TW_MERGE_BINDING)->keypress;
+
 	tw_bindings_add_key(bindings, toggle_vertical, desktop_toggle_vertical, 0, d);
 	tw_bindings_add_key(bindings, toggle_floating, desktop_toggle_floating, 0, d);
 	tw_bindings_add_key(bindings, next_view, desktop_recent_view, 0, d);

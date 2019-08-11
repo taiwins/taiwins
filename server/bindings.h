@@ -103,17 +103,9 @@ void tw_bindings_print(struct tw_bindings *root);
 
 
 
-struct tw_press {
-	union {
-		struct tw_key_press keypress[MAX_KEY_SEQ_LEN];
-		struct tw_btn_press btnpress;
-		struct tw_axis_motion axisaction;
-	};
-	enum tw_binding_type type;
-};
 
-bool tw_parse_binding(const char *code_str, const enum tw_binding_type type,
-		      struct tw_press *press);
+/* bool tw_parse_binding(const char *code_str, const enum tw_binding_type type, */
+/*		      struct tw_press *press); */
 
 
 #ifdef  __cplusplus

@@ -100,13 +100,11 @@ int main(int argc, char *argv[], char *envp[])
 	weston_compositor_add_key_binding(compositor, KEY_F12, 0, taiwins_quit, display);
 	weston_log_set_handler(tw_log, tw_log);
 	//apply the config now
-	struct taiwins_config *config = taiwins_config_create(compositor, tw_log);
 	char *xdg_dir = getenv("XDG_CONFIG_HOME");
 	if (!xdg_dir)
 		xdg_dir = getenv("HOME");
 	strcpy(config_file, xdg_dir);
 	strcat(config_file, "config.lua");
-	taiwins_run_config(config, config_file);
 
 	tw_setup_backend(compositor);
 	//it seems that we don't need to setup the input, maybe in other cases
@@ -117,13 +115,15 @@ int main(int argc, char *argv[], char *envp[])
 	struct console *con = announce_console(compositor, sh, launcherpath);
 	struct desktop *desktop = announce_desktop(compositor);
 	struct tw_bindings *bindings = tw_bindings_create(compositor);
-	(void)(con);
+	struct taiwins_config *config = taiwins_config_create(compositor, tw_log);
 
-	shell_add_bindings(sh, bindings);
-	desktop_add_bindings(desktop, bindings);
-	console_add_bindings(con, bindings);
+	//add builtin bindings
+	taiwins_config_register_bindings_funcs(config, bindings, shell_add_bindings, sh);
+	taiwins_config_register_bindings_funcs(config, bindings, desktop_add_bindings, desktop);
+	taiwins_config_register_bindings_funcs(config, bindings, console_add_bindings, con);
+	taiwins_run_config(config, config_file);
 
-	tw_bindings_print(bindings);
+	/* tw_bindings_print(bindings); */
 
 	compositor->kb_repeat_delay = 400;
 	compositor->kb_repeat_rate = 40;

@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
 #include <lua.h>
@@ -6,9 +7,11 @@
 #include <lualib.h>
 #include <compositor.h>
 #include <sequential.h>
+#include <wayland-util.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-compose.h>
 #include <xkbcommon/xkbcommon-names.h>
+#include <linux/input.h>
 #include "bindings.h"
 #include "config.h"
 
@@ -16,18 +19,26 @@
 struct taiwins_config {
 	struct weston_compositor *compositor;
 	lua_State *L;
-	//this is the place to store all the lua functions
-	vector_t lua_bindings;
 	//we need this variable to mark configurator failed
 	log_func_t print;
 	//in terms of xkb_rules, we try to parse it as much as we can
 	struct xkb_rule_names rules;
+	struct wl_list apply_bindings;
 	//we will have quit a few data field
 	bool default_floating;
 	bool quit;
-	//this huge struct
+	/* user bindings */
+	vector_t lua_bindings;
 	struct taiwins_binding builtin_bindings[TW_BUILTIN_BINDING_SIZE];
 };
+
+struct apply_bindings_t {
+	struct wl_list node;
+	tw_bindings_apply_func_t func;
+	struct tw_bindings *bindings;
+	void *data;
+};
+
 
 #define REGISTER_METHOD(l, name, func)		\
 	({lua_pushcfunction(l, func);		\
@@ -44,7 +55,7 @@ _lua_error(struct taiwins_config *config, const char *fmt, ...)
 	va_end(argp);
 }
 
-
+/*
 static bool
 parse_binding(struct taiwins_binding *b, const char *seq_string)
 {
@@ -66,35 +77,8 @@ parse_binding(struct taiwins_binding *b, const char *seq_string)
 		b->press[count].keycode = 0;
 	return true && parsed;
 }
-
-
-/*
-void
-taiwins_config_register_binding(struct taiwins_config *config,
-				const char *name, void *func)
-{
-	struct taiwins_binding b = {0};
-	strncpy(b.name, name, 128);
-	b.func = func;
-	vector_append(&config->bindings, &b);
-}
-
-
-static inline struct taiwins_binding *
-taiwins_config_find_binding(struct taiwins_config *c, const char *name)
-{
-	struct taiwins_binding *b = NULL;
-	for (int i = 0; i < c->bindings.len; i++) {
-		struct taiwins_binding *candidate =
-			vector_at(&c->bindings, i);
-		if (strcmp(candidate->name, name) == 0) {
-			b = candidate;
-			break;
-		}
-	}
-	return b;
-}
 */
+
 
 //////////////////////////////////////////////////////////////////
 ////////////////////// server functions //////////////////////////
@@ -112,7 +96,7 @@ to_user_config(lua_State *L)
 	lua_pop(L, 1);
 	return c;
 }
-
+/*
 static inline int
 _lua_bind(lua_State *L, enum tw_binding_type binding_type)
 {
@@ -250,25 +234,117 @@ _lua_get_config(lua_State *L)
 	return 1;
 }
 
-
+*/
 //////////////////////////////////////////////////////////////////
 ////////////////////////////// API ///////////////////////////////
 //////////////////////////////////////////////////////////////////
 
+static void
+taiwins_config_apply_default(struct taiwins_config *c)
+{
+	c->default_floating = true;
+	//compositor setup
+	c->compositor->kb_repeat_delay = 400;
+	c->compositor->kb_repeat_rate = 40;
+
+	//apply bindings
+	c->builtin_bindings[TW_OPEN_CONSOLE_BINDING] = (struct taiwins_binding){
+		.keypress = {{KEY_P, MODIFIER_CTRL}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_OPEN_CONSOLE",
+	};
+	c->builtin_bindings[TW_ZOOM_AXIS_BINDING] = (struct taiwins_binding){
+		.axisaction = {.axis_event = WL_POINTER_AXIS_VERTICAL_SCROLL,
+			       .modifier = MODIFIER_CTRL | MODIFIER_SUPER},
+		.type = TW_BINDING_axis,
+		.name = "TW_ZOOM_AXIS",
+	};
+	c->builtin_bindings[TW_MOVE_PRESS_BINDING] = (struct taiwins_binding){
+		.btnpress = {BTN_LEFT, MODIFIER_SUPER},
+		.type = TW_BINDING_btn,
+		.name = "TW_MOVE_VIEW_BTN",
+	};
+	c->builtin_bindings[TW_FOCUS_PRESS_BINDING] = (struct taiwins_binding){
+		.btnpress = {BTN_LEFT, 0},
+		.type = TW_BINDING_btn,
+		.name = "TW_FOCUS_VIEW_BTN",
+	};
+	c->builtin_bindings[TW_SWITCH_WS_LEFT_BINDING] = (struct taiwins_binding){
+		.keypress = {{KEY_LEFT, MODIFIER_CTRL}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_MOVE_TO_LEFT_WORKSPACE",
+	};
+	c->builtin_bindings[TW_SWITCH_WS_RIGHT_BINDING] = (struct taiwins_binding){
+		.keypress = {{KEY_RIGHT, MODIFIER_CTRL}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_MOVE_TO_RIGHT_WORKSPACE",
+	};
+	c->builtin_bindings[TW_SWITCH_WS_RECENT_BINDING] = (struct taiwins_binding){
+		.keypress = {{KEY_B, MODIFIER_CTRL}, {KEY_B, MODIFIER_CTRL},
+			     {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_MOVE_TO_RECENT_WORKSPACE",
+	};
+	c->builtin_bindings[TW_TOGGLE_FLOATING_BINDING] = (struct taiwins_binding){
+		.keypress = {{KEY_SPACE, MODIFIER_CTRL}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_TOGGLE_FLOATING",
+	};
+	c->builtin_bindings[TW_TOGGLE_VERTICAL_BINDING] = (struct taiwins_binding){
+		.keypress = {{KEY_SPACE, MODIFIER_ALT | MODIFIER_SHIFT},
+			     {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_TOGGLE_VERTICAL",
+	};
+	c->builtin_bindings[TW_VSPLIT_WS_BINDING] = (struct taiwins_binding){
+		.keypress = {{KEY_V, MODIFIER_CTRL}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_VIEW_SPLIT_VERTICAL",
+	};
+	c->builtin_bindings[TW_HSPLIT_WS_BINDING] = (struct taiwins_binding){
+		.keypress = {{KEY_H, MODIFIER_CTRL}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_VIEW_SPLIT_HORIZENTAL",
+	};
+	c->builtin_bindings[TW_MERGE_BINDING] = (struct taiwins_binding){
+		.keypress = {{KEY_M, MODIFIER_CTRL},
+			     {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_VIEW_MERGE",
+	};
+	c->builtin_bindings[TW_RESIZE_ON_LEFT_BINDING] = (struct taiwins_binding){
+		.keypress = {{KEY_LEFT, MODIFIER_ALT}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_VIEW_RESIZE_LEFT",
+	};
+	c->builtin_bindings[TW_RESIZE_ON_RIGHT_BINDING] = (struct taiwins_binding){
+		.keypress = {{KEY_RIGHT, MODIFIER_ALT}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_VIEW_RESIZE_RIGHT",
+	};
+	c->builtin_bindings[TW_NEXT_VIEW_BINDING] = (struct taiwins_binding){
+		.keypress = {{KEY_J, MODIFIER_ALT | MODIFIER_SHIFT},{0},{0},{0},{0}},
+		.type = TW_BINDING_key,
+		.name = "TW_NEXT_VIEW",
+	};
+}
+
 struct taiwins_config*
 taiwins_config_create(struct weston_compositor *ec, log_func_t log)
 {
-	lua_State *L = luaL_newstate();
-	if (!L)
-		return NULL;
-	luaL_openlibs(L);
+	/* lua_State *L = luaL_newstate(); */
+	/* if (!L) */
+	/*	return NULL; */
+	/* luaL_openlibs(L); */
 	struct taiwins_config *config =
 		calloc(1, sizeof(struct taiwins_config));
 	config->compositor = ec;
 	config->print = log;
 	config->quit = false;
-	config->L = L;
-	vector_init(&config->bindings, sizeof(struct taiwins_binding), NULL);
+	wl_list_init(&config->apply_bindings);
+	/* config->L = L; */
+	taiwins_config_apply_default(config);
+	/*
 	vector_init(&config->lua_bindings, sizeof(struct taiwins_binding), NULL);
 	//we can make this into a light-user-data
 	lua_pushlightuserdata(L, config);
@@ -293,7 +369,7 @@ taiwins_config_create(struct weston_compositor *ec, log_func_t log)
 	lua_pushcfunction(L, _lua_get_config);
 	lua_setfield(L, LUA_GLOBALSINDEX, "require_compositor");
 	lua_pop(L, 1);
-
+	*/
 	return config;
 }
 
@@ -301,8 +377,7 @@ taiwins_config_create(struct weston_compositor *ec, log_func_t log)
 void
 taiwins_config_destroy(struct taiwins_config *config)
 {
-	vector_destroy(&config->bindings);
-	vector_destroy(&config->lua_bindings);
+	/* vector_destroy(&config->lua_bindings); */
 	if (config->rules.layout)
 		free((void *)config->rules.layout);
 	if (config->rules.model)
@@ -311,25 +386,46 @@ taiwins_config_destroy(struct taiwins_config *config)
 		free((void *)config->rules.options);
 	if (config->rules.variant)
 		free((void *)config->rules.variant);
-	lua_close(config->L);
+	/* lua_close(config->L); */
 	free(config);
 }
 
 bool
 taiwins_run_config(struct taiwins_config *config, const char *path)
 {
-	int error = luaL_loadfile(config->L, path);
-	if (error)
-		_lua_error(config, "%s is not a valid config file", path);
-	else
-		lua_pcall(config->L, 0, 0, 0);
-	return (!error);
+	/* int error = luaL_loadfile(config->L, path); */
+	/* if (error) */
+	/*	_lua_error(config, "%s is not a valid config file", path); */
+	/* else */
+	/*	lua_pcall(config->L, 0, 0, 0); */
+	/* return (!error); */
+	struct apply_bindings_t *pos, *tmp;
+
+	wl_list_for_each_safe(pos, tmp, &config->apply_bindings, node)
+	{
+		pos->func(pos->data, pos->bindings, config);
+		free(pos);
+	}
+	return true;
+}
+
+const struct taiwins_binding *
+taiwins_config_get_builtin_binding(struct taiwins_config *c,
+				   enum taiwins_builtin_binding_t type)
+{
+	assert(type < TW_BUILTIN_BINDING_SIZE);
+	return &c->builtin_bindings[type];
 }
 
 
 void
-taiwins_apply_default_config(struct weston_compositor *ec)
+taiwins_config_register_bindings_funcs(struct taiwins_config *c, struct tw_bindings *b,
+				       tw_bindings_apply_func_t func, void *data)
 {
-	ec->kb_repeat_delay = 400;
-	ec->kb_repeat_rate = 40;
+	struct apply_bindings_t *ab = malloc(sizeof(struct apply_bindings_t));
+	ab->bindings = b;
+	ab->func = func;
+	ab->data = data;
+	wl_list_init(&ab->node);
+	wl_list_insert(&c->apply_bindings, &ab->node);
 }
