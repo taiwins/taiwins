@@ -167,14 +167,6 @@ _lua_bind_tch(lua_State *L)
 	return _lua_bind(L, TW_BINDING_tch);
 }
 
-/*
-static int
-_lua_noop(lua_State *L)
-{
-	return 0;
-}
-*/
-
 static int
 _lua_set_keyboard_model(lua_State *L)
 {
@@ -240,12 +232,12 @@ static int
 _lua_get_config(lua_State *L)
 {
 	//since light user data has no metatable, we have to create wrapper for it
-	lua_getfield(L, LUA_REGISTRYINDEX, "__config");
-	struct taiwins_config *c = lua_touserdata(L, -1);
+	/* lua_getfield(L, LUA_REGISTRYINDEX, "__config"); */
+
+	/* struct taiwins_config *c = lua_touserdata(L, -1); */
 	//now we need to make another userdata
 	lua_pop(L, 1);
-	struct _lua_config *lc = lua_newuserdata(L, sizeof(struct _lua_config));
-	lc->config = c;
+	lua_newtable(L);
 	luaL_getmetatable(L, "compositor");
 	lua_setmetatable(L, -2);
 	return 1;
@@ -370,10 +362,10 @@ taiwins_config_create(struct weston_compositor *ec, log_func_t log)
 	lua_setfield(L, LUA_REGISTRYINDEX, "__config");
 
 	//create metatable and the userdata
-	luaL_newmetatable(L, "compositor");
-	//you can also use settable
-	lua_pushvalue(L, -1);
-	lua_setfield(L, -2, "__index");
+	luaL_newmetatable(L, "compositor"); //stack 1
+	//set index to have a litte
+	lua_pushvalue(L, -1); //stack 2
+	lua_setfield(L, -2, "__index"); //stack 1
 	//register all the callbacks
 	REGISTER_METHOD(L, "bind_key", _lua_bind_key);
 	REGISTER_METHOD(L, "bind_btn", _lua_bind_btn);
