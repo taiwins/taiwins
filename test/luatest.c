@@ -16,6 +16,11 @@ struct luaData {
 	int c;
 } test_app;
 
+#define REGISTER_METHOD(l, name, func)		\
+	({lua_pushcfunction(l, func);		\
+		lua_setfield(l, -2, name);	\
+	})
+
 
 static int checkapp(lua_State *L)
 {
@@ -36,26 +41,35 @@ error(lua_State *L, const char *fmt, ...)
 	lua_close(L);
 }
 
-static int l_sin(lua_State *L)
+static int
+l_sin(lua_State *L)
 {
 	double d = lua_tonumber(L, 1);
 	lua_pushnumber(L, sin(d));
 	return 1;
 }
+static int
+set_a(lua_State *L)
+{
+	if (!lua_istable(L, 1))
+		error(L, "it is not a table");
+	int digit = lua_tonumber(L, 2);
+	lua_getfield(L, LUA_REGISTRYINDEX, "__userdata");
+	struct luaData *data = lua_touserdata(L, -1);
+	lua_pop(L, 1);
 
-static const struct luaL_Reg mylib[] = {
-	{"mysin", l_sin},
-	{NULL, NULL},
-};
 
+}
 
 int
 luaopen_mylib(lua_State *L)
 {
-	lua_newtable(L);
-
+	lua_newtable(L); //1
+	luaL_getmetatable(L, "_metatable"); //2
+	lua_setmetatable(L, -2); //1
 	return 1;
 }
+
 
 int main(int argc, char *argv[])
 {
@@ -64,10 +78,20 @@ int main(int argc, char *argv[])
 	L = luaL_newstate();
 	luaL_openlibs(L);
 	//we need to define some global
-	lua_pushcfunction(L, l_sin);
-	lua_setglobal(L, "mysin");
+	lua_pushcfunction(L, l_sin); //1
+	lua_setglobal(L, "mysin"); //0
 	//then we need to set the global variables, push the egl application
 	//pointer on the stack.
+
+	lua_pushlightuserdata(L, &test_app); //1
+	lua_setfield(L, LUA_REGISTRYINDEX, "__userdata"); //0
+
+	//now we create a new metatable
+	luaL_newmetatable(L, "_metatable"); //1
+	lua_pushvalue(L, -1); //2
+	lua_setfield(L, -2, "__index");
+	REGISTER_METHOD(L, "mysin", l_sin);
+
 
 	void *ptr = lua_newuserdata(L, sizeof(void *));
 	*(struct luaData **)ptr = &test_app;
