@@ -69,16 +69,19 @@
 *** DONE have functional workspace implementation
     - workspace is implemented as keybindings
 *** DONE refactring that layout implementation in workspace, it is ugly
+*** TODO taiwins close, reload functions.
 *** TODO setup the xkb context and all that stuff
-** DOIN [60%] Configurations
+** TODO [66%] Configurations
 *** TODO crazy idea. Implement client side configuration into protocols? So I can set the configure on the fly?
+    This would be done in tw_ui, for example, we can have a command to tell the
+    shell and console to reload its configuration from the file.
 *** DONE introduce the lua code
 *** TODO finish the server side lua configuration
 *** DONE styles, nuklear and other widget styles.
     - background color.
     - Font size, font selection.
 *** DONE keyboard callbacks, this writes to a buffer, apparently.
-*** TODO move all the binding names in the config, so we can freeze ~desktop.c~
+*** DONE move all the binding names in the config, so we can freeze ~desktop.c~
     right now we do have this built-in bindings and we would like to introduce
     custom lua bindings based on compositor functions.
 
@@ -98,8 +101,9 @@
     luckly that we have ~weston_desktop_suface_set_user_data~, it seems to fit
     perfectly in that position
 
-** DOIN [81%] client-side optimization
-*** TODO add udev monitoring and inotify monitoring to event_queue
+** TODO [82%] client-side optimization
+*** TODO resize window through idle task in the event queue.
+*** DONE add udev monitoring and inotify monitoring to event_queue
 *** DONE properly handling the frame callbacks for ~app_surface~
     We try to implement as agnostic as possible. 1: ~do_frame~ no longer test
     ~need_animation~ and request frames. 2: input callback stays as the
