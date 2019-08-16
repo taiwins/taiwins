@@ -3,6 +3,13 @@ include_directories(
   ${PROTOCOLS_INCLUDE_DIR}
   )
 
+add_library(twcore STATIC
+  backend.c
+  taiwins.c
+  config.c
+  bindings.c
+  )
+
 add_library(twshell STATIC
   shell.c
   )
@@ -10,12 +17,7 @@ add_library(twshell STATIC
 add_library(twconsole STATIC
   console.c)
 
-target_link_libraries(twshell
-  proto_server_libraries
-  ${COMPOSITOR_LIBRARIES}
-  )
-
-add_library(taiwins_desktop STATIC
+add_library(twdesktop STATIC
   desktop/desktop.c
   desktop/layout.c
   desktop/layout_floating.c
@@ -23,25 +25,36 @@ add_library(taiwins_desktop STATIC
   desktop/workspace.c
   )
 
-target_include_directories(taiwins_desktop PRIVATE
+target_link_libraries(twshell PRIVATE
+  twcore)
+
+target_link_libraries(twconsole PRIVATE
+  twcore
+  )
+
+target_link_libraries(twdesktop PRIVATE
+  twcore
+  )
+
+target_include_directories(twdesktop PRIVATE
   ${COMPOSITOR_INCLUDE_DIRS}
   ${PROTOCOLS_INCLUDE_DIR}
   )
 
+############################################
+## taiwins executable
+############################################
+
 add_executable(taiwins
   main.c
-  backend.c
-  taiwins.c
-  config.c
-  bindings.c
-  # parser.c
   )
 
-
 target_link_libraries(taiwins
-  ${COMPOSITOR_LIBRARIES}
-  ${TRDPTY_LIBRARIES}
+  twcore
   twshell
   twconsole
-  taiwins_desktop
+  twdesktop
+  proto_server_libraries
+  ${COMPOSITOR_LIBRARIES}
+  ${TRDPTY_LIBRARIES}
   )

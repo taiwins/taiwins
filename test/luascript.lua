@@ -3,11 +3,8 @@
 ]]--
 
 require "os"
+test = get_test()
 
-compositor = create_test()
-
-function random_function()
-   print(8*9, 8/9)
-end
-
-compositor:bind_key(random_function, "Ctrl-x,Ctrl-a")
+test:setA(100)
+test:setB(101)
+test:setC(102)

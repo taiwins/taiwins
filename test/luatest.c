@@ -8,6 +8,10 @@
 #include <lauxlib.h>
 #include <lualib.h>
 
+#include <compositor.h>
+#include "../server/config.h"
+
+
 //the basic lua functions
 
 struct luaData {
@@ -48,6 +52,8 @@ l_sin(lua_State *L)
 	lua_pushnumber(L, sin(d));
 	return 1;
 }
+
+
 static int
 set_a(lua_State *L)
 {
@@ -56,9 +62,32 @@ set_a(lua_State *L)
 	int digit = lua_tonumber(L, 2);
 	lua_getfield(L, LUA_REGISTRYINDEX, "__userdata");
 	struct luaData *data = lua_touserdata(L, -1);
-	lua_pop(L, 1);
+	data->a = digit;
+	return 0;
+}
 
+static int
+set_b(lua_State *L)
+{
+	if (!lua_istable(L, 1))
+		error(L, "it is not a table");
+	int digit = lua_tonumber(L, 2);
+	lua_getfield(L, LUA_REGISTRYINDEX, "__userdata");
+	struct luaData *data = lua_touserdata(L, -1);
+	data->b = digit;
+	return 0;
+}
 
+static int
+set_c(lua_State *L)
+{
+	if (!lua_istable(L, 1))
+		error(L, "it is not a table");
+	int digit = lua_tonumber(L, 2);
+	lua_getfield(L, LUA_REGISTRYINDEX, "__userdata");
+	struct luaData *data = lua_touserdata(L, -1);
+	data->c = digit;
+	return 0;
 }
 
 int
@@ -70,18 +99,17 @@ luaopen_mylib(lua_State *L)
 	return 1;
 }
 
-
 int main(int argc, char *argv[])
 {
 	lua_State *L;
 	int status;
 	L = luaL_newstate();
 	luaL_openlibs(L);
-	//we need to define some global
-	lua_pushcfunction(L, l_sin); //1
-	lua_setglobal(L, "mysin"); //0
 	//then we need to set the global variables, push the egl application
 	//pointer on the stack.
+	test_app.a = 0;
+	test_app.b = 0;
+	test_app.c = 0;
 
 	lua_pushlightuserdata(L, &test_app); //1
 	lua_setfield(L, LUA_REGISTRYINDEX, "__userdata"); //0
@@ -91,22 +119,19 @@ int main(int argc, char *argv[])
 	lua_pushvalue(L, -1); //2
 	lua_setfield(L, -2, "__index");
 	REGISTER_METHOD(L, "mysin", l_sin);
+	REGISTER_METHOD(L, "setA", set_a);
+	REGISTER_METHOD(L, "setB", set_b);
+	REGISTER_METHOD(L, "setC", set_c);
 
-
-	void *ptr = lua_newuserdata(L, sizeof(void *));
-	*(struct luaData **)ptr = &test_app;
-	lua_pushlightuserdata(L, ptr);
-	lua_setglobal(L, "application"); //it pops
-	lua_pushcfunction(L, checkapp);
-	lua_setglobal(L, "check_variable"); //it pops, so we shouldn't have any problem with that
+	//now we need to give user ability to require
+	lua_pushcfunction(L, luaopen_mylib);
+	lua_setglobal(L, "get_test");
 
 	status = luaL_dofile(L, argv[1]);
 
-	lua_getglobal(L, "dummy");
-	lua_pushnumber(L, 1);
-	if (lua_pcall(L, 1, 0, 0) != 0) {
-		fprintf(stderr, "calling function problem %s\n",
-			lua_tostring(L, -1));
-	}
+	//this is lua function
+	fprintf(stdout, "test_app has new value a: %d, b: %d, c: %d\n",
+		test_app.a, test_app.b, test_app.c);
+
 	return 0;
 }

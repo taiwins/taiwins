@@ -24,9 +24,6 @@ if(CMAKE_BUILD_TYPE MATCHES Release)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -O2")
 endif()
 
-
-
-
 #####################################################################
 
 
@@ -72,7 +69,6 @@ endif(NVEGL_FOUND)
 #####################################################################
 add_subdirectory("3rdparties/ctypes")
 add_subdirectory("3rdparties/twclient")
-
 add_subdirectory("3rdparties/iconheader")
 
 set(COMPOSITOR_LIBRARIES
@@ -165,6 +161,9 @@ target_include_directories(taiwins_config PRIVATE
 message("build options: ${CMAKE_C_FLAGS}")
 message("3rdparty includes: ${TRDPTY_INCLUDE_DIRS}")
 message("3rdparty lib: ${TRDPTY_LIBRARIES}")
+
+set(SERVER_DIR "${CMAKE_SOURCE_DIR}/server")
+set(CLINET_DIR "${CMAKE_SOURCE_DIR}/clients")
 
 add_subdirectory(protocols)
 add_subdirectory(server)
