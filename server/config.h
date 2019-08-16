@@ -27,8 +27,7 @@ struct taiwins_binding {
 		tw_touch_binding touch_func;
 		tw_key_binding key_func;
 	};
-	//here we are
-	void *func;
+	//this is lua context
 	void *user_data;
 };
 

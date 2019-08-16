@@ -46,6 +46,11 @@ struct apply_bindings_t {
 		lua_setfield(l, -2, name);	\
 	})
 
+bool parse_one_press(const char *str,
+		     const enum tw_binding_type type,
+		     uint32_t *mod, uint32_t *code);
+
+
 
 static inline void
 _lua_error(struct taiwins_config *config, const char *fmt, ...)
@@ -60,9 +65,74 @@ _lua_error(struct taiwins_config *config, const char *fmt, ...)
 //////////////////////////////////////////////////////////////////
 ///////////////////// binding functions //////////////////////////
 //////////////////////////////////////////////////////////////////
-bool parse_one_press(const char *str,
-		     const enum tw_binding_type type,
-		     uint32_t *mod, uint32_t *code);
+static inline struct taiwins_config *
+to_user_config(lua_State *L)
+{
+	lua_getfield(L, LUA_REGISTRYINDEX, "__config");
+	struct taiwins_config *c = lua_touserdata(L, -1);
+	lua_pop(L, 1);
+	return c;
+}
+
+
+static inline void
+_lua_run_binding(void *data)
+{
+	struct taiwins_binding *b = data;
+	lua_State *L = b->user_data;
+	lua_getfield(L, LUA_REGISTRYINDEX, b->name);
+	if (lua_pcall(L, 0, 0, 0)) {
+		struct taiwins_config *config = to_user_config(L);
+		_lua_error(config, "error calling lua bindings\n");
+	}
+	lua_settop(L, 0);
+}
+
+static void
+_lua_run_keybinding(struct weston_keyboard *keyboard, const struct timespec *time, uint32_t key,
+		    uint32_t option, void *data)
+{
+	_lua_run_binding(data);
+}
+
+static void
+_lua_run_btnbinding(struct weston_pointer *pointer, const struct timespec *time, uint32_t btn,
+		    void *data)
+{
+	_lua_run_binding(data);
+}
+
+static void
+_lua_run_axisbinding(struct weston_pointer *pointer,
+		     const struct timespec *time,
+		     struct weston_pointer_axis_event *event,
+		     void *data)
+{
+	_lua_run_binding(data);
+}
+
+
+static struct taiwins_binding *
+_new_lua_binding(struct taiwins_config *config, enum tw_binding_type type)
+{
+	struct taiwins_binding *b = vector_newelem(&config->lua_bindings);
+	b->user_data = config->L;
+	b->type = type;
+	sprintf(b->name, "luabinding_%x", config->lua_bindings.len);
+	switch (type) {
+	case TW_BINDING_key:
+		b->key_func = _lua_run_keybinding;
+		break;
+	case TW_BINDING_btn:
+		b->btn_func = _lua_run_btnbinding;
+		break;
+	case TW_BINDING_axis:
+		b->axis_func = _lua_run_axisbinding;
+	default:
+		break;
+	}
+	return b;
+}
 
 static bool
 parse_binding(struct taiwins_binding *b, const char *seq_string)
@@ -110,17 +180,7 @@ parse_binding(struct taiwins_binding *b, const char *seq_string)
 	return true && parsed;
 }
 
-
-static inline struct taiwins_config *
-to_user_config(lua_State *L)
-{
-	lua_getfield(L, LUA_REGISTRYINDEX, "__config");
-	struct taiwins_config *c = lua_touserdata(L, -1);
-	lua_pop(L, 1);
-	return c;
-}
-
-static struct taiwins_binding *
+static inline struct taiwins_binding *
 taiwins_config_find_binding(struct taiwins_config *config,
 			    const char *name)
 {
@@ -139,26 +199,30 @@ _lua_bind(lua_State *L, enum tw_binding_type binding_type)
 	struct taiwins_binding *binding_to_find = NULL;
 	const char *key = NULL;
 
-	if (lua_isstring(L, 2)) { //if it is a built-in binding
+	struct taiwins_binding temp = {0};
+	const char *binding_seq = lua_tostring(L, 3);
+	temp.type = binding_type;
+	if (!binding_seq || !parse_binding(&temp, binding_seq))
+		goto err_binding;
+	//builtin binding
+	if (lua_isstring(L, 2)) {
 		key = lua_tostring(L, 2);
 		binding_to_find = taiwins_config_find_binding(cd, key);
 		if (!binding_to_find || binding_to_find->type != binding_type)
 			goto err_binding;
-	} else if (lua_isfunction(L, 2) && !lua_iscfunction(L, 2)) { //user binding
-		//we need to find a way to store this function
-		//push the value and store it in the register with a different name
+	}
+	//user binding
+	else if (lua_isfunction(L, 2) && !lua_iscfunction(L, 2)) {
+		//create a function in the registry so we can call it later.
+		binding_to_find = _new_lua_binding(cd, binding_type);
 		lua_pushvalue(L, 2);
-		binding_to_find = vector_newelem(&cd->lua_bindings);
-		binding_to_find->type = binding_type;
-		sprintf(binding_to_find->name, "luabinding:%d", cd->lua_bindings.len);
 		lua_setfield(L, LUA_REGISTRYINDEX, binding_to_find->name);
 		//now we need to get the binding
 	} else
 		goto err_binding;
-	const char *binding_seq = lua_tostring(L, 3);
 
-	if (!binding_seq || !parse_binding(binding_to_find, binding_seq))
-		goto err_binding;
+	//now we copy the binding seq to
+	memcpy(binding_to_find->keypress, temp.keypress, sizeof(temp.keypress));
 	return 0;
 err_binding:
 	cd->quit = true;
@@ -353,35 +417,29 @@ taiwins_config_apply_default(struct taiwins_config *c)
 	};
 }
 
-struct taiwins_config*
-taiwins_config_create(struct weston_compositor *ec, log_func_t log)
+static void
+taiwins_config_init_luastate(struct taiwins_config *c)
 {
-	lua_State *L = NULL;
-	struct taiwins_config *config = NULL;
+	if (c->L)
+		lua_close(c->L);
 
-	L = luaL_newstate();
+	lua_State *L = luaL_newstate();
 	if (!L)
-		return NULL;
+		return;
 	luaL_openlibs(L);
-	config = calloc(1, sizeof(struct taiwins_config));
-	config->L = L;
-	config->compositor = ec;
-	config->print = log;
-	config->quit = false;
-	wl_list_init(&config->apply_bindings);
-	taiwins_config_apply_default(config);
-	vector_init(&config->lua_bindings, sizeof(struct taiwins_binding), NULL);
+	c->L = L;
+	if (c->lua_bindings.elems)
+		vector_destroy(&c->lua_bindings);
+	vector_init(&c->lua_bindings, sizeof(struct taiwins_binding), NULL);
 
-	//we can make this into a light-user-data
-	lua_pushlightuserdata(L, config);
-	//now we have zero elements on stack
-	lua_setfield(L, LUA_REGISTRYINDEX, "__config");
+	//config userdata
+	lua_pushlightuserdata(L, c); //s1
+	lua_setfield(L, LUA_REGISTRYINDEX, "__config"); //s0
 
 	//create metatable and the userdata
-	luaL_newmetatable(L, "compositor"); //stack 1
-	//set index to have a litte
-	lua_pushvalue(L, -1); //stack 2
-	lua_setfield(L, -2, "__index"); //stack 1
+	luaL_newmetatable(L, "compositor"); //s1
+	lua_pushvalue(L, -1); //s2
+	lua_setfield(L, -2, "__index"); //s1
 	//register all the callbacks
 	REGISTER_METHOD(L, "bind_key", _lua_bind_key);
 	REGISTER_METHOD(L, "bind_btn", _lua_bind_btn);
@@ -393,8 +451,24 @@ taiwins_config_create(struct weston_compositor *ec, log_func_t log)
 	REGISTER_METHOD(L, "repeat_info", _lua_set_repeat_info);
 
 	lua_pushcfunction(L, _lua_get_config);
-	lua_setfield(L, LUA_GLOBALSINDEX, "require_compositor");
+	lua_setglobal(L, "require_compositor");
 	lua_pop(L, 1);
+}
+
+//right now this function can run once, if we ever need to run multiple times,
+//we need to clean up the
+struct taiwins_config*
+taiwins_config_create(struct weston_compositor *ec, log_func_t log)
+{
+	struct taiwins_config *config = calloc(1, sizeof(struct taiwins_config));
+
+	config->compositor = ec;
+	config->print = log;
+	config->quit = false;
+
+	wl_list_init(&config->apply_bindings);
+	taiwins_config_apply_default(config);
+	taiwins_config_init_luastate(config);
 
 	return config;
 }
@@ -429,6 +503,12 @@ taiwins_config_get_bindings(struct taiwins_config *config)
 	return config->bindings;
 }
 
+/**
+ * /brief run/rerun the configurations.
+ *
+ * If we only run it once, it should be totally okay. But if we need to run it
+ * multiple times, manually deleting bindings would be totally
+ */
 bool
 taiwins_run_config(struct taiwins_config *config, const char *path)
 {
@@ -438,12 +518,14 @@ taiwins_run_config(struct taiwins_config *config, const char *path)
 	else
 		lua_pcall(config->L, 0, 0, 0);
 	struct apply_bindings_t *pos, *tmp;
+	//TODO, deleting all the bindings in the compositor
 
 	wl_list_for_each_safe(pos, tmp, &config->apply_bindings, node)
 	{
 		pos->func(pos->data, pos->bindings, config);
 		free(pos);
 	}
+
 	return (!error);
 }
 
