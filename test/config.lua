@@ -13,17 +13,20 @@ end
 --this works
 compositor:bind_btn(random_function, "C-M-btn_l")
 
--- do you really want to bind all the functions into lua functions?
-compositor:bind_key(compositor.close, kbd("C-xC-c"))
-
--- then we can do this
-compositor:bind_axis(random_function, kbd("C-up"))
-
 -- general setup
 compositor:keyboard_layout("ctrl:swap_lalt_lctl")
 compositor:set_kb_delay(400)
 compositor:set_kb_repeat(40)
 compositor:set_color_format("xrgb8888")
+
+-- more advanced use: we can have dynamic configuration that takes input and
+-- produce output. For example we can setup the weston_output based on whatever
+-- output we have.
+-- for output in compositor:get_outputs do
+--     if output["type"] == "HDMI"
+--        compositor:set_scale(output, 1)
+--     end
+-- end
 
 -- now more on the usability part
 compositor:set_default_layout("floating")
