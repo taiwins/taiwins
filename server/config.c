@@ -236,7 +236,7 @@ _lua_get_config(lua_State *L)
 
 	/* struct taiwins_config *c = lua_touserdata(L, -1); */
 	//now we need to make another userdata
-	lua_pop(L, 1);
+	/* lua_pop(L, 1); */
 	lua_newtable(L);
 	luaL_getmetatable(L, "compositor");
 	lua_setmetatable(L, -2);
@@ -395,6 +395,8 @@ taiwins_config_destroy(struct taiwins_config *config)
 		free((void *)config->rules.options);
 	if (config->rules.variant)
 		free((void *)config->rules.variant);
+
+	vector_destroy(&config->lua_bindings);
 	lua_close(config->L);
 	free(config);
 }

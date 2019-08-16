@@ -1,13 +1,13 @@
 -- okay, let us write a sample configuration
 -- refuse to stop if configuration has errors
 local os = require('os')
-local compositor = taiwins_require_compositor()
-local shell = compositor:require_shell()
+local compositor = require_compositor()
+
+-- or we do this
+compositor:bind_key("TW_OPEN_CONSOLE", "C-xC-c")
 
 -- do you really want to bind all the functions into lua functions?
 compositor:bind_key(compositor.close, kbd("C-xC-c"))
--- or we do this
-compositor:bind_key("close_taiwins", kbd("C-xC-c"))
 
 -- allow user define functions
 function random_function()
@@ -30,6 +30,18 @@ compositor:set_envar("name", "value")
 -- outputs, you can setup the default rules for creating output. Or
 -- you can actually make a function for that. Default rules could be like
 compositor:set_output_rule("do_nothing")
+-- or you can do this
+compositor[outputs] = {
+   eDP1 = {
+      mode =  "3200x1800",
+      scale = 2,
+      clone = "HDMI1"
+   },
+   HDMI1 = {
+      mode = "1920x1080",
+      scale = 1,
+   }
+}
 
 -- Then we need to actual set the output by config.
 compositor:set_outputs({

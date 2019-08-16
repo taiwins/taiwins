@@ -134,14 +134,15 @@ int main(int argc, char *argv[], char *envp[])
 	//now you destroy the desktops
 
 	//TODO weston has three compositor destroy methods:
-	// - weston_compositor_exit
+	// - weston_compositor_exit, it is
+	// - weston_compositor_tear_down, I think this is the exit function
 	// - weston_compositor_shutdown: remove all the bindings, output, renderer,
 	// - weston_compositor_destroy, this call finally free the compositor
 	end_desktop(desktop);
 	tw_bindings_destroy(bindings);
 	taiwins_config_destroy(config);
 
-	/* weston_compositor_shutdown(compositor); */
+	weston_compositor_shutdown(compositor);
 	weston_compositor_destroy(compositor);
 	wl_display_destroy(display);
 	return 0;
