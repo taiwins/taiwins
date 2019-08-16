@@ -56,7 +56,14 @@ _lua_error(struct taiwins_config *config, const char *fmt, ...)
 	va_end(argp);
 }
 
-/*
+
+//////////////////////////////////////////////////////////////////
+///////////////////// binding functions //////////////////////////
+//////////////////////////////////////////////////////////////////
+bool parse_one_press(const char *str,
+		     const enum tw_binding_type type,
+		     uint32_t *mod, uint32_t *code);
+
 static bool
 parse_binding(struct taiwins_binding *b, const char *seq_string)
 {
@@ -67,27 +74,42 @@ parse_binding(struct taiwins_binding *b, const char *seq_string)
 	int count = 0;
 	bool parsed = true;
 	while (c != NULL && count < 5 && parsed) {
+		uint32_t mod, code;
 		parsed = parsed &&
-			tw_parse_binding(c, b->type, &b->press[count]);
+			parse_one_press(c, b->type, &mod, &code);
+
+		switch (b->type) {
+		case TW_BINDING_key:
+			b->keypress[count].keycode = code;
+			b->keypress[count].modifier = mod;
+			break;
+		case TW_BINDING_btn:
+			b->btnpress.btn = code;
+			b->btnpress.modifier = mod;
+			break;
+		case TW_BINDING_axis:
+			b->axisaction.axis_event = code;
+			b->axisaction.modifier = mod;
+			break;
+		default: //we dont deal with touch right now
+			break;
+		}
+
 		c = strtok_r(NULL, " ,;", &save_ptr);
 		count += (parsed) ? 1 : 0;
+		if (count > 1 && b->type != TW_BINDING_key)
+			parsed = false;
 	}
-	if (count > 5)
+	if (count >= 5)
 		return false;
-	if (count < 5)
-		b->press[count].keycode = 0;
+	//clean the rest of the bits
+	for (int i = count; i < 5; i++) {
+		b->keypress[count].keycode = 0;
+		b->keypress[count].modifier = 0;
+	}
 	return true && parsed;
 }
-*/
 
-
-//////////////////////////////////////////////////////////////////
-////////////////////// server functions //////////////////////////
-//////////////////////////////////////////////////////////////////
-
-struct _lua_config {
-	struct taiwins_config *config;
-};
 
 static inline struct taiwins_config *
 to_user_config(lua_State *L)
@@ -135,8 +157,8 @@ _lua_bind(lua_State *L, enum tw_binding_type binding_type)
 		goto err_binding;
 	const char *binding_seq = lua_tostring(L, 3);
 
-	/* if (!binding_seq || !parse_binding(binding_to_find, binding_seq)) */
-	/*	goto err_binding; */
+	if (!binding_seq || !parse_binding(binding_to_find, binding_seq))
+		goto err_binding;
 	return 0;
 err_binding:
 	cd->quit = true;
@@ -207,7 +229,6 @@ _lua_set_keyboard_options(lua_State *L)
 }
 
 
-
 /* usage: compositor.set_repeat_info(100, 40) */
 static int
 _lua_set_repeat_info(lua_State *L)
@@ -231,12 +252,7 @@ _lua_set_repeat_info(lua_State *L)
 static int
 _lua_get_config(lua_State *L)
 {
-	//since light user data has no metatable, we have to create wrapper for it
-	/* lua_getfield(L, LUA_REGISTRYINDEX, "__config"); */
-
-	/* struct taiwins_config *c = lua_touserdata(L, -1); */
-	//now we need to make another userdata
-	/* lua_pop(L, 1); */
+	//okay, this totally works
 	lua_newtable(L);
 	luaL_getmetatable(L, "compositor");
 	lua_setmetatable(L, -2);

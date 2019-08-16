@@ -4,7 +4,7 @@ local os = require('os')
 local compositor = require_compositor()
 
 -- or we do this
-compositor:bind_key("TW_OPEN_CONSOLE", "C-xC-c")
+compositor:bind_key("TW_OPEN_CONSOLE", "C-x,C-c")
 
 -- do you really want to bind all the functions into lua functions?
 compositor:bind_key(compositor.close, kbd("C-xC-c"))
