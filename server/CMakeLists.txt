@@ -26,6 +26,10 @@ add_library(twdesktop STATIC
   desktop/workspace.c
   )
 
+target_link_libraries(twcore
+  ${COMPOSITOR_LIBRARIES}
+  )
+
 target_link_libraries(twshell PRIVATE
   twcore)
 

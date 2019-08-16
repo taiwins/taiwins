@@ -6,13 +6,15 @@ local compositor = require_compositor()
 -- or we do this
 compositor:bind_key("TW_OPEN_CONSOLE", "C-x,C-c")
 
--- do you really want to bind all the functions into lua functions?
-compositor:bind_key(compositor.close, kbd("C-xC-c"))
-
 -- allow user define functions
 function random_function()
    compositor:do_weird_stuff()
 end
+compositor:bind_btn(random_function, "C-M-btn_l")
+
+-- do you really want to bind all the functions into lua functions?
+compositor:bind_key(compositor.close, kbd("C-xC-c"))
+
 -- then we can do this
 compositor:bind_axis(random_function, kbd("C-up"))
 
