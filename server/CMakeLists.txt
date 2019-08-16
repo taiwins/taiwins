@@ -8,6 +8,7 @@ add_library(twcore STATIC
   taiwins.c
   config.c
   bindings.c
+  parser.c
   )
 
 add_library(twshell STATIC

@@ -16,8 +16,7 @@ struct event_map {
 	uint32_t event_code;
 };
 
-static const struct event_map modifiers_map[] =
-{
+static const struct event_map modifiers_map[] = {
 	{"C", MODIFIER_CTRL}, {"Ctrl", MODIFIER_CTRL},
 	{"M", MODIFIER_ALT}, {"Alt", MODIFIER_ALT},
 	{"s", MODIFIER_SUPER}, {"Super", MODIFIER_SUPER},
@@ -93,19 +92,13 @@ static struct char_map {
 	{'>', KEY_RESERVED}, {'?', KEY_RESERVED},
 	{'@', KEY_RESERVED},
 	//upper keys, [65 ~ 90]
-	{'A', KEY_RESERVED}, {'B', KEY_RESERVED},
-	{'C', KEY_RESERVED}, {'D', KEY_RESERVED},
-	{'E', KEY_RESERVED}, {'F', KEY_RESERVED},
-	{'G', KEY_RESERVED}, {'H', KEY_RESERVED},
-	{'I', KEY_RESERVED}, {'J', KEY_RESERVED},
-	{'K', KEY_RESERVED}, {'L', KEY_RESERVED},
-	{'M', KEY_RESERVED}, {'N', KEY_RESERVED},
-	{'O', KEY_RESERVED}, {'P', KEY_RESERVED},
-	{'Q', KEY_RESERVED}, {'R', KEY_RESERVED},
-	{'S', KEY_RESERVED}, {'T', KEY_RESERVED},
-	{'U', KEY_RESERVED}, {'V', KEY_RESERVED},
-	{'W', KEY_RESERVED}, {'X', KEY_RESERVED},
-	{'Y', KEY_RESERVED}, {'Z', KEY_RESERVED},
+	{'A', KEY_A}, {'B', KEY_B}, {'C', KEY_C}, {'D', KEY_D},
+	{'E', KEY_E}, {'F', KEY_F}, {'G', KEY_G}, {'H', KEY_H},
+	{'I', KEY_I}, {'J', KEY_J}, {'K', KEY_K}, {'L', KEY_L},
+	{'M', KEY_M}, {'N', KEY_N}, {'O', KEY_O}, {'P', KEY_P},
+	{'Q', KEY_Q}, {'R', KEY_R}, {'S', KEY_S}, {'T', KEY_T},
+	{'U', KEY_U}, {'V', KEY_V}, {'W', KEY_W}, {'X', KEY_X},
+	{'Y', KEY_Y}, {'Z', KEY_Z},
 	//signs [91 ~ 96]
 	{'[', KEY_LEFTBRACE}, {'\\', KEY_BACKSLASH},
 	{']', KEY_RIGHTBRACE}, {'^', KEY_RESERVED},
@@ -142,19 +135,18 @@ static inline unsigned int
 parse_modifier(const char *str)
 {
 	for (int i = 0; i < NUMOF(modifiers_map); i++) {
-		if (strcmp(modifiers_map[i].name, str) == 0)
+		if (strcasecmp(modifiers_map[i].name, str) == 0)
 			return modifiers_map[i].event_code;
 	}
 	return 0;
 }
 
+
 static bool
-parse_code(const char *code_str, enum tw_binding_type type,
-	   struct tw_press *press)
+parse_code(const char *code_str, enum tw_binding_type type, uint32_t *code)
 {
 	const struct event_map *table = NULL;
 	size_t table_len = 0;
-	uint32_t code;
 	bool parsed = false;
 	switch (type) {
 	case TW_BINDING_key:
@@ -171,36 +163,38 @@ parse_code(const char *code_str, enum tw_binding_type type,
 		break;
 	case TW_BINDING_tch:
 		break;
+	default:
+		break;
 	}
 	if (type == TW_BINDING_tch) {
-		press->tch = (strcasecmp(code_str, "tch") == 0);
-		parsed = press->tch;
-	} else if (strlen(code_str) > 1) {
-		parsed = parse_table(code_str, table, table_len, &code);
-		press->keycode = (type == TW_BINDING_key) ? code+8 : code;
-	} else if (strlen(code_str) == 1 &&
-		   type == TW_BINDING_key &&
-		   *code_str >= PUNCT_START &&
-		   *code_str < 128) {
+		*code = true;
+		parsed = (strcasecmp(code_str, "tch") == 0);
+	}
+	else if (strlen(code_str) > 1)
+		parsed = parse_table(code_str, table, table_len, code);
+	//if it is ascii code
+	else if (strlen(code_str) == 1 &&
+		 type == TW_BINDING_key &&
+		 *code_str >= PUNCT_START &&
+		 *code_str <= 126) {
 		int c = chars_table[*code_str-PUNCT_START].code;
 		parsed = (c != KEY_RESERVED);
-		press->keycode = c+8;
+		*code = c;
 	} else
 		return false;
 	return parsed;
 }
 
 bool
-tw_parse_binding(const char *code_str, const enum tw_binding_type type,
-		 struct tw_press *press)
+parse_one_press(const char *code_str, const enum tw_binding_type type,
+		uint32_t *modifier, uint32_t *code)
 {
 	char str_cpy[128];
+	//a valid token can have at most 4 modifiers and 1 key
 	char *toks[5] = {0}, *saved_ptr, *c;
 	int count = 0;
 
-	press->modifier = 0;
-	press->keycode = 0;
-	//deal with case `-asf-`
+	*modifier = 0;
 	strncpy(str_cpy, code_str, sizeof(str_cpy));
 	if (*code_str == '-' || *(code_str+strlen(code_str)-1) == '-')
 		return false;
@@ -215,10 +209,10 @@ tw_parse_binding(const char *code_str, const enum tw_binding_type type,
 	//parse the modifiers, this loop avoids any dups S-S wont pass
 	for (int i = 0; i < count-1; i++) {
 		uint32_t mod = parse_modifier(toks[i]);
-		if ((press->modifier | mod) == press->modifier)
+		if ((*modifier | mod) == *modifier)
 			return false;
-		press->modifier |= mod;
+		*modifier |= mod;
 	}
 	//parse the code
-	return parse_code(toks[count-1], type, press);
+	return parse_code(toks[count-1], type, code);
 }
