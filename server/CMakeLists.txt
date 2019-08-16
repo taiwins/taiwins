@@ -55,11 +55,11 @@ add_executable(taiwins
   )
 
 target_link_libraries(taiwins
+  ${COMPOSITOR_LIBRARIES}
+  ${TRDPTY_LIBRARIES}
   twcore
   twshell
   twconsole
   twdesktop
   proto_server_libraries
-  ${COMPOSITOR_LIBRARIES}
-  ${TRDPTY_LIBRARIES}
   )

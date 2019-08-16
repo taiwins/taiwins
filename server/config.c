@@ -510,7 +510,7 @@ taiwins_config_get_bindings(struct taiwins_config *config)
  * multiple times, manually deleting bindings would be totally
  */
 bool
-taiwins_run_config(struct taiwins_config *config, const char *path)
+taiwins_run_config(struct taiwins_config *config, struct tw_bindings *bindings, const char *path)
 {
 	int error = luaL_loadfile(config->L, path);
 	if (error)
@@ -518,8 +518,13 @@ taiwins_run_config(struct taiwins_config *config, const char *path)
 	else
 		lua_pcall(config->L, 0, 0, 0);
 	struct apply_bindings_t *pos, *tmp;
-	//TODO, deleting all the bindings in the compositor
+	//TODO: why it is not linked
+	/* weston_binding_list_destroy_all(&config->compositor->key_binding_list); */
+	/* weston_binding_list_destroy_all(&config->compositor->button_binding_list); */
+	/* weston_binding_list_destroy_all(&config->compositor->axis_binding_list); */
+	/* weston_binding_list_destroy_all(&config->compositor->touch_binding_list); */
 
+	//install keybinding
 	wl_list_for_each_safe(pos, tmp, &config->apply_bindings, node)
 	{
 		pos->func(pos->data, pos->bindings, config);
@@ -539,11 +544,10 @@ taiwins_config_get_builtin_binding(struct taiwins_config *c,
 
 
 void
-taiwins_config_register_bindings_funcs(struct taiwins_config *c, struct tw_bindings *b,
+taiwins_config_register_bindings_funcs(struct taiwins_config *c,
 				       tw_bindings_apply_func_t func, void *data)
 {
 	struct apply_bindings_t *ab = malloc(sizeof(struct apply_bindings_t));
-	ab->bindings = b;
 	ab->func = func;
 	ab->data = data;
 	wl_list_init(&ab->node);

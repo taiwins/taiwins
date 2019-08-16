@@ -163,7 +163,7 @@ struct console *announce_console(struct weston_compositor *compositor,
 		struct wl_event_loop *loop = wl_display_get_event_loop(compositor->wl_display);
 		wl_event_loop_add_idle(loop, launch_console_client, &CONSOLE);
 	}
-	taiwins_config_register_bindings_funcs(config, taiwins_config_get_bindings(config), console_add_bindings, &CONSOLE);
+	taiwins_config_register_bindings_funcs(config, console_add_bindings, &CONSOLE);
 	return &CONSOLE;
 	//TODO register the destroy signal
 }

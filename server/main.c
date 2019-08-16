@@ -112,14 +112,13 @@ int main(int argc, char *argv[], char *envp[])
 	//good moment to add the extensions
 	struct taiwins_config *config = taiwins_config_create(compositor, tw_log);
 	struct tw_bindings *bindings = tw_bindings_create(compositor);
-	taiwins_config_set_bindings(config, bindings);
 
 	struct shell *sh = announce_shell(compositor, shellpath, config);
 	struct console *con = announce_console(compositor, sh, launcherpath, config);
 	struct desktop *desktop = announce_desktop(compositor, config);
 	(void)con;
 
-	taiwins_run_config(config, config_file);
+	taiwins_run_config(config, bindings, config_file);
 
 	/* tw_bindings_print(bindings); */
 

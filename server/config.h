@@ -81,12 +81,14 @@ struct tw_bindings* taiwins_config_get_bindings(struct taiwins_config *config);
 /**
  * /brief register an apply_binding function, call this before run_config
  */
-void taiwins_config_register_bindings_funcs(struct taiwins_config *c, struct tw_bindings *, tw_bindings_apply_func_t func, void *data);
+void taiwins_config_register_bindings_funcs(struct taiwins_config *c, tw_bindings_apply_func_t func, void *data);
 
 /**
  * /brief load and apply the config file
+ *
+ * this may be called from a keybinding function, that is provided in the config file
  */
-bool taiwins_run_config(struct taiwins_config *, const char *);
+bool taiwins_run_config(struct taiwins_config *, struct tw_bindings *, const char *);
 
 /**
  * /brief get the configuration for keybinding
