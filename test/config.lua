@@ -10,6 +10,7 @@ compositor:bind_key("TW_OPEN_CONSOLE", "C-x,C-c")
 function random_function()
    compositor:do_weird_stuff()
 end
+--this works
 compositor:bind_btn(random_function, "C-M-btn_l")
 
 -- do you really want to bind all the functions into lua functions?

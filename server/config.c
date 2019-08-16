@@ -334,7 +334,7 @@ taiwins_config_apply_default(struct taiwins_config *c)
 	//compositor setup
 	c->compositor->kb_repeat_delay = 400;
 	c->compositor->kb_repeat_rate = 40;
-
+	//TODO, reload config binding/kill server binding
 	//apply bindings
 	c->builtin_bindings[TW_OPEN_CONSOLE_BINDING] = (struct taiwins_binding){
 		.keypress = {{KEY_P, MODIFIER_CTRL}, {0}, {0}, {0}, {0}},
@@ -506,8 +506,7 @@ taiwins_config_get_bindings(struct taiwins_config *config)
 /**
  * /brief run/rerun the configurations.
  *
- * If we only run it once, it should be totally okay. But if we need to run it
- * multiple times, manually deleting bindings would be totally
+ * right now we can only run once.
  */
 bool
 taiwins_run_config(struct taiwins_config *config, struct tw_bindings *bindings, const char *path)
@@ -518,17 +517,35 @@ taiwins_run_config(struct taiwins_config *config, struct tw_bindings *bindings, 
 	else
 		lua_pcall(config->L, 0, 0, 0);
 	struct apply_bindings_t *pos, *tmp;
-	//TODO: why it is not linked
+
+	//TODO: why the hell it is not linked
 	/* weston_binding_list_destroy_all(&config->compositor->key_binding_list); */
 	/* weston_binding_list_destroy_all(&config->compositor->button_binding_list); */
 	/* weston_binding_list_destroy_all(&config->compositor->axis_binding_list); */
 	/* weston_binding_list_destroy_all(&config->compositor->touch_binding_list); */
 
-	//install keybinding
+	//install default keybinding
 	wl_list_for_each_safe(pos, tmp, &config->apply_bindings, node)
 	{
 		pos->func(pos->data, pos->bindings, config);
 		free(pos);
+	}
+	//install user bindings
+	for (int i = 0; i < config->lua_bindings.len; i++) {
+		struct taiwins_binding *binding = vector_at(&config->lua_bindings, i);
+		switch(binding->type) {
+		case TW_BINDING_key:
+			tw_bindings_add_key(bindings, binding->keypress, binding->key_func, 0, binding);
+			break;
+		case TW_BINDING_btn:
+			tw_bindings_add_btn(bindings, &binding->btnpress, binding->btn_func, binding);
+			break;
+		case TW_BINDING_axis:
+			tw_bindings_add_axis(bindings, &binding->axisaction, binding->axis_func, binding);
+			break;
+		default:
+			break;
+		}
 	}
 
 	return (!error);

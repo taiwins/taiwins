@@ -27,6 +27,14 @@ some code likes this. Afterwards you can simply have
 We can also have `user_data` which binds with it. So we can get the `user_data`
 instead of save it somewhere as global variable.
 
+### metatables, `__index` and `__newindex`
+	- `metatable` serves the purpose of evoking function (e.g. `__add` for the
+	  function that is not there.)
+	- `__index` method is there when you access an element of table that is not
+	  there.
+	- `metatable` of the userdata is for verifring whether certain userdata is
+	  the certain type.
+	- set `__index` of a `metatable` to itself.
 
 ### nuklear bindings
 This part you have no choice but to provide functions.
