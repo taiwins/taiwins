@@ -19,8 +19,9 @@ main(int argc, char *argv[])
 	struct wl_display *display = wl_display_create();
 	struct weston_compositor *ec = weston_compositor_create(display, NULL);
 	struct taiwins_config *config = taiwins_config_create(ec, vprintf);
+	struct tw_bindings *bindings = tw_bindings_create(ec);
 
-	taiwins_run_config(config, argv[1]);
+	taiwins_run_config(config, bindings, argv[1]);
 
 	taiwins_config_destroy(config);
 	weston_compositor_shutdown(ec);

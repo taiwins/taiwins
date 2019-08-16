@@ -595,7 +595,6 @@ announce_shell(struct weston_compositor *ec, const char *path,
 		wl_list_for_each(output, &ec->output_list, link)
 			shell_output_created(&oneshell.output_create_listener, output);
 	}
-	taiwins_config_register_bindings_funcs(config, taiwins_config_get_bindings(config),
-					       shell_add_bindings, &oneshell);
+	taiwins_config_register_bindings_funcs(config, shell_add_bindings, &oneshell);
 	return &oneshell;
 }

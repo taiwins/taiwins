@@ -324,7 +324,7 @@ announce_desktop(struct weston_compositor *ec, struct taiwins_config *config)
 						 output);
 	}
 	//last step, add keybindings
-	taiwins_config_register_bindings_funcs(config, taiwins_config_get_bindings(config), desktop_add_bindings, &DESKTOP);
+	taiwins_config_register_bindings_funcs(config, desktop_add_bindings, &DESKTOP);
 	return &DESKTOP;
 }
 
