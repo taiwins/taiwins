@@ -77,6 +77,7 @@ typedef void (*tw_key_binding)(struct weston_keyboard *keyboard,
 struct tw_bindings;
 struct tw_bindings *tw_bindings_create(struct weston_compositor *);
 void tw_bindings_destroy(struct tw_bindings *);
+void tw_bindings_clean(struct tw_bindings *);
 
 bool tw_bindings_add_key(struct tw_bindings *root,
 			 const struct tw_key_press presses[MAX_KEY_SEQ_LEN],
