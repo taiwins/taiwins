@@ -609,12 +609,12 @@ taiwins_run_config(struct taiwins_config *config, const char *path)
 	//create temporary resource
 	struct tw_bindings *bindings = tw_bindings_create(config->compositor);
 	struct taiwins_config *temp_config = taiwins_config_create(config->compositor, config->print);
-	//setup the temporary configrator
+	//setup the temporary config
 	strcpy(temp_config->path, config->path);
 	vector_copy(&temp_config->apply_bindings, &config->apply_bindings);
 	taiwins_config_set_bindings(temp_config, bindings);
 	taiwins_config_try_config(temp_config);
-	error = config->quit;
+	error = temp_config->quit;
 	if (!error) {
 		//clean up the bindings we have right now
 		weston_destroy_bindings_list(&config->compositor->key_binding_list);

@@ -581,7 +581,8 @@ desktop_click_activate_view(struct weston_pointer *pointer,
 	struct workspace *ws = desktop->actived_workspace[0];
 	if (pointer->grab != &pointer->default_grab)
 		return;
-	if (!pointer->focus || !pointer->button_count)
+	if (!pointer->focus || !pointer->button_count ||
+	    !weston_surface_is_desktop_surface(pointer->focus->surface))
 		return;
 	if (workspace_focus_view(ws, pointer->focus)) {
 		weston_view_activate(pointer->focus, pointer->seat,
@@ -601,6 +602,9 @@ desktop_touch_activate_view(struct weston_touch *touch,
 {
 	struct desktop *desktop = data;
 	if (touch->grab != &touch->default_grab || !touch->focus)
+		return;
+	if (!touch->focus ||
+	    !weston_surface_is_desktop_surface(touch->focus->surface))
 		return;
 	struct workspace *ws = desktop->actived_workspace[0];
 	if (workspace_focus_view(ws, touch->focus)) {
@@ -655,6 +659,8 @@ desktop_view_resize(struct weston_keyboard *keyboard,
 		    const struct timespec *time, uint32_t key,
 		    uint32_t option, void *data)
 {
+	if (!weston_surface_is_desktop_surface(keyboard->focus))
+		return;
 	//as a keybinding, we only operate on the lower button of the view
 	struct desktop *desktop = data;
 	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
@@ -689,6 +695,8 @@ desktop_toggle_vertical(struct weston_keyboard *keyboard,
 			const struct timespec *time, uint32_t key,
 			uint32_t option, void *data)
 {
+	if (!weston_surface_is_desktop_surface(keyboard->focus))
+		return;
 	struct desktop *desktop = data;
 	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
 	struct workspace *ws = get_workspace_for_view(view, desktop);
@@ -703,6 +711,9 @@ desktop_toggle_floating(struct weston_keyboard *keyboard,
 			const struct timespec *time, uint32_t key,
 			uint32_t option, void *data)
 {
+	if (!weston_surface_is_desktop_surface(keyboard->focus))
+		return;
+
 	struct desktop *desktop = data;
 	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
 	struct workspace *ws = get_workspace_for_view(view, desktop);
@@ -714,7 +725,11 @@ static void
 desktop_split_view(struct weston_keyboard *keyboard,
 		   const struct timespec *time, uint32_t key,
 		   uint32_t option, void *data)
+
 {
+	if (!weston_surface_is_desktop_surface(keyboard->focus))
+		return;
+
 	struct desktop *desktop = data;
 	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
 	struct workspace *ws = get_workspace_for_view(view, desktop);
@@ -733,6 +748,9 @@ desktop_merge_view(struct weston_keyboard *keyboard,
 		   const struct timespec *time, uint32_t key,
 		   uint32_t option, void *data)
 {
+	if (!weston_surface_is_desktop_surface(keyboard->focus))
+		return;
+
 	struct desktop *desktop = data;
 	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
 	struct workspace *ws = get_workspace_for_view(view, desktop);
@@ -748,6 +766,9 @@ desktop_recent_view(struct weston_keyboard *keyboard,
 		    const struct timespec *time, uint32_t key,
 		    uint32_t option, void *data)
 {
+	if (!weston_surface_is_desktop_surface(keyboard->focus))
+		return;
+
 	struct desktop *desktop = data;
 	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
 	struct workspace *ws = get_workspace_for_view(view, desktop);

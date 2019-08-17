@@ -20,7 +20,8 @@ main(int argc, char *argv[])
 	struct weston_compositor *ec = weston_compositor_create(display, NULL);
 	struct taiwins_config *config = taiwins_config_create(ec, vprintf);
 
-	taiwins_run_config(config, argv[1]);
+	for (int i = 0; i < 10; i++)
+		taiwins_run_config(config, argv[1]);
 
 	taiwins_config_destroy(config);
 	weston_compositor_shutdown(ec);
