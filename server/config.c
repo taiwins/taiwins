@@ -17,6 +17,8 @@
 
 
 struct taiwins_config {
+	//configuration path, it is copied on first time runing config
+	char path[128];
 	struct weston_compositor *compositor;
 	struct tw_bindings *bindings;
 	lua_State *L;
@@ -40,15 +42,20 @@ struct apply_bindings_t {
 };
 
 
-#define REGISTER_METHOD(l, name, func)		\
-	({lua_pushcfunction(l, func);		\
-		lua_setfield(l, -2, name);	\
-	})
 
 bool parse_one_press(const char *str,
 		     const enum tw_binding_type type,
 		     uint32_t *mod, uint32_t *code);
 
+//////////////////////////////////////////////////////////////////
+/////////////////////// LUA functions /;//////////////////////////
+//////////////////////////////////////////////////////////////////
+
+
+#define REGISTER_METHOD(l, name, func)		\
+	({lua_pushcfunction(l, func);		\
+		lua_setfield(l, -2, name);	\
+	})
 
 
 static inline void
@@ -291,7 +298,6 @@ _lua_set_keyboard_options(lua_State *L)
 	return 0;
 }
 
-
 /* usage: compositor.set_repeat_info(100, 40) */
 static int
 _lua_set_repeat_info(lua_State *L)
@@ -335,23 +341,23 @@ taiwins_config_apply_default(struct taiwins_config *c)
 	c->compositor->kb_repeat_rate = 40;
 	//TODO, reload config binding/kill server binding
 	//apply bindings
-	c->builtin_bindings[TW_OPEN_CONSOLE_BINDING] = (struct taiwins_binding){
+	c->builtin_bindings[TW_OPEN_CONSOLE_BINDING] = (struct taiwins_binding) {
 		.keypress = {{KEY_P, MODIFIER_CTRL}, {0}, {0}, {0}, {0}},
 		.type = TW_BINDING_key,
 		.name = "TW_OPEN_CONSOLE",
 	};
-	c->builtin_bindings[TW_ZOOM_AXIS_BINDING] = (struct taiwins_binding){
+	c->builtin_bindings[TW_ZOOM_AXIS_BINDING] = (struct taiwins_binding) {
 		.axisaction = {.axis_event = WL_POINTER_AXIS_VERTICAL_SCROLL,
 			       .modifier = MODIFIER_CTRL | MODIFIER_SUPER},
 		.type = TW_BINDING_axis,
 		.name = "TW_ZOOM_AXIS",
 	};
-	c->builtin_bindings[TW_MOVE_PRESS_BINDING] = (struct taiwins_binding){
+	c->builtin_bindings[TW_MOVE_PRESS_BINDING] = (struct taiwins_binding) {
 		.btnpress = {BTN_LEFT, MODIFIER_SUPER},
 		.type = TW_BINDING_btn,
 		.name = "TW_MOVE_VIEW_BTN",
 	};
-	c->builtin_bindings[TW_FOCUS_PRESS_BINDING] = (struct taiwins_binding){
+	c->builtin_bindings[TW_FOCUS_PRESS_BINDING] = (struct taiwins_binding) {
 		.btnpress = {BTN_LEFT, 0},
 		.type = TW_BINDING_btn,
 		.name = "TW_FOCUS_VIEW_BTN",
@@ -466,8 +472,8 @@ taiwins_config_create(struct weston_compositor *ec, log_func_t log)
 	config->quit = false;
 
 	wl_list_init(&config->apply_bindings);
-	taiwins_config_apply_default(config);
-	taiwins_config_init_luastate(config);
+	/* taiwins_config_apply_default(config); */
+	/* taiwins_config_init_luastate(config); */
 
 	return config;
 }
@@ -502,27 +508,43 @@ taiwins_config_get_bindings(struct taiwins_config *config)
 	return config->bindings;
 }
 
-/**
- * /brief run/rerun the configurations.
- *
- * right now we can only run once.
- */
-bool
-taiwins_run_config(struct taiwins_config *config, struct tw_bindings *bindings, const char *path)
-{
-	int error = luaL_loadfile(config->L, path);
-	if (error)
-		_lua_error(config, "%s is not a valid config file", path);
-	else
-		lua_pcall(config->L, 0, 0, 0);
-	struct apply_bindings_t *pos, *tmp;
 
+static void
+taiwins_config_rerun_config(struct weston_keyboard *keyboard,
+			    const struct timespec *time, uint32_t key,
+			    uint32_t option, void *data)
+{
+	struct taiwins_config *config = data;
+
+	//TODO: the effect here should be only in config. only if the config
+	//gets executed correctly we then swap the lua_state.
+	taiwins_config_init_luastate(config);
+	taiwins_config_apply_default(config);
+
+	//do all those things that is in the run_config
+	//clean up all the config and bindings
+
+	//if something happen here, we should be able to quit.
+	int error = luaL_loadfile(config->L, config->path);
+	if (error) {
+		_lua_error(config, "%s is not a valid config file", config->path);
+		config->quit = true;
+		return;
+	}
+	error = lua_pcall(config->L, 0, 0, 0);
+	config->quit = config->quit || error;
+	if (config->quit)
+		return;
+
+	//clean up the bindings
+	struct tw_bindings *bindings = taiwins_config_get_bindings(config);
+	tw_bindings_clean(bindings);
 	weston_destroy_bindings_list(&config->compositor->key_binding_list);
 	weston_destroy_bindings_list(&config->compositor->button_binding_list);
 	weston_destroy_bindings_list(&config->compositor->touch_binding_list);
 	weston_destroy_bindings_list(&config->compositor->axis_binding_list);
-	tw_bindings_clean(bindings);
 
+	struct apply_bindings_t *pos, *tmp;
 	//install default keybinding
 	wl_list_for_each_safe(pos, tmp, &config->apply_bindings, node)
 	{
@@ -547,6 +569,22 @@ taiwins_run_config(struct taiwins_config *config, struct tw_bindings *bindings, 
 		}
 	}
 
+}
+
+
+/**
+ * /brief run/rerun the configurations.
+ *
+ * right now we can only run once.
+ */
+bool
+taiwins_run_config(struct taiwins_config *config, struct tw_bindings *bindings, const char *path)
+{
+	bool error = false;
+	strncpy(config->path, path, 127);
+	taiwins_config_set_bindings(config, bindings);
+	taiwins_config_rerun_config(NULL, NULL, 0, 0, config);
+	error = config->quit;
 	return (!error);
 }
 
