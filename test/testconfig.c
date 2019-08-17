@@ -24,6 +24,7 @@ main(int argc, char *argv[])
 	taiwins_run_config(config, bindings, argv[1]);
 
 	taiwins_config_destroy(config);
+	tw_bindings_destroy(bindings);
 	weston_compositor_shutdown(ec);
 	weston_compositor_destroy(ec);
 	wl_display_destroy(display);

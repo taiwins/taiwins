@@ -62,7 +62,7 @@ struct tw_binding_node {
 
 struct tw_bindings {
 	//root node for keyboard
-	struct tw_binding_node *root_node;
+	struct tw_binding_node root_node;
 	struct weston_compositor *ec;
 };
 
@@ -161,7 +161,7 @@ tw_start_keybinding(struct weston_keyboard *keyboard,
 	struct tw_bindings *bindings = data;
 	struct keybinding_container *container =
 		malloc(sizeof(struct keybinding_container));
-	container->node = bindings->root_node;
+	container->node = &bindings->root_node;
 	container->grab.interface = &tw_keybinding_grab;
 	weston_keyboard_start_grab(keyboard,
 				   &container->grab);
@@ -177,22 +177,25 @@ tw_bindings_create(struct weston_compositor *ec)
 	struct tw_bindings *root = malloc(sizeof(struct tw_bindings));
 	if (root) {
 		root->ec = ec;
-		root->root_node = malloc(sizeof(struct tw_binding_node));
-		if (!root->root_node) {
-			free(root);
-			return NULL;
-		}
-		vtree_node_init(&(root->root_node->node),
+		vtree_node_init(&root->root_node.node,
 				offsetof(struct tw_binding_node, node));
 	}
 	return root;
 }
 
+void
+tw_bindings_clean(struct tw_bindings *bindings)
+{
+	vtree_destroy_children(&bindings->root_node.node, free);
+	vtree_node_init(&bindings->root_node.node,
+			offsetof(struct tw_binding_node, node));
+	/* bindings->root_node */
+}
 
 void
 tw_bindings_destroy(struct tw_bindings *bindings)
 {
-	vtree_destroy(&bindings->root_node->node, free);
+	vtree_destroy_children(&bindings->root_node.node, free);
 	free(bindings);
 }
 
@@ -279,7 +282,7 @@ tw_bindings_add_key(struct tw_bindings *root,
 		    const tw_key_binding func, uint32_t option,
 		    void *data)
 {
-	struct tw_binding_node *subtree = root->root_node;
+	struct tw_binding_node *subtree = &root->root_node;
 	for (int i = 0; i < MAX_KEY_SEQ_LEN; i++) {
 		uint32_t mod = presses[i].modifier;
 		uint32_t linux_code = presses[i].keycode;
@@ -343,5 +346,5 @@ static void print_node(const struct vtree_node *n)
 void
 tw_bindings_print(struct tw_bindings *root)
 {
-	vtree_print(&root->root_node->node, print_node, 0);
+	vtree_print(&root->root_node.node, print_node, 0);
 }
