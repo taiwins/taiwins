@@ -38,6 +38,7 @@ struct taiwins_config;
 // list of builtin bindings
 /////////////////////////////////////////////////////////
 enum taiwins_builtin_binding_t {
+	//QUIT taiwins, rerun configuration
 	//console
 	TW_OPEN_CONSOLE_BINDING,
 	//shell
@@ -69,14 +70,6 @@ typedef void (*tw_bindings_apply_func_t)(void *data, struct tw_bindings *binding
 struct taiwins_config *taiwins_config_create(struct weston_compositor *ec, log_func_t messenger);
 void taiwins_config_destroy(struct taiwins_config *);
 
-/**
- * /brief set bindings
- */
-void taiwins_config_set_bindings(struct taiwins_config *, struct tw_bindings *);
-/**
- * /brief get bindings
- */
-struct tw_bindings* taiwins_config_get_bindings(struct taiwins_config *config);
 
 /**
  * /brief register an apply_binding function, call this before run_config

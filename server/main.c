@@ -83,6 +83,7 @@ taiwins_quit(struct weston_keyboard *keyboard,
 
 int main(int argc, char *argv[], char *envp[])
 {
+	int error = 0;
 	logfile = fopen("/tmp/taiwins_log", "w");
 
 	const char *shellpath = (argc > 1) ? argv[1] : NULL;
@@ -118,7 +119,12 @@ int main(int argc, char *argv[], char *envp[])
 	struct desktop *desktop = announce_desktop(compositor, config);
 	(void)con;
 
-	taiwins_run_config(config, bindings, config_file);
+	//we can run the config here, or actually add it to one of the signal
+	error = !taiwins_run_config(config, bindings, config_file);
+	if (error) {
+		exit(-1);
+		//TODO deal with leak here
+	}
 
 	/* tw_bindings_print(bindings); */
 
@@ -127,8 +133,6 @@ int main(int argc, char *argv[], char *envp[])
 
 	wl_display_run(display);
 	taiwins_config_destroy(config);
-
-
 //	wl_display_terminate(display);
 	//now you destroy the desktops
 
