@@ -112,7 +112,6 @@ int main(int argc, char *argv[], char *envp[])
 	weston_compositor_wake(compositor);
 	//good moment to add the extensions
 	struct taiwins_config *config = taiwins_config_create(compositor, tw_log);
-	struct tw_bindings *bindings = tw_bindings_create(compositor);
 
 	struct shell *sh = announce_shell(compositor, shellpath, config);
 	struct console *con = announce_console(compositor, sh, launcherpath, config);
@@ -120,7 +119,7 @@ int main(int argc, char *argv[], char *envp[])
 	(void)con;
 
 	//we can run the config here, or actually add it to one of the signal
-	error = !taiwins_run_config(config, bindings, config_file);
+	error = !taiwins_run_config(config, config_file);
 	if (error) {
 		exit(-1);
 		//TODO deal with leak here
@@ -142,7 +141,6 @@ int main(int argc, char *argv[], char *envp[])
 	// - weston_compositor_shutdown: remove all the bindings, output, renderer,
 	// - weston_compositor_destroy, this call finally free the compositor
 	end_desktop(desktop);
-	tw_bindings_destroy(bindings);
 	taiwins_config_destroy(config);
 
 	weston_compositor_shutdown(compositor);
