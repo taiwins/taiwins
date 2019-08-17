@@ -22,17 +22,15 @@ struct taiwins_config {
 	struct weston_compositor *compositor;
 	struct tw_bindings *bindings;
 	lua_State *L;
-	//we need this variable to mark configurator failed
 	log_func_t print;
 	//in terms of xkb_rules, we try to parse it as much as we can
 	struct xkb_rule_names rules;
 	vector_t apply_bindings;
-	/* struct wl_list apply_bindings; */
-	//we will have quit a few data field
 	bool default_floating;
 	bool quit;
 	/* user bindings */
 	vector_t lua_bindings;
+	/* user bindings */
 	struct taiwins_binding builtin_bindings[TW_BUILTIN_BINDING_SIZE];
 };
 
@@ -466,12 +464,14 @@ taiwins_config_init_luastate(struct taiwins_config *c)
 struct taiwins_config*
 taiwins_config_create(struct weston_compositor *ec, log_func_t log)
 {
-	struct taiwins_config *config = calloc(1, sizeof(struct taiwins_config));
+	struct taiwins_config *config =
+		calloc(1, sizeof(struct taiwins_config));
 
 	config->compositor = ec;
 	config->print = log;
 	config->quit = false;
-	vector_init(&config->apply_bindings, sizeof(struct apply_bindings_t), NULL);
+	vector_init(&config->apply_bindings,
+		    sizeof(struct apply_bindings_t), NULL);
 
 	return config;
 }
@@ -566,9 +566,8 @@ taiwins_config_try_config(struct taiwins_config *config)
 	if (config->quit)
 		return;
 
-	//clean up the bindings
+	//the bindings is new
 	struct tw_bindings *bindings = taiwins_config_get_bindings(config);
-	tw_bindings_clean(bindings);
 
 	struct apply_bindings_t *pos;
 	//install default keybinding
@@ -623,8 +622,9 @@ taiwins_run_config(struct taiwins_config *config, const char *path)
 		weston_destroy_bindings_list(&config->compositor->axis_binding_list);
 		tw_bindings_apply(bindings);
 		taiwins_swap_config(config, temp_config);
-	} else //Oops, this didn't work
+	} else {
 		taiwins_config_destroy(temp_config);
+	}
 	return (!error);
 }
 
