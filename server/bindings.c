@@ -179,22 +179,17 @@ tw_bindings_create(struct weston_compositor *ec)
 		vtree_node_init(&root->root_node.node,
 				offsetof(struct tw_binding_node, node));
 	}
-	vector_init(&root->apply_list, sizeof(struct taiwins_binding), NULL);
+	vector_init_zero(&root->apply_list, sizeof(struct taiwins_binding), NULL);
 	return root;
 }
 
-void
-tw_bindings_clean(struct tw_bindings *bindings)
-{
-	vtree_destroy_children(&bindings->root_node.node, free);
-	vtree_node_init(&bindings->root_node.node,
-			offsetof(struct tw_binding_node, node));
-}
 
 void
 tw_bindings_destroy(struct tw_bindings *bindings)
 {
 	vtree_destroy_children(&bindings->root_node.node, free);
+	if (bindings->apply_list.elems)
+		vector_destroy(&bindings->apply_list);
 	free(bindings);
 }
 
@@ -375,6 +370,8 @@ tw_bindings_apply(struct tw_bindings *root)
 		}
 	}
 	vector_destroy(&root->apply_list);
+	vector_init_zero(&root->apply_list,
+			 sizeof(struct taiwins_binding), NULL);
 }
 
 
