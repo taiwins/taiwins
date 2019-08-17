@@ -12,25 +12,6 @@
 extern "C" {
 #endif
 
-
-struct taiwins_binding {
-	char name[32];
-	enum tw_binding_type type;
-	union {
-		struct tw_key_press keypress[MAX_KEY_SEQ_LEN];
-		struct tw_btn_press btnpress;
-		struct tw_axis_motion axisaction;
-	};
-	union {
-		tw_btn_binding btn_func;
-		tw_axis_binding axis_func;
-		tw_touch_binding touch_func;
-		tw_key_binding key_func;
-	};
-	//this is lua context
-	void *user_data;
-};
-
 struct taiwins_config;
 
 
@@ -79,9 +60,13 @@ void taiwins_config_register_bindings_funcs(struct taiwins_config *c, tw_binding
 /**
  * /brief load and apply the config file
  *
- * this may be called from a keybinding function, that is provided in the config file
+ * to support hot reloading, this function can be called from a keybinding. The
+ * check has to be there to be sure nothing is screwed up.
+ *
+ * /param path if not present, use the internal path
+ * /return true if config has no problem
  */
-bool taiwins_run_config(struct taiwins_config *, struct tw_bindings *, const char *);
+bool taiwins_run_config(struct taiwins_config *config, const char *path);
 
 /**
  * /brief get the configuration for keybinding

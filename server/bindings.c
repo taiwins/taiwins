@@ -11,6 +11,7 @@
 #include <compositor.h>
 #include "bindings.h"
 
+
 static inline xkb_keycode_t
 kc_linux2xkb(uint32_t kc_linux)
 {
@@ -64,10 +65,8 @@ struct tw_bindings {
 	//root node for keyboard
 	struct tw_binding_node root_node;
 	struct weston_compositor *ec;
+	vector_t apply_list;
 };
-
-
-
 
 
 
@@ -180,6 +179,7 @@ tw_bindings_create(struct weston_compositor *ec)
 		vtree_node_init(&root->root_node.node,
 				offsetof(struct tw_binding_node, node));
 	}
+	vector_init(&root->apply_list, sizeof(struct taiwins_binding), NULL);
 	return root;
 }
 
@@ -189,7 +189,6 @@ tw_bindings_clean(struct tw_bindings *bindings)
 	vtree_destroy_children(&bindings->root_node.node, free);
 	vtree_node_init(&bindings->root_node.node,
 			offsetof(struct tw_binding_node, node));
-	/* bindings->root_node */
 }
 
 void
@@ -235,11 +234,12 @@ bool tw_bindings_add_axis(struct tw_bindings *root,
 			  const tw_axis_binding binding,
 			  void *data)
 {
-	struct weston_binding *b =
-		weston_compositor_add_axis_binding(root->ec, motion->axis_event,
-						   motion->modifier, binding, data);
-	return (b) ? true : false;
-
+	struct taiwins_binding *new_binding = vector_newelem(&root->apply_list);
+	new_binding->type = TW_BINDING_axis;
+	new_binding->axis_func = binding;
+	new_binding->axisaction = *motion;
+	new_binding->user_data = data;
+	return true;
 }
 
 bool
@@ -248,11 +248,12 @@ tw_bindings_add_btn(struct tw_bindings *root,
 		    const tw_btn_binding binding,
 		    void *data)
 {
-	struct weston_binding *b =
-		weston_compositor_add_button_binding(root->ec,
-						     press->btn, press->modifier,
-						     binding, data);
-	return (b) ? true : false;
+	struct taiwins_binding *new_binding = vector_newelem(&root->apply_list);
+	new_binding->type = TW_BINDING_btn;
+	new_binding->btn_func = binding;
+	new_binding->btnpress = *press;
+	new_binding->user_data = data;
+	return true;
 }
 
 bool
@@ -261,9 +262,12 @@ tw_bindings_add_touch(struct tw_bindings *root,
 		      const tw_touch_binding binding,
 		      void *data)
 {
-	struct weston_binding *b =
-		weston_compositor_add_touch_binding(root->ec, modifier, binding, data);
-	return (b) ? true : false;
+	struct taiwins_binding *new_binding = vector_newelem(&root->apply_list);
+	new_binding->type = TW_BINDING_tch;
+	new_binding->touch_func = binding;
+	new_binding->btnpress.modifier = modifier;
+	new_binding->user_data = data;
+	return true;
 }
 
 
@@ -303,9 +307,9 @@ tw_bindings_add_key(struct tw_bindings *root,
 			}
 		}
 		if (hit == -1 && i == 0) {
-			weston_compositor_add_key_binding(
-				root->ec, linux_code, mod,
-				tw_start_keybinding, root);
+			struct taiwins_binding *new_binding = vector_newelem(&root->apply_list);
+			new_binding->type = TW_BINDING_key;
+			new_binding->keypress[0] = presses[0];
 		}
 		if (hit == -1) {
 			//add node to the system
@@ -334,6 +338,43 @@ tw_bindings_add_key(struct tw_bindings *root,
 		}
 	}
 	return true;
+}
+
+void
+tw_bindings_apply(struct tw_bindings *root)
+{
+	//vector_for_each_safe
+	struct taiwins_binding *b;
+	vector_for_each(b, &root->apply_list) {
+		switch (b->type) {
+		case TW_BINDING_key:
+			weston_compositor_add_key_binding(
+				root->ec, b->keypress[0].keycode,
+				b->keypress[0].modifier,
+				tw_start_keybinding, root);
+			break;
+		case TW_BINDING_axis:
+			weston_compositor_add_axis_binding(
+				root->ec, b->axisaction.axis_event,
+				b->axisaction.modifier, b->axis_func,
+				b->user_data);
+			break;
+		case TW_BINDING_btn:
+			weston_compositor_add_button_binding(
+				root->ec,
+				b->btnpress.btn, b->btnpress.modifier,
+				b->btn_func, b->user_data);
+			break;
+		case TW_BINDING_tch:
+			weston_compositor_add_touch_binding(
+				root->ec, b->btnpress.modifier,
+				b->touch_func, b->user_data);
+			break;
+		case TW_BINDING_INVALID:
+			break;
+		}
+	}
+	vector_destroy(&root->apply_list);
 }
 
 

@@ -26,7 +26,8 @@ struct taiwins_config {
 	log_func_t print;
 	//in terms of xkb_rules, we try to parse it as much as we can
 	struct xkb_rule_names rules;
-	struct wl_list apply_bindings;
+	vector_t apply_bindings;
+	/* struct wl_list apply_bindings; */
 	//we will have quit a few data field
 	bool default_floating;
 	bool quit;
@@ -470,18 +471,16 @@ taiwins_config_create(struct weston_compositor *ec, log_func_t log)
 	config->compositor = ec;
 	config->print = log;
 	config->quit = false;
-
-	wl_list_init(&config->apply_bindings);
-	/* taiwins_config_apply_default(config); */
-	/* taiwins_config_init_luastate(config); */
+	vector_init(&config->apply_bindings, sizeof(struct apply_bindings_t), NULL);
 
 	return config;
 }
 
-void
-taiwins_config_destroy(struct taiwins_config *config)
+//release the config to be reused, we don't remove the apply bindings
+//here. Since it maybe called again.
+static inline void
+_taiwins_config_release(struct taiwins_config *config)
 {
-	/* vector_destroy(&config->lua_bindings); */
 	if (config->rules.layout)
 		free((void *)config->rules.layout);
 	if (config->rules.model)
@@ -492,32 +491,63 @@ taiwins_config_destroy(struct taiwins_config *config)
 		free((void *)config->rules.variant);
 
 	vector_destroy(&config->lua_bindings);
-	lua_close(config->L);
-	free(config);
+	if (config->L)
+		lua_close(config->L);
+	config->L = NULL;
+	if (config->bindings)
+		tw_bindings_destroy(config->bindings);
+	config->bindings = NULL;
+	//release everything but not apply_bindings
+	vector_destroy(&config->apply_bindings);
 }
 
 void
+taiwins_config_destroy(struct taiwins_config *config)
+{
+	_taiwins_config_release(config);
+	free(config);
+}
+
+static inline void
 taiwins_config_set_bindings(struct taiwins_config *config, struct tw_bindings *b)
 {
 	config->bindings = b;
 }
 
-struct tw_bindings*
+static inline struct tw_bindings*
 taiwins_config_get_bindings(struct taiwins_config *config)
 {
 	return config->bindings;
 }
 
+/**
+ * @brief swap all the config from one to another.
+ *
+ * at this point we know for sure we can apply the config. This works even if
+ * our dst is a fresh new config. The release function will take care of freeing
+ * things.
+ */
+static void
+taiwins_swap_config(struct taiwins_config *dst, struct taiwins_config *src)
+{
+	_taiwins_config_release(dst);
+	//clone everthing.
+	dst->L = src->L;
+	dst->bindings = src->bindings;
+	dst->lua_bindings = src->lua_bindings;
+	dst->rules = src->rules;
+	dst->default_floating = src->default_floating;
+	dst->apply_bindings = src->apply_bindings;
+	//luckly I don't need to copy the builtin list, since the bindings are
+	//applied already
+	//then we simply free src
+	free(src);
+}
+
 
 static void
-taiwins_config_rerun_config(struct weston_keyboard *keyboard,
-			    const struct timespec *time, uint32_t key,
-			    uint32_t option, void *data)
+taiwins_config_try_config(struct taiwins_config *config)
 {
-	struct taiwins_config *config = data;
-
-	//TODO: the effect here should be only in config. only if the config
-	//gets executed correctly we then swap the lua_state.
 	taiwins_config_init_luastate(config);
 	taiwins_config_apply_default(config);
 
@@ -539,21 +569,14 @@ taiwins_config_rerun_config(struct weston_keyboard *keyboard,
 	//clean up the bindings
 	struct tw_bindings *bindings = taiwins_config_get_bindings(config);
 	tw_bindings_clean(bindings);
-	weston_destroy_bindings_list(&config->compositor->key_binding_list);
-	weston_destroy_bindings_list(&config->compositor->button_binding_list);
-	weston_destroy_bindings_list(&config->compositor->touch_binding_list);
-	weston_destroy_bindings_list(&config->compositor->axis_binding_list);
 
-	struct apply_bindings_t *pos, *tmp;
+	struct apply_bindings_t *pos;
 	//install default keybinding
-	wl_list_for_each_safe(pos, tmp, &config->apply_bindings, node)
-	{
+	vector_for_each(pos, &config->apply_bindings) {
 		pos->func(pos->data, bindings, config);
-		free(pos);
 	}
-	//install user bindings
-	for (int i = 0; i < config->lua_bindings.len; i++) {
-		struct taiwins_binding *binding = vector_at(&config->lua_bindings, i);
+	struct taiwins_binding *binding;
+	vector_for_each(binding, &config->lua_bindings) {
 		switch(binding->type) {
 		case TW_BINDING_key:
 			tw_bindings_add_key(bindings, binding->keypress, binding->key_func, 0, binding);
@@ -568,7 +591,6 @@ taiwins_config_rerun_config(struct weston_keyboard *keyboard,
 			break;
 		}
 	}
-
 }
 
 
@@ -578,13 +600,31 @@ taiwins_config_rerun_config(struct weston_keyboard *keyboard,
  * right now we can only run once.
  */
 bool
-taiwins_run_config(struct taiwins_config *config, struct tw_bindings *bindings, const char *path)
+taiwins_run_config(struct taiwins_config *config, const char *path)
 {
 	bool error = false;
-	strncpy(config->path, path, 127);
-	taiwins_config_set_bindings(config, bindings);
-	taiwins_config_rerun_config(NULL, NULL, 0, 0, config);
+	if (path) {
+		strncpy(config->path, path, 127);
+	}
+	//create temporary resource
+	struct tw_bindings *bindings = tw_bindings_create(config->compositor);
+	struct taiwins_config *temp_config = taiwins_config_create(config->compositor, config->print);
+	//setup the temporary configrator
+	strcpy(temp_config->path, config->path);
+	vector_copy(&temp_config->apply_bindings, &config->apply_bindings);
+	taiwins_config_set_bindings(temp_config, bindings);
+	taiwins_config_try_config(temp_config);
 	error = config->quit;
+	if (!error) {
+		//clean up the bindings we have right now
+		weston_destroy_bindings_list(&config->compositor->key_binding_list);
+		weston_destroy_bindings_list(&config->compositor->button_binding_list);
+		weston_destroy_bindings_list(&config->compositor->touch_binding_list);
+		weston_destroy_bindings_list(&config->compositor->axis_binding_list);
+		tw_bindings_apply(bindings);
+		taiwins_swap_config(config, temp_config);
+	} else //Oops, this didn't work
+		taiwins_config_destroy(temp_config);
 	return (!error);
 }
 
@@ -601,9 +641,7 @@ void
 taiwins_config_register_bindings_funcs(struct taiwins_config *c,
 				       tw_bindings_apply_func_t func, void *data)
 {
-	struct apply_bindings_t *ab = malloc(sizeof(struct apply_bindings_t));
+	struct apply_bindings_t *ab = vector_newelem(&c->apply_bindings);
 	ab->func = func;
 	ab->data = data;
-	wl_list_init(&ab->node);
-	wl_list_insert(&c->apply_bindings, &ab->node);
 }

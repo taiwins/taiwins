@@ -75,6 +75,28 @@ typedef void (*tw_key_binding)(struct weston_keyboard *keyboard,
  * /brief tw_bindings
  */
 struct tw_bindings;
+
+//the name of this struct is curious
+struct taiwins_binding {
+	char name[32];
+	enum tw_binding_type type;
+	union {
+		struct tw_key_press keypress[MAX_KEY_SEQ_LEN];
+		struct tw_btn_press btnpress;
+		struct tw_axis_motion axisaction;
+	};
+	union {
+		tw_btn_binding btn_func;
+		tw_axis_binding axis_func;
+		tw_touch_binding touch_func;
+		tw_key_binding key_func;
+	};
+	//for user_binding, this is a lua state, for builtin bindings, it is the
+	//passing in user data
+	void *user_data;
+};
+
+
 struct tw_bindings *tw_bindings_create(struct weston_compositor *);
 void tw_bindings_destroy(struct tw_bindings *);
 void tw_bindings_clean(struct tw_bindings *);
@@ -102,6 +124,7 @@ bool tw_bindings_add_touch(struct tw_bindings *root,
 
 void tw_bindings_print(struct tw_bindings *root);
 
+void tw_bindings_apply(struct tw_bindings *root);
 
 
 
