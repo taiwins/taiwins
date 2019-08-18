@@ -79,7 +79,6 @@ struct shell_widget clock_widget = {
 	.draw_cb = clock_widget_sample,
 	.w = 200,
 	.h = 150,
-	.widget.s = 1,
 	.interval = {
 		.it_value = {
 			.tv_sec = 1,

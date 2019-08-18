@@ -27,7 +27,6 @@ struct shell_output {
 	//options
 	struct {
 		struct bbox bbox;
-		unsigned int scale;
 		off_t index;
 	};
 
@@ -70,19 +69,18 @@ struct desktop_shell {
 
 static void
 shell_background_frame(struct app_surface *surf, struct wl_buffer *buffer,
-		 int32_t *dx, int32_t *dy, int32_t *dw, int32_t *dh)
+		       struct bbox *geo)
+
 {
 	//now it respond only app_surface_frame, we only need to add idle task
 	//as for app_surface_frame later
-	*dx = 0;
-	*dy = 0;
-	*dw = surf->w;
-	*dh = surf->h;
+	*geo = surf->allocation;
 	void *buffer_data = shm_pool_buffer_access(buffer);
 	char imgpath[100];
 
 	sprintf(imgpath, "%s/.wallpaper/wallpaper.png", getenv("HOME"));
-	if (load_image(imgpath, surf->pool->format, surf->w, surf->h,
+	if (load_image(imgpath, surf->pool->format, surf->allocation.w*surf->allocation.s,
+		       surf->allocation.h*surf->allocation.s,
 		       (unsigned char *)buffer_data) != buffer_data) {
 		fprintf(stderr, "failed to load image somehow\n");
 	}
@@ -100,7 +98,7 @@ shell_background_configure(void *data,
 
 	shm_pool_init(&w->pool, shell->globals.shm, 4096, shell->globals.buffer_format);
 	shm_buffer_impl_app_surface(background, &w->pool, shell_background_frame,
-				    width, height);
+				    make_bbox_origin(width, height, w->bbox.s));
 	app_surface_frame(background, false);
 }
 
@@ -157,8 +155,9 @@ launch_widget(struct app_surface *panel_surf)
 			 (struct wl_proxy *)widget_proxy, panel_surf->wl_globals);
 	nk_cairo_impl_app_surface(&info->widget->widget, shell->widget_backend,
 				  info->widget->draw_cb, &shell->pool,
-				  info->widget->w, info->widget->h, info->x, info->y,
-				  shell_output->scale,
+				  make_bbox(info->x, info->y,
+					    info->widget->w, info->widget->h,
+					    shell_output->bbox.s),
 				  NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER);
 
 	app_surface_frame(&info->widget->widget, false);
@@ -172,19 +171,23 @@ static inline struct nk_vec2
 widget_launch_point_flat(struct nk_vec2 *label_span, struct shell_widget *clicked,
 			 struct app_surface *panel_surf)
 {
+	int w = panel_surf->allocation.w;
+	int h = panel_surf->allocation.h;
 	struct nk_vec2 info;
-	if (label_span->x + clicked->w > panel_surf->w)
-		info.x = panel_surf->w - clicked->w;
+	if (label_span->x + clicked->w > w)
+		info.x = w - clicked->w;
 	else if (label_span->y - clicked->w < 0)
 		info.x = label_span->x;
 	else
 		info.x = label_span->x;
-	info.y = panel_surf->h;
+	//this totally depends on where the panel is
+	info.y = h;
 	return info;
 }
 
 static void
-shell_panel_measure_leading(struct nk_context *ctx, float width, float height, struct app_surface *panel_surf)
+shell_panel_measure_leading(struct nk_context *ctx, float width, float height,
+			    struct app_surface *panel_surf)
 {
 	struct shell_output *shell_output =
 		container_of(panel_surf, struct shell_output, panel);
@@ -194,8 +197,9 @@ shell_panel_measure_leading(struct nk_context *ctx, float width, float height, s
 	struct shell_widget *widget = NULL;
 
 	double total_width = 0.0;
+	int h = panel_surf->allocation.h;
 	size_t n_widgets =  wl_list_length(&shell->shell_widgets);
-	nk_layout_row_begin(ctx, NK_STATIC, panel_surf->h - 12, n_widgets);
+	nk_layout_row_begin(ctx, NK_STATIC, h - 12, n_widgets);
 	wl_list_for_each(widget, &shell->shell_widgets, link) {
 		int len = widget->ancre_cb(widget, &widget_label);
 		double width =
@@ -223,8 +227,11 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	struct shell_widget *widget = NULL, *clicked = NULL;
 	struct nk_vec2 label_span = nk_vec2(0, 0);
 
-	nk_layout_row_begin(ctx, NK_STATIC, panel_surf->h-12, n_widgets+1);
-	int leading = panel_surf->w - (int)(shell_output->widgets_span+0.5)-20;
+	int h = panel_surf->allocation.h;
+	int w = panel_surf->allocation.w;
+
+	nk_layout_row_begin(ctx, NK_STATIC, h-12, n_widgets+1);
+	int leading = w - (int)(shell_output->widgets_span+0.5)-20;
 	nk_layout_row_push(ctx, leading);
 	nk_spacing(ctx, 1);
 
@@ -291,10 +298,8 @@ shell_panel_configure(void *data, struct tw_ui *tw_ui,
 		shell_widget_activate(widget, panel, &shell->globals.event_queue);
 
 	nk_cairo_impl_app_surface(panel, output->panel_backend, shell_panel_frame,
-				  &output->pool, width, height, 0, 0, output->scale,
+				  &output->pool, make_bbox_origin(width, height, output->bbox.s),
 				  NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER);
-	/* nk_egl_impl_app_surface(panel, output->panel_backend, shell_panel_frame, */
-	/*			width, height, 0 ,0); */
 	nk_wl_test_draw(output->panel_backend, panel, shell_panel_measure_leading);
 	{
 		const struct nk_style *theme =
@@ -374,11 +379,12 @@ shell_output_configure(void *data,
 {
 	struct shell_output *w = data;
 	//this logic here is to descover any changes
-	bool need_update = w->bbox.w != width || w->bbox.h != height || w->scale != scale ||
+	bool need_update = w->bbox.w != width || w->bbox.h != height ||
+		w->bbox.s != scale ||
 		major ^ (w->index == w->shell->main_output);
 	w->bbox.x = x; w->bbox.y = y;
 	w->bbox.w = width; w->bbox.h = height;
-	w->scale = scale;
+	w->bbox.s = scale;
 
 	w->shell->main_output = (major) ? w->index : w->shell->main_output;
 	//in the initial step, this actually never called
@@ -398,8 +404,7 @@ shell_output_init(struct shell_output *w, struct tw_output *tw_output)
 	w->shell = NULL;
 	w->output = tw_output;
 	tw_output_add_listener(tw_output, &shell_output_impl, w);
-	w->bbox = (struct bbox) {0,0, 1000 ,1000};
-	w->scale = 1;
+	w->bbox = make_bbox_origin(1000, 1000, 1);
 }
 
 

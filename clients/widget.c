@@ -94,7 +94,7 @@ shell_widget_activate(struct shell_widget *widget, struct app_surface *panel, st
 		}
 	}
 	//the size of the ancre here is irrelevant
-	embeded_impl_app_surface(&clock_widget.ancre, panel, 0, 0, 0, 0);
+	embeded_impl_app_surface(&clock_widget.ancre, panel, make_bbox_origin(0, 0, 1));
 }
 
 
@@ -113,7 +113,6 @@ struct shell_widget what_up_widget = {
 	.w = 200,
 	.h = 150,
 	.path_find = NULL,
-	.widget.s = 1,
 	.interval = {{0},{0}},
 	.file_path = NULL,
 };

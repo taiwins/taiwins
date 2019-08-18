@@ -104,7 +104,6 @@ struct shell_widget battery_widget = {
 	.w = 200,
 	.h = 150,
 	.path_find = battery_sysfile_find,
-	.widget.s = 1,
 	.user_data = &battery_sys_files,
 	.interval = {{0}, {0}},
 	.file_path = NULL,
