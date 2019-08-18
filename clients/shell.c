@@ -59,7 +59,6 @@ struct desktop_shell {
 	off_t main_output;
 
 	struct nk_wl_backend *widget_backend;
-	struct shm_pool pool;
 	struct wl_list shell_widgets;
 	struct widget_launch_info widget_launch;
 } oneshell; //singleton
@@ -154,7 +153,7 @@ launch_widget(struct app_surface *panel_surf)
 	app_surface_init(&info->widget->widget, widget_surface,
 			 (struct wl_proxy *)widget_proxy, panel_surf->wl_globals);
 	nk_cairo_impl_app_surface(&info->widget->widget, shell->widget_backend,
-				  info->widget->draw_cb, &shell->pool,
+				  info->widget->draw_cb,
 				  make_bbox(info->x, info->y,
 					    info->widget->w, info->widget->h,
 					    shell_output->bbox.s),
@@ -298,7 +297,7 @@ shell_panel_configure(void *data, struct tw_ui *tw_ui,
 		shell_widget_activate(widget, panel, &shell->globals.event_queue);
 
 	nk_cairo_impl_app_surface(panel, output->panel_backend, shell_panel_frame,
-				  &output->pool, make_bbox_origin(width, height, output->bbox.s),
+				  make_bbox_origin(width, height, output->bbox.s),
 				  NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER);
 	nk_wl_test_draw(output->panel_backend, panel, shell_panel_measure_leading);
 	{
@@ -492,8 +491,6 @@ desktop_shell_prepare(struct desktop_shell *shell)
 		shell_output_add_shell_desktop(&shell->shell_outputs[i], shell,
 					       shell->main_output == i);
 	//widget buffer(since we are using cairo for rendering)
-	shm_pool_init(&shell->pool, shell->globals.shm, 4096,
-		      shell->globals.buffer_format);
 	shell->widget_launch = (struct widget_launch_info){0};
 }
 
