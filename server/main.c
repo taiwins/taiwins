@@ -104,7 +104,7 @@ int main(int argc, char *argv[], char *envp[])
 	if (!xdg_dir)
 		xdg_dir = getenv("HOME");
 	strcpy(config_file, xdg_dir);
-	strcat(config_file, "config.lua");
+	strcat(config_file, "/config.lua");
 
 	tw_setup_backend(compositor);
 	//it seems that we don't need to setup the input, maybe in other cases
