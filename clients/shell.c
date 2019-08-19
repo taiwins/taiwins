@@ -39,7 +39,6 @@ struct shell_output {
 	double widgets_span;
 
 	struct nk_wl_backend *panel_backend;
-	struct shm_pool pool;
 };
 
 //state of current widget and widget to launch
@@ -93,10 +92,8 @@ shell_background_configure(void *data,
 {
 	struct shell_output *w = data;
 	struct app_surface *background = &w->background;
-	struct desktop_shell *shell = w->shell;
 
-	shm_pool_init(&w->pool, shell->globals.shm, 4096, shell->globals.buffer_format);
-	shm_buffer_impl_app_surface(background, &w->pool, shell_background_frame,
+	shm_buffer_impl_app_surface(background, shell_background_frame,
 				    make_bbox_origin(width, height, w->bbox.s));
 	app_surface_frame(background, false);
 }
@@ -416,9 +413,6 @@ shell_output_release(struct shell_output *w)
 	};
 	for (int i = 0; i < 2; i++)
 		app_surface_release(surfaces[i]);
-
-	//you may destroy the buffer before released
-	shm_pool_release(&w->pool);
 }
 
 
