@@ -49,7 +49,6 @@ struct widget_launch_info {
 	struct shell_widget *current;
 };
 
-
 struct desktop_shell {
 	struct wl_globals globals;
 	struct tw_shell *interface;
@@ -261,23 +260,6 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 }
 
 
-/*
-static void
-shell_panel_update(struct app_surface *surf, uint32_t user_data)
-{
-	//In other case. You may want to draw other stuff, you will want to
-	//clean the texture.  using api like nk_wl_clean_canvas(surf). Then we
-	//know if it is clean. What if you want to have opengl draw calls? It is
-	//possible, you can create the program once ctx is created.
-	struct nk_context *ctx = surf->user_data->ctx;
-	if (nk_begin(ctx, "panel", nk_rect(0, 0, surf->w, surf->h),
-		     NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR)) {
-		shell_panel_frame(ctx, surf->w, surf->h, surf);
-	} nk_end(ctx);
-	nk_wl_render(ctx->user_data);
-}
-*/
-
 static void
 shell_panel_configure(void *data, struct tw_ui *tw_ui,
 		   uint32_t width, uint32_t height)
@@ -331,11 +313,9 @@ static struct tw_ui_listener shell_background_impl = {
 ///////////////////////////////////////////////////////////////////////////
 
 static void
-shell_output_add_shell_desktop(struct shell_output *w,
-			       struct desktop_shell *shell, bool main_output)
+shell_output_add(struct shell_output *w, bool main_output)
 {
-	w->shell = shell;
-
+	struct desktop_shell *shell = w->shell;
 	if (w->background.wl_surface)
 		app_surface_release(&w->background);
 
@@ -373,24 +353,24 @@ shell_output_configure(void *data,
 		       int32_t y,
 		       uint32_t major)
 {
+	//the configure is only here to update the size
 	struct shell_output *w = data;
-	//this logic here is to descover any changes
-	bool need_update = w->bbox.w != width || w->bbox.h != height ||
-		w->bbox.s != scale ||
-		major ^ (w->index == w->shell->main_output);
 	w->bbox.x = x; w->bbox.y = y;
 	w->bbox.w = width; w->bbox.h = height;
 	w->bbox.s = scale;
 
 	w->shell->main_output = (major) ? w->index : w->shell->main_output;
 	//in the initial step, this actually never called
-	if (w->shell->interface && need_update) {
-		app_surface_resize(&w->background, width, height);
-		app_surface_resize(&w->panel, width, w->panel.allocation.h);
-		//the resize is defered, you should probably have
-		app_surface_frame(&w->background, false);
-		app_surface_frame(&w->panel, false);
-	}
+	if (!w->background.wl_surface)
+		shell_output_add(w, major);
+
+	/* if (w->shell->interface) { */
+	/*	app_surface_resize(&w->background, width, height); */
+	/*	app_surface_resize(&w->panel, width, w->panel.allocation.h); */
+	/*	//the resize is defered, you should probably have */
+	/*	app_surface_frame(&w->background, false); */
+	/*	app_surface_frame(&w->panel, false); */
+	/* } */
 }
 
 
@@ -423,12 +403,6 @@ shell_output_release(struct shell_output *w)
 
 /************************** desktop_shell_interface ********************************/
 
-static inline bool
-desktop_shell_ready(struct desktop_shell *shell)
-{
-	return shell->interface && is_shm_format_valid(shell->globals.buffer_format);
-}
-
 /* just know this code has side effect: it works even you removed and plug back
  * the output, since n_outputs returns at the first time it hits NULL. Even if
  * there is output afterwards, it won't know, so next time when you plug in
@@ -452,11 +426,12 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 
 	shell->widget_backend = nk_cairo_create_bkend();
 	//right now we just hard coded some link
+	//add the widgets here
 	wl_list_init(&shell->shell_widgets);
 	wl_list_insert(&shell->shell_widgets, &clock_widget.link);
 	wl_list_insert(&shell->shell_widgets, &what_up_widget.link);
 	wl_list_insert(&shell->shell_widgets, &battery_widget.link);
-
+	shell->widget_launch = (struct widget_launch_info){0};
 }
 
 
@@ -478,19 +453,9 @@ desktop_shell_add_tw_output(struct desktop_shell *shell, struct tw_output *tw_ou
 {
 	int n = desktop_shell_n_outputs(shell);
 	shell_output_init(&shell->shell_outputs[n], tw_output);
+
 	shell->shell_outputs[n].index = n;
 	shell->shell_outputs[n].shell = shell;
-}
-
-static void
-desktop_shell_prepare(struct desktop_shell *shell)
-{
-	//TODO we should change the logic here, if
-	for (int i = 0; i < desktop_shell_n_outputs(shell); i++)
-		shell_output_add_shell_desktop(&shell->shell_outputs[i], shell,
-					       shell->main_output == i);
-	//widget buffer(since we are using cairo for rendering)
-	shell->widget_launch = (struct widget_launch_info){0};
 }
 
 
@@ -512,6 +477,7 @@ void announce_globals(void *data,
 		twshell->interface = (struct tw_shell *)
 			wl_registry_bind(wl_registry, name, &tw_shell_interface, version);
 	} else if (!strcmp(interface, tw_output_interface.name)) {
+		fprintf(stderr, "added new output\n");
 		struct tw_output *tw_output =
 			wl_registry_bind(wl_registry, name, &tw_output_interface, version);
 		desktop_shell_add_tw_output(twshell, tw_output);
@@ -545,8 +511,6 @@ main(int argc, char **argv)
 	wl_registry_add_listener(registry, &registry_listener, &oneshell);
 	wl_display_dispatch(display);
 	wl_display_roundtrip(display);
-	//we should delete every thing and process here, it is easier
-	desktop_shell_prepare(&oneshell);
 
 	wl_display_flush(display);
 	wl_globals_dispatch_event_queue(&oneshell.globals);

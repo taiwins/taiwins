@@ -141,6 +141,10 @@ struct shell_output {
 	struct wl_resource *shell_output_resource;
 	struct wl_list creation_link; //used when new output is created and client is not ready
 	struct shell *shell;
+	//ui elems
+	struct shell_ui *background;
+	struct shell_ui *panel;
+	struct shell_ui *locker;
 };
 
 struct shell {
@@ -196,6 +200,16 @@ shell_ith_output(struct shell *shell, struct weston_output *output)
 			return i;
 	}
 	return -1;
+}
+
+static inline struct shell_output*
+shell_output_from_weston_output(struct shell *shell, struct weston_output *output)
+{
+	for (int i = 0; i < 16; i++) {
+		if (shell->tw_outputs[i].output == output)
+			return &shell->tw_outputs[i];
+	}
+	return NULL;
 }
 
 void
@@ -270,13 +284,19 @@ shell_output_resized(struct wl_listener *listener, void *data)
 {
 	struct weston_output *output = data;
 	struct shell *shell = container_of(listener, struct shell, output_resize_listener);
-	int i = shell_ith_output(shell, output);
-	if (i < 0 || !shell->tw_outputs[i].shell_output_resource)
+	struct shell_output *shell_output = shell_output_from_weston_output(shell, output);
+	if (!shell_output || !shell_output->shell_output_resource)
 		return;
 	//how to get the resource
-	tw_output_send_configure(shell->tw_outputs[i].shell_output_resource,
+	tw_output_send_configure(shell_output->shell_output_resource,
 				 output->width, output->height, output->scale,
 				 output->x, output->y, true);
+	if (shell_output->background)
+		tw_ui_send_configure(shell_output->background->resource, output->width,
+				     output->height);
+	if (shell_output->panel)
+		tw_ui_send_configure(shell_output->panel->resource, output->width, 32);
+
 }
 
 
@@ -393,7 +413,7 @@ set_surface(struct shell *shell,
  * tw_shell
  *******************************************************************************************/
 
-static void
+static struct shell_ui *
 create_ui_element(struct wl_client *client,
 		  struct shell *shell,
 		  uint32_t tw_ui,
@@ -412,7 +432,7 @@ create_ui_element(struct wl_client *client,
 	struct wl_resource *tw_ui_resource = wl_resource_create(client, &tw_ui_interface, 1, tw_ui);
 	if (!tw_ui_resource) {
 		wl_client_post_no_memory(client);
-		return;
+		return NULL;
 	}
 	struct shell_ui *elem = (type == TW_UI_TYPE_WIDGET) ?
 		shell_ui_create_with_binding(tw_ui_resource, surface) :
@@ -439,6 +459,7 @@ create_ui_element(struct wl_client *client,
 		set_surface(shell, surface, output, tw_ui_resource, commit_ui_surface, x, y);
 		break;
 	}
+	return elem;
 
 }
 
@@ -450,8 +471,12 @@ create_shell_panel(struct wl_client *client,
 		   struct wl_resource *tw_output)
 {
 	struct shell *shell = wl_resource_get_user_data(resource);
-	create_ui_element(client, shell, tw_ui, wl_surface, tw_output,
-			  0, 0, TW_UI_TYPE_PANEL);
+	struct weston_output *weston_output = wl_resource_get_user_data(tw_output);
+	struct shell_output *shell_output = shell_output_from_weston_output(shell, weston_output);
+	struct shell_ui *panel =
+		create_ui_element(client, shell, tw_ui, wl_surface, tw_output,
+				  0, 0, TW_UI_TYPE_PANEL);
+	shell_output->panel = panel;
 }
 
 static void
@@ -475,9 +500,12 @@ create_shell_background(struct wl_client *client,
 			struct wl_resource *tw_output)
 {
 	struct shell *shell = wl_resource_get_user_data(resource);
-	create_ui_element(client, shell, tw_ui, wl_surface, tw_output,
-			  0, 0, TW_UI_TYPE_BACKGROUND);
-
+	struct weston_output *weston_output = wl_resource_get_user_data(tw_output);
+	struct shell_output *shell_output = shell_output_from_weston_output(shell, weston_output);
+	struct shell_ui *background =
+		create_ui_element(client, shell, tw_ui, wl_surface, tw_output,
+				  0, 0, TW_UI_TYPE_BACKGROUND);
+	shell_output->background = background;
 }
 
 static struct tw_shell_interface shell_impl = {
