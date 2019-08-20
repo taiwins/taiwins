@@ -24,7 +24,6 @@ struct shell_ui {
 
 struct shell;
 
-
 static void
 does_ui_lose_keyboard(struct weston_keyboard *keyboard,
 			 const struct timespec *time, uint32_t key,
@@ -131,10 +130,16 @@ shell_ui_create_simple(struct wl_resource *tw_ui, struct weston_surface *s)
  * shell interface
  *******************************************************************************************/
 
+/**
+ * @brief represents tw_output
+ *
+ * the resource only creates for tw_shell object
+ */
 struct shell_output {
 	struct wl_global *global;
 	struct weston_output *output;
 	struct wl_resource *shell_output_resource;
+	struct wl_list creation_link; //used when new output is created and client is not ready
 	struct shell *shell;
 };
 
@@ -155,6 +160,8 @@ struct shell {
 	struct wl_listener output_destroy_listener;
 	struct wl_listener output_resize_listener;
 
+	struct wl_list output_accum;
+
 	bool ready;
 	//we deal with at most 16 outputs
 	struct shell_output tw_outputs[16];
@@ -165,7 +172,11 @@ struct shell {
 static struct shell oneshell;
 
 
-/************** output created ********************/
+
+/*******************************************************************************************
+ * tw_output
+ *******************************************************************************************/
+
 static inline size_t
 shell_n_outputs(struct shell *shell)
 {
@@ -192,6 +203,9 @@ bind_tw_output(struct wl_client *client, void *data, uint32_t version, uint32_t 
 {
 	struct shell_output *shell_output = data;
 	struct weston_output *output = shell_output->output;
+	if (client != shell_output->shell->shell_client)
+		return;
+
 	struct wl_resource *resource =
 		wl_resource_create(client, &tw_output_interface,
 				   tw_output_interface.version, id);
@@ -211,7 +225,6 @@ bind_tw_output(struct wl_client *client, void *data, uint32_t version, uint32_t 
 
 }
 
-
 static void
 shell_output_created(struct wl_listener *listener, void *data)
 {
@@ -222,16 +235,20 @@ shell_output_created(struct wl_listener *listener, void *data)
 	//a global here, it doesn't make any
 	if (ith_output == 16)
 		return;
+	wl_list_init(&shell->tw_outputs[ith_output].creation_link);
 	shell->tw_outputs[ith_output].output = output;
 	shell->tw_outputs[ith_output].shell = shell;
 	shell->tw_outputs[ith_output].shell_output_resource = NULL;
-	shell->tw_outputs[ith_output].global =
-		wl_global_create(shell->ec->wl_display, &tw_output_interface,
-				 tw_output_interface.version, &(shell->tw_outputs[ith_output]),
-				 bind_tw_output);
-	//reset back if no global is created
-	if (!shell->tw_outputs[ith_output].global)
-		shell->tw_outputs[ith_output].output = NULL;
+
+	//defer the tw_output creation if shell is not ready.
+	if (shell->shell_client)
+		shell->tw_outputs[ith_output].global =
+			wl_global_create(shell->ec->wl_display, &tw_output_interface,
+					 tw_output_interface.version, &(shell->tw_outputs[ith_output]),
+					 bind_tw_output);
+	else
+		wl_list_insert(&shell->output_accum,
+			       &shell->tw_outputs[ith_output].creation_link);
 }
 
 static void
@@ -261,8 +278,11 @@ shell_output_resized(struct wl_listener *listener, void *data)
 				 output->width, output->height, output->scale,
 				 output->x, output->y, true);
 }
-/************** output created ********************/
 
+
+/*******************************************************************************************
+ * shell_view
+ *******************************************************************************************/
 
 enum shell_view_t {
 	shell_view_UNIQUE, /* like the background */
@@ -369,8 +389,9 @@ set_surface(struct shell *shell,
 
 
 
-
-/////////////////////////// Taiwins shell interface //////////////////////////////////
+/*******************************************************************************************
+ * tw_shell
+ *******************************************************************************************/
 
 static void
 create_ui_element(struct wl_client *client,
@@ -465,9 +486,6 @@ static struct tw_shell_interface shell_impl = {
 	.launch_widget = launch_shell_widget,
 };
 
-/////////////////////////// shell global ////////////////////////////////
-
-
 static void
 unbind_shell(struct wl_resource *resource)
 {
@@ -488,11 +506,13 @@ static void
 bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
 	struct shell *shell = data;
-	struct wl_resource *resource =
-		wl_resource_create(client, &tw_shell_interface,
-				   tw_shell_interface.version, id);
-
 	uid_t uid; gid_t gid; pid_t pid;
+	struct wl_resource *resource = NULL;
+	struct weston_layer *layer;
+
+	resource = wl_resource_create(client, &tw_shell_interface,
+				      tw_shell_interface.version, id);
+
 	wl_client_get_credentials(client, &pid, &uid, &gid);
 	if (shell->shell_client &&
 	    (uid != shell->uid || pid != shell->pid || gid != shell->gid)) {
@@ -500,9 +520,8 @@ bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 				       "client %d is not un atherized shell", id);
 		wl_resource_destroy(resource);
 	}
-	struct weston_layer *layer;
 	wl_list_for_each(layer, &shell->ec->layer_list, link) {
-		fprintf(stderr, "layer position %x\n", layer->position);
+		weston_log("layer position %x\n", layer->position);
 	}
 	//only add the layers if we have a shell.
 	weston_layer_init(&shell->background_layer, shell->ec);
@@ -512,6 +531,15 @@ bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 
 	wl_resource_set_implementation(resource, &shell_impl, shell, unbind_shell);
 	shell->ready = true;
+
+	//now emit all the accumulated outputs
+	struct shell_output *node, *tmp;
+	wl_list_for_each_safe(node, tmp, &shell->output_accum, creation_link) {
+		wl_list_remove(&node->creation_link);
+		wl_global_create(shell->ec->wl_display, &tw_output_interface,
+				 tw_output_interface.version, node,
+				 bind_tw_output);
+	}
 }
 
 ///////////////////////// exposed APIS ////////////////////////////////
@@ -618,6 +646,7 @@ announce_shell(struct weston_compositor *ec, const char *path,
 	}
 
 	{
+		wl_list_init(&oneshell.output_accum);
 		wl_list_init(&oneshell.output_create_listener.link);
 		oneshell.output_create_listener.notify = shell_output_created;
 
@@ -631,6 +660,7 @@ announce_shell(struct weston_compositor *ec, const char *path,
 		wl_signal_add(&ec->output_destroyed_signal, &oneshell.output_destroy_listener);
 		wl_signal_add(&ec->output_resized_signal, &oneshell.output_resize_listener);
 
+		//for all the existing output.
 		struct weston_output *output;
 		wl_list_for_each(output, &ec->output_list, link)
 			shell_output_created(&oneshell.output_create_listener, output);
