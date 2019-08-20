@@ -384,8 +384,13 @@ shell_output_configure(void *data,
 
 	w->shell->main_output = (major) ? w->index : w->shell->main_output;
 	//in the initial step, this actually never called
-	if (w->shell->interface && need_update)
-		shell_output_add_shell_desktop(w, w->shell, major);
+	if (w->shell->interface && need_update) {
+		app_surface_resize(&w->background, width, height);
+		app_surface_resize(&w->panel, width, w->panel.allocation.h);
+		//the resize is defered, you should probably have
+		app_surface_frame(&w->background, false);
+		app_surface_frame(&w->panel, false);
+	}
 }
 
 

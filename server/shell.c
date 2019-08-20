@@ -22,6 +22,8 @@ struct shell_ui {
 	struct weston_layer *layer;
 };
 
+struct shell;
+
 
 static void
 does_ui_lose_keyboard(struct weston_keyboard *keyboard,
@@ -125,6 +127,17 @@ shell_ui_create_simple(struct wl_resource *tw_ui, struct weston_surface *s)
 	return ui;
 }
 
+/*******************************************************************************************
+ * shell interface
+ *******************************************************************************************/
+
+struct shell_output {
+	struct wl_global *global;
+	struct weston_output *output;
+	struct wl_resource *shell_output_resource;
+	struct shell *shell;
+};
+
 struct shell {
 	uid_t uid; gid_t gid; pid_t pid;
 	char path[256];
@@ -140,15 +153,15 @@ struct shell {
 	struct weston_surface *the_widget_surface;
 	struct wl_listener output_create_listener;
 	struct wl_listener output_destroy_listener;
-	bool ready;
+	struct wl_listener output_resize_listener;
 
-	struct {
-		struct wl_global *global;
-		struct weston_output *output;
-	} tw_outputs[16];
+	bool ready;
+	//we deal with at most 16 outputs
+	struct shell_output tw_outputs[16];
 
 };
 
+//we could make it static as well.
 static struct shell oneshell;
 
 
@@ -177,21 +190,25 @@ shell_ith_output(struct shell *shell, struct weston_output *output)
 void
 bind_tw_output(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
-	struct weston_output *output = data;
+	struct shell_output *shell_output = data;
+	struct weston_output *output = shell_output->output;
 	struct wl_resource *resource =
 		wl_resource_create(client, &tw_output_interface,
 				   tw_output_interface.version, id);
+	//how do you get the shell here
 
 	if (!resource) {
 		wl_client_post_no_memory(client);
 		return;
 	}
+	shell_output->shell_output_resource = resource;
 	//currently there is no event we need to handle
-	wl_resource_set_implementation(resource, NULL, output, NULL);
+	wl_resource_set_implementation(resource, NULL, output, NULL); //wl_resouce destroy function.
 	tw_output_send_configure(resource,
 				 output->width, output->height,
 				 output->scale,
 				 output->x, output->y, true);
+
 }
 
 
@@ -201,13 +218,16 @@ shell_output_created(struct wl_listener *listener, void *data)
 	struct weston_output *output = data;
 	struct shell *shell = container_of(listener, struct shell, output_create_listener);
 	size_t ith_output = shell_n_outputs(shell);
-	//if we have 16 output...
+	//so far we have one output, which is good, but I think I shouldn't have
+	//a global here, it doesn't make any
 	if (ith_output == 16)
 		return;
 	shell->tw_outputs[ith_output].output = output;
+	shell->tw_outputs[ith_output].shell = shell;
+	shell->tw_outputs[ith_output].shell_output_resource = NULL;
 	shell->tw_outputs[ith_output].global =
 		wl_global_create(shell->ec->wl_display, &tw_output_interface,
-				 tw_output_interface.version, output,
+				 tw_output_interface.version, &(shell->tw_outputs[ith_output]),
 				 bind_tw_output);
 	//reset back if no global is created
 	if (!shell->tw_outputs[ith_output].global)
@@ -226,6 +246,20 @@ shell_output_destroyed(struct wl_listener *listener, void *data)
 	wl_global_destroy(global);
 	shell->tw_outputs[i].global = NULL;
 	shell->tw_outputs[i].output = NULL;
+}
+
+static void
+shell_output_resized(struct wl_listener *listener, void *data)
+{
+	struct weston_output *output = data;
+	struct shell *shell = container_of(listener, struct shell, output_resize_listener);
+	int i = shell_ith_output(shell, output);
+	if (i < 0 || !shell->tw_outputs[i].shell_output_resource)
+		return;
+	//how to get the resource
+	tw_output_send_configure(shell->tw_outputs[i].shell_output_resource,
+				 output->width, output->height, output->scale,
+				 output->x, output->y, true);
 }
 /************** output created ********************/
 
@@ -586,10 +620,16 @@ announce_shell(struct weston_compositor *ec, const char *path,
 	{
 		wl_list_init(&oneshell.output_create_listener.link);
 		oneshell.output_create_listener.notify = shell_output_created;
+
 		wl_list_init(&oneshell.output_destroy_listener.link);
 		oneshell.output_destroy_listener.notify = shell_output_destroyed;
+
+		wl_list_init(&oneshell.output_resize_listener.link);
+		oneshell.output_resize_listener.notify = shell_output_resized;
+
 		wl_signal_add(&ec->output_created_signal, &oneshell.output_create_listener);
 		wl_signal_add(&ec->output_destroyed_signal, &oneshell.output_destroy_listener);
+		wl_signal_add(&ec->output_resized_signal, &oneshell.output_resize_listener);
 
 		struct weston_output *output;
 		wl_list_for_each(output, &ec->output_list, link)
