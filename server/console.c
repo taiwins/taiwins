@@ -62,7 +62,8 @@ set_console(struct wl_client *client,
 	     struct wl_resource *wl_surface)
 {
 	struct console *lch = wl_resource_get_user_data(resource);
-	shell_create_ui_elem(lch->shell, client, ui_elem, wl_surface, NULL, 100, 100, TW_UI_TYPE_WIDGET);
+	shell_create_ui_elem(lch->shell, client, ui_elem, wl_surface,
+			     -1, 100, 100, TW_UI_TYPE_WIDGET);
 	lch->surface = tw_surface_from_resource(wl_surface);
 	wl_resource_add_destroy_listener(wl_surface, &lch->close_console_listener);
 }
