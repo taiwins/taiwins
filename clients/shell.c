@@ -27,18 +27,16 @@ struct shell_output {
 	//options
 	struct {
 		struct bbox bbox;
-		off_t index;
+		int index;
 	};
 
 	struct app_surface background;
 	struct app_surface panel;
 
-	struct nk_style_button label_style;
 
 	//a temporary struct
 	double widgets_span;
 
-	struct nk_wl_backend *panel_backend;
 };
 
 //state of current widget and widget to launch
@@ -52,13 +50,23 @@ struct widget_launch_info {
 struct desktop_shell {
 	struct wl_globals globals;
 	struct tw_shell *interface;
-	//you have about 16 outputs to spear
+	//pannel configuration
+	struct {
+		struct nk_wl_backend *panel_backend;
+		struct nk_style_button label_style;
+		size_t panel_height;
+	};
+	//widget configures
+	struct {
+		struct nk_wl_backend *widget_backend;
+		struct wl_list shell_widgets;
+		struct widget_launch_info widget_launch;
+	};
+	//outputs
+	struct shell_output *main_output;
 	struct shell_output shell_outputs[16];
-	off_t main_output;
 
-	struct nk_wl_backend *widget_backend;
-	struct wl_list shell_widgets;
-	struct widget_launch_info widget_launch;
+
 } oneshell; //singleton
 
 
@@ -83,19 +91,6 @@ shell_background_frame(struct app_surface *surf, struct wl_buffer *buffer,
 	}
 }
 
-static void
-shell_background_configure(void *data,
-			struct tw_ui *tw_ui,
-			uint32_t width,
-			uint32_t height)
-{
-	struct shell_output *w = data;
-	struct app_surface *background = &w->background;
-
-	shm_buffer_impl_app_surface(background, shell_background_frame,
-				    make_bbox_origin(width, height, w->bbox.s));
-	app_surface_frame(background, false);
-}
 
 static void
 shell_background_should_close(void *data, struct tw_ui *ui_elem)
@@ -103,12 +98,11 @@ shell_background_should_close(void *data, struct tw_ui *ui_elem)
 	//TODO, destroy the surface
 }
 
-
+static struct tw_ui_listener shell_background_impl = {
+	.close = shell_background_should_close,
+};
 
 //////////////////////////////// widget ///////////////////////////////////
-static void
-widget_configure(void *data, struct tw_ui *ui_elem,
-		 uint32_t width, uint32_t height) {}
 
 static void
 widget_should_close(void *data, struct tw_ui *ui_elem)
@@ -120,7 +114,6 @@ widget_should_close(void *data, struct tw_ui *ui_elem)
 }
 
 static struct  tw_ui_listener widget_impl = {
-	.configure = widget_configure,
 	.close = widget_should_close,
 };
 
@@ -142,7 +135,7 @@ launch_widget(struct app_surface *panel_surf)
 	/* info->widget->widget.wl_globals = panel_surf->wl_globals; */
 	struct wl_surface *widget_surface = wl_compositor_create_surface(shell->globals.compositor);
 	struct tw_ui *widget_proxy = tw_shell_launch_widget(shell->interface, widget_surface,
-							    shell_output->output,
+							    shell_output->index,
 							    info->x, info->y);
 	tw_ui_add_listener(widget_proxy, &widget_impl, info);
 	//launch widget
@@ -159,7 +152,6 @@ launch_widget(struct app_surface *panel_surf)
 
 	info->current = info->widget;
 }
-
 
 //////////////////////////////// panel ////////////////////////////////////
 static inline struct nk_vec2
@@ -244,7 +236,7 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 			label_span.x = bound.x;
 			label_span.y = bound.x+bound.w;
 		}
-		nk_button_text_styled(ctx, &shell_output->label_style,
+		nk_button_text_styled(ctx, &shell_output->shell->label_style,
 				      widget_label.label, len);
 	}
 	nk_layout_row_end(ctx);
@@ -259,29 +251,149 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	nk_wl_add_idle(ctx, launch_widget);
 }
 
+static struct tw_ui_listener shell_panel_impl = {
+
+};
+
+
+
+///////////////////////////////////////////////////////////////////////////
 
 static void
-shell_panel_configure(void *data, struct tw_ui *tw_ui,
-		   uint32_t width, uint32_t height)
+shell_output_set_major(struct shell_output *w)
 {
-	struct shell_output *output = data;
-	struct app_surface *panel = &output->panel;
-	struct desktop_shell *shell = output->shell;
-	struct nk_style_button *style = &output->label_style;
-
-	//major output is handled some where else
-	output->panel_backend =  nk_cairo_create_bkend();
-	struct shell_widget *widget;
-	wl_list_for_each(widget, &shell->shell_widgets, link)
-		shell_widget_activate(widget, panel, &shell->globals.event_queue);
-
-	nk_cairo_impl_app_surface(panel, output->panel_backend, shell_panel_frame,
-				  make_bbox_origin(width, height, output->bbox.s),
+	struct desktop_shell *shell = w->shell;
+	struct wl_surface *pn_sf;
+	struct tw_ui *pn_ui;
+	if (shell->main_output == w)
+		return;
+	else if (shell->main_output)
+		app_surface_release(&shell->main_output->panel);
+	//at this point, we are  sure to create the resource
+	pn_sf = wl_compositor_create_surface(shell->globals.compositor);
+	pn_ui = tw_shell_create_panel(shell->interface, pn_sf, w->index);
+	app_surface_init(&w->panel, pn_sf, (struct wl_proxy *)pn_ui,
+			 &shell->globals);
+	nk_cairo_impl_app_surface(&w->panel, shell->panel_backend, shell_panel_frame,
+				  make_bbox_origin(w->bbox.w, shell->panel_height, w->bbox.s),
 				  NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER);
-	nk_wl_test_draw(output->panel_backend, panel, shell_panel_measure_leading);
+
+	shell->main_output = w;
+}
+
+
+static void
+shell_output_init(struct shell_output *w, const struct bbox geo, bool major)
+{
+	struct desktop_shell *shell = w->shell;
+	w->bbox = geo;
+	//background
+	struct wl_surface *bg_sf =
+		wl_compositor_create_surface(shell->globals.compositor);
+	struct tw_ui *bg_ui =
+		tw_shell_create_background(shell->interface, bg_sf, w->index);
+	app_surface_init(&w->background, bg_sf, (struct wl_proxy *)bg_ui,
+			 &shell->globals);
+	shm_buffer_impl_app_surface(&w->background,
+				    shell_background_frame,
+				    w->bbox);
+	//shell panel
+	if (major)
+		shell_output_set_major(w);
+	app_surface_frame(&w->background, false);
+        if (major) {
+		nk_wl_test_draw(shell->panel_backend, &w->panel,
+				shell_panel_measure_leading);
+		app_surface_frame(&w->panel, false);
+        }
+}
+
+
+static void
+shell_output_release(struct shell_output *w)
+{
+	w->shell = NULL;
+	struct app_surface *surfaces[] = {
+		&w->panel,
+		&w->background,
+	};
+	for (int i = 0; i < 2; i++)
+		if (surfaces[i]->wl_surface)
+			app_surface_release(surfaces[i]);
+}
+
+static void
+shell_output_resize(struct shell_output *w)
+{
+	app_surface_resize(&w->background, w->bbox.w, w->bbox.h);
+	if (w == w->shell->main_output)
+		app_surface_resize(&w->panel, w->bbox.w, w->shell->panel_height);
+}
+
+/************************** desktop_shell_interface ********************************/
+
+static void
+desktop_shell_output_configure(void *data, struct tw_shell *tw_shell,
+			       uint32_t id, uint32_t width, uint32_t height,
+			       uint32_t scale, uint32_t major, uint32_t msg)
+{
+	struct desktop_shell *shell = data;
+	struct shell_output *output = &shell->shell_outputs[id];
+	output->shell = shell;
+	output->index = id;
+	switch (msg) {
+	case TW_SHELL_OUTPUT_MSG_CONNECTED:
+		shell_output_init(output,
+				  make_bbox_origin(width, height, scale),
+				  major);
+		break;
+	case TW_SHELL_OUTPUT_MSG_CHANGE:
+		shell_output_resize(output);
+		break;
+	case TW_SHELL_OUTPUT_MSG_LOST:
+		shell_output_release(output);
+		break;
+	default:
+		break;
+	}
+	output->bbox = make_bbox_origin(width, height, scale);
+}
+
+static struct tw_shell_listener tw_shell_impl = {
+	.output_configure = desktop_shell_output_configure,
+};
+
+
+/* just know this code has side effect: it works even you removed and plug back
+ * the output, since n_outputs returns at the first time it hits NULL. Even if
+ * there is output afterwards, it won't know, so next time when you plug in
+ * another monitor, it will choose the emtpy slots.
+ */
+static inline int
+desktop_shell_n_outputs(struct desktop_shell *shell)
+{
+	for (int i = 0; i < 16; i++)
+		if (shell->shell_outputs[i].shell == NULL)
+			return i;
+	return 16;
+}
+
+static void
+desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
+{
+	struct nk_style_button *style = &shell->label_style;
+	
+	wl_globals_init(&shell->globals, display);
+	shell->globals.theme = taiwins_dark_theme;
+	shell->interface = NULL;
+	shell->panel_height = 32;
+	shell->main_output = NULL;
+
+	shell->widget_backend = nk_cairo_create_bkend();
+	shell->panel_backend = nk_cairo_create_bkend();
 	{
 		const struct nk_style *theme =
-			nk_wl_get_curr_style(output->panel_backend);
+			nk_wl_get_curr_style(shell->panel_backend);
 		memcpy(style, &theme->button, sizeof(struct nk_style_button));
 		struct nk_color text_normal = theme->button.text_normal;
 		style->normal = nk_style_item_color(theme->window.background);
@@ -295,136 +407,7 @@ shell_panel_configure(void *data, struct tw_ui *tw_ui,
 		style->text_active = nk_rgba(text_normal.r + 40, text_normal.g + 40,
 					     text_normal.b + 40, text_normal.a);
 	}
-
-	app_surface_frame(panel, false);
-
-}
-
-static struct tw_ui_listener shell_panel_impl = {
-	.configure = shell_panel_configure
-};
-
-static struct tw_ui_listener shell_background_impl = {
-	.configure = shell_background_configure,
-	.close = shell_background_should_close,
-};
-
-
-///////////////////////////////////////////////////////////////////////////
-
-static void
-shell_output_add(struct shell_output *w, bool main_output)
-{
-	struct desktop_shell *shell = w->shell;
-	if (w->background.wl_surface)
-		app_surface_release(&w->background);
-
-	struct app_surface *bg = &w->background;
-	struct wl_surface *bg_sf =
-		wl_compositor_create_surface(shell->globals.compositor);
-	struct tw_ui *bg_ui =
-		tw_shell_create_background(shell->interface, bg_sf, w->output);
-	app_surface_init(bg, bg_sf, (struct wl_proxy *)bg_ui,
-			 &shell->globals);
-	tw_ui_add_listener(bg_ui, &shell_background_impl, w);
-	//only add panel for main output
-	if (main_output) {
-		if (w->panel.wl_surface)
-			app_surface_release(&w->panel);
-		struct wl_surface *pn_sf =
-			wl_compositor_create_surface(shell->globals.compositor);
-		struct tw_ui *pn_ui =
-			tw_shell_create_panel(shell->interface, pn_sf, w->output);
-		app_surface_init(&w->panel, pn_sf, (struct wl_proxy *)pn_ui,
-				 &shell->globals);
-
-		tw_ui_add_listener(pn_ui, &shell_panel_impl, w);
-	}
-}
-
-
-static void
-shell_output_configure(void *data,
-		       struct tw_output *tw_output,
-		       uint32_t width,
-		       uint32_t height,
-		       uint32_t scale,
-		       int32_t x,
-		       int32_t y,
-		       uint32_t major)
-{
-	//the configure is only here to update the size
-	struct shell_output *w = data;
-	w->bbox.x = x; w->bbox.y = y;
-	w->bbox.w = width; w->bbox.h = height;
-	w->bbox.s = scale;
-
-	w->shell->main_output = (major) ? w->index : w->shell->main_output;
-	//in the initial step, this actually never called
-	if (!w->background.wl_surface)
-		shell_output_add(w, major);
-
-	/* if (w->shell->interface) { */
-	/*	app_surface_resize(&w->background, width, height); */
-	/*	app_surface_resize(&w->panel, width, w->panel.allocation.h); */
-	/*	//the resize is defered, you should probably have */
-	/*	app_surface_frame(&w->background, false); */
-	/*	app_surface_frame(&w->panel, false); */
-	/* } */
-}
-
-
-static struct tw_output_listener shell_output_impl = {
-	.configure = shell_output_configure,
-};
-
-
-static void
-shell_output_init(struct shell_output *w, struct tw_output *tw_output)
-{
-	w->shell = NULL;
-	w->output = tw_output;
-	tw_output_add_listener(tw_output, &shell_output_impl, w);
-	w->bbox = make_bbox_origin(1000, 1000, 1);
-}
-
-
-static void
-shell_output_release(struct shell_output *w)
-{
-	struct app_surface *surfaces[] = {
-		&w->panel,
-		&w->background,
-	};
-	for (int i = 0; i < 2; i++)
-		app_surface_release(surfaces[i]);
-}
-
-
-/************************** desktop_shell_interface ********************************/
-
-/* just know this code has side effect: it works even you removed and plug back
- * the output, since n_outputs returns at the first time it hits NULL. Even if
- * there is output afterwards, it won't know, so next time when you plug in
- * another monitor, it will choose the emtpy slots.
- */
-static inline int
-desktop_shell_n_outputs(struct desktop_shell *shell)
-{
-	for (int i = 0; i < 16; i++)
-		if (shell->shell_outputs[i].output == NULL)
-			return i;
-	return 16;
-}
-
-static void
-desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
-{
-	wl_globals_init(&shell->globals, display);
-	shell->globals.theme = taiwins_dark_theme;
-	shell->interface = NULL;
-
-	shell->widget_backend = nk_cairo_create_bkend();
+	
 	//right now we just hard coded some link
 	//add the widgets here
 	wl_list_init(&shell->shell_widgets);
@@ -443,19 +426,12 @@ desktop_shell_release(struct desktop_shell *shell)
 	for (int i = 0; i < desktop_shell_n_outputs(shell); i++)
 		shell_output_release(&shell->shell_outputs[i]);
 	wl_globals_release(&shell->globals);
+	//destroy the backends
+	nk_cairo_destroy_bkend(shell->widget_backend);
+	nk_cairo_destroy_bkend(shell->panel_backend);
 #ifdef __DEBUG
 	cairo_debug_reset_static_data();
 #endif
-}
-
-static inline void
-desktop_shell_add_tw_output(struct desktop_shell *shell, struct tw_output *tw_output)
-{
-	int n = desktop_shell_n_outputs(shell);
-	shell_output_init(&shell->shell_outputs[n], tw_output);
-
-	shell->shell_outputs[n].index = n;
-	shell->shell_outputs[n].shell = shell;
 }
 
 
@@ -476,12 +452,9 @@ void announce_globals(void *data,
 		fprintf(stderr, "shell registé\n");
 		twshell->interface = (struct tw_shell *)
 			wl_registry_bind(wl_registry, name, &tw_shell_interface, version);
-	} else if (!strcmp(interface, tw_output_interface.name)) {
-		fprintf(stderr, "added new output\n");
-		struct tw_output *tw_output =
-			wl_registry_bind(wl_registry, name, &tw_output_interface, version);
-		desktop_shell_add_tw_output(twshell, tw_output);
-	} else
+		tw_shell_add_listener(twshell->interface, &tw_shell_impl, twshell);
+	} 
+	else
 		wl_globals_announce(&twshell->globals, wl_registry, name, interface, version);
 }
 

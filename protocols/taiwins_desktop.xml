@@ -12,21 +12,21 @@
       <description summary="create a new widget from wl_surface"/>
       <arg name="tw_ui" type="new_id" interface="tw_ui"/>
       <arg name="wl_surface" type="object" interface="wl_surface"/>
-      <arg name="tw_output" type="object" interface="tw_output"/>
+      <arg name="tw_output" type="int"/>
     </request>
 
     <request name="create_background">
       <description summary="create a background for a logical output"/>
       <arg name="tw_ui" type="new_id" interface="tw_ui"/>
       <arg name="wl_surface" type="object" interface="wl_surface"/>
-      <arg name="tw_output" type="object" interface="tw_output"/>
+      <arg name="tw_output" type="int"/>
     </request>
 
     <request name="launch_widget">
       <description summary="start the widget at point (x, y) "/>
       <arg name="tw_ui" type="new_id" interface="tw_ui"/>
       <arg name="wl_surface" type="object" interface="wl_surface"/>
-      <arg name="tw_output" type="object" interface="tw_output"/>
+      <arg name="tw_output" type="int"/>
       <arg name="x" type="uint"/>
       <arg name="y" type="uint"/>
     </request>
@@ -35,31 +35,32 @@
       <description summary="create locker interface"/>
       <arg name="tw_ui" type="new_id" interface="tw_ui"/>
       <arg name="wl_surface" type="object" interface="wl_surface"/>
-      <arg name="tw_output" type="object" interface="tw_output"/>
+      <arg name="tw_output" type="int" />
     </request>
 
-  </interface>
-
-  <interface name="tw_output" version="1">
-    <description summary="the logical output for taiwins">
-      Because of wl_output interface represents a physical monitor for clients
-      (corresponding to a weston_head in the compositor), we need a logical
-      output representation for shell clients.
-    </description>
-
-    <event name="configure">
-      <description summary="information regards to a logical output">
-	The scale is confusing, when scale is 2, should it indicate the clients
-	to draw twice as large or it means the output does the scale so please
-	draw smaller?
+    <event name="output_configure">
+      <description summary="signal changes of output">
+	When new ouputs are created, the compositor sends this message to the
+	shell client for it to create new panel or background, it can also be
+	used to have the shell client responds to close of the output or change
+	of dimension.
+	
+	outputs are comming in order. 
       </description>
+      <arg name="id" type="uint" summary="id of the output"/>
       <arg name="width" type="uint" summary="pixel width"/>
       <arg name="height" type="uint" summary="pixel height"/>
-      <arg name="scale" type="uint"/>
-      <arg name="x" type="int" summary="x position in the compositor"/>
-      <arg name="y" type="int" summary="y position in the compositor"/>
-      <arg name="major" type="uint" summary="whether a major output"/>
+      <arg name="scale" type="uint" summary="screen scale"/>
+      <arg name="major" type="uint" summary="the major output"/>
+      <arg name="msg" type="uint" summary="message about the output"/>
     </event>
+
+    <enum name="output_msg">
+      <entry name="connected" value="0" summary="output is online"/>
+      <entry name="lost" value="1" summary="screen is no long available"/>
+      <entry name="change" value="2" summary="output has geometry change"/>
+    </enum>
+
   </interface>
 
   <interface name="tw_ui" version="1">
@@ -176,46 +177,5 @@
     </enum>
   </interface>
 
-  <interface name="tw_configurator" version="1">
-    <description summary="dynamic configuration support">
-      In stead of having every client to parse the configuration file, we can
-      abuse the wayland protocol system to create a unified system for changing
-      and adapting config changes in the run time. This has disadvantage as
-      well, you have to be able to orgnize the elements in the atomic way so you
-      can change it at the runtime. Compare to static configuration. It is much
-      more difficult. What about just embeding all of this configurations in the
-      corresponding tw_ui? TW_UI is a general ui element, you could expect to
-      have
-    </description>
-
-    <enum name="panel_pos">
-      <entry name="top" value="0"/>
-      <entry name="button" value="1"/>
-      <entry name="left" value="2"/>
-      <entry name="right" value="3"/>
-    </enum>
-
-    <event name="config">
-      <description summary="generic (key, value) configuration"/>
-      <arg name="key" type="string"/>
-      <arg name="value" type="string"/>
-    </event>
-
-    <event name="panel_conf">
-      <arg name="pos" type="uint"/>
-      <arg name="pt_size" type="uint"/>
-    </event>
-
-    <request name="set_panel_pos">
-      <arg name="pos" type="uint"/>
-    </request>
-
-    <event name="theme">
-    </event>
-
-    <event name="wallpaper_conf">
-    </event>
-
-  </interface>
 
 </protocol>
