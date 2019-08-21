@@ -45,7 +45,7 @@ struct wl_client *shell_get_client(struct shell *shell);
 void
 shell_create_ui_elem(struct shell *shell, struct wl_client *client,
 		     uint32_t tw_ui, struct wl_resource *wl_surface,
-		     struct wl_resource *tw_output,
+		     int tw_output,
 		     uint32_t x, uint32_t y, enum tw_ui_type type);
 
 
