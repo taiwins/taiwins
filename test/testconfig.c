@@ -26,6 +26,7 @@ main(int argc, char *argv[])
 	taiwins_config_destroy(config);
 	weston_compositor_shutdown(ec);
 	weston_compositor_destroy(ec);
+	wl_display_terminate(display);
 	wl_display_destroy(display);
 	return 0;
 }

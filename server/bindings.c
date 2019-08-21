@@ -66,6 +66,7 @@ struct tw_bindings {
 	struct tw_binding_node root_node;
 	struct weston_compositor *ec;
 	vector_t apply_list;
+	vector_t weston_bindings;
 };
 
 
@@ -180,6 +181,7 @@ tw_bindings_create(struct weston_compositor *ec)
 				offsetof(struct tw_binding_node, node));
 	}
 	vector_init_zero(&root->apply_list, sizeof(struct taiwins_binding), NULL);
+	vector_init_zero(&root->weston_bindings, sizeof(struct weston_binding *), NULL);
 	return root;
 }
 
@@ -190,6 +192,12 @@ tw_bindings_destroy(struct tw_bindings *bindings)
 	vtree_destroy_children(&bindings->root_node.node, free);
 	if (bindings->apply_list.elems)
 		vector_destroy(&bindings->apply_list);
+
+	struct weston_binding **wb;
+	vector_for_each(wb, &bindings->weston_bindings)
+		weston_binding_destroy(*wb);
+	vector_destroy(&bindings->weston_bindings);
+
 	free(bindings);
 }
 
@@ -338,36 +346,44 @@ tw_bindings_add_key(struct tw_bindings *root,
 void
 tw_bindings_apply(struct tw_bindings *root)
 {
+
+	//destroy the previous bindigns
+	struct weston_binding **wbp;
+	struct weston_binding *wb;
+	vector_for_each(wbp, &root->weston_bindings)
+		weston_binding_destroy(*wbp);
+	vector_destroy(&root->weston_bindings);
 	//vector_for_each_safe
 	struct taiwins_binding *b;
 	vector_for_each(b, &root->apply_list) {
 		switch (b->type) {
 		case TW_BINDING_key:
-			weston_compositor_add_key_binding(
+			wb = weston_compositor_add_key_binding(
 				root->ec, b->keypress[0].keycode,
 				b->keypress[0].modifier,
 				tw_start_keybinding, root);
 			break;
 		case TW_BINDING_axis:
-			weston_compositor_add_axis_binding(
+			wb = weston_compositor_add_axis_binding(
 				root->ec, b->axisaction.axis_event,
 				b->axisaction.modifier, b->axis_func,
 				b->user_data);
 			break;
 		case TW_BINDING_btn:
-			weston_compositor_add_button_binding(
+			wb = weston_compositor_add_button_binding(
 				root->ec,
 				b->btnpress.btn, b->btnpress.modifier,
 				b->btn_func, b->user_data);
 			break;
 		case TW_BINDING_tch:
-			weston_compositor_add_touch_binding(
+			wb = weston_compositor_add_touch_binding(
 				root->ec, b->btnpress.modifier,
 				b->touch_func, b->user_data);
 			break;
 		case TW_BINDING_INVALID:
-			break;
+			continue;
 		}
+		vector_append(&root->weston_bindings, &wb);
 	}
 	vector_destroy(&root->apply_list);
 	vector_init_zero(&root->apply_list,

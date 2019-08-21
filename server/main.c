@@ -119,13 +119,15 @@ int main(int argc, char *argv[], char *envp[])
 	(void)con;
 
 	//we can run the config here, or actually add it to one of the signal
-	error = !taiwins_run_config(config, config_file);
-	if (error) {
-		exit(-1);
-		//TODO deal with leak here
-	}
+   	for (int i= 0; i < 10; i++) {
+		error = !taiwins_run_config(config, config_file);
+		if (error) {
+			exit(-1);
+			// TODO deal with leak here
+		}
+        }
 
-	/* tw_bindings_print(bindings); */
+        /* tw_bindings_print(bindings); */
 
 	compositor->kb_repeat_delay = 400;
 	compositor->kb_repeat_rate = 40;
