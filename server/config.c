@@ -616,10 +616,6 @@ taiwins_run_config(struct taiwins_config *config, const char *path)
 	error = temp_config->quit;
 	if (!error) {
 		//clean up the bindings we have right now
-		weston_destroy_bindings_list(&config->compositor->key_binding_list);
-		weston_destroy_bindings_list(&config->compositor->button_binding_list);
-		weston_destroy_bindings_list(&config->compositor->touch_binding_list);
-		weston_destroy_bindings_list(&config->compositor->axis_binding_list);
 		tw_bindings_apply(bindings);
 		taiwins_swap_config(config, temp_config);
 	} else {
