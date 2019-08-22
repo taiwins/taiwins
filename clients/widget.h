@@ -67,7 +67,13 @@ struct shell_widget {
 	uint32_t h;
 };
 
-void shell_widget_activate(struct shell_widget *widget, struct app_surface *panel, struct tw_event_queue *queue);
+void shell_widget_activate(struct shell_widget *widget, struct tw_event_queue *queue);
+
+static inline void
+shell_widget_hook_panel(struct shell_widget *widget, struct app_surface *panel)
+{
+	embeded_impl_app_surface(&widget->ancre, panel, make_bbox_origin(0, 0, 1));
+}
 
 /*
 static inline void
