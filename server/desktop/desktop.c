@@ -27,6 +27,7 @@ struct desktop {
 	//does the desktop should have the shell ui layout? If that is the case,
 	//we should get the shell as well.
 	struct weston_compositor *compositor;
+	struct shell *shell;
 	//why do I need the launcher here?
 	/* managing current status */
 	struct workspace *actived_workspace[2];
@@ -237,35 +238,37 @@ static void
 desktop_output_created(struct wl_listener *listener, void *data)
 {
 	struct weston_output *output = data;
+	struct desktop *desktop =
+		container_of(listener, struct desktop, output_create_listener);
+	
 	struct taiwins_output taiwins_output = {
 		.output = output,
-		.desktop_area = {
-			output->x, output->y + 32,
-			output->width, output->height - 32,
-		},
+		.desktop_area = shell_output_available_space(
+			desktop->shell, output),
 		.inner_gap = 10,
 		.outer_gap = 10,
 	};
 	for (int i = 0; i < MAX_WORKSPACE+1; i++) {
-		workspace_add_output(&DESKTOP.workspaces[i], &taiwins_output);
+		workspace_add_output(&desktop->workspaces[i], &taiwins_output);
 	}
 }
 
 static void
-desktop_output_resized(struct wl_listener *listenr, void *data)
+desktop_output_resized(struct wl_listener *listener, void *data)
 {
 	struct weston_output *output = data;
+	struct desktop *desktop =
+		container_of(listener, struct desktop, output_resize_listener);
+	
 	struct taiwins_output taiwins_output = {
 		.output = output,
-		.desktop_area = {
-			output->x, output->y + 32,
-			output->width, output->height - 32,
-		},
+		.desktop_area = shell_output_available_space(
+			desktop->shell, output),
 		.inner_gap = 10,
 		.outer_gap = 10,
 	};
 	for (int i = 0; i < MAX_WORKSPACE+1; i++)
-		workspace_resize_output(&DESKTOP.workspaces[i], &taiwins_output);
+		workspace_resize_output(&desktop->workspaces[i], &taiwins_output);
 }
 
 
@@ -273,9 +276,12 @@ static void
 desktop_output_destroyed(struct wl_listener *listener, void *data)
 {
 	struct weston_output *output = data;
+	struct desktop *desktop =
+		container_of(listener, struct desktop, output_destroy_listener);
+	
 
 	for (int i = 0; i < MAX_WORKSPACE+1; i++) {
-		struct workspace *w = &DESKTOP.workspaces[i];
+		struct workspace *w = &desktop->workspaces[i];
 		//you somehow need to move the views to other output
 		workspace_remove_output(w, output);
 	}
@@ -285,10 +291,12 @@ static void
 desktop_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c);
 
 struct desktop *
-announce_desktop(struct weston_compositor *ec, struct taiwins_config *config)
+announce_desktop(struct weston_compositor *ec, struct shell *shell,
+		 struct taiwins_config *config)
 {
 	//initialize the desktop
 	DESKTOP.compositor = ec;
+	DESKTOP.shell = shell;
 	struct workspace *wss = DESKTOP.workspaces;
 	{
 		for (int i = 0; i < MAX_WORKSPACE+1; i++)

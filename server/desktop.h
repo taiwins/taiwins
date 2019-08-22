@@ -36,22 +36,20 @@ struct console *announce_console(struct weston_compositor *compositor,
 				 struct taiwins_config *config);
 
 struct desktop *announce_desktop(struct weston_compositor *compositor,
+				 struct shell *shell,
 				 struct taiwins_config *config);
 void end_desktop(struct desktop *desktop);
 
 
 struct wl_client *shell_get_client(struct shell *shell);
 
-void
-shell_create_ui_elem(struct shell *shell, struct wl_client *client,
+void shell_create_ui_elem(struct shell *shell, struct wl_client *client,
 		     uint32_t tw_ui, struct wl_resource *wl_surface,
 		     int tw_output,
 		     uint32_t x, uint32_t y, enum tw_ui_type type);
 
-
-
-
-
+struct weston_geometry
+shell_output_available_space(struct shell *shell, struct weston_output *weston_output);
 
 #ifdef  __cplusplus
 }

@@ -148,6 +148,7 @@ struct shell_output {
 struct shell {
 	uid_t uid; gid_t gid; pid_t pid;
 	char path[256];
+	struct taiwins_config *config;
 	struct wl_client *shell_client;
 	struct wl_resource *shell_resource;
 	struct wl_global *shell_global;
@@ -471,6 +472,78 @@ static struct tw_shell_interface shell_impl = {
 	.launch_widget = launch_shell_widget,
 };
 
+
+static void
+launch_shell_client(void *data)
+{
+	struct shell *shell = data;
+	shell->shell_client = tw_launch_client(shell->ec, shell->path);
+	wl_client_get_credentials(shell->shell_client, &shell->pid, &shell->uid, &shell->gid);
+}
+
+static void
+zoom_axis(struct weston_pointer *pointer, const struct timespec *time,
+	   struct weston_pointer_axis_event *event, void *data)
+{
+	struct weston_compositor *ec = pointer->seat->compositor;
+	double augment;
+	struct weston_output *output;
+	struct weston_seat *seat = pointer->seat;
+
+	wl_list_for_each(output, &ec->output_list, link) {
+		if (pixman_region32_contains_point(&output->region,
+						   wl_fixed_to_int(pointer->x),
+						   wl_fixed_to_int(pointer->y), NULL))
+		{
+			float sign = (event->has_discrete) ? -1.0 : 1.0;
+
+			if (event->axis == WL_POINTER_AXIS_VERTICAL_SCROLL)
+				augment = output->zoom.increment * sign * event->value / 20.0;
+			else
+				augment = 0.0;
+
+			output->zoom.level += augment;
+
+			if (output->zoom.level < 0.0)
+				output->zoom.level = 0.0;
+			else if (output->zoom.level > output->zoom.max_level)
+				output->zoom.level = output->zoom.max_level;
+
+			if (!output->zoom.active) {
+				if (output->zoom.level <= 0.0)
+					continue;
+				weston_output_activate_zoom(output, seat);
+			}
+
+			output->zoom.spring_z.target = output->zoom.level;
+			weston_output_update_zoom(output);
+		}
+	}
+}
+
+static void
+shell_reload_config(struct weston_keyboard *keyboard,
+		    const struct timespec *time, uint32_t key,
+		    uint32_t option, void *data)
+{
+	struct taiwins_config *config = data;
+	taiwins_run_config(config, NULL);
+}
+
+static void
+shell_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c)
+{
+	struct shell *shell = data;
+	//the lookup binding
+	const struct tw_axis_motion motion =
+		taiwins_config_get_builtin_binding(c, TW_ZOOM_AXIS_BINDING)->axisaction;
+	const struct tw_key_press *reload_press =
+		taiwins_config_get_builtin_binding(
+			c, TW_RELOAD_CONFIG_BINDING)->keypress;
+	tw_bindings_add_axis(bindings, &motion, zoom_axis, shell);
+	tw_bindings_add_key(bindings, reload_press, shell_reload_config, 0, shell->config);
+}
+
 static void
 unbind_shell(struct wl_resource *resource)
 {
@@ -543,64 +616,19 @@ shell_create_ui_elem(struct shell *shell,
 	create_ui_element(client, shell, tw_ui, wl_surface, idx, x, y, type);
 }
 
-
-static void
-launch_shell_client(void *data)
+struct weston_geometry
+shell_output_available_space(struct shell *shell, struct weston_output *output)
 {
-	struct shell *shell = data;
-	shell->shell_client = tw_launch_client(shell->ec, shell->path);
-	wl_client_get_credentials(shell->shell_client, &shell->pid, &shell->uid, &shell->gid);
+	int ith = shell_ith_output(shell, output);
+	struct weston_geometry geo = {
+		output->x, output->y,
+		output->width, output->height
+	};
+	geo.y += (ith == 0) ? 32 : 0;
+	geo.height -= (ith == 0) ? 32 : 0;
+	return geo;
 }
 
-static void
-zoom_axis(struct weston_pointer *pointer, const struct timespec *time,
-	   struct weston_pointer_axis_event *event, void *data)
-{
-	struct weston_compositor *ec = pointer->seat->compositor;
-	double augment;
-	struct weston_output *output;
-	struct weston_seat *seat = pointer->seat;
-
-	wl_list_for_each(output, &ec->output_list, link) {
-		if (pixman_region32_contains_point(&output->region,
-						   wl_fixed_to_int(pointer->x),
-						   wl_fixed_to_int(pointer->y), NULL))
-		{
-			float sign = (event->has_discrete) ? -1.0 : 1.0;
-
-			if (event->axis == WL_POINTER_AXIS_VERTICAL_SCROLL)
-				augment = output->zoom.increment * sign * event->value / 20.0;
-			else
-				augment = 0.0;
-
-			output->zoom.level += augment;
-
-			if (output->zoom.level < 0.0)
-				output->zoom.level = 0.0;
-			else if (output->zoom.level > output->zoom.max_level)
-				output->zoom.level = output->zoom.max_level;
-
-			if (!output->zoom.active) {
-				if (output->zoom.level <= 0.0)
-					continue;
-				weston_output_activate_zoom(output, seat);
-			}
-
-			output->zoom.spring_z.target = output->zoom.level;
-			weston_output_update_zoom(output);
-		}
-	}
-}
-
-
-static void
-shell_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c)
-{
-	struct shell *shell = data;
-	//the lookup binding
-	struct tw_axis_motion motion = taiwins_config_get_builtin_binding(c, TW_ZOOM_AXIS_BINDING)->axisaction;
-	tw_bindings_add_axis(bindings, &motion, zoom_axis, shell);
-}
 
 
 /**
@@ -616,6 +644,7 @@ announce_shell(struct weston_compositor *ec, const char *path,
 	oneshell.ready = false;
 	oneshell.the_widget_surface = NULL;
 	oneshell.shell_client = NULL;
+	oneshell.config = config;
 
 	//TODO leaking a wl_global
 	oneshell.shell_global =  wl_global_create(ec->wl_display, &tw_shell_interface,
