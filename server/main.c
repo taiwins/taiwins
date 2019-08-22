@@ -72,12 +72,23 @@ setup_input(struct weston_compositor *compositor)
 static void
 taiwins_quit(struct weston_keyboard *keyboard,
 	     const struct timespec *time,
-	     uint32_t key,
+	     uint32_t key, uint32_t option,
 	     void *data)
 {
+	struct weston_compositor *compositor = data;
 	fprintf(stderr, "quitting taiwins\n");
-	struct wl_display *wl_display = data;
+	struct wl_display *wl_display =
+		compositor->wl_display;
 	wl_display_terminate(wl_display);
+	exit(1);
+}
+
+static void
+compositor_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c)
+{
+	const struct tw_key_press *quit_press =
+		taiwins_config_get_builtin_binding(c, TW_QUIT_BINDING)->keypress;
+	tw_bindings_add_key(bindings, quit_press, taiwins_quit, 0, data);
 }
 
 
@@ -97,7 +108,6 @@ int main(int argc, char *argv[], char *envp[])
 		goto connect_err;
 
 	struct weston_compositor *compositor = weston_compositor_create(display, tw_get_backend());
-	weston_compositor_add_key_binding(compositor, KEY_F12, 0, taiwins_quit, display);
 	weston_log_set_handler(tw_log, tw_log);
 	//apply the config now
 	char *xdg_dir = getenv("XDG_CONFIG_HOME");
@@ -115,17 +125,16 @@ int main(int argc, char *argv[], char *envp[])
 
 	struct shell *sh = announce_shell(compositor, shellpath, config);
 	struct console *con = announce_console(compositor, sh, launcherpath, config);
-	struct desktop *desktop = announce_desktop(compositor, config);
+	struct desktop *desktop = announce_desktop(compositor, sh, config);
 	(void)con;
-
+	taiwins_config_register_bindings_funcs(config, compositor_add_bindings, compositor);
 	//we can run the config here, or actually add it to one of the signal
-   	for (int i= 0; i < 10; i++) {
-		error = !taiwins_run_config(config, config_file);
-		if (error) {
-			exit(-1);
-			// TODO deal with leak here
-		}
-        }
+
+	error = !taiwins_run_config(config, config_file);
+	if (error) {
+		exit(-1);
+		// TODO deal with leak here
+	}
 
         /* tw_bindings_print(bindings); */
 

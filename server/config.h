@@ -19,6 +19,8 @@ struct taiwins_config;
 // list of builtin bindings
 /////////////////////////////////////////////////////////
 enum taiwins_builtin_binding_t {
+	TW_QUIT_BINDING,
+	TW_RELOAD_CONFIG_BINDING,
 	//QUIT taiwins, rerun configuration
 	//console
 	TW_OPEN_CONSOLE_BINDING,

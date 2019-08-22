@@ -340,6 +340,17 @@ taiwins_config_apply_default(struct taiwins_config *c)
 	c->compositor->kb_repeat_rate = 40;
 	//TODO, reload config binding/kill server binding
 	//apply bindings
+	c->builtin_bindings[TW_QUIT_BINDING] = (struct taiwins_binding) {
+		.keypress = {{KEY_F12, 0}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_QUIT",
+	};
+	c->builtin_bindings[TW_RELOAD_CONFIG_BINDING] = (struct taiwins_binding) {
+		.keypress = {{KEY_R, MODIFIER_CTRL | MODIFIER_ALT},
+			     {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_RELOAD_CONFIG",
+	};
 	c->builtin_bindings[TW_OPEN_CONSOLE_BINDING] = (struct taiwins_binding) {
 		.keypress = {{KEY_P, MODIFIER_CTRL}, {0}, {0}, {0}, {0}},
 		.type = TW_BINDING_key,
