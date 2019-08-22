@@ -80,7 +80,7 @@ shell_widget_event_from_file(struct shell_widget *widget, const char *path,
 
 
 void
-shell_widget_activate(struct shell_widget *widget, struct app_surface *panel, struct tw_event_queue *queue)
+shell_widget_activate(struct shell_widget *widget, struct tw_event_queue *queue)
 {
 	if (widget->interval.it_value.tv_sec || widget->interval.it_value.tv_nsec)
 		shell_widget_event_from_timer(widget, &widget->interval, queue);
@@ -93,8 +93,6 @@ shell_widget_activate(struct shell_widget *widget, struct app_surface *panel, st
 			shell_widget_event_from_file(widget, path, queue);
 		}
 	}
-	//the size of the ancre here is irrelevant
-	embeded_impl_app_surface(&clock_widget.ancre, panel, make_bbox_origin(0, 0, 1));
 }
 
 

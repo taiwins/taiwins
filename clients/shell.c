@@ -269,6 +269,7 @@ shell_output_set_major(struct shell_output *w)
 		return;
 	else if (shell->main_output)
 		app_surface_release(&shell->main_output->panel);
+
 	//at this point, we are  sure to create the resource
 	pn_sf = wl_compositor_create_surface(shell->globals.compositor);
 	pn_ui = tw_shell_create_panel(shell->interface, pn_sf, w->index);
@@ -277,6 +278,11 @@ shell_output_set_major(struct shell_output *w)
 	nk_cairo_impl_app_surface(&w->panel, shell->panel_backend, shell_panel_frame,
 				  make_bbox_origin(w->bbox.w, shell->panel_height, w->bbox.s),
 				  NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER);
+
+	struct shell_widget *widget;
+	wl_list_for_each(widget, &shell->shell_widgets, link) {
+		shell_widget_hook_panel(widget, &w->panel);
+	}
 
 	shell->main_output = w;
 }
@@ -326,8 +332,11 @@ static void
 shell_output_resize(struct shell_output *w)
 {
 	app_surface_resize(&w->background, w->bbox.w, w->bbox.h);
-	if (w == w->shell->main_output)
+	if (w == w->shell->main_output) {
+		nk_wl_test_draw(w->shell->panel_backend, &w->panel,
+				shell_panel_measure_leading);
 		app_surface_resize(&w->panel, w->bbox.w, w->shell->panel_height);
+	}
 }
 
 /************************** desktop_shell_interface ********************************/
@@ -414,6 +423,10 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	wl_list_insert(&shell->shell_widgets, &clock_widget.link);
 	wl_list_insert(&shell->shell_widgets, &what_up_widget.link);
 	wl_list_insert(&shell->shell_widgets, &battery_widget.link);
+	
+	shell_widget_activate(&clock_widget, &shell->globals.event_queue);
+	shell_widget_activate(&what_up_widget, &shell->globals.event_queue);
+	shell_widget_activate(&battery_widget, &shell->globals.event_queue);
 	shell->widget_launch = (struct widget_launch_info){0};
 }
 
