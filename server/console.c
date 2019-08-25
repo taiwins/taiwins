@@ -133,13 +133,13 @@ launch_console_client(void *data)
 	wl_client_get_credentials(console->client, &console->pid, &console->uid, &console->gid);
 }
 
-static void
+static bool
 console_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *config)
 {
 	struct console *c = data;
 	const struct tw_key_press *open_console =
 		taiwins_config_get_builtin_binding(config, TW_OPEN_CONSOLE_BINDING)->keypress;
-	tw_bindings_add_key(bindings, open_console, should_start_console, 0, c);
+	return tw_bindings_add_key(bindings, open_console, should_start_console, 0, c);
 }
 
 

@@ -8,8 +8,7 @@
 #include <sequential.h>
 #include <tree.h>
 #include <unistd.h>
-#include "bindings.h"
-
+#include "config_internal.h"
 
 struct event_map {
 	const char *name;

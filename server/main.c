@@ -83,12 +83,13 @@ taiwins_quit(struct weston_keyboard *keyboard,
 	exit(1);
 }
 
-static void
+static bool
 compositor_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c)
 {
 	const struct tw_key_press *quit_press =
 		taiwins_config_get_builtin_binding(c, TW_QUIT_BINDING)->keypress;
 	tw_bindings_add_key(bindings, quit_press, taiwins_quit, 0, data);
+	return true;
 }
 
 
@@ -136,7 +137,7 @@ int main(int argc, char *argv[], char *envp[])
 		// TODO deal with leak here
 	}
 
-        /* tw_bindings_print(bindings); */
+	/* tw_bindings_print(bindings); */
 
 	compositor->kb_repeat_delay = 400;
 	compositor->kb_repeat_rate = 40;

@@ -240,7 +240,7 @@ desktop_output_created(struct wl_listener *listener, void *data)
 	struct weston_output *output = data;
 	struct desktop *desktop =
 		container_of(listener, struct desktop, output_create_listener);
-	
+
 	struct taiwins_output taiwins_output = {
 		.output = output,
 		.desktop_area = shell_output_available_space(
@@ -259,7 +259,7 @@ desktop_output_resized(struct wl_listener *listener, void *data)
 	struct weston_output *output = data;
 	struct desktop *desktop =
 		container_of(listener, struct desktop, output_resize_listener);
-	
+
 	struct taiwins_output taiwins_output = {
 		.output = output,
 		.desktop_area = shell_output_available_space(
@@ -278,7 +278,7 @@ desktop_output_destroyed(struct wl_listener *listener, void *data)
 	struct weston_output *output = data;
 	struct desktop *desktop =
 		container_of(listener, struct desktop, output_destroy_listener);
-	
+
 
 	for (int i = 0; i < MAX_WORKSPACE+1; i++) {
 		struct workspace *w = &desktop->workspaces[i];
@@ -287,7 +287,7 @@ desktop_output_destroyed(struct wl_listener *listener, void *data)
 	}
 }
 
-static void
+static bool
 desktop_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c);
 
 struct desktop *
@@ -790,11 +790,11 @@ desktop_recent_view(struct weston_keyboard *keyboard,
 	tw_focus_surface(nrv->view->surface);
 }
 
-static void
+static bool
 desktop_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c)
 {
 	struct desktop *d = data;
-
+	bool err = true; //conflict
 	//////////////////////////////////////////////////////////
 	//move press
 	struct tw_btn_press move_press =
@@ -819,12 +819,12 @@ desktop_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_co
 
 	const struct tw_key_press *switch_ws_back =
 		taiwins_config_get_builtin_binding(c, TW_SWITCH_WS_RECENT_BINDING)->keypress;
-	tw_bindings_add_key(bindings, switch_ws_left, desktop_workspace_switch,
-			    SWITCH_WS_LEFT, d);
-	tw_bindings_add_key(bindings, switch_ws_right, desktop_workspace_switch,
-			    SWITCH_WS_RIGHT, d);
-	tw_bindings_add_key(bindings, switch_ws_back, desktop_workspace_switch_recent,
-			   0, d);
+	err = err && tw_bindings_add_key(bindings, switch_ws_left, desktop_workspace_switch,
+					 SWITCH_WS_LEFT, d);
+	err = err && tw_bindings_add_key(bindings, switch_ws_right, desktop_workspace_switch,
+					 SWITCH_WS_RIGHT, d);
+	err = err && tw_bindings_add_key(bindings, switch_ws_back, desktop_workspace_switch_recent,
+					 0, d);
 
 	//////////////////////////////////////////////////////////
 	//resize view
@@ -832,8 +832,10 @@ desktop_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_co
 		taiwins_config_get_builtin_binding(c, TW_RESIZE_ON_LEFT_BINDING)->keypress;
 	const struct tw_key_press *resize_right =
 		taiwins_config_get_builtin_binding(c, TW_RESIZE_ON_RIGHT_BINDING)->keypress;
-	tw_bindings_add_key(bindings, resize_left, desktop_view_resize, RESIZE_LEFT, d);
-	tw_bindings_add_key(bindings, resize_right, desktop_view_resize, RESIZE_RIGHT, d);
+	err = err &&
+		tw_bindings_add_key(bindings, resize_left, desktop_view_resize, RESIZE_LEFT, d);
+	err = err &&
+		tw_bindings_add_key(bindings, resize_right, desktop_view_resize, RESIZE_RIGHT, d);
 
 	//////////////////////////////////////////////////////////
 	//toggle views
@@ -850,10 +852,12 @@ desktop_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_co
 	const struct tw_key_press *merge =
 		taiwins_config_get_builtin_binding(c, TW_MERGE_BINDING)->keypress;
 
-	tw_bindings_add_key(bindings, toggle_vertical, desktop_toggle_vertical, 0, d);
-	tw_bindings_add_key(bindings, toggle_floating, desktop_toggle_floating, 0, d);
-	tw_bindings_add_key(bindings, next_view, desktop_recent_view, 0, d);
-	tw_bindings_add_key(bindings, vsplit, desktop_split_view, 0, d);
-	tw_bindings_add_key(bindings, hsplit, desktop_split_view, 1, d);
-	tw_bindings_add_key(bindings, merge, desktop_merge_view, 0, d);
+	err = err && tw_bindings_add_key(bindings, toggle_vertical, desktop_toggle_vertical, 0, d);
+	err = err && tw_bindings_add_key(bindings, toggle_floating, desktop_toggle_floating, 0, d);
+	err = err && tw_bindings_add_key(bindings, next_view, desktop_recent_view, 0, d);
+	err = err && tw_bindings_add_key(bindings, vsplit, desktop_split_view, 0, d);
+	err = err && tw_bindings_add_key(bindings, hsplit, desktop_split_view, 1, d);
+	err = err && tw_bindings_add_key(bindings, merge, desktop_merge_view, 0, d);
+
+	return err;
 }
