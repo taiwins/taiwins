@@ -78,7 +78,7 @@ set(COMPOSITOR_LIBRARIES
   ${PIXMAN_LIBRARIES}
   ${FONTCONFIG_LIBRARIES}
   ${LUA_LIBRARIES}
-  taiwins_config
+  ${CTYPES_LIBRARIES}
   )
 list(REMOVE_DUPLICATES COMPOSITOR_LIBRARIES)
 
@@ -134,28 +134,11 @@ set(CLIENT_LIBRARIES
   ${PIXMAN_LIBRARIES}
   ${FONTCONFIG_LIBRARIES}
   ${FREETYPE_LIBRARIES}
-  taiwins_config
   )
 list(REMOVE_DUPLICATES CLIENT_LIBRARIES)
 
 include_directories(${COMPOSITOR_INCLUDE_DIRS})
 include_directories(${TRDPTY_INCLUDE_DIRS})
-
-#####################################################################
-############################# configs ###############################
-#####################################################################
-add_library(taiwins_config STATIC
-  config.c)
-
-target_link_libraries(taiwins_config
-  ${FONTCONFIG_LIBRARIES}
-  ${CTYPES_LIBRARIES}
-  m
-  )
-
-target_include_directories(taiwins_config PRIVATE
-  ${CTYPES_INCLUDE_DIR}
-  )
 
 #####################################################################
 message("build options: ${CMAKE_C_FLAGS}")
