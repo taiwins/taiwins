@@ -13,6 +13,9 @@ end
 --this works
 compositor:bind_btn(random_function, "C-M-btn_l")
 
+compositor:option("bigmac", "#ffffff")
+compositor:option("bigmac", 88, 87, 86)
+
 -- general setup
 compositor:keyboard_layout("ctrl:swap_lalt_lctl")
 compositor:set_kb_delay(400)

@@ -6,9 +6,11 @@ include_directories(
 add_library(twcore STATIC
   backend.c
   taiwins.c
-  config.c
   bindings.c
-  parser.c
+
+  config/config_parser.c
+  config/config.c
+  config/config_lua.c
   )
 
 add_library(twshell STATIC

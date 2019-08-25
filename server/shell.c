@@ -530,7 +530,7 @@ shell_reload_config(struct weston_keyboard *keyboard,
 	taiwins_run_config(config, NULL);
 }
 
-static void
+static bool
 shell_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c)
 {
 	struct shell *shell = data;
@@ -541,7 +541,7 @@ shell_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_conf
 		taiwins_config_get_builtin_binding(
 			c, TW_RELOAD_CONFIG_BINDING)->keypress;
 	tw_bindings_add_axis(bindings, &motion, zoom_axis, shell);
-	tw_bindings_add_key(bindings, reload_press, shell_reload_config, 0, shell->config);
+	return tw_bindings_add_key(bindings, reload_press, shell_reload_config, 0, shell->config);
 }
 
 static void
@@ -678,7 +678,7 @@ announce_shell(struct weston_compositor *ec, const char *path,
 		struct weston_output *output;
 		wl_list_for_each(output, &ec->output_list, link)
 			shell_output_created(&oneshell.output_create_listener, output);
-		
+
 	}
 	taiwins_config_register_bindings_funcs(config, shell_add_bindings, &oneshell);
 	return &oneshell;
