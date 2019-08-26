@@ -12,6 +12,10 @@
 #include "bindings.h"
 #include "config.h"
 
+/*******************************************************************************************
+ * shell ui
+ *******************************************************************************************/
+
 struct shell_ui {
 	struct wl_resource *resource;
 	struct weston_surface *binded;
@@ -22,7 +26,59 @@ struct shell_ui {
 	struct weston_layer *layer;
 };
 
-struct shell;
+/*******************************************************************************************
+ * shell interface
+ *******************************************************************************************/
+
+
+/**
+ * @brief represents tw_output
+ *
+ * the resource only creates for tw_shell object
+ */
+struct shell_output {
+	struct weston_output *output;
+	/* struct wl_list creation_link; //used when new output is created and client is not ready */
+	struct shell *shell;
+	//ui elems
+	struct shell_ui *background;
+	struct shell_ui *panel;
+	struct shell_ui *locker;
+};
+
+struct shell {
+	uid_t uid; gid_t gid; pid_t pid;
+	char path[256];
+	struct taiwins_config *config;
+	struct wl_client *shell_client;
+	struct wl_resource *shell_resource;
+	struct wl_global *shell_global;
+
+	struct weston_compositor *ec;
+	//you probably don't want to have the layer
+	struct weston_layer background_layer;
+	struct weston_layer ui_layer;
+
+	//the widget is the global view
+	struct weston_surface *the_widget_surface;
+	struct wl_listener output_create_listener;
+	struct wl_listener output_destroy_listener;
+	struct wl_listener output_resize_listener;
+	struct taiwins_apply_bindings_listener add_binding;
+	struct taiwins_config_component_listener config_component;
+
+	bool ready;
+	//we deal with at most 16 outputs
+	struct shell_output tw_outputs[16];
+
+};
+
+//we could make it static as well.
+static struct shell oneshell;
+
+/*******************************************************************
+ * tw_ui implementation
+ ******************************************************************/
 
 static void
 does_ui_lose_keyboard(struct weston_keyboard *keyboard,
@@ -126,54 +182,7 @@ shell_ui_create_simple(struct wl_resource *tw_ui, struct weston_surface *s)
 	return ui;
 }
 
-/*******************************************************************************************
- * shell interface
- *******************************************************************************************/
 
-/**
- * @brief represents tw_output
- *
- * the resource only creates for tw_shell object
- */
-struct shell_output {
-	struct weston_output *output;
-	/* struct wl_list creation_link; //used when new output is created and client is not ready */
-	struct shell *shell;
-	//ui elems
-	struct shell_ui *background;
-	struct shell_ui *panel;
-	struct shell_ui *locker;
-};
-
-struct shell {
-	uid_t uid; gid_t gid; pid_t pid;
-	char path[256];
-	struct taiwins_config *config;
-	struct wl_client *shell_client;
-	struct wl_resource *shell_resource;
-	struct wl_global *shell_global;
-
-	struct weston_compositor *ec;
-	//you probably don't want to have the layer
-	struct weston_layer background_layer;
-	struct weston_layer ui_layer;
-
-	//the widget is the global view
-	struct weston_surface *the_widget_surface;
-	struct wl_listener output_create_listener;
-	struct wl_listener output_destroy_listener;
-	struct wl_listener output_resize_listener;
-
-	struct wl_list output_accum;
-
-	bool ready;
-	//we deal with at most 16 outputs
-	struct shell_output tw_outputs[16];
-
-};
-
-//we could make it static as well.
-static struct shell oneshell;
 
 
 
@@ -481,6 +490,8 @@ launch_shell_client(void *data)
 	wl_client_get_credentials(shell->shell_client, &shell->pid, &shell->uid, &shell->gid);
 }
 
+//////////////////////////  BINDING  /////////////////////////////////
+
 static void
 zoom_axis(struct weston_pointer *pointer, const struct timespec *time,
 	   struct weston_pointer_axis_event *event, void *data)
@@ -531,9 +542,10 @@ shell_reload_config(struct weston_keyboard *keyboard,
 }
 
 static bool
-shell_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c)
+shell_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
+		   struct taiwins_apply_bindings_listener *listener)
 {
-	struct shell *shell = data;
+	struct shell *shell = container_of(listener, struct shell, add_binding);
 	//the lookup binding
 	const struct tw_axis_motion motion =
 		taiwins_config_get_builtin_binding(c, TW_ZOOM_AXIS_BINDING)->axisaction;
@@ -544,6 +556,7 @@ shell_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_conf
 	return tw_bindings_add_key(bindings, reload_press, shell_reload_config, 0, shell->config);
 }
 
+////////////////////////// BIND SHELL /////////////////////////////////
 static void
 unbind_shell(struct wl_resource *resource)
 {
@@ -661,7 +674,6 @@ announce_shell(struct weston_compositor *ec, const char *path,
 	}
 
 	{
-		wl_list_init(&oneshell.output_accum);
 		wl_list_init(&oneshell.output_create_listener.link);
 		oneshell.output_create_listener.notify = shell_output_created;
 
@@ -678,8 +690,14 @@ announce_shell(struct weston_compositor *ec, const char *path,
 		struct weston_output *output;
 		wl_list_for_each(output, &ec->output_list, link)
 			shell_output_created(&oneshell.output_create_listener, output);
+		//binding
+		wl_list_init(&oneshell.add_binding.link);
+		oneshell.add_binding.apply = shell_add_bindings;
+		taiwins_config_add_apply_bindings(config, &oneshell.add_binding);
+		//config_componenet
+		wl_list_init(&oneshell.config_component.link);
+		
 
 	}
-	taiwins_config_register_bindings_funcs(config, shell_add_bindings, &oneshell);
 	return &oneshell;
 }

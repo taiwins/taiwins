@@ -24,6 +24,14 @@
 
 //remove this two later
 
+struct tw_compositor {
+	struct weston_compositor *ec;
+
+	struct taiwins_apply_bindings_listener add_binding;
+	struct taiwins_config_component_listener config_component;
+};
+
+
 static FILE *logfile = NULL;
 
 static int
@@ -84,25 +92,37 @@ taiwins_quit(struct weston_keyboard *keyboard,
 }
 
 static bool
-compositor_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c)
+tw_compositor_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
+			struct taiwins_apply_bindings_listener *listener)
 {
+	struct tw_compositor *tc = container_of(listener, struct tw_compositor, add_binding);
 	const struct tw_key_press *quit_press =
 		taiwins_config_get_builtin_binding(c, TW_QUIT_BINDING)->keypress;
-	tw_bindings_add_key(bindings, quit_press, taiwins_quit, 0, data);
+	tw_bindings_add_key(bindings, quit_press, taiwins_quit, 0, tc->ec);
 	return true;
 }
 
 
+static void
+tw_compositor_init(struct tw_compositor *tc, struct weston_compositor *ec,
+		   struct taiwins_config *config)
+{
+	tc->ec = ec;
+	wl_list_init(&tc->add_binding.link);
+	tc->add_binding.apply = tw_compositor_add_bindings;
+	taiwins_config_add_apply_bindings(config, &tc->add_binding);
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	int error = 0;
-	logfile = fopen("/tmp/taiwins_log", "w");
-
+	struct tw_compositor tc;
 	const char *shellpath = (argc > 1) ? argv[1] : NULL;
 	const char *launcherpath = (argc > 2) ? argv[2] : NULL;
 	struct wl_display *display = wl_display_create();
 	char config_file[100];
 
+	logfile = fopen("/tmp/taiwins_log", "w");
 	weston_log_set_handler(tw_log, tw_log);
 	//quit if we already have a wayland server
 	if (wl_display_add_socket(display, NULL) == -1)
@@ -123,13 +143,11 @@ int main(int argc, char *argv[], char *envp[])
 	weston_compositor_wake(compositor);
 	//good moment to add the extensions
 	struct taiwins_config *config = taiwins_config_create(compositor, tw_log);
-
+	tw_compositor_init(&tc, compositor, config);
 	struct shell *sh = announce_shell(compositor, shellpath, config);
 	struct console *con = announce_console(compositor, sh, launcherpath, config);
 	struct desktop *desktop = announce_desktop(compositor, sh, config);
 	(void)con;
-	taiwins_config_register_bindings_funcs(config, compositor_add_bindings, compositor);
-	//we can run the config here, or actually add it to one of the signal
 
 	error = !taiwins_run_config(config, config_file);
 	if (error) {

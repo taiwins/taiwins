@@ -29,7 +29,7 @@ enum taiwins_option_type {
 };
 
 /**
- * @brief have client having abilities to listen to changes of configurations.
+ * @brief option listener
  *
  * The listener is responsible to provide the data container. You can
  * essenstially use wl_array for variable size data. this is very easy for you
@@ -47,9 +47,39 @@ void taiwins_config_add_option_listener(struct taiwins_config *config,
 					const char *key,
 					struct taiwins_option_listener *listener);
 
+
+/////////////////////////////////////////////////////////
+// lua components
+/////////////////////////////////////////////////////////
+struct taiwins_config_component_listener {
+	struct wl_list link;
+	//called once in taiwins_run_config, for initialize lua metatable and
+	//setup functions
+	bool (*init)(struct taiwins_config *, lua_State *L,
+		     struct taiwins_config_component_listener *);
+
+};
+
+void taiwins_config_add_component(struct taiwins_config *,
+				  struct taiwins_config_component_listener *);
+
+void taiwins_config_request_metatable(lua_State *L);
+
 /////////////////////////////////////////////////////////
 // list of builtin bindings
 /////////////////////////////////////////////////////////
+
+struct taiwins_apply_bindings_listener {
+	struct wl_list link;
+	bool (*apply)(struct tw_bindings *bindings,
+		      struct taiwins_config *config,
+		      struct taiwins_apply_bindings_listener *listener);
+};
+
+void taiwins_config_add_apply_bindings(struct taiwins_config *,
+				      struct taiwins_apply_bindings_listener *);
+
+
 enum taiwins_builtin_binding_t {
 	TW_QUIT_BINDING,
 	TW_RELOAD_CONFIG_BINDING,
@@ -79,21 +109,21 @@ enum taiwins_builtin_binding_t {
 	TW_BUILTIN_BINDING_SIZE
 };
 
+/**
+ * /brief get the configuration for keybinding
+ */
+const struct taiwins_binding *taiwins_config_get_builtin_binding(struct taiwins_config *,
+								 enum taiwins_builtin_binding_t);
 
-typedef bool (*tw_bindings_apply_func_t)(void *data, struct tw_bindings *bindings,
-					 struct taiwins_config *config);
+/////////////////////////////////////////////////////////
+// APIS
+/////////////////////////////////////////////////////////
 
 struct taiwins_config *taiwins_config_create(struct weston_compositor *ec,
 					     log_func_t messenger);
 void taiwins_config_destroy(struct taiwins_config *);
 
 
-/**
- * /brief register an apply_binding function, call this before run_config
- *
- * you can use listeners for that.
- */
-void taiwins_config_register_bindings_funcs(struct taiwins_config *c, tw_bindings_apply_func_t func, void *data);
 
 /**
  * /brief load and apply the config file
@@ -106,11 +136,6 @@ void taiwins_config_register_bindings_funcs(struct taiwins_config *c, tw_binding
  */
 bool taiwins_run_config(struct taiwins_config *config, const char *path);
 
-/**
- * /brief get the configuration for keybinding
- */
-const struct taiwins_binding *taiwins_config_get_builtin_binding(struct taiwins_config *,
-								 enum taiwins_builtin_binding_t);
 
 #ifdef __cplusplus
 }
