@@ -39,6 +39,9 @@ struct desktop {
 	struct wl_listener output_create_listener;
 	struct wl_listener output_resize_listener;
 	struct wl_listener output_destroy_listener;
+	struct taiwins_apply_bindings_listener add_binding;
+	struct taiwins_config_component_listener config_component;
+	
 };
 static struct desktop DESKTOP;
 
@@ -288,7 +291,8 @@ desktop_output_destroyed(struct wl_listener *listener, void *data)
 }
 
 static bool
-desktop_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c);
+desktop_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
+		     struct taiwins_apply_bindings_listener *listener);
 
 struct desktop *
 announce_desktop(struct weston_compositor *ec, struct shell *shell,
@@ -330,9 +334,15 @@ announce_desktop(struct weston_compositor *ec, struct shell *shell,
 		wl_list_for_each(output, &ec->output_list, link)
 			desktop_output_created(&DESKTOP.output_create_listener,
 						 output);
+
+		wl_list_init(&DESKTOP.add_binding.link);
+		DESKTOP.add_binding.apply = desktop_add_bindings;
+		taiwins_config_add_apply_bindings(config, &DESKTOP.add_binding);
+		
+		
+		wl_list_init(&DESKTOP.config_component.link);
 	}
 	//last step, add keybindings
-	taiwins_config_register_bindings_funcs(config, desktop_add_bindings, &DESKTOP);
 	return &DESKTOP;
 }
 
@@ -791,9 +801,10 @@ desktop_recent_view(struct weston_keyboard *keyboard,
 }
 
 static bool
-desktop_add_bindings(void *data, struct tw_bindings *bindings, struct taiwins_config *c)
+desktop_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
+		     struct taiwins_apply_bindings_listener *listener)
 {
-	struct desktop *d = data;
+	struct desktop *d = container_of(listener, struct desktop, add_binding);
 	bool err = true; //conflict
 	//////////////////////////////////////////////////////////
 	//move press

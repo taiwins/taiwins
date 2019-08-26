@@ -17,11 +17,12 @@ struct taiwins_config {
 	struct tw_bindings *bindings;
 	lua_State *L;
 	log_func_t print;
-	//in terms of xkb_rules, we try to parse it as much as we can
+
 	struct xkb_rule_names rules;
 
-	//TODO: to a wl_list
-	vector_t apply_bindings;
+	struct wl_list lua_components;
+	struct wl_list apply_bindings;
+	/* vector of list */
 	vector_t option_hooks;
 
 	bool default_floating;

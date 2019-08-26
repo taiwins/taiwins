@@ -16,12 +16,12 @@
 
 
 
-//we should have wl_list as well.
-struct apply_bindings_t {
-	struct wl_list node;
-	tw_bindings_apply_func_t func;
-	void *data;
-};
+/* //we should have wl_list as well. */
+/* struct apply_bindings_t { */
+/* 	struct wl_list node; */
+/* 	tw_bindings_apply_func_t func; */
+/* 	void *data; */
+/* }; */
 
 
 
@@ -40,6 +40,17 @@ taiwins_config_get_bindings(struct taiwins_config *config)
 	return config->bindings;
 }
 
+static inline void
+swap_listener(struct wl_list *dst, struct wl_list *src)
+{
+	struct wl_list *pos, *tmp;
+	for (pos = src->next, tmp = pos->next;
+	     pos->next != src;
+	     pos = tmp, tmp = pos->next) {
+		wl_list_remove(pos);
+		wl_list_insert(dst, pos);
+	}
+}
 
 static void
 taiwins_config_apply_default(struct taiwins_config *c)
@@ -153,8 +164,8 @@ taiwins_config_create(struct weston_compositor *ec, log_func_t log)
 	config->compositor = ec;
 	config->print = log;
 	config->quit = false;
-	vector_init(&config->apply_bindings,
-		    sizeof(struct apply_bindings_t), NULL);
+	wl_list_init(&config->lua_components);
+	wl_list_init(&config->apply_bindings);
 	vector_init_zero(&config->option_hooks,
 			 sizeof(struct taiwins_option), NULL);
 
@@ -183,7 +194,7 @@ _taiwins_config_release(struct taiwins_config *config)
 		tw_bindings_destroy(config->bindings);
 	config->bindings = NULL;
 	//release everything but not apply_bindings
-	vector_destroy(&config->apply_bindings);
+	wl_list_init(&config->apply_bindings);
 }
 
 void
@@ -211,7 +222,8 @@ taiwins_swap_config(struct taiwins_config *dst, struct taiwins_config *src)
 	dst->lua_bindings = src->lua_bindings;
 	dst->rules = src->rules;
 	dst->default_floating = src->default_floating;
-	dst->apply_bindings = src->apply_bindings;
+	swap_listener(&dst->apply_bindings, &src->apply_bindings);
+
 	//luckly I don't need to copy the builtin list, since the bindings are
 	//applied already
 	//then we simply free src
@@ -231,10 +243,10 @@ taiwins_config_try_config(struct taiwins_config *config)
 	safe = safe && !lua_pcall(config->L, 0, 0, 0);
 	//try apply bindings
 	struct tw_bindings *bindings = taiwins_config_get_bindings(config);
-	struct apply_bindings_t *pos;
+	struct taiwins_apply_bindings_listener *listener;
 	if (safe)
-		vector_for_each(pos, &config->apply_bindings)
-			safe = safe && pos->func(pos->data, bindings, config);
+		wl_list_for_each(listener, &config->apply_bindings, link)
+			safe = safe && listener->apply(bindings, config, listener);
 	if (safe) {
 		struct taiwins_binding *binding;
 		vector_for_each(binding, &config->lua_bindings) {
@@ -278,7 +290,9 @@ taiwins_run_config(struct taiwins_config *config, const char *path)
 	//setup the temporary config
 	temp_config->option_hooks = config->option_hooks;
 	strcpy(temp_config->path, config->path);
-	vector_copy(&temp_config->apply_bindings, &config->apply_bindings);
+	swap_listener(&temp_config->apply_bindings, &config->apply_bindings);
+	swap_listener(&temp_config->lua_components, &config->lua_components);
+	/* vector_copy(&temp_config->apply_bindings, &config->apply_bindings); */
 	taiwins_config_set_bindings(temp_config, bindings);
 	taiwins_config_try_config(temp_config);
 	error = temp_config->quit;
@@ -311,12 +325,17 @@ taiwins_config_get_builtin_binding(struct taiwins_config *c,
 
 
 void
-taiwins_config_register_bindings_funcs(struct taiwins_config *c,
-				       tw_bindings_apply_func_t func, void *data)
+taiwins_config_add_apply_bindings(struct taiwins_config *c,
+				  struct taiwins_apply_bindings_listener *listener)
 {
-	struct apply_bindings_t *ab = vector_newelem(&c->apply_bindings);
-	ab->func = func;
-	ab->data = data;
+	wl_list_insert(&c->apply_bindings, &listener->link);
+}
+
+void
+taiwins_config_add_component(struct taiwins_config *c,
+			     struct taiwins_config_component_listener *listener)
+{
+	wl_list_insert(&c->lua_components, &listener->link);
 }
 
 
