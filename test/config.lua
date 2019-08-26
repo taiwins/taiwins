@@ -22,35 +22,40 @@ compositor:set_kb_delay(400)
 compositor:set_kb_repeat(40)
 compositor:set_color_format("xrgb8888")
 
+
+-- setup themes,
+compositor:init_theme('path_to_theme')
+compositor:text_font("font name/path")
+
+-- setup widget
+compositor:init_widgets('path_to_another_luascript')
+-- output configuration
+-- we would want to set the output scale, position, or clone mode, flip
+compositor:connect_signal('compositor:output_connect', function(s)
+			     if s['name'] == 'HDMI' then
+				s:set_scale(1)
+				s:clone(compositor:find_output('eDP1'))
+			     end
+end)
 -- more advanced use: we can have dynamic configuration that takes input and
 -- produce output. For example we can setup the weston_output based on whatever
 -- output we have.
--- for output in compositor:get_outputs do
---     if output["type"] == "HDMI"
---        compositor:set_scale(output, 1)
---     end
--- end
+for output in compositor:get_outputs do
+   if output["type"] == "HDMI" then
+      output:set_scale(1)
+   end
+end
+
+desktop = compositor:get_desktop()
+
+for ws in desktop:get_workspace() do
+   ws:set_layout('floating')
+end
 
 -- now more on the usability part
 compositor:set_default_layout("floating")
 -- set the environment variables
 compositor:set_envar("name", "value")
-
--- outputs, you can setup the default rules for creating output. Or
--- you can actually make a function for that. Default rules could be like
-compositor:set_output_rule("do_nothing")
--- or you can do this
-compositor[outputs] = {
-   eDP1 = {
-      mode =  "3200x1800",
-      scale = 2,
-      clone = "HDMI1"
-   },
-   HDMI1 = {
-      mode = "1920x1080",
-      scale = 1,
-   }
-}
 
 -- Then we need to actual set the output by config.
 compositor:set_outputs({
