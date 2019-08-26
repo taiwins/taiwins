@@ -71,8 +71,8 @@
 *** DONE renaming tw_shell -> shell, tw_desktop -> desktop.
    so the protocols can directly use tw_shell instead of taiwins_shell
 
-** TODO [66%] <<configuration>>
-*** TODO [#A] hot config I :: general hook
+** TODO [71%] <<configuration>>
+*** DONE [#A] hot config I :: general hook
     all the components(I mean right now shell, console and desktop are all like
     components of the compositor, they follow the same functions, in C++, they
     would share the same baseclass). And all the components can listen on some
@@ -86,6 +86,13 @@
     ~tw_ui.config~, or ~shell.config~, the xkb_context is also here, so you can
     send clients the proper setups.
 
+*** TODO [#A] hot config III :: taiwins_config_lua_plugin or other better names,
+    components like shell, desktop would be able to register for lua_bindings,
+    so it could provide plenty of functionanities
+
+    At this point we should probabliy know that totally *try-apply* approach may
+    not be totally realistic. If any part of lua code ran, it would have side
+    effect
 *** DONE introduce the lua code
 
 *** DONE styles, nuklear and other widget styles.
