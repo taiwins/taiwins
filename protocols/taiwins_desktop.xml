@@ -44,8 +44,8 @@
 	shell client for it to create new panel or background, it can also be
 	used to have the shell client responds to close of the output or change
 	of dimension.
-	
-	outputs are comming in order. 
+
+	outputs are comming in order.
       </description>
       <arg name="id" type="uint" summary="id of the output"/>
       <arg name="width" type="uint" summary="pixel width"/>
@@ -54,6 +54,15 @@
       <arg name="major" type="uint" summary="the major output"/>
       <arg name="msg" type="uint" summary="message about the output"/>
     </event>
+
+  <!--
+    <event name="output_rotation">
+    </event>
+
+    <event name="output_done">
+      <description summary="mark the end of a series output configuration"/>
+      </event>
+  -->
 
     <enum name="output_msg">
       <entry name="connected" value="0" summary="output is online"/>
@@ -176,6 +185,31 @@
 	     summary="xdg_shell was destroyed before children"/>
     </enum>
   </interface>
+<!--
+  <interface name="tw_theme">
+    <event name="main_font">
+      <arg name="path" type="string"/>
+    </event>
 
+    <event name="icon_font">
+      <arg name="path" type="string"/>
+    </event>
 
+    <event name="font size">
+      <arv name="pt" type="uint" summary="point size"/>
+    </event>
+
+    <event name="base color">
+      <arg name="red" type="uint"/>
+      <arg name="green" type="uint"/>
+      <arg name="blue" type="uint"/>
+      <arg name="transparency" type="fixed" summary="between 0 and 1"/>
+    </event>
+
+    <event name="done">
+      <description summary="mark the end of a theme configuration"/>
+    </event>
+
+  </interface>
+-->
 </protocol>
