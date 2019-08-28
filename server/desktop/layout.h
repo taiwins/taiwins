@@ -33,6 +33,12 @@ enum layout_command {
 	DPSR_output_resize,
 };
 
+enum layout_type {
+	LAYOUT_FLOATING,
+	LAYOUT_TILING,
+};
+
+
 /* the operation correspond to the command, I am not sure if it is good to have
  * responce immediately but currently I have no other way and when to apply the
  * operations is not clear either.

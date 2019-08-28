@@ -408,7 +408,7 @@ taiwins_config_init_luastate(struct taiwins_config *c)
 {
 	lua_State *L;
 	struct taiwins_config_component_listener *component;
-	
+
 	if (c->L)
 		lua_close(c->L);
 	if (!(L = luaL_newstate()))
@@ -438,11 +438,12 @@ taiwins_config_init_luastate(struct taiwins_config *c)
 	REGISTER_METHOD(L, "repeat_info", _lua_set_repeat_info);
 	REGISTER_METHOD(L, "option", _lua_set_value);
 
+	//now adding config components
+	wl_list_for_each(component, &c->lua_components, link)
+		component->init(c, L, component);
+
 	lua_pushcfunction(L, _lua_get_config);
 	lua_setglobal(L, "require_compositor");
 	lua_pop(L, 1); //now the stack should be zero
 
-	//now adding config components
-	wl_list_for_each(component, &c->lua_components, link)
-		component->init(c, L, component);
 }
