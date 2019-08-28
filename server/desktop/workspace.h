@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <compositor.h>
+#include <libweston-desktop.h>
 #include "../taiwins.h"
 #include "unistd.h"
 #include "layout.h"
@@ -10,6 +11,7 @@
 #ifdef  __cplusplus
 extern "C" {
 #endif
+
 
 
 struct workspace {
@@ -22,6 +24,9 @@ struct workspace {
 	struct weston_layer tiling_layer;
 	struct weston_layer floating_layer;
 	struct weston_layer fullscreen_layer;
+
+	/** current workspace can be in state like floating, tiling, fullscreen */
+	enum layout_type current_layout;
 
 	//this list will be used in creating/deleting views. switch workspace,
 	//switch views by key, click views will be horrible though. You have to
@@ -37,10 +42,10 @@ struct recent_view {
 	struct weston_view *view;
 	struct weston_geometry old_geometry;
 	struct wl_list link;
-	bool tiling;
+	enum layout_type type;
 };
 
-struct recent_view *recent_view_create(struct weston_view *view);
+struct recent_view *recent_view_create(struct weston_view *view, enum layout_type layout);
 void recent_view_destroy(struct recent_view *);
 
 static inline struct recent_view *
@@ -66,6 +71,8 @@ void workspace_init(struct workspace *wp, struct weston_compositor *compositor);
 void workspace_release(struct workspace *);
 void workspace_switch(struct workspace *to, struct workspace *from,
 		      struct weston_keyboard *keyboard);
+
+const char *workspace_layout_name(struct workspace *ws);
 
 void arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
 				const enum layout_command command,

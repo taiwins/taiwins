@@ -7,14 +7,14 @@
 
 
 struct recent_view *
-recent_view_create(struct weston_view *v)
+recent_view_create(struct weston_view *v, enum layout_type type)
 {
 	struct weston_desktop_surface *ds =
 		weston_surface_get_desktop_surface(v->surface);
 	struct recent_view *rv = xmalloc(sizeof(struct recent_view));
 	wl_list_init(&rv->link);
 	rv->view = v;
-	rv->tiling = true;
+	rv->type = type;
 	rv->old_geometry = weston_desktop_surface_get_geometry(ds);
 	weston_desktop_surface_set_user_data(ds, rv);
 	return rv;
@@ -48,6 +48,7 @@ workspace_init(struct workspace *wp, struct weston_compositor *compositor)
 	tiling_layout_init(&wp->tiling_layout, &wp->tiling_layer,
 			   &wp->floating_layout);
 	wl_list_init(&wp->recent_views);
+	wp->current_layout = LAYOUT_TILING;
 }
 
 void
@@ -95,7 +96,7 @@ workspace_get_layout_for_view(const struct workspace *ws, const struct weston_vi
 	if (!v || (v->layer_link.layer != &ws->floating_layer &&
 		   v->layer_link.layer != &ws->tiling_layer)) {
 		const struct recent_view *rv = get_recent_view((struct weston_view *)v);
-		const struct layout *l = rv->tiling ? &ws->tiling_layout :
+		const struct layout *l = (rv->type == LAYOUT_TILING) ? &ws->tiling_layout :
 			&ws->floating_layout;
 		return (struct layout *)l;
 	}
@@ -146,6 +147,7 @@ arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
 			const enum layout_command command,
 			const struct layout_op *arg)
 {
+	//IF v is NULL, we need to re-arrange the entire output
 	if (!v) {
 		arrange_view_for_layout(ws, &ws->floating_layout, NULL,
 					     command, arg);
@@ -293,7 +295,8 @@ workspace_add_view(struct workspace *w, struct weston_view *view)
 
 	arrange_view_for_workspace(w, view, DPSR_add, &arg);
 	struct recent_view *rv = get_recent_view(view);
-	if (rv->tiling)
+	//TODO have switch case here to be able to add to different layer
+	if (rv->type == LAYOUT_TILING)
 		weston_layer_entry_insert(&w->tiling_layer.view_list, &view->layer_link);
 	else
 		weston_layer_entry_insert(&w->floating_layer.view_list, &view->layer_link);
@@ -336,6 +339,21 @@ workspace_switch_layout(struct workspace *w, struct weston_view *view)
 	if (layer != &w->floating_layer && layer != &w->tiling_layer)
 		return;
 	workspace_remove_view(w, view);
-	rv->tiling = !rv->tiling;
+	rv->type = (rv->type == LAYOUT_TILING) ? LAYOUT_FLOATING : LAYOUT_TILING;
+	/* rv->tiling = !rv->tiling; */
 	workspace_add_view(w, view);
+}
+
+
+const char *
+workspace_layout_name(struct workspace *ws)
+{
+	switch (ws->current_layout) {
+	case LAYOUT_TILING:
+		return "tiling";
+		break;
+	case LAYOUT_FLOATING:
+		return "floating";
+		break;
+	}
 }

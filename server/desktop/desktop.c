@@ -41,7 +41,9 @@ struct desktop {
 	struct wl_listener output_destroy_listener;
 	struct taiwins_apply_bindings_listener add_binding;
 	struct taiwins_config_component_listener config_component;
-	
+	//params
+	unsigned int inner_gap, outer_gap;
+
 };
 static struct desktop DESKTOP;
 
@@ -126,7 +128,7 @@ twdesk_surface_added(struct weston_desktop_surface *surface,
 	wt_surface->output = view->output;
 	//focus on it
 	struct workspace *wsp = desktop->actived_workspace[0];
-	struct recent_view *rv = recent_view_create(view);
+	struct recent_view *rv = recent_view_create(view, wsp->current_layout);
 	weston_desktop_surface_set_user_data(surface, rv);
 
 	workspace_add_view(wsp, view);
@@ -248,8 +250,8 @@ desktop_output_created(struct wl_listener *listener, void *data)
 		.output = output,
 		.desktop_area = shell_output_available_space(
 			desktop->shell, output),
-		.inner_gap = 10,
-		.outer_gap = 10,
+		.inner_gap = desktop->inner_gap,
+		.outer_gap = desktop->outer_gap,
 	};
 	for (int i = 0; i < MAX_WORKSPACE+1; i++) {
 		workspace_add_output(&desktop->workspaces[i], &taiwins_output);
@@ -267,8 +269,8 @@ desktop_output_resized(struct wl_listener *listener, void *data)
 		.output = output,
 		.desktop_area = shell_output_available_space(
 			desktop->shell, output),
-		.inner_gap = 10,
-		.outer_gap = 10,
+		.inner_gap = desktop->inner_gap,
+		.outer_gap = desktop->outer_gap,
 	};
 	for (int i = 0; i < MAX_WORKSPACE+1; i++)
 		workspace_resize_output(&desktop->workspaces[i], &taiwins_output);
@@ -301,6 +303,9 @@ announce_desktop(struct weston_compositor *ec, struct shell *shell,
 	//initialize the desktop
 	DESKTOP.compositor = ec;
 	DESKTOP.shell = shell;
+	//params
+	DESKTOP.inner_gap = 10;
+	DESKTOP.outer_gap = 10;
 	struct workspace *wss = DESKTOP.workspaces;
 	{
 		for (int i = 0; i < MAX_WORKSPACE+1; i++)
@@ -338,8 +343,8 @@ announce_desktop(struct weston_compositor *ec, struct shell *shell,
 		wl_list_init(&DESKTOP.add_binding.link);
 		DESKTOP.add_binding.apply = desktop_add_bindings;
 		taiwins_config_add_apply_bindings(config, &DESKTOP.add_binding);
-		
-		
+
+
 		wl_list_init(&DESKTOP.config_component.link);
 	}
 	//last step, add keybindings
@@ -871,4 +876,126 @@ desktop_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 	err = err && tw_bindings_add_key(bindings, merge, desktop_merge_view, 0, d);
 
 	return err;
+}
+
+
+
+/****************************************************************************
+ * LUA bindings
+ ***************************************************************************/
+#define REGISTER_METHOD(l, name, func)		\
+	({lua_pushcfunction(l, func);		\
+		lua_setfield(l, -2, name);	\
+	})
+
+static struct desktop*
+_lua_to_desktop(lua_State *L)
+{
+	lua_getfield(L, LUA_REGISTRYINDEX, "__desktop");
+	struct desktop *d = lua_touserdata(L, -1);
+	lua_pop(L, 1);
+	return d;
+	
+}
+
+static int
+_lua_request_desktop(lua_State *L)
+{
+	lua_newtable(L);
+	luaL_getmetatable(L, "metatable_desktop");
+	lua_setmetatable(L, -2);
+	return 1;
+}
+
+static int
+_lua_request_workspaces(lua_State *L)
+{
+	struct desktop *d = _lua_to_desktop(L);
+	lua_newtable(L); //1
+	for (int i = 0;
+	     i < wl_list_length(&d->compositor->output_list);
+	     i++) {
+
+		//
+		struct workspace *ws = &d->workspaces[i];
+		
+		lua_newtable(L); //2
+		lua_pushstring(L, "layout"); //3
+		lua_pushstring(L, workspace_layout_name(ws)); //4
+		lua_settable(L, -3); //2
+
+		lua_rawseti(L, -2, i+1); //1
+	}
+	return 1;
+}
+
+static int
+_lua_set_ws_layout(lua_State *L)
+{
+
+}
+
+static int
+_lua_get_desktop_gap(lua_State *L)
+{
+	//TODO verify the metatable
+	struct desktop *d = _lua_to_desktop(L);
+	lua_pushinteger(L, d->inner_gap);
+	lua_pushinteger(L, d->outer_gap);
+	return 2;
+}
+
+static int
+_lua_set_desktop_gap(lua_State *L)
+{
+	int inner_gap, outer_gap;
+	struct desktop *d = _lua_to_desktop(L);
+	struct weston_output *output;
+	
+	luaL_checktype(L, 2, LUA_TNUMBER);
+	luaL_checktype(L, 3, LUA_TNUMBER);
+	if (lua_gettop(L) != 3)
+		return luaL_error(L, "invalid size of params.");
+	inner_gap = lua_tointeger(L, 2);
+	outer_gap = lua_tointeger(L, 3);
+	if (inner_gap < 0 || inner_gap > 100 ||
+	    outer_gap < 0 || outer_gap > 100)
+		return luaL_error(L, "invalid size of gaps.");
+	d->inner_gap = inner_gap;
+	d->outer_gap = outer_gap;
+	wl_list_for_each(output, &d->compositor->output_list, link)
+		desktop_output_created(&d->output_resize_listener, output);
+	return 0;
+}
+
+static bool
+desktop_init_config_component(struct taiwins_config *c, lua_State *L,
+			      struct taiwins_config_component_listener *listener)
+{
+	struct desktop *d = container_of(listener, struct desktop, config_component);
+	lua_pushlightuserdata(L, d); //s1
+	lua_setfield(L, LUA_REGISTRYINDEX, "__desktop"); //s0
+
+
+	//metatable for desktop API
+	luaL_newmetatable(L, "metatable_desktop");
+	lua_pushvalue(L, -1);
+	lua_setfield(L, -2, "__index");
+
+	REGISTER_METHOD(L, "workspaces", _lua_request_workspaces);
+	REGISTER_METHOD(L, "get_gaps", _lua_get_desktop_gap);
+	REGISTER_METHOD(L, "set_gaps", _lua_set_desktop_gap);
+	lua_pop(L, 1);
+
+	//metatable for workspace
+	luaL_newmetatable(L, "metatable_workspace");
+	lua_pushvalue(L, -1);
+	lua_setfield(L, -2, "__index");
+
+	REGISTER_METHOD(L, "set_layout", _lua_set_ws_layout);
+	lua_pop(L, 1);
+
+	REGISTER_METHOD(L, "get_desktop", _lua_request_desktop);
+
+	return true;
 }
