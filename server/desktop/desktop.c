@@ -924,14 +924,6 @@ _lua_to_desktop(lua_State *L)
 	
 }
 
-static int
-_lua_request_desktop(lua_State *L)
-{
-	lua_newtable(L);
-	luaL_getmetatable(L, "metatable_desktop");
-	lua_setmetatable(L, -2);
-	return 1;
-}
 
 static int
 _lua_request_workspaces(lua_State *L)
@@ -944,14 +936,17 @@ _lua_request_workspaces(lua_State *L)
 		struct workspace *ws = &d->workspaces[i];
 		
 		lua_newtable(L); //2
-		lua_pushstring(L, "layout"); //3
-		lua_pushstring(L, workspace_layout_name(ws)); //4
-		lua_pushstring(L, "index");
-		lua_pushnumber(L, i);
-		lua_settable(L, -3); //2
-
 		luaL_getmetatable(L, "metatable_workspace"); //3
 		lua_setmetatable(L, -2); //2
+		
+		lua_pushstring(L, "layout"); //3
+		lua_pushstring(L, workspace_layout_name(ws)); //4
+		lua_settable(L, -3); //2
+		
+		lua_pushstring(L, "index"); //3
+		lua_pushnumber(L, i); //4
+		lua_settable(L, -3); //2
+
 
 		lua_rawseti(L, -2, i+1); //1
 	}
@@ -1009,6 +1004,15 @@ _lua_set_desktop_gap(lua_State *L)
 	wl_list_for_each(output, &d->compositor->output_list, link)
 		desktop_output_created(&d->output_resize_listener, output);
 	return 0;
+}
+
+static int
+_lua_request_desktop(lua_State *L)
+{
+	lua_newtable(L);
+	luaL_getmetatable(L, "metatable_desktop");
+	lua_setmetatable(L, -2);
+	return 1;
 }
 
 static bool
