@@ -47,6 +47,12 @@ struct desktop {
 };
 static struct desktop DESKTOP;
 
+
+/***************************************************************
+ * desktop APIs 
+ **************************************************************/
+
+
 static inline off_t
 get_workspace_index(struct workspace *ws, struct desktop *d)
 {
@@ -63,6 +69,17 @@ get_workspace_for_view(struct weston_view *v, struct desktop *d)
 			break;
 	}
 	return wp;
+}
+
+static void
+desktop_set_worksace_layout(struct desktop *d, unsigned int i, enum layout_type type)
+{
+	struct workspace *w;
+	
+	if (i > MAX_WORKSPACE)
+		return;
+	w = &d->workspaces[i];
+	w->current_layout = type;
 }
 
 
@@ -296,6 +313,11 @@ static bool
 desktop_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 		     struct taiwins_apply_bindings_listener *listener);
 
+static bool
+desktop_init_config_component(struct taiwins_config *c, lua_State *L,
+			      struct taiwins_config_component_listener *listener);
+
+
 struct desktop *
 announce_desktop(struct weston_compositor *ec, struct shell *shell,
 		 struct taiwins_config *config)
@@ -346,6 +368,8 @@ announce_desktop(struct weston_compositor *ec, struct shell *shell,
 
 
 		wl_list_init(&DESKTOP.config_component.link);
+		DESKTOP.config_component.init = desktop_init_config_component;
+		taiwins_config_add_component(config, &DESKTOP.config_component);
 	}
 	//last step, add keybindings
 	return &DESKTOP;
@@ -671,6 +695,8 @@ desktop_workspace_switch_recent(struct weston_keyboard *keyboard,
 	workspace_switch(desktop->actived_workspace[0], desktop->actived_workspace[1], keyboard);
 }
 
+
+
 //not sure if we want to make it here
 enum desktop_view_resize_option {
 	RESIZE_LEFT, RESIZE_RIGHT,
@@ -915,14 +941,17 @@ _lua_request_workspaces(lua_State *L)
 	for (int i = 0;
 	     i < wl_list_length(&d->compositor->output_list);
 	     i++) {
-
-		//
 		struct workspace *ws = &d->workspaces[i];
 		
 		lua_newtable(L); //2
 		lua_pushstring(L, "layout"); //3
 		lua_pushstring(L, workspace_layout_name(ws)); //4
+		lua_pushstring(L, "index");
+		lua_pushnumber(L, i);
 		lua_settable(L, -3); //2
+
+		luaL_getmetatable(L, "metatable_workspace"); //3
+		lua_setmetatable(L, -2); //2
 
 		lua_rawseti(L, -2, i+1); //1
 	}
@@ -932,7 +961,21 @@ _lua_request_workspaces(lua_State *L)
 static int
 _lua_set_ws_layout(lua_State *L)
 {
-
+	enum layout_type type;
+	struct desktop *d = _lua_to_desktop(L);
+	const char *layout = lua_tostring(L, 2);
+	if (strcmp(layout, "tiling") == 0)
+		type = LAYOUT_TILING;
+	else if (strcmp(layout, "floating") == 0)
+		type = LAYOUT_FLOATING;
+	else
+		return luaL_error(L, "invalid layout type %s\n", layout);
+	lua_pushstring(L, "index");
+	lua_gettable(L, 1);
+	desktop_set_worksace_layout(d, (uint32_t)lua_tonumber(L, -1), type);
+	
+	lua_pop(L, 1);
+	return 0;
 }
 
 static int
