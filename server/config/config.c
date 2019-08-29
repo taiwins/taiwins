@@ -45,7 +45,7 @@ swap_listener(struct wl_list *dst, struct wl_list *src)
 {
 	struct wl_list *pos, *tmp;
 	for (pos = src->next, tmp = pos->next;
-	     pos->next != src;
+	     pos != src;
 	     pos = tmp, tmp = pos->next) {
 		wl_list_remove(pos);
 		wl_list_insert(dst, pos);
