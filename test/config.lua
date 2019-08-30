@@ -1,7 +1,7 @@
 local os = require('os')
 local compositor = require_compositor()
 
-for v = 1,2,3,4,5 do
+for _,v in ipairs({1,2,3,4,5}) do
    print(v)
 end
 
@@ -20,8 +20,8 @@ compositor:bind_btn(random_function, "C-M-btn_l")
 
 dummy = compositor:get_dummy_interface()
 
-for tt = dummy:get_dummy_table() do
-   print(tt)
+for _, tt in ipairs(dummy:get_dummy_table()) do
+   tt:dummy_method()
    -- print(tt['dummy_field'])
 end
 
