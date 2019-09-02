@@ -28,13 +28,17 @@ We can also have `user_data` which binds with it. So we can get the `user_data`
 instead of save it somewhere as global variable.
 
 ### metatables, `__index` and `__newindex`
-	- `metatable` serves the purpose of evoking function (e.g. `__add` for the
-	  function that is not there.)
-	- `__index` method is there when you access an element of table that is not
-	  there.
-	- `metatable` of the userdata is for verifring whether certain userdata is
-	  the certain type.
-	- set `__index` of a `metatable` to itself.
+	- `metatable` serves the purpose of operator overrides.
+	- `__index` is for element access.
+	- `__newindex` is for elements assigning. 
+	
+	using metatables provides much more syntax sugar for configurations. If you
+    decide to override the `__index` and `__newindex` for metatable, you can't
+    assign elements into tables after setting metatables anymore. So register
+    methods *BEFORE* assigning metatables.
+	
+	If you have a global table, placing methods inside the table directly
+    instead of inside the metatable would be a good idea. 
 
 ### nuklear bindings
 This part you have no choice but to provide functions.

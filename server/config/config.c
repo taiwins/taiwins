@@ -18,9 +18,9 @@
 
 /* //we should have wl_list as well. */
 /* struct apply_bindings_t { */
-/* 	struct wl_list node; */
-/* 	tw_bindings_apply_func_t func; */
-/* 	void *data; */
+/*	struct wl_list node; */
+/*	tw_bindings_apply_func_t func; */
+/*	void *data; */
 /* }; */
 
 
@@ -223,10 +223,8 @@ taiwins_swap_config(struct taiwins_config *dst, struct taiwins_config *src)
 	dst->rules = src->rules;
 	dst->default_floating = src->default_floating;
 	swap_listener(&dst->apply_bindings, &src->apply_bindings);
+	swap_listener(&dst->lua_components, &src->lua_components);
 
-	//luckly I don't need to copy the builtin list, since the bindings are
-	//applied already
-	//then we simply free src
 	free(src);
 }
 
@@ -292,8 +290,8 @@ taiwins_run_config(struct taiwins_config *config, const char *path)
 	strcpy(temp_config->path, config->path);
 	swap_listener(&temp_config->apply_bindings, &config->apply_bindings);
 	swap_listener(&temp_config->lua_components, &config->lua_components);
-	/* vector_copy(&temp_config->apply_bindings, &config->apply_bindings); */
 	taiwins_config_set_bindings(temp_config, bindings);
+	//now we try the commits
 	taiwins_config_try_config(temp_config);
 	error = temp_config->quit;
 	if (!error) {
@@ -310,8 +308,12 @@ taiwins_run_config(struct taiwins_config *config, const char *path)
 		//TODO problem is that we cannot provide detailed error. Maybe
 		//weston_log could do something?
 		weston_log("%s is not a valid config file", config->path);
+		swap_listener(&config->apply_bindings, &temp_config->apply_bindings);
+		swap_listener(&config->lua_components, &temp_config->lua_components);
+
 		taiwins_config_destroy(temp_config);
 	}
+
 	return (!error);
 }
 

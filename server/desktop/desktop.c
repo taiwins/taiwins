@@ -17,12 +17,6 @@
 
 #define MAX_WORKSPACE 8
 
-//enums used in the options
-enum desktop_switch_workspace_option {
-	SWITCH_WS_LEFT, SWITCH_WS_RIGHT
-};
-
-
 struct desktop {
 	//does the desktop should have the shell ui layout? If that is the case,
 	//we should get the shell as well.
@@ -35,7 +29,7 @@ struct desktop {
 
 	struct weston_desktop *api;
 
-	struct wl_listener destroy_listener;
+	struct wl_listener compositor_destroy_listener;
 	struct wl_listener output_create_listener;
 	struct wl_listener output_resize_listener;
 	struct wl_listener output_destroy_listener;
@@ -45,13 +39,24 @@ struct desktop {
 	unsigned int inner_gap, outer_gap;
 
 };
-static struct desktop DESKTOP;
+
+/**
+ * grab decleration, with different options.
+ */
+struct grab_interface {
+	struct weston_pointer_grab pointer_grab;
+	struct weston_touch_grab touch_grab;
+	struct weston_keyboard_grab keyboard_grab;
+	/* need this struct to access the workspace */
+	struct desktop *desktop;
+	struct weston_view *view;
+	struct weston_compositor *compositor;
+};
 
 
 /***************************************************************
  * desktop APIs 
  **************************************************************/
-
 
 static inline off_t
 get_workspace_index(struct workspace *ws, struct desktop *d)
@@ -71,7 +76,7 @@ get_workspace_for_view(struct weston_view *v, struct desktop *d)
 	return wp;
 }
 
-static void
+static inline void
 desktop_set_worksace_layout(struct desktop *d, unsigned int i, enum layout_type type)
 {
 	struct workspace *w;
@@ -83,42 +88,47 @@ desktop_set_worksace_layout(struct desktop *d, unsigned int i, enum layout_type 
 }
 
 
-/**
- * grab decleration, with different options.
- */
-struct grab_interface {
-	struct weston_pointer_grab pointer_grab;
-	struct weston_touch_grab touch_grab;
-	struct weston_keyboard_grab keyboard_grab;
-	/* need this struct to access the workspace */
-	struct desktop *desktop;
-	struct weston_view *view;
-	struct weston_compositor *compositor;
-};
-
+/***************************************************************
+ * grab interface apis
+ **************************************************************/
 static struct grab_interface *
 grab_interface_create_for_pointer(struct weston_view *view, struct weston_seat *seat, struct desktop *desktop,
-	struct weston_pointer_grab_interface *i);
+	struct weston_pointer_grab_interface *g)
+{
+	assert(seat);
+	struct grab_interface *gi = calloc(sizeof(struct grab_interface), 1);
+	gi->view = view;
+	gi->compositor = seat->compositor;
+	gi->desktop = desktop;
+	//TODO find out the corresponding grab interface
+	gi->pointer_grab.interface = g;
+	gi->pointer_grab.pointer = weston_seat_get_pointer(seat);
+	//right now we do not have other grab
+	return gi;
+}
 
 static void
-grab_interface_destroy(struct grab_interface *gi);
+grab_interface_destroy(struct grab_interface *gi)
+{
+	free(gi);
+}
 
 
 static struct weston_pointer_grab_interface desktop_moving_grab;
 static struct weston_pointer_grab_interface desktop_resizing_grab;
 
 
-/*********************************************************************/
-/****************      weston_desktop impl            ****************/
-/*********************************************************************/
+/***************************************************************
+ * libweston_desktop implementation
+ **************************************************************/
 
 /*
  * here we are facing this problem, desktop_view has an additional geometry. The
- * content within that geometry is visible. Malheureusement, this geometry is
- * only available at commit. AND IT CAN CHANGE
+ * content within that geometry is visible. This geometry is only available at
+ * commit. AND IT CAN CHANGE
  *
  * what we can do is that we map this view into an offscreen space, then remap
- * it back. When on the commit, we can have them back
+ * it back. When on the commit, we can have them back?
  */
 static inline bool
 is_view_on_desktop(const struct weston_view *v, const struct desktop *desk)
@@ -253,8 +263,10 @@ static struct weston_desktop_api desktop_impl =  {
 	//maximized requested, minimize requested
 	.struct_size = sizeof(struct weston_desktop_api),
 };
-/*** libweston-desktop implementation ***/
 
+/***************************************************************
+ * desktop.output listener
+ **************************************************************/
 
 static void
 desktop_output_created(struct wl_listener *listener, void *data)
@@ -309,116 +321,8 @@ desktop_output_destroyed(struct wl_listener *listener, void *data)
 	}
 }
 
-static bool
-desktop_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
-		     struct taiwins_apply_bindings_listener *listener);
-
-static bool
-desktop_init_config_component(struct taiwins_config *c, lua_State *L,
-			      struct taiwins_config_component_listener *listener);
 
 
-struct desktop *
-announce_desktop(struct weston_compositor *ec, struct shell *shell,
-		 struct taiwins_config *config)
-{
-	//initialize the desktop
-	DESKTOP.compositor = ec;
-	DESKTOP.shell = shell;
-	//params
-	DESKTOP.inner_gap = 10;
-	DESKTOP.outer_gap = 10;
-	struct workspace *wss = DESKTOP.workspaces;
-	{
-		for (int i = 0; i < MAX_WORKSPACE+1; i++)
-			workspace_init(&wss[i], ec);
-		DESKTOP.actived_workspace[0] = &wss[0];
-		DESKTOP.actived_workspace[1] = &wss[1];
-		workspace_switch(DESKTOP.actived_workspace[0], DESKTOP.actived_workspace[0], NULL);
-	}
-	/// create the desktop api
-	//NOTE this creates the xwayland layer, which is WAYLAND_LAYER_POSITION_NORMAL+1
-	DESKTOP.api = weston_desktop_create(ec, &desktop_impl, &DESKTOP);
-	{
-		struct weston_output *output;
-
-		wl_list_init(&DESKTOP.output_create_listener.link);
-		wl_list_init(&DESKTOP.output_destroy_listener.link);
-		wl_list_init(&DESKTOP.output_resize_listener.link);
-
-		DESKTOP.output_create_listener.notify = desktop_output_created;
-		DESKTOP.output_destroy_listener.notify = desktop_output_destroyed;
-		DESKTOP.output_resize_listener.notify = desktop_output_resized;
-
-		//add existing output
-		wl_signal_add(&ec->output_created_signal,
-			      &DESKTOP.output_create_listener);
-		wl_signal_add(&ec->output_resized_signal,
-			      &DESKTOP.output_resize_listener);
-		wl_signal_add(&ec->output_destroyed_signal,
-			      &DESKTOP.output_destroy_listener);
-
-		wl_list_for_each(output, &ec->output_list, link)
-			desktop_output_created(&DESKTOP.output_create_listener,
-						 output);
-
-		wl_list_init(&DESKTOP.add_binding.link);
-		DESKTOP.add_binding.apply = desktop_add_bindings;
-		taiwins_config_add_apply_bindings(config, &DESKTOP.add_binding);
-
-
-		wl_list_init(&DESKTOP.config_component.link);
-		DESKTOP.config_component.init = desktop_init_config_component;
-		taiwins_config_add_component(config, &DESKTOP.config_component);
-	}
-	//last step, add keybindings
-	return &DESKTOP;
-}
-
-
-void
-end_desktop(struct desktop *desktop)
-{
-	//remove listeners
-	wl_list_remove(&desktop->output_create_listener.link);
-	wl_list_remove(&desktop->output_destroy_listener.link);
-	for (int i = 0; i < MAX_WORKSPACE+1; i++)
-		workspace_release(&desktop->workspaces[i]);
-	weston_desktop_destroy(desktop->api);
-}
-
-
-/**
- * constructor, view can be null, but seat cannot. we need compositor
- */
-static struct grab_interface *
-grab_interface_create_for_pointer(struct weston_view *view, struct weston_seat *seat, struct desktop *desktop,
-	struct weston_pointer_grab_interface *g)
-{
-	assert(seat);
-	struct grab_interface *gi = calloc(sizeof(struct grab_interface), 1);
-	gi->view = view;
-	gi->compositor = seat->compositor;
-	gi->desktop = desktop;
-	//TODO find out the corresponding grab interface
-	gi->pointer_grab.interface = g;
-	gi->pointer_grab.pointer = weston_seat_get_pointer(seat);
-	//right now we do not have other grab
-	return gi;
-}
-
-static void
-grab_interface_destroy(struct grab_interface *gi)
-{
-	free(gi);
-}
-
-static void
-constrain_pointer(struct weston_pointer_motion_event *event, struct weston_output *output)
-{
-	//the actual use of the function is contraining the views so it doesn't
-	//overlap the UI elements, but we do not need it here.
-}
 
 static void
 pointer_motion_delta(struct weston_pointer *p,
@@ -537,13 +441,14 @@ resize_grab_pointer_motion(struct weston_pointer_grab *grab,
 	arrange_view_for_workspace(ws, gi->view, DPSR_resize, &arg);
 }
 
-
+/*
 static void
 noop_grab_pointer_motion(struct weston_pointer_grab *grab, const struct timespec *time,
 			 struct weston_pointer_motion_event *event)
 {
 	weston_pointer_move(grab->pointer, event);
 }
+*/
 
 static void
 pointer_grab_cancel(struct weston_pointer_grab *grab)
@@ -588,6 +493,9 @@ static struct weston_pointer_grab_interface desktop_resizing_grab = {
 	.axis_source = noop_grab_axis_source,
 };
 
+/***************************************************
+ * binding callbacks
+ **************************************************/
 
 static void
 desktop_alpha_axis(struct weston_pointer *pointer,
@@ -605,7 +513,8 @@ desktop_alpha_axis(struct weston_pointer *pointer,
 
 static void
 desktop_click_move(struct weston_pointer *pointer,
-		 const struct timespec *time, uint32_t button, void *data)
+		   const struct timespec *time,
+		   uint32_t button, void *data)
 {
 	struct grab_interface *gi = NULL;
 	struct weston_seat *seat = pointer->seat;
@@ -668,14 +577,14 @@ desktop_touch_activate_view(struct weston_touch *touch,
 static void
 desktop_workspace_switch(struct weston_keyboard *keyboard,
 			 const struct timespec *time,
-			 uint32_t key, uint32_t option,
+			 uint32_t key, uint32_t switch_left,
 			 void *data)
 {
 	struct desktop *desktop = data;
 	struct workspace *ws = desktop->actived_workspace[0];
 	off_t ws_idx = get_workspace_index(ws, desktop);
 	desktop->actived_workspace[1] = ws;
-	if (option == SWITCH_WS_LEFT)
+	if (switch_left == true)
 		ws_idx = MAX(0, ws_idx-1);
 	else
 		ws_idx = MIN(MAX_WORKSPACE, ws_idx+1);
@@ -694,8 +603,6 @@ desktop_workspace_switch_recent(struct weston_keyboard *keyboard,
 	SWAP(desktop->actived_workspace[0], desktop->actived_workspace[1]);
 	workspace_switch(desktop->actived_workspace[0], desktop->actived_workspace[1], keyboard);
 }
-
-
 
 //not sure if we want to make it here
 enum desktop_view_resize_option {
@@ -836,7 +743,7 @@ desktop_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 		     struct taiwins_apply_bindings_listener *listener)
 {
 	struct desktop *d = container_of(listener, struct desktop, add_binding);
-	bool err = true; //conflict
+	bool safe = true;
 	//////////////////////////////////////////////////////////
 	//move press
 	struct tw_btn_press move_press =
@@ -861,11 +768,15 @@ desktop_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 
 	const struct tw_key_press *switch_ws_back =
 		taiwins_config_get_builtin_binding(c, TW_SWITCH_WS_RECENT_BINDING)->keypress;
-	err = err && tw_bindings_add_key(bindings, switch_ws_left, desktop_workspace_switch,
-					 SWITCH_WS_LEFT, d);
-	err = err && tw_bindings_add_key(bindings, switch_ws_right, desktop_workspace_switch,
-					 SWITCH_WS_RIGHT, d);
-	err = err && tw_bindings_add_key(bindings, switch_ws_back, desktop_workspace_switch_recent,
+	safe = safe && tw_bindings_add_key(bindings, switch_ws_left,
+					   desktop_workspace_switch,
+					   true, //switch to left
+					   d);
+	safe = safe && tw_bindings_add_key(bindings, switch_ws_right,
+					   desktop_workspace_switch,
+					   false, //switch to right
+					   d);
+	safe = safe && tw_bindings_add_key(bindings, switch_ws_back, desktop_workspace_switch_recent,
 					 0, d);
 
 	//////////////////////////////////////////////////////////
@@ -874,9 +785,9 @@ desktop_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 		taiwins_config_get_builtin_binding(c, TW_RESIZE_ON_LEFT_BINDING)->keypress;
 	const struct tw_key_press *resize_right =
 		taiwins_config_get_builtin_binding(c, TW_RESIZE_ON_RIGHT_BINDING)->keypress;
-	err = err &&
+	safe = safe &&
 		tw_bindings_add_key(bindings, resize_left, desktop_view_resize, RESIZE_LEFT, d);
-	err = err &&
+	safe = safe &&
 		tw_bindings_add_key(bindings, resize_right, desktop_view_resize, RESIZE_RIGHT, d);
 
 	//////////////////////////////////////////////////////////
@@ -894,20 +805,18 @@ desktop_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 	const struct tw_key_press *merge =
 		taiwins_config_get_builtin_binding(c, TW_MERGE_BINDING)->keypress;
 
-	err = err && tw_bindings_add_key(bindings, toggle_vertical, desktop_toggle_vertical, 0, d);
-	err = err && tw_bindings_add_key(bindings, toggle_floating, desktop_toggle_floating, 0, d);
-	err = err && tw_bindings_add_key(bindings, next_view, desktop_recent_view, 0, d);
-	err = err && tw_bindings_add_key(bindings, vsplit, desktop_split_view, 0, d);
-	err = err && tw_bindings_add_key(bindings, hsplit, desktop_split_view, 1, d);
-	err = err && tw_bindings_add_key(bindings, merge, desktop_merge_view, 0, d);
+	safe = safe && tw_bindings_add_key(bindings, toggle_vertical, desktop_toggle_vertical, 0, d);
+	safe = safe && tw_bindings_add_key(bindings, toggle_floating, desktop_toggle_floating, 0, d);
+	safe = safe && tw_bindings_add_key(bindings, next_view, desktop_recent_view, 0, d);
+	safe = safe && tw_bindings_add_key(bindings, vsplit, desktop_split_view, 0, d);
+	safe = safe && tw_bindings_add_key(bindings, hsplit, desktop_split_view, 1, d);
+	safe = safe && tw_bindings_add_key(bindings, merge, desktop_merge_view, 0, d);
 
-	return err;
+	return safe;
 }
 
-
-
 /****************************************************************************
- * LUA bindings
+ * LUA components
  ***************************************************************************/
 #define REGISTER_METHOD(l, name, func)		\
 	({lua_pushcfunction(l, func);		\
@@ -921,18 +830,14 @@ _lua_to_desktop(lua_State *L)
 	struct desktop *d = lua_touserdata(L, -1);
 	lua_pop(L, 1);
 	return d;
-	
 }
-
 
 static int
 _lua_request_workspaces(lua_State *L)
 {
 	struct desktop *d = _lua_to_desktop(L);
 	lua_newtable(L); //1
-	for (int i = 0;
-	     i < wl_list_length(&d->compositor->output_list);
-	     i++) {
+	for (int i = 0; i < MAX_WORKSPACE; i++) {
 		struct workspace *ws = &d->workspaces[i];
 		
 		lua_newtable(L); //2
@@ -958,6 +863,7 @@ _lua_set_ws_layout(lua_State *L)
 {
 	enum layout_type type;
 	struct desktop *d = _lua_to_desktop(L);
+	luaL_checktype(L, 2, LUA_TSTRING);
 	const char *layout = lua_tostring(L, 2);
 	if (strcmp(layout, "tiling") == 0)
 		type = LAYOUT_TILING;
@@ -1002,7 +908,7 @@ _lua_set_desktop_gap(lua_State *L)
 	d->inner_gap = inner_gap;
 	d->outer_gap = outer_gap;
 	wl_list_for_each(output, &d->compositor->output_list, link)
-		desktop_output_created(&d->output_resize_listener, output);
+		desktop_output_resized(&d->output_resize_listener, output);
 	return 0;
 }
 
@@ -1045,4 +951,83 @@ desktop_init_config_component(struct taiwins_config *c, lua_State *L,
 	REGISTER_METHOD(L, "get_desktop", _lua_request_desktop);
 
 	return true;
+}
+
+
+/***************************************************************
+ * desktop constructor/destructor
+ **************************************************************/
+
+static void
+end_desktop(struct wl_listener *listener, void *data)
+{
+	struct desktop *d = container_of(listener, struct desktop,
+					 compositor_destroy_listener);
+	//remove listeners
+	wl_list_remove(&d->output_create_listener.link);
+	wl_list_remove(&d->output_destroy_listener.link);
+	for (int i = 0; i < MAX_WORKSPACE+1; i++)
+		workspace_release(&d->workspaces[i]);
+	weston_desktop_destroy(d->api);
+}
+
+struct desktop *
+announce_desktop(struct weston_compositor *ec, struct shell *shell,
+		 struct taiwins_config *config)
+{
+	static struct desktop DESKTOP;
+	//initialize the desktop
+	DESKTOP.compositor = ec;
+	DESKTOP.shell = shell;
+	//params
+	DESKTOP.inner_gap = 10;
+	DESKTOP.outer_gap = 10;
+	struct workspace *wss = DESKTOP.workspaces;
+	{
+		for (int i = 0; i < MAX_WORKSPACE+1; i++)
+			workspace_init(&wss[i], ec);
+		DESKTOP.actived_workspace[0] = &wss[0];
+		DESKTOP.actived_workspace[1] = &wss[1];
+		workspace_switch(DESKTOP.actived_workspace[0], DESKTOP.actived_workspace[0], NULL);
+	}
+	DESKTOP.api = weston_desktop_create(ec, &desktop_impl, &DESKTOP);
+	//setup listeners
+	struct weston_output *output;
+
+	wl_list_init(&DESKTOP.output_create_listener.link);
+	wl_list_init(&DESKTOP.output_destroy_listener.link);
+	wl_list_init(&DESKTOP.output_resize_listener.link);
+
+	DESKTOP.output_create_listener.notify = desktop_output_created;
+	DESKTOP.output_destroy_listener.notify = desktop_output_destroyed;
+	DESKTOP.output_resize_listener.notify = desktop_output_resized;
+
+	//add existing output
+	wl_signal_add(&ec->output_created_signal,
+		      &DESKTOP.output_create_listener);
+	wl_signal_add(&ec->output_resized_signal,
+		      &DESKTOP.output_resize_listener);
+	wl_signal_add(&ec->output_destroyed_signal,
+		      &DESKTOP.output_destroy_listener);
+
+	wl_list_for_each(output, &ec->output_list, link)
+		desktop_output_created(&DESKTOP.output_create_listener,
+				       output);
+
+	wl_list_init(&DESKTOP.add_binding.link);
+	DESKTOP.add_binding.apply = desktop_add_bindings;
+	taiwins_config_add_apply_bindings(config, &DESKTOP.add_binding);
+
+
+	wl_list_init(&DESKTOP.config_component.link);
+	DESKTOP.config_component.init = desktop_init_config_component;
+	taiwins_config_add_component(config, &DESKTOP.config_component);
+
+	wl_list_init(&DESKTOP.compositor_destroy_listener.link);
+	DESKTOP.compositor_destroy_listener.notify = end_desktop;
+	wl_signal_add(&ec->destroy_signal,
+		      &DESKTOP.compositor_destroy_listener);
+	
+	//last step, add keybindings
+	return &DESKTOP;
 }

@@ -38,8 +38,6 @@ struct console *announce_console(struct weston_compositor *compositor,
 struct desktop *announce_desktop(struct weston_compositor *compositor,
 				 struct shell *shell,
 				 struct taiwins_config *config);
-void end_desktop(struct desktop *desktop);
-
 
 struct wl_client *shell_get_client(struct shell *shell);
 
