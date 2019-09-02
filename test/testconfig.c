@@ -1,4 +1,5 @@
 #include <stdarg.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -42,6 +43,25 @@ dummy_lua_method_0(lua_State *L)
 }
 
 static int
+dummy_table__index(lua_State *L)
+{
+	const char *param = lua_tostring(L, 2);
+	if (strcmp(param, "haha") == 0) {
+		lua_pushstring(L, "papapa");
+		return 1;
+	}
+	return luaL_error(L, "invalid table index %s", param);
+}
+
+static int
+dummy_table__newindex(lua_State *L)
+{
+	const char *param = lua_tostring(L, 2);
+	printf("param is %s\n", param);
+	return 0;
+}
+
+static int
 get_dummy_table(lua_State *L)
 {
 	lua_newtable(L); //1
@@ -54,9 +74,9 @@ get_dummy_table(lua_State *L)
 		luaL_getmetatable(L, "metatable_dummy"); //3
 		lua_setmetatable(L, -2); //2
 
-		lua_pushstring(L, "dummy_field"); //3
-		lua_pushstring(L, "haha"); //4
-		lua_settable(L, -3); //2
+		/* lua_pushstring(L, "dummy_field"); //3 */
+		/* lua_pushstring(L, "haha"); //4 */
+		/* lua_settable(L, -3); //2 */
 
 		lua_rawseti(L, -2, i+1);
 	}
@@ -67,6 +87,10 @@ static int
 lua_get_dummy_interface(lua_State *L)
 {
 	lua_newtable(L);
+	//install methods before assigning metatables.
+	REGISTER_METHOD(L, "get_dummy_table", get_dummy_table);
+	//since we override index and newindex, the metatable only takes care of
+	//element access and assigning right now.
 	luaL_getmetatable(L, "metatable_dummy");
 	lua_setmetatable(L, -2);
 	return 1;
@@ -78,11 +102,14 @@ lua_component_init(struct taiwins_config *config, lua_State *L,
 		   struct taiwins_config_component_listener *listener)
 {
 	luaL_newmetatable(L, "metatable_dummy");
-	lua_pushvalue(L, -1);
+	lua_pushcfunction(L, dummy_table__index);
 	lua_setfield(L, -2, "__index");
 
+	lua_pushcfunction(L, dummy_table__newindex);
+	lua_setfield(L, -2, "__newindex");
+
+
 	REGISTER_METHOD(L, "dummy_method", dummy_lua_method_0);
-	REGISTER_METHOD(L, "get_dummy_table", get_dummy_table);
 	lua_pop(L, 1);
 
 	REGISTER_METHOD(L, "get_dummy_interface", lua_get_dummy_interface);

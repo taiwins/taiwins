@@ -617,16 +617,8 @@ tiling_update(const enum layout_command command, const struct layout_op *arg,
 	ops[count].end = true;
 }
 
-static inline bool
-is_view_splitable(struct tiling_view *view)
-{
-	struct tiling_view *parent = container_of(view->node.parent,
-						  struct tiling_view, node);
-	return (parent->node.children.len > 1);
-}
-
 /**
- * do a vertical split or horizental split
+ * do a vertical/horizental split
  */
 static void
 tiling_split(const enum layout_command command, const struct layout_op *arg,
@@ -635,8 +627,12 @@ tiling_split(const enum layout_command command, const struct layout_op *arg,
 {
 	struct tiling_output *tiling_output = tiling_output_find(l, v->output);
 	struct tiling_view *view = tiling_view_find(tiling_output->root, v);
+	struct tiling_view *parent = container_of(view->node.parent,
+						  struct tiling_view, node);
 
-	if (!is_view_splitable(view)) {
+	//test if the view is the only child. So we do not need to split
+	if (parent->node.children.len <= 1) {
+		parent->vertical = arg->vertical_split;
 		ops[0].end = true;
 		return;
 	}

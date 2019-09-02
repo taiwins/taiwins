@@ -150,17 +150,15 @@ int main(int argc, char *argv[], char *envp[])
 	(void)con;
 
 	error = !taiwins_run_config(config, config_file);
-	if (error) {
-		exit(-1);
-		// TODO deal with leak here
-	}
-
-	/* tw_bindings_print(bindings); */
+	if (error)
+		goto out;
 
 	compositor->kb_repeat_delay = 400;
 	compositor->kb_repeat_rate = 40;
 
 	wl_display_run(display);
+out:
+	
 	taiwins_config_destroy(config);
 //	wl_display_terminate(display);
 	//now you destroy the desktops
@@ -170,7 +168,7 @@ int main(int argc, char *argv[], char *envp[])
 	// - weston_compositor_tear_down, I think this is the exit function
 	// - weston_compositor_shutdown: remove all the bindings, output, renderer,
 	// - weston_compositor_destroy, this call finally free the compositor
-	end_desktop(desktop);
+	/* end_desktop(desktop); */
 	taiwins_config_destroy(config);
 
 	weston_compositor_shutdown(compositor);
