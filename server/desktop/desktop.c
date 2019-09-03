@@ -818,10 +818,6 @@ desktop_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 /****************************************************************************
  * LUA components
  ***************************************************************************/
-#define REGISTER_METHOD(l, name, func)		\
-	({lua_pushcfunction(l, func);		\
-		lua_setfield(l, -2, name);	\
-	})
 
 static struct desktop*
 _lua_to_desktop(lua_State *L)
@@ -921,6 +917,13 @@ _lua_request_desktop(lua_State *L)
 	return 1;
 }
 
+/*
+ * exposed lua functions
+ * 
+ * desktop global: setting gap; get_workspaces;
+ *
+ * workspace: switch layouts?
+ */
 static bool
 desktop_init_config_component(struct taiwins_config *c, lua_State *L,
 			      struct taiwins_config_component_listener *listener)
@@ -948,7 +951,7 @@ desktop_init_config_component(struct taiwins_config *c, lua_State *L,
 	REGISTER_METHOD(L, "set_layout", _lua_set_ws_layout);
 	lua_pop(L, 1);
 
-	REGISTER_METHOD(L, "get_desktop", _lua_request_desktop);
+	REGISTER_METHOD(L, "desktop", _lua_request_desktop);
 
 	return true;
 }

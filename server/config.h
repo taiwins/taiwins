@@ -51,6 +51,11 @@ void taiwins_config_add_option_listener(struct taiwins_config *config,
 /////////////////////////////////////////////////////////
 // lua components
 /////////////////////////////////////////////////////////
+#define REGISTER_METHOD(l, name, func)		\
+	({lua_pushcfunction(l, func);		\
+		lua_setfield(l, -2, name);	\
+	})
+
 struct taiwins_config_component_listener {
 	struct wl_list link;
 	//called once in taiwins_run_config, for initialize lua metatable and
