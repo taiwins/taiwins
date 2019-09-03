@@ -9,11 +9,6 @@
 
 #include "config_internal.h"
 
-#define REGISTER_METHOD(l, name, func)		\
-	({lua_pushcfunction(l, func);		\
-		lua_setfield(l, -2, name);	\
-	})
-
 static inline bool
 _lua_isnumber(lua_State *L, int pos) {return lua_type(L, pos) == LUA_TNUMBER;}
 
@@ -390,7 +385,6 @@ _lua_set_repeat_info(lua_State *L)
 
 	return 0;
 }
-
 
 static int
 _lua_get_config(lua_State *L)

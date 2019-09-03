@@ -556,6 +556,58 @@ shell_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 	return tw_bindings_add_key(bindings, reload_press, shell_reload_config, 0, shell->config);
 }
 
+///////////////////////// LUA COMPONENT ///////////////////////////////
+static int
+_lua_set_wallpaper(lua_State *L)
+{
+	return 0;
+}
+
+static int
+_lua_set_widgets(lua_State *L)
+{
+	
+}
+
+
+static int
+_lua_request_shell(lua_State *L)
+{
+	lua_newtable(L);
+	//register global methods or fields
+	luaL_getmetatable(L, "metatable_shell");
+	lua_setmetatable(L, -2);
+	return 1;
+}
+/*
+ * function exposed for shell.
+ *
+ * set theme, we may actually creates a new theme globals.
+ * - set wallpaper.
+ * - init widgets.
+ * - 
+ */
+static bool
+shell_add_config_component(struct taiwins_config *c, lua_State *L,
+			   struct taiwins_config_component_listener *listener)
+{
+	//register global methods.
+	
+	//creates its own metatable
+	luaL_newmetatable(L, "metatable_shell");
+	lua_pushvalue(L, -1);
+	lua_setfield(L, -2, "__index");
+	REGISTER_METHOD(L, "set_wallpaper", _lua_set_wallpaper);
+	/* REGISTER_METHOD(L, "init_widgets", func) */
+	//now methods
+	
+	lua_pop(L, 1);
+
+	REGISTER_METHOD(L, "shell", _lua_request_shell);
+
+	return true;
+}
+
 ////////////////////////// BIND SHELL /////////////////////////////////
 static void
 unbind_shell(struct wl_resource *resource)
@@ -616,7 +668,6 @@ bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 }
 
 ///////////////////////// exposed APIS ////////////////////////////////
-
 
 void
 shell_create_ui_elem(struct shell *shell,
@@ -696,7 +747,8 @@ announce_shell(struct weston_compositor *ec, const char *path,
 		taiwins_config_add_apply_bindings(config, &oneshell.add_binding);
 		//config_componenet
 		wl_list_init(&oneshell.config_component.link);
-		
+		oneshell.config_component.init = shell_add_config_component;
+		taiwins_config_add_component(config, &oneshell.config_component);
 
 	}
 	return &oneshell;
