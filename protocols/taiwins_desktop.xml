@@ -64,10 +64,23 @@
       </event>
   -->
 
+  <event name="shell_msg">
+    <description summary="various configuration and msg sends to the client to
+			  respond"/>
+    <arg name="key" type="string"/>
+    <arg name="value" type="string"/>
+    
+  </event>
+  
     <enum name="output_msg">
       <entry name="connected" value="0" summary="output is online"/>
       <entry name="lost" value="1" summary="screen is no long available"/>
       <entry name="change" value="2" summary="output has geometry change"/>
+    </enum>
+
+    <enum name="panel_pos">
+      <entry name="top" value="0"/>
+      <entry name="bottom" value="1"/>
     </enum>
 
   </interface>
@@ -80,14 +93,6 @@
       destruction, work much like those shell surface interface.
     </description>
 
-    <event name="configure">
-      <description summary="event to instruct clients for size and scale">
-	The server decides the geometry of the widget, before this call, there
-	should not be any commit, as UI layer only do the position at commit.
-      </description>
-      <arg name="width" type="uint"/>
-      <arg name="height" type="uint"/>
-    </event>
     <event name="close">
       <description summary="Server no longer composites this UI element">
 	Server indicates the client to destroy the wl_surface. In the case for
