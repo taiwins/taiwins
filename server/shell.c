@@ -24,6 +24,7 @@ struct shell_ui {
 	struct weston_binding *lose_touch;
 	uint32_t x; uint32_t y;
 	struct weston_layer *layer;
+	enum tw_ui_type type;
 };
 
 /*******************************************************************************************
@@ -41,9 +42,9 @@ struct shell_output {
 	/* struct wl_list creation_link; //used when new output is created and client is not ready */
 	struct shell *shell;
 	//ui elems
-	struct shell_ui *background;
-	struct shell_ui *panel;
-	struct shell_ui *locker;
+	struct shell_ui background;
+	struct shell_ui panel;
+	struct shell_ui locker;
 };
 
 struct shell {
@@ -53,6 +54,7 @@ struct shell {
 	struct wl_client *shell_client;
 	struct wl_resource *shell_resource;
 	struct wl_global *shell_global;
+	enum tw_shell_panel_pos panel_pos;
 
 	struct weston_compositor *ec;
 	//you probably don't want to have the layer
@@ -67,6 +69,7 @@ struct shell {
 	struct taiwins_apply_bindings_listener add_binding;
 	struct taiwins_config_component_listener config_component;
 
+	struct shell_ui widget;
 	bool ready;
 	//we deal with at most 16 outputs
 	struct shell_output tw_outputs[16];
@@ -137,14 +140,23 @@ shell_ui_unbind(struct wl_resource *resource)
 	for (int i = 0; i < NUMOF(bindings); i++)
 		if (bindings[i] != NULL)
 			weston_binding_destroy(bindings[i]);
-	free(ui_elem);
+	ui_elem->binded = NULL;
+	ui_elem->layer = NULL;
+	ui_elem->resource = NULL;
 }
 
-static struct shell_ui *
-shell_ui_create_with_binding(struct wl_resource *tw_ui, struct weston_surface *s)
+static void
+shell_ui_unbind_free(struct wl_resource *resource)
+{
+	struct shell_ui *ui = wl_resource_get_user_data(resource);
+	shell_ui_unbind(resource);
+	free(ui);
+}
+
+static bool
+shell_ui_create_with_binding(struct shell_ui *ui, struct wl_resource *tw_ui, struct weston_surface *s)
 {
 	struct weston_compositor *ec = s->compositor;
-	struct shell_ui *ui = malloc(sizeof(struct shell_ui));
 	if (!ui)
 		goto err_ui_create;
 	struct weston_binding *k = weston_compositor_add_key_binding(ec, KEY_ESC, 0, does_ui_lose_keyboard, ui);
@@ -162,24 +174,22 @@ shell_ui_create_with_binding(struct wl_resource *tw_ui, struct weston_surface *s
 	ui->lose_pointer = p;
 	ui->resource = tw_ui;
 	ui->binded = s;
-	return ui;
+	return true;
 err_bind_touch:
 	weston_binding_destroy(p);
 err_bind_ptr:
 	weston_binding_destroy(k);
 err_bind_keyboard:
-	free(ui);
 err_ui_create:
-	return NULL;
+	return false;
 }
 
-static struct shell_ui *
-shell_ui_create_simple(struct wl_resource *tw_ui, struct weston_surface *s)
+static bool
+shell_ui_create_simple(struct shell_ui *ui, struct wl_resource *tw_ui, struct weston_surface *s)
 {
-	struct shell_ui *ui = calloc(1, sizeof(struct shell_ui));
 	ui->resource = tw_ui;
 	ui->binded = s;
-	return ui;
+	return true;
 }
 
 
@@ -380,15 +390,18 @@ set_surface(struct shell *shell,
  * tw_shell
  *******************************************************************************************/
 
-static struct shell_ui *
-create_ui_element(struct wl_client *client,
-		  struct shell *shell,
-		  uint32_t tw_ui,
-		  struct wl_resource *wl_surface,
-		  int output_idx,
-		  uint32_t x, uint32_t y,
-		  enum tw_ui_type type)
+/*
+ * pass-in empty elem for allocating resources, use the existing memory otherwise
+ */
+static void
+init_ui_element(struct wl_client *client,
+		struct shell *shell,
+		struct shell_ui *elem, uint32_t tw_ui,
+		struct wl_resource *wl_surface, int output_idx,
+		uint32_t x, uint32_t y,
+		enum tw_ui_type type)
 {
+	bool allocated = elem != NULL;
 	struct weston_output *output = (output_idx >= 0 ||
 					output_idx >= shell_n_outputs(shell)) ?
 		shell->tw_outputs[output_idx].output :
@@ -400,25 +413,33 @@ create_ui_element(struct wl_client *client,
 	struct wl_resource *tw_ui_resource = wl_resource_create(client, &tw_ui_interface, 1, tw_ui);
 	if (!tw_ui_resource) {
 		wl_client_post_no_memory(client);
-		return NULL;
+		return;
 	}
-	struct shell_ui *elem = (type == TW_UI_TYPE_WIDGET) ?
-		shell_ui_create_with_binding(tw_ui_resource, surface) :
-		shell_ui_create_simple(tw_ui_resource, surface);
+	if (!elem)
+		elem = calloc(1, sizeof(struct shell_ui));
+	
+	if (type == TW_UI_TYPE_WIDGET)
+		shell_ui_create_with_binding(elem, tw_ui_resource, surface);
+	else
+		shell_ui_create_simple(elem, tw_ui_resource, surface);
 
-
-	wl_resource_set_implementation(tw_ui_resource, NULL, elem, shell_ui_unbind);
+	if (allocated)
+		wl_resource_set_implementation(tw_ui_resource, NULL, elem, shell_ui_unbind_free);
+	else
+		wl_resource_set_implementation(tw_ui_resource, NULL, elem, shell_ui_unbind);
+		
 	elem->x = x;
 	elem->y = y;
+	elem->type = type;
 
 	switch (type) {
 	case TW_UI_TYPE_PANEL:
-		tw_ui_send_configure(tw_ui_resource, output->width, 32);
+		/* tw_ui_send_configure(tw_ui_resource, output->width, 32); */
 		elem->layer = &shell->ui_layer;
 		set_surface(shell, surface, output, tw_ui_resource, commit_ui_surface, x, y);
 		break;
 	case TW_UI_TYPE_BACKGROUND:
-		tw_ui_send_configure(tw_ui_resource, output->width, output->height);
+		/* tw_ui_send_configure(tw_ui_resource, output->width, output->height); */
 		elem->layer = &shell->background_layer;
 		set_surface(shell, surface, output, tw_ui_resource, commit_background, x, y);
 		break;
@@ -427,8 +448,6 @@ create_ui_element(struct wl_client *client,
 		set_surface(shell, surface, output, tw_ui_resource, commit_ui_surface, x, y);
 		break;
 	}
-	return elem;
-
 }
 
 static void
@@ -441,10 +460,9 @@ create_shell_panel(struct wl_client *client,
 	//check the id
 	struct shell *shell = wl_resource_get_user_data(resource);
 	struct shell_output *shell_output = &shell->tw_outputs[idx];
-	struct shell_ui *panel =
-		create_ui_element(client, shell, tw_ui, wl_surface, idx,
-				  0, 0, TW_UI_TYPE_PANEL);
-	shell_output->panel = panel;
+	init_ui_element(client, shell, &shell_output->panel,
+			tw_ui, wl_surface, idx,
+			0, 0, TW_UI_TYPE_PANEL);
 }
 
 static void
@@ -456,8 +474,9 @@ launch_shell_widget(struct wl_client *client,
 		    uint32_t x, uint32_t y)
 {
 	struct shell *shell = wl_resource_get_user_data(resource);
-	create_ui_element(client, shell, tw_ui, wl_surface, idx,
-			  x, y, TW_UI_TYPE_WIDGET);
+	init_ui_element(client, shell, &shell->widget, tw_ui,
+			wl_surface, idx,
+			x, y, TW_UI_TYPE_WIDGET);
 }
 
 static void
@@ -469,10 +488,9 @@ create_shell_background(struct wl_client *client,
 {
 	struct shell *shell = wl_resource_get_user_data(resource);
 	struct shell_output *shell_output = &shell->tw_outputs[tw_ouptut];
-	struct shell_ui *background =
-		create_ui_element(client, shell, tw_ui, wl_surface,
-				  tw_ouptut, 0, 0, TW_UI_TYPE_BACKGROUND);
-	shell_output->background = background;
+
+	init_ui_element(client, shell, &shell_output->background, tw_ui,
+			wl_surface, tw_ouptut, 0, 0, TW_UI_TYPE_BACKGROUND);
 }
 
 static struct tw_shell_interface shell_impl = {
@@ -557,6 +575,15 @@ shell_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 }
 
 ///////////////////////// LUA COMPONENT ///////////////////////////////
+static struct shell *
+_lua_to_shell(lua_State *L)
+{
+	lua_getfield(L, LUA_REGISTRYINDEX, "__shell");
+	struct shell *sh = lua_touserdata(L, -1);
+	lua_pop(L, 1);
+	return sh;
+}
+
 static int
 _lua_set_wallpaper(lua_State *L)
 {
@@ -566,7 +593,33 @@ _lua_set_wallpaper(lua_State *L)
 static int
 _lua_set_widgets(lua_State *L)
 {
-	
+	return 0;
+}
+
+static int
+_lua_set_panel_position(lua_State *L)
+{
+	struct shell *shell = _lua_to_shell(L);
+	luaL_checktype(L, 2, LUA_TSTRING);
+	const char *pos = lua_tostring(L, 2);
+	if (strcmp(pos, "bottom") == 0)
+		shell->panel_pos = TW_SHELL_PANEL_POS_BOTTOM;
+	else if (strcmp(pos, "top") == 0)
+		shell->panel_pos = TW_SHELL_PANEL_POS_TOP;
+	else
+		luaL_error(L, "invalid panel position %s", pos);
+
+	//maybe do this in the appling function
+	if (shell->shell_resource) {
+		
+	}
+	return 0;
+}
+
+static int
+_lua_set_menus(lua_State *L)
+{
+	return 0;
 }
 
 
@@ -585,7 +638,9 @@ _lua_request_shell(lua_State *L)
  * set theme, we may actually creates a new theme globals.
  * - set wallpaper.
  * - init widgets.
- * - 
+ * - set menus.
+ * - panel positions (we can only give it as top and down). Panel size is determined by font size, and all that color.
+ * - what else?
  */
 static bool
 shell_add_config_component(struct taiwins_config *c, lua_State *L,
@@ -598,7 +653,9 @@ shell_add_config_component(struct taiwins_config *c, lua_State *L,
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -2, "__index");
 	REGISTER_METHOD(L, "set_wallpaper", _lua_set_wallpaper);
-	/* REGISTER_METHOD(L, "init_widgets", func) */
+	REGISTER_METHOD(L, "init_widgets", _lua_set_widgets);
+	REGISTER_METHOD(L, "panel_position", _lua_set_panel_position);
+	REGISTER_METHOD(L, "set_menus", _lua_set_menus);
 	//now methods
 	
 	lua_pop(L, 1);
@@ -677,7 +734,7 @@ shell_create_ui_elem(struct shell *shell,
 		     int idx, uint32_t x, uint32_t y,
 		     enum tw_ui_type type)
 {
-	create_ui_element(client, shell, tw_ui, wl_surface, idx, x, y, type);
+	init_ui_element(client, shell, NULL, tw_ui, wl_surface, idx, x, y, type);
 }
 
 struct weston_geometry
