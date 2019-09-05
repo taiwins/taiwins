@@ -8,7 +8,6 @@
 #include <wayland-server.h>
 
 #include <tree.h>
-#include <compositor.h>
 #include "bindings.h"
 
 

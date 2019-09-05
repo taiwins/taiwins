@@ -8,7 +8,6 @@
 #include <lauxlib.h>
 #include <lualib.h>
 
-#include <compositor.h>
 #include "../server/config.h"
 
 

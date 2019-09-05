@@ -1,6 +1,5 @@
 #include <string.h>
 #include <stdbool.h>
-#include <compositor.h>
 #include <linux/input-event-codes.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>

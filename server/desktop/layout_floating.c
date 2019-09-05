@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <helpers.h>
 #include <sequential.h>
-#include <libweston-desktop.h>
 #include "layout.h"
 #include "workspace.h"
 

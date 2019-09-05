@@ -3,9 +3,8 @@
 #include <helpers.h>
 #include <sequential.h>
 #include <tree.h>
-#include "layout.h"
-#include <libweston-desktop.h>
 #include "workspace.h"
+#include "layout.h"
 
 static void
 emplace_noop(const enum layout_command command, const struct layout_op *arg,

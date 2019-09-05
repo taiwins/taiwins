@@ -5,8 +5,8 @@
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
-#include <compositor.h>
 #include <sequential.h>
+#include "weston.h"
 #include "bindings.h"
 
 #ifdef __cplusplus

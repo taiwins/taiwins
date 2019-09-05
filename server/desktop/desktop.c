@@ -3,13 +3,13 @@
 #include <unistd.h>
 #include <linux/input.h>
 #include <unistd.h>
-#include <compositor.h>
-#include <libweston-desktop.h>
 #include <wayland-server.h>
 #include <helpers.h>
 #include <sequential.h>
 #include <wayland-taiwins-desktop-server-protocol.h>
 
+#define INCLUDE_DESKTOP
+#include "../weston.h"
 #include "../taiwins.h"
 #include "../desktop.h"
 #include "../config.h"

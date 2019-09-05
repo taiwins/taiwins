@@ -1,7 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <compositor.h>
 #include <wayland-server.h>
 #include <wayland-taiwins-desktop-server-protocol.h>
 #include <helpers.h>
@@ -9,6 +8,7 @@
 #include <linux/input.h>
 #include <os/file.h>
 
+#include "weston.h"
 #include "taiwins.h"
 #include "desktop.h"
 #include "bindings.h"
@@ -413,7 +413,7 @@ shell_send_panel_pos(struct shell *shell)
 	char msg[32];
 	snprintf(msg, 31, "%d", shell->panel_pos == TW_SHELL_PANEL_POS_TOP ?
 		 TW_SHELL_PANEL_POS_TOP : TW_SHELL_PANEL_POS_BOTTOM);
-	
+
 	tw_shell_send_shell_msg(shell->shell_resource,
 				TW_SHELL_MSG_TYPE_PANEL_POS,
 				msg);

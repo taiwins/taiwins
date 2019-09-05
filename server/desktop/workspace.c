@@ -1,6 +1,5 @@
 #include <string.h>
 #include <stdlib.h>
-#include <libweston-desktop.h>
 #include "workspace.h"
 #include "layout.h"
 #include "../taiwins.h"

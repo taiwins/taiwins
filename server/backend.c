@@ -10,12 +10,6 @@
 
 #define INCLUDE_BACKEND
 #include "weston.h"
-#include <compositor.h>
-#include <compositor-drm.h>
-#include <compositor-wayland.h>
-#include <compositor-x11.h>
-#include <windowed-output-api.h>
-#include <libweston-desktop.h>
 
 
 struct tw_backend {
@@ -115,7 +109,7 @@ windowed_head_enable(struct weston_head *head, struct weston_compositor *composi
 	struct weston_output *output =
 		weston_compositor_create_output_with_head(compositor, head);
 	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
-	weston_output_move(output, 0, 0);
+	/* weston_output_move(output, 0, 0); */
 	weston_output_set_scale(output, 2);
 
 	const struct weston_windowed_output_api *api =

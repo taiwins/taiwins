@@ -2,12 +2,11 @@
 #include <unistd.h>
 #include <linux/input.h>
 #include <unistd.h>
-#include <compositor.h>
-#include <libweston-desktop.h>
 #include <sequential.h>
 #include <wayland-server.h>
 #include <wayland-taiwins-desktop-server-protocol.h>
 
+#include "weston.h"
 #include "taiwins.h"
 #include "desktop.h"
 #include "config.h"
