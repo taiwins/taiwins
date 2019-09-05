@@ -239,6 +239,8 @@ taiwins_config_try_config(struct taiwins_config *config)
 
 	safe = safe && !luaL_loadfile(config->L, config->path);
 	safe = safe && !lua_pcall(config->L, 0, 0, 0);
+	if (!safe)
+		weston_log("Lua config error: %s\n", lua_tostring(config->L, -1));
 	//try apply bindings
 	struct tw_bindings *bindings = taiwins_config_get_bindings(config);
 	struct taiwins_apply_bindings_listener *listener;

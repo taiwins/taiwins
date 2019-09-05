@@ -150,8 +150,9 @@ int main(int argc, char *argv[], char *envp[])
 	(void)con;
 
 	error = !taiwins_run_config(config, config_file);
-	if (error)
+	if (error) {
 		goto out;
+	}
 
 	compositor->kb_repeat_delay = 400;
 	compositor->kb_repeat_rate = 40;

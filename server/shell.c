@@ -6,6 +6,7 @@
 #include <helpers.h>
 #include <time.h>
 #include <linux/input.h>
+#include <os/file.h>
 
 #include "taiwins.h"
 #include "desktop.h"
@@ -408,9 +409,9 @@ set_surface(struct shell *shell,
 static inline void
 shell_send_panel_pos(struct shell *shell)
 {
-	tw_shell_send_shell_msg(shell->shell_resource, "panel_pos",
-				shell->panel_pos == TW_SHELL_PANEL_POS_TOP ?
-				"top" : "bottom");
+	tw_shell_send_shell_msg(shell->shell_resource, SHELL_PANEL_POS,
+				shell->panel_pos == SHELL_PANEL_TOP ?
+				SHELL_PANEL_TOP : SHELL_PANEL_BOTTOM);
 }
 
 /*
@@ -616,6 +617,10 @@ _lua_set_wallpaper(lua_State *L)
 static int
 _lua_set_widgets(lua_State *L)
 {
+	_lua_stackcheck(L, 2);
+	const char *path = luaL_checkstring(L, 2);
+	if (!is_file_exist(path))
+		return luaL_error(L, "widget path does not exist!");
 	return 0;
 }
 
@@ -667,8 +672,10 @@ static bool
 shell_add_config_component(struct taiwins_config *c, lua_State *L,
 			   struct taiwins_config_component_listener *listener)
 {
+	struct shell *shell = container_of(listener, struct shell, config_component);
+	lua_pushlightuserdata(L, shell);
+	lua_setfield(L, LUA_REGISTRYINDEX, "__shell");
 	//register global methods.
-
 	//creates its own metatable
 	luaL_newmetatable(L, "metatable_shell");
 	lua_pushvalue(L, -1);
@@ -678,9 +685,7 @@ shell_add_config_component(struct taiwins_config *c, lua_State *L,
 	REGISTER_METHOD(L, "panel_position", _lua_set_panel_position);
 	REGISTER_METHOD(L, "set_menus", _lua_set_menus);
 	//now methods
-
 	lua_pop(L, 1);
-
 	REGISTER_METHOD(L, "shell", _lua_request_shell);
 
 	return true;
@@ -798,7 +803,7 @@ announce_shell(struct weston_compositor *ec, const char *path,
 	oneshell.the_widget_surface = NULL;
 	oneshell.shell_client = NULL;
 	oneshell.config = config;
-	oneshell.panel_pos = TW_SHELL_PANEL_POS_BOTTOM;
+	oneshell.panel_pos = TW_SHELL_PANEL_POS_TOP;
 
 	//TODO leaking a wl_global
 	oneshell.shell_global =  wl_global_create(ec->wl_display, &tw_shell_interface,
