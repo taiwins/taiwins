@@ -50,6 +50,7 @@ struct widget_launch_info {
 struct desktop_shell {
 	struct wl_globals globals;
 	struct tw_shell *interface;
+	enum tw_shell_panel_pos panel_pos;
 	//pannel configuration
 	struct {
 		struct nk_wl_backend *panel_backend;
@@ -91,16 +92,6 @@ shell_background_frame(struct app_surface *surf, struct wl_buffer *buffer,
 	}
 }
 
-
-static void
-shell_background_should_close(void *data, struct tw_ui *ui_elem)
-{
-	//TODO, destroy the surface
-}
-
-static struct tw_ui_listener shell_background_impl = {
-	.close = shell_background_should_close,
-};
 
 //////////////////////////////// widget ///////////////////////////////////
 
@@ -158,6 +149,8 @@ static inline struct nk_vec2
 widget_launch_point_flat(struct nk_vec2 *label_span, struct shell_widget *clicked,
 			 struct app_surface *panel_surf)
 {
+	struct shell_output *shell_output =
+		container_of(panel_surf, struct shell_output, panel);
 	int w = panel_surf->allocation.w;
 	int h = panel_surf->allocation.h;
 	struct nk_vec2 info;
@@ -168,7 +161,13 @@ widget_launch_point_flat(struct nk_vec2 *label_span, struct shell_widget *clicke
 	else
 		info.x = label_span->x;
 	//this totally depends on where the panel is
-	info.y = h;
+	if (shell_output->shell->panel_pos == TW_SHELL_PANEL_POS_TOP)
+		info.y = h;
+	else {
+		info.y = shell_output->bbox.h -
+			panel_surf->allocation.h -
+			clicked->h;
+	}
 	return info;
 }
 
@@ -251,12 +250,6 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	nk_wl_add_idle(ctx, launch_widget);
 }
 
-static struct tw_ui_listener shell_panel_impl = {
-
-};
-
-
-
 ///////////////////////////////////////////////////////////////////////////
 
 static void
@@ -307,11 +300,11 @@ shell_output_init(struct shell_output *w, const struct bbox geo, bool major)
 	if (major)
 		shell_output_set_major(w);
 	app_surface_frame(&w->background, false);
-        if (major) {
+	if (major) {
 		nk_wl_test_draw(shell->panel_backend, &w->panel,
 				shell_panel_measure_leading);
 		app_surface_frame(&w->panel, false);
-        }
+	}
 }
 
 
@@ -340,6 +333,23 @@ shell_output_resize(struct shell_output *w)
 }
 
 /************************** desktop_shell_interface ********************************/
+static void
+desktop_shell_recv_msg(void *data,
+		       struct tw_shell *tw_shell,
+		       const char *key,
+		       const char *value)
+{
+	/* right now I think string is okay, but later it may get inefficient */
+	struct desktop_shell *shell = data;
+	if (strcmp(key, "panel_pos") == 0) {
+		shell->panel_pos = strcmp(value, "top") == 0 ?
+			TW_SHELL_PANEL_POS_TOP :
+			TW_SHELL_PANEL_POS_BOTTOM;
+	} else {
+
+	}
+}
+
 
 static void
 desktop_shell_output_configure(void *data, struct tw_shell *tw_shell,
@@ -370,6 +380,7 @@ desktop_shell_output_configure(void *data, struct tw_shell *tw_shell,
 
 static struct tw_shell_listener tw_shell_impl = {
 	.output_configure = desktop_shell_output_configure,
+	.shell_msg = desktop_shell_recv_msg,
 };
 
 
@@ -391,7 +402,7 @@ static void
 desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 {
 	struct nk_style_button *style = &shell->label_style;
-	
+
 	wl_globals_init(&shell->globals, display);
 	shell->globals.theme = taiwins_dark_theme;
 	shell->interface = NULL;
@@ -416,14 +427,14 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 		style->text_active = nk_rgba(text_normal.r + 40, text_normal.g + 40,
 					     text_normal.b + 40, text_normal.a);
 	}
-	
+
 	//right now we just hard coded some link
 	//add the widgets here
 	wl_list_init(&shell->shell_widgets);
 	wl_list_insert(&shell->shell_widgets, &clock_widget.link);
 	wl_list_insert(&shell->shell_widgets, &what_up_widget.link);
 	wl_list_insert(&shell->shell_widgets, &battery_widget.link);
-	
+
 	shell_widget_activate(&clock_widget, &shell->globals.event_queue);
 	shell_widget_activate(&what_up_widget, &shell->globals.event_queue);
 	shell_widget_activate(&battery_widget, &shell->globals.event_queue);
@@ -466,7 +477,7 @@ void announce_globals(void *data,
 		twshell->interface = (struct tw_shell *)
 			wl_registry_bind(wl_registry, name, &tw_shell_interface, version);
 		tw_shell_add_listener(twshell->interface, &tw_shell_impl, twshell);
-	} 
+	}
 	else
 		wl_globals_announce(&twshell->globals, wl_registry, name, interface, version);
 }
