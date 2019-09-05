@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 struct tw_backend;
+struct weston_compositor;
 
 bool
 tw_setup_backend(struct weston_compositor *compositor);

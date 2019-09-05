@@ -6,16 +6,10 @@
 #include <string.h>
 #include <linux/input.h>
 #include <wayland-server.h>
-#include <compositor.h>
-#include <compositor-drm.h>
-#include <compositor-wayland.h>
-#include <compositor-x11.h>
-#include <zalloc.h>
-#include <windowed-output-api.h>
-#include <libweston-desktop.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
+
 #include "backend.h"
 #include "desktop.h"
 #include "taiwins.h"
@@ -128,7 +122,10 @@ int main(int argc, char *argv[], char *envp[])
 	if (wl_display_add_socket(display, NULL) == -1)
 		goto connect_err;
 
-	struct weston_compositor *compositor = weston_compositor_create(display, tw_get_backend());
+	struct weston_log_context *context =
+		weston_log_ctx_compositor_create();
+	struct weston_compositor *compositor =
+		weston_compositor_create(display, context, tw_get_backend());
 	weston_log_set_handler(tw_log, tw_log);
 	//apply the config now
 	char *xdg_dir = getenv("XDG_CONFIG_HOME");
@@ -159,7 +156,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	wl_display_run(display);
 out:
-	
+
 	taiwins_config_destroy(config);
 //	wl_display_terminate(display);
 	//now you destroy the desktops
@@ -172,7 +169,9 @@ out:
 	/* end_desktop(desktop); */
 	taiwins_config_destroy(config);
 
-	weston_compositor_shutdown(compositor);
+	weston_compositor_tear_down(compositor);
+	weston_log_ctx_compositor_destroy(compositor);
+
 	weston_compositor_destroy(compositor);
 	wl_display_destroy(display);
 	return 0;

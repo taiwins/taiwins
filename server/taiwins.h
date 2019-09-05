@@ -3,8 +3,8 @@
 
 #include <helpers.h>
 #include <wayland-server.h>
-#include "weston.h"
 #include "../shared_config.h"
+#include "weston.h"
 
 #ifdef  __cplusplus
 extern "C" {

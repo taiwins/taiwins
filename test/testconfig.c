@@ -10,7 +10,6 @@
 #include <lualib.h>
 
 #include <wayland-server.h>
-#include <compositor.h>
 #include "../server/config.h"
 
 static bool
@@ -27,7 +26,7 @@ struct taiwins_option_listener option = {
 };
 
 /*****************************************************************
- * LUA_BINDINGS 
+ * LUA_BINDINGS
  ****************************************************************/
 
 #define REGISTER_METHOD(l, name, func)		\
@@ -67,7 +66,7 @@ get_dummy_table(lua_State *L)
 	lua_newtable(L); //1
 	luaL_getmetatable(L, "metatable_dummy"); //3
 	lua_setmetatable(L, -2); //2
-	
+
 	for (int i = 0; i < 10; i++) {
 		lua_newtable(L); //2
 
@@ -113,7 +112,7 @@ lua_component_init(struct taiwins_config *config, lua_State *L,
 	lua_pop(L, 1);
 
 	REGISTER_METHOD(L, "get_dummy_interface", lua_get_dummy_interface);
-	
+
 	return true;
 }
 
@@ -127,7 +126,8 @@ int
 main(int argc, char *argv[])
 {
 	struct wl_display *display = wl_display_create();
-	struct weston_compositor *ec = weston_compositor_create(display, NULL);
+	struct weston_log_context *context = weston_log_ctx_compositor_create();
+	struct weston_compositor *ec = weston_compositor_create(display, context, NULL);
 	struct taiwins_config *config = taiwins_config_create(ec, vprintf);
 
 	taiwins_config_add_option_listener(config, "bigmac", &option);
@@ -136,7 +136,8 @@ main(int argc, char *argv[])
 	taiwins_run_config(config, argv[1]);
 
 	taiwins_config_destroy(config);
-	weston_compositor_shutdown(ec);
+	weston_compositor_tear_down(ec);
+	weston_log_ctx_compositor_destroy(ec);
 	weston_compositor_destroy(ec);
 	wl_display_terminate(display);
 	wl_display_destroy(display);

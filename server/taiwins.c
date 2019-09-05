@@ -3,7 +3,6 @@
 #include <signal.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <compositor.h>
 #include <wayland-server.h>
 #include "taiwins.h"
 #include <os/os-compatibility.h>

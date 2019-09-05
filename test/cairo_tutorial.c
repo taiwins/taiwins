@@ -74,7 +74,8 @@ int main(int argc, char *argv[])
 	}
 
 	cairo_surface_t *glyph_surface =
-		cairo_image_surface_create_for_data(pixels, CAIRO_FORMAT_ARGB32,
+		cairo_image_surface_create_for_data((unsigned char *)pixels,
+						    CAIRO_FORMAT_ARGB32,
 						    glyph_width, glyph_height,
 						    cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, glyph_width));
 	print_bitmap(bitmap->buffer, glyph_width, glyph_height, glyph_stride);

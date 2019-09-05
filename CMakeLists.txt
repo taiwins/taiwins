@@ -9,9 +9,6 @@ project(taiwins
 ##############setup all the variables, standdards####################
 #####################################################################
 
-
-add_definitions(-DLIBWESTON_7)
-#add_definitions(-DLIBWESTON_LEGACY)
 add_definitions(-D_GNU_SOURCE)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")

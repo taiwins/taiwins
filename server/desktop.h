@@ -1,11 +1,10 @@
 #ifndef TW_DESKTOP_H
 #define TW_DESKTOP_H
 
-#include <libweston-desktop.h>
-#include <compositor.h>
 #include <wayland-server.h>
 #include <sequential.h>
 #include <wayland-taiwins-desktop-server-protocol.h>
+#include "weston.h"
 #include "bindings.h"
 
 #ifdef  __cplusplus
