@@ -38,6 +38,12 @@
       <arg name="tw_output" type="int" />
     </request>
 
+    <enum name="output_msg">
+      <entry name="connected" value="0" summary="output is online"/>
+      <entry name="lost" value="1" summary="screen is no long available"/>
+      <entry name="change" value="2" summary="output has geometry change"/>
+    </enum>
+
     <event name="output_configure">
       <description summary="signal changes of output">
 	When new ouputs are created, the compositor sends this message to the
@@ -63,20 +69,26 @@
       <description summary="mark the end of a series output configuration"/>
       </event>
   -->
-
   <event name="shell_msg">
     <description summary="various configuration and msg sends to the client to
 			  respond"/>
-    <arg name="key" type="string"/>
-    <arg name="value" type="string"/>
-
+    <arg name="key" type="uint" summary="the enum msg_type"/>
+    <arg name="value" type="string" summary="values are coded in string, convert
+					     to int if you need"/>
   </event>
 
-    <enum name="output_msg">
-      <entry name="connected" value="0" summary="output is online"/>
-      <entry name="lost" value="1" summary="screen is no long available"/>
-      <entry name="change" value="2" summary="output has geometry change"/>
-    </enum>
+  <enum name="msg_type">
+    <!-- notifications to shell -->
+    <entry name="notification" value="0"/>
+    <!-- shell message -->
+    <entry name="panel_pos" value="1"
+	   summary="format: `%d`: tw_shell_panel_pos enum"/>
+    <entry name="wallpaper" value="2"
+	   summary="format: `%s`: wallpaper path"/>
+    <!-- desktop events -->
+    <entry name="switch_workspace" value="3"
+	   summary="format: `%d`: to which workspace"/>
+  </enum>
 
     <enum name="panel_pos">
       <entry name="top" value="0"/>
@@ -111,7 +123,6 @@
     </enum>
 
   </interface>
-
   <!-- launcher interface -->
   <interface name="tw_console" version="1">
     <description summary="the console interface of taiwins">
@@ -189,11 +200,11 @@
       <entry name="num_decisions" value="100"
 	     summary="xdg_shell was destroyed before children"/>
     </enum>
+  <!--
   </interface>
-<!--
   <interface name="tw_theme">
     <event name="main_font">
-      <arg name="path" type="string"/>
+      <arg name="name" type="string"/>
     </event>
 
     <event name="icon_font">
@@ -213,8 +224,9 @@
 
     <event name="done">
       <description summary="mark the end of a theme configuration"/>
-    </event>
-
+      </event>
+      </interface>
+  -->
   </interface>
--->
+
 </protocol>

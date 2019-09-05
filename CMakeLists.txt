@@ -5,7 +5,13 @@ project(taiwins
   LANGUAGES C)
 
 
+#####################################################################
 ##############setup all the variables, standdards####################
+#####################################################################
+
+
+add_definitions(-DLIBWESTON_7)
+#add_definitions(-DLIBWESTON_LEGACY)
 add_definitions(-D_GNU_SOURCE)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
@@ -61,6 +67,7 @@ if(NVEGL_FOUND)
 else()
   message("we are building with mesa opengl")
 endif(NVEGL_FOUND)
+
 
 
 

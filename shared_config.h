@@ -53,10 +53,6 @@ struct taiwins_decision_key {
 /*****************************************************************/
 /*                            shell                              */
 /*****************************************************************/
-#define SHELL_PANEL_TOP    "top"
-#define SHELL_PANEL_BOTTOM "bottom"
-#define SHELL_PANEL_POS    "panel_pos"
-
 
 
 #ifdef __cplusplus

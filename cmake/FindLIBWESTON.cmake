@@ -5,21 +5,21 @@
 
 find_package(PkgConfig)
 
-pkg_search_module(Libweston libweston-6 libweston-5 libweston-4 libweston>=4 REQUIRED)
-pkg_search_module(Libweston-Desktop libweston-desktop-6 libweston-desktop-5 libweston-desktop-4 libweston-desktop>=4 REQUIRED)
+pkg_search_module(Libweston libweston-7 libweston>=7 REQUIRED)
+pkg_search_module(Libweston-Desktop libweston-desktop-7 libweston-desktop>=7 REQUIRED)
 
-find_path(LIBWESTON_INCLUDE_DIR compositor.h
+find_path(LIBWESTON_INCLUDE_DIR libweston/libweston.h
   HINTS ${Libweston_INCLUDE_DIRS})
 
-find_path(LIBWESTON_DESKTOP_INCLUDE_DIR libweston-desktop.h
+find_path(LIBWESTON_DESKTOP_INCLUDE_DIR libweston-desktop/libweston-desktop.h
   HINTS ${Libweston-Desktop_INCLUDE_DIRS})
 
 find_library(LIBWESTON_LIB
-  weston-6 weston-5 weston-4
+  weston-7
   HINTS ${Libweston_LIBDIR})
 
 find_library(LIBWESTON_DESKTOP_LIB
-  weston-desktop-6 weston-desktop-5 weston-desktop-4
+  weston-desktop-7
   HINTS ${Libweston-Desktop_LIBDIR})
 
 include(FindPackageHandleStandardArgs)
