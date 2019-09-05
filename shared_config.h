@@ -5,8 +5,8 @@
  *
  ******************************************************************/
 
-#ifndef TW_CONFIG_H
-#define TW_CONFIG_H
+#ifndef TW_SHARED_CONFIG_H
+#define TW_SHARED_CONFIG_H
 
 
 #include <stdint.h>
@@ -35,24 +35,27 @@ extern "C" {
 #define DEPRECATED(func) func
 #endif
 
+/*****************************************************************/
+/*                            theme                              */
+/*****************************************************************/
+
+
+/*****************************************************************/
+/*                           console                             */
+/*****************************************************************/
+
 struct taiwins_decision_key {
 	char app_name[128];
 	bool floating;
 	int  scale;
 } __attribute__ ((aligned (DECISION_STRIDE)));
 
-
 /*****************************************************************/
-/*                            theme                              */
+/*                            shell                              */
 /*****************************************************************/
-
-
-
-
-
-
-
-
+#define SHELL_PANEL_TOP    "top"
+#define SHELL_PANEL_BOTTOM "bottom"
+#define SHELL_PANEL_POS    "panel_pos"
 
 
 

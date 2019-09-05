@@ -45,13 +45,16 @@
   - different layouting support
   - resize EGL windows.
   - compositing
-** TODO [75%] server-side optimization
-*** TODO setup the xkb context, again, relnated to [[configuration]]
+** TODO [76%] server-side optimization
+*** PEND setup the xkb context, again, related to [[configuration]]
+    This one requires patches to weston, which I already did, but I need their
+    response. If the patch gets merged. It would be fairly simple to do, right
+    now I can simply write a shell function.
 *** TODO multi monitor configuraiton, which also relates to [[configuration]]
 *** TODO [#B] passing server events to shell, switch workspace. e.g.
     - switch workspace.
     - keybindings activated.
-*** TODO dynamically choosing workspace layouts.
+*** DONE dynamically choosing workspace layouts.
 *** DONE rename all the ctype functions.
     I did move them into uppercase macros.
 

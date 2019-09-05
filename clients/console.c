@@ -14,7 +14,7 @@
 #include <client.h>
 #include <ui.h>
 #include <nk_backends.h>
-#include "../config.h"
+#include "../shared_config.h"
 
 
 struct desktop_console {

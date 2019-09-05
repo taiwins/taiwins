@@ -8,18 +8,15 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <cairo/cairo.h>
-
-#include <sys/inotify.h>
 #include <poll.h>
-//damn it, you need to poll that thing as well
-
 #include <wayland-taiwins-desktop-client-protocol.h>
 #include <wayland-client.h>
 #include <sequential.h>
 #include <client.h>
 #include <egl.h>
-#include "widget.h"
 #include <nk_backends.h>
+#include "../shared_config.h"
+#include "widget.h"
 
 struct shell_output {
 	struct desktop_shell *shell;
@@ -341,8 +338,8 @@ desktop_shell_recv_msg(void *data,
 {
 	/* right now I think string is okay, but later it may get inefficient */
 	struct desktop_shell *shell = data;
-	if (strcmp(key, "panel_pos") == 0) {
-		shell->panel_pos = strcmp(value, "top") == 0 ?
+	if (strcmp(key, SHELL_PANEL_POS) == 0) {
+		shell->panel_pos = strcmp(value, SHELL_PANEL_TOP) == 0 ?
 			TW_SHELL_PANEL_POS_TOP :
 			TW_SHELL_PANEL_POS_BOTTOM;
 	} else {
