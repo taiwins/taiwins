@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdlib.h>
 #include <assert.h>
 #include <compositor.h>
 #include <wayland-server.h>
@@ -409,9 +410,13 @@ set_surface(struct shell *shell,
 static inline void
 shell_send_panel_pos(struct shell *shell)
 {
-	tw_shell_send_shell_msg(shell->shell_resource, SHELL_PANEL_POS,
-				shell->panel_pos == SHELL_PANEL_TOP ?
-				SHELL_PANEL_TOP : SHELL_PANEL_BOTTOM);
+	char msg[32];
+	snprintf(msg, 31, "%d", shell->panel_pos == TW_SHELL_PANEL_POS_TOP ?
+		 TW_SHELL_PANEL_POS_TOP : TW_SHELL_PANEL_POS_BOTTOM);
+	
+	tw_shell_send_shell_msg(shell->shell_resource,
+				TW_SHELL_MSG_TYPE_PANEL_POS,
+				msg);
 }
 
 /*
@@ -579,6 +584,7 @@ shell_reload_config(struct weston_keyboard *keyboard,
 {
 	struct taiwins_config *config = data;
 	taiwins_run_config(config, NULL);
+	//you will need get_config_error_msg
 }
 
 static bool
@@ -765,6 +771,14 @@ shell_create_ui_elem(struct shell *shell,
 	create_ui_element(client, shell, NULL, tw_ui, wl_surface, output,
 			  x, y, type);
 }
+
+void
+shell_post_notification(struct shell *shell, uint32_t type, const char *msg)
+{
+	tw_shell_send_shell_msg(shell->shell_resource,
+				type, msg);
+}
+
 
 struct weston_geometry
 shell_output_available_space(struct shell *shell, struct weston_output *output)

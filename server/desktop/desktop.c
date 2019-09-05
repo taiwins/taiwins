@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <linux/input.h>
@@ -55,7 +56,7 @@ struct grab_interface {
 
 
 /***************************************************************
- * desktop APIs 
+ * desktop APIs
  **************************************************************/
 
 static inline off_t
@@ -80,7 +81,7 @@ static inline void
 desktop_set_worksace_layout(struct desktop *d, unsigned int i, enum layout_type type)
 {
 	struct workspace *w;
-	
+
 	if (i > MAX_WORKSPACE)
 		return;
 	w = &d->workspaces[i];
@@ -590,6 +591,12 @@ desktop_workspace_switch(struct weston_keyboard *keyboard,
 		ws_idx = MIN(MAX_WORKSPACE, ws_idx+1);
 	desktop->actived_workspace[0] = &desktop->workspaces[ws_idx];
 	workspace_switch(&desktop->workspaces[ws_idx], ws, keyboard);
+	//send msgs, those type of message
+	char msg[32];
+	snprintf(msg, 32, "%d", (uint32_t)ws_idx);
+	shell_post_notification(desktop->shell,
+				TW_SHELL_MSG_TYPE_SWITCH_WORKSPACE,
+				msg);
 }
 
 
@@ -835,15 +842,15 @@ _lua_request_workspaces(lua_State *L)
 	lua_newtable(L); //1
 	for (int i = 0; i < MAX_WORKSPACE; i++) {
 		struct workspace *ws = &d->workspaces[i];
-		
+
 		lua_newtable(L); //2
 		luaL_getmetatable(L, "metatable_workspace"); //3
 		lua_setmetatable(L, -2); //2
-		
+
 		lua_pushstring(L, "layout"); //3
 		lua_pushstring(L, workspace_layout_name(ws)); //4
 		lua_settable(L, -3); //2
-		
+
 		lua_pushstring(L, "index"); //3
 		lua_pushnumber(L, i); //4
 		lua_settable(L, -3); //2
@@ -870,7 +877,7 @@ _lua_set_ws_layout(lua_State *L)
 	lua_pushstring(L, "index");
 	lua_gettable(L, 1);
 	desktop_set_worksace_layout(d, (uint32_t)lua_tonumber(L, -1), type);
-	
+
 	lua_pop(L, 1);
 	return 0;
 }
@@ -891,7 +898,7 @@ _lua_set_desktop_gap(lua_State *L)
 	int inner_gap, outer_gap;
 	struct desktop *d = _lua_to_desktop(L);
 	struct weston_output *output;
-	
+
 	luaL_checktype(L, 2, LUA_TNUMBER);
 	luaL_checktype(L, 3, LUA_TNUMBER);
 	if (lua_gettop(L) != 3)
@@ -919,7 +926,7 @@ _lua_request_desktop(lua_State *L)
 
 /*
  * exposed lua functions
- * 
+ *
  * desktop global: setting gap; get_workspaces;
  *
  * workspace: switch layouts?
@@ -1030,7 +1037,7 @@ announce_desktop(struct weston_compositor *ec, struct shell *shell,
 	DESKTOP.compositor_destroy_listener.notify = end_desktop;
 	wl_signal_add(&ec->destroy_signal,
 		      &DESKTOP.compositor_destroy_listener);
-	
+
 	//last step, add keybindings
 	return &DESKTOP;
 }

@@ -45,15 +45,16 @@
   - different layouting support
   - resize EGL windows.
   - compositing
-** TODO [76%] server-side optimization
+** TODO [83%] server-side optimization
 *** PEND setup the xkb context, again, related to [[configuration]]
     This one requires patches to weston, which I already did, but I need their
     response. If the patch gets merged. It would be fairly simple to do, right
     now I can simply write a shell function.
-*** TODO multi monitor configuraiton, which also relates to [[configuration]]
-*** TODO [#B] passing server events to shell, switch workspace. e.g.
+*** DOIN [#B] passing server events to shell, switch workspace. e.g.
     - switch workspace.
-    - keybindings activated.
+    - keybindings activated, this is a bit hard, you need to add callbacks in
+      the binding system.
+    - I seriously can remember another
 *** DONE dynamically choosing workspace layouts.
 *** DONE rename all the ctype functions.
     I did move them into uppercase macros.
@@ -74,7 +75,7 @@
 *** DONE renaming tw_shell -> shell, tw_desktop -> desktop.
    so the protocols can directly use tw_shell instead of taiwins_shell
 
-** TODO [71%] <<configuration>>
+** TODO [70%] <<configuration>>
 *** DONE [#A] hot config I :: general hook
     all the components(I mean right now shell, console and desktop are all like
     components of the compositor, they follow the same functions, in C++, they
@@ -84,18 +85,29 @@
      - ~config.setstring(key, string_value)~
      - ~config.setcolor(key, color_value)~
      - ...
-*** TODO [#B] hot config II :: move the responsibilities like theme, font, size config in the server
-    font, theme, those things, like I said, can pass to clients using
-    ~tw_ui.config~, or ~shell.config~, the xkb_context is also here, so you can
-    send clients the proper setups.
-
-*** TODO [#A] hot config III :: taiwins_config_lua_plugin or other better names,
+*** DONE [#A] hot config III :: taiwins_config_lua_plugin or other better names,
     components like shell, desktop would be able to register for lua_bindings,
     so it could provide plenty of functionanities
 
     At this point we should probabliy know that totally *try-apply* approach may
     not be totally realistic. If any part of lua code ran, it would have side
     effect
+*** TODO shell configuration
+**** DONE panel pos
+**** TODO init wallpaper
+**** TODO init widget [[nuklear luabinding]]
+**** TODO set menus
+*** DONE desktop configuration
+**** DONE get workspace
+**** DONE setup layout
+*** TODO backend configuration
+**** TODO monitor/head scale/resolution, all that setup
+**** TODO monitor flipping, how you are gonna do with flipping??
+
+*** TODO global configuration
+**** PEND xkb context
+**** TODO theme setup
+
 *** DONE introduce the lua code
 
 *** DONE styles, nuklear and other widget styles.
