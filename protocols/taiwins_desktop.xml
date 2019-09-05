@@ -69,9 +69,9 @@
 			  respond"/>
     <arg name="key" type="string"/>
     <arg name="value" type="string"/>
-    
+
   </event>
-  
+
     <enum name="output_msg">
       <entry name="connected" value="0" summary="output is online"/>
       <entry name="lost" value="1" summary="screen is no long available"/>

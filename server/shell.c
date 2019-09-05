@@ -63,6 +63,7 @@ struct shell {
 
 	//the widget is the global view
 	struct weston_surface *the_widget_surface;
+	struct wl_listener compositor_destroy_listener;
 	struct wl_listener output_create_listener;
 	struct wl_listener output_destroy_listener;
 	struct wl_listener output_resize_listener;
@@ -333,10 +334,29 @@ commit_background(struct weston_surface *surface, int sx, int sy)
 {
 	struct shell_ui *ui = surface->committed_private;
 	//get the first view, as ui element has only one view
-	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
+	struct weston_view *view =
+		container_of(surface->views.next,
+			     struct weston_view, surface_link);
 	//it is not true for both
 	if (surface->buffer_ref.buffer)
 		setup_view(view, ui->layer, ui->x, ui->y, shell_view_UNIQUE);
+}
+
+static void
+commit_panel(struct weston_surface *surface, int sx, int sy)
+{
+	struct shell_ui *ui = surface->committed_private;
+	struct weston_view *view =
+		container_of(surface->views.next,
+			     struct weston_view, surface_link);
+	struct shell_output *output =
+		container_of(ui, struct shell_output, panel);
+	//the
+	if (!surface->buffer_ref.buffer)
+		return;
+	ui->y = (output->shell->panel_pos == TW_SHELL_PANEL_POS_TOP) ?
+		0 : output->output->height - surface->height;
+	setup_view(view, ui->layer, ui->x, ui->y, shell_view_STATIC);
 }
 
 static void
@@ -358,14 +378,11 @@ static bool
 set_surface(struct shell *shell,
 	    struct weston_surface *surface, struct weston_output *output,
 	    struct wl_resource *wl_resource,
-	    void (*committed)(struct weston_surface *, int32_t, int32_t),
-	    int32_t x, int32_t y)
+	    void (*committed)(struct weston_surface *, int32_t, int32_t))
 {
 	//TODO, use wl_resource_get_user_data for position
 	struct weston_view *view, *next;
 	struct shell_ui *ui = wl_resource_get_user_data(wl_resource);
-	ui->x = x; ui->y = y;
-
 	//remember to reset the weston_surface's commit and commit_private
 	if (surface->committed) {
 		wl_resource_post_error(wl_resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
@@ -384,30 +401,33 @@ set_surface(struct shell *shell,
 	return true;
 }
 
-
-
-/*******************************************************************************************
+/*******************************************************************
  * tw_shell
- *******************************************************************************************/
+ ******************************************************************/
+
+static inline void
+shell_send_panel_pos(struct shell *shell)
+{
+	tw_shell_send_shell_msg(shell->shell_resource, "panel_pos",
+				shell->panel_pos == TW_SHELL_PANEL_POS_TOP ?
+				"top" : "bottom");
+}
 
 /*
- * pass-in empty elem for allocating resources, use the existing memory otherwise
+ * pass-in empty elem for allocating resources, use the existing memory
+ * otherwise
  */
 static void
-init_ui_element(struct wl_client *client,
-		struct shell *shell,
-		struct shell_ui *elem, uint32_t tw_ui,
-		struct wl_resource *wl_surface, int output_idx,
-		uint32_t x, uint32_t y,
-		enum tw_ui_type type)
+create_ui_element(struct wl_client *client,
+		  struct shell *shell,
+		  struct shell_ui *elem, uint32_t tw_ui,
+		  struct wl_resource *wl_surface,
+		  struct weston_output *output,
+		  uint32_t x, uint32_t y,
+		  enum tw_ui_type type)
 {
-	bool allocated = elem != NULL;
-	struct weston_output *output = (output_idx >= 0 ||
-					output_idx >= shell_n_outputs(shell)) ?
-		shell->tw_outputs[output_idx].output :
-		tw_get_focused_output(shell->ec);
+	bool allocated = elem == NULL;
 	struct weston_seat *seat = tw_get_default_seat(shell->ec);
-
 	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
 	weston_seat_set_keyboard_focus(seat, surface);
 	struct wl_resource *tw_ui_resource = wl_resource_create(client, &tw_ui_interface, 1, tw_ui);
@@ -417,35 +437,32 @@ init_ui_element(struct wl_client *client,
 	}
 	if (!elem)
 		elem = calloc(1, sizeof(struct shell_ui));
-	
+
 	if (type == TW_UI_TYPE_WIDGET)
 		shell_ui_create_with_binding(elem, tw_ui_resource, surface);
 	else
 		shell_ui_create_simple(elem, tw_ui_resource, surface);
-
 	if (allocated)
 		wl_resource_set_implementation(tw_ui_resource, NULL, elem, shell_ui_unbind_free);
 	else
 		wl_resource_set_implementation(tw_ui_resource, NULL, elem, shell_ui_unbind);
-		
+
 	elem->x = x;
 	elem->y = y;
 	elem->type = type;
 
 	switch (type) {
 	case TW_UI_TYPE_PANEL:
-		/* tw_ui_send_configure(tw_ui_resource, output->width, 32); */
 		elem->layer = &shell->ui_layer;
-		set_surface(shell, surface, output, tw_ui_resource, commit_ui_surface, x, y);
+		set_surface(shell, surface, output, tw_ui_resource, commit_panel);
 		break;
 	case TW_UI_TYPE_BACKGROUND:
-		/* tw_ui_send_configure(tw_ui_resource, output->width, output->height); */
 		elem->layer = &shell->background_layer;
-		set_surface(shell, surface, output, tw_ui_resource, commit_background, x, y);
+		set_surface(shell, surface, output, tw_ui_resource, commit_background);
 		break;
 	case TW_UI_TYPE_WIDGET:
 		elem->layer = &shell->ui_layer;
-		set_surface(shell, surface, output, tw_ui_resource, commit_ui_surface, x, y);
+		set_surface(shell, surface, output, tw_ui_resource, commit_ui_surface);
 		break;
 	}
 }
@@ -459,9 +476,9 @@ create_shell_panel(struct wl_client *client,
 {
 	//check the id
 	struct shell *shell = wl_resource_get_user_data(resource);
-	struct shell_output *shell_output = &shell->tw_outputs[idx];
-	init_ui_element(client, shell, &shell_output->panel,
-			tw_ui, wl_surface, idx,
+	struct shell_output *output = &shell->tw_outputs[idx];
+	create_ui_element(client, shell, &output->panel,
+			tw_ui, wl_surface, output->output,
 			0, 0, TW_UI_TYPE_PANEL);
 }
 
@@ -474,8 +491,9 @@ launch_shell_widget(struct wl_client *client,
 		    uint32_t x, uint32_t y)
 {
 	struct shell *shell = wl_resource_get_user_data(resource);
-	init_ui_element(client, shell, &shell->widget, tw_ui,
-			wl_surface, idx,
+	struct shell_output *output = &shell->tw_outputs[idx];
+	create_ui_element(client, shell, &shell->widget, tw_ui,
+			wl_surface, output->output,
 			x, y, TW_UI_TYPE_WIDGET);
 }
 
@@ -489,8 +507,9 @@ create_shell_background(struct wl_client *client,
 	struct shell *shell = wl_resource_get_user_data(resource);
 	struct shell_output *shell_output = &shell->tw_outputs[tw_ouptut];
 
-	init_ui_element(client, shell, &shell_output->background, tw_ui,
-			wl_surface, tw_ouptut, 0, 0, TW_UI_TYPE_BACKGROUND);
+	create_ui_element(client, shell, &shell_output->background, tw_ui,
+			wl_surface, shell_output->output,
+			  0, 0, TW_UI_TYPE_BACKGROUND);
 }
 
 static struct tw_shell_interface shell_impl = {
@@ -508,7 +527,9 @@ launch_shell_client(void *data)
 	wl_client_get_credentials(shell->shell_client, &shell->pid, &shell->uid, &shell->gid);
 }
 
-//////////////////////////  BINDING  /////////////////////////////////
+/*******************************************************************
+ * bindings
+ ******************************************************************/
 
 static void
 zoom_axis(struct weston_pointer *pointer, const struct timespec *time,
@@ -574,7 +595,9 @@ shell_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 	return tw_bindings_add_key(bindings, reload_press, shell_reload_config, 0, shell->config);
 }
 
-///////////////////////// LUA COMPONENT ///////////////////////////////
+/*******************************************************************
+ * lua components
+ ******************************************************************/
 static struct shell *
 _lua_to_shell(lua_State *L)
 {
@@ -609,10 +632,8 @@ _lua_set_panel_position(lua_State *L)
 	else
 		luaL_error(L, "invalid panel position %s", pos);
 
-	//maybe do this in the appling function
-	if (shell->shell_resource) {
-		
-	}
+	if (shell->shell_resource)
+		shell_send_panel_pos(shell);
 	return 0;
 }
 
@@ -647,7 +668,7 @@ shell_add_config_component(struct taiwins_config *c, lua_State *L,
 			   struct taiwins_config_component_listener *listener)
 {
 	//register global methods.
-	
+
 	//creates its own metatable
 	luaL_newmetatable(L, "metatable_shell");
 	lua_pushvalue(L, -1);
@@ -657,7 +678,7 @@ shell_add_config_component(struct taiwins_config *c, lua_State *L,
 	REGISTER_METHOD(L, "panel_position", _lua_set_panel_position);
 	REGISTER_METHOD(L, "set_menus", _lua_set_menus);
 	//now methods
-	
+
 	lua_pop(L, 1);
 
 	REGISTER_METHOD(L, "shell", _lua_request_shell);
@@ -713,7 +734,8 @@ bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 	shell->shell_resource = resource;
 	shell->ready = true;
 
-	//now do it for all the outputs
+	//send some configuration to the client
+	shell_send_panel_pos(shell);
 	struct weston_output *output;
 	wl_list_for_each(output, &shell->ec->output_list, link) {
 		int ith_output = shell_ith_output(shell, output);
@@ -731,10 +753,12 @@ shell_create_ui_elem(struct shell *shell,
 		     struct wl_client *client,
 		     uint32_t tw_ui,
 		     struct wl_resource *wl_surface,
-		     int idx, uint32_t x, uint32_t y,
+		     uint32_t x, uint32_t y,
 		     enum tw_ui_type type)
 {
-	init_ui_element(client, shell, NULL, tw_ui, wl_surface, idx, x, y, type);
+	struct weston_output *output = tw_get_focused_output(shell->ec);
+	create_ui_element(client, shell, NULL, tw_ui, wl_surface, output,
+			  x, y, type);
 }
 
 struct weston_geometry
@@ -750,7 +774,15 @@ shell_output_available_space(struct shell *shell, struct weston_output *output)
 	return geo;
 }
 
+void
+end_shell(struct wl_listener *listener, void *data)
+{
+	struct shell *shell =
+		container_of(listener, struct shell,
+			     compositor_destroy_listener);
 
+	wl_global_destroy(shell->shell_global);
+}
 
 /**
  * @brief announce the taiwins shell protocols.
@@ -766,47 +798,47 @@ announce_shell(struct weston_compositor *ec, const char *path,
 	oneshell.the_widget_surface = NULL;
 	oneshell.shell_client = NULL;
 	oneshell.config = config;
+	oneshell.panel_pos = TW_SHELL_PANEL_POS_BOTTOM;
 
 	//TODO leaking a wl_global
 	oneshell.shell_global =  wl_global_create(ec->wl_display, &tw_shell_interface,
 						  tw_shell_interface.version, &oneshell,
 						  bind_shell);
-	//we don't use the destroy signal here anymore, shell_should be
-	//destroyed in the resource destructor
-	//wl_signal_add(&ec->destroy_signal, &shell_destructor);
 	if (path) {
 		assert(strlen(path) +1 <= sizeof(oneshell.path));
 		strcpy(oneshell.path, path);
 		struct wl_event_loop *loop = wl_display_get_event_loop(ec->wl_display);
 		wl_event_loop_add_idle(loop, launch_shell_client, &oneshell);
 	}
+	//global destructor
+	wl_list_init(&oneshell.compositor_destroy_listener.link);
+	oneshell.compositor_destroy_listener.notify = end_shell;
+	wl_signal_add(&ec->destroy_signal, &oneshell.compositor_destroy_listener);
+	//output create
+	wl_list_init(&oneshell.output_create_listener.link);
+	oneshell.output_create_listener.notify = shell_output_created;
+	//output destroy
+	wl_list_init(&oneshell.output_destroy_listener.link);
+	oneshell.output_destroy_listener.notify = shell_output_destroyed;
+	//output resize
+	wl_list_init(&oneshell.output_resize_listener.link);
+	oneshell.output_resize_listener.notify = shell_output_resized;
+	//singals
+	wl_signal_add(&ec->output_created_signal, &oneshell.output_create_listener);
+	wl_signal_add(&ec->output_destroyed_signal, &oneshell.output_destroy_listener);
+	wl_signal_add(&ec->output_resized_signal, &oneshell.output_resize_listener);
+	//init current outputs
+	struct weston_output *output;
+	wl_list_for_each(output, &ec->output_list, link)
+		shell_output_created(&oneshell.output_create_listener, output);
+	//binding
+	wl_list_init(&oneshell.add_binding.link);
+	oneshell.add_binding.apply = shell_add_bindings;
+	taiwins_config_add_apply_bindings(config, &oneshell.add_binding);
+	//config_componenet
+	wl_list_init(&oneshell.config_component.link);
+	oneshell.config_component.init = shell_add_config_component;
+	taiwins_config_add_component(config, &oneshell.config_component);
 
-	{
-		wl_list_init(&oneshell.output_create_listener.link);
-		oneshell.output_create_listener.notify = shell_output_created;
-
-		wl_list_init(&oneshell.output_destroy_listener.link);
-		oneshell.output_destroy_listener.notify = shell_output_destroyed;
-
-		wl_list_init(&oneshell.output_resize_listener.link);
-		oneshell.output_resize_listener.notify = shell_output_resized;
-
-		wl_signal_add(&ec->output_created_signal, &oneshell.output_create_listener);
-		wl_signal_add(&ec->output_destroyed_signal, &oneshell.output_destroy_listener);
-		wl_signal_add(&ec->output_resized_signal, &oneshell.output_resize_listener);
-
-		struct weston_output *output;
-		wl_list_for_each(output, &ec->output_list, link)
-			shell_output_created(&oneshell.output_create_listener, output);
-		//binding
-		wl_list_init(&oneshell.add_binding.link);
-		oneshell.add_binding.apply = shell_add_bindings;
-		taiwins_config_add_apply_bindings(config, &oneshell.add_binding);
-		//config_componenet
-		wl_list_init(&oneshell.config_component.link);
-		oneshell.config_component.init = shell_add_config_component;
-		taiwins_config_add_component(config, &oneshell.config_component);
-
-	}
 	return &oneshell;
 }

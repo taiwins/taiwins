@@ -28,6 +28,7 @@ struct console {
 	struct shell *shell;
 	struct wl_shm_buffer *decision_buffer;
 	struct weston_surface *surface;
+	struct wl_listener compositor_destroy_listener;
 	struct wl_listener close_console_listener;
 	struct taiwins_apply_bindings_listener add_binding;
 	struct taiwins_config_component_listener config_component;
@@ -65,7 +66,7 @@ set_console(struct wl_client *client,
 {
 	struct console *lch = wl_resource_get_user_data(resource);
 	shell_create_ui_elem(lch->shell, client, ui_elem, wl_surface,
-			     -1, 100, 100, TW_UI_TYPE_WIDGET);
+			     100, 100, TW_UI_TYPE_WIDGET);
 	lch->surface = tw_surface_from_resource(wl_surface);
 	wl_resource_add_destroy_listener(wl_surface, &lch->close_console_listener);
 }
@@ -145,24 +146,24 @@ console_add_bindings(struct tw_bindings *bindings, struct taiwins_config *config
 	return tw_bindings_add_key(bindings, open_console, should_start_console, 0, c);
 }
 
+static void
+end_console(struct wl_listener *listener, void *data)
+{
+	struct console *c =
+		container_of(listener, struct console,
+			     compositor_destroy_listener);
+	wl_global_destroy(c->global);
+}
 
-struct console *announce_console(struct weston_compositor *compositor,
-				 struct shell *shell, const char *path,
-				 struct taiwins_config *config)
+struct console *
+announce_console(struct weston_compositor *compositor,
+		 struct shell *shell, const char *path,
+		 struct taiwins_config *config)
 {
 	CONSOLE.surface = NULL;
 	CONSOLE.resource = NULL;
 	CONSOLE.compositor = compositor;
 	CONSOLE.shell = shell;
-	wl_list_init(&CONSOLE.close_console_listener.link);
-	CONSOLE.close_console_listener.notify = console_surface_destroy_cb;
-
-	wl_list_init(&CONSOLE.add_binding.link);
-	CONSOLE.add_binding.apply = console_add_bindings;
-	taiwins_config_add_apply_bindings(config, &CONSOLE.add_binding);
-
-	wl_list_init(&CONSOLE.config_component.link);
-
 	CONSOLE.global =
 		wl_global_create(compositor->wl_display, &tw_console_interface, TWDESKP_VERSION, &CONSOLE,
 				 bind_console);
@@ -173,6 +174,24 @@ struct console *announce_console(struct weston_compositor *compositor,
 		struct wl_event_loop *loop = wl_display_get_event_loop(compositor->wl_display);
 		wl_event_loop_add_idle(loop, launch_console_client, &CONSOLE);
 	}
+
+	//close close
+	wl_list_init(&CONSOLE.close_console_listener.link);
+	CONSOLE.close_console_listener.notify = console_surface_destroy_cb;
+	//where is the signal for console close???
+
+	//destroy globals
+	wl_list_init(&CONSOLE.compositor_destroy_listener.link);
+	CONSOLE.compositor_destroy_listener.notify = end_console;
+	wl_signal_add(&compositor->destroy_signal,
+		      &CONSOLE.compositor_destroy_listener);
+
+	wl_list_init(&CONSOLE.add_binding.link);
+	CONSOLE.add_binding.apply = console_add_bindings;
+	taiwins_config_add_apply_bindings(config, &CONSOLE.add_binding);
+
+	wl_list_init(&CONSOLE.config_component.link);
+
 	return &CONSOLE;
 	//TODO register the destroy signal
 }
