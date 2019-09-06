@@ -8,7 +8,6 @@
 #include <linux/input.h>
 #include <os/file.h>
 
-#include "weston.h"
 #include "taiwins.h"
 #include "desktop.h"
 #include "bindings.h"

@@ -10,7 +10,6 @@
 #include <helpers.h>
 #include <wayland-server.h>
 #define INCLUDE_DESKTOP
-#include "../weston.h"
 #include "../taiwins.h"
 
 #ifdef  __cplusplus

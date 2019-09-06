@@ -4,7 +4,6 @@
 #include <wayland-server.h>
 #include <sequential.h>
 #include <wayland-taiwins-desktop-server-protocol.h>
-#include "weston.h"
 #include "bindings.h"
 
 #ifdef  __cplusplus

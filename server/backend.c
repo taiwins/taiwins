@@ -9,7 +9,7 @@
 #include <helpers.h>
 
 #define INCLUDE_BACKEND
-#include "weston.h"
+#include "taiwins.h"
 
 
 struct tw_backend {

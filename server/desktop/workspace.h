@@ -3,7 +3,6 @@
 
 #include <stdbool.h>
 #define INCLUDE_DESKTOP
-#include "../weston.h"
 #include "../taiwins.h"
 #include "unistd.h"
 #include "layout.h"

@@ -93,8 +93,8 @@ floating_resize(const enum layout_command command, const struct layout_op *arg,
 	ops[0].v = v;
 	ops[0].end = false;
 
-	float x, y, rx, ry;
-	weston_view_from_global_float(v, arg->sx, arg->sy, &x, &y);
+	int32_t x, y, rx, ry;
+	weston_view_from_global(v, (int32_t)arg->sx, (int32_t)arg->sy, &x, &y);
 	rx = x / (float)v->surface->width;
 	ry = y / (float)v->surface->height;
 	//only the buttom right part does not affect the position
