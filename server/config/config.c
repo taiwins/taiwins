@@ -268,7 +268,7 @@ taiwins_config_try_config(struct taiwins_config *config)
 			}
 		}
 	}
-	config->quit = config->quit && !safe;
+	config->quit = config->quit || !safe;
 }
 
 

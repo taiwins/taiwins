@@ -167,7 +167,6 @@ out:
 	// - weston_compositor_shutdown: remove all the bindings, output, renderer,
 	// - weston_compositor_destroy, this call finally free the compositor
 	/* end_desktop(desktop); */
-	taiwins_config_destroy(config);
 
 	weston_compositor_tear_down(compositor);
 	weston_log_ctx_compositor_destroy(compositor);
