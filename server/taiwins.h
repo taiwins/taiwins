@@ -7,6 +7,7 @@
 
 #include <helpers.h>
 #include <wayland-server.h>
+#include <libweston/zalloc.h>
 #include <libweston/libweston.h>
 
 #if defined (INCLUDE_DESKTOP)

@@ -60,7 +60,7 @@ struct tiling_user_data {
 static inline struct tiling_view *
 tiling_new_view(struct weston_view *v)
 {
-	struct tiling_view *tv = xmalloc(sizeof(struct tiling_view));
+	struct tiling_view *tv = zalloc(sizeof(struct tiling_view));
 	vtree_node_init(&tv->node,
 			offsetof(struct tiling_view, node));
 	tv->v = v;
@@ -94,7 +94,7 @@ tiling_layout_init(struct layout *l, struct weston_layer *ly, struct layout *flo
 {
 	layout_init(l, ly);
 
-	l->user_data = malloc(sizeof(struct tiling_user_data));
+	l->user_data = zalloc(sizeof(struct tiling_user_data));
 	struct tiling_user_data *user_data =  l->user_data;
 	user_data->floating = floating;
 

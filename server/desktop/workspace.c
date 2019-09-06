@@ -10,7 +10,7 @@ recent_view_create(struct weston_view *v, enum layout_type type)
 {
 	struct weston_desktop_surface *ds =
 		weston_surface_get_desktop_surface(v->surface);
-	struct recent_view *rv = xmalloc(sizeof(struct recent_view));
+	struct recent_view *rv = zalloc(sizeof(struct recent_view));
 	wl_list_init(&rv->link);
 	rv->view = v;
 	rv->type = type;
