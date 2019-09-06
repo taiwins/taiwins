@@ -6,7 +6,6 @@
 #include <wayland-server.h>
 #include <wayland-taiwins-desktop-server-protocol.h>
 
-#include "weston.h"
 #include "taiwins.h"
 #include "desktop.h"
 #include "config.h"

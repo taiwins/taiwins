@@ -6,7 +6,7 @@
 #include <lualib.h>
 #include <lauxlib.h>
 #include <sequential.h>
-#include "weston.h"
+#include "taiwins.h"
 #include "bindings.h"
 
 #ifdef __cplusplus

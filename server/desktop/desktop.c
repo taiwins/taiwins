@@ -9,7 +9,6 @@
 #include <wayland-taiwins-desktop-server-protocol.h>
 
 #define INCLUDE_DESKTOP
-#include "../weston.h"
 #include "../taiwins.h"
 #include "../desktop.h"
 #include "../config.h"
@@ -429,13 +428,13 @@ resize_grab_pointer_motion(struct weston_pointer_grab *grab,
 
 	//then we have to encode the resizing event into
 	//now we deterine the motion
-	float x = wl_fixed_to_int(grab->pointer->x);
-	float y = wl_fixed_to_int(grab->pointer->y);
+	int32_t x = wl_fixed_to_int(grab->pointer->x);
+	int32_t y = wl_fixed_to_int(grab->pointer->y);
 
 	struct layout_op arg = {
 		.v = gi->view,
-		.dx = dx,
-		.dy = dy,
+		.dx = (int32_t)dx,
+		.dy = (int32_t)dy,
 		.sx = x,
 		.sy = y,
 	};

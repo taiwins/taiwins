@@ -1,7 +1,6 @@
 #ifndef CONFIG_INTERNAL_H
 #define CONFIG_INTERNAL_H
 
-#include "../weston.h"
 #include "../config.h"
 
 

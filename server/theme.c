@@ -2,23 +2,28 @@
 
 #include <wayland-taiwins-theme-server-protocol.h>
 #include <helpers.h>
-#include "weston.h"
+#include "taiwins.h"
 #include "config.h"
 
 struct shell;
 static struct theme {
 	struct weston_compositor *ec;
 	struct wl_listener compositor_destroy_listener;
+	struct wl_listener config_component;
 	struct wl_global *global;
 	//it can apply to many clients
 	struct wl_list clients;
 } THEME;
 
+struct theme_client {
+	struct wl_resource *resource;
+	struct wl_list link;
+};
+
 
 static void
 bind_theme(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
-	wl_client_get_link(client);
 	wl_resource_create(client, &tw_theme_interface,
 			   tw_theme_interface.version, id);
 	//add link to our clienttheme.c

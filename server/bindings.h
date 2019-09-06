@@ -5,7 +5,7 @@
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
-#include "weston.h"
+#include "taiwins.h"
 
 #ifdef  __cplusplus
 extern "C" {

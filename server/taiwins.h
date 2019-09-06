@@ -1,18 +1,32 @@
 #ifndef TAIWINS_H
 #define TAIWINS_H
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <helpers.h>
 #include <wayland-server.h>
+#include <libweston/libweston.h>
+
+#if defined (INCLUDE_DESKTOP)
+#include <libweston-desktop/libweston-desktop.h>
+#endif
+
+#if defined (INCLUDE_BACKEND)
+#include <libweston/backend-drm.h>
+#include <libweston/backend-wayland.h>
+#include <libweston/backend-x11.h>
+#include <libweston/windowed-output-api.h>
+#endif
+
 #include "../shared_config.h"
-#include "weston.h"
+
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
 
 /**
  * /brief taiwins output information
