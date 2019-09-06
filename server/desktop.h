@@ -20,17 +20,12 @@ struct console;
 struct taiwins_config;
 struct shell_ui;
 
-/** announcing the taiwins shell global
- *
- * @param compositor weston compositor global
- *
- * this adds the signal to destroy the shell as well, add bindings should be here
+/**
+ * @brief annouce globals
  */
 struct shell *announce_shell(struct weston_compositor *compositor, const char *path,
 			     struct taiwins_config *config);
-/**
- * /breif annouce console server
- */
+
 struct console *announce_console(struct weston_compositor *compositor,
 				 struct shell *shell, const char *exec_path,
 				 struct taiwins_config *config);
@@ -38,6 +33,11 @@ struct console *announce_console(struct weston_compositor *compositor,
 struct desktop *announce_desktop(struct weston_compositor *compositor,
 				 struct shell *shell,
 				 struct taiwins_config *config);
+
+void annouce_theme(struct weston_compositor *ec, struct shell *shell,
+		   struct taiwins_config *config);
+
+// other APIs
 
 struct wl_client *shell_get_client(struct shell *shell);
 

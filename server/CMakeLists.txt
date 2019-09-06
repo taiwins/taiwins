@@ -20,6 +20,9 @@ add_library(twshell STATIC
 add_library(twconsole STATIC
   console.c)
 
+add_library(twtheme STATIC
+  theme.c)
+
 add_library(twdesktop STATIC
   desktop/desktop.c
   desktop/layout.c
@@ -36,12 +39,13 @@ target_link_libraries(twshell PRIVATE
   twcore)
 
 target_link_libraries(twconsole PRIVATE
-  twcore
-  )
+  twcore)
 
 target_link_libraries(twdesktop PRIVATE
-  twcore
-  )
+  twcore)
+
+target_link_libraries(twtheme PRIVATE
+  twcore)
 
 target_include_directories(twdesktop PRIVATE
   ${COMPOSITOR_INCLUDE_DIRS}
@@ -63,5 +67,6 @@ target_link_libraries(taiwins
   twshell
   twconsole
   twdesktop
+  twtheme
   proto_server_libraries
   )
