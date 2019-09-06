@@ -159,7 +159,7 @@ tw_start_keybinding(struct weston_keyboard *keyboard,
 	//double click
 	struct tw_bindings *bindings = data;
 	struct keybinding_container *container =
-		malloc(sizeof(struct keybinding_container));
+		zalloc(sizeof(struct keybinding_container));
 	container->node = &bindings->root_node;
 	container->grab.interface = &tw_keybinding_grab;
 	weston_keyboard_start_grab(keyboard,
@@ -173,7 +173,7 @@ tw_start_keybinding(struct weston_keyboard *keyboard,
 struct tw_bindings *
 tw_bindings_create(struct weston_compositor *ec)
 {
-	struct tw_bindings *root = malloc(sizeof(struct tw_bindings));
+	struct tw_bindings *root = zalloc(sizeof(struct tw_bindings));
 	if (root) {
 		root->ec = ec;
 		vtree_node_init(&root->root_node.node,
@@ -205,7 +205,7 @@ make_binding_node(xkb_keycode_t code, uint32_t mod, uint32_t option,
 		  tw_key_binding fuc, const void *data, bool end)
 {
 	//allocate new ones
-	struct tw_binding_node *binding = malloc(sizeof(struct tw_binding_node));
+	struct tw_binding_node *binding = zalloc(sizeof(struct tw_binding_node));
 	vtree_node_init(&binding->node, offsetof(struct tw_binding_node, node));
 	binding->keycode = code;
 	binding->modifier = mod;
