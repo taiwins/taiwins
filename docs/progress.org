@@ -37,7 +37,7 @@
 
 *** DONE change the ui element start or close implimentation
 
-* TODO [0%] Stage two: feature completion
+* TODO [14%] Stage two: feature completion
   - supporting multiple monitors/seats.
   - weston view focus defocus
   - a few different extensions.
@@ -203,9 +203,10 @@
 *** DONE renaming launcher into console, since it will does much more than just launching
 *** TODO allow launcher to quit instead of launch weston-terminal all the time
 *** TODO the real launcher implementation
-** DOIN [50%] protocols                                               :proto:
+** DONE [100%] protocols                                              :proto:
 *** DONE `tw_output` protocols to represent logical output
-*** TODO `tw_desktop` output to recieve desktop events
+** TODO installing scripts
+   write cmake install commands
 
 * TODO [25%]Stage three: extensions
 *** TODO adding support for notification. All those can be implement

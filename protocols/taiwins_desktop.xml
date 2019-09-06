@@ -200,33 +200,6 @@
       <entry name="num_decisions" value="100"
 	     summary="xdg_shell was destroyed before children"/>
     </enum>
-  <!--
-  </interface>
-  <interface name="tw_theme">
-    <event name="main_font">
-      <arg name="name" type="string"/>
-    </event>
-
-    <event name="icon_font">
-      <arg name="path" type="string"/>
-    </event>
-
-    <event name="font size">
-      <arv name="pt" type="uint" summary="point size"/>
-    </event>
-
-    <event name="base color">
-      <arg name="red" type="uint"/>
-      <arg name="green" type="uint"/>
-      <arg name="blue" type="uint"/>
-      <arg name="transparency" type="fixed" summary="between 0 and 1"/>
-    </event>
-
-    <event name="done">
-      <description summary="mark the end of a theme configuration"/>
-      </event>
-      </interface>
-  -->
   </interface>
 
 </protocol>

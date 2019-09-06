@@ -10,6 +10,10 @@ WAYLAND_ADD_PROTOCOL_SERVER(proto_twshell_server
   taiwins-desktop
   )
 
+WAYLAND_ADD_PROTOCOL_SERVER(proto_twtheme_server
+  taiwins_theme.xml
+  taiwins-theme
+  )
 
 add_library(proto_client_libraries STATIC
   ${proto_twshell_client}
@@ -17,6 +21,7 @@ add_library(proto_client_libraries STATIC
 
 add_library(proto_server_libraries STATIC
   ${proto_twshell_server}
+  ${proto_twtheme_server}
   )
 
 set(PROTOCOLS_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR} PARENT_SCOPE)
