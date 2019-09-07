@@ -567,8 +567,8 @@ _tiling_resize(const struct layout_op *arg, struct tiling_view *view,
 	struct weston_geometry view_space =
 		tiling_subtree_space(view, parent, &space);
 	//get the ratio from global coordinates
-	float rx = (arg->sx - view_space.x) / view_space.width;
-	float ry = (arg->sy - view_space.y) / view_space.height;
+	double rx = wl_fixed_to_double(arg->sx) / view_space.width;
+	double ry = wl_fixed_to_double(arg->sy) / view_space.height;
 	//deal with current parent.
 	float ph = 0.0, pt = 0.0;
 	if (parent->vertical) {

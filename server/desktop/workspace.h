@@ -39,7 +39,24 @@ struct workspace {
 
 struct recent_view {
 	struct weston_view *view;
-	struct weston_geometry old_geometry;
+	/*
+	  desktop surface has decorations(invisible portion)
+	  -----------------------
+	  |   x                 | --> x,y : visible point
+	  | y ----------------  |
+	  |   |              |  |
+	  |   |    visible   |  |
+	  |   |              |  |
+	  |   ---------------- w|
+	  |                   h |
+	  -----------------------
+
+	  view postion should be x-visible_geometry.x, y-visible_geometry.y
+	  x: visible geometry starts at x.
+	  y: decoration lenght in y.
+	*/
+
+	struct weston_geometry visible_geometry;
 	struct wl_list link;
 	enum layout_type type;
 };
@@ -50,8 +67,10 @@ void recent_view_destroy(struct recent_view *);
 static inline struct recent_view *
 get_recent_view(struct weston_view *v)
 {
-	struct weston_desktop_surface *desk_surf = weston_surface_get_desktop_surface(v->surface);
-	struct recent_view *rv = weston_desktop_surface_get_user_data(desk_surf);
+	struct weston_desktop_surface *desk_surf =
+		weston_surface_get_desktop_surface(v->surface);
+	struct recent_view *rv =
+		weston_desktop_surface_get_user_data(desk_surf);
 	return rv;
 }
 
@@ -60,8 +79,8 @@ get_recent_view(struct weston_view *v)
 static inline void
 recent_view_get_origin_coord(const struct recent_view *v, float *x, float *y)
 {
-	*x = v->view->geometry.x + v->old_geometry.x;
-	*y = v->view->geometry.y + v->old_geometry.y;
+	*x = v->view->geometry.x + v->visible_geometry.x;
+	*y = v->view->geometry.y + v->visible_geometry.y;
 }
 
 extern size_t workspace_size;

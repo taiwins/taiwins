@@ -14,7 +14,8 @@ recent_view_create(struct weston_view *v, enum layout_type type)
 	wl_list_init(&rv->link);
 	rv->view = v;
 	rv->type = type;
-	rv->old_geometry = weston_desktop_surface_get_geometry(ds);
+	//right now it should (0,0,0,0)
+	rv->visible_geometry = weston_desktop_surface_get_geometry(ds);
 	weston_desktop_surface_set_user_data(ds, rv);
 	return rv;
 }
@@ -131,12 +132,12 @@ arrange_view_for_layout(struct workspace *ws, struct layout *layout,
 		struct recent_view *rv =
 			weston_desktop_surface_get_user_data(desk_surf);
 		weston_view_set_position(ops[i].v,
-					 ops[i].pos.x - rv->old_geometry.x,
-					 ops[i].pos.y - rv->old_geometry.y);
+					 ops[i].pos.x - rv->visible_geometry.x,
+					 ops[i].pos.y - rv->visible_geometry.y);
 		if (ops[i].size.height && ops[i].size.width) {
 			weston_desktop_surface_set_size(desk_surf, ops[i].size.width, ops[i].size.height);
-			rv->old_geometry.width = ops[i].size.width;
-			rv->old_geometry.height = ops[i].size.height;
+			rv->visible_geometry.width = ops[i].size.width;
+			rv->visible_geometry.height = ops[i].size.height;
 		}
 		weston_view_geometry_dirty(ops[i].v);
 	}
