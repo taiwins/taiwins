@@ -54,11 +54,10 @@ struct layout_op {
 	union {
 		//resizing/moving parameters,
 		struct {
-			//to allow most complex resizing operations, we need sx,
-			//sy to represent cornors. sx, sy is the current
-			//position of the cursor inside the view
+			//dx,dy, delta
 			float dx, dy;
-			float sx, sy;
+			//surface x, surface y
+			wl_fixed_t sx, sy;
 		};
 		float set_scale;
 		struct weston_output *o;

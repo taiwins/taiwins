@@ -206,12 +206,12 @@ twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
 	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
 	struct weston_geometry geo = weston_desktop_surface_get_geometry(desktop_surface);
 	//check the current surface geometry
-	if (geo.x != rv->old_geometry.x || geo.y != rv->old_geometry.y) {
+	if (geo.x != rv->visible_geometry.x || geo.y != rv->visible_geometry.y) {
 		float x, y;
 		recent_view_get_origin_coord(rv, &x, &y);
 		weston_view_set_position(view, x - geo.x, y - geo.y);
 		weston_view_geometry_dirty(view);
-		rv->old_geometry = geo;
+		rv->visible_geometry = geo;
 	}
 	weston_view_damage_below(view);
 	weston_view_schedule_repaint(view);
@@ -416,6 +416,7 @@ resize_grab_pointer_motion(struct weston_pointer_grab *grab,
 			   struct weston_pointer_motion_event *event)
 {
 	double dx, dy;
+	wl_fixed_t sx, sy;
 	struct grab_interface *gi = container_of(grab, struct grab_interface, pointer_grab);
 	struct desktop *d = gi->desktop;
 
@@ -428,15 +429,13 @@ resize_grab_pointer_motion(struct weston_pointer_grab *grab,
 
 	//then we have to encode the resizing event into
 	//now we deterine the motion
-	int32_t x = wl_fixed_to_int(grab->pointer->x);
-	int32_t y = wl_fixed_to_int(grab->pointer->y);
+	weston_view_from_global_fixed(gi->view, grab->pointer->x, grab->pointer->y,
+				      &sx, &sy);
 
 	struct layout_op arg = {
 		.v = gi->view,
-		.dx = (int32_t)dx,
-		.dy = (int32_t)dy,
-		.sx = x,
-		.sy = y,
+		.dx = dx, .dy = dy,
+		.sx = sx, .sy = sy,
 	};
 	arrange_view_for_workspace(ws, gi->view, DPSR_resize, &arg);
 }

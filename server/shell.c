@@ -782,13 +782,19 @@ shell_post_notification(struct shell *shell, uint32_t type, const char *msg)
 struct weston_geometry
 shell_output_available_space(struct shell *shell, struct weston_output *output)
 {
-	int ith = shell_ith_output(shell, output);
 	struct weston_geometry geo = {
 		output->x, output->y,
 		output->width, output->height
 	};
-	geo.y += (ith == 0) ? 32 : 0;
-	geo.height -= (ith == 0) ? 32 : 0;
+	struct shell_output *shell_output =
+		shell_output_from_weston_output(shell, output);
+
+	if (!shell_output || !shell_output->panel.binded)
+		return geo;
+	if (shell->panel_pos == TW_SHELL_PANEL_POS_TOP)
+		geo.y += shell_output->panel.binded->height;
+	else
+		geo.height -= shell_output->panel.binded->height;
 	return geo;
 }
 
