@@ -24,7 +24,6 @@ kc_xkb2linux(xkb_keycode_t keycode)
 	return keycode - 8;
 }
 
-
 static uint32_t
 modifier_mask_from_xkb_state(struct xkb_state *state)
 {
@@ -39,9 +38,6 @@ modifier_mask_from_xkb_state(struct xkb_state *state)
 		mask |= MODIFIER_SHIFT;
 	return mask;
 }
-
-
-
 
 struct tw_binding_node {
 	union {
@@ -59,7 +55,6 @@ struct tw_binding_node {
 
 };
 
-
 struct tw_bindings {
 	//root node for keyboard
 	struct tw_binding_node root_node;
@@ -68,8 +63,6 @@ struct tw_bindings {
 	vector_t weston_bindings;
 };
 
-
-
 //////////////////////////////////////////////////////////////////////////////
 // keybidning_grab interface
 //////////////////////////////////////////////////////////////////////////////
@@ -77,7 +70,6 @@ struct keybinding_container {
 	struct weston_keyboard_grab grab;
 	struct tw_binding_node *node;
 };
-
 
 static void
 tw_keybinding_key(struct weston_keyboard_grab *grab,
@@ -98,14 +90,14 @@ tw_keybinding_key(struct weston_keyboard_grab *grab,
 	for (int i = 0; i < vtree_len(&tree->node); i++) {
 		struct tw_binding_node *node =
 			vtree_container(vtree_ith_child(&tree->node, i));
-		//found our node
+		//end of a thread, hits a keybinding
 		if (node->keycode == keycode && node->modifier == mod) {
 			container->node = node;
 			hit = true;
 			if (vtree_len(&node->node) == 0) {
+				grab->interface->cancel(grab);
 				node->key_binding(keyboard, time, key,
 						  node->option, node->user_data);
-				grab->interface->cancel(grab);
 			}
 			break;
 		}
@@ -138,7 +130,6 @@ static struct weston_keyboard_grab_interface tw_keybinding_grab = {
 	.cancel = tw_keybinding_cancel,
 };
 
-
 static void
 tw_start_keybinding(struct weston_keyboard *keyboard,
 		    const struct timespec *time,
@@ -166,7 +157,6 @@ tw_start_keybinding(struct weston_keyboard *keyboard,
 				   &container->grab);
 }
 
-
 /////////////////////////////////////////////////////////////////////
 //tw_bindings
 /////////////////////////////////////////////////////////////////////
@@ -183,7 +173,6 @@ tw_bindings_create(struct weston_compositor *ec)
 	vector_init_zero(&root->weston_bindings, sizeof(struct weston_binding *), NULL);
 	return root;
 }
-
 
 void
 tw_bindings_destroy(struct tw_bindings *bindings)
@@ -271,7 +260,6 @@ tw_bindings_add_touch(struct tw_bindings *root,
 	new_binding->user_data = data;
 	return true;
 }
-
 
 /**
  * /brief add_key_bindings
@@ -388,7 +376,6 @@ tw_bindings_apply(struct tw_bindings *root)
 	vector_init_zero(&root->apply_list,
 			 sizeof(struct taiwins_binding), NULL);
 }
-
 
 static void print_node(const struct vtree_node *n)
 {

@@ -60,39 +60,49 @@
       <arg name="major" type="uint" summary="the major output"/>
       <arg name="msg" type="uint" summary="message about the output"/>
     </event>
+    <!-- <event name="output_rotation"> -->
+    <!-- </event> -->
 
-  <!--
-    <event name="output_rotation">
+    <!-- <event name="output_done"> -->
+    <!--   <description summary="mark the end of a series output configuration"/> -->
+    <!-- </event> -->
+
+    <event name="shell_msg">
+      <description summary="various configuration and msg sends to the client"/>
+      <arg name="key" type="uint" summary="the enum msg_type"/>
+      <!-- TODO change to array instead -->
+      <arg name="value" type="string" summary="values are coded in string"/>
     </event>
 
-    <event name="output_done">
-      <description summary="mark the end of a series output configuration"/>
-      </event>
-  -->
-  <event name="shell_msg">
-    <description summary="various configuration and msg sends to the client to
-			  respond"/>
-    <arg name="key" type="uint" summary="the enum msg_type"/>
-    <arg name="value" type="string" summary="values are coded in string, convert
-					     to int if you need"/>
-  </event>
-
-  <enum name="msg_type">
-    <!-- notifications to shell -->
-    <entry name="notification" value="0"/>
-    <!-- shell message -->
-    <entry name="panel_pos" value="1"
-	   summary="format: `%d`: tw_shell_panel_pos enum"/>
-    <entry name="wallpaper" value="2"
-	   summary="format: `%s`: wallpaper path"/>
-    <!-- desktop events -->
-    <entry name="switch_workspace" value="3"
-	   summary="format: `%d`: to which workspace"/>
-  </enum>
+    <enum name="msg_type">
+      <!-- notifications to shell -->
+      <entry name="notification" value="0"/>
+      <!-- shell message -->
+      <entry name="panel_pos" value="1"
+	     summary="format: `%d`: tw_shell_panel_pos enum"/>
+      <entry name="wallpaper" value="2"
+	     summary="format: `%s`: wallpaper path"/>
+      <!-- desktop events -->
+      <entry name="switch_workspace" value="3"
+	     summary="format: `%d`: to which workspace"/>
+      <entry name="task_switch_effect" value="4"
+	     summary="format: `%d`: type of "/>
+      <entry name="task_switching" value="5"
+	     summary="task switcher when you press alt-tab"/>
+    </enum>
 
     <enum name="panel_pos">
       <entry name="top" value="0"/>
       <entry name="bottom" value="1"/>
+    </enum>
+
+    <enum name="task_switch_effect">
+      <entry name="semi_tansparent" value="1"
+	     summary="sever do this part"/>
+      <entry name="boundary" value="2"
+	     summary="draw effects like ubuntu"/>
+      <entry name="list" value="3"
+	     summary="draw a window with the list of tasks"/>
     </enum>
 
   </interface>
