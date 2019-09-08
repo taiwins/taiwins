@@ -622,8 +622,8 @@ tiling_update(const enum layout_command command, const struct layout_op *arg,
  * do a vertical/horizental split
  */
 static void
-tiling_split(const enum layout_command command, const struct layout_op *arg,
-	     struct weston_view *v, struct layout *l,
+_tiling_split(const enum layout_command command, const struct layout_op *arg,
+	     struct weston_view *v, struct layout *l, bool vertical,
 	     struct layout_op *ops)
 {
 	struct tiling_output *tiling_output = tiling_output_find(l, v->output);
@@ -633,7 +633,7 @@ tiling_split(const enum layout_command command, const struct layout_op *arg,
 
 	//test if the view is the only child. So we do not need to split
 	if (parent->node.children.len <= 1) {
-		parent->vertical = arg->vertical_split;
+		parent->vertical = vertical;
 		ops[0].end = true;
 		return;
 	}
@@ -643,10 +643,26 @@ tiling_split(const enum layout_command command, const struct layout_op *arg,
 				     &tiling_output->curr_geo);
 	struct tiling_view *new_view = tiling_new_view(v);
 	view->v = NULL;
-	view->vertical = arg->vertical_split;
+	view->vertical = vertical;
 	tiling_view_insert(view, new_view, 0, &space, tiling_output);
 	int count = tiling_arrange_subtree(view, &space, ops, tiling_output);
 	ops[count].end = true;
+}
+
+static void
+tiling_vsplit(const enum layout_command command, const struct layout_op *arg,
+	      struct weston_view *v, struct layout *l,
+	      struct layout_op *ops)
+{
+	_tiling_split(command, arg, v, l, true, ops);
+}
+
+static void
+tiling_hsplit(const enum layout_command command, const struct layout_op *arg,
+	      struct weston_view *v, struct layout *l,
+	      struct layout_op *ops)
+{
+	_tiling_split(command, arg, v, l, false, ops);
 }
 
 static void
@@ -720,7 +736,8 @@ emplace_tiling(const enum layout_command command, const struct layout_op *arg,
 		{DPSR_deplace, emplace_noop},
 		{DPSR_toggle, tiling_toggle},
 		{DPSR_resize, tiling_resize},
-		{DPSR_split, tiling_split},
+		{DPSR_vsplit, tiling_vsplit},
+		{DPSR_hsplit, tiling_hsplit},
 		{DPSR_merge, tiling_merge},
 		{DPSR_output_resize, tiling_update},
 	};

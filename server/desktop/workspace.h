@@ -109,10 +109,8 @@ void workspace_resize_view(struct workspace *w, struct weston_view *v,
 			   wl_fixed_t x, wl_fixed_t y,
 			   double dx, double dy);
 
-void workspace_tiling_toggle_vertical(struct workspace *w, struct weston_view *v);
-void workspace_tiling_view_split(struct workspace *w, struct weston_view *v, bool vertical);
-void workspace_tiling_view_merge(struct workspace *w, struct weston_view *v);
-
+void workspace_view_run_command(struct workspace *w, struct weston_view *v,
+				enum layout_command command);
 
 //resize is done directly inside desktop for now
 bool workspace_remove_view(struct workspace *w, struct weston_view *v);

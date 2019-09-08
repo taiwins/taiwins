@@ -26,9 +26,10 @@ enum layout_command {
 	DPSR_add,
 	DPSR_del,
 	DPSR_deplace, //useful in floating.
-	DPSR_toggle, //toggle vertical or horizental, useful in tiling
+	DPSR_toggle, //toggle subspace into vertical or horizental
 	DPSR_resize, //useful in tiling
-	DPSR_split,
+	DPSR_vsplit,
+	DPSR_hsplit,
 	DPSR_merge,
 	DPSR_output_resize,
 };
@@ -59,9 +60,7 @@ struct layout_op {
 			//surface x, surface y
 			wl_fixed_t sx, sy;
 		};
-		float set_scale;
 		struct weston_output *o;
-		bool vertical_split;
 		struct weston_geometry default_geometry;
 	};
 };

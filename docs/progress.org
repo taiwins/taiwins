@@ -296,3 +296,15 @@
 
    Call EGLterminate and EGLreleaseThreads.
 ** TODO fix the memory leak in the ~taiwins_server~, massive leaks related to console implementation
+** TODO fix the memeory leak here:
+    #0 0x7fc95f38dada in __interceptor_malloc /build/gcc/src/gcc/libsanitizer/asan/asan_malloc_linux.cc:144
+    #1 0x56430a040cd6 in vector_erase /home/developer/Projects/taiwins/3rdparties/ctypes/src/vector.c:203
+    #2 0x56430a039125 in vtree_node_remove /home/developer/Projects/taiwins/3rdparties/ctypes/src/tree.h:76
+    #3 0x56430a03acd7 in tiling_view_erase /home/developer/Projects/taiwins/server/desktop/layout_tiling.c:313
+    #4 0x56430a03d337 in tiling_del /home/developer/Projects/taiwins/server/desktop/layout_tiling.c:547
+    #5 0x56430a03eba8 in emplace_tiling /home/developer/Projects/taiwins/server/desktop/layout_tiling.c:745
+    #6 0x56430a03509e in arrange_view_for_layout /home/developer/Projects/taiwins/server/desktop/workspace.c:140
+    #7 0x56430a03519c in arrange_view_for_workspace /home/developer/Projects/taiwins/server/desktop/workspace.c:159
+    #8 0x56430a036281 in workspace_remove_view /home/developer/Projects/taiwins/server/desktop/workspace.c:336
+    #9 0x56430a02fa5b in twdesk_surface_removed /home/developer/Projects/taiwins/server/desktop/desktop.c:189
+    #10 0x7fc95f230604  (/usr/lib/libweston-desktop-7.so.0+0x9604)
