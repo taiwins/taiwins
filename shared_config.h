@@ -56,8 +56,8 @@ struct taiwins_decision_key {
 
 
 struct taiwins_window_brief {
-	int8_t x,y,w,h;
-	const char name[32];
+	float x,y,w,h;
+	char name[32];
 };
 
 #ifdef __cplusplus

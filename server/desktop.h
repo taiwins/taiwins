@@ -44,7 +44,8 @@ void shell_create_ui_elem(struct shell *shell, struct wl_client *client,
 			  uint32_t tw_ui, struct wl_resource *wl_surface,
 			  uint32_t x, uint32_t y, enum tw_ui_type type);
 
-void shell_post_notification(struct shell *shell, uint32_t type, const char *msg);
+void shell_post_data(struct shell *shell, uint32_t type, struct wl_array *msg);
+void shell_post_message(struct shell *shell, uint32_t type, const char *msg);
 
 struct weston_geometry
 shell_output_available_space(struct shell *shell, struct weston_output *weston_output);
