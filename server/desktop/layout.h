@@ -62,6 +62,7 @@ struct layout_op {
 		float set_scale;
 		struct weston_output *o;
 		bool vertical_split;
+		struct weston_geometry default_geometry;
 	};
 };
 
