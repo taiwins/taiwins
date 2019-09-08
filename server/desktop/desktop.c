@@ -685,7 +685,8 @@ desktop_toggle_vertical(struct weston_keyboard *keyboard,
 	struct desktop *desktop = data;
 	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
 	struct workspace *ws = get_workspace_for_view(view, desktop);
-	workspace_tiling_toggle_vertical(ws, view);
+	if (ws)
+		workspace_view_run_command(ws, view, DPSR_toggle);
 }
 
 static void
@@ -717,7 +718,9 @@ desktop_split_view(struct weston_keyboard *keyboard,
 	struct desktop *desktop = data;
 	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
 	struct workspace *ws = get_workspace_for_view(view, desktop);
-	workspace_tiling_view_split(ws, view, option == 0);
+	if (ws)
+		workspace_view_run_command(
+			ws, view, (option == 0) ? DPSR_vsplit : DPSR_hsplit);
 }
 
 static void
@@ -732,7 +735,8 @@ desktop_merge_view(struct weston_keyboard *keyboard,
 	struct desktop *desktop = data;
 	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
 	struct workspace *ws = get_workspace_for_view(view, desktop);
-	workspace_tiling_view_merge(ws, view);
+	if (ws)
+		workspace_view_run_command(ws, view, DPSR_merge);
 }
 
 static void

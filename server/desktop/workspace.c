@@ -399,7 +399,6 @@ workspace_fullmax_view(struct workspace *w, struct weston_view *v, bool max)
 	if (max) {
 		apply_layout_operations(ops, 2);
 	}
-
 }
 
 void
@@ -443,36 +442,15 @@ workspace_minimize_view(struct workspace *w, struct weston_view *v)
 	//TODO: maybe focus on a view afterwards
 }
 
-
 void
-workspace_tiling_toggle_vertical(struct workspace *w, struct weston_view *v)
+workspace_view_run_command(struct workspace *w, struct weston_view *v,
+			   enum layout_command command)
 {
 	struct layout_op arg = {
 		.v = v,
 	};
-	arrange_view_for_workspace(w, v, DPSR_toggle, &arg);
+	arrange_view_for_workspace(w, v, command, &arg);
 }
-
-void
-workspace_tiling_view_split(struct workspace *w,
-			    struct weston_view *v, bool vertical)
-{
-	struct layout_op arg = {
-		.v = v,
-		.vertical_split = vertical,
-	};
-	arrange_view_for_workspace(w, v, DPSR_split, &arg);
-}
-
-void
-workspace_tiling_view_merge(struct workspace *w, struct weston_view *v)
-{
-	struct layout_op arg = {
-		.v = v,
-	};
-	arrange_view_for_workspace(w, v, DPSR_merge, &arg);
-}
-
 
 void
 workspace_switch_layout(struct workspace *w, struct weston_view *view)
