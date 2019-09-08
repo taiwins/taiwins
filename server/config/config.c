@@ -159,7 +159,7 @@ struct taiwins_config*
 taiwins_config_create(struct weston_compositor *ec, log_func_t log)
 {
 	struct taiwins_config *config =
-		calloc(1, sizeof(struct taiwins_config));
+		zalloc(sizeof(struct taiwins_config));
 
 	config->compositor = ec;
 	config->print = log;

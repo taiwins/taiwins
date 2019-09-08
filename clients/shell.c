@@ -338,7 +338,7 @@ static void
 desktop_shell_recv_msg(void *data,
 		       struct tw_shell *tw_shell,
 		       uint32_t type,
-		       const char *value)
+		       struct wl_array *arr)
 {
 	/* right now I think string is okay, but later it may get inefficient */
 	struct desktop_shell *shell = data;
@@ -346,10 +346,10 @@ desktop_shell_recv_msg(void *data,
 
 	switch (type) {
 	case TW_SHELL_MSG_TYPE_NOTIFICATION:
-		arg.s = value;
+		arg.s = arr->data;
 		break;
 	case TW_SHELL_MSG_TYPE_PANEL_POS:
-		arg.u = atoi(value);
+		arg.u = atoi((const char*)arr->data);
 		shell->panel_pos = arg.u == TW_SHELL_PANEL_POS_TOP ?
 			TW_SHELL_PANEL_POS_TOP : TW_SHELL_PANEL_POS_BOTTOM;
 		break;

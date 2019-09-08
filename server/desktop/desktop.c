@@ -3,12 +3,14 @@
 #include <unistd.h>
 #include <linux/input.h>
 #include <unistd.h>
+#include <wayland-util.h>
 #include <wayland-server.h>
 #include <helpers.h>
 #include <sequential.h>
 #include <wayland-taiwins-desktop-server-protocol.h>
 
 #define INCLUDE_DESKTOP
+#include "../../shared_config.h"
 #include "../taiwins.h"
 #include "../desktop.h"
 #include "../config.h"
@@ -16,6 +18,19 @@
 #include "workspace.h"
 
 #define MAX_WORKSPACE 8
+
+/**
+ * grab decleration, with different options.
+ */
+struct grab_interface {
+	union {
+		struct weston_pointer_grab pointer_grab;
+		struct weston_touch_grab touch_grab;
+		struct weston_keyboard_grab keyboard_grab;
+	};
+	/* need this struct to access the workspace */
+	struct weston_view *view;
+};
 
 struct desktop {
 	//does the desktop should have the shell ui layout? If that is the case,
@@ -26,7 +41,6 @@ struct desktop {
 	/* managing current status */
 	struct workspace *actived_workspace[2];
 	struct workspace workspaces[9];
-
 	struct weston_desktop *api;
 
 	struct wl_listener compositor_destroy_listener;
@@ -35,24 +49,14 @@ struct desktop {
 	struct wl_listener output_destroy_listener;
 	struct taiwins_apply_bindings_listener add_binding;
 	struct taiwins_config_component_listener config_component;
+	//grabs
+	struct grab_interface moving_grab;
+	struct grab_interface resizing_grab;
+	struct grab_interface task_switch_grab;
 	//params
 	unsigned int inner_gap, outer_gap;
-
+	enum tw_shell_task_switch_effect ts_effect;
 };
-
-/**
- * grab decleration, with different options.
- */
-struct grab_interface {
-	struct weston_pointer_grab pointer_grab;
-	struct weston_touch_grab touch_grab;
-	struct weston_keyboard_grab keyboard_grab;
-	/* need this struct to access the workspace */
-	struct desktop *desktop;
-	struct weston_view *view;
-	struct weston_compositor *compositor;
-};
-
 
 /***************************************************************
  * desktop APIs
@@ -87,36 +91,57 @@ desktop_set_worksace_layout(struct desktop *d, unsigned int i, enum layout_type 
 	w->current_layout = type;
 }
 
-
 /***************************************************************
  * grab interface apis
  **************************************************************/
-static struct grab_interface *
-grab_interface_create_for_pointer(struct weston_view *view, struct weston_seat *seat, struct desktop *desktop,
-	struct weston_pointer_grab_interface *g)
+static inline void
+grab_interface_init(struct grab_interface *gi,
+		    const struct weston_pointer_grab_interface *pi,
+		    const struct weston_keyboard_grab_interface *ki,
+		    const struct weston_touch_grab_interface *ti)
 {
-	assert(seat);
-	struct grab_interface *gi = calloc(sizeof(struct grab_interface), 1);
-	gi->view = view;
-	gi->compositor = seat->compositor;
-	gi->desktop = desktop;
-	//TODO find out the corresponding grab interface
-	gi->pointer_grab.interface = g;
-	gi->pointer_grab.pointer = weston_seat_get_pointer(seat);
-	//right now we do not have other grab
-	return gi;
+	if (pi)
+		gi->pointer_grab.interface = pi;
+	else if (ki)
+		gi->keyboard_grab.interface = ki;
+	else if (ti)
+		gi->touch_grab.interface = ti;
 }
 
-static void
-grab_interface_destroy(struct grab_interface *gi)
+static inline void
+grab_interface_fini(struct grab_interface *gi)
 {
-	free(gi);
+	gi->view = NULL;
 }
 
+static inline void
+grab_interface_start_pointer(struct grab_interface *gi, struct weston_view *v,
+			     struct weston_seat *seat)
+{
+	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
 
-static struct weston_pointer_grab_interface desktop_moving_grab;
-static struct weston_pointer_grab_interface desktop_resizing_grab;
+	if (gi->view)
+		return;
+	gi->view = v;
+	gi->pointer_grab.pointer = pointer;
+	if (pointer && pointer->grab == &pointer->default_grab) {
+		weston_pointer_start_grab(pointer, &gi->pointer_grab);
+	}
+}
 
+static inline void
+grab_interface_start_keyboard(struct grab_interface *gi, struct weston_view *v,
+			      struct weston_seat *seat)
+{
+	struct weston_keyboard *keyboard = weston_seat_get_keyboard(seat);
+
+	if (gi->view)
+		return;
+	gi->view = v;
+	gi->keyboard_grab.keyboard = keyboard;
+	if (keyboard && keyboard->grab == &keyboard->default_grab)
+		weston_keyboard_start_grab(keyboard, &gi->keyboard_grab);
+}
 
 /***************************************************************
  * libweston_desktop implementation
@@ -233,17 +258,12 @@ static void
 twdesk_surface_move(struct weston_desktop_surface *desktop_surface,
 		    struct weston_seat *seat, uint32_t serial, void *user_data)
 {
-	struct grab_interface *gi;
 	struct desktop *desktop = user_data;
 	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
 	struct weston_surface *surface = weston_desktop_surface_get_surface(desktop_surface);
 	struct weston_view *view = tw_default_view_from_surface(surface);
-//	struct weston_touch *touch = weston_seat_get_touch(seat);
-	if (pointer && pointer->focus && pointer->button_count > 0) {
-		gi = grab_interface_create_for_pointer(view, seat, desktop,
-						       &desktop_moving_grab);
-		weston_pointer_start_grab(pointer, &gi->pointer_grab);
-	}
+	if (pointer && pointer->focus && pointer->button_count > 0)
+		grab_interface_start_pointer(&desktop->moving_grab, view, seat);
 }
 
 
@@ -252,16 +272,16 @@ twdesk_surface_resize(struct weston_desktop_surface *desktop_surface,
 		      struct weston_seat *seat, uint32_t serial,
 		      enum weston_desktop_surface_edge edges, void *user_data)
 {
-	struct grab_interface *gi;
 	struct desktop *desktop = user_data;
-	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
-	struct weston_surface *surface = weston_desktop_surface_get_surface(desktop_surface);
-	struct weston_view *view = tw_default_view_from_surface(surface);
-	if (pointer && pointer->focus && pointer->button_count > 0) {
-		gi = grab_interface_create_for_pointer(view, seat, desktop,
-						       &desktop_resizing_grab);
-		weston_pointer_start_grab(pointer, &gi->pointer_grab);
-	}
+	struct weston_pointer *pointer =
+		weston_seat_get_pointer(seat);
+	struct weston_surface *surface =
+		weston_desktop_surface_get_surface(desktop_surface);
+	struct weston_view *view =
+		tw_default_view_from_surface(surface);
+	if (pointer && pointer->focus && pointer->button_count > 0)
+		grab_interface_start_pointer(
+			&desktop->resizing_grab, view, seat);
 }
 
 static void
@@ -430,7 +450,7 @@ move_grab_pointer_motion(struct weston_pointer_grab *grab,
 {
 	double dx, dy;
 	struct grab_interface *gi = container_of(grab, struct grab_interface, pointer_grab);
-	struct desktop *d = gi->desktop;
+	struct desktop *d = container_of(gi, struct desktop, moving_grab);
 
 	struct workspace *ws = d->actived_workspace[0];
 	//this func change the pointer->x pointer->y
@@ -454,7 +474,8 @@ resize_grab_pointer_motion(struct weston_pointer_grab *grab,
 	/* struct weston_position pos; */
 	struct grab_interface *gi =
 		container_of(grab, struct grab_interface, pointer_grab);
-	struct desktop *d = gi->desktop;
+	struct desktop *d = container_of(gi, struct desktop,
+					 resizing_grab);
 
 	struct workspace *ws = d->actived_workspace[0];
 	//this func change the pointer->x pointer->y
@@ -483,7 +504,7 @@ pointer_grab_cancel(struct weston_pointer_grab *grab)
 	//an universal implemention, destroy the grab all the time
 	struct grab_interface *gi = container_of(grab, struct grab_interface, pointer_grab);
 	weston_pointer_end_grab(grab->pointer);
-	grab_interface_destroy(gi);
+	grab_interface_fini(gi);
 }
 
 static void
@@ -497,10 +518,46 @@ move_grab_button(struct weston_pointer_grab *grab, const struct timespec *time,
 		pointer_grab_cancel(grab);
 }
 
+
+/*************************************************
+ * keybaord grab
+ ************************************************/
 static void
 task_switch_grab_key(struct weston_keyboard_grab *grab,
 		     const struct timespec *time, uint32_t key, uint32_t state)
 {
+	if (state == WL_KEYBOARD_KEY_STATE_RELEASED) {
+		grab->interface->cancel(grab);
+		return;
+	}
+	struct grab_interface *gi = container_of(grab, struct grab_interface,
+						 keyboard_grab);
+	struct desktop *d = container_of(gi, struct desktop, task_switch_grab);
+	struct workspace *w = d->actived_workspace[0];
+	struct wl_list *link = w->recent_views.next;
+	struct wl_array tosent;
+	struct taiwins_window_brief *brief;
+
+	wl_array_init(&tosent);
+	wl_array_add(&tosent, sizeof(struct taiwins_window_brief) *
+		     wl_list_length(&w->recent_views));
+	//build the list of recent views.
+	wl_array_for_each(brief, &tosent) {
+		struct recent_view *rv =
+			container_of(link, struct recent_view, link);
+		struct weston_desktop_surface *surface =
+			weston_surface_get_desktop_surface(rv->view->surface);
+		strncpy(brief->name, weston_desktop_surface_get_title(surface),
+			sizeof(brief->name));
+		recent_view_get_origin_coord(rv, &brief->x, &brief->y);
+		brief->w = rv->view->surface->width;
+		brief->h = rv->view->surface->height;
+		link = link->next;
+	}
+	shell_post_data(d->shell, TW_SHELL_MSG_TYPE_TASK_SWITCHING,
+			&tosent);
+	wl_array_release(&tosent);
+
 }
 
 static void
@@ -512,12 +569,19 @@ task_switch_grab_modifier(struct weston_keyboard_grab *grab,
 
 static void
 task_switch_grab_cancel(struct weston_keyboard_grab *grab)
-{}
+{
+	struct grab_interface *gi = container_of(grab, struct grab_interface,
+						 keyboard_grab);
+	struct desktop *d = container_of(gi, struct desktop, task_switch_grab);
+	shell_post_message(d->shell, TW_SHELL_MSG_TYPE_SWITCH_WORKSPACE, "");
+	weston_keyboard_end_grab(grab->keyboard);
+	grab_interface_fini(gi);
+}
 
-static struct weston_keyboard_grab desktop_task_switch_grab = {
+static struct weston_keyboard_grab_interface desktop_task_switch_grab = {
 	.key = task_switch_grab_key,
 	.modifiers = task_switch_grab_modifier,
-	.cancel =
+	.cancel = task_switch_grab_cancel,
 };
 
 static struct weston_pointer_grab_interface desktop_moving_grab = {
@@ -563,16 +627,13 @@ desktop_click_move(struct weston_pointer *pointer,
 		   const struct timespec *time,
 		   uint32_t button, void *data)
 {
-	struct grab_interface *gi = NULL;
 	struct weston_seat *seat = pointer->seat;
 	struct weston_view *view = pointer->focus;
 	struct desktop *desktop = data;
-	if (pointer->button_count > 0 && view && is_view_on_desktop(view, desktop)) {
-		gi = grab_interface_create_for_pointer(view, seat, desktop,
-						       &desktop_moving_grab);
-		weston_pointer_start_grab(pointer, &gi->pointer_grab);
-	}
-
+	if (pointer->button_count > 0 && view &&
+	    is_view_on_desktop(view, desktop) &&
+	    pointer->grab == &pointer->default_grab)
+		grab_interface_start_pointer(&desktop->moving_grab, view, seat);
 }
 
 static void
@@ -639,9 +700,8 @@ desktop_workspace_switch(struct weston_keyboard *keyboard,
 	//send msgs, those type of message
 	char msg[32];
 	snprintf(msg, 32, "%d", (uint32_t)ws_idx);
-	shell_post_notification(desktop->shell,
-				TW_SHELL_MSG_TYPE_SWITCH_WORKSPACE,
-				msg);
+	shell_post_message(desktop->shell,
+			   TW_SHELL_MSG_TYPE_SWITCH_WORKSPACE, msg);
 }
 
 
@@ -775,10 +835,15 @@ desktop_recent_view(struct weston_keyboard *keyboard,
 		//move view to the back
 		wl_list_remove(&rv->link);
 		wl_list_insert(ws->recent_views.prev, &rv->link);
-		//here, apply the transparent effect, we need a new grab
-
-		//get next view, it maybe yourself if there is only one view
 		rv = &tmp->link != &ws->recent_views ? tmp : rv;
+		//start the grab now
+		grab_interface_start_keyboard(&desktop->task_switch_grab,
+					      rv->view, keyboard->seat);
+		//and we need run the key as well.
+		keyboard->grab->interface->key(
+			keyboard->grab,time, key,
+			WL_KEYBOARD_KEY_STATE_PRESSED);
+
 		workspace_focus_view(ws, rv->view);
 		tw_focus_surface(rv->view->surface);
 		break;
@@ -1043,7 +1108,14 @@ announce_desktop(struct weston_compositor *ec, struct shell *shell,
 	DESKTOP.api = weston_desktop_create(ec, &desktop_impl, &DESKTOP);
 	//setup listeners
 	struct weston_output *output;
-
+	//install grab
+	grab_interface_init(&DESKTOP.moving_grab,
+			    &desktop_moving_grab, NULL, NULL);
+	grab_interface_init(&DESKTOP.resizing_grab,
+			    &desktop_resizing_grab, NULL, NULL);
+	grab_interface_init(&DESKTOP.task_switch_grab,
+			    NULL, &desktop_task_switch_grab, NULL);
+	//install signals
 	wl_list_init(&DESKTOP.output_create_listener.link);
 	wl_list_init(&DESKTOP.output_destroy_listener.link);
 	wl_list_init(&DESKTOP.output_resize_listener.link);
@@ -1063,11 +1135,10 @@ announce_desktop(struct weston_compositor *ec, struct shell *shell,
 	wl_list_for_each(output, &ec->output_list, link)
 		desktop_output_created(&DESKTOP.output_create_listener,
 				       output);
-
+	//install bindings
 	wl_list_init(&DESKTOP.add_binding.link);
 	DESKTOP.add_binding.apply = desktop_add_bindings;
 	taiwins_config_add_apply_bindings(config, &DESKTOP.add_binding);
-
 
 	wl_list_init(&DESKTOP.config_component.link);
 	DESKTOP.config_component.init = desktop_init_config_component;

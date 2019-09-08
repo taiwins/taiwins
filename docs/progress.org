@@ -209,6 +209,17 @@
    write cmake install commands
 
 * TODO [25%]Stage three: extensions
+*** TODO possibly remove dynamic allocated objects
+    reduce number of mallocs and memory fragmentation.
+    - recent_view
+    - tiling_view tree
+    - tiling_output_list where it has a root of tiling
+    - tw_ui(for console)
+    - keyboard_container for taiwins_binding
+    - taiwins_config (temporary)
+    - taiwins_binding (temporary)
+    - lua_state
+    - taiwins_config options(a vector)
 *** TODO adding support for notification. All those can be implement
 *** TODO adding support for cursor menu(right-click),
     special case we need to handle for background, which is not ideal for

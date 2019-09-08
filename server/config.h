@@ -60,6 +60,7 @@ static inline int _lua_stackcheck(lua_State *L, int size)
 {
 	if (lua_gettop(L) != size)
 		return luaL_error(L, "invalid number of args, expected %d\n", size);
+	return 0;
 }
 
 struct taiwins_config_component_listener {

@@ -71,7 +71,7 @@
       <description summary="various configuration and msg sends to the client"/>
       <arg name="key" type="uint" summary="the enum msg_type"/>
       <!-- TODO change to array instead -->
-      <arg name="value" type="string" summary="values are coded in string"/>
+      <arg name="value" type="array" summary="various data values"/>
     </event>
 
     <enum name="msg_type">
@@ -88,7 +88,7 @@
       <entry name="task_switch_effect" value="4"
 	     summary="format: `%d`: type of "/>
       <entry name="task_switching" value="5"
-	     summary="task switcher when you press alt-tab"/>
+	     summary="format: list of taiwins_window_brief"/>
     </enum>
 
     <enum name="panel_pos">
@@ -97,11 +97,9 @@
     </enum>
 
     <enum name="task_switch_effect">
-      <entry name="semi_tansparent" value="1"
-	     summary="sever do this part"/>
-      <entry name="boundary" value="2"
+      <entry name="boundary" value="1"
 	     summary="draw effects like ubuntu"/>
-      <entry name="list" value="3"
+      <entry name="list" value="2"
 	     summary="draw a window with the list of tasks"/>
     </enum>
 
