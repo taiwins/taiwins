@@ -497,6 +497,29 @@ move_grab_button(struct weston_pointer_grab *grab, const struct timespec *time,
 		pointer_grab_cancel(grab);
 }
 
+static void
+task_switch_grab_key(struct weston_keyboard_grab *grab,
+		     const struct timespec *time, uint32_t key, uint32_t state)
+{
+}
+
+static void
+task_switch_grab_modifier(struct weston_keyboard_grab *grab,
+			  uint32_t serial, uint32_t mods_depressed,
+			  uint32_t mods_latched,
+			  uint32_t mods_locked, uint32_t group)
+{}
+
+static void
+task_switch_grab_cancel(struct weston_keyboard_grab *grab)
+{}
+
+static struct weston_keyboard_grab desktop_task_switch_grab = {
+	.key = task_switch_grab_key,
+	.modifiers = task_switch_grab_modifier,
+	.cancel =
+};
+
 static struct weston_pointer_grab_interface desktop_moving_grab = {
 	.focus = noop_grab_focus,
 	.motion = move_grab_pointer_motion,
@@ -752,6 +775,8 @@ desktop_recent_view(struct weston_keyboard *keyboard,
 		//move view to the back
 		wl_list_remove(&rv->link);
 		wl_list_insert(ws->recent_views.prev, &rv->link);
+		//here, apply the transparent effect, we need a new grab
+
 		//get next view, it maybe yourself if there is only one view
 		rv = &tmp->link != &ws->recent_views ? tmp : rv;
 		workspace_focus_view(ws, rv->view);
