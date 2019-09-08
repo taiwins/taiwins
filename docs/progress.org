@@ -37,7 +37,7 @@
 
 *** DONE change the ui element start or close implimentation
 
-* TODO [14%] Stage two: feature completion
+* TODO [28%] Stage two: feature completion
   - supporting multiple monitors/seats.
   - weston view focus defocus
   - a few different extensions.
@@ -121,8 +121,8 @@
     One simple solution would be giving names. Since shell/desktop/console
     provides those functions, we hope to keep them local
 
-** DOIN [71%] libweston-desktop implementation                       :server:
-*** DOIN [#C] implement the libweston-desktop protocol                :proto:
+** DONE [100%] libweston-desktop implementation                      :server:
+*** DONE [#C] implement the libweston-desktop protocol                :proto:
 *** DONE desktop layer architecture
 *** DONE simple random floating implementation
 *** DONE tiling layout
@@ -239,7 +239,12 @@
     for this to work, we probably will need ~radix tree~ or ~trie~ or hash
     table.
 
-* [20%] Bugs
+* [12%] Bugs
+** TODO [#A] recent view has some bugs,
+   - for example, if an application in fullscreen mode, when you toggle views,
+     the other views does not show up.
+   - Othe bugs
+
 ** a completion based text_edit
    - ~nk_egl_get_key~ gets NoSymbol very 2 frames, so if you press Tab twice,
      what you get is Tab -> NoSymbol -> Tab -> NoSymbol. NoSymbol resets the
@@ -288,4 +293,6 @@
 ** TODO EGL memory leak
    after testing with cairo backend, I can be sure that my code does not contain
    any memory leak, so the problem lies within EGL side
+
+   Call EGLterminate and EGLreleaseThreads.
 ** TODO fix the memory leak in the ~taiwins_server~, massive leaks related to console implementation
