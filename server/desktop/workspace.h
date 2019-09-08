@@ -57,10 +57,14 @@ struct recent_view {
 	*/
 
 	struct weston_geometry visible_geometry;
+	struct weston_geometry old_geometry;
 	struct wl_list link;
 	enum layout_type type;
 };
 
+/*************************************************************
+ * recent views
+ ************************************************************/
 struct recent_view *recent_view_create(struct weston_view *view, enum layout_type layout);
 void recent_view_destroy(struct recent_view *);
 
@@ -74,8 +78,6 @@ get_recent_view(struct weston_view *v)
 	return rv;
 }
 
-
-
 static inline void
 recent_view_get_origin_coord(const struct recent_view *v, float *x, float *y)
 {
@@ -83,18 +85,16 @@ recent_view_get_origin_coord(const struct recent_view *v, float *x, float *y)
 	*y = v->view->geometry.y + v->visible_geometry.y;
 }
 
-extern size_t workspace_size;
 
+/************************************************************
+ * workspace API
+ ***********************************************************/
 void workspace_init(struct workspace *wp, struct weston_compositor *compositor);
 void workspace_release(struct workspace *);
 void workspace_switch(struct workspace *to, struct workspace *from,
 		      struct weston_keyboard *keyboard);
 
 const char *workspace_layout_name(struct workspace *ws);
-
-void arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
-				const enum layout_command command,
-				const struct layout_op *arg);
 
 bool is_view_on_workspace(const struct weston_view *v, const struct workspace *ws);
 bool is_workspace_empty(const struct workspace *ws);
@@ -104,11 +104,23 @@ bool workspace_focus_view(struct workspace *ws, struct weston_view *v);
 void workspace_add_view(struct workspace *w, struct weston_view *view);
 bool workspace_move_view(struct workspace *w, struct weston_view *v,
 				  const struct weston_position *pos);
+
+void workspace_resize_view(struct workspace *w, struct weston_view *v,
+			   wl_fixed_t x, wl_fixed_t y,
+			   double dx, double dy);
+
+void workspace_tiling_toggle_vertical(struct workspace *w, struct weston_view *v);
+void workspace_tiling_view_split(struct workspace *w, struct weston_view *v, bool vertical);
+void workspace_tiling_view_merge(struct workspace *w, struct weston_view *v);
+
+
+//resize is done directly inside desktop for now
 bool workspace_remove_view(struct workspace *w, struct weston_view *v);
+void workspace_fullscreen_view(struct workspace *w, struct weston_view *v, bool fullscreen);
+void workspace_maximize_view(struct workspace *w, struct weston_view *v, bool maximized);
+void workspace_minimize_view(struct workspace *w, struct weston_view *v);
 
 void workspace_switch_layout(struct workspace *w, struct weston_view *v);
-
-
 void workspace_add_output(struct workspace *wp, struct taiwins_output *output);
 void workspace_remove_output(struct workspace *w, struct weston_output *output);
 void workspace_resize_output(struct workspace *wp, struct taiwins_output *output);

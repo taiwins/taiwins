@@ -46,14 +46,20 @@ floating_add(const enum layout_command command, const struct layout_op *arg,
 		v->output->x, v->output->y,
 		v->output->width, v->output->height,
 	};
-
+	if (arg->default_geometry.width != -1 &&
+	    arg->default_geometry.height != -1) {
+		ops[0].pos.x = arg->default_geometry.x;
+		ops[0].pos.y = arg->default_geometry.y;
+		ops[0].size.width = arg->default_geometry.width;
+		ops[0].size.height = arg->default_geometry.height;
+	} else {
+		ops[0].pos.x = rand() % (geo.width / 4);
+		ops[0].pos.y = rand() % (geo.height / 4);
+		//so this is invalid size
+		ops[0].size.width = 0;
+		ops[0].size.height = 0;
+	}
 	assert(!ops[0].end);
-	ops[0].pos.x = rand() % (geo.width / 2);
-	ops[0].pos.y = rand() % (geo.height / 2);
-	//so this is invalid size
-	ops[0].size.width = 0;
-	ops[0].size.height = 0;
-
 	ops[0].end = false;
 	ops[0].v = v;
 	ops[1].end = 1;

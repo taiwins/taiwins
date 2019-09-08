@@ -99,9 +99,9 @@ tiling_layout_init(struct layout *l, struct weston_layer *ly, struct layout *flo
 	user_data->floating = floating;
 
 	l->command = emplace_tiling;
-	//change this, now you have to consider the option that someone unplug
-	//the monitor
-	vector_init(&user_data->outputs, sizeof(struct tiling_output), _free_tiling_output);
+	vector_init(&user_data->outputs,
+		    sizeof(struct tiling_output),
+		    _free_tiling_output);
 }
 
 void
@@ -113,9 +113,11 @@ tiling_layout_end(struct layout *l)
 	free(user_data);
 }
 
-//right now we just assume output is stable. If you turn off the monitor we
-//should lost this output though
-void tiling_add_output(struct layout *l, struct taiwins_output *o)
+/****************************************************************
+ * tiling output
+ ***************************************************************/
+void
+tiling_add_output(struct layout *l, struct taiwins_output *o)
 {
 	struct tiling_user_data *user_data =  l->user_data;
 	struct tiling_output output;
@@ -134,7 +136,8 @@ void tiling_add_output(struct layout *l, struct taiwins_output *o)
 	vector_append(&user_data->outputs, &output);
 }
 
-void tiling_rm_output(struct layout *l, struct weston_output *o)
+void
+tiling_rm_output(struct layout *l, struct weston_output *o)
 {
 	struct tiling_user_data *user_data =  l->user_data;
 
@@ -167,6 +170,9 @@ tiling_resize_output(struct layout *l, struct taiwins_output *o)
 	output->outer_gap = o->outer_gap;
 }
 
+/**************************************************************
+ * tiling view tree operations
+ *************************************************************/
 static inline struct tiling_view *
 tiling_view_ith_node(struct tiling_view *parent, off_t index)
 {
@@ -469,55 +475,51 @@ tiling_arrange_subtree(struct tiling_view *subtree, struct weston_geometry *geo,
 	return count;
 }
 
-static struct tiling_view*
-tiling_find_launch_point(struct layout *l)
+static inline struct tiling_view *
+tiling_focused_view(struct layout *l)
 {
-	//this works for now
-	struct weston_layer *layer = l->layer;
-	struct tiling_user_data *user_data = l->user_data;
-	struct weston_layer *floating_layer = user_data->floating->layer;
-	//try to get the launch node
-	struct tiling_view *pv = NULL;
-	//if the layout is not empty.
-	struct tiling_view *tv;
-	if (wl_list_length(&layer->view_list.link) > 0) {
-		struct weston_view *focused_view =
-			container_of(layer->view_list.link.next, struct weston_view,
-				     layer_link.link);
-		struct tiling_output *to =
-			tiling_output_find(l, focused_view->output);
-		tv = tiling_view_find(to->root, focused_view);
-	} else if (wl_list_length(&floating_layer->view_list.link) > 0) {
-		struct weston_view *focused_view =
-			container_of(floating_layer->view_list.link.next, struct weston_view,
-				     layer_link.link);
-		struct tiling_output *to =
-			tiling_output_find(l, focused_view->output);
-		tv = to->root;
-	} else {
-		struct tiling_output *to = vector_at(&user_data->outputs, 0);
-		tv = to->root;
-	}
+	struct weston_view *focused_view =
+		container_of(l->layer->view_list.link.next, struct weston_view,
+			     layer_link.link);
+	return tiling_view_find(
+		tiling_output_find(l, focused_view->output)->root,
+		focused_view);
+}
+
+
+/* the launch point is based on last focused view */
+static struct tiling_view*
+tiling_find_launch_point(struct layout *l, struct tiling_output *to)
+{
+	//parent view, focused view
+	struct tiling_view *pv, *fv =
+		wl_list_length(&l->layer->view_list.link) > 0 ?
+		tiling_focused_view(l) : to->root;
 	//test if tv is root node
-	pv = (tv->node.parent) ?
-		container_of(tv->node.parent, struct tiling_view, node) : tv;
-	//test if tv is too deep, we shouldn't do it here, it should be in the split
+	pv = (fv->node.parent) ?
+		container_of(fv->node.parent, struct tiling_view, node) : fv;
+	//test if tv is too deep.
 	pv = (pv->level >= 31) ?
 		container_of(pv->node.parent, struct tiling_view, node) : pv;
-
 	return pv;
 }
 
-/**
- * we need this and we need a additional split call
- */
+
+/*****************************************************************
+ * tiling apis
+ ****************************************************************/
 static void
 tiling_add(const enum layout_command command, const struct layout_op *arg,
 	   struct weston_view *v, struct layout *l,
 	   struct layout_op *ops)
 {
-	//find launch point
-	struct tiling_view *pv = tiling_find_launch_point(l);
+	//insert view based on lasted focused view
+	struct tiling_output *to = tiling_output_find(l, v->output);
+	//TODO remove this hack: because v is already in the layer link, we need
+	//to temporarily remove it to get the correct result
+	weston_layer_entry_remove(&v->layer_link);
+	struct tiling_view *pv = tiling_find_launch_point(l, to);
+	weston_layer_entry_insert(&l->layer->view_list, &v->layer_link);
 	struct tiling_output *tiling_output = tiling_output_find(l, pv->output);
 	struct tiling_view *root = tiling_output->root;
 	struct weston_geometry space =
