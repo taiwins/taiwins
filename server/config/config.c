@@ -14,17 +14,6 @@
 
 #include "config_internal.h"
 
-
-
-/* //we should have wl_list as well. */
-/* struct apply_bindings_t { */
-/*	struct wl_list node; */
-/*	tw_bindings_apply_func_t func; */
-/*	void *data; */
-/* }; */
-
-
-
 //////////////////////////////////////////////////////////////////
 ////////////////////////////// API ///////////////////////////////
 //////////////////////////////////////////////////////////////////
@@ -55,10 +44,10 @@ swap_listener(struct wl_list *dst, struct wl_list *src)
 static void
 taiwins_config_apply_default(struct taiwins_config *c)
 {
-	c->default_floating = true;
 	//compositor setup
-	c->compositor->kb_repeat_delay = 400;
-	c->compositor->kb_repeat_rate = 40;
+	c->compositor->kb_repeat_delay = -1;
+	c->compositor->kb_repeat_rate = -1;
+	c->xkb_rules = (struct xkb_rule_names){0};
 	//apply bindings
 	c->builtin_bindings[TW_QUIT_BINDING] = (struct taiwins_binding) {
 		.keypress = {{KEY_F12, 0}, {0}, {0}, {0}, {0}},
@@ -160,7 +149,7 @@ taiwins_config_create(struct weston_compositor *ec, log_func_t log)
 {
 	struct taiwins_config *config =
 		zalloc(sizeof(struct taiwins_config));
-
+	config->err_msg = NULL;
 	config->compositor = ec;
 	config->print = log;
 	config->quit = false;
@@ -177,14 +166,16 @@ taiwins_config_create(struct weston_compositor *ec, log_func_t log)
 static inline void
 _taiwins_config_release(struct taiwins_config *config)
 {
-	if (config->rules.layout)
-		free((void *)config->rules.layout);
-	if (config->rules.model)
-		free((void *)config->rules.model);
-	if (config->rules.options)
-		free((void *)config->rules.options);
-	if (config->rules.variant)
-		free((void *)config->rules.variant);
+	if (config->xkb_rules.layout)
+		free((void *)config->xkb_rules.layout);
+	if (config->xkb_rules.model)
+		free((void *)config->xkb_rules.model);
+	if (config->xkb_rules.options)
+		free((void *)config->xkb_rules.options);
+	if (config->xkb_rules.variant)
+		free((void *)config->xkb_rules.variant);
+	if (config->err_msg)
+		free(config->err_msg);
 
 	vector_destroy(&config->lua_bindings);
 	if (config->L)
@@ -220,14 +211,12 @@ taiwins_swap_config(struct taiwins_config *dst, struct taiwins_config *src)
 	dst->L = src->L;
 	dst->bindings = src->bindings;
 	dst->lua_bindings = src->lua_bindings;
-	dst->rules = src->rules;
-	dst->default_floating = src->default_floating;
+	dst->xkb_rules = src->xkb_rules;
 	swap_listener(&dst->apply_bindings, &src->apply_bindings);
 	swap_listener(&dst->lua_components, &src->lua_components);
 
 	free(src);
 }
-
 
 static void
 taiwins_config_try_config(struct taiwins_config *config)
@@ -236,12 +225,9 @@ taiwins_config_try_config(struct taiwins_config *config)
 
 	taiwins_config_init_luastate(config);
 	taiwins_config_apply_default(config);
-
 	safe = safe && !luaL_loadfile(config->L, config->path);
 	safe = safe && !lua_pcall(config->L, 0, 0, 0);
-	if (!safe)
-		weston_log("Lua config error: %s\n", lua_tostring(config->L, -1));
-	//try apply bindings
+
 	struct tw_bindings *bindings = taiwins_config_get_bindings(config);
 	struct taiwins_apply_bindings_listener *listener;
 	if (safe)
@@ -271,9 +257,28 @@ taiwins_config_try_config(struct taiwins_config *config)
 	config->quit = config->quit || !safe;
 }
 
+/**
+ * @brief apply options we accumulated in the lua run
+ */
+static void
+taiwins_config_apply_cached(struct taiwins_config *config)
+{
+	if (config->xkb_rules.layout || config->xkb_rules.model ||
+	    config->xkb_rules.options || config->xkb_rules.rules ||
+	    config->xkb_rules.variant) {
+		//this one should have runtime effect if weston finally took my patch
+		weston_compositor_set_xkb_rule_names(config->compositor, &config->xkb_rules);
+		config->xkb_rules = (struct xkb_rule_names){0};
+	}
+	if (config->kb_delay > 0 && config->kb_repeat) {
+		config->compositor->kb_repeat_rate = config->kb_repeat;
+		config->compositor->kb_repeat_delay = config->kb_delay;
+		config->kb_delay = (config->kb_repeat = -1);
+	}
+}
 
 /**
- * /brief run/rerun the configurations.
+ * @brief run/rerun the configurations.
  *
  * right now we can only run once.
  */
@@ -302,21 +307,27 @@ taiwins_run_config(struct taiwins_config *config, const char *path)
 		//clean up the bindings we have right now
 		tw_bindings_apply(bindings);
 		taiwins_swap_config(config, temp_config);
+		taiwins_config_apply_cached(config);
 		//run all the hooks registered
 		vector_for_each(opt, &config->option_hooks)
 			wl_list_for_each(listener, &opt->listener_list, link)
 				listener->apply(config, listener);
 	} else {
-		//TODO problem is that we cannot provide detailed error. Maybe
-		//weston_log could do something?
-		weston_log("%s is not a valid config file", config->path);
+		if (config->err_msg)
+			free(config->err_msg);
+		config->err_msg = strdup(lua_tostring(temp_config->L, -1));
 		swap_listener(&config->apply_bindings, &temp_config->apply_bindings);
 		swap_listener(&config->lua_components, &temp_config->lua_components);
-
 		taiwins_config_destroy(temp_config);
 	}
 
 	return (!error);
+}
+
+const char *
+taiwins_config_retrieve_error(struct taiwins_config *config)
+{
+	return config->err_msg;
 }
 
 const struct taiwins_binding *
@@ -326,7 +337,6 @@ taiwins_config_get_builtin_binding(struct taiwins_config *c,
 	assert(type < TW_BUILTIN_BINDING_SIZE);
 	return &c->builtin_bindings[type];
 }
-
 
 void
 taiwins_config_add_apply_bindings(struct taiwins_config *c,
@@ -341,7 +351,6 @@ taiwins_config_add_component(struct taiwins_config *c,
 {
 	wl_list_insert(&c->lua_components, &listener->link);
 }
-
 
 void
 taiwins_config_add_option_listener(struct taiwins_config *config, const char *key,

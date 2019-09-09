@@ -16,19 +16,20 @@ struct taiwins_config {
 	struct tw_bindings *bindings;
 	lua_State *L;
 	log_func_t print;
-
-	struct xkb_rule_names rules;
+	char *err_msg;
+	bool quit;
 
 	struct wl_list lua_components;
 	struct wl_list apply_bindings;
-	/* vector of list */
 	vector_t option_hooks;
-
-	bool default_floating;
-	bool quit;
+	struct { //compositor option caches
+		struct xkb_rule_names xkb_rules;
+		int32_t kb_repeat;
+		int32_t kb_delay;
+	};
 	/* user bindings */
 	vector_t lua_bindings;
-	/* user bindings */
+	/* builtin bindings */
 	struct taiwins_binding builtin_bindings[TW_BUILTIN_BINDING_SIZE];
 };
 

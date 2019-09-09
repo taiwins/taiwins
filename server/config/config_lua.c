@@ -332,12 +332,8 @@ static int
 _lua_set_keyboard_model(lua_State *L)
 {
 	struct taiwins_config *c = to_user_config(L);
-	if (!_lua_isstring(L, 2)) {
-		c->quit = true;
-		return 0;
-	}
-	const char *model = lua_tostring(L, 2);
-	c->rules.model = strdup(model);
+	_lua_stackcheck(L, 2);
+	c->xkb_rules.model = strdup(luaL_checkstring(L, 2));
 	return 0;
 }
 
@@ -345,12 +341,8 @@ static int
 _lua_set_keyboard_layout(lua_State *L)
 {
 	struct taiwins_config *c = to_user_config(L);
-	if (!_lua_isstring(L, 2)) {
-		c->quit = true;
-		return 0;
-	}
-	const char *layout = lua_tostring(L, 2);
-	c->rules.layout = strdup(layout);
+	_lua_stackcheck(L, 2);
+	c->xkb_rules.layout = strdup(luaL_checkstring(L, 2));
 	return 0;
 }
 
@@ -358,12 +350,8 @@ static int
 _lua_set_keyboard_options(lua_State *L)
 {
 	struct taiwins_config *c = to_user_config(L);
-	if (!_lua_isstring(L, 2)) {
-		c->quit = true;
-		return 0;
-	}
-	const char *options = lua_tostring(L, 2);
-	c->rules.options = strdup(options);
+	_lua_stackcheck(L, 2);
+	c->xkb_rules.options = strdup(luaL_checkstring(L, 2));
 	return 0;
 }
 
@@ -372,17 +360,11 @@ static int
 _lua_set_repeat_info(lua_State *L)
 {
 	struct taiwins_config *c = to_user_config(L);
-	if (lua_gettop(L) != 3 ||
-	    !_lua_isnumber(L, 2) ||
-	    !_lua_isnumber(L, 3)) {
-		c->quit = true;
-		return 0;
-	}
-	int32_t rate = lua_tointeger(L, 2);
-	int32_t delay = lua_tointeger(L, 3);
-	c->compositor->kb_repeat_rate = rate;
-	c->compositor->kb_repeat_delay = delay;
-
+	_lua_stackcheck(L, 3);
+	int32_t rate = luaL_checknumber(L, 2);
+	int32_t delay = luaL_checknumber(L, 3);
+	c->kb_delay = delay;
+	c->kb_repeat = rate;
 	return 0;
 }
 

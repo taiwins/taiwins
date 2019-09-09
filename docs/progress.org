@@ -45,22 +45,23 @@
   - different layouting support
   - resize EGL windows.
   - compositing
-** TODO [83%] server-side optimization
-*** PEND setup the xkb context, again, related to [[configuration]]
-    This one requires patches to weston, which I already did, but I need their
-    response. If the patch gets merged. It would be fairly simple to do, right
-    now I can simply write a shell function.
+** TODO [91%] server-side optimization
+*** DONE setup the xkb context, again, related to [[configuration]]
+    it is done by calling `weston_compositor_set_xkb_rule_names` which will not
+    take any effect since the implementation right now will not do anything at
+    runtime. Find a way to convince the weston guys to merge the patch.
 *** DOIN [#B] passing server events to shell, switch workspace. e.g.
     - switch workspace.
     - keybindings activated, this is a bit hard, you need to add callbacks in
-      the binding system.
-    - I seriously can remember another
+      the binding system. Or maybe cancel this feature.
+    - notificiation support.
+    - what else?
 *** DONE dynamically choosing workspace layouts.
 *** DONE rename all the ctype functions.
     I did move them into uppercase macros.
 
 *** DONE singals for adding new output and seats
-*** DONE change the keyboard grab allowing the long pressing.
+*** CANC change the keyboard grab allowing the long pressing.
     This is done in the clients
 *** DONE updated to libweston-5
     - figure out the bug for libdrm backend.
@@ -92,10 +93,10 @@
     At this point we should probabliy know that totally *try-apply* approach may
     not be totally realistic. If any part of lua code ran, it would have side
     effect
-*** TODO shell configuration
+*** TODO [75%] shell configuration (server)
 **** DONE panel pos
-**** TODO init wallpaper
-**** TODO init widget [[nuklear luabinding]]
+**** DONE init wallpaper
+**** DONE init widget [[nuklear luabinding]]
 **** TODO set menus
 *** DONE desktop configuration
 **** DONE get workspace
@@ -105,9 +106,8 @@
 **** TODO monitor flipping, how you are gonna do with flipping??
 
 *** TODO global configuration
-**** PEND xkb context
-**** TODO theme setup
-
+**** DONE xkb context
+**** DONE kb_repeat/delay
 *** DONE introduce the lua code
 
 *** DONE styles, nuklear and other widget styles.
@@ -131,9 +131,10 @@
     luckly that we have ~weston_desktop_suface_set_user_data~, it seems to fit
     perfectly in that position
 
-** TODO [83%] client-side optimization
+** TODO [74%] client-side optimization
+*** TODO take wallpaper from sever.
 *** TODO app_surface flags
-*** TODO [#C] client widgets lua bindings.
+*** TODO [#C] take widgets from server and apply lua bindings.
 *** TODO ~nk_impl_shell_surface~ or ~nk_impl_xdg_surface~.
 *** TODO huge amount of work with console.
 *** DONE resize window through idle task in the event queue.
@@ -249,6 +250,10 @@
 *** TODO client search buffer                                         :proto:
     for this to work, we probably will need ~radix tree~ or ~trie~ or hash
     table.
+
+* TODO following up weston development
+** TODO pipewire(can be used to stream wayland)
+** TODO HDCP content protection
 
 * [12%] Bugs
 ** TODO [#A] recent view has some bugs,

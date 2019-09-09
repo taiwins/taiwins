@@ -578,24 +578,26 @@ shell_reload_config(struct weston_keyboard *keyboard,
 		    const struct timespec *time, uint32_t key,
 		    uint32_t option, void *data)
 {
-	struct taiwins_config *config = data;
-	taiwins_run_config(config, NULL);
-	//you will need get_config_error_msg
+	struct shell *shell = data;
+	if (!taiwins_run_config(shell->config, NULL)) {
+		const char *err_msg = taiwins_config_retrieve_error(shell->config);
+		shell_post_message(shell, TW_SHELL_MSG_TYPE_CONFIG_ERR, err_msg);
+	}
 }
 
 static bool
 shell_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 		   struct taiwins_apply_bindings_listener *listener)
 {
+	//be careful, the c here is the temporary config, so as the binding
 	struct shell *shell = container_of(listener, struct shell, add_binding);
-	//the lookup binding
 	const struct tw_axis_motion motion =
 		taiwins_config_get_builtin_binding(c, TW_ZOOM_AXIS_BINDING)->axisaction;
 	const struct tw_key_press *reload_press =
 		taiwins_config_get_builtin_binding(
 			c, TW_RELOAD_CONFIG_BINDING)->keypress;
 	tw_bindings_add_axis(bindings, &motion, zoom_axis, shell);
-	return tw_bindings_add_key(bindings, reload_press, shell_reload_config, 0, shell->config);
+	return tw_bindings_add_key(bindings, reload_press, shell_reload_config, 0, shell);
 }
 
 /*******************************************************************
@@ -613,6 +615,10 @@ _lua_to_shell(lua_State *L)
 static int
 _lua_set_wallpaper(lua_State *L)
 {
+	struct shell *shell = _lua_to_shell(L);
+	_lua_stackcheck(L, 2);
+	const char *path = luaL_checkstring(L, 2);
+	shell_post_message(shell, TW_SHELL_MSG_TYPE_WALLPAPER, path);
 	return 0;
 }
 
@@ -644,9 +650,32 @@ _lua_set_panel_position(lua_State *L)
 	return 0;
 }
 
+static struct wl_array
+taiwins_menu_to_wl_array(const struct taiwins_menu_item * items, const int len)
+{
+	struct wl_array serialized;
+	wl_array_init(&serialized);
+
+	return serialized;
+}
+
 static int
 _lua_set_menus(lua_State *L)
 {
+	struct shell *shell = _lua_to_shell(L);
+	_lua_stackcheck(L, 2);
+	luaL_checktype(L, 2, LUA_TTABLE);
+	//I think I need a iterated method
+	//get array size,
+	int n = lua_objlen(L, 2);
+	for (int i = 0; i < n; i++) {
+		lua_rawgeti(L, 2, i);
+
+		lua_pop(L, 1);
+	}
+
+	struct wl_array serialized = taiwins_menu_to_wl_array(NULL, 0);
+	shell_post_data(shell, TW_SHELL_MSG_TYPE_MENU, &serialized);
 	return 0;
 }
 
@@ -806,7 +835,7 @@ shell_output_available_space(struct shell *shell, struct weston_output *output)
 	return geo;
 }
 
-void
+static void
 end_shell(struct wl_listener *listener, void *data)
 {
 	struct shell *shell =

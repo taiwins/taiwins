@@ -25,11 +25,11 @@ struct shell_ui;
 struct shell *announce_shell(struct weston_compositor *compositor, const char *path,
 			     struct taiwins_config *config);
 
-struct console *announce_console(struct weston_compositor *compositor,
+void announce_console(struct weston_compositor *compositor,
 				 struct shell *shell, const char *exec_path,
 				 struct taiwins_config *config);
 
-struct desktop *announce_desktop(struct weston_compositor *compositor,
+void announce_desktop(struct weston_compositor *compositor,
 				 struct shell *shell,
 				 struct taiwins_config *config);
 

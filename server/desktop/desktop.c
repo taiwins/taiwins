@@ -1086,7 +1086,7 @@ end_desktop(struct wl_listener *listener, void *data)
 	weston_desktop_destroy(d->api);
 }
 
-struct desktop *
+void
 announce_desktop(struct weston_compositor *ec, struct shell *shell,
 		 struct taiwins_config *config)
 {
@@ -1148,7 +1148,4 @@ announce_desktop(struct weston_compositor *ec, struct shell *shell,
 	DESKTOP.compositor_destroy_listener.notify = end_desktop;
 	wl_signal_add(&ec->destroy_signal,
 		      &DESKTOP.compositor_destroy_listener);
-
-	//last step, add keybindings
-	return &DESKTOP;
 }

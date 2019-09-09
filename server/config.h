@@ -135,7 +135,7 @@ struct taiwins_config *taiwins_config_create(struct weston_compositor *ec,
 					     log_func_t messenger);
 void taiwins_config_destroy(struct taiwins_config *);
 
-
+const char *taiwins_config_retrieve_error(struct taiwins_config *);
 
 /**
  * /brief load and apply the config file

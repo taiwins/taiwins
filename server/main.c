@@ -142,32 +142,19 @@ int main(int argc, char *argv[], char *envp[])
 	struct taiwins_config *config = taiwins_config_create(compositor, tw_log);
 	tw_compositor_init(&tc, compositor, config);
 	struct shell *sh = announce_shell(compositor, shellpath, config);
-	struct console *con = announce_console(compositor, sh, launcherpath, config);
-	struct desktop *desktop = announce_desktop(compositor, sh, config);
-	(void)con;
+	announce_console(compositor, sh, launcherpath, config);
+	announce_desktop(compositor, sh, config);
 
 	error = !taiwins_run_config(config, config_file);
 	if (error) {
 		goto out;
 	}
-
 	compositor->kb_repeat_delay = 400;
 	compositor->kb_repeat_rate = 40;
 
 	wl_display_run(display);
 out:
-
 	taiwins_config_destroy(config);
-//	wl_display_terminate(display);
-	//now you destroy the desktops
-
-	//TODO weston has three compositor destroy methods:
-	// - weston_compositor_exit, it is
-	// - weston_compositor_tear_down, I think this is the exit function
-	// - weston_compositor_shutdown: remove all the bindings, output, renderer,
-	// - weston_compositor_destroy, this call finally free the compositor
-	/* end_desktop(desktop); */
-
 	weston_compositor_tear_down(compositor);
 	weston_log_ctx_compositor_destroy(compositor);
 
