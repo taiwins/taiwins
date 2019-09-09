@@ -77,17 +77,22 @@
     <enum name="msg_type">
       <!-- notifications to shell -->
       <entry name="notification" value="0"/>
+      <entry name="config_err" value="1"/>
+
       <!-- shell message -->
-      <entry name="panel_pos" value="1"
+      <entry name="panel_pos" value="100"
 	     summary="format: `%d`: tw_shell_panel_pos enum"/>
-      <entry name="wallpaper" value="2"
+      <entry name="wallpaper" value="101"
 	     summary="format: `%s`: wallpaper path"/>
+      <entry name="menu" value="102"
+	     summary="format: array serialized from taiwins_menu"/>
+
       <!-- desktop events -->
-      <entry name="switch_workspace" value="3"
+      <entry name="switch_workspace" value="200"
 	     summary="format: `%d`: to which workspace"/>
-      <entry name="task_switch_effect" value="4"
+      <entry name="task_switch_effect" value="201"
 	     summary="format: `%d`: type of "/>
-      <entry name="task_switching" value="5"
+      <entry name="task_switching" value="202"
 	     summary="format: list of taiwins_window_brief"/>
     </enum>
 

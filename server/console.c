@@ -153,7 +153,7 @@ end_console(struct wl_listener *listener, void *data)
 	wl_global_destroy(c->global);
 }
 
-struct console *
+void
 announce_console(struct weston_compositor *compositor,
 		 struct shell *shell, const char *path,
 		 struct taiwins_config *config)
@@ -190,6 +190,5 @@ announce_console(struct weston_compositor *compositor,
 
 	wl_list_init(&CONSOLE.config_component.link);
 
-	return &CONSOLE;
-	//TODO register the destroy signal
+	//return &CONSOLE;
 }
