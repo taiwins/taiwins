@@ -22,10 +22,11 @@ struct taiwins_config {
 	struct wl_list lua_components;
 	struct wl_list apply_bindings;
 	vector_t option_hooks;
-	struct { //compositor option caches
+	struct { //compositor option caches, and invalid values
 		struct xkb_rule_names xkb_rules;
-		int32_t kb_repeat;
-		int32_t kb_delay;
+		int32_t kb_repeat; //invalid: -1
+		int32_t kb_delay; //invalid: -1
+		int32_t idle_time; //invalid -1
 	};
 	/* user bindings */
 	vector_t lua_bindings;

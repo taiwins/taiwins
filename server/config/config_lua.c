@@ -368,6 +368,26 @@ _lua_set_repeat_info(lua_State *L)
 	return 0;
 }
 
+/* compositor will lock in the given seconds, then try to sleep after another few weeks */
+static int
+_lua_set_lock_timer(lua_State *L)
+{
+	struct taiwins_config *c = to_user_config(L);
+	_lua_stackcheck(L, 2);
+	int32_t seconds = luaL_checknumber(L, 2);
+	if (seconds < 0) {
+		return luaL_error(L, "idle time must be a non negative integers.");
+	}
+	c->idle_time = seconds;
+	return 0;
+}
+
+static int
+_lua_set_sleep_timer(lua_State *L)
+{
+	return 0;
+}
+
 static int
 _lua_get_config(lua_State *L)
 {
@@ -412,6 +432,8 @@ taiwins_config_init_luastate(struct taiwins_config *c)
 	REGISTER_METHOD(L, "keyboard_layout", _lua_set_keyboard_layout);
 	REGISTER_METHOD(L, "keyboard_options", _lua_set_keyboard_options);
 	REGISTER_METHOD(L, "repeat_info", _lua_set_repeat_info);
+	REGISTER_METHOD(L, "lock_in", _lua_set_lock_timer);
+	REGISTER_METHOD(L, "sleep_in", _lua_set_sleep_timer);
 	REGISTER_METHOD(L, "option", _lua_set_value);
 
 	//now adding config components
