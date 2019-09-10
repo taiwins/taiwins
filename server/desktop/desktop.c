@@ -1142,6 +1142,7 @@ announce_desktop(struct weston_compositor *ec, struct shell *shell,
 
 	wl_list_init(&DESKTOP.config_component.link);
 	DESKTOP.config_component.init = desktop_init_config_component;
+	DESKTOP.config_component.apply = NULL;
 	taiwins_config_add_component(config, &DESKTOP.config_component);
 
 	wl_list_init(&DESKTOP.compositor_destroy_listener.link);

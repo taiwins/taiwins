@@ -10,6 +10,8 @@
 #include <lualib.h>
 
 #include <wayland-server.h>
+#include <wayland-util.h>
+#include <sequential.h>
 #include "../server/config.h"
 
 static bool
@@ -33,6 +35,91 @@ struct taiwins_option_listener option = {
 	({lua_pushcfunction(l, func);		\
 		lua_setfield(l, -2, name);	\
 	})
+
+static inline struct wl_array
+taiwins_menu_to_wl_array(const struct taiwins_menu_item * items, const int len)
+{
+	struct wl_array serialized;
+	serialized.alloc = sizeof(struct taiwins_menu_item) * len;
+	serialized.size = serialized.alloc;
+	serialized.data = (void *)items;
+	return serialized;
+}
+
+/* whether this is a menu item */
+static bool
+_lua_is_menu_item(struct lua_State *L, int idx)
+{
+	if (lua_objlen(L, idx) != 2)
+		return false;
+	int len[2] = {TAIWINS_MAX_MENU_ITEM_NAME,
+		      TAIWINS_MAX_MENU_CMD_LEN};
+	for (int i = 0; i < 2; ++i) {
+		lua_rawgeti(L, idx, i+1);
+		const char *value = (lua_type(L, -1) == LUA_TSTRING) ?
+			lua_tostring(L, -1) : NULL;
+		if (value == NULL || strlen(value) >= (len[i]-1)) {
+			lua_pop(L, 1);
+			return false;
+		}
+		lua_pop(L, 1);
+	}
+	return true;
+}
+
+static bool
+_lua_parse_menu(struct lua_State *L, vector_t *menus)
+{
+	bool parsed = true;
+	struct taiwins_menu_item menu_item = {
+		.has_submenu = false,
+		.len = 0};
+	if (_lua_is_menu_item(L, -1)) {
+		lua_rawgeti(L, -1, 1);
+		lua_rawgeti(L, -2, 2);
+		strncpy(menu_item.endnode.title, lua_tostring(L, -2),
+			TAIWINS_MAX_MENU_ITEM_NAME);
+		strncpy(menu_item.endnode.cmd, lua_tostring(L, -1),
+			TAIWINS_MAX_MENU_CMD_LEN);
+		lua_pop(L, 2);
+		vector_append(menus, &menu_item);
+	} else if (lua_istable(L, -1)) {
+		int n = lua_objlen(L, -1);
+		int currlen = menus->len;
+		for (int i = 1; i <= n && parsed; i++) {
+			lua_rawgeti(L, -1, i);
+			parsed = parsed && _lua_parse_menu(L, menus);
+			lua_pop(L, 1);
+		}
+		if (parsed) {
+			menu_item.has_submenu = true;
+			menu_item.len = menus->len - currlen;
+			vector_append(menus, &menu_item);
+		}
+	} else
+		return false;
+	return parsed;
+}
+
+static int
+_lua_set_menus(lua_State *L)
+{
+	vector_t menus;
+	vector_init_zero(&menus, sizeof(struct taiwins_menu_item), NULL);
+	_lua_stackcheck(L, 2);
+	luaL_checktype(L, 2, LUA_TTABLE);
+	//once you have a heap allocated data, calling luaL_error afterwards
+	//causes leaks
+	if (!_lua_parse_menu(L, &menus)) {
+		vector_destroy(&menus);
+		return luaL_error(L, "error parsing menus.");
+	}
+	struct wl_array serialized = taiwins_menu_to_wl_array(menus.elems, menus.len);
+	(void)serialized;
+	vector_destroy(&menus);
+	return 0;
+}
+
 
 static int
 dummy_lua_method_0(lua_State *L)
@@ -95,7 +182,6 @@ lua_get_dummy_interface(lua_State *L)
 	return 1;
 }
 
-
 static bool
 lua_component_init(struct taiwins_config *config, lua_State *L,
 		   struct taiwins_config_component_listener *listener)
@@ -112,6 +198,7 @@ lua_component_init(struct taiwins_config *config, lua_State *L,
 	lua_pop(L, 1);
 
 	REGISTER_METHOD(L, "get_dummy_interface", lua_get_dummy_interface);
+	REGISTER_METHOD(L, "set_menus", _lua_set_menus);
 
 	return true;
 }

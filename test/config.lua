@@ -25,6 +25,15 @@ for _, tt in ipairs(dummy:get_dummy_table()) do
    tt['adfasf'] = "bababa"
 end
 
+compositor:set_menus({
+      {
+	 {'bbbb','cccc'},
+	 {'dddd','ffff'}
+      },
+      {'aaaa', 'bbbb'},
+      {'aaa2', 'bbbb2'}
+})
+
 -- -- general setup
 -- compositor:keyboard_layout("ctrl:swap_lalt_lctl")
 -- compositor:set_kb_delay(400)
@@ -60,13 +69,12 @@ end
 -- -- Then we need to actual set the output by config.
 -- compositor:set_outputs({
 --       eDP1 = {
--- 	 mode = "3200x1800",
--- 	 scale = 2,
--- 	 clone = "HDMI1"
+--	 mode = "3200x1800",
+--	 scale = 2,
+--	 clone = "HDMI1"
 --       },
 --       HDMI1 = {
--- 	 mode = "1920x1080",
--- 	 scale = 1,
+--	 mode = "1920x1080",
+--	 scale = 1,
 --       },
 -- })
-

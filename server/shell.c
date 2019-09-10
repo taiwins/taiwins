@@ -55,8 +55,12 @@ struct shell {
 	struct wl_client *shell_client;
 	struct wl_resource *shell_resource;
 	struct wl_global *shell_global;
-	enum tw_shell_panel_pos panel_pos;
-
+	struct { /* options */
+		enum tw_shell_panel_pos panel_pos;
+		vector_t menu;
+		const char *wallpapper_path;
+		const char *widget_path;
+	};
 	struct weston_compositor *ec;
 	//you probably don't want to have the layer
 	struct weston_layer background_layer;
@@ -618,17 +622,19 @@ _lua_set_wallpaper(lua_State *L)
 	struct shell *shell = _lua_to_shell(L);
 	_lua_stackcheck(L, 2);
 	const char *path = luaL_checkstring(L, 2);
-	shell_post_message(shell, TW_SHELL_MSG_TYPE_WALLPAPER, path);
+	shell->wallpapper_path = strdup(path);
 	return 0;
 }
 
 static int
 _lua_set_widgets(lua_State *L)
 {
+	struct shell *shell = _lua_to_shell(L);
 	_lua_stackcheck(L, 2);
 	const char *path = luaL_checkstring(L, 2);
 	if (!is_file_exist(path))
 		return luaL_error(L, "widget path does not exist!");
+	shell->widget_path = strdup(path);
 	return 0;
 }
 
@@ -644,38 +650,86 @@ _lua_set_panel_position(lua_State *L)
 		shell->panel_pos = TW_SHELL_PANEL_POS_TOP;
 	else
 		luaL_error(L, "invalid panel position %s", pos);
-
-	if (shell->shell_resource)
-		shell_send_panel_pos(shell);
 	return 0;
 }
 
-static struct wl_array
+static inline struct wl_array
 taiwins_menu_to_wl_array(const struct taiwins_menu_item * items, const int len)
 {
 	struct wl_array serialized;
-	wl_array_init(&serialized);
-
+	serialized.alloc = 0;
+	serialized.size = sizeof(struct taiwins_menu_item) * len;
+	serialized.data = (void *)items;
 	return serialized;
+}
+
+/* whether this is a menu item */
+static bool
+_lua_is_menu_item(struct lua_State *L, int idx)
+{
+	if (lua_objlen(L, idx) != 2)
+		return false;
+	int len[2] = {TAIWINS_MAX_MENU_ITEM_NAME,
+		      TAIWINS_MAX_MENU_CMD_LEN};
+	for (int i = 0; i < 2; ++i) {
+		lua_rawgeti(L, idx, i+1);
+		const char *value = (lua_type(L, -1) == LUA_TSTRING) ?
+			lua_tostring(L, -1) : NULL;
+		if (value == NULL || strlen(value) >= (len[i]-1)) {
+			lua_pop(L, 1);
+			return false;
+		}
+		lua_pop(L, 1);
+	}
+	return true;
+}
+
+static bool
+_lua_parse_menu(struct lua_State *L, vector_t *menus)
+{
+	bool parsed = true;
+	struct taiwins_menu_item menu_item = {
+		.has_submenu = false,
+		.len = 0};
+	if (_lua_is_menu_item(L, -1)) {
+		lua_rawgeti(L, -1, 1);
+		lua_rawgeti(L, -2, 2);
+		strncpy(menu_item.endnode.title, lua_tostring(L, -2),
+			TAIWINS_MAX_MENU_ITEM_NAME);
+		strncpy(menu_item.endnode.cmd, lua_tostring(L, -1),
+			TAIWINS_MAX_MENU_CMD_LEN);
+		lua_pop(L, 2);
+		vector_append(menus, &menu_item);
+	} else if (lua_istable(L, -1)) {
+		int n = lua_objlen(L, -1);
+		int currlen = menus->len;
+		for (int i = 1; i <= n && parsed; i++) {
+			lua_rawgeti(L, -1, i);
+			parsed = parsed && _lua_parse_menu(L, menus);
+			lua_pop(L, 1);
+		}
+		if (parsed) {
+			menu_item.has_submenu = true;
+			menu_item.len = menus->len - currlen;
+			vector_append(menus, &menu_item);
+		}
+	} else
+		return false;
+	return parsed;
 }
 
 static int
 _lua_set_menus(lua_State *L)
 {
 	struct shell *shell = _lua_to_shell(L);
+
+	vector_init_zero(&shell->menu, sizeof(struct taiwins_menu_item), NULL);
 	_lua_stackcheck(L, 2);
 	luaL_checktype(L, 2, LUA_TTABLE);
-	//I think I need a iterated method
-	//get array size,
-	int n = lua_objlen(L, 2);
-	for (int i = 0; i < n; i++) {
-		lua_rawgeti(L, 2, i);
-
-		lua_pop(L, 1);
+	if (!_lua_parse_menu(L, &shell->menu)) {
+		vector_destroy(&shell->menu);
+		return luaL_error(L, "error parsing menus.");
 	}
-
-	struct wl_array serialized = taiwins_menu_to_wl_array(NULL, 0);
-	shell_post_data(shell, TW_SHELL_MSG_TYPE_MENU, &serialized);
 	return 0;
 }
 
@@ -722,6 +776,36 @@ shell_add_config_component(struct taiwins_config *c, lua_State *L,
 	return true;
 }
 
+static void
+shell_apply_lua_config(struct taiwins_config *c, bool cleanup,
+		       struct taiwins_config_component_listener *listener)
+{
+	struct shell *shell = container_of(listener, struct shell, config_component);
+	if (cleanup)
+		goto cleanup;
+	if (!shell->shell_resource)
+		return;
+	if (shell->wallpapper_path)
+		shell_post_message(shell, TW_SHELL_MSG_TYPE_WALLPAPER,
+				   shell->wallpapper_path);
+	if (shell->widget_path)
+		shell_post_message(shell, TW_SHELL_MSG_TYPE_WIDGET,
+				   shell->widget_path);
+	if (shell->menu.len) {
+		struct wl_array serialized =
+			taiwins_menu_to_wl_array(shell->menu.elems, shell->menu.len);
+		shell_post_data(shell, TW_SHELL_MSG_TYPE_MENU, &serialized);
+	}
+	shell_send_panel_pos(shell);
+
+cleanup:
+	vector_destroy(&shell->menu);
+	if (shell->wallpapper_path)
+		free((void *)shell->wallpapper_path);
+	if (shell->widget_path)
+		free((void *)shell->widget_path);
+}
+
 ////////////////////////// BIND SHELL /////////////////////////////////
 static void
 unbind_shell(struct wl_resource *resource)
@@ -731,6 +815,8 @@ unbind_shell(struct wl_resource *resource)
 	struct shell *shell = wl_resource_get_user_data(resource);
 	weston_layer_unset_position(&shell->background_layer);
 	weston_layer_unset_position(&shell->ui_layer);
+	//clean up resources
+	shell_apply_lua_config(NULL, true, &shell->config_component);
 
 	wl_list_for_each_safe(v, n, &shell->background_layer.view_list.link, layer_link.link)
 		weston_view_unmap(v);
@@ -770,8 +856,8 @@ bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 	shell->shell_resource = resource;
 	shell->ready = true;
 
-	//send some configuration to the client
-	shell_send_panel_pos(shell);
+	//send configurations to clients now
+	shell_apply_lua_config(shell->config, false, &shell->config_component);
 	struct weston_output *output;
 	wl_list_for_each(output, &shell->ec->output_list, link) {
 		int ith_output = shell_ith_output(shell, output);
@@ -812,7 +898,7 @@ shell_post_message(struct shell *shell, uint32_t type, const char *msg)
 	size_t len = strlen(msg);
 	arr.data = len == 0 ? NULL : (void *)msg;
 	arr.size = len == 0 ? 0 : len+1;
-	arr.alloc = len == 0 ? 0 : len+1;
+	arr.alloc = 0;
 	tw_shell_send_shell_msg(shell->shell_resource, type, &arr);
 }
 
@@ -860,6 +946,7 @@ announce_shell(struct weston_compositor *ec, const char *path,
 	oneshell.shell_client = NULL;
 	oneshell.config = config;
 	oneshell.panel_pos = TW_SHELL_PANEL_POS_TOP;
+	vector_init_zero(&oneshell.menu, sizeof(struct taiwins_menu_item), NULL);
 
 	//TODO leaking a wl_global
 	oneshell.shell_global =  wl_global_create(ec->wl_display, &tw_shell_interface,
@@ -899,6 +986,7 @@ announce_shell(struct weston_compositor *ec, const char *path,
 	//config_componenet
 	wl_list_init(&oneshell.config_component.link);
 	oneshell.config_component.init = shell_add_config_component;
+	oneshell.config_component.apply = shell_apply_lua_config;
 	taiwins_config_add_component(config, &oneshell.config_component);
 
 	return &oneshell;

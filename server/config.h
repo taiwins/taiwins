@@ -69,7 +69,10 @@ struct taiwins_config_component_listener {
 	//setup functions
 	bool (*init)(struct taiwins_config *, lua_State *L,
 		     struct taiwins_config_component_listener *);
-
+	/* @param cleanup here indicates zero happens in the run config,
+	   please clean the cache config */
+	void (*apply)(struct taiwins_config *c, bool cleanup,
+		      struct taiwins_config_component_listener *listener);
 };
 
 void taiwins_config_add_component(struct taiwins_config *,
