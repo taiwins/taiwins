@@ -331,6 +331,29 @@ shell_output_resize(struct shell_output *w)
 
 /************************** desktop_shell_interface ********************************/
 
+static vector_t
+taiwins_menu_from_wl_array(struct wl_array *serialized)
+{
+	vector_t dst;
+	vector_t src;
+	vector_init_zero(&dst, sizeof(struct taiwins_menu_item), NULL);
+	src = dst;
+	src.alloc_len = serialized->size / (sizeof(struct taiwins_menu_item));
+	src.len = src.alloc_len;
+	src.elems = serialized->data;
+	vector_copy(&dst, &src);
+	return dst;
+}
+
+static void
+desktop_shell_setup_menu(struct desktop_shell *shell,
+			 struct wl_array *serialized)
+{
+	vector_t menus = taiwins_menu_from_wl_array(serialized);
+	//what you do here? you can validate it, then copy to shell.
+	vector_destroy(&menus);
+}
+
 
 //right now we are using switch, but we can actually use a table, since we make
 //the msg_type a continues field.
@@ -353,6 +376,9 @@ desktop_shell_recv_msg(void *data,
 		shell->panel_pos = arg.u == TW_SHELL_PANEL_POS_TOP ?
 			TW_SHELL_PANEL_POS_TOP : TW_SHELL_PANEL_POS_BOTTOM;
 		break;
+	case TW_SHELL_MSG_TYPE_MENU:
+		desktop_shell_setup_menu(shell, arr);
+		break;
 	case TW_SHELL_MSG_TYPE_WALLPAPER:
 		break;
 	case TW_SHELL_MSG_TYPE_SWITCH_WORKSPACE:
@@ -364,7 +390,6 @@ desktop_shell_recv_msg(void *data,
 		break;
 	}
 }
-
 
 static void
 desktop_shell_output_configure(void *data, struct tw_shell *tw_shell,

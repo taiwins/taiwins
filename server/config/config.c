@@ -292,6 +292,7 @@ taiwins_run_config(struct taiwins_config *config, const char *path)
 	//create temporary resource
 	struct tw_bindings *bindings = tw_bindings_create(config->compositor);
 	struct taiwins_config *temp_config = taiwins_config_create(config->compositor, config->print);
+	struct taiwins_config_component_listener *component;
 	//setup the temporary config
 	temp_config->option_hooks = config->option_hooks;
 	strcpy(temp_config->path, config->path);
@@ -301,6 +302,10 @@ taiwins_run_config(struct taiwins_config *config, const char *path)
 	//now we try the commits
 	taiwins_config_try_config(temp_config);
 	error = temp_config->quit;
+	//apply all the components
+	wl_list_for_each(component, &config->lua_components, link)
+		if (component->apply)
+			component->apply(config, !error, component);
 	if (!error) {
 		struct taiwins_option *opt = NULL;
 		struct taiwins_option_listener *listener;
@@ -320,6 +325,7 @@ taiwins_run_config(struct taiwins_config *config, const char *path)
 		swap_listener(&config->lua_components, &temp_config->lua_components);
 		taiwins_config_destroy(temp_config);
 	}
+
 
 	return (!error);
 }

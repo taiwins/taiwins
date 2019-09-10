@@ -54,15 +54,15 @@ struct taiwins_decision_key {
 /*****************************************************************/
 /*                            shell                              */
 /*****************************************************************/
-#define TAIWINS_MAX_MENU_CMD_LEN 64
-#define TAIWINS_MAX_MENU_ITEM_NAME 64
+#define TAIWINS_MAX_MENU_CMD_LEN 63
+#define TAIWINS_MAX_MENU_ITEM_NAME 63
 
 struct taiwins_menu_item {
 
 	struct {
-		char title[TAIWINS_MAX_MENU_ITEM_NAME];
+		char title[TAIWINS_MAX_MENU_ITEM_NAME+1];
 		/* short commands. long commands please use console */
-		char cmd[TAIWINS_MAX_MENU_CMD_LEN];
+		char cmd[TAIWINS_MAX_MENU_CMD_LEN+1];
 	} endnode;
 	/* submenu settings */
 	bool has_submenu; /* has submenu */

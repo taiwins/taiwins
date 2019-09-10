@@ -76,7 +76,7 @@
 *** DONE renaming tw_shell -> shell, tw_desktop -> desktop.
    so the protocols can directly use tw_shell instead of taiwins_shell
 
-** TODO [70%] <<configuration>>
+** TODO [80%] <<configuration>>
 *** DONE [#A] hot config I :: general hook
     all the components(I mean right now shell, console and desktop are all like
     components of the compositor, they follow the same functions, in C++, they
@@ -93,11 +93,11 @@
     At this point we should probabliy know that totally *try-apply* approach may
     not be totally realistic. If any part of lua code ran, it would have side
     effect
-*** TODO [75%] shell configuration (server)
+*** DONE [100%] shell configuration (server)
 **** DONE panel pos
 **** DONE init wallpaper
 **** DONE init widget [[nuklear luabinding]]
-**** TODO set menus
+**** DONE set menus
 *** DONE desktop configuration
 **** DONE get workspace
 **** DONE setup layout

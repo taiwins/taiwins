@@ -86,6 +86,8 @@
 	     summary="format: `%s`: wallpaper path"/>
       <entry name="menu" value="102"
 	     summary="format: array serialized from taiwins_menu"/>
+      <entry name="widget" value="103"
+	     summary="format: `%s`: widget path"/>
 
       <!-- desktop events -->
       <entry name="switch_workspace" value="200"
