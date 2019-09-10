@@ -76,7 +76,7 @@
 *** DONE renaming tw_shell -> shell, tw_desktop -> desktop.
    so the protocols can directly use tw_shell instead of taiwins_shell
 
-** TODO [80%] <<configuration>>
+** TODO [70%] <<configuration>>
 *** DONE [#A] hot config I :: general hook
     all the components(I mean right now shell, console and desktop are all like
     components of the compositor, they follow the same functions, in C++, they
@@ -98,16 +98,20 @@
 **** DONE init wallpaper
 **** DONE init widget [[nuklear luabinding]]
 **** DONE set menus
-*** DONE desktop configuration
+*** DOIN desktop configuration
 **** DONE get workspace
-**** DONE setup layout
+**** DONE setup layout,
+**** TODO set animations?
 *** TODO backend configuration
 **** TODO monitor/head scale/resolution, all that setup
 **** TODO monitor flipping, how you are gonna do with flipping??
 
 *** TODO global configuration
 **** DONE xkb context
-**** DONE kb_repeat/delay
+**** DONE kb_repeat/delay(keyboard)
+**** TODO get outputs, outputs are different than heads, be able to control output creation process.
+**** DOIN set idle time.
+
 *** DONE introduce the lua code
 
 *** DONE styles, nuklear and other widget styles.
@@ -132,6 +136,7 @@
     perfectly in that position
 
 ** TODO [74%] client-side optimization
+*** TODO locker implemenation
 *** TODO take wallpaper from sever.
 *** TODO app_surface flags
 *** TODO [#C] take widgets from server and apply lua bindings.
@@ -200,7 +205,7 @@
     applies it to nk_wl_egl, it should be done very soon, so I can totally
     remove the deprecated functions.
 *** DONE nk_cairo_backend multiple font support
-** DOIN [33%] launcher optimization
+** DOIN [33%] launcher implementation
 *** DONE renaming launcher into console, since it will does much more than just launching
 *** TODO allow launcher to quit instead of launch weston-terminal all the time
 *** TODO the real launcher implementation
@@ -210,6 +215,9 @@
    write cmake install commands
 
 * TODO [25%]Stage three: extensions
+*** TODO utilise weston-animations
+    fade/zoom/move, it should be relative easy to use.
+
 *** TODO possibly remove dynamic allocated objects
     reduce number of mallocs and memory fragmentation.
     - recent_view

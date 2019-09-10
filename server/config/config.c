@@ -275,6 +275,10 @@ taiwins_config_apply_cached(struct taiwins_config *config)
 		config->compositor->kb_repeat_delay = config->kb_delay;
 		config->kb_delay = (config->kb_repeat = -1);
 	}
+	if (config->idle_time > 0) {
+		config->compositor->idle_time = config->idle_time;
+		config->idle_time = -1;
+	}
 }
 
 /**
