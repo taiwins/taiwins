@@ -110,7 +110,7 @@
 **** DONE xkb context
 **** DONE kb_repeat/delay(keyboard)
 **** TODO get outputs, outputs are different than heads, be able to control output creation process.
-**** DOIN set idle time.
+**** DONE set idle time.(shell does that now)
 
 *** DONE introduce the lua code
 

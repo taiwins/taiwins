@@ -28,11 +28,11 @@ struct tw_backend {
 
 static struct tw_backend TWbackend;
 
-
+/* here we just create one output, every thing else attach to it, but later, we
+ * can create other outputs */
 static void
 drm_head_enable(struct weston_head *head, struct weston_compositor *compositor)
 {
-
 	const struct weston_drm_output_api *api =
 		weston_drm_output_get_api(compositor);
 
@@ -78,7 +78,6 @@ drm_head_check(struct weston_compositor *compositor)
 		wl_list_insert(&compositor->output_list, &output->link);
 	}
 }
-
 
 static void
 drm_head_changed(struct wl_listener *listener, void *data)

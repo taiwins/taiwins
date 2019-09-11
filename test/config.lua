@@ -67,6 +67,30 @@ compositor:set_menus({
 -- compositor:set_envar("name", "value")
 
 -- -- Then we need to actual set the output by config.
+
+-- weston do output settings by output sections. It finds output by heads names?
+-- and then configure with it. So different backends may be able to setup
+-- outputs differently.
+
+-- For example, if we have a X11/Wayland windowed output. x11/wayland backends
+-- will search for output config starts with X/WL.
+
+-- if we have loaded drm backend. drm backends will setup output for heads like
+-- VGA, LVDS.
+
+-- if compositor:under_x11() then
+--    -- we know that whether we need to setup the transform
+--    output = compositor:x11_output()
+--    output:set_scale(2)
+--    output:set_transform(270)
+-- elseif compositor:under_wayland() then
+--    output:set_scale(2)
+--    output:set_transform(270)
+-- else -- we are having drm output. For now
+--    -- we need to know how many output we want.
+--    for _, heads in compositor:available_heads() do
+--    end
+-- end
 -- compositor:set_outputs({
 --       eDP1 = {
 --	 mode = "3200x1800",

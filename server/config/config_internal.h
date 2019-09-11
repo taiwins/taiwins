@@ -26,7 +26,6 @@ struct taiwins_config {
 		struct xkb_rule_names xkb_rules;
 		int32_t kb_repeat; //invalid: -1
 		int32_t kb_delay; //invalid: -1
-		int32_t idle_time; //invalid -1
 	};
 	/* user bindings */
 	vector_t lua_bindings;
