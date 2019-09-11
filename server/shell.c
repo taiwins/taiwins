@@ -55,8 +55,11 @@ struct shell {
 	struct wl_client *shell_client;
 	struct wl_resource *shell_resource;
 	struct wl_global *shell_global;
+
 	struct { /* options */
 		enum tw_shell_panel_pos panel_pos;
+		int32_t lock_countdown; //invalid -1
+		int32_t sleep_countdown; //knvalid -1
 		vector_t menu;
 		const char *wallpapper_path;
 		const char *widget_path;
@@ -72,6 +75,7 @@ struct shell {
 	struct wl_listener output_create_listener;
 	struct wl_listener output_destroy_listener;
 	struct wl_listener output_resize_listener;
+	struct wl_listener idle_listener;
 	struct taiwins_apply_bindings_listener add_binding;
 	struct taiwins_config_component_listener config_component;
 
@@ -199,11 +203,8 @@ shell_ui_create_simple(struct shell_ui *ui, struct wl_resource *tw_ui, struct we
 }
 
 
-
-
-
 /*******************************************************************************************
- * tw_output
+ * tw_output and listeners
  *******************************************************************************************/
 
 static inline size_t
@@ -282,6 +283,13 @@ shell_output_resized(struct wl_listener *listener, void *data)
 				       index == 0, TW_SHELL_OUTPUT_MSG_CHANGE);
 }
 
+static void
+shell_compositor_idle(struct wl_listener *listener, void *data)
+{
+	/* struct shell *shell = */
+	/*	container_of(listener, struct shell, idle_listener); */
+	fprintf(stderr, "oh, I should lock right now\n");
+}
 
 /*******************************************************************************************
  * shell_view
@@ -524,7 +532,6 @@ static struct tw_shell_interface shell_impl = {
 	.launch_widget = launch_shell_widget,
 };
 
-
 static void
 launch_shell_client(void *data)
 {
@@ -733,6 +740,25 @@ _lua_set_menus(lua_State *L)
 	return 0;
 }
 
+static int
+_lua_set_sleep_timer(lua_State *L)
+{
+	return 0;
+}
+
+/* compositor will lock in the given seconds, then try to sleep after another few weeks */
+static int
+_lua_set_lock_timer(lua_State *L)
+{
+	struct shell *shell = _lua_to_shell(L);
+	_lua_stackcheck(L, 2);
+	int32_t seconds = luaL_checknumber(L, 2);
+	if (seconds < 0) {
+		return luaL_error(L, "idle time must be a non negative integers.");
+	}
+	shell->lock_countdown = seconds;
+	return 0;
+}
 
 static int
 _lua_request_shell(lua_State *L)
@@ -772,6 +798,8 @@ shell_add_config_component(struct taiwins_config *c, lua_State *L,
 	//now methods
 	lua_pop(L, 1);
 	REGISTER_METHOD(L, "shell", _lua_request_shell);
+	REGISTER_METHOD(L, "lock_in", _lua_set_lock_timer);
+	REGISTER_METHOD(L, "sleep_in", _lua_set_sleep_timer);
 
 	return true;
 }
@@ -796,6 +824,10 @@ shell_apply_lua_config(struct taiwins_config *c, bool cleanup,
 			taiwins_menu_to_wl_array(shell->menu.elems, shell->menu.len);
 		shell_post_data(shell, TW_SHELL_MSG_TYPE_MENU, &serialized);
 	}
+	if (shell->lock_countdown > 0) {
+		shell->ec->idle_time = shell->lock_countdown;
+		shell->lock_countdown = -1;
+	}
 	shell_send_panel_pos(shell);
 
 cleanup:
@@ -806,7 +838,8 @@ cleanup:
 		free((void *)shell->widget_path);
 }
 
-////////////////////////// BIND SHELL /////////////////////////////////
+////////////////////////// SHELL FUNCIONS /////////////////////////////////
+
 static void
 unbind_shell(struct wl_resource *resource)
 {
@@ -815,8 +848,6 @@ unbind_shell(struct wl_resource *resource)
 	struct shell *shell = wl_resource_get_user_data(resource);
 	weston_layer_unset_position(&shell->background_layer);
 	weston_layer_unset_position(&shell->ui_layer);
-	//clean up resources
-	shell_apply_lua_config(NULL, true, &shell->config_component);
 
 	wl_list_for_each_safe(v, n, &shell->background_layer.view_list.link, layer_link.link)
 		weston_view_unmap(v);
@@ -927,9 +958,55 @@ end_shell(struct wl_listener *listener, void *data)
 	struct shell *shell =
 		container_of(listener, struct shell,
 			     compositor_destroy_listener);
+	//clean up resources
+	shell_apply_lua_config(NULL, true, &shell->config_component);
 
 	wl_global_destroy(shell->shell_global);
 }
+
+static void
+shell_add_listeners(struct shell *shell)
+{
+	struct weston_compositor *ec = shell->ec;
+	//global destructor
+	wl_list_init(&shell->compositor_destroy_listener.link);
+	shell->compositor_destroy_listener.notify = end_shell;
+	wl_signal_add(&ec->destroy_signal, &shell->compositor_destroy_listener);
+	//idle listener
+	wl_list_init(&shell->idle_listener.link);
+	shell->idle_listener.notify = shell_compositor_idle;
+	wl_signal_add(&ec->idle_signal, &shell->idle_listener);
+
+	//output create
+	wl_list_init(&shell->output_create_listener.link);
+	shell->output_create_listener.notify = shell_output_created;
+	//output destroy
+	wl_list_init(&shell->output_destroy_listener.link);
+	shell->output_destroy_listener.notify = shell_output_destroyed;
+	//output resize
+	wl_list_init(&shell->output_resize_listener.link);
+	shell->output_resize_listener.notify = shell_output_resized;
+	//singals
+	wl_signal_add(&ec->output_created_signal, &shell->output_create_listener);
+	wl_signal_add(&ec->output_destroyed_signal, &shell->output_destroy_listener);
+	wl_signal_add(&ec->output_resized_signal, &shell->output_resize_listener);
+	//init current outputs
+	struct weston_output *output;
+	wl_list_for_each(output, &ec->output_list, link)
+		shell_output_created(&shell->output_create_listener, output);
+}
+
+static inline void
+shell_init_options(struct shell *shell)
+{
+	vector_init_zero(&shell->menu, sizeof(struct taiwins_menu_item), NULL);
+	shell->panel_pos = TW_SHELL_PANEL_POS_TOP;
+	shell->lock_countdown = -1;
+	shell->sleep_countdown = -1;
+	shell->wallpapper_path = NULL;
+	shell->widget_path = NULL;
+}
+
 
 /**
  * @brief announce the taiwins shell protocols.
@@ -938,15 +1015,13 @@ end_shell(struct wl_listener *listener, void *data)
  */
 struct shell*
 announce_shell(struct weston_compositor *ec, const char *path,
-	struct taiwins_config *config)
+	       struct taiwins_config *config)
 {
 	oneshell.ec = ec;
 	oneshell.ready = false;
 	oneshell.the_widget_surface = NULL;
 	oneshell.shell_client = NULL;
 	oneshell.config = config;
-	oneshell.panel_pos = TW_SHELL_PANEL_POS_TOP;
-	vector_init_zero(&oneshell.menu, sizeof(struct taiwins_menu_item), NULL);
 
 	//TODO leaking a wl_global
 	oneshell.shell_global =  wl_global_create(ec->wl_display, &tw_shell_interface,
@@ -958,27 +1033,9 @@ announce_shell(struct weston_compositor *ec, const char *path,
 		struct wl_event_loop *loop = wl_display_get_event_loop(ec->wl_display);
 		wl_event_loop_add_idle(loop, launch_shell_client, &oneshell);
 	}
-	//global destructor
-	wl_list_init(&oneshell.compositor_destroy_listener.link);
-	oneshell.compositor_destroy_listener.notify = end_shell;
-	wl_signal_add(&ec->destroy_signal, &oneshell.compositor_destroy_listener);
-	//output create
-	wl_list_init(&oneshell.output_create_listener.link);
-	oneshell.output_create_listener.notify = shell_output_created;
-	//output destroy
-	wl_list_init(&oneshell.output_destroy_listener.link);
-	oneshell.output_destroy_listener.notify = shell_output_destroyed;
-	//output resize
-	wl_list_init(&oneshell.output_resize_listener.link);
-	oneshell.output_resize_listener.notify = shell_output_resized;
-	//singals
-	wl_signal_add(&ec->output_created_signal, &oneshell.output_create_listener);
-	wl_signal_add(&ec->output_destroyed_signal, &oneshell.output_destroy_listener);
-	wl_signal_add(&ec->output_resized_signal, &oneshell.output_resize_listener);
-	//init current outputs
-	struct weston_output *output;
-	wl_list_for_each(output, &ec->output_list, link)
-		shell_output_created(&oneshell.output_create_listener, output);
+	shell_add_listeners(&oneshell);
+	shell_init_options(&oneshell);
+
 	//binding
 	wl_list_init(&oneshell.add_binding.link);
 	oneshell.add_binding.apply = shell_add_bindings;
