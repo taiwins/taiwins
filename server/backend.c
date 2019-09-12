@@ -193,10 +193,13 @@ windowed_head_changed(struct wl_listener *listener, void *data)
 /************************************************************
  * config components
  ***********************************************************/
+#define METATABLE_OUTPUT "metatable_output"
+#define REGISTRY_BACKEND "__backend"
+
 static inline struct tw_backend *
 _lua_to_backend(lua_State *L)
 {
-	lua_getfield(L, LUA_REGISTRYINDEX, "__backend");
+	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_BACKEND);
 	struct tw_backend *b = lua_touserdata(L, -1);
 	lua_pop(L, 1);
 	return b;
@@ -219,12 +222,96 @@ _lua_is_under_wayland(lua_State *L)
 }
 
 static int
-_lua_get_windowed_output(lua_State *L)
+_lua_is_windowed_display(lua_State *L)
 {
-	lua_newtable(L);
-
+	struct tw_backend *b = _lua_to_backend(L);
+	lua_pushboolean(L, (b->type == WESTON_BACKEND_X11 ||
+			    b->type == WESTON_BACKEND_WAYLAND ||
+			    b->type == WESTON_BACKEND_RDP ||
+			    b->type == WESTON_BACKEND_HEADLESS));
 	return 1;
 }
+
+static int
+_lua_get_windowed_output(lua_State *L)
+{
+	struct tw_backend *backend = _lua_to_backend(L);
+	//we create a copy of it
+	if (!wl_list_length(&backend->compositor->output_list)) {
+		return luaL_error(L, "no displays available");
+	} else {
+		struct weston_output *output =
+			container_of(backend->compositor->output_list.next,
+				     struct weston_output, link);
+		(void)output;
+	}
+	struct tw_output *tw_output = lua_newuserdata(L, sizeof(struct tw_output));
+	luaL_getmetatable(L, METATABLE_OUTPUT);
+	lua_setmetatable(L, -2);
+	return 1;
+}
+
+static int
+_lua_output_flip(lua_State *L)
+{
+	struct tw_output *output =
+		luaL_checkudata(L, 1, METATABLE_OUTPUT);
+	(void)output;
+	if (lua_gettop(L) == 1) {
+		return 1;
+	} else {
+		_lua_stackcheck(L, 2);
+		return 0;
+	}
+}
+
+static int
+_lua_output_scale(lua_State *L)
+{
+	struct tw_output *output =
+		luaL_checkudata(L, 1, METATABLE_OUTPUT);
+	(void)output;
+	if (lua_gettop(L) == 1) {
+		return 1;
+	} else {
+		_lua_stackcheck(L, 2);
+		return 0;
+	}
+}
+
+//weston provides method to setup resolution/refresh_rate/aspect_ratio.
+//we just deal with resolution now
+static int
+_lua_output_resolution(lua_State *L)
+{
+	struct tw_output *output =
+		luaL_checkudata(L, 1, METATABLE_OUTPUT);
+	(void)output;
+
+	if (lua_gettop(L) == 1) {
+		return 1;
+	} else {
+		_lua_stackcheck(L, 2);
+		return 0;
+	}
+}
+
+static int
+_lua_output_position(lua_State *L)
+{
+	struct tw_output *output =
+		luaL_checkudata(L, 1, METATABLE_OUTPUT);
+	(void)output;
+
+	if (lua_gettop(L) == 1) {
+		return 1;
+	} else {
+		_lua_stackcheck(L, 2);
+		return 0;
+	}
+}
+
+//we also need to be able to clone someone
 
 static void
 backend_apply_lua_config(struct taiwins_config *c, bool cleanup,
@@ -242,12 +329,27 @@ backend_init_config_component(struct taiwins_config *c, lua_State *L,
 	struct tw_backend *b = container_of(listener, struct tw_backend,
 					    config_component);
 	lua_pushlightuserdata(L, b);
-	lua_setfield(L, LUA_REGISTRYINDEX, "__backend");
+	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_BACKEND);
+	//metatable for output
+	luaL_newmetatable(L, METATABLE_OUTPUT);
+	lua_pushvalue(L, -1);
+	lua_setfield(L, -2, "__index");
+	lua_pushvalue(L, -1);
+	lua_setfield(L, -2, "__newindex");
+	//here we choose to make into functions so use output:flip(270) instead of output.flip = 270
+	REGISTER_METHOD(L, "flip", _lua_output_flip);
+	REGISTER_METHOD(L, "scale", _lua_output_scale);
+	REGISTER_METHOD(L, "resolution", _lua_output_resolution);
+	REGISTER_METHOD(L, "position", _lua_output_position);
+	lua_pop(L, 1);
+
+	//global methods
+	REGISTER_METHOD(L, "is_windowed_display", _lua_is_windowed_display);
 	REGISTER_METHOD(L, "is_under_x11", _lua_is_under_x11);
 	REGISTER_METHOD(L, "is_under_wayland", _lua_is_under_wayland);
-	REGISTER_METHOD(L, "get_windowed_output", _lua_get_windowed_output);
+	//we are calling display instead of output
+	REGISTER_METHOD(L, "get_windowed_display", _lua_get_windowed_output);
 
-	(void)b;
 	return true;
 }
 

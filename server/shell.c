@@ -614,10 +614,13 @@ shell_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 /*******************************************************************
  * lua components
  ******************************************************************/
+#define METATABLE_SHELL "metatable_shell"
+#define REGISTRY_SHELL "__shell"
+
 static struct shell *
 _lua_to_shell(lua_State *L)
 {
-	lua_getfield(L, LUA_REGISTRYINDEX, "__shell");
+	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_SHELL);
 	struct shell *sh = lua_touserdata(L, -1);
 	lua_pop(L, 1);
 	return sh;
@@ -765,7 +768,7 @@ _lua_request_shell(lua_State *L)
 {
 	lua_newtable(L);
 	//register global methods or fields
-	luaL_getmetatable(L, "metatable_shell");
+	luaL_getmetatable(L, METATABLE_SHELL);
 	lua_setmetatable(L, -2);
 	return 1;
 }
@@ -785,12 +788,13 @@ shell_add_config_component(struct taiwins_config *c, lua_State *L,
 {
 	struct shell *shell = container_of(listener, struct shell, config_component);
 	lua_pushlightuserdata(L, shell);
-	lua_setfield(L, LUA_REGISTRYINDEX, "__shell");
+	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_SHELL);
 	//register global methods.
 	//creates its own metatable
-	luaL_newmetatable(L, "metatable_shell");
+	luaL_newmetatable(L, METATABLE_SHELL);
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -2, "__index");
+	//TODO make all those methods overrided
 	REGISTER_METHOD(L, "set_wallpaper", _lua_set_wallpaper);
 	REGISTER_METHOD(L, "init_widgets", _lua_set_widgets);
 	REGISTER_METHOD(L, "panel_position", _lua_set_panel_position);

@@ -930,11 +930,14 @@ desktop_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 /****************************************************************************
  * LUA components
  ***************************************************************************/
+#define METATABLE_WORKSPACE "metatable_workspace"
+#define METATABLE_DESKTOP "metatable_desktop"
+#define REGISTRY_DESKTOP "__desktop"
 
 static struct desktop*
 _lua_to_desktop(lua_State *L)
 {
-	lua_getfield(L, LUA_REGISTRYINDEX, "__desktop");
+	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_DESKTOP);
 	struct desktop *d = lua_touserdata(L, -1);
 	lua_pop(L, 1);
 	return d;
@@ -949,7 +952,7 @@ _lua_request_workspaces(lua_State *L)
 		struct workspace *ws = &d->workspaces[i];
 
 		lua_newtable(L); //2
-		luaL_getmetatable(L, "metatable_workspace"); //3
+		luaL_getmetatable(L, METATABLE_WORKSPACE); //3
 		lua_setmetatable(L, -2); //2
 
 		lua_pushstring(L, "layout"); //3
@@ -1024,7 +1027,7 @@ static int
 _lua_request_desktop(lua_State *L)
 {
 	lua_newtable(L);
-	luaL_getmetatable(L, "metatable_desktop");
+	luaL_getmetatable(L, METATABLE_DESKTOP);
 	lua_setmetatable(L, -2);
 	return 1;
 }
@@ -1042,11 +1045,11 @@ desktop_init_config_component(struct taiwins_config *c, lua_State *L,
 {
 	struct desktop *d = container_of(listener, struct desktop, config_component);
 	lua_pushlightuserdata(L, d); //s1
-	lua_setfield(L, LUA_REGISTRYINDEX, "__desktop"); //s0
+	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_DESKTOP); //s0
 
 
 	//metatable for desktop API
-	luaL_newmetatable(L, "metatable_desktop");
+	luaL_newmetatable(L, METATABLE_DESKTOP);
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -2, "__index");
 
@@ -1056,7 +1059,7 @@ desktop_init_config_component(struct taiwins_config *c, lua_State *L,
 	lua_pop(L, 1);
 
 	//metatable for workspace
-	luaL_newmetatable(L, "metatable_workspace");
+	luaL_newmetatable(L, METATABLE_WORKSPACE);
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -2, "__index");
 
