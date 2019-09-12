@@ -34,43 +34,6 @@ tw_log(const char *format, va_list args)
 	return vfprintf(logfile, format, args);
 }
 
-/*
-static bool
-setup_input(struct weston_compositor *compositor)
-{
-	if (!compositor->xkb_names.layout) {
-		compositor->xkb_names = (struct xkb_rule_names) {
-			.rules = NULL,
-			.model = "pc105",
-			.layout = "us",
-			.options = "ctrl:swap_lalt_lctl"
-		};
-		compositor->xkb_info = (struct weston_xkb_info *)zalloc(sizeof(struct weston_xkb_info));
-		compositor->xkb_info->keymap = xkb_keymap_new_from_names(compositor->xkb_context,
-									 &compositor->xkb_names,
-									 XKB_KEYMAP_COMPILE_NO_FLAGS);
-	}
-	//later on we can have
-	//xkb_keymap_new_from_string(context, string, format, flag) or from_file
-	//change every shit below!
-	//TODO this is temporary code, we need to change this with libinput
-	if (wl_list_empty(&compositor->seat_list)) {
-		//this will append the seat to the list of compositor and call
-		//the seat_create_signal
-		weston_seat_init(&g_seat, compositor, "seat0");
-	}
-	seat0 = wl_container_of(compositor->seat_list.next, seat0, link);
-	//we already updated keyboard state here
-//	weston_seat_init_keyboard(seat0, compositor->xkb_info->keymap); //if something goes wrong
-//	weston_seat_update_keymap(seat0, compositor->xkb_info->keymap);
-//	struct weston_keyboard *keyboard = weston_seat_get_keyboard(seat0);
-	//you can also do this
-//	weston_seat_init_pointer(seat0);
-//	weston_seat_init_touch(seat0);
-	return true;
-}
-*/
-
 static void
 taiwins_quit(struct weston_keyboard *keyboard,
 	     const struct timespec *time,
@@ -102,6 +65,14 @@ tw_compositor_init(struct tw_compositor *tc, struct weston_compositor *ec,
 		   struct taiwins_config *config)
 {
 	tc->ec = ec;
+	struct xkb_rule_names sample_rules =  {
+			.rules = NULL,
+			.model = strdup("pc105"),
+			.layout = strdup("us"),
+			.options = strdup("ctrl:swap_lalt_lctl"),
+		};
+	weston_compositor_set_xkb_rule_names(ec, &sample_rules);
+
 	wl_list_init(&tc->add_binding.link);
 	tc->add_binding.apply = tw_compositor_add_bindings;
 	taiwins_config_add_apply_bindings(config, &tc->add_binding);
@@ -125,22 +96,22 @@ int main(int argc, char *argv[], char *envp[])
 	struct weston_log_context *context =
 		weston_log_ctx_compositor_create();
 	struct weston_compositor *compositor =
-		weston_compositor_create(display, context, tw_get_backend());
+		weston_compositor_create(display, context, NULL);
+	//Hard code it here right now
+
 	weston_log_set_handler(tw_log, tw_log);
-	//apply the config now
+	//get the configs now
 	char *xdg_dir = getenv("XDG_CONFIG_HOME");
 	if (!xdg_dir)
 		xdg_dir = getenv("HOME");
 	strcpy(config_file, xdg_dir);
 	strcat(config_file, "/config.lua");
+	struct taiwins_config *config =
+		taiwins_config_create(compositor, tw_log);
 
-	tw_setup_backend(compositor);
-	//it seems that we don't need to setup the input, maybe in other cases
-	fprintf(stderr, "backend registred\n");
-	weston_compositor_wake(compositor);
-	//good moment to add the extensions
-	struct taiwins_config *config = taiwins_config_create(compositor, tw_log);
 	tw_compositor_init(&tc, compositor, config);
+	tw_setup_backend(compositor, config);
+	weston_compositor_wake(compositor);
 	struct shell *sh = announce_shell(compositor, shellpath, config);
 	announce_console(compositor, sh, launcherpath, config);
 	announce_desktop(compositor, sh, config);

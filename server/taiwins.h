@@ -10,6 +10,11 @@
 #include <libweston/zalloc.h>
 #include <libweston/libweston.h>
 
+//the declarations we need to move back
+void
+weston_output_move(struct weston_output *output, int x, int y);
+
+
 #if defined (INCLUDE_DESKTOP)
 #include <libweston-desktop/libweston-desktop.h>
 #endif
