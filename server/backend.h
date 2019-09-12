@@ -4,14 +4,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-struct tw_backend;
 struct weston_compositor;
+struct taiwins_config;
 
 bool
-tw_setup_backend(struct weston_compositor *compositor);
-
-struct tw_backend*
-tw_get_backend(void);
+tw_setup_backend(struct weston_compositor *ec, struct taiwins_config *c);
 
 #ifdef __cplusplus
 }

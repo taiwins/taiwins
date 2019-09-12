@@ -5,29 +5,55 @@
 #include <signal.h>
 #include <string.h>
 #include <linux/input.h>
+#include <pixman.h>
 #include <wayland-server.h>
 #include <helpers.h>
 
 #define INCLUDE_BACKEND
 #include "taiwins.h"
+#include "config.h"
 
+struct tw_backend;
+
+struct tw_output {
+	struct tw_backend *backend;
+	struct weston_output *output;
+
+	OPTION(struct weston_geometry, geometry)
+		pending_geometry;
+	OPTION(int32_t, scale) pending_scale;
+};
 
 struct tw_backend {
 	struct weston_compositor *compositor;
+	struct taiwins_config *config;
+	enum weston_compositor_backend type;
+	//like weston, we have maximum 32 outputs.
+	uint32_t output_mask;
+	struct tw_output outputs[32];
+
+	struct pixman_region32 region;
 	union {
 		struct weston_drm_backend_config drm;
 		struct weston_wayland_backend_config wayland;
 		struct weston_x11_backend_config x11;
 	} backend_config;
-	struct wl_listener heads_changed_listener;
-	struct wl_listener output_pending_listener;
-	struct weston_layer layer_background;
-	struct weston_surface *surface_background;
-	struct weston_view *view_background;
+	struct wl_listener compositor_distroy_listener;
+	struct wl_listener windowed_head_changed;
+	struct wl_listener drm_head_changed;
+	struct taiwins_config_component_listener config_component;
 };
 
 static struct tw_backend TWbackend;
 
+
+/******************************************************************
+ * tw_output
+ *****************************************************************/
+
+/******************************************************************
+ * head functions
+ *****************************************************************/
 /* here we just create one output, every thing else attach to it, but later, we
  * can create other outputs */
 static void
@@ -80,6 +106,43 @@ drm_head_check(struct weston_compositor *compositor)
 }
 
 static void
+windowed_head_enable(struct weston_head *head, struct weston_compositor *compositor)
+{
+	struct weston_output *output =
+		weston_compositor_create_output_with_head(compositor, head);
+	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
+	weston_output_move(output, 0, 0);
+	weston_output_set_scale(output, 2);
+
+	const struct weston_windowed_output_api *api =
+		weston_windowed_output_get_api(compositor);
+	api->output_set_size(output, 500, 500);
+	if (!output->enabled)
+		weston_output_enable(output);
+}
+
+static void
+windowed_head_disabled(struct weston_head *head)
+{
+	struct weston_output *output = weston_head_get_output(head);
+	weston_head_detach(head);
+	weston_output_destroy(output);
+}
+
+static void
+windowed_head_check(struct weston_compositor *compositor)
+{
+	const struct weston_windowed_output_api *api =
+		weston_windowed_output_get_api(compositor);
+	if (!wl_list_length(&compositor->output_list)) {
+		api->create_head(compositor, "windows");
+	}
+}
+
+/************************************************************
+ * head_listener
+ ***********************************************************/
+static void
 drm_head_changed(struct wl_listener *listener, void *data)
 {
 	struct weston_compositor *compositor = data;
@@ -100,41 +163,6 @@ drm_head_changed(struct wl_listener *listener, void *data)
 		weston_head_reset_device_changed(head);
 	}
 	drm_head_check(compositor);
-}
-
-static void
-windowed_head_enable(struct weston_head *head, struct weston_compositor *compositor)
-{
-	struct weston_output *output =
-		weston_compositor_create_output_with_head(compositor, head);
-	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
-	/* weston_output_move(output, 0, 0); */
-	weston_output_set_scale(output, 2);
-
-	const struct weston_windowed_output_api *api =
-		weston_windowed_output_get_api(compositor);
-	api->output_set_size(output, 500, 500);
-	if (!output->enabled)
-		weston_output_enable(output);
-}
-
-//we should have a weston_head_destroy_signal
-static void
-windowed_head_disabled(struct weston_head *head)
-{
-	struct weston_output *output = weston_head_get_output(head);
-	weston_head_detach(head);
-	weston_output_destroy(output);
-}
-
-static void
-windowed_head_check(struct weston_compositor *compositor)
-{
-	const struct weston_windowed_output_api *api =
-		weston_windowed_output_get_api(compositor);
-	if (!wl_list_length(&compositor->output_list)) {
-		api->create_head(compositor, "windows");
-	}
 }
 
 static void
@@ -161,70 +189,160 @@ windowed_head_changed(struct wl_listener *listener, void *data)
 
 }
 
-static struct wl_listener windowed_head_change_handler = {
-	.notify = windowed_head_changed,
-	.link.prev = &windowed_head_change_handler.link,
-	.link.next = &windowed_head_change_handler.link,
-};
+/************************************************************
+ * config components
+ ***********************************************************/
+static inline struct tw_backend *
+_lua_to_backend(lua_State *L)
+{
+	lua_getfield(L, LUA_REGISTRYINDEX, "__backend");
+	struct tw_backend *b = lua_touserdata(L, -1);
+	lua_pop(L, 1);
+	return b;
+}
 
+static int
+_lua_is_under_x11(lua_State *L)
+{
+	struct tw_backend *b = _lua_to_backend(L);
+	lua_pushboolean(L, (b->type == WESTON_BACKEND_X11));
+	return 1;
+}
 
-static struct wl_listener drm_head_change_handler = {
-	.notify = drm_head_changed,
-	.link.prev = &drm_head_change_handler.link,
-	.link.next = &drm_head_change_handler.link,
-};
+static int
+_lua_is_under_wayland(lua_State *L)
+{
+	struct tw_backend *b = _lua_to_backend(L);
+	lua_pushboolean(L, (b->type == WESTON_BACKEND_WAYLAND));
+	return 1;
+}
+
+static int
+_lua_get_windowed_output(lua_State *L)
+{
+	lua_newtable(L);
+
+	return 1;
+}
+
+static void
+backend_apply_lua_config(struct taiwins_config *c, bool cleanup,
+			 struct taiwins_config_component_listener *listener)
+{
+	struct tw_backend *b = container_of(listener, struct tw_backend,
+					    config_component);
+	(void)b;
+}
+
+static bool
+backend_init_config_component(struct taiwins_config *c, lua_State *L,
+			      struct taiwins_config_component_listener *listener)
+{
+	struct tw_backend *b = container_of(listener, struct tw_backend,
+					    config_component);
+	lua_pushlightuserdata(L, b);
+	lua_setfield(L, LUA_REGISTRYINDEX, "__backend");
+	REGISTER_METHOD(L, "is_under_x11", _lua_is_under_x11);
+	REGISTER_METHOD(L, "is_under_wayland", _lua_is_under_wayland);
+	REGISTER_METHOD(L, "get_windowed_output", _lua_get_windowed_output);
+
+	(void)b;
+	return true;
+}
+
+/************************************************************
+ * global functions
+ ***********************************************************/
+
+static inline struct tw_backend *
+get_backend(void)
+{
+	return &TWbackend;
+}
+
+static void
+end_backends(struct wl_listener *listener, void *data)
+{
+	struct tw_backend *b = container_of(listener, struct tw_backend,
+					    compositor_distroy_listener);
+	pixman_region32_fini(&b->region);
+}
+
+static void
+setup_backend_listeners(struct tw_backend *b)
+{
+	struct weston_compositor *compositor = b->compositor;
+	wl_list_init(&b->windowed_head_changed.link);
+	b->windowed_head_changed.notify = windowed_head_changed;
+	wl_list_init(&b->drm_head_changed.link);
+	b->drm_head_changed.notify = drm_head_changed;
+	//global destroy
+	wl_list_init(&b->compositor_distroy_listener.link);
+	b->compositor_distroy_listener.notify = end_backends;
+	wl_signal_add(&b->compositor->destroy_signal,
+		      &b->compositor_distroy_listener);
+	wl_list_init(&b->config_component.link);
+	b->config_component.init = backend_init_config_component;
+	b->config_component.apply = backend_apply_lua_config;
+	taiwins_config_add_component(b->config, &b->config_component);
+
+	switch (b->type) {
+	case WESTON_BACKEND_DRM:
+		b->backend_config.drm.base.struct_version =
+			WESTON_DRM_BACKEND_CONFIG_VERSION;
+		b->backend_config.drm.base.struct_size =
+			sizeof(struct weston_drm_backend_config);
+		weston_compositor_add_heads_changed_listener(
+			compositor, &b->drm_head_changed);
+		break;
+	case WESTON_BACKEND_WAYLAND:
+		b->backend_config.wayland.base.struct_version =
+			WESTON_WAYLAND_BACKEND_CONFIG_VERSION;
+		b->backend_config.wayland.base.struct_size =
+			sizeof(struct weston_wayland_backend_config);
+		weston_compositor_add_heads_changed_listener(
+			compositor, &b->windowed_head_changed);
+		break;
+	case WESTON_BACKEND_X11:
+		b->backend_config.x11.base.struct_version =
+			WESTON_X11_BACKEND_CONFIG_VERSION;
+		b->backend_config.x11.base.struct_size =
+			sizeof(struct weston_x11_backend_config);
+		weston_compositor_add_heads_changed_listener(
+			compositor, &b->windowed_head_changed);
+		break;
+	/* case WESTON_BACKEND_RDP: */
+	default:
+		//not supported
+		assert(0);
+	}
+}
 
 bool
-tw_setup_backend(struct weston_compositor *compositor)
+tw_setup_backend(struct weston_compositor *compositor,
+		 struct taiwins_config *config)
 {
 	enum weston_compositor_backend backend;
-	struct tw_backend *b = weston_compositor_get_user_data(compositor);
+	struct tw_backend *b = get_backend();
+	b->config = config;
 	b->compositor = compositor;
-	//apparently I need to do this
-	struct xkb_context *ctxt = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-	compositor->xkb_context = ctxt;
-
+	//how to launch an rdp server here?
 	if ( getenv("WAYLAND_DISPLAY") != NULL )
 		backend = WESTON_BACKEND_WAYLAND;
 	else if ( getenv("DISPLAY") != NULL )
 		backend = WESTON_BACKEND_X11;
 	else
 		backend = WESTON_BACKEND_DRM;
-	//set up a env so we can use headless backend
+	b->type = backend;
+	setup_backend_listeners(b);
 
-	switch (backend) {
-	case WESTON_BACKEND_DRM:
-		b->backend_config.drm.base.struct_version = WESTON_DRM_BACKEND_CONFIG_VERSION;
-		b->backend_config.drm.base.struct_size = sizeof(struct weston_drm_backend_config);
-		weston_compositor_add_heads_changed_listener(compositor, &drm_head_change_handler);
-		//you need to have setup the drm backends as well
-		break;
-	case WESTON_BACKEND_WAYLAND:
-		b->backend_config.wayland.base.struct_version = WESTON_WAYLAND_BACKEND_CONFIG_VERSION;
-		b->backend_config.wayland.base.struct_size = sizeof(struct weston_wayland_backend_config);
-		weston_compositor_add_heads_changed_listener(compositor, &windowed_head_change_handler);
-		break;
-	case WESTON_BACKEND_X11:
-		b->backend_config.x11.base.struct_version = WESTON_X11_BACKEND_CONFIG_VERSION;
-		b->backend_config.x11.base.struct_size = sizeof(struct weston_x11_backend_config);
-		weston_compositor_add_heads_changed_listener(compositor, &windowed_head_change_handler);
-		break;
-	default:
-		//not supported
-		return  false;
-	}
-	weston_compositor_load_backend(compositor, backend, &b->backend_config.drm.base);
+	weston_compositor_load_backend(
+		compositor, backend, &b->backend_config.drm.base);
 	if (backend == WESTON_BACKEND_WAYLAND ||
 	    backend == WESTON_BACKEND_X11)
 		windowed_head_check(compositor);
 	weston_compositor_flush_heads_changed(compositor);
 
-	/* weston_log("we have heads now\n"); */
 	compositor->vt_switching = true;
 	return true;
-}
-
-struct tw_backend *tw_get_backend(void)
-{
-	return &TWbackend;
 }
