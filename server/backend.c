@@ -15,13 +15,14 @@
 
 struct tw_backend;
 
+typedef OPTION(struct weston_geometry, geometry) tw_option_geometry;
+typedef OPTION(int32_t, scale) tw_option_scale;
+
 struct tw_output {
 	struct tw_backend *backend;
 	struct weston_output *output;
-
-	OPTION(struct weston_geometry, geometry)
-		pending_geometry;
-	OPTION(int32_t, scale) pending_scale;
+	tw_option_geometry pending_geometry;
+	tw_option_scale pending_scale;
 };
 
 struct tw_backend {
@@ -326,6 +327,7 @@ tw_setup_backend(struct weston_compositor *compositor,
 	struct tw_backend *b = get_backend();
 	b->config = config;
 	b->compositor = compositor;
+	compositor->vt_switching = true;
 	//how to launch an rdp server here?
 	if ( getenv("WAYLAND_DISPLAY") != NULL )
 		backend = WESTON_BACKEND_WAYLAND;
@@ -343,6 +345,5 @@ tw_setup_backend(struct weston_compositor *compositor,
 		windowed_head_check(compositor);
 	weston_compositor_flush_heads_changed(compositor);
 
-	compositor->vt_switching = true;
 	return true;
 }
