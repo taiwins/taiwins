@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <assert.h>
 #include <errno.h>
 #include <signal.h>
 #include <string.h>
@@ -17,12 +18,14 @@ struct tw_backend;
 
 typedef OPTION(struct weston_geometry, geometry) tw_option_geometry;
 typedef OPTION(int32_t, scale) tw_option_scale;
+typedef OPTION(enum wl_output_transform, transform) tw_option_output_transform;
 
 struct tw_output {
 	struct tw_backend *backend;
 	struct weston_output *output;
 	tw_option_geometry pending_geometry;
 	tw_option_scale pending_scale;
+	tw_option_output_transform pending_transform;
 };
 
 struct tw_backend {
@@ -30,7 +33,7 @@ struct tw_backend {
 	struct taiwins_config *config;
 	enum weston_compositor_backend type;
 	//like weston, we have maximum 32 outputs.
-	uint32_t output_mask;
+	uint32_t output_pool;
 	struct tw_output outputs[32];
 
 	struct pixman_region32 region;
@@ -51,6 +54,7 @@ static struct tw_backend TWbackend;
 /******************************************************************
  * tw_output
  *****************************************************************/
+static void tw_backend_init_output(struct tw_backend *b, struct weston_output *output);
 
 /******************************************************************
  * head functions
@@ -58,7 +62,8 @@ static struct tw_backend TWbackend;
 /* here we just create one output, every thing else attach to it, but later, we
  * can create other outputs */
 static void
-drm_head_enable(struct weston_head *head, struct weston_compositor *compositor)
+drm_head_enable(struct weston_head *head, struct weston_compositor *compositor,
+		struct tw_backend *backend)
 {
 	const struct weston_drm_output_api *api =
 		weston_drm_output_get_api(compositor);
@@ -66,13 +71,8 @@ drm_head_enable(struct weston_head *head, struct weston_compositor *compositor)
 	//you can convert an output to pending state.
 	//try to create the output for it, right now we need to be silly, just
 	//use the clone method
-	struct weston_output *output = wl_list_length(&compositor->output_list) ?
-		container_of(compositor->output_list.next, struct weston_output, link) :
-		NULL;
-	if (!output)
-		output = weston_compositor_create_output_with_head(compositor, head);
-	else
-		weston_output_attach_head(output, head);
+	struct weston_output *output =
+		weston_compositor_create_output_with_head(compositor, head);
 
 	api->set_mode(output, WESTON_DRM_BACKEND_OUTPUT_PREFERRED, NULL);
 	api->set_gbm_format(output, NULL);
@@ -80,6 +80,7 @@ drm_head_enable(struct weston_head *head, struct weston_compositor *compositor)
 	weston_output_set_scale(output, 1);
 	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
 	weston_output_enable(output);
+	tw_backend_init_output(backend, output);
 
 	if (!output->enabled) {
 		weston_output_enable(output);
@@ -107,19 +108,20 @@ drm_head_check(struct weston_compositor *compositor)
 }
 
 static void
-windowed_head_enable(struct weston_head *head, struct weston_compositor *compositor)
+windowed_head_enable(struct weston_head *head, struct weston_compositor *compositor,
+		     struct tw_backend *backend)
 {
+	const struct weston_windowed_output_api *api =
+		weston_windowed_output_get_api(compositor);
+
 	struct weston_output *output =
 		weston_compositor_create_output_with_head(compositor, head);
 	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
-	weston_output_move(output, 0, 0);
 	weston_output_set_scale(output, 2);
-
-	const struct weston_windowed_output_api *api =
-		weston_windowed_output_get_api(compositor);
 	api->output_set_size(output, 500, 500);
 	if (!output->enabled)
 		weston_output_enable(output);
+	tw_backend_init_output(backend, output);
 }
 
 static void
@@ -146,6 +148,8 @@ windowed_head_check(struct weston_compositor *compositor)
 static void
 drm_head_changed(struct wl_listener *listener, void *data)
 {
+	struct tw_backend *backend =
+		container_of(listener, struct tw_backend, drm_head_changed);
 	struct weston_compositor *compositor = data;
 	struct weston_head *head = NULL;
 	bool connected, enabled, changed;
@@ -156,7 +160,7 @@ drm_head_changed(struct wl_listener *listener, void *data)
 		changed = weston_head_is_device_changed(head);
 		//shit, it is not connected or enabled
 		if (connected && !enabled)
-			drm_head_enable(head, compositor);
+			drm_head_enable(head, compositor, backend);
 		else if (enabled && !connected)
 			drm_head_disable(head);
 		else {
@@ -172,6 +176,8 @@ windowed_head_changed(struct wl_listener *listener, void *data)
 	//one head one output
 	struct weston_compositor *compositor = data;
 	struct weston_head *head = NULL;
+	struct tw_backend *backend =
+		container_of(listener, struct tw_backend, windowed_head_changed);
 	bool connected, enabled, changed;
 
 	wl_list_for_each(head, &compositor->head_list, compositor_link) {
@@ -179,7 +185,7 @@ windowed_head_changed(struct wl_listener *listener, void *data)
 		enabled = weston_head_is_enabled(head);
 		changed = weston_head_is_device_changed(head);
 		if (connected && !enabled) {
-			windowed_head_enable(head, compositor);
+			windowed_head_enable(head, compositor, backend);
 		} else if (enabled && !connected) {
 			windowed_head_disabled(head);
 		} else if (enabled && changed) {
@@ -195,6 +201,27 @@ windowed_head_changed(struct wl_listener *listener, void *data)
  ***********************************************************/
 #define METATABLE_OUTPUT "metatable_output"
 #define REGISTRY_BACKEND "__backend"
+
+typedef struct { int rotate; bool flip; enum wl_output_transform t;} transform_t;
+static transform_t TRANSFORMS[] = {
+	{0, false, WL_OUTPUT_TRANSFORM_NORMAL},
+	{90, false, WL_OUTPUT_TRANSFORM_90},
+	{180, false, WL_OUTPUT_TRANSFORM_180},
+	{270, false, WL_OUTPUT_TRANSFORM_270},
+	{0, true, WL_OUTPUT_TRANSFORM_FLIPPED},
+	{90, true, WL_OUTPUT_TRANSFORM_FLIPPED_90},
+	{180, true, WL_OUTPUT_TRANSFORM_FLIPPED_180},
+	{270, true, WL_OUTPUT_TRANSFORM_FLIPPED_270},
+};
+
+static struct tw_output *
+_lua_tw_output_from_weston_output(struct weston_output *o, struct tw_backend *b)
+{
+	for (int i = 0; i < 32; i++)
+		if (b->outputs[i].output == o)
+			return &b->outputs[i];
+	return NULL;
+}
 
 static inline struct tw_backend *
 _lua_to_backend(lua_State *L)
@@ -235,6 +262,7 @@ _lua_is_windowed_display(lua_State *L)
 static int
 _lua_get_windowed_output(lua_State *L)
 {
+	struct tw_output *tw_output = NULL;
 	struct tw_backend *backend = _lua_to_backend(L);
 	//we create a copy of it
 	if (!wl_list_length(&backend->compositor->output_list)) {
@@ -243,38 +271,80 @@ _lua_get_windowed_output(lua_State *L)
 		struct weston_output *output =
 			container_of(backend->compositor->output_list.next,
 				     struct weston_output, link);
-		(void)output;
+		tw_output = _lua_tw_output_from_weston_output(output, backend);
 	}
-	struct tw_output *tw_output = lua_newuserdata(L, sizeof(struct tw_output));
+	//we are using this only for weston_output
+	struct tw_output *lua_output =
+		lua_newuserdata(L, sizeof(struct tw_output));
+	lua_output->output = tw_output->output;
 	luaL_getmetatable(L, METATABLE_OUTPUT);
 	lua_setmetatable(L, -2);
 	return 1;
 }
 
-static int
-_lua_output_flip(lua_State *L)
+static inline enum wl_output_transform
+_lua_output_transfrom_from_value(lua_State *L, int rotate, bool flip)
 {
-	struct tw_output *output =
+	for (int i = 0; i < NUMOF(TRANSFORMS); i++)
+		if (TRANSFORMS[i].rotate == rotate && TRANSFORMS[i].flip == flip)
+			return TRANSFORMS[i].t;
+	return luaL_error(L, "invalid transforms option.");
+}
+
+static int
+_lua_output_rotate_flip(lua_State *L)
+{
+	struct tw_backend *backend = _lua_to_backend(L);
+	struct tw_output *lua_output =
 		luaL_checkudata(L, 1, METATABLE_OUTPUT);
-	(void)output;
+	struct tw_output *tw_output = _lua_tw_output_from_weston_output(
+		lua_output->output, backend);
+
 	if (lua_gettop(L) == 1) {
-		return 1;
-	} else {
-		_lua_stackcheck(L, 2);
+		transform_t transform =
+			TRANSFORMS[lua_output->output->transform];
+		lua_pushinteger(L, transform.rotate);
+		lua_pushboolean(L, transform.flip);
+		return 2;
+	} else if(lua_gettop(L) == 2) {
+		int rotate = luaL_checkint(L, 2);
+		bool flip = false;
+		tw_output->pending_transform.transform =
+			_lua_output_transfrom_from_value(L, rotate, flip);
+		tw_output->pending_transform.valid = true;
 		return 0;
-	}
+	} else if (lua_gettop(L) == 3) {
+		luaL_checktype(L, 3, LUA_TBOOLEAN);
+		int rotate = luaL_checkint(L, 2);
+		int flip = lua_toboolean(L, 3);
+		tw_output->pending_transform.transform =
+			_lua_output_transfrom_from_value(L, rotate, flip);
+		tw_output->pending_transform.valid = true;
+		return 0;
+	} else
+		return luaL_error(L, "invalid number of arguments");
 }
 
 static int
 _lua_output_scale(lua_State *L)
 {
-	struct tw_output *output =
+	struct tw_backend *backend =
+		_lua_to_backend(L);
+	struct tw_output *lua_output =
 		luaL_checkudata(L, 1, METATABLE_OUTPUT);
-	(void)output;
+	struct tw_output *tw_output =
+		_lua_tw_output_from_weston_output(lua_output->output,
+						  backend);
 	if (lua_gettop(L) == 1) {
+		lua_pushinteger(L, lua_output->output->scale);
 		return 1;
 	} else {
 		_lua_stackcheck(L, 2);
+		int scale = luaL_checkint(L, 2);
+		if (scale <= 0 || scale > 4)
+			return luaL_error(L, "invalid display scale");
+		tw_output->pending_scale.scale = scale;
+		tw_output->pending_scale.valid = true;
 		return 0;
 	}
 }
@@ -284,13 +354,15 @@ _lua_output_scale(lua_State *L)
 static int
 _lua_output_resolution(lua_State *L)
 {
-	struct tw_output *output =
+	struct tw_output *lua_output =
 		luaL_checkudata(L, 1, METATABLE_OUTPUT);
-	(void)output;
 
 	if (lua_gettop(L) == 1) {
-		return 1;
+		lua_pushinteger(L, lua_output->output->width);
+		lua_pushinteger(L, lua_output->output->height);
+		return 2;
 	} else {
+		//TODO we deal with THIS later
 		_lua_stackcheck(L, 2);
 		return 0;
 	}
@@ -304,8 +376,11 @@ _lua_output_position(lua_State *L)
 	(void)output;
 
 	if (lua_gettop(L) == 1) {
-		return 1;
+		lua_pushinteger(L, output->output->x);
+		lua_pushinteger(L, output->output->y);
+		return 2;
 	} else {
+		//TODO we deal with this later.
 		_lua_stackcheck(L, 2);
 		return 0;
 	}
@@ -337,7 +412,7 @@ backend_init_config_component(struct taiwins_config *c, lua_State *L,
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -2, "__newindex");
 	//here we choose to make into functions so use output:flip(270) instead of output.flip = 270
-	REGISTER_METHOD(L, "flip", _lua_output_flip);
+	REGISTER_METHOD(L, "rotate_flip", _lua_output_rotate_flip);
 	REGISTER_METHOD(L, "scale", _lua_output_scale);
 	REGISTER_METHOD(L, "resolution", _lua_output_resolution);
 	REGISTER_METHOD(L, "position", _lua_output_position);
@@ -362,6 +437,20 @@ get_backend(void)
 {
 	return &TWbackend;
 }
+
+static void
+tw_backend_init_output(struct tw_backend *b, struct weston_output *output)
+{
+	assert(ffs(~b->output_pool) > 0);
+	int id = ffs(~b->output_pool) - 1;
+	b->output_pool |= 1u << id;
+	b->outputs[id].output = output;
+	b->outputs[id].backend = b;
+	b->outputs[id].pending_geometry.valid = false;
+	b->outputs[id].pending_scale.valid = false;
+	b->outputs[id].pending_transform.valid = false;
+}
+
 
 static void
 end_backends(struct wl_listener *listener, void *data)
@@ -427,9 +516,10 @@ tw_setup_backend(struct weston_compositor *compositor,
 {
 	enum weston_compositor_backend backend;
 	struct tw_backend *b = get_backend();
+	compositor->vt_switching = true;
 	b->config = config;
 	b->compositor = compositor;
-	compositor->vt_switching = true;
+	b->output_pool = 0;
 	//how to launch an rdp server here?
 	if ( getenv("WAYLAND_DISPLAY") != NULL )
 		backend = WESTON_BACKEND_WAYLAND;

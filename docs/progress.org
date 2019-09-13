@@ -214,11 +214,27 @@
 ** TODO installing scripts
    write cmake install commands
 
-* TODO [25%]Stage three: extensions
+* TODO [0%]Stage three: extensions
+** TODO [18%] Tasks didn't finish in stage 2
+*** TODO backend configuration
+    libweston haven't properly support multi display yet.
+**** TODO adding/disabling new output
+**** TODO clone mode and set output layout
+
 *** TODO utilise weston-animations
     fade/zoom/move, it should be relative easy to use.
 
-*** TODO possibly remove dynamic allocated objects
+*** TODO adding support for notification. All those can be implement
+*** TODO adding support for menu(right-click),
+    special case we need to handle for background, which is not ideal for
+    shm_buffer implementation. I think you will have no choice but have a custom
+    grab interface.
+
+    right click and left click provides different functions
+    - preferably right click open an menu and left click opens selection.
+    - for this work you need the support for resizing
+
+** TODO possibly remove dynamic allocated objects
     reduce number of mallocs and memory fragmentation.
     - recent_view
     - tiling_view tree
@@ -229,17 +245,7 @@
     - taiwins_binding (temporary)
     - lua_state
     - taiwins_config options(a vector)
-*** TODO adding support for notification. All those can be implement
-*** TODO adding support for cursor menu(right-click),
-    special case we need to handle for background, which is not ideal for
-    shm_buffer implementation. I think you will have no choice but have a custom
-    grab interface.
-
-    right click and left click provides different functions
-    - preferably right click open an menu and left click opens selection.
-    - for this work you need the support for resizing
-
-*** DONE deal with scale in font
+** DONE deal with scale in font
     previously we solved the scale but left the problem with blury text. Need to
     revisit the nuklear backends for (cairo/egl) to solve it.
 *** TODO ML based layout
