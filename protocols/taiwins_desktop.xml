@@ -49,9 +49,7 @@
 	When new ouputs are created, the compositor sends this message to the
 	shell client for it to create new panel or background, it can also be
 	used to have the shell client responds to close of the output or change
-	of dimension.
-
-	outputs are comming in order.
+	in parameters, shell does not need to bother with transform information.
       </description>
       <arg name="id" type="uint" summary="id of the output"/>
       <arg name="width" type="uint" summary="pixel width"/>
@@ -60,12 +58,6 @@
       <arg name="major" type="uint" summary="the major output"/>
       <arg name="msg" type="uint" summary="message about the output"/>
     </event>
-    <!-- <event name="output_rotation"> -->
-    <!-- </event> -->
-
-    <!-- <event name="output_done"> -->
-    <!--   <description summary="mark the end of a series output configuration"/> -->
-    <!-- </event> -->
 
     <event name="shell_msg">
       <description summary="various configuration and msg sends to the client"/>
