@@ -52,6 +52,7 @@ struct desktop_shell {
 	struct {
 		struct nk_wl_backend *panel_backend;
 		struct nk_style_button label_style;
+		//TODO calculated from font size
 		size_t panel_height;
 	};
 	//widget configures
@@ -319,13 +320,15 @@ shell_output_release(struct shell_output *w)
 }
 
 static void
-shell_output_resize(struct shell_output *w)
+shell_output_resize(struct shell_output *w, const struct bbox geo)
 {
-	app_surface_resize(&w->background, w->bbox.w, w->bbox.h);
+	w->bbox = geo;
+	app_surface_resize(&w->background, w->bbox.w, w->bbox.h, w->bbox.s);
 	if (w == w->shell->main_output) {
 		nk_wl_test_draw(w->shell->panel_backend, &w->panel,
 				shell_panel_measure_leading);
-		app_surface_resize(&w->panel, w->bbox.w, w->shell->panel_height);
+		app_surface_resize(&w->panel, w->bbox.w, w->shell->panel_height,
+				   w->bbox.s);
 	}
 }
 
@@ -398,16 +401,15 @@ desktop_shell_output_configure(void *data, struct tw_shell *tw_shell,
 {
 	struct desktop_shell *shell = data;
 	struct shell_output *output = &shell->shell_outputs[id];
+	struct bbox geometry =  make_bbox_origin(width, height, scale);
 	output->shell = shell;
 	output->index = id;
 	switch (msg) {
 	case TW_SHELL_OUTPUT_MSG_CONNECTED:
-		shell_output_init(output,
-				  make_bbox_origin(width, height, scale),
-				  major);
+		shell_output_init(output, geometry, major);
 		break;
 	case TW_SHELL_OUTPUT_MSG_CHANGE:
-		shell_output_resize(output);
+		shell_output_resize(output, geometry);
 		break;
 	case TW_SHELL_OUTPUT_MSG_LOST:
 		shell_output_release(output);

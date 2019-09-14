@@ -276,7 +276,7 @@ shell_output_resized(struct wl_listener *listener, void *data)
 	struct weston_output *output = data;
 	struct shell *shell = container_of(listener, struct shell, output_resize_listener);
 	uint32_t index = shell_ith_output(shell, output);
-	if (index < 0)
+	if (index < 0 || !shell->shell_resource)
 		return;
 	tw_shell_send_output_configure(shell->shell_resource, index,
 				       output->width, output->height, output->scale,

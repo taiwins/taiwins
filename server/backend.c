@@ -21,6 +21,7 @@ typedef OPTION(int32_t, scale) tw_option_scale;
 typedef OPTION(enum wl_output_transform, transform) tw_option_output_transform;
 
 struct tw_output {
+	int id;
 	struct tw_backend *backend;
 	struct weston_output *output;
 	tw_option_geometry pending_geometry;
@@ -54,7 +55,41 @@ static struct tw_backend TWbackend;
 /******************************************************************
  * tw_output
  *****************************************************************/
-static void tw_backend_init_output(struct tw_backend *b, struct weston_output *output);
+static void
+tw_backend_init_output(struct tw_backend *b, struct weston_output *output)
+{
+	assert(ffs(~b->output_pool) > 0);
+	int id = ffs(~b->output_pool) - 1;
+	b->output_pool |= 1u << id;
+	b->outputs[id].id = id;
+	b->outputs[id].output = output;
+	b->outputs[id].backend = b;
+	b->outputs[id].pending_geometry.valid = false;
+	b->outputs[id].pending_scale.valid = false;
+	b->outputs[id].pending_transform.valid = false;
+}
+
+static void
+tw_backend_fini_output(struct tw_output *o)
+{
+	struct tw_backend *backend = o->backend;
+	backend->output_pool &= ~(1u << o->id);
+	o->id = 0xffffffff;
+	o->output = NULL;
+	o->pending_geometry.valid = false;
+	o->pending_scale.valid = false;
+	o->pending_transform.valid = false;
+}
+
+static inline struct tw_output*
+tw_output_from_weston_output(struct weston_output *o, struct tw_backend *b)
+{
+	for (int i = 0; i < 32; i++)
+		if (b->outputs[i].output == o)
+			return &b->outputs[i];
+	return NULL;
+}
+
 
 /******************************************************************
  * head functions
@@ -77,7 +112,7 @@ drm_head_enable(struct weston_head *head, struct weston_compositor *compositor,
 	api->set_mode(output, WESTON_DRM_BACKEND_OUTPUT_PREFERRED, NULL);
 	api->set_gbm_format(output, NULL);
 	api->set_seat(output, NULL);
-	weston_output_set_scale(output, 1);
+	weston_output_set_scale(output, 2);
 	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
 	weston_output_enable(output);
 	tw_backend_init_output(backend, output);
@@ -214,15 +249,6 @@ static transform_t TRANSFORMS[] = {
 	{270, true, WL_OUTPUT_TRANSFORM_FLIPPED_270},
 };
 
-static struct tw_output *
-_lua_tw_output_from_weston_output(struct weston_output *o, struct tw_backend *b)
-{
-	for (int i = 0; i < 32; i++)
-		if (b->outputs[i].output == o)
-			return &b->outputs[i];
-	return NULL;
-}
-
 static inline struct tw_backend *
 _lua_to_backend(lua_State *L)
 {
@@ -271,7 +297,7 @@ _lua_get_windowed_output(lua_State *L)
 		struct weston_output *output =
 			container_of(backend->compositor->output_list.next,
 				     struct weston_output, link);
-		tw_output = _lua_tw_output_from_weston_output(output, backend);
+		tw_output = tw_output_from_weston_output(output, backend);
 	}
 	//we are using this only for weston_output
 	struct tw_output *lua_output =
@@ -297,7 +323,7 @@ _lua_output_rotate_flip(lua_State *L)
 	struct tw_backend *backend = _lua_to_backend(L);
 	struct tw_output *lua_output =
 		luaL_checkudata(L, 1, METATABLE_OUTPUT);
-	struct tw_output *tw_output = _lua_tw_output_from_weston_output(
+	struct tw_output *tw_output = tw_output_from_weston_output(
 		lua_output->output, backend);
 
 	if (lua_gettop(L) == 1) {
@@ -333,7 +359,7 @@ _lua_output_scale(lua_State *L)
 	struct tw_output *lua_output =
 		luaL_checkudata(L, 1, METATABLE_OUTPUT);
 	struct tw_output *tw_output =
-		_lua_tw_output_from_weston_output(lua_output->output,
+		tw_output_from_weston_output(lua_output->output,
 						  backend);
 	if (lua_gettop(L) == 1) {
 		lua_pushinteger(L, lua_output->output->scale);
@@ -392,9 +418,38 @@ static void
 backend_apply_lua_config(struct taiwins_config *c, bool cleanup,
 			 struct taiwins_config_component_listener *listener)
 {
+	struct weston_output *o;
 	struct tw_backend *b = container_of(listener, struct tw_backend,
 					    config_component);
-	(void)b;
+
+	wl_list_for_each(o, &b->compositor->output_list, link) {
+		struct tw_output *to =
+			tw_output_from_weston_output(o, b);
+		bool valid = to->pending_scale.valid ||
+			to->pending_geometry.valid ||
+			to->pending_transform.valid;
+		if (cleanup) {
+			to->pending_scale.valid = false;
+			to->pending_geometry.valid = false;
+			to->pending_transform.valid = false;
+			break;
+		}
+		if (to->pending_scale.valid) {
+			o->scale = to->pending_scale.scale;
+			//weston prevents us from doing this
+			/* weston_output_set_scale( */
+			/*	o, to->pending_scale.scale); */
+			to->pending_scale.valid = false;
+		}
+		if (to->pending_transform.valid) {
+			weston_output_set_transform(
+				o, to->pending_transform.transform);
+			to->pending_transform.valid = false;
+		}
+		if (valid)
+			wl_signal_emit(&b->compositor->output_resized_signal, o);
+	}
+	weston_compositor_schedule_repaint(b->compositor);
 }
 
 static bool
@@ -423,7 +478,7 @@ backend_init_config_component(struct taiwins_config *c, lua_State *L,
 	REGISTER_METHOD(L, "is_under_x11", _lua_is_under_x11);
 	REGISTER_METHOD(L, "is_under_wayland", _lua_is_under_wayland);
 	//we are calling display instead of output
-	REGISTER_METHOD(L, "get_windowed_display", _lua_get_windowed_output);
+	REGISTER_METHOD(L, "get_window_display", _lua_get_windowed_output);
 
 	return true;
 }
@@ -436,19 +491,6 @@ static inline struct tw_backend *
 get_backend(void)
 {
 	return &TWbackend;
-}
-
-static void
-tw_backend_init_output(struct tw_backend *b, struct weston_output *output)
-{
-	assert(ffs(~b->output_pool) > 0);
-	int id = ffs(~b->output_pool) - 1;
-	b->output_pool |= 1u << id;
-	b->outputs[id].output = output;
-	b->outputs[id].backend = b;
-	b->outputs[id].pending_geometry.valid = false;
-	b->outputs[id].pending_scale.valid = false;
-	b->outputs[id].pending_transform.valid = false;
 }
 
 

@@ -303,9 +303,6 @@ taiwins_run_config(struct taiwins_config *config, const char *path)
 	taiwins_config_try_config(temp_config);
 	error = temp_config->quit;
 	//apply all the components
-	wl_list_for_each(component, &config->lua_components, link)
-		if (component->apply)
-			component->apply(config, !error, component);
 	if (!error) {
 		struct taiwins_option *opt = NULL;
 		struct taiwins_option_listener *listener;
@@ -325,7 +322,9 @@ taiwins_run_config(struct taiwins_config *config, const char *path)
 		swap_listener(&config->lua_components, &temp_config->lua_components);
 		taiwins_config_destroy(temp_config);
 	}
-
+	wl_list_for_each(component, &config->lua_components, link)
+		if (component->apply)
+			component->apply(config, error, component);
 
 	return (!error);
 }
