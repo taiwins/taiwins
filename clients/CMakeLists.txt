@@ -12,6 +12,7 @@ target_include_directories(shell-taiwins PUBLIC
   )
 
 target_link_libraries(shell-taiwins
+  nk_cairo_backend
   ${CLIENT_LIBRARIES}
   ${TRDPTY_LIBRARIES}
   ${WAYLAND_CURSOR_LIBRARIES}
