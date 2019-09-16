@@ -12,6 +12,7 @@
 #include <wayland-taiwins-desktop-client-protocol.h>
 #include <wayland-client.h>
 #include <sequential.h>
+#include <os/file.h>
 #include <client.h>
 #include <egl.h>
 #include <nk_backends.h>
@@ -52,6 +53,7 @@ struct desktop_shell {
 	struct {
 		struct nk_wl_backend *panel_backend;
 		struct nk_style_button label_style;
+		char wallpaper_path[128];
 		//TODO calculated from font size
 		size_t panel_height;
 	};
@@ -78,18 +80,20 @@ shell_background_frame(struct app_surface *surf, struct wl_buffer *buffer,
 {
 	//now it respond only app_surface_frame, we only need to add idle task
 	//as for app_surface_frame later
+	struct shell_output *output = container_of(surf, struct shell_output, background);
+	struct desktop_shell *shell = output->shell;
 	*geo = surf->allocation;
 	void *buffer_data = shm_pool_buffer_access(buffer);
-	char imgpath[100];
-
-	sprintf(imgpath, "%s/.wallpaper/wallpaper.png", getenv("HOME"));
-	if (load_image(imgpath, surf->pool->format, surf->allocation.w*surf->allocation.s,
+	if (!strlen(shell->wallpaper_path))
+		sprintf(shell->wallpaper_path,
+			"%s/.wallpaper/wallpaper.png", getenv("HOME"));
+	if (load_image(shell->wallpaper_path, surf->pool->format,
+		       surf->allocation.w*surf->allocation.s,
 		       surf->allocation.h*surf->allocation.s,
 		       (unsigned char *)buffer_data) != buffer_data) {
 		fprintf(stderr, "failed to load image somehow\n");
 	}
 }
-
 
 //////////////////////////////// widget ///////////////////////////////////
 
@@ -333,6 +337,19 @@ shell_output_resize(struct shell_output *w, const struct bbox geo)
 }
 
 /************************** desktop_shell_interface ********************************/
+/* just know this code has side effect: it works even you removed and plug back
+ * the output, since n_outputs returns at the first time it hits NULL. Even if
+ * there is output afterwards, it won't know, so next time when you plug in
+ * another monitor, it will choose the emtpy slots.
+ */
+static inline int
+desktop_shell_n_outputs(struct desktop_shell *shell)
+{
+	for (int i = 0; i < 16; i++)
+		if (shell->shell_outputs[i].shell == NULL)
+			return i;
+	return 16;
+}
 
 static vector_t
 taiwins_menu_from_wl_array(struct wl_array *serialized)
@@ -357,6 +374,18 @@ desktop_shell_setup_menu(struct desktop_shell *shell,
 	vector_destroy(&menus);
 }
 
+static void
+desktop_shell_setup_wallpaper(struct desktop_shell *shell, const char *path)
+{
+	if (is_file_exist(path))
+		strncpy(shell->wallpaper_path, path, 127);
+	for (int i = 0; i < desktop_shell_n_outputs(shell); i++) {
+		struct app_surface *bg =
+			&shell->shell_outputs[i].background;
+		if (bg->wl_surface)
+			app_surface_frame(bg, false);
+	}
+}
 
 //right now we are using switch, but we can actually use a table, since we make
 //the msg_type a continues field.
@@ -383,6 +412,7 @@ desktop_shell_recv_msg(void *data,
 		desktop_shell_setup_menu(shell, arr);
 		break;
 	case TW_SHELL_MSG_TYPE_WALLPAPER:
+		desktop_shell_setup_wallpaper(shell, (const char *)arr->data);
 		break;
 	case TW_SHELL_MSG_TYPE_SWITCH_WORKSPACE:
 	{
@@ -426,19 +456,6 @@ static struct tw_shell_listener tw_shell_impl = {
 };
 
 
-/* just know this code has side effect: it works even you removed and plug back
- * the output, since n_outputs returns at the first time it hits NULL. Even if
- * there is output afterwards, it won't know, so next time when you plug in
- * another monitor, it will choose the emtpy slots.
- */
-static inline int
-desktop_shell_n_outputs(struct desktop_shell *shell)
-{
-	for (int i = 0; i < 16; i++)
-		if (shell->shell_outputs[i].shell == NULL)
-			return i;
-	return 16;
-}
 
 static void
 desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
@@ -450,6 +467,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	shell->interface = NULL;
 	shell->panel_height = 32;
 	shell->main_output = NULL;
+	shell->wallpaper_path[0] = '\0';
 
 	shell->widget_backend = nk_cairo_create_bkend();
 	shell->panel_backend = nk_cairo_create_bkend();
@@ -483,7 +501,6 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	shell->widget_launch = (struct widget_launch_info){0};
 }
 
-
 static void
 desktop_shell_release(struct desktop_shell *shell)
 {
@@ -499,7 +516,6 @@ desktop_shell_release(struct desktop_shell *shell)
 	cairo_debug_reset_static_data();
 #endif
 }
-
 
 /************************** desktop_shell_interface ********************************/
 /*********************************** end *******************************************/
