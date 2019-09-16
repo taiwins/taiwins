@@ -61,7 +61,7 @@ struct shell {
 		int32_t lock_countdown; //invalid -1
 		int32_t sleep_countdown; //knvalid -1
 		vector_t menu;
-		const char *wallpapper_path;
+		const char *wallpaper_path;
 		const char *widget_path;
 	};
 	struct weston_compositor *ec;
@@ -632,7 +632,11 @@ _lua_set_wallpaper(lua_State *L)
 	struct shell *shell = _lua_to_shell(L);
 	_lua_stackcheck(L, 2);
 	const char *path = luaL_checkstring(L, 2);
-	shell->wallpapper_path = strdup(path);
+	if (!is_file_exist(path))
+		return luaL_error(L, "wallpaper does not exist!");
+	if (shell->wallpaper_path)
+		free((void *)shell->wallpaper_path);
+	shell->wallpaper_path = strdup(path);
 	return 0;
 }
 
@@ -644,6 +648,8 @@ _lua_set_widgets(lua_State *L)
 	const char *path = luaL_checkstring(L, 2);
 	if (!is_file_exist(path))
 		return luaL_error(L, "widget path does not exist!");
+	if (shell->widget_path)
+		free((void *)shell->widget_path);
 	shell->widget_path = strdup(path);
 	return 0;
 }
@@ -817,9 +823,9 @@ shell_apply_lua_config(struct taiwins_config *c, bool cleanup,
 		goto cleanup;
 	if (!shell->shell_resource)
 		return;
-	if (shell->wallpapper_path)
+	if (shell->wallpaper_path)
 		shell_post_message(shell, TW_SHELL_MSG_TYPE_WALLPAPER,
-				   shell->wallpapper_path);
+				   shell->wallpaper_path);
 	if (shell->widget_path)
 		shell_post_message(shell, TW_SHELL_MSG_TYPE_WIDGET,
 				   shell->widget_path);
@@ -836,8 +842,8 @@ shell_apply_lua_config(struct taiwins_config *c, bool cleanup,
 
 cleanup:
 	vector_destroy(&shell->menu);
-	if (shell->wallpapper_path)
-		free((void *)shell->wallpapper_path);
+	if (shell->wallpaper_path)
+		free((void *)shell->wallpaper_path);
 	if (shell->widget_path)
 		free((void *)shell->widget_path);
 }
@@ -1007,7 +1013,7 @@ shell_init_options(struct shell *shell)
 	shell->panel_pos = TW_SHELL_PANEL_POS_TOP;
 	shell->lock_countdown = -1;
 	shell->sleep_countdown = -1;
-	shell->wallpapper_path = NULL;
+	shell->wallpaper_path = NULL;
 	shell->widget_path = NULL;
 }
 
