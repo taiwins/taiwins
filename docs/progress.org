@@ -45,7 +45,7 @@
   - different layouting support
   - resize EGL windows.
   - compositing
-** TODO [91%] server-side optimization
+** TODO [91%] [staged] server-side optimization
 *** DONE setup the xkb context, again, related to [[configuration]]
     it is done by calling `weston_compositor_set_xkb_rule_names` which will not
     take any effect since the implementation right now will not do anything at
@@ -90,7 +90,7 @@
      - ...
 *** DONE [#A] hot config III :: taiwins_config_lua_plugin or other better names,
     components like shell, desktop would be able to register for lua_bindings,
-    so it could provide plenty of functionanities
+    so it could provide plenty of functionalities
 
     At this point we should probabliy know that totally *try-apply* approach may
     not be totally realistic. If any part of lua code ran, it would have side
@@ -207,11 +207,13 @@
     remove the deprecated functions.
 *** DONE nk_cairo_backend multiple font support
 ** DOIN [33%] launcher implementation
-** TODO [%] tw_theme protocol
-   - study the ui design for learning a proper UI config.
 *** DONE renaming launcher into console, since it will does much more than just launching
 *** TODO allow launcher to quit instead of launch weston-terminal all the time
 *** TODO the real launcher implementation
+** TODO [0%] tw_theme protocol
+*** DONE creating the taiwins_theme header
+*** TODO tw_theme protocol
+*** TODO c files, you probably need to work with Json-c
 ** DONE [100%] protocols                                              :proto:
 *** DONE `tw_output` protocols to represent logical output
 ** TODO installing scripts
