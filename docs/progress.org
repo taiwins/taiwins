@@ -138,8 +138,8 @@
     luckly that we have ~weston_desktop_suface_set_user_data~, it seems to fit
     perfectly in that position
 
-** TODO [77%] client-side optimization
-*** TODO take wallpaper from sever.
+** TODO [81%] client-side optimization
+*** DONE take wallpaper from sever.
 *** TODO locker implemenation
 *** TODO app_surface flags, calculate app surface
 *** TODO [#C] take widgets from server and apply lua bindings.
