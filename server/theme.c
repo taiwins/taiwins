@@ -12,59 +12,16 @@ struct theme_client {
 	struct wl_list link;
 };
 
-union tw_rgba_t {
-	uint32_t code;
-	struct {
-		uint8_t r,g,b,a;
-	};
-};
-
-struct color_state {
-	union tw_rgba_t normal;
-	union tw_rgba_t hover;
-	union tw_rgba_t active;
-};
-
-//you have no choice. Have to do all those work
-struct buttom_style {
-	struct color_state color;
-	struct color_state text;
-	float rounding_radius;
-	float paddingx, paddingy;
-	float border;
-};
-
-/* oh boy, it is just so much work man */
-static struct theme {
+struct theme {
 	struct weston_compositor *ec;
 	struct wl_listener compositor_destroy_listener;
 	struct wl_listener config_component;
 	struct wl_global *global;
 	//it can apply to many clients
 	struct wl_list clients;
-	//theme data
-	struct {
-		uint32_t pt_size, *pending_pt_size;
-		union tw_rgba_t main_color, *pending_main_color;
-		union tw_rgba_t border_color, *pending_border_color;
-		//tab
+	//now you would include taiwins_theme
 
-		//text
-		union tw_rgba_t text_color, *pending_text_color;
-		union tw_rgba_t text_active_color, *pending_text_active_color;
-		//widget
-		struct color_state button, *pending_button;
-		struct color_state toggle, *pending_toggle;
-		struct color_state select, *pending_select;
-		struct color_state chart, *pending_chart;
-		struct color_state combo, *pending_combo;
-		//slider
-		union tw_rgba_t slider_bg, *pending_slider_bg;
-		struct color_state slider, *pending_slider;
-		struct color_state edit, *pending_edit;
-	};
 } THEME;
-
 
 
 static void
