@@ -25,7 +25,7 @@ struct luaData {
 	})
 
 
-static int checkapp(lua_State *L)
+int checkapp(lua_State *L)
 {
 	void *p = lua_touserdata(L, 1);
 	fprintf(stderr, "function called, and return %p, our data is %p\n", *(struct luaData **)p, &test_app);
@@ -101,7 +101,6 @@ luaopen_mylib(lua_State *L)
 int main(int argc, char *argv[])
 {
 	lua_State *L;
-	int status;
 	L = luaL_newstate();
 	luaL_openlibs(L);
 	//then we need to set the global variables, push the egl application
@@ -126,7 +125,7 @@ int main(int argc, char *argv[])
 	lua_pushcfunction(L, luaopen_mylib);
 	lua_setglobal(L, "get_test");
 
-	status = luaL_dofile(L, argv[1]);
+	assert(!luaL_dofile(L, argv[1]));
 
 	//this is lua function
 	fprintf(stdout, "test_app has new value a: %d, b: %d, c: %d\n",

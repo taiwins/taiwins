@@ -71,6 +71,12 @@ taiwins_config_apply_default(struct taiwins_config *c)
 		.type = TW_BINDING_axis,
 		.name = "TW_ZOOM_AXIS",
 	};
+	c->builtin_bindings[TW_ALPHA_AXIS_BINDING] = (struct taiwins_binding) {
+		.axisaction = {.axis_event = WL_POINTER_AXIS_VERTICAL_SCROLL,
+			       .modifier = MODIFIER_CTRL | MODIFIER_SHIFT},
+		.type = TW_BINDING_axis,
+		.name = "TW_ALPHA_AXIS",
+	};
 	c->builtin_bindings[TW_MOVE_PRESS_BINDING] = (struct taiwins_binding) {
 		.btnpress = {BTN_LEFT, MODIFIER_SUPER},
 		.type = TW_BINDING_btn,

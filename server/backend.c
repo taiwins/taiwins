@@ -160,11 +160,14 @@ windowed_head_enable(struct weston_head *head, struct weston_compositor *composi
 }
 
 static void
-windowed_head_disabled(struct weston_head *head)
+windowed_head_disabled(struct weston_head *head, struct tw_backend *backend)
 {
 	struct weston_output *output = weston_head_get_output(head);
+	struct tw_output *o = tw_output_from_weston_output(output, backend);
 	weston_head_detach(head);
 	weston_output_destroy(output);
+	tw_backend_fini_output(o);
+
 }
 
 static void
@@ -200,6 +203,7 @@ drm_head_changed(struct wl_listener *listener, void *data)
 			drm_head_disable(head);
 		else {
 		}
+		(void) changed;
 		weston_head_reset_device_changed(head);
 	}
 	drm_head_check(compositor);
@@ -222,7 +226,7 @@ windowed_head_changed(struct wl_listener *listener, void *data)
 		if (connected && !enabled) {
 			windowed_head_enable(head, compositor, backend);
 		} else if (enabled && !connected) {
-			windowed_head_disabled(head);
+			windowed_head_disabled(head, backend);
 		} else if (enabled && changed) {
 			//get the window info and... maybe resize.
 		}

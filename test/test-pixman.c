@@ -7,7 +7,6 @@ int main(int argc, char *argv[])
 {
 	pixman_region32_t region;
 	pixman_region32_init_rect(&region, 0, 0, 100, 100);
-	int n = pixman_region32_n_rects(&region);
 
 	pixman_region32_t region1, region2;
 	pixman_region32_init_rect(&region1, 0, 0, 50, 50);

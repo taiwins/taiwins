@@ -112,7 +112,6 @@ tw_lose_surface_focus(struct weston_surface *surface)
 {
 	struct weston_compositor *ec = surface->compositor;
 	struct weston_seat *seat;
-	struct weston_view *focus;
 
 	wl_list_for_each(seat, &ec->seat_list, link) {
 		struct weston_keyboard *keyboard =

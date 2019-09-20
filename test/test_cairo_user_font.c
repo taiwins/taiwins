@@ -3,6 +3,15 @@
 #include <cairo/cairo.h>
 #include <cairo/cairo-ft.h>
 
+
+#if defined (__GNUC__)
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#pragma GCC diagnostic ignored "-Wunused-function"
+#elif defined (__clang__)
+#pragma clang diagnostic ignored "-Wunused-but-set-variable"
+#pragma GCC diagnostic ignored "-Wunused-function"
+#endif
+
 #define NK_IMPLEMENTATION
 #include "nuklear.h"
 
@@ -243,6 +252,7 @@ nk_cairo_font_init(struct nk_cairo_font *font, const char *text_font, const char
 	//tw_find_font_path(icon_font, font_path, 256);
 	error = FT_New_Face(font->ft_lib, fa_a, 0,
 			    &font->icon_font);
+	assert(!error);
 }
 
 
