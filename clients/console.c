@@ -133,11 +133,8 @@ update_app_config(void *data,
 
 
 static void
-start_console(void *data,
-	       struct tw_console *tw_console,
-	       wl_fixed_t width,
-	       wl_fixed_t height,
-	       wl_fixed_t scale)
+start_console(void *data, struct tw_console *tw_console,
+	       wl_fixed_t width, wl_fixed_t height, wl_fixed_t scale)
 {
 	struct desktop_console *console = (struct desktop_console *)data;
 	struct app_surface *surface = &console->surface;
@@ -150,11 +147,11 @@ start_console(void *data,
 	ui = tw_console_launch(tw_console, wl_surface);
 
 	app_surface_init(surface, wl_surface, (struct wl_proxy *)ui,
-			 &console->globals);
+			 &console->globals, APP_SURFACE_WIDGET,
+			 APP_SURFACE_NORESIZABLE);
 	surface->wl_globals = &console->globals;
 	nk_egl_impl_app_surface(surface, console->bkend, draw_console,
-				make_bbox_origin(w, h, 1),
-				NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER);
+				make_bbox_origin(w, h, 1));
 	app_surface_frame(surface, false);
 }
 

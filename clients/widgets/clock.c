@@ -30,16 +30,12 @@ clock_widget_sample(struct nk_context *ctx, float width, float height, struct ap
 	/* uint32_t sx, sy; */
 	//TODO, change the draw function to app->draw_widget(app);
 	enum {EASY, HARD};
-	static int op = EASY;
 	static struct nk_text_edit text_edit;
 	static bool inanimation = false;
 	static bool init_text_edit = false;
 	static char text_buffer[256];
 	static int checked = false;
 	static bool active;
-	/* static int selected = false; */
-	static int slider = 10;
-	static struct nk_colorf color;
 	if (!init_text_edit) {
 		init_text_edit = true;
 		nk_textedit_init_fixed(&text_edit, text_buffer, 256);

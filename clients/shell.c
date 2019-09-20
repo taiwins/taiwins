@@ -125,21 +125,22 @@ launch_widget(struct app_surface *panel_surf)
 		app_surface_release(&info->current->widget);
 		info->current = NULL;
 	}
-	/* info->widget->widget.wl_globals = panel_surf->wl_globals; */
-	struct wl_surface *widget_surface = wl_compositor_create_surface(shell->globals.compositor);
-	struct tw_ui *widget_proxy = tw_shell_launch_widget(shell->interface, widget_surface,
-							    shell_output->index,
-							    info->x, info->y);
+
+	struct wl_surface *widget_surface =
+		wl_compositor_create_surface(shell->globals.compositor);
+	struct tw_ui *widget_proxy =
+		tw_shell_launch_widget(shell->interface, widget_surface,
+				       shell_output->index, info->x, info->y);
 	tw_ui_add_listener(widget_proxy, &widget_impl, info);
 	//launch widget
 	app_surface_init(&info->widget->widget, widget_surface,
-			 (struct wl_proxy *)widget_proxy, panel_surf->wl_globals);
+			 (struct wl_proxy *)widget_proxy, panel_surf->wl_globals,
+			 APP_SURFACE_WIDGET, APP_SURFACE_NORESIZABLE);
 	nk_cairo_impl_app_surface(&info->widget->widget, shell->widget_backend,
 				  info->widget->draw_cb,
 				  make_bbox(info->x, info->y,
 					    info->widget->w, info->widget->h,
-					    shell_output->bbox.s),
-				  NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER);
+					    shell_output->bbox.s));
 
 	app_surface_frame(&info->widget->widget, false);
 
@@ -252,7 +253,9 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 	nk_wl_add_idle(ctx, launch_widget);
 }
 
-///////////////////////////////////////////////////////////////////////////
+/*******************************************************************************
+ *
+ ******************************************************************************/
 
 static void
 shell_output_set_major(struct shell_output *w)
@@ -269,10 +272,12 @@ shell_output_set_major(struct shell_output *w)
 	pn_sf = wl_compositor_create_surface(shell->globals.compositor);
 	pn_ui = tw_shell_create_panel(shell->interface, pn_sf, w->index);
 	app_surface_init(&w->panel, pn_sf, (struct wl_proxy *)pn_ui,
-			 &shell->globals);
-	nk_cairo_impl_app_surface(&w->panel, shell->panel_backend, shell_panel_frame,
-				  make_bbox_origin(w->bbox.w, shell->panel_height, w->bbox.s),
-				  NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER);
+			 &shell->globals,
+			 APP_SURFACE_PANEL, APP_SURFACE_NORESIZABLE);
+	nk_cairo_impl_app_surface(&w->panel, shell->panel_backend,
+				  shell_panel_frame,
+				  make_bbox_origin(w->bbox.w, shell->panel_height,
+						   w->bbox.s));
 
 	struct shell_widget *widget;
 	wl_list_for_each(widget, &shell->shell_widgets, link) {
@@ -294,7 +299,8 @@ shell_output_init(struct shell_output *w, const struct bbox geo, bool major)
 	struct tw_ui *bg_ui =
 		tw_shell_create_background(shell->interface, bg_sf, w->index);
 	app_surface_init(&w->background, bg_sf, (struct wl_proxy *)bg_ui,
-			 &shell->globals);
+			 &shell->globals, APP_SURFACE_BACKGROUND,
+			 APP_SURFACE_NORESIZABLE);
 	shm_buffer_impl_app_surface(&w->background,
 				    shell_background_frame,
 				    w->bbox);
@@ -327,21 +333,29 @@ static void
 shell_output_resize(struct shell_output *w, const struct bbox geo)
 {
 	w->bbox = geo;
+	//TODO hacks here, we temporarily turn off non resizable flags
+	w->background.flags &= ~APP_SURFACE_NORESIZABLE;
 	app_surface_resize(&w->background, w->bbox.w, w->bbox.h, w->bbox.s);
+	w->background.flags |= APP_SURFACE_NORESIZABLE;
 	if (w == w->shell->main_output) {
 		nk_wl_test_draw(w->shell->panel_backend, &w->panel,
 				shell_panel_measure_leading);
+
+		w->panel.flags &= ~APP_SURFACE_NORESIZABLE;
 		app_surface_resize(&w->panel, w->bbox.w, w->shell->panel_height,
 				   w->bbox.s);
+		w->panel.flags |= APP_SURFACE_NORESIZABLE;
 	}
 }
 
-/************************** desktop_shell_interface ********************************/
-/* just know this code has side effect: it works even you removed and plug back
+/*******************************************************************************
+ * desktop shell interface
+ *
+ * just know this code has side effect: it works even you removed and plug back
  * the output, since n_outputs returns at the first time it hits NULL. Even if
  * there is output afterwards, it won't know, so next time when you plug in
  * another monitor, it will choose the emtpy slots.
- */
+ ******************************************************************************/
 static inline int
 desktop_shell_n_outputs(struct desktop_shell *shell)
 {
