@@ -71,7 +71,6 @@ endif(NVEGL_FOUND)
 #####################################################################
 ################# setup the project variables #######################
 #####################################################################
-add_subdirectory("3rdparties/ctypes")
 add_subdirectory("3rdparties/twclient")
 add_subdirectory("3rdparties/iconheader")
 
