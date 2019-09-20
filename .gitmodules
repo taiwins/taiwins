@@ -1,6 +1,3 @@
 [submodule "3rdparties/iconheader"]
 	path = 3rdparties/iconheader
 	url = https://github.com/xeechou/IconFontCppHeaders
-[submodule "3rdparties/twclient"]
-	path = 3rdparties/twclient
-	url = https://github.com/xeechou/twclient
