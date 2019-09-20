@@ -20,11 +20,11 @@ endif()
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   add_definitions(-D__DEBUG)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ggdb3 -fsanitize=address")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror -ggdb3 -fsanitize=address")
 endif()
 
 if(CMAKE_BUILD_TYPE MATCHES Release)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -O2")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror -fPIC -O2")
 endif()
 
 #####################################################################

@@ -52,10 +52,6 @@ bind_theme(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 	tc->resource = resource;
 	wl_list_init(&tc->link);
 	wl_list_insert(&theme->clients, &tc->link);
-
-	//right now we send all the
-	tw_theme_send_start(resource);
-	tw_theme_send_done(resource);
 }
 
 static void

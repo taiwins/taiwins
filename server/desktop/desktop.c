@@ -610,7 +610,7 @@ static struct weston_pointer_grab_interface desktop_resizing_grab = {
 
 static void
 desktop_alpha_axis(struct weston_pointer *pointer,
-		   uint32_t option,
+		   const struct timespec *time,
 		   struct weston_pointer_axis_event *event,
 		   void *data)
 {
@@ -861,6 +861,11 @@ desktop_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 	struct tw_btn_press move_press =
 		taiwins_config_get_builtin_binding(c, TW_MOVE_PRESS_BINDING)->btnpress;
 	tw_bindings_add_btn(bindings, &move_press, desktop_click_move, d);
+	//////////////////////////////////////////////////////////
+	//transparent
+	struct tw_axis_motion axis_motion =
+		taiwins_config_get_builtin_binding(c, TW_ALPHA_AXIS_BINDING)->axisaction;
+	tw_bindings_add_axis(bindings, &axis_motion, desktop_alpha_axis, d);
 
 	//////////////////////////////////////////////////////////
 	//focus press

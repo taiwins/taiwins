@@ -103,6 +103,7 @@ enum taiwins_builtin_binding_t {
 	TW_OPEN_CONSOLE_BINDING,
 	//shell
 	TW_ZOOM_AXIS_BINDING,
+	TW_ALPHA_AXIS_BINDING,
 	//views
 	TW_MOVE_PRESS_BINDING,
 	TW_FOCUS_PRESS_BINDING,

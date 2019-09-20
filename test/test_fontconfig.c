@@ -5,6 +5,14 @@
 #include <fontconfig/fontconfig.h>
 #include <cairo/cairo.h>
 
+#if defined (__GNUC__)
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#pragma GCC diagnostic ignored "-Wunused-function"
+#elif defined (__clang__)
+#pragma clang diagnostic ignored "-Wunused-but-set-variable"
+#pragma GCC diagnostic ignored "-Wunused-function"
+#endif
+
 #define NK_IMPLEMENTATION
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
@@ -15,6 +23,8 @@
 #define NK_INCLUDE_DEFAULT_FONT
 #define NK_ZERO_COMMAND_MEMORY
 #include "nuklear.h"
+
+
 
 void print_pattern(FcPattern *pat)
 {
@@ -131,12 +141,10 @@ save_the_font_images(const nk_rune *glyph_range)
 	struct nk_font_atlas atlas;
 	nk_font_atlas_init_default(&atlas);
 	nk_font_atlas_begin(&atlas);
-//	nk_font_atlas_add_default(&atlas, 16.0, &cfg);
-	//this does not work dude
-	struct nk_font * font = nk_font_atlas_add_from_file(
-		&atlas,
-		"/usr/share/fonts/TTF/Inconsolata-Regular.ttf",
-		16, &cfg);
+	/* struct nk_font * font = nk_font_atlas_add_from_file( */
+	/*	&atlas, */
+	/*	"/usr/share/fonts/TTF/Inconsolata-Regular.ttf", */
+	/*	16, &cfg); */
 	const void *data = nk_font_atlas_bake(&atlas, &w, &h, NK_FONT_ATLAS_ALPHA8);
 
 	printf("we had a texture of size %d, %d\n", w, h);
