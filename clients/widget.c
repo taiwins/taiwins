@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <wayland-util.h>
 #include <os/file.h>
+#include <lua.h>
+#include <lauxlib.h>
 
 #include <ui.h>
 #include "widget.h"
@@ -96,7 +98,59 @@ shell_widget_activate(struct shell_widget *widget, struct tw_event_queue *queue)
 }
 
 
-/******************************* The sample widgets *********************************/
+/*******************************************************************************
+ * LUA widget
+ ******************************************************************************/
+struct nk_love_context;
+struct shell_widget_lua_runtime {
+	lua_State *L;
+	struct nk_love_context *runtime;
+	char widgetcb[32];
+	char anchorcb[32];
+};
+
+static int
+lua_widget_anchor(struct shell_widget *widget, struct shell_widget_label *label)
+{
+	struct shell_widget_lua_runtime *lua_runtime =
+		widget->user_data;
+	lua_State *L = lua_runtime->L;
+	lua_getfield(L, LUA_REGISTRYINDEX, lua_runtime->anchorcb);
+	//setup context
+	lua_pcall(L, 1, 1, 0);
+}
+
+static void
+lua_widget_cb(struct nk_context *ctx, float width, float height,
+	      struct app_surface *app)
+{
+	//get widget
+	struct shell_widget *widget =
+		container_of(app, struct shell_widget, widget);
+	struct shell_widget_lua_runtime *lua_runtime =
+		widget->user_data;
+
+	lua_State *L = lua_runtime->L;
+	//fuction
+	lua_getfield(L, LUA_REGISTRYINDEX, lua_runtime->widgetcb);
+	//ui
+	lua_getfield(L, LUA_REGISTRYINDEX, "runtime");
+
+	if (lua_pcall(L, 1, 0, 0)) {
+		const char *error = lua_tostring(L, -1);
+		//if any error occured, we draw this instead
+		nk_clear(ctx);
+		nk_layout_row_dynamic(ctx, 20, 1);
+		nk_text_colored(ctx, error, strlen(error), NK_TEXT_CENTERED,
+				nk_rgb(255, 0, 0));
+	}
+}
+
+
+
+/*******************************************************************************
+ * sample widget
+ ******************************************************************************/
 
 static int
 whatup_ancre(struct shell_widget *widget, struct shell_widget_label *label)
