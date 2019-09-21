@@ -3,10 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <xkbcommon/xkbcommon.h>
-#include <xkbcommon/xkbcommon.h>
-#include <xkbcommon/xkbcommon-names.h>
-#include <xkbcommon/xkbcommon-keysyms.h>
+#include <linux/input.h>
 #include <cairo/cairo.h>
 #include <poll.h>
 #include <wayland-taiwins-desktop-client-protocol.h>
@@ -30,7 +27,7 @@ struct shell_output {
 
 	struct app_surface background;
 	struct app_surface panel;
-
+	struct app_event_filter background_events;
 
 	//a temporary struct
 	double widgets_span;
@@ -73,6 +70,14 @@ struct desktop_shell {
 
 ///////////////////////////////// background ////////////////////////////////////
 
+static bool
+shell_background_start_menu(struct app_surface *surf, const struct app_event *e)
+{
+	if (e->ptr.btn == BTN_RIGHT && e->ptr.state)
+		fprintf(stderr, "should start menu by now");
+	return true;
+}
+
 static void
 shell_background_frame(struct app_surface *surf, struct wl_buffer *buffer,
 		       struct bbox *geo)
@@ -95,7 +100,19 @@ shell_background_frame(struct app_surface *surf, struct wl_buffer *buffer,
 	}
 }
 
-//////////////////////////////// widget ///////////////////////////////////
+static void
+shell_background_impl_filter(struct wl_list *head,
+			     struct app_event_filter *filter)
+{
+	wl_list_init(&filter->link);
+	filter->type = TW_POINTER_BTN;
+	filter->intercept = shell_background_start_menu;
+	wl_list_insert(head, &filter->link);
+}
+
+/*******************************************************************************
+ * widgets
+ ******************************************************************************/
 
 static void
 widget_should_close(void *data, struct tw_ui *ui_elem)
@@ -304,6 +321,8 @@ shell_output_init(struct shell_output *w, const struct bbox geo, bool major)
 	shm_buffer_impl_app_surface(&w->background,
 				    shell_background_frame,
 				    w->bbox);
+	shell_background_impl_filter(&w->background.filter_head,
+				     &w->background_events);
 	//shell panel
 	if (major)
 		shell_output_set_major(w);
