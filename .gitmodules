@@ -4,3 +4,6 @@
 [submodule "3rdparties/twclient"]
 	path = 3rdparties/twclient
 	url = git@github.com:xeechou/twclient.git
+[submodule "3rdparties/nklua"]
+	path = 3rdparties/nklua
+	url = git@github.com:xeechou/love-nuklear.git
