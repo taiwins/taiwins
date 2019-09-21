@@ -92,10 +92,10 @@ shell_background_frame(struct app_surface *surf, struct wl_buffer *buffer,
 	if (!strlen(shell->wallpaper_path))
 		sprintf(shell->wallpaper_path,
 			"%s/.wallpaper/wallpaper.png", getenv("HOME"));
-	if (load_image(shell->wallpaper_path, surf->pool->format,
+	if (!nk_wl_load_image_for_buffer(shell->wallpaper_path, surf->pool->format,
 		       surf->allocation.w*surf->allocation.s,
 		       surf->allocation.h*surf->allocation.s,
-		       (unsigned char *)buffer_data) != buffer_data) {
+		       (unsigned char *)buffer_data)) {
 		fprintf(stderr, "failed to load image somehow\n");
 	}
 }
