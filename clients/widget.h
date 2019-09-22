@@ -4,9 +4,6 @@
 #include <time.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
 #include <EGL/egl.h>
 #include <GL/gl.h>
 #include <wayland-client.h>
@@ -75,20 +72,6 @@ shell_widget_hook_panel(struct shell_widget *widget, struct app_surface *panel)
 	embeded_impl_app_surface(&widget->ancre, panel, make_bbox_origin(0, 0, 1));
 }
 
-/*
-static inline void
-shell_widget_launch(struct shell_widget *widget, struct wl_surface *surface, struct wl_proxy *p,
-		    struct nk_wl_backend *bkend, struct shm_pool *pool, uint32_t x, uint32_t y)
-{
-	struct wl_globals *globals = widget->widget.wl_globals;
-	app_surface_init(&widget->widget, surface, p, globals);
-	widget->widget.wl_globals = globals;
-	nk_cairo_impl_app_surface(&widget->widget, bkend, widget->draw_cb, pool, widget->w, widget->h, x, y);
-	nk_egl_impl_app_surface(&widget->widget, bkend, widget->draw_cb,
-				widget->w, widget->h, x, y);
-	app_surface_frame(&widget->widget, false);
-}
-*/
 
 /* this is probably totally not necessary, we need only the script */
 struct wl_list *shell_widget_create_with_funcs(nk_wl_drawcall_t draw_cb,
