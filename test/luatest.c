@@ -48,6 +48,7 @@ static int
 l_sin(lua_State *L)
 {
 	double d = lua_tonumber(L, 1);
+	fprintf(stderr, "got number %f\n", d);
 	lua_pushnumber(L, sin(d));
 	return 1;
 }
@@ -92,9 +93,26 @@ set_c(lua_State *L)
 int
 luaopen_mylib(lua_State *L)
 {
-	lua_newtable(L); //1
-	luaL_getmetatable(L, "_metatable"); //2
-	lua_setmetatable(L, -2); //1
+	//now we create a new metatable
+	luaL_newmetatable(L, "_metatable"); //1
+	lua_pushvalue(L, -1); //2
+	lua_setfield(L, -2, "__index"); //1
+
+	lua_pushlightuserdata(L, &test_app); //1
+	lua_setfield(L, LUA_REGISTRYINDEX, "__userdata"); //0
+	//then we need to set the global variables, push the egl application
+	//pointer on the stack.
+	test_app.a = 0;
+	test_app.b = 0;
+	test_app.c = 0;
+
+	static const luaL_Reg foo[] = {
+		{"mysin", l_sin},
+		{"setA", set_a},
+		{"setB", set_b},
+		{"setC", set_c},
+	};
+	luaL_newlib(L, foo);
 	return 1;
 }
 
@@ -103,33 +121,19 @@ int main(int argc, char *argv[])
 	lua_State *L;
 	L = luaL_newstate();
 	luaL_openlibs(L);
-	//then we need to set the global variables, push the egl application
-	//pointer on the stack.
-	test_app.a = 0;
-	test_app.b = 0;
-	test_app.c = 0;
 
-	lua_pushlightuserdata(L, &test_app); //1
-	lua_setfield(L, LUA_REGISTRYINDEX, "__userdata"); //0
+	luaL_requiref(L, "mylib", luaopen_mylib, true);
 
-	//now we create a new metatable
-	luaL_newmetatable(L, "_metatable"); //1
-	lua_pushvalue(L, -1); //2
-	lua_setfield(L, -2, "__index");
-	REGISTER_METHOD(L, "mysin", l_sin);
-	REGISTER_METHOD(L, "setA", set_a);
-	REGISTER_METHOD(L, "setB", set_b);
-	REGISTER_METHOD(L, "setC", set_c);
-
-	//now we need to give user ability to require
-	lua_pushcfunction(L, luaopen_mylib);
-	lua_setglobal(L, "get_test");
-
-	assert(!luaL_dofile(L, argv[1]));
+	if (luaL_dofile(L, argv[1])) {
+		const char *error = lua_tostring(L, -1);
+		fprintf(stderr, "error encountered: \n");
+		fprintf(stderr, "%s\n", error);
+	}
 
 	//this is lua function
 	fprintf(stdout, "test_app has new value a: %d, b: %d, c: %d\n",
 		test_app.a, test_app.b, test_app.c);
+	lua_close(L);
 
 	return 0;
 }
