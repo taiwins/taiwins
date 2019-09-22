@@ -1,7 +1,7 @@
 --[[
    how we want to it
 ]]--
-
+-- lua 5.1 syntax
 require "os"
 test = get_test()
 
