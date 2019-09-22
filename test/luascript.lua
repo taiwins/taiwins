@@ -2,9 +2,13 @@
    how we want to it
 ]]--
 -- lua 5.1 syntax
-require "os"
-test = get_test()
+os = require('os')
+mylib = require('mylib')
 
-test:setA(100)
-test:setB(101)
-test:setC(102)
+mylib.mysin(3.1415)
+
+-- test = get_test()
+
+-- test:setA(100)
+-- test:setB(101)
+-- test:setC(102)
