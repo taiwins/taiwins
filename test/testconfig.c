@@ -50,7 +50,7 @@ taiwins_menu_to_wl_array(const struct taiwins_menu_item * items, const int len)
 static bool
 _lua_is_menu_item(struct lua_State *L, int idx)
 {
-	if (lua_objlen(L, idx) != 2)
+	if (lua_rawlen(L, idx) != 2)
 		return false;
 	int len[2] = {TAIWINS_MAX_MENU_ITEM_NAME,
 		      TAIWINS_MAX_MENU_CMD_LEN};
@@ -84,7 +84,7 @@ _lua_parse_menu(struct lua_State *L, vector_t *menus)
 		lua_pop(L, 2);
 		vector_append(menus, &menu_item);
 	} else if (lua_istable(L, -1)) {
-		int n = lua_objlen(L, -1);
+		int n = lua_rawlen(L, -1);
 		int currlen = menus->len;
 		for (int i = 1; i <= n && parsed; i++) {
 			lua_rawgeti(L, -1, i);

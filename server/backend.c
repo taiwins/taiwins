@@ -337,7 +337,7 @@ _lua_output_rotate_flip(lua_State *L)
 		lua_pushboolean(L, transform.flip);
 		return 2;
 	} else if(lua_gettop(L) == 2) {
-		int rotate = luaL_checkint(L, 2);
+		int rotate = luaL_checkinteger(L, 2);
 		bool flip = false;
 		tw_output->pending_transform.transform =
 			_lua_output_transfrom_from_value(L, rotate, flip);
@@ -345,7 +345,7 @@ _lua_output_rotate_flip(lua_State *L)
 		return 0;
 	} else if (lua_gettop(L) == 3) {
 		luaL_checktype(L, 3, LUA_TBOOLEAN);
-		int rotate = luaL_checkint(L, 2);
+		int rotate = luaL_checkinteger(L, 2);
 		int flip = lua_toboolean(L, 3);
 		tw_output->pending_transform.transform =
 			_lua_output_transfrom_from_value(L, rotate, flip);
@@ -370,7 +370,7 @@ _lua_output_scale(lua_State *L)
 		return 1;
 	} else {
 		_lua_stackcheck(L, 2);
-		int scale = luaL_checkint(L, 2);
+		int scale = luaL_checkinteger(L, 2);
 		if (scale <= 0 || scale > 4)
 			return luaL_error(L, "invalid display scale");
 		tw_output->pending_scale.scale = scale;
