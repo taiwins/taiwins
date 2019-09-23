@@ -88,6 +88,46 @@ lua_widget_cb(struct nk_context *ctx, float width, float height,
 /*******************************************************************************
  * LUA widget
  ******************************************************************************/
+#define TW_REGISTER(name, func) \
+	lua_pushcfunction(L, func); \
+	lua_setfield(L, -2, name)
+
+static int
+_lua_widget_anchor(lua_State *L)
+{
+}
+
+static int
+_lua_widget_watch_file(lua_State *L)
+{
+	struct shell_widget *shell_widget = luaL_checkudata(L, 1, "metatable_widget");
+	(void)shell_widget;
+	return 0;
+}
+
+
+static int
+_lua_widget_done(lua_State *L)
+{
+	struct shell_widget *shell_widget = luaL_checkudata(L, 1, "metatable_widget");
+	(void)shell_widget;
+	//check the integrity of the the widget, then make the widget from it
+}
+
+static int
+_lua_new_widget_empty(lua_State *L)
+{
+	struct shell_widget *wig =
+		lua_newuserdata(L, sizeof(struct shell_widget));
+	(void)wig;
+	return 1;
+}
+
+static int
+_lua_new_widget_from_table(L)
+{
+	return 0;
+}
 
 /**
  * users call this function to register a widget,
@@ -98,10 +138,23 @@ lua_widget_cb(struct nk_context *ctx, float width, float height,
  })
  */
 static int
-nk_lua_register_widget(lua_State *L)
+_lua_register_widget(lua_State *L)
 {
-	luaL_checktype(L, 1, LUA_TTABLE);
-	struct shell_widget *widget = malloc(sizeof(struct shell_widget));
+	if (lua_gettop(L) == 0)
+		return _lua_new_widget_empty(L);
+	else if (lua_gettop(L) == 1)
+		return _lua_new_widget_from_table(L);
+	else
+		return luaL_error(L, "invalid number of arguments in new_widget()");
+
+	assert(lua_gettop(L) == 1 || lua_gettop(L) == 0);
+	if (lua_gettop(L) == 0) {
+
+	}
+
+
+	struct shell_widget *widget =
+		lua_newuserdata(L, sizeof(struct shell_widget));
 	//I really dont know what to do.
 	if (!widget)
 		return luaL_error(L, "enable to create the widget.");
@@ -122,22 +175,42 @@ nk_lua_register_widget(lua_State *L)
 	return 0;
 }
 
-static void
-nk_lua_widget_watch_file(lua_State *L)
+
+static int
+luaopen_nkwidget(lua_State *L)
 {
+	static intptr_t n_widgets = 0;
+	luaL_newmetatable(L, "metatable_widget");
+	lua_pushvalue(L, -1);
+	lua_setfield(L, -2, "__index");
+	TW_REGISTER("watchfile", _lua_widget_watch_file);
+	lua_pushlightuserdata(L, &n_widgets);
+	lua_setfield(L, LUA_REGISTRYINDEX, "_n_widgets");
+
+	//creating new metatable for
+	static const luaL_Reg lib[] = {
+		{"new_widget", _lua_register_widget},
+	};
+	luaL_newlib(L, lib);
+	return 1;
 }
 
 void
 shell_widget_load_script(struct wl_list *head, const char *path)
 {
-	//you need basically create a new lua_State
 	lua_State *L = luaL_newstate();
+	luaL_openlibs(L);
+	luaL_requiref(L, "nkwidget", luaopen_nkwidget, true);
 
-
-	//register some methods here
+	if (luaL_dofile(L, path)) {
+		const char *err = lua_tostring(L, -1);
+		fprintf(stderr, "error in loading widgets: \n");
+		fprintf(stderr, "%s\n", err);
+		//maybe load default widgets, in this case
+	}
 }
 
-
+#undef TW_REGISTER
 
 #ifdef __cplusplus
 }
