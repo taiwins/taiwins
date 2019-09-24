@@ -88,9 +88,23 @@ lua_widget_cb(struct nk_context *ctx, float width, float height,
 /*******************************************************************************
  * LUA widget
  ******************************************************************************/
-#define TW_REGISTER(name, func) \
+#define TW_REGISTER(name, func)	    \
 	lua_pushcfunction(L, func); \
 	lua_setfield(L, -2, name)
+
+#ifndef lua_checkfunction
+#define lua_checkfunction(L, arg) luaL_checktype(L, arg, LUA_TFUNCTION)
+
+#define _LUA_GET_TABLE(name, type)                                             \
+	({ lua_pushstring(L, name);		\
+	lua_rawget(L, -2);			\
+	luaL_check#type(L, -1); })
+
+#define _LUA_WIDGET_ANCHOR "LUA_WIDGET_ANCHOR"
+#define _LUA_WIDGET_DRAWCB "LUA_WIDGET_DRAW"
+
+
+static const char *_LUA_N_WIDGETS = "N_WIDGET";
 
 static int
 _lua_widget_anchor(lua_State *L)
@@ -126,24 +140,32 @@ _lua_new_widget_empty(lua_State *L)
 static int
 _lua_new_widget_from_table(lua_State *L)
 {
+	char func_name[32];
+
 	struct shell_widget *widget =
 		lua_newuserdata(L, sizeof(struct shell_widget));
 	if (!widget)
 		return luaL_error(L, "enable to create the widget.");
-	lua_pushstring(L, "name");
-	lua_rawget(L, -2);
 
-	const char *widget_name = luaL_checkstring(L, -1);
-	lua_pushstring(L, "anchor");
-	lua_rawget(L, -3);
-	luaL_checktype(L, -1, LUA_TFUNCTION);
-	//test anchor function
-	lua_setfield(L, LUA_REGISTRYINDEX, "widget_anchor");
-	//get widget_function
-	lua_pushstring(L, "draw");
-	lua_rawget(L, -3);
-	luaL_checktype(L, -1, LUA_TFUNCTION);
-	lua_setfield(L, LUA_REGISTRYINDEX, "widget_drawcb");
+	lua_rawgetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
+	lua_Integer n_widgets = lua_tointeger(L, -1);
+
+	const char * widget_name = _LUA_GET_TABLE("name", string);
+	lua_pop(L, 1);
+
+	_LUA_GET_TABLE("anchor", function);
+	sprintf(func_name, "%s%02d", _LUA_WIDGET_ANCHOR, n_widgets);
+	lua_setfield(L, LUA_REGISTRYINDEX, func_name);
+	lua_pop(L, 1);
+
+	_LUA_GET_TABLE("draw", function);
+	sprintf(func_name, "%s%02d", _LUA_WIDGET_DRAWCB, n_widgets);
+	lua_setfield(L, LUA_REGISTRYINDEX, func_name);
+	lua_pop(L, 1);
+
+	n_widgets+=1;
+	lua_rawsetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
+
 	return 0;
 }
 
@@ -172,9 +194,7 @@ _lua_register_widget(lua_State *L)
 		return _lua_new_widget_from_table(L);
 	else
 		return luaL_error(L, "invalid number of arguments.");
-
 }
-
 
 static int
 luaopen_nkwidget(lua_State *L)
@@ -184,8 +204,8 @@ luaopen_nkwidget(lua_State *L)
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -2, "__index");
 	TW_REGISTER("watchfile", _lua_widget_watch_file);
-	lua_pushlightuserdata(L, &n_widgets);
-	lua_setfield(L, LUA_REGISTRYINDEX, "_n_widgets");
+	lua_pushinteger(L, 0);
+	lua_rawsetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
 
 	//creating new metatable for
 	static const luaL_Reg lib[] = {
@@ -211,6 +231,9 @@ shell_widget_load_script(struct wl_list *head, const char *path)
 }
 
 #undef TW_REGISTER
+#undef _LUA_GET_TABLE
+#undef luaL_checkfunction
+
 
 #ifdef __cplusplus
 }
