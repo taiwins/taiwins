@@ -124,8 +124,26 @@ _lua_new_widget_empty(lua_State *L)
 }
 
 static int
-_lua_new_widget_from_table(L)
+_lua_new_widget_from_table(lua_State *L)
 {
+	struct shell_widget *widget =
+		lua_newuserdata(L, sizeof(struct shell_widget));
+	if (!widget)
+		return luaL_error(L, "enable to create the widget.");
+	lua_pushstring(L, "name");
+	lua_rawget(L, -2);
+
+	const char *widget_name = luaL_checkstring(L, -1);
+	lua_pushstring(L, "anchor");
+	lua_rawget(L, -3);
+	luaL_checktype(L, -1, LUA_TFUNCTION);
+	//test anchor function
+	lua_setfield(L, LUA_REGISTRYINDEX, "widget_anchor");
+	//get widget_function
+	lua_pushstring(L, "draw");
+	lua_rawget(L, -3);
+	luaL_checktype(L, -1, LUA_TFUNCTION);
+	lua_setfield(L, LUA_REGISTRYINDEX, "widget_drawcb");
 	return 0;
 }
 
@@ -148,31 +166,13 @@ _lua_register_widget(lua_State *L)
 		return luaL_error(L, "invalid number of arguments in new_widget()");
 
 	assert(lua_gettop(L) == 1 || lua_gettop(L) == 0);
-	if (lua_gettop(L) == 0) {
+	if (lua_gettop(L) == 0)
+		return _lua_new_widget_empty(L);
+	else if (lua_gettop(L) == 1)
+		return _lua_new_widget_from_table(L);
+	else
+		return luaL_error(L, "invalid number of arguments.");
 
-	}
-
-
-	struct shell_widget *widget =
-		lua_newuserdata(L, sizeof(struct shell_widget));
-	//I really dont know what to do.
-	if (!widget)
-		return luaL_error(L, "enable to create the widget.");
-	lua_pushstring(L, "name");
-	lua_rawget(L, -2);
-
-	const char *widget_name = luaL_checkstring(L, -1);
-	lua_pushstring(L, "anchor");
-	lua_rawget(L, -3);
-	luaL_checktype(L, -1, LUA_TFUNCTION);
-	//test anchor function
-	lua_setfield(L, LUA_REGISTRYINDEX, "widget_anchor");
-	//get widget_function
-	lua_pushstring(L, "draw");
-	lua_rawget(L, -3);
-	luaL_checktype(L, -1, LUA_TFUNCTION);
-	lua_setfield(L, LUA_REGISTRYINDEX, "widget_drawcb");
-	return 0;
 }
 
 
