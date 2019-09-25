@@ -1,6 +1,7 @@
 add_executable(shell-taiwins
   shell.c
   widget.c
+  widget_lua.c
   widgets/clock.c
   widgets/battery.c
   )

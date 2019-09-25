@@ -99,3 +99,26 @@ add_executable(test_cairo_transform
 
 target_link_libraries(test_cairo_transform
   ${CLIENT_LIBRARIES})
+
+
+add_executable(test_widget
+  test_widget_lua.c
+  ../clients/widget.c
+  ../clients/widget_lua.c
+  )
+
+target_include_directories(test_widget PRIVATE
+  "${CMAKE_SOURCE_DIR}/clients"
+  ${CLIENT_INCLUDE_DIRS}
+  ${PROTOCOLS_INCLUDE_DIR}
+  ${TRDPTY_INCLUDE_DIRS}
+  )
+
+target_link_libraries(test_widget
+  nk_cairo_backend
+  ${CLIENT_LIBRARIES}
+  ${TRDPTY_LIBRARIES}
+  ${WAYLAND_CURSOR_LIBRARIES}
+  m
+  proto_client_libraries
+  )

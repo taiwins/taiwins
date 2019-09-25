@@ -10,6 +10,7 @@
 
 #include "widget.h"
 #include <lua.h>
+#include <lualib.h>
 #include <lauxlib.h>
 #include <nk_backends.h>
 
@@ -79,26 +80,22 @@ lua_widget_cb(struct nk_context *ctx, float width, float height,
 	}
 }
 
-
 /*******************************************************************************
  * implementation
  ******************************************************************************/
 
-
-/*******************************************************************************
- * LUA widget
- ******************************************************************************/
-#define TW_REGISTER(name, func)	    \
+#define _LUA_REGISTER(name, func)	    \
 	lua_pushcfunction(L, func); \
 	lua_setfield(L, -2, name)
 
-#ifndef lua_checkfunction
-#define lua_checkfunction(L, arg) luaL_checktype(L, arg, LUA_TFUNCTION)
+#ifndef luaL_checkfunction
+#define luaL_checkfunction(L, arg) luaL_checktype(L, arg, LUA_TFUNCTION)
+#endif
 
-#define _LUA_GET_TABLE(name, type)                                             \
-	({ lua_pushstring(L, name);		\
-	lua_rawget(L, -2);			\
-	luaL_check#type(L, -1); })
+#define _LUA_GET_TABLE(name, type)					\
+	({ lua_pushstring(L, name);					\
+		lua_rawget(L, -2);					\
+		luaL_check##type(L, -1); })
 
 #define _LUA_WIDGET_ANCHOR "LUA_WIDGET_ANCHOR"
 #define _LUA_WIDGET_DRAWCB "LUA_WIDGET_DRAW"
@@ -107,8 +104,15 @@ lua_widget_cb(struct nk_context *ctx, float width, float height,
 static const char *_LUA_N_WIDGETS = "N_WIDGET";
 
 static int
-_lua_widget_anchor(lua_State *L)
+_lua_widget_set_anchor(lua_State *L)
 {
+	return 0;
+}
+
+static int
+_lua_widget_set_draw_func(lua_State *L)
+{
+	return 0;
 }
 
 static int
@@ -119,13 +123,29 @@ _lua_widget_watch_file(lua_State *L)
 	return 0;
 }
 
+static int
+_lua_widget_watch_device(lua_State *L)
+{
+	return 0;
+}
 
 static int
 _lua_widget_done(lua_State *L)
 {
-	struct shell_widget *shell_widget = luaL_checkudata(L, 1, "metatable_widget");
-	(void)shell_widget;
+
+	struct shell_widget *tmp_widget = luaL_checkudata(L, 1, "metatable_widget");
+	//check whether we have our necessary handles
+
 	//check the integrity of the the widget, then make the widget from it
+	//TODO, create new shell_widget and then copy to it.
+	struct shell_widget *shell_widget =
+		lua_newuserdata(L, sizeof(struct shell_widget));
+	if (!shell_widget)
+		return luaL_error(L, "enable to create the widget.");
+
+	memcpy(shell_widget, tmp_widget, sizeof(struct shell_widget));
+
+	return 0;
 }
 
 static int
@@ -147,21 +167,22 @@ _lua_new_widget_from_table(lua_State *L)
 	if (!widget)
 		return luaL_error(L, "enable to create the widget.");
 
+	widget->ancre_cb = lua_widget_anchor;
+	widget->draw_cb = lua_widget_cb;
+
 	lua_rawgetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
 	lua_Integer n_widgets = lua_tointeger(L, -1);
 
-	const char * widget_name = _LUA_GET_TABLE("name", string);
-	lua_pop(L, 1);
-
+	/* const char * widget_name = _LUA_GET_TABLE("name", string); */
+	/* lua_pop(L, 1); */
+	lua_pushvalue(L, 1);
 	_LUA_GET_TABLE("anchor", function);
-	sprintf(func_name, "%s%02d", _LUA_WIDGET_ANCHOR, n_widgets);
+	sprintf(func_name, "%s%02d", _LUA_WIDGET_ANCHOR, (int)n_widgets);
 	lua_setfield(L, LUA_REGISTRYINDEX, func_name);
-	lua_pop(L, 1);
 
 	_LUA_GET_TABLE("draw", function);
-	sprintf(func_name, "%s%02d", _LUA_WIDGET_DRAWCB, n_widgets);
+	sprintf(func_name, "%s%02d", _LUA_WIDGET_DRAWCB, (int)n_widgets);
 	lua_setfield(L, LUA_REGISTRYINDEX, func_name);
-	lua_pop(L, 1);
 
 	n_widgets+=1;
 	lua_rawsetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
@@ -199,11 +220,14 @@ _lua_register_widget(lua_State *L)
 static int
 luaopen_nkwidget(lua_State *L)
 {
-	static intptr_t n_widgets = 0;
 	luaL_newmetatable(L, "metatable_widget");
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -2, "__index");
-	TW_REGISTER("watchfile", _lua_widget_watch_file);
+	_LUA_REGISTER("watch_file", _lua_widget_watch_file);
+	_LUA_REGISTER("watch_device", _lua_widget_watch_device);
+	_LUA_REGISTER("anchor", _lua_widget_set_anchor);
+	_LUA_REGISTER("register", _lua_widget_done);
+	_LUA_REGISTER("draw", _lua_widget_set_draw_func);
 	lua_pushinteger(L, 0);
 	lua_rawsetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
 
@@ -220,7 +244,9 @@ shell_widget_load_script(struct wl_list *head, const char *path)
 {
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
-	luaL_requiref(L, "nkwidget", luaopen_nkwidget, true);
+	//loatd nkwidget
+	luaL_requiref(L, "twwidgets", luaopen_nkwidget, true);
+	//TODO and then we load nuklear
 
 	if (luaL_dofile(L, path)) {
 		const char *err = lua_tostring(L, -1);
@@ -230,7 +256,7 @@ shell_widget_load_script(struct wl_list *head, const char *path)
 	}
 }
 
-#undef TW_REGISTER
+#undef _LUA_REGISTER
 #undef _LUA_GET_TABLE
 #undef luaL_checkfunction
 
