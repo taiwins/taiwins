@@ -97,6 +97,14 @@ lua_widget_cb(struct nk_context *ctx, float width, float height,
 		lua_rawget(L, -2);					\
 		luaL_check##type(L, -1); })
 
+#define _LUA_TABLE_HAS(name)				\
+	({ bool nil = false;				\
+		lua_pushstring(L, name);		\
+		lua_rawget(L, -2);			\
+		nil = lua_isnil(L, -1);			\
+		lua_pop(L, 1);				\
+		!nil;})
+
 #define _LUA_WIDGET_ANCHOR "LUA_WIDGET_ANCHOR"
 #define _LUA_WIDGET_DRAWCB "LUA_WIDGET_DRAW"
 
@@ -172,18 +180,24 @@ _lua_new_widget_from_table(lua_State *L)
 
 	lua_rawgetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
 	lua_Integer n_widgets = lua_tointeger(L, -1);
-
-	/* const char * widget_name = _LUA_GET_TABLE("name", string); */
-	/* lua_pop(L, 1); */
 	lua_pushvalue(L, 1);
+	//anchor, we may want to rename it, as briefÉ
 	_LUA_GET_TABLE("anchor", function);
 	sprintf(func_name, "%s%02d", _LUA_WIDGET_ANCHOR, (int)n_widgets);
 	lua_setfield(L, LUA_REGISTRYINDEX, func_name);
+	//draw calls,
+	if (!_LUA_TABLE_HAS("draw"))
+		widget->draw_cb = NULL;
+	else {
+		_LUA_GET_TABLE("draw", function);
+		sprintf(func_name, "%s%02d", _LUA_WIDGET_DRAWCB, (int)n_widgets);
+		lua_setfield(L, LUA_REGISTRYINDEX, func_name);
+	}
+	//devices it uses.
+	if (_LUA_TABLE_HAS("file_watch")) {
+		_LUA_GET_TABLE("file_watch", string);
 
-	_LUA_GET_TABLE("draw", function);
-	sprintf(func_name, "%s%02d", _LUA_WIDGET_DRAWCB, (int)n_widgets);
-	lua_setfield(L, LUA_REGISTRYINDEX, func_name);
-
+	}
 	n_widgets+=1;
 	lua_rawsetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
 
@@ -258,6 +272,7 @@ shell_widget_load_script(struct wl_list *head, const char *path)
 
 #undef _LUA_REGISTER
 #undef _LUA_GET_TABLE
+#undef _LUA_TABLE_HAS
 #undef luaL_checkfunction
 
 
