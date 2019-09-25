@@ -1,7 +1,5 @@
 os = require('os')
 widgets = require('twwidgets')
-theme = require('twtheme')
-nuklear = require('nuklear')
 
 -- we would also need to
 function sample_anchor(wig)
@@ -32,10 +30,10 @@ function sample_drawfunc(wig, ui)
 end
 
 -- register method 1
-widets.new_widget({
+widgets.new_widget({
       name = "sample",
       anchor = sample_anchor,
-      drawfunc = sample_drawfunc,
+      draw = sample_drawfunc,
       file_watch = "/proc/uptime"
       -- you can also have things like timer = '3min', device_watch = 'sys/class/...'
 })
