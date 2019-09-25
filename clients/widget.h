@@ -7,6 +7,7 @@
 #include <EGL/egl.h>
 #include <GL/gl.h>
 #include <wayland-client.h>
+#include <libudev.h>
 #include <ui.h>
 #include <client.h>
 #include <nk_backends.h>
@@ -55,10 +56,13 @@ struct shell_widget {
 		struct itimerspec interval;
 		char *file_path;
 		shell_widget_path_find_t path_find;
+		char *subsystem;
+		char *devname;
 	};
 	//runtime access data
 	int fd;
 	void *user_data;
+	struct udev_device *dev;
 
 	uint32_t w;
 	uint32_t h;
@@ -71,16 +75,6 @@ shell_widget_hook_panel(struct shell_widget *widget, struct app_surface *panel)
 {
 	embeded_impl_app_surface(&widget->ancre, panel, make_bbox_origin(0, 0, 1));
 }
-
-
-/* this is probably totally not necessary, we need only the script */
-struct wl_list *shell_widget_create_with_funcs(nk_wl_drawcall_t draw_cb,
-					       nk_wl_postcall_t post_cb,
-					       nk_wl_drawcall_t update_cb,
-					       size_t width, size_t height,
-					       size_t scale);
-
-struct wl_list *shell_widget_create_with_script(const char *script_content);
 
 
 
