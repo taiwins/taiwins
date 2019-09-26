@@ -105,6 +105,8 @@ add_executable(test_widget
   test_widget_lua.c
   ../clients/widget.c
   ../clients/widget_lua.c
+  ../clients/widgets/clock.c
+  ../clients/widgets/battery.c
   )
 
 target_include_directories(test_widget PRIVATE

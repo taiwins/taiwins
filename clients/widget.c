@@ -106,6 +106,18 @@ shell_widget_event_from_device(struct shell_widget *widget, const char *subsyste
 	tw_event_queue_add_device(event_queue, subsystem, dev,  &redraw_widget);
 }
 
+
+static bool
+shell_widget_builtin(struct shell_widget *widget)
+{
+	return widget == &clock_widget ||
+		widget == &what_up_widget  ||
+		widget == &battery_widget;
+}
+
+extern void shell_widget_release_with_runtime(struct shell_widget *widget);
+
+
 void
 shell_widget_activate(struct shell_widget *widget, struct tw_event_queue *queue)
 {
@@ -124,6 +136,29 @@ shell_widget_activate(struct shell_widget *widget, struct tw_event_queue *queue)
 					       widget->devname, queue);
 }
 
+void
+shell_widget_disactive(struct shell_widget *widget)
+{
+	app_surface_release(&widget->ancre);
+	//detect whether widget is a builtin widget
+	if (shell_widget_builtin(widget))
+		return;
+
+	if (widget->file_path) {
+		free(widget->file_path);
+		widget->file_path = NULL;
+	}
+	if (widget->subsystem) {
+		free(widget->subsystem);
+		widget->subsystem = NULL;
+	}
+	if (widget->devname) {
+		free(widget->devname);
+		widget->devname = NULL;
+	}
+	//now you need to deference the luaState
+	shell_widget_release_with_runtime(widget);
+}
 
 /*******************************************************************************
  * sample widget

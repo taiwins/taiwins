@@ -49,8 +49,7 @@ struct shell_widget {
 	//widget callback
 	nk_wl_drawcall_t draw_cb;
 	nk_wl_postcall_t post_cb;
-	//it could be lua state.
-	//either a timer, or a static/dynamic path
+	//watchers
 	struct {
 		//a immediate/reccurent timer
 		struct itimerspec interval;
@@ -69,6 +68,8 @@ struct shell_widget {
 };
 
 void shell_widget_activate(struct shell_widget *widget, struct tw_event_queue *queue);
+
+void shell_widget_disactive(struct shell_widget *widget);
 
 static inline void
 shell_widget_hook_panel(struct shell_widget *widget, struct app_surface *panel)

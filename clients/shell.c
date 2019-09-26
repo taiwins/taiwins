@@ -299,6 +299,7 @@ shell_output_set_major(struct shell_output *w)
 	struct shell_widget *widget;
 	wl_list_for_each(widget, &shell->shell_widgets, link) {
 		shell_widget_hook_panel(widget, &w->panel);
+		shell_widget_activate(widget, &shell->globals.event_queue);
 	}
 
 	shell->main_output = w;
@@ -528,9 +529,6 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	wl_list_insert(&shell->shell_widgets, &what_up_widget.link);
 	wl_list_insert(&shell->shell_widgets, &battery_widget.link);
 
-	shell_widget_activate(&clock_widget, &shell->globals.event_queue);
-	shell_widget_activate(&what_up_widget, &shell->globals.event_queue);
-	shell_widget_activate(&battery_widget, &shell->globals.event_queue);
 	shell->widget_launch = (struct widget_launch_info){0};
 }
 
@@ -539,12 +537,19 @@ desktop_shell_release(struct desktop_shell *shell)
 {
 	tw_shell_destroy(shell->interface);
 
+	struct shell_widget *widget, *tmp;
+	wl_list_for_each_safe(widget, tmp, &shell->shell_widgets, link) {
+		wl_list_remove(&widget->link);
+		shell_widget_disactive(widget);
+	}
+
 	for (int i = 0; i < desktop_shell_n_outputs(shell); i++)
 		shell_output_release(&shell->shell_outputs[i]);
 	wl_globals_release(&shell->globals);
 	//destroy the backends
 	nk_cairo_destroy_bkend(shell->widget_backend);
 	nk_cairo_destroy_bkend(shell->panel_backend);
+
 #ifdef __DEBUG
 	cairo_debug_reset_static_data();
 #endif
