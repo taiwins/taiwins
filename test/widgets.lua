@@ -35,6 +35,8 @@ widgets.new_widget({
       anchor = sample_anchor,
       draw = sample_drawfunc,
       file_watch = "/proc/uptime"
+      timer = 40
+      device_watch = "/sys/class/backlight"
       -- you can also have things like timer = '3min', device_watch = 'sys/class/...'
 })
 
