@@ -9,6 +9,13 @@
 #include <ui.h>
 #include "widget.h"
 
+
+/************** The sample widgets *******************/
+extern struct shell_widget clock_widget;
+extern struct shell_widget what_up_widget;
+extern struct shell_widget battery_widget;
+extern void shell_widget_release_with_runtime(struct shell_widget *widget);
+
 static int
 redraw_panel_for_file(struct tw_event *e, int fd)
 {
@@ -106,7 +113,6 @@ shell_widget_event_from_device(struct shell_widget *widget, const char *subsyste
 	tw_event_queue_add_device(event_queue, subsystem, dev,  &redraw_widget);
 }
 
-
 static bool
 shell_widget_builtin(struct shell_widget *widget)
 {
@@ -115,8 +121,17 @@ shell_widget_builtin(struct shell_widget *widget)
 		widget == &battery_widget;
 }
 
-extern void shell_widget_release_with_runtime(struct shell_widget *widget);
-
+const struct shell_widget *
+shell_widget_get_builtin_by_name(const char *name)
+{
+	if (!strcmp("clock", name))
+		return &clock_widget;
+	if (!strcmp("whatup", name))
+		return &what_up_widget;
+	if (!strcmp("battery", name))
+		return &battery_widget;
+	return NULL;
+}
 
 void
 shell_widget_activate(struct shell_widget *widget, struct tw_event_queue *queue)
@@ -159,6 +174,15 @@ shell_widget_disactive(struct shell_widget *widget)
 	//now you need to deference the luaState
 	shell_widget_release_with_runtime(widget);
 }
+
+void
+shell_widgets_load_default(struct wl_list *head)
+{
+	wl_list_insert(head, &clock_widget.link);
+	wl_list_insert(head, &what_up_widget.link);
+	wl_list_insert(head, &battery_widget.link);
+}
+
 
 /*******************************************************************************
  * sample widget

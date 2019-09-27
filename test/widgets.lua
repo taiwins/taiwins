@@ -32,19 +32,20 @@ end
 -- register method 1
 widgets.new_widget({
       name = "sample",
-      anchor = sample_anchor,
+      brief = sample_anchor,
       draw = sample_drawfunc,
-      file_watch = "/proc/uptime"
-      timer = 40
-      device_watch = "/sys/class/backlight"
-      -- you can also have things like timer = '3min', device_watch = 'sys/class/...'
+      --file_watch = "/proc/uptime",
+      timer = 40,
+      --device_watch = "/sys/class/backlight",
 })
 
 
 -- register method 2
 w = widgets.new_widget()
-w.anchor(function () return 'aaa' end)
-w.watch_file()
-w.add_timer('3s')
-w.watch_device('/sys/class/ata_device/')
-w.register()
+w:brief(function () return 'aaa' end)
+w:watch_file('/proc/cpuinfo')
+-- w:add_timer('3s')
+-- w:watch_device('/sys/class/ata_device/')
+w:register()
+
+widgets.add_builti('clock')

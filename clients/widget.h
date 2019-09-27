@@ -71,6 +71,10 @@ void shell_widget_activate(struct shell_widget *widget, struct tw_event_queue *q
 
 void shell_widget_disactive(struct shell_widget *widget);
 
+void shell_widgets_load_default(struct wl_list *head);
+
+const struct shell_widget *shell_widget_get_builtin_by_name(const char *name);
+
 static inline void
 shell_widget_hook_panel(struct shell_widget *widget, struct app_surface *panel)
 {
@@ -78,11 +82,6 @@ shell_widget_hook_panel(struct shell_widget *widget, struct app_surface *panel)
 }
 
 
-
-/************** The sample widgets *******************/
-extern struct shell_widget clock_widget;
-extern struct shell_widget what_up_widget;
-extern struct shell_widget battery_widget;
 
 #ifdef __cplusplus
 }

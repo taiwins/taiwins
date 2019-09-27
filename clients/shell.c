@@ -525,9 +525,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	//right now we just hard coded some link
 	//add the widgets here
 	wl_list_init(&shell->shell_widgets);
-	wl_list_insert(&shell->shell_widgets, &clock_widget.link);
-	wl_list_insert(&shell->shell_widgets, &what_up_widget.link);
-	wl_list_insert(&shell->shell_widgets, &battery_widget.link);
+	shell_widgets_load_default(&shell->shell_widgets);
 
 	shell->widget_launch = (struct widget_launch_info){0};
 }
