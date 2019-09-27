@@ -107,9 +107,15 @@ lua_widget_cb(struct nk_context *ctx, float width, float height,
 		lua_pop(L, 1);				\
 		!nil;})
 #define _LUA_WIDGET_METATABLE "metatable_widget"
-#define _LUA_WIDGET_ANCHOR "LUA_WIDGET_ANCHOR"
+#define _LUA_WIDGET_ANCHORCB "LUA_WIDGET_ANCHOR"
 #define _LUA_WIDGET_DRAWCB "LUA_WIDGET_DRAW"
+#define _LUA_WIDGET_ANCHOR "brief"
+#define _LUA_WIDGET_DRAW "draw"
+#define	_LUA_WIDGET_FILE "file_watch"
+#define _LUA_WIDGET_DEV "device_watch"
+#define _LUA_WIDGET_TIMER "timer"
 static const char *_LUA_N_WIDGETS = "N_WIDGET";
+
 
 
 /******************************************************************************/
@@ -118,6 +124,9 @@ _lua_init_widget_runtime(struct shell_widget_runtime *runtime, lua_State *L)
 {
 	memset(runtime, 0, sizeof(struct shell_widget_runtime));
 	struct shell_widget *widget = &runtime->widget;
+	luaL_getmetatable(L, _LUA_WIDGET_METATABLE);
+	lua_setmetatable(L, -2);
+
 	//initialize
 	widget->ancre_cb = lua_widget_anchor;
 	widget->draw_cb = lua_widget_cb;
@@ -148,39 +157,51 @@ _lua_new_widget_from_table(lua_State *L)
 
 	lua_pushvalue(L, 1);
 	//brief
-	_LUA_GET_TABLE("anchor", function);
-	sprintf(runtime->anchorcb, "%s%02d", _LUA_WIDGET_ANCHOR,
+	if (!_LUA_TABLE_HAS(_LUA_WIDGET_ANCHOR))
+		return luaL_error(L, "widget without %s",
+				  _LUA_WIDGET_ANCHOR);
+	_LUA_GET_TABLE(_LUA_WIDGET_ANCHOR, function);
+	sprintf(runtime->anchorcb, "%s%02d", _LUA_WIDGET_ANCHORCB,
 		(int)n_widgets);
 	lua_setfield(L, LUA_REGISTRYINDEX, runtime->anchorcb);
-
-	if (!_LUA_TABLE_HAS("draw"))
+	//draw call.
+	if (!_LUA_TABLE_HAS(_LUA_WIDGET_DRAW))
 		widget->draw_cb = NULL;
 	else {
-		_LUA_GET_TABLE("draw", function);
+		_LUA_GET_TABLE(_LUA_WIDGET_DRAW, function);
 		sprintf(runtime->anchorcb, "%s%02d", _LUA_WIDGET_DRAWCB,
 			(int)n_widgets);
 		lua_setfield(L, LUA_REGISTRYINDEX, runtime->anchorcb);
 	}
-	//watcher
-	if (_LUA_TABLE_HAS("file_watch") && !registered) {
-		const char *file = _LUA_GET_TABLE("file_watch", string);
+	//watchers
+	if (_LUA_TABLE_HAS(_LUA_WIDGET_FILE) && !registered) {
+		const char *file =
+			_LUA_GET_TABLE(_LUA_WIDGET_FILE, string);
 		widget->file_path = strdup(file);
 		lua_pop(L, 1);
 		registered = true;
-	} else if (_LUA_TABLE_HAS("timer") && !registered) {
-		lua_Integer time = _LUA_GET_TABLE("timer,", integer); //inseconds.
+	}
+	if (_LUA_TABLE_HAS(_LUA_WIDGET_TIMER) && !registered) {
+		lua_Integer time =
+			_LUA_GET_TABLE(_LUA_WIDGET_TIMER, integer);
 		widget->interval = (struct itimerspec){
 			.it_value = {time, 0},
 			.it_interval = {time, 0},
 		};
 		lua_pop(L, 1);
 		registered = true;
-	} else if (_LUA_TABLE_HAS("device_watch") && !registered) {
-		const char *file = _LUA_GET_TABLE("device_watch", string);
+	}  else if (_LUA_TABLE_HAS(_LUA_WIDGET_TIMER) && registered)
+		return luaL_error(L, "widget already has triggers");
+
+	if (_LUA_TABLE_HAS(_LUA_WIDGET_DEV) && !registered) {
+		const char *file =
+			_LUA_GET_TABLE(_LUA_WIDGET_DEV, string);
 		widget->subsystem = strdup(file);
 		lua_pop(L, 1);
 		registered = true;
-	}
+	}  else if (_LUA_TABLE_HAS(_LUA_WIDGET_DEV) && registered)
+		return luaL_error(L, "widget already has triggers");
+
 	//upload widgets
 	lua_pushvalue(L, 2);
 	sprintf(widget_name, "%s%02d", "widget", (int)n_widgets);
@@ -199,11 +220,13 @@ _lua_widget_set_anchor(lua_State *L)
 {
 	luaL_checktype(L, 1, LUA_TTABLE);
 	//we can actually check whether this table has the same metatable
-	if (_LUA_TABLE_HAS("anchor"))
-		return luaL_error(L, "widget already has anchor");
+	lua_pushvalue(L, 1);
+	if (_LUA_TABLE_HAS(_LUA_WIDGET_ANCHOR))
+		return luaL_error(L, "widget already has %s",
+			_LUA_WIDGET_ANCHOR);
 
 	luaL_checktype(L, 2, LUA_TFUNCTION);
-	lua_pushstring(L, "anchor");
+	lua_pushstring(L, _LUA_WIDGET_ANCHOR);
 	lua_pushvalue(L, 2);
 	lua_rawset(L, 1);
 
@@ -215,11 +238,13 @@ static int
 _lua_widget_set_draw_func(lua_State *L)
 {
 	luaL_checktype(L, 1, LUA_TTABLE);
-	if (_LUA_TABLE_HAS("draw"))
-		return luaL_error(L, "widget already has draw");
+	lua_pushvalue(L, 1);
+	if (_LUA_TABLE_HAS(_LUA_WIDGET_DRAW))
+		return luaL_error(L, "widget already has %s",
+			_LUA_WIDGET_DRAW);
 
 	luaL_checktype(L, 2, LUA_TFUNCTION);
-	lua_pushstring(L, "draw");
+	lua_pushstring(L, _LUA_WIDGET_DRAW);
 	lua_pushvalue(L, 2);
 	lua_rawset(L, 1);
 
@@ -231,12 +256,13 @@ static int
 _lua_widget_set_timer(lua_State *L)
 {
 	luaL_checktype(L, 1, LUA_TTABLE);
-	if (_LUA_TABLE_HAS("timer") ||
-	    _LUA_TABLE_HAS("file_watch") ||
-	    _LUA_TABLE_HAS("device_watch"))
+	lua_pushvalue(L, 1);
+	if (_LUA_TABLE_HAS(_LUA_WIDGET_TIMER) ||
+	    _LUA_TABLE_HAS(_LUA_WIDGET_FILE) ||
+	    _LUA_TABLE_HAS(_LUA_WIDGET_DEV))
 		return luaL_error(L, "widget already has triggers");
 	lua_Integer nsecs = luaL_checkinteger(L, 2);
-	lua_pushstring(L, "timer");
+	lua_pushstring(L, _LUA_WIDGET_TIMER);
 	lua_pushinteger(L, nsecs);
 	lua_rawset(L, 1);
 
@@ -248,15 +274,16 @@ static int
 _lua_widget_watch_file(lua_State *L)
 {
 	luaL_checktype(L, 1, LUA_TTABLE);
-	if (_LUA_TABLE_HAS("timer") ||
-	    _LUA_TABLE_HAS("file_watch") ||
-	    _LUA_TABLE_HAS("device_watch"))
+	lua_pushvalue(L, 1);
+	if (_LUA_TABLE_HAS(_LUA_WIDGET_TIMER) ||
+	    _LUA_TABLE_HAS(_LUA_WIDGET_FILE) ||
+	    _LUA_TABLE_HAS(_LUA_WIDGET_DEV))
 		return luaL_error(L, "widget already has triggers");
 
 	const char *file = luaL_checkstring(L, 2);
 	if (!is_file_exist(file))
 		return luaL_error(L, "widget cannot watch inexistent file");
-	lua_pushstring(L, "file_watch");
+	lua_pushstring(L, _LUA_WIDGET_FILE);
 	lua_pushstring(L, file);
 	lua_rawset(L, 1);
 
@@ -268,15 +295,16 @@ static int
 _lua_widget_watch_device(lua_State *L)
 {
 	luaL_checktype(L, 1, LUA_TTABLE);
-	if (_LUA_TABLE_HAS("timer") ||
-	    _LUA_TABLE_HAS("file_watch") ||
-	    _LUA_TABLE_HAS("device_watch"))
+	lua_pushvalue(L, 1);
+	if (_LUA_TABLE_HAS(_LUA_WIDGET_TIMER) ||
+	    _LUA_TABLE_HAS(_LUA_WIDGET_FILE) ||
+	    _LUA_TABLE_HAS(_LUA_WIDGET_DEV))
 		return luaL_error(L, "widget already has triggers");
 	const char *file = luaL_checkstring(L, 2);
 	//TODO check whether it is a sysfile?
 	if (!is_file_exist(file))
 		return luaL_error(L, "invalid subsystem location");
-	lua_pushstring(L, "file_watch");
+	lua_pushstring(L, _LUA_WIDGET_DEV);
 	lua_pushstring(L, file);
 	lua_rawset(L, 1);
 
@@ -304,10 +332,19 @@ _lua_new_widget_empty(lua_State *L)
 /******************************************************************************
  * users call this function to register a widget,
  *
- * register_widget({
- * name = "my widget",
- * anchor = function
- })
+ * twwidget.new_widget({
+ *	name = "my widget",
+ *	anchor = function
+ *	})
+ *
+ * or then can:
+ * w = twwidgets.new_widget()
+ * w:anchor('asdfaf')
+ * w:set...
+ * w:register()
+ *
+ * or
+ * twwidgets.add_builtin_widget('clock')
  */
 static int
 _lua_register_widget(lua_State *L)
@@ -328,6 +365,44 @@ _lua_register_widget(lua_State *L)
 		return luaL_error(L, "invalid number of arguments.");
 }
 
+static int
+_lua_register_builtin(lua_State *L)
+{
+	char widget_name[32];
+	const struct shell_widget *builtin = NULL;
+	const char *name = luaL_checkstring(L, 1);
+
+	if (lua_gettop(L) != 1)
+		return luaL_error(L, "invaild number of arguments.");
+	if (!(builtin = shell_widget_get_builtin_by_name(name)))
+		return  luaL_error(L, "cannot find builtin widget %s", name);
+
+	struct shell_widget_runtime *runtime =
+		lua_newuserdata(L, sizeof(struct shell_widget_runtime));
+	if (!runtime)
+		return luaL_error(L, "uneable to create the widget.");
+	_lua_init_widget_runtime(runtime, L);
+	struct shell_widget *widget = &runtime->widget;
+	lua_rawgetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
+	lua_Integer n_widgets = lua_tointeger(L, -1);
+	memcpy(widget, builtin, sizeof(struct shell_widget));
+	//create duplicate strings
+	if (widget->file_path)
+		widget->file_path = strdup(widget->file_path);
+	if (widget->subsystem)
+		widget->file_path = strdup(widget->subsystem);
+
+	//upload widgets
+	lua_pushvalue(L, 2);
+	sprintf(widget_name, "%s%02d", "widget", (int)n_widgets);
+	lua_setfield(L, LUA_REGISTRYINDEX, widget_name);
+	//add one widget
+	n_widgets+=1;
+	lua_pushinteger(L, n_widgets);
+	lua_rawsetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
+	return 0;
+}
+
 /*****************************************************************************/
 static int
 luaopen_nkwidget(lua_State *L)
@@ -337,8 +412,8 @@ luaopen_nkwidget(lua_State *L)
 	lua_setfield(L, -2, "__index");
 	_LUA_REGISTER("watch_file", _lua_widget_watch_file);
 	_LUA_REGISTER("watch_device", _lua_widget_watch_device);
-	_LUA_REGISTER("set_timer", _lua_widget_set_timer);
-	_LUA_REGISTER("anchor", _lua_widget_set_anchor);
+	_LUA_REGISTER("add_timer", _lua_widget_set_timer);
+	_LUA_REGISTER("brief", _lua_widget_set_anchor);
 	_LUA_REGISTER("register", _lua_widget_done);
 	_LUA_REGISTER("draw", _lua_widget_set_draw_func);
 	lua_pushinteger(L, 0);
@@ -347,6 +422,7 @@ luaopen_nkwidget(lua_State *L)
 	//creating new metatable for
 	static const luaL_Reg lib[] = {
 		{"new_widget", _lua_register_widget},
+		{"add_builtin", _lua_register_builtin},
 	};
 	luaL_newlib(L, lib);
 	return 1;
@@ -356,16 +432,27 @@ luaopen_nkwidget(lua_State *L)
 void
 shell_widget_release_with_runtime(struct shell_widget *widget)
 {
-
+	struct shell_widget_runtime *runtime =
+		container_of(widget, struct shell_widget_runtime, widget);
+	lua_rawgetp(runtime->L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
+	lua_Integer n = lua_tointeger(runtime->L, -1) -1;
+	//release with reference counter
+	if (n == 0)
+		lua_close(runtime->L);
+	else {
+		lua_pushinteger(runtime->L, n);
+		lua_rawsetp(runtime->L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
+	}
 }
 
 /*****************************************************************************/
 void
 shell_widget_load_script(struct wl_list *head, const char *path)
 {
+	struct shell_widget *widget, *tmp;
 	lua_State *L = luaL_newstate();
+
 	luaL_openlibs(L);
-	//loatd nkwidget
 	luaL_requiref(L, "twwidgets", luaopen_nkwidget, true);
 	//TODO and then we load nuklear
 
@@ -373,8 +460,37 @@ shell_widget_load_script(struct wl_list *head, const char *path)
 		const char *err = lua_tostring(L, -1);
 		fprintf(stderr, "error in loading widgets: \n");
 		fprintf(stderr, "%s\n", err);
-		//maybe load default widgets, in this case
+		//clean up existing widgets in the lua state to avoid leaks
+		lua_rawgetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
+		lua_Integer n_widgets = lua_tointeger(L, -1);
+		for (int i = 0; i < n_widgets; i++) {
+			char widget_name[32];
+			sprintf(widget_name, "%s%02d", "widget", i);
+			lua_getfield(L, LUA_REGISTRYINDEX, widget_name);
+			struct shell_widget_runtime *runtime =
+				luaL_checkudata(L, -1, _LUA_WIDGET_METATABLE);
+			shell_widget_disactive(&runtime->widget);
+		}
+		return;
 	}
+
+	//remove current widgets if any
+	wl_list_for_each_safe(widget, tmp, head, link) {
+		wl_list_remove(&widget->link);
+		shell_widget_disactive(widget);
+	}
+	//insert into headers
+	lua_rawgetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
+	lua_Integer n_widgets = lua_tointeger(L, -1);
+	for (int i = 0; i < n_widgets; i++) {
+		char widget_name[32];
+		sprintf(widget_name, "%s%02d", "widget", i);
+		lua_getfield(L, LUA_REGISTRYINDEX, widget_name);
+		struct shell_widget_runtime *runtime =
+			luaL_checkudata(L, -1, _LUA_WIDGET_METATABLE);
+		wl_list_insert(head, &runtime->widget.link);
+		lua_pop(L, 1);
+	} lua_pop(L, 1);
 }
 
 #undef _LUA_REGISTER
