@@ -15,23 +15,11 @@
 #include <nk_backends.h>
 #include <os/file.h>
 
+#include <nuklear_love.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-struct nk_context;
-struct nk_user_font;
-
-struct nk_love_context {
-	struct nk_context *nkctx;
-	struct nk_user_font *fonts;
-	int font_count;
-	float *layout_ratios;
-	int layout_ratio_count;
-	float T[9];
-	float Ti[9];
-	int transform_allowed;
-};
 
 struct shell_widget_runtime {
 	struct shell_widget widget;

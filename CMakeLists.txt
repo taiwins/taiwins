@@ -72,6 +72,7 @@ endif(NVEGL_FOUND)
 #####################################################################
 add_subdirectory("3rdparties/twclient")
 add_subdirectory("3rdparties/iconheader")
+add_subdirectory("3rdparties/nklua")
 
 set(COMPOSITOR_LIBRARIES
   ${LIBWESTON_LIBRARIES}

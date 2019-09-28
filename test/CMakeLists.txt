@@ -114,6 +114,7 @@ target_include_directories(test_widget PRIVATE
   ${CLIENT_INCLUDE_DIRS}
   ${PROTOCOLS_INCLUDE_DIR}
   ${TRDPTY_INCLUDE_DIRS}
+  ${LOVE_NK_SRC_DIR}
   )
 
 target_link_libraries(test_widget
