@@ -1,15 +1,16 @@
 add_executable(shell-taiwins
   shell.c
   widget.c
-  widget_lua.c
   widgets/clock.c
   widgets/battery.c
+  widget_lua.c
   )
 
 target_include_directories(shell-taiwins PUBLIC
   ${CLIENT_INCLUDE_DIRS}
   ${PROTOCOLS_INCLUDE_DIR}
   ${TRDPTY_INCLUDE_DIRS}
+  ${LOVE_NK_SRC_DIR}
   )
 
 target_link_libraries(shell-taiwins
