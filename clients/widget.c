@@ -152,9 +152,14 @@ shell_widget_activate(struct shell_widget *widget, struct tw_event_queue *queue)
 }
 
 void
-shell_widget_disactive(struct shell_widget *widget)
+shell_widget_disactivate(struct shell_widget *widget, struct tw_event_queue *queue)
 {
 	app_surface_release(&widget->ancre);
+	struct tw_event e = {
+		.data = widget,
+	};
+	//remove those resources
+	tw_event_queue_remove_source(queue, &e);
 	//detect whether widget is a builtin widget
 	if (shell_widget_builtin(widget))
 		return;

@@ -3,17 +3,16 @@ widgets = require('twwidgets')
 
 -- we would also need to
 function sample_anchor(wig)
-   c = wig:file_content()
-   symbols = ''
-   if tonumber(c) > 75 then
-      symbols = symbols .. theme.symbol('battery_full')
-   elseif tonumber(c) > 25 then
-      symbols = symbols .. theme.symbol('battery_half')
-   end
-   return symbols
+   return "sample0"
 end
 
-function sample_drawfunc(wig, ui)
+function sample_anchor1(wig)
+   return "sample1"
+end
+
+local comboText = 'Combo 1'
+
+function combo(ui)
 	ui:layoutRow('dynamic', 30, 1)
 	if ui:comboboxItem('Combo 1') then
 		print 'Closure: Combo 1'
@@ -29,6 +28,12 @@ function sample_drawfunc(wig, ui)
 	end
 end
 
+
+function sample_drawfunc(ui, wig)
+	ui:layoutRow('dynamic', 30, 1)
+	ui:combobox(comboText, combo)
+end
+
 -- register method 1
 widgets.new_widget({
       name = "sample",
@@ -41,15 +46,12 @@ widgets.new_widget({
       --device_watch = "/sys/class/backlight",
 })
 
-
 -- register method 2
 w = widgets.new_widget()
-w:brief(function () return 'aaa' end)
+w:brief(function (wig) return 'aaa' end)
 w:watch_file('/proc/cpuinfo')
 w:width(200)
 w:height(100)
--- w:add_timer('3s')
--- w:watch_device('/sys/class/ata_device/')
 w:register()
 
-widgets.add_builti('clock')
+widgets.add_builtin('clock')

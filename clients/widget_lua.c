@@ -73,6 +73,7 @@ _lua_widget_anchor(struct shell_widget *widget, struct shell_widget_label *label
 		widget->user_data;
 	lua_State *L = lua_runtime->L;
 	lua_getfield(L, LUA_REGISTRYINDEX, lua_runtime->anchorcb);
+	_lua_widget_getfield(L, lua_runtime->index);
 	//setup context
 	lua_pcall(L, 1, 1, 0);
 	const char *encoded = lua_tostring(L, -1);
@@ -90,11 +91,10 @@ _lua_widget_cb(struct nk_context *ctx, float width, float height,
 	struct shell_widget_runtime *lua_runtime =
 		widget->user_data;
 	lua_State *L = lua_runtime->L;
-	//fuction
-	lua_getfield(L, LUA_REGISTRYINDEX, lua_runtime->widgetcb);
-	//get ui
 	lua_runtime->runtime = nk_love_get_ui(L);
 	lua_runtime->runtime->nkctx = ctx;
+	//fuction and args
+	lua_getfield(L, LUA_REGISTRYINDEX, lua_runtime->widgetcb);
 	nk_love_getfield_ui(L);
 	_lua_widget_getfield(L, lua_runtime->index);
 
@@ -202,9 +202,9 @@ _lua_new_widget_from_table(lua_State *L)
 		widget->draw_cb = NULL;
 	else {
 		_LUA_GET_TABLE(_LUA_WIDGET_DRAW, function);
-		sprintf(runtime->anchorcb, "%s%02d", _LUA_WIDGET_DRAWCB,
+		sprintf(runtime->widgetcb, "%s%02d", _LUA_WIDGET_DRAWCB,
 			(int)n_widgets);
-		lua_setfield(L, LUA_REGISTRYINDEX, runtime->anchorcb);
+		lua_setfield(L, LUA_REGISTRYINDEX, runtime->widgetcb);
 	}
 	//watchers
 	if (_LUA_TABLE_HAS(_LUA_WIDGET_FILE) && !registered) {
@@ -501,7 +501,8 @@ shell_widget_release_with_runtime(struct shell_widget *widget)
 
 /*****************************************************************************/
 void
-shell_widget_load_script(struct wl_list *head, const char *path)
+shell_widgets_load_script(struct wl_list *head, struct tw_event_queue *queue,
+			  const char *path)
 {
 	struct shell_widget *widget, *tmp;
 	lua_State *L = luaL_newstate();
@@ -523,7 +524,8 @@ shell_widget_load_script(struct wl_list *head, const char *path)
 			_lua_widget_getfield(L, i);
 			struct shell_widget_runtime *runtime =
 				luaL_checkudata(L, -1, _LUA_WIDGET_METATABLE);
-			shell_widget_disactive(&runtime->widget);
+			//widget is not in queue, it will do nothing.
+			shell_widget_disactivate(&runtime->widget, queue);
 		}
 		return;
 	}
@@ -531,7 +533,7 @@ shell_widget_load_script(struct wl_list *head, const char *path)
 	//remove current widgets if any
 	wl_list_for_each_safe(widget, tmp, head, link) {
 		wl_list_remove(&widget->link);
-		shell_widget_disactive(widget);
+		shell_widget_disactivate(widget, queue);
 	}
 	//insert into headers
 	lua_Integer n_widgets = _lua_n_widgets(L);
