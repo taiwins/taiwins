@@ -25,12 +25,49 @@ struct shell_widget_runtime {
 	struct shell_widget widget;
 	lua_State *L;
 	struct nk_love_context *runtime;
+
+	int index;
 	char widgetcb[32];
 	char anchorcb[32];
 };
 
+static const char *_LUA_N_WIDGETS = "N_WIDGET";
+
+
+static inline void
+_lua_widget_getfield(lua_State *L, int n)
+{
+	char widget_name[32];
+	sprintf(widget_name, "%s%02d", "widget", n);
+	lua_getfield(L, LUA_REGISTRYINDEX, widget_name);
+}
+
+static inline void
+_lua_widget_setfield(lua_State *L, int n)
+{
+	char widget_name[32];
+	sprintf(widget_name, "%s%02d", "widget", n);
+	lua_setfield(L, LUA_REGISTRYINDEX, widget_name);
+}
+
+static inline int
+_lua_n_widgets(lua_State *L)
+{
+	lua_rawgetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
+	lua_Integer n_widgets = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+	return n_widgets;
+}
+
+static inline void
+_lua_set_n_widgets(lua_State *L, int n)
+{
+	lua_pushinteger(L, n);
+	lua_rawsetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
+}
+
 static int
-lua_widget_anchor(struct shell_widget *widget, struct shell_widget_label *label)
+_lua_widget_anchor(struct shell_widget *widget, struct shell_widget_label *label)
 {
 	struct shell_widget_runtime *lua_runtime =
 		widget->user_data;
@@ -44,8 +81,8 @@ lua_widget_anchor(struct shell_widget *widget, struct shell_widget_label *label)
 }
 
 static void
-lua_widget_cb(struct nk_context *ctx, float width, float height,
-	      struct app_surface *app)
+_lua_widget_cb(struct nk_context *ctx, float width, float height,
+	       struct app_surface *app)
 {
 	//get widget
 	struct shell_widget *widget =
@@ -55,12 +92,13 @@ lua_widget_cb(struct nk_context *ctx, float width, float height,
 	lua_State *L = lua_runtime->L;
 	//fuction
 	lua_getfield(L, LUA_REGISTRYINDEX, lua_runtime->widgetcb);
-	//ui
-	lua_getfield(L, LUA_REGISTRYINDEX, "runtime");
-	lua_runtime->runtime = lua_touserdata(L, -1);
+	//get ui
+	lua_runtime->runtime = nk_love_get_ui(L);
 	lua_runtime->runtime->nkctx = ctx;
+	nk_love_getfield_ui(L);
+	_lua_widget_getfield(L, lua_runtime->index);
 
-	if (lua_pcall(L, 1, 0, 0)) {
+	if (lua_pcall(L, 2, 0, 0)) {
 		//if errors occured, we draw this instead
 		const char *error = lua_tostring(L, -1);
 		nk_clear(ctx);
@@ -106,27 +144,26 @@ lua_widget_cb(struct nk_context *ctx, float width, float height,
 #define _LUA_WIDGET_WIDTH "width"
 #define _LUA_WIDGET_HEIGHT "height"
 
-static const char *_LUA_N_WIDGETS = "N_WIDGET";
 
 /******************************************************************************/
 static void
-_lua_init_widget_runtime(struct shell_widget_runtime *runtime, lua_State *L)
+_lua_init_widget_runtime(struct shell_widget_runtime *runtime, lua_State *L, int index)
 {
 	memset(runtime, 0, sizeof(struct shell_widget_runtime));
 	struct shell_widget *widget = &runtime->widget;
 	luaL_getmetatable(L, _LUA_WIDGET_METATABLE);
 	lua_setmetatable(L, -2);
-
-	//initialize
-	widget->ancre_cb = lua_widget_anchor;
-	widget->draw_cb = lua_widget_cb;
+	//initialize widget
+	widget->ancre_cb = _lua_widget_anchor;
+	widget->draw_cb = _lua_widget_cb;
 	widget->file_path = NULL;
 	widget->subsystem = NULL;
 	widget->devname = NULL;
 	widget->interval = (struct itimerspec){0};
 	widget->user_data = runtime;
+	//initialize runtime
 	runtime->L = L;
-
+	runtime->index = index;
 }
 
 
@@ -134,19 +171,17 @@ _lua_init_widget_runtime(struct shell_widget_runtime *runtime, lua_State *L)
 static int
 _lua_new_widget_from_table(lua_State *L)
 {
-	char widget_name[32];
 	bool registered = false;
 
 	struct shell_widget_runtime *runtime =
 		lua_newuserdata(L, sizeof(struct shell_widget_runtime));
 	if (!runtime)
 		return luaL_error(L, "uneable to create the widget.");
-	_lua_init_widget_runtime(runtime, L);
 	struct shell_widget *widget = &runtime->widget;
-	lua_rawgetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
-	lua_Integer n_widgets = lua_tointeger(L, -1);
+	int n_widgets = _lua_n_widgets(L);
+	_lua_init_widget_runtime(runtime, L, (int)n_widgets);
 
-	lua_pushvalue(L, 1);
+	lua_pushvalue(L, 1); //3
 	//brief
 	if (!_LUA_TABLE_HAS(_LUA_WIDGET_ANCHOR))
 		return luaL_error(L, "widget without %s",
@@ -159,7 +194,9 @@ _lua_new_widget_from_table(lua_State *L)
 	    !_LUA_TABLE_HAS(_LUA_WIDGET_HEIGHT))
 		return luaL_error(L, "missing geometry for widget");
 	widget->w = _LUA_GET_TABLE(_LUA_WIDGET_WIDTH, integer);
+	lua_pop(L, 1);
 	widget->h = _LUA_GET_TABLE(_LUA_WIDGET_HEIGHT, integer);
+	lua_pop(L, 1);
 	//draw call.
 	if (!_LUA_TABLE_HAS(_LUA_WIDGET_DRAW))
 		widget->draw_cb = NULL;
@@ -200,12 +237,8 @@ _lua_new_widget_from_table(lua_State *L)
 
 	//upload widgets
 	lua_pushvalue(L, 2);
-	sprintf(widget_name, "%s%02d", "widget", (int)n_widgets);
-	lua_setfield(L, LUA_REGISTRYINDEX, widget_name);
-	//add one widget
-	n_widgets+=1;
-	lua_pushinteger(L, n_widgets);
-	lua_rawsetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
+	_lua_widget_setfield(L, n_widgets);
+	_lua_set_n_widgets(L, n_widgets+1);
 
 	return 0;
 }
@@ -396,7 +429,6 @@ _lua_register_widget(lua_State *L)
 static int
 _lua_register_builtin(lua_State *L)
 {
-	char widget_name[32];
 	const struct shell_widget *builtin = NULL;
 	const char *name = luaL_checkstring(L, 1);
 
@@ -409,10 +441,9 @@ _lua_register_builtin(lua_State *L)
 		lua_newuserdata(L, sizeof(struct shell_widget_runtime));
 	if (!runtime)
 		return luaL_error(L, "uneable to create the widget.");
-	_lua_init_widget_runtime(runtime, L);
 	struct shell_widget *widget = &runtime->widget;
-	lua_rawgetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
-	lua_Integer n_widgets = lua_tointeger(L, -1);
+	int n_widgets = _lua_n_widgets(L);
+	_lua_init_widget_runtime(runtime, L, n_widgets);
 	memcpy(widget, builtin, sizeof(struct shell_widget));
 	//create duplicate strings
 	if (widget->file_path)
@@ -422,12 +453,8 @@ _lua_register_builtin(lua_State *L)
 
 	//upload widgets
 	lua_pushvalue(L, 2);
-	sprintf(widget_name, "%s%02d", "widget", (int)n_widgets);
-	lua_setfield(L, LUA_REGISTRYINDEX, widget_name);
-	//add one widget
-	n_widgets+=1;
-	lua_pushinteger(L, n_widgets);
-	lua_rawsetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
+	_lua_widget_setfield(L, n_widgets);
+	_lua_set_n_widgets(L, n_widgets+1);
 	return 0;
 }
 
@@ -464,15 +491,12 @@ shell_widget_release_with_runtime(struct shell_widget *widget)
 {
 	struct shell_widget_runtime *runtime =
 		container_of(widget, struct shell_widget_runtime, widget);
-	lua_rawgetp(runtime->L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
-	lua_Integer n = lua_tointeger(runtime->L, -1) -1;
+	int n = _lua_n_widgets(L);
 	//release with reference counter
 	if (n == 0)
 		lua_close(runtime->L);
-	else {
-		lua_pushinteger(runtime->L, n);
-		lua_rawsetp(runtime->L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
-	}
+	else
+		_lua_set_n_widgets(runtime->L, n-1);
 }
 
 /*****************************************************************************/
@@ -484,6 +508,8 @@ shell_widget_load_script(struct wl_list *head, const char *path)
 
 	luaL_openlibs(L);
 	luaL_requiref(L, "twwidgets", luaopen_nkwidget, true);
+	luaL_requiref(L, "nuklear", luaopen_nuklear, true);
+	nk_love_new_ui(L, NULL);
 	//TODO and then we load nuklear
 
 	if (luaL_dofile(L, path)) {
@@ -492,12 +518,9 @@ shell_widget_load_script(struct wl_list *head, const char *path)
 		fprintf(stderr, "%s\n", err);
 		//if you can make string int userdata, it would be great
 		//clean up existing widgets in the lua state to avoid leaks
-		lua_rawgetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
-		lua_Integer n_widgets = lua_tointeger(L, -1);
+		int n_widgets = _lua_n_widgets(L);
 		for (int i = 0; i < n_widgets; i++) {
-			char widget_name[32];
-			sprintf(widget_name, "%s%02d", "widget", i);
-			lua_getfield(L, LUA_REGISTRYINDEX, widget_name);
+			_lua_widget_getfield(L, i);
 			struct shell_widget_runtime *runtime =
 				luaL_checkudata(L, -1, _LUA_WIDGET_METATABLE);
 			shell_widget_disactive(&runtime->widget);
@@ -511,12 +534,9 @@ shell_widget_load_script(struct wl_list *head, const char *path)
 		shell_widget_disactive(widget);
 	}
 	//insert into headers
-	lua_rawgetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
-	lua_Integer n_widgets = lua_tointeger(L, -1);
+	lua_Integer n_widgets = _lua_n_widgets(L);
 	for (int i = 0; i < n_widgets; i++) {
-		char widget_name[32];
-		sprintf(widget_name, "%s%02d", "widget", i);
-		lua_getfield(L, LUA_REGISTRYINDEX, widget_name);
+		_lua_widget_getfield(L, i);
 		struct shell_widget_runtime *runtime =
 			luaL_checkudata(L, -1, _LUA_WIDGET_METATABLE);
 		wl_list_insert(head, &runtime->widget.link);

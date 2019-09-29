@@ -36,6 +36,8 @@ widgets.new_widget({
       draw = sample_drawfunc,
       --file_watch = "/proc/uptime",
       timer = 40,
+      width = 100,
+      height = 100,
       --device_watch = "/sys/class/backlight",
 })
 
@@ -44,6 +46,8 @@ widgets.new_widget({
 w = widgets.new_widget()
 w:brief(function () return 'aaa' end)
 w:watch_file('/proc/cpuinfo')
+w:width(200)
+w:height(100)
 -- w:add_timer('3s')
 -- w:watch_device('/sys/class/ata_device/')
 w:register()
