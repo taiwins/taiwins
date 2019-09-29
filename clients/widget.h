@@ -69,9 +69,11 @@ struct shell_widget {
 
 void shell_widget_activate(struct shell_widget *widget, struct tw_event_queue *queue);
 
-void shell_widget_disactive(struct shell_widget *widget);
+void shell_widget_disactivate(struct shell_widget *widget, struct tw_event_queue *queue);
 
 void shell_widgets_load_default(struct wl_list *head);
+void shell_widgets_load_script(struct wl_list *head, struct tw_event_queue *queue,
+			       const char *path);
 
 const struct shell_widget *shell_widget_get_builtin_by_name(const char *name);
 

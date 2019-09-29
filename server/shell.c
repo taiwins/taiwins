@@ -842,10 +842,14 @@ shell_apply_lua_config(struct taiwins_config *c, bool cleanup,
 
 cleanup:
 	vector_destroy(&shell->menu);
-	if (shell->wallpaper_path)
+	if (shell->wallpaper_path) {
 		free((void *)shell->wallpaper_path);
-	if (shell->widget_path)
+		shell->wallpaper_path = NULL;
+	}
+	if (shell->widget_path) {
 		free((void *)shell->widget_path);
+		shell->widget_path = NULL;
+	}
 }
 
 ////////////////////////// SHELL FUNCIONS /////////////////////////////////

@@ -421,6 +421,24 @@ desktop_shell_setup_wallpaper(struct desktop_shell *shell, const char *path)
 	}
 }
 
+static void
+desktop_shell_setup_widgets(struct desktop_shell *shell, const char *path)
+{
+	if (is_file_exist(path)) {
+		shell_widgets_load_script(&shell->shell_widgets,
+					  &shell->globals.event_queue,
+					  path);
+	}
+	if (shell->main_output) {
+		struct shell_widget *widget;
+		struct app_surface *panel = &shell->main_output->panel;
+		wl_list_for_each(widget, &shell->shell_widgets, link) {
+			shell_widget_hook_panel(widget, panel);
+			shell_widget_activate(widget, &shell->globals.event_queue);
+		}
+	}
+}
+
 //right now we are using switch, but we can actually use a table, since we make
 //the msg_type a continues field.
 static void
@@ -448,6 +466,8 @@ desktop_shell_recv_msg(void *data,
 	case TW_SHELL_MSG_TYPE_WALLPAPER:
 		desktop_shell_setup_wallpaper(shell, (const char *)arr->data);
 		break;
+	case TW_SHELL_MSG_TYPE_WIDGET:
+		desktop_shell_setup_widgets(shell, (const char *)arr->data);
 	case TW_SHELL_MSG_TYPE_SWITCH_WORKSPACE:
 	{
 		fprintf(stderr, "switch workspace\n");
@@ -538,7 +558,7 @@ desktop_shell_release(struct desktop_shell *shell)
 	struct shell_widget *widget, *tmp;
 	wl_list_for_each_safe(widget, tmp, &shell->shell_widgets, link) {
 		wl_list_remove(&widget->link);
-		shell_widget_disactive(widget);
+		shell_widget_disactivate(widget, &shell->globals.event_queue);
 	}
 
 	for (int i = 0; i < desktop_shell_n_outputs(shell); i++)
