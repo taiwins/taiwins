@@ -145,6 +145,7 @@
 *** TODO [#C] take widgets from server and apply lua bindings.
 **** DONE loading widgets
 **** TODO widget nuklear bindings
+**** TODO implement clip board in nk_backends
 *** DONE ~nk_impl_shell_surface~ and ~nk_impl_xdg_surface~
 *** TODO huge amount of work with console.
 *** DONE resize window through idle task in the event queue.
