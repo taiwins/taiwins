@@ -94,6 +94,7 @@ lua_widget_cb(struct nk_context *ctx, float width, float height,
 		nil = lua_isnil(L, -1);			\
 		lua_pop(L, 1);				\
 		!nil;})
+
 #define _LUA_WIDGET_METATABLE "metatable_widget"
 #define _LUA_WIDGET_ANCHORCB "LUA_WIDGET_ANCHOR"
 #define _LUA_WIDGET_DRAWCB "LUA_WIDGET_DRAW"
@@ -102,9 +103,10 @@ lua_widget_cb(struct nk_context *ctx, float width, float height,
 #define	_LUA_WIDGET_FILE "file_watch"
 #define _LUA_WIDGET_DEV "device_watch"
 #define _LUA_WIDGET_TIMER "timer"
+#define _LUA_WIDGET_WIDTH "width"
+#define _LUA_WIDGET_HEIGHT "height"
+
 static const char *_LUA_N_WIDGETS = "N_WIDGET";
-
-
 
 /******************************************************************************/
 static void
@@ -126,6 +128,7 @@ _lua_init_widget_runtime(struct shell_widget_runtime *runtime, lua_State *L)
 	runtime->L = L;
 
 }
+
 
 /******************************************************************************/
 static int
@@ -152,6 +155,11 @@ _lua_new_widget_from_table(lua_State *L)
 	sprintf(runtime->anchorcb, "%s%02d", _LUA_WIDGET_ANCHORCB,
 		(int)n_widgets);
 	lua_setfield(L, LUA_REGISTRYINDEX, runtime->anchorcb);
+	if (!_LUA_TABLE_HAS(_LUA_WIDGET_WIDTH) ||
+	    !_LUA_TABLE_HAS(_LUA_WIDGET_HEIGHT))
+		return luaL_error(L, "missing geometry for widget");
+	widget->w = _LUA_GET_TABLE(_LUA_WIDGET_WIDTH, integer);
+	widget->h = _LUA_GET_TABLE(_LUA_WIDGET_HEIGHT, integer);
 	//draw call.
 	if (!_LUA_TABLE_HAS(_LUA_WIDGET_DRAW))
 		widget->draw_cb = NULL;
@@ -208,13 +216,45 @@ _lua_widget_set_anchor(lua_State *L)
 {
 	luaL_checktype(L, 1, LUA_TTABLE);
 	//we can actually check whether this table has the same metatable
-	lua_pushvalue(L, 1);
+	lua_pushvalue(L, 1); //because we have 2 element, we need to push here
 	if (_LUA_TABLE_HAS(_LUA_WIDGET_ANCHOR))
 		return luaL_error(L, "widget already has %s",
 			_LUA_WIDGET_ANCHOR);
 
 	luaL_checktype(L, 2, LUA_TFUNCTION);
 	lua_pushstring(L, _LUA_WIDGET_ANCHOR);
+	lua_pushvalue(L, 2);
+	lua_rawset(L, 1);
+
+	return 0;
+}
+
+/******************************************************************************/
+static int
+_lua_widget_set_width(lua_State *L)
+{
+	luaL_checktype(L, 1, LUA_TTABLE);
+	lua_pushvalue(L, 1);
+	if (_LUA_TABLE_HAS(_LUA_WIDGET_WIDTH))
+		return luaL_error(L, "widget already has width");
+	luaL_checkinteger(L, 2);
+	lua_pushstring(L, _LUA_WIDGET_WIDTH);
+	lua_pushvalue(L, 2);
+	lua_rawset(L, 1);
+
+	return 0;
+}
+
+/******************************************************************************/
+static int
+_lua_widget_set_height(lua_State *L)
+{
+	luaL_checktype(L, 1, LUA_TTABLE);
+	lua_pushvalue(L, 1);
+	if (_LUA_TABLE_HAS(_LUA_WIDGET_HEIGHT))
+		return luaL_error(L, "widget already has width");
+	luaL_checkinteger(L, 2);
+	lua_pushstring(L, _LUA_WIDGET_HEIGHT);
 	lua_pushvalue(L, 2);
 	lua_rawset(L, 1);
 
@@ -404,6 +444,8 @@ luaopen_nkwidget(lua_State *L)
 	_LUA_REGISTER("brief", _lua_widget_set_anchor);
 	_LUA_REGISTER("register", _lua_widget_done);
 	_LUA_REGISTER("draw", _lua_widget_set_draw_func);
+	_LUA_REGISTER("width", _lua_widget_set_width);
+	_LUA_REGISTER("height", _lua_widget_set_height);
 	lua_pushinteger(L, 0);
 	lua_rawsetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
 
@@ -448,6 +490,7 @@ shell_widget_load_script(struct wl_list *head, const char *path)
 		const char *err = lua_tostring(L, -1);
 		fprintf(stderr, "error in loading widgets: \n");
 		fprintf(stderr, "%s\n", err);
+		//if you can make string int userdata, it would be great
 		//clean up existing widgets in the lua state to avoid leaks
 		lua_rawgetp(L, LUA_REGISTRYINDEX, _LUA_N_WIDGETS);
 		lua_Integer n_widgets = lua_tointeger(L, -1);
