@@ -13,6 +13,11 @@ static const char *WEEKDAYS[] = {
 	"S", "M", "T", "W", "T", "F", "S",
 };
 
+static struct clock_user_data_t {
+	struct tm rtm;
+	struct tm fdotm; //first day of the month
+	struct tm fdonm; //first day of next month
+} clock_user_data;
 
 /*
  * This is a simple illustration of how to work with a row. We may really does
@@ -36,48 +41,80 @@ clock_widget_anchor(struct shell_widget *widget, struct shell_widget_label *labe
 		       daysoftheweek[tim->tm_wday], tim->tm_hour, tim->tm_min, tim->tm_sec);
 }
 
+static inline struct tm
+reduce_a_month(const struct tm *date)
+{
+	struct tm time = *date;
+	//deal with 1900
+	time.tm_year -= (time.tm_year > 0 && time.tm_mon == 0) ?
+		1 : 0;
+	time.tm_mon = (time.tm_mon == 0 && time.tm_year == 0) ? 0 :
+		(time.tm_mon + 12 - 1) % 12;
+	time_t epochs = mktime(&time);
+	localtime_r(&epochs, &time);
+	return time;
+}
+
+static inline struct tm
+forward_a_month(const struct tm *date)
+{
+	struct tm time = *date;
+	time.tm_year += (time.tm_mon == 11) ? 1 : 0;
+	time.tm_mon = (time.tm_mon + 1) % 12;
+	time_t epochs = mktime(&time);
+	localtime_r(&epochs, &time);
+	return time;
+}
+
+static inline int
+days_in_a_year(int year)
+{
+	year += 1900;
+	return (year % 400 == 0) ||
+		(year % 4 == 0 && year % 100 != 0) ?
+		366 : 365;
+}
+
 static void
 calendar(struct nk_context *ctx, float width, float height, struct app_surface *app)
 {
-	static time_t now = 0;
-	struct tm tm, fdotm, fdonm; //first day of the month, first day of the next month
+	struct shell_widget *wig =
+		container_of(app, struct shell_widget, widget);
+	struct clock_user_data_t *ut = wig->user_data;
 	char year[10], day[3];
+	struct tm tm;
+	time_t epochs = time(NULL);
+	localtime_r(&epochs, &tm);
 
-	//use mktime to generate new data, it ignores tm_wday, tm_yday,
-	if (!now)
-		now = time(NULL);
+	float mratio[] = {0.1, 0.5, 0.3, 0.1};
 
-	localtime_r(&now, &tm);
-	fdotm = tm;
-	fdotm.tm_mday = 1;
-	time_t t_fdotm = mktime(&fdotm);
-	localtime_r(&t_fdotm, &fdotm);
-
-	fdonm = tm;
-	fdonm.tm_mday = 1;
-	fdonm.tm_mon = (tm.tm_mon + 1) % 11;
-	fdonm.tm_year += (fdonm.tm_mon == 0) ? 1 : 0;
-	time_t t_fdonm = mktime(&fdonm);
-	localtime_r(&t_fdonm, &fdonm);
-	size_t ndays_mon = fdonm.tm_yday - fdotm.tm_yday;
-	ndays_mon += (ndays_mon < 0) ? 365 : 0;
-	float mratio[] = {0.7, 0.3};
-
-	sprintf(year, "%4d", 1900+tm.tm_year);
-	nk_layout_row(ctx, NK_DYNAMIC, 30, 2, mratio);
-	nk_label(ctx, MONTHS[tm.tm_mon], NK_TEXT_LEFT);
+	nk_layout_row(ctx, NK_DYNAMIC, 30, 4, mratio);
+	if (nk_button_symbol(ctx, NK_SYMBOL_TRIANGLE_LEFT)) {
+		ut->fdotm = reduce_a_month(&ut->fdotm);
+		ut->fdonm = reduce_a_month(&ut->fdonm);
+	}
+	sprintf(year, "%4d", 1900+ut->fdotm.tm_year);
+	nk_label(ctx, MONTHS[ut->fdotm.tm_mon], NK_TEXT_LEFT);
 	nk_label(ctx, year, NK_TEXT_RIGHT);
+	if (nk_button_symbol(ctx, NK_SYMBOL_TRIANGLE_RIGHT)) {
+		ut->fdotm = forward_a_month(&ut->fdotm);
+		ut->fdonm = forward_a_month(&ut->fdonm);
+	}
+	int ndays_mon = ut->fdonm.tm_yday - ut->fdotm.tm_yday;
+	ndays_mon += (ndays_mon < 0) ?
+		days_in_a_year(ut->fdotm.tm_year) : 0;
 
 	nk_layout_row_dynamic(ctx, 20, 7);
 	for (int i = 0; i < 7; i++)
 		nk_label(ctx, WEEKDAYS[i], NK_TEXT_CENTERED);
 
-	int pos = fdotm.tm_yday - fdotm.tm_wday;
+	int pos = ut->fdotm.tm_yday - ut->fdotm.tm_wday;
 	for (int i = 0; i < 5; i++) {
 		nk_layout_row_dynamic(ctx, 20, 7);
 		for (int j = 0; j < 7; j++) {
-			sprintf(day, "%d", pos-fdotm.tm_yday+1);
-			if (pos < fdotm.tm_yday || pos >= fdonm.tm_yday)
+			sprintf(day, "%d", pos-ut->fdotm.tm_yday+1);
+			if (pos < ut->fdotm.tm_yday ||
+			    pos >= ut->fdotm.tm_yday + ndays_mon)
 				nk_label(ctx, " ", NK_TEXT_CENTERED);
 			else if (pos == tm.tm_yday)
 				nk_label(ctx, day, NK_TEXT_CENTERED);
@@ -89,8 +126,31 @@ calendar(struct nk_context *ctx, float width, float height, struct app_surface *
 	}
 }
 
+static int
+clock_setup(struct shell_widget *widget)
+{
+	struct clock_user_data_t *ut = widget->user_data;
+	time_t epochs = time(NULL);
+	localtime_r(&epochs, &ut->rtm);
+	//setup first day of the month
+	ut->fdotm = ut->rtm;
+	ut->fdotm.tm_mday = 1;
+	time_t t_fdotm = mktime(&ut->fdotm);
+	localtime_r(&t_fdotm, &ut->fdotm);
+	//and first day of next month
+	ut->fdonm = ut->rtm;
+	ut->fdonm.tm_mday = 1;
+	ut->fdonm.tm_mon = (ut->rtm.tm_mon + 1) % 11;
+	ut->fdonm.tm_year += (ut->fdonm.tm_mon == 0) ? 1 : 0;
+	time_t t_fdonm = mktime(&ut->fdonm);
+	localtime_r(&t_fdonm, &ut->fdonm);
+	return 0;
+}
+
+
 struct shell_widget clock_widget = {
 	.ancre_cb = clock_widget_anchor,
+	.setup_cb = clock_setup,
 	.draw_cb = calendar,
 	.w = 200,
 	.h = 200,
@@ -105,4 +165,5 @@ struct shell_widget clock_widget = {
 		},
 	},
 	.file_path = NULL,
+	.user_data = &clock_user_data,
 };

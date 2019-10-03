@@ -31,6 +31,7 @@ struct shell_widget_label {
 	char label[256];
 };
 typedef int (*shell_widget_draw_label_t)(struct shell_widget *, struct shell_widget_label *);
+typedef int (*shell_widget_setup_cb_t)(struct shell_widget *);
 
 //free it afterwards
 typedef int (*shell_widget_path_find_t)(struct shell_widget *, char *path);
@@ -46,9 +47,8 @@ struct shell_widget {
 	struct app_surface widget;
 	struct wl_list link;
 	shell_widget_draw_label_t ancre_cb;
-	//widget callback
+	shell_widget_setup_cb_t setup_cb;
 	nk_wl_drawcall_t draw_cb;
-	nk_wl_postcall_t post_cb;
 	//watchers
 	struct {
 		//a immediate/reccurent timer
@@ -81,6 +81,8 @@ static inline void
 shell_widget_hook_panel(struct shell_widget *widget, struct app_surface *panel)
 {
 	embeded_impl_app_surface(&widget->ancre, panel, make_bbox_origin(0, 0, 1));
+	if (widget->setup_cb)
+		widget->setup_cb(widget);
 }
 
 
