@@ -1,5 +1,18 @@
 #include "../../3rdparties/iconheader/IconsFontAwesome5_c.h"
 #include "../widget.h"
+#include <stdlib.h>
+#include <time.h>
+
+static const char *MONTHS[] = {
+	"January", "Feburary", "March", "April",
+	"May", "June", "July", "August",
+	"September", "October", "November", "December",
+};
+
+static const char *WEEKDAYS[] = {
+	"S", "M", "T", "W", "T", "F", "S",
+};
+
 
 /*
  * This is a simple illustration of how to work with a row. We may really does
@@ -12,10 +25,10 @@
 static int
 clock_widget_anchor(struct shell_widget *widget, struct shell_widget_label *label)
 {
-	//it seems to work, we still need a library to figure out the text size
-	/* nk_layout_row_push(ctx, 100); */
 	static const char * daysoftheweek[] =
 		{"sun", "mon", "tus", "wed", "thu", "fri", "sat"};
+	//it seems to work, we still need a library to figure out the text size
+	/* nk_layout_row_push(ctx, 100); */
 	time_t epochs = time(NULL);
 	struct tm *tim = localtime(&epochs);
 
@@ -24,56 +37,63 @@ clock_widget_anchor(struct shell_widget *widget, struct shell_widget_label *labe
 }
 
 static void
-clock_widget_sample(struct nk_context *ctx, float width, float height, struct app_surface *app)
+calendar(struct nk_context *ctx, float width, float height, struct app_surface *app)
 {
-	/* enum nk_buttons btn; */
-	/* uint32_t sx, sy; */
-	//TODO, change the draw function to app->draw_widget(app);
-	enum {EASY, HARD};
-	static struct nk_text_edit text_edit;
-	static bool inanimation = false;
-	static bool init_text_edit = false;
-	static char text_buffer[256];
-	static int checked = false;
-	static bool active;
-	if (!init_text_edit) {
-		init_text_edit = true;
-		nk_textedit_init_fixed(&text_edit, text_buffer, 256);
+	static time_t now = 0;
+	struct tm tm, fdotm, fdonm; //first day of the month, first day of the next month
+	char year[10], day[3];
+
+	//use mktime to generate new data, it ignores tm_wday, tm_yday,
+	if (!now)
+		now = time(NULL);
+
+	localtime_r(&now, &tm);
+	fdotm = tm;
+	fdotm.tm_mday = 1;
+	time_t t_fdotm = mktime(&fdotm);
+	localtime_r(&t_fdotm, &fdotm);
+
+	fdonm = tm;
+	fdonm.tm_mday = 1;
+	fdonm.tm_mon = (tm.tm_mon + 1) % 11;
+	fdonm.tm_year += (fdonm.tm_mon == 0) ? 1 : 0;
+	time_t t_fdonm = mktime(&fdonm);
+	localtime_r(&t_fdonm, &fdonm);
+	size_t ndays_mon = fdonm.tm_yday - fdotm.tm_yday;
+	ndays_mon += (ndays_mon < 0) ? 365 : 0;
+	float mratio[] = {0.7, 0.3};
+
+	sprintf(year, "%4d", 1900+tm.tm_year);
+	nk_layout_row(ctx, NK_DYNAMIC, 30, 2, mratio);
+	nk_label(ctx, MONTHS[tm.tm_mon], NK_TEXT_LEFT);
+	nk_label(ctx, year, NK_TEXT_RIGHT);
+
+	nk_layout_row_dynamic(ctx, 20, 7);
+	for (int i = 0; i < 7; i++)
+		nk_label(ctx, WEEKDAYS[i], NK_TEXT_CENTERED);
+
+	int pos = fdotm.tm_yday - fdotm.tm_wday;
+	for (int i = 0; i < 5; i++) {
+		nk_layout_row_dynamic(ctx, 20, 7);
+		for (int j = 0; j < 7; j++) {
+			sprintf(day, "%d", pos-fdotm.tm_yday+1);
+			if (pos < fdotm.tm_yday || pos >= fdonm.tm_yday)
+				nk_label(ctx, " ", NK_TEXT_CENTERED);
+			else if (pos == tm.tm_yday)
+				nk_label(ctx, day, NK_TEXT_CENTERED);
+			else
+				nk_label_colored(ctx, day, NK_TEXT_CENTERED,
+						 nk_rgb_f(0.5, 0.5, 0.5));
+			pos += 1;
+		}
 	}
-	bool last_frame = inanimation;
-
-	float spans[] = {0.5, 0.5};
-	nk_layout_row(ctx, NK_DYNAMIC, 30, 2, spans);
-	/* nk_layout_row_static(ctx, 30, 80, 2); */
-	inanimation = //nk_button_symbol(ctx, NK_SYMBOL_X) ? !inanimation : inanimation;
-		nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_UP, "a", NK_TEXT_ALIGN_MIDDLE) ? !inanimation : inanimation;
-	if (inanimation && !last_frame)
-		app_surface_request_frame(app);
-	else if (!inanimation)
-		app_surface_end_frame_request(app);
-	active = nk_option_label(ctx, "another", active);
-
-	checked = nk_radio_label(ctx, "radio", &checked);
-
-	/* nk_layout_row_dynamic(ctx, 30, 2); */
-	/* if (nk_option_label(ctx, "easy", op == EASY)) op = EASY; */
-	/* if (nk_option_label(ctx, "hard", op == HARD)) op = HARD; */
-
-	nk_layout_row_dynamic(ctx, 30, 1);
-	nk_edit_buffer(ctx, NK_EDIT_FIELD, &text_edit, nk_filter_default);
-	/* nk_layout_row_dynamic(ctx, 25, 1); */
-	/* selected = nk_select_symbol_label(ctx, NK_SYMBOL_TRIANGLE_LEFT, "select me", NK_TEXT_RIGHT, selected); */
-
-	/* nk_color_pick(ctx, &color, NK_RGB); */
-	/* nk_slider_int(ctx, 0, &slider, 16, 1); */
-
 }
 
 struct shell_widget clock_widget = {
 	.ancre_cb = clock_widget_anchor,
-	.draw_cb = clock_widget_sample,
+	.draw_cb = calendar,
 	.w = 200,
-	.h = 150,
+	.h = 200,
 	.interval = {
 		.it_value = {
 			.tv_sec = 1,

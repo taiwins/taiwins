@@ -138,14 +138,15 @@
     luckly that we have ~weston_desktop_suface_set_user_data~, it seems to fit
     perfectly in that position
 
-** TODO [88%] client-side optimization
+** TODO [92%] client-side optimization
 *** DONE take wallpaper from sever.
 *** TODO locker implemenation
 *** DONE app_surface flags, calculate app surface
-*** TODO [#C] take widgets from server and apply lua bindings.
+*** DONE [#C] take widgets from server and apply lua bindings.
 **** DONE loading widgets
-**** TODO widget nuklear bindings
-**** TODO implement clip board in nk_backends
+**** DONE widget nuklear bindings
+**** DONE implement clip board in nk_backends
+**** DONE a calendar implementation
 *** DONE ~nk_impl_shell_surface~ and ~nk_impl_xdg_surface~
 *** TODO huge amount of work with console.
 *** DONE resize window through idle task in the event queue.
