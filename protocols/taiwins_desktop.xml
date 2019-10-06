@@ -80,6 +80,8 @@
 	     summary="format: array serialized from taiwins_menu"/>
       <entry name="widget" value="103"
 	     summary="format: `%s`: widget path"/>
+      <entry name="lock" value="104"
+	     summary="tell shell client to start a locker"/>
 
       <!-- desktop events -->
       <entry name="switch_workspace" value="200"
@@ -125,7 +127,9 @@
 	     summary="The panel UI is per output "/>
       <entry name="background" value="1"
 	     summary="background UI element"/>
-      <entry name="widget" value="2"
+      <entry name="locker" value = "2"
+	     summary="locker ui type"/>
+      <entry name="widget" value="3"
 	     summary="light widget element to interact with"/>
     </enum>
 

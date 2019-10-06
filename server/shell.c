@@ -18,6 +18,7 @@
  *******************************************************************************************/
 
 struct shell_ui {
+	struct shell *shell;
 	struct wl_resource *resource;
 	struct weston_surface *binded;
 	struct weston_binding *lose_keyboard;
@@ -45,7 +46,6 @@ struct shell_output {
 	//ui elems
 	struct shell_ui background;
 	struct shell_ui panel;
-	struct shell_ui locker;
 };
 
 struct shell {
@@ -68,6 +68,7 @@ struct shell {
 	//you probably don't want to have the layer
 	struct weston_layer background_layer;
 	struct weston_layer ui_layer;
+	struct weston_layer locker_layer;
 
 	//the widget is the global view
 	struct weston_surface *the_widget_surface;
@@ -80,6 +81,7 @@ struct shell {
 	struct taiwins_config_component_listener config_component;
 
 	struct shell_ui widget;
+	struct shell_ui locker;
 	bool ready;
 	//we deal with at most 16 outputs
 	struct shell_output tw_outputs[16];
@@ -286,8 +288,10 @@ shell_output_resized(struct wl_listener *listener, void *data)
 static void
 shell_compositor_idle(struct wl_listener *listener, void *data)
 {
-	/* struct shell *shell = */
-	/*	container_of(listener, struct shell, idle_listener); */
+	struct shell *shell =
+		container_of(listener, struct shell, idle_listener);
+	if (shell->shell_resource)
+		shell_post_message(shell, TW_SHELL_MSG_TYPE_LOCK, " ");
 	fprintf(stderr, "oh, I should lock right now\n");
 }
 
@@ -295,38 +299,22 @@ shell_compositor_idle(struct wl_listener *listener, void *data)
  * shell_view
  *******************************************************************************************/
 
-enum shell_view_t {
-	shell_view_UNIQUE, /* like the background */
-	shell_view_STATIC, /* like the ui element */
-};
-
 
 static void
 setup_view(struct weston_view *view, struct weston_layer *layer,
-	   int x, int y, enum shell_view_t type)
+	   int x, int y)
 {
 	struct weston_surface *surface = view->surface;
 	struct weston_output *output = view->output;
 
 	struct weston_view *v, *next;
-	if (type == shell_view_UNIQUE) {
-	//view like background, only one is allowed in the layer
-		wl_list_for_each_safe(v, next, &layer->view_list.link, layer_link.link)
-			if (v->output == view->output && v != view) {
-				//unmap does the list removal
-				weston_view_unmap(v);
-				v->surface->committed = NULL;
-				weston_surface_set_label_func(surface, NULL);
-			}
-	}
-	else if (type == shell_view_STATIC) {
-		//element
-		wl_list_for_each_safe(v, next, &surface->views, surface_link) {
-			if (v->output == view->output && v != view) {
-				weston_view_unmap(v);
-				v->surface->committed = NULL;
-				weston_surface_set_label_func(v->surface, NULL);
-			}
+	//plan was to destroy all other views surface have, but it actually
+	//distroy multiple views output has on a single output
+	wl_list_for_each_safe(v, next, &surface->views, surface_link) {
+		if (v->output == view->output && v != view) {
+			weston_view_unmap(v);
+			v->surface->committed = NULL;
+			weston_surface_set_label_func(v->surface, NULL);
 		}
 	}
 	//we shall do the testm
@@ -352,7 +340,7 @@ commit_background(struct weston_surface *surface, int sx, int sy)
 			     struct weston_view, surface_link);
 	//it is not true for both
 	if (surface->buffer_ref.buffer)
-		setup_view(view, ui->layer, ui->x, ui->y, shell_view_UNIQUE);
+		setup_view(view, ui->layer, ui->x, ui->y);
 }
 
 static void
@@ -369,7 +357,7 @@ commit_panel(struct weston_surface *surface, int sx, int sy)
 		return;
 	ui->y = (output->shell->panel_pos == TW_SHELL_PANEL_POS_TOP) ?
 		0 : output->output->height - surface->height;
-	setup_view(view, ui->layer, ui->x, ui->y, shell_view_STATIC);
+	setup_view(view, ui->layer, ui->x, ui->y);
 }
 
 static void
@@ -384,7 +372,16 @@ commit_ui_surface(struct weston_surface *surface, int sx, int sy)
 	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
 	//it is not true for both
 	if (surface->buffer_ref.buffer)
-		setup_view(view, ui->layer, ui->x, ui->y, shell_view_STATIC);
+		setup_view(view, ui->layer, ui->x, ui->y);
+}
+
+static void
+commit_lock_surface(struct weston_surface *surface, int sx, int sy)
+{
+	struct weston_view *view;
+	struct shell_ui *ui = surface->committed_private;
+	wl_list_for_each(view, &surface->views, surface_link)
+		setup_view(view, ui->layer, 0, 0);
 }
 
 static bool
@@ -414,6 +411,32 @@ set_surface(struct shell *shell,
 	return true;
 }
 
+static bool
+set_lock_surface(struct shell *shell, struct weston_surface *surface,
+		 struct wl_resource *wl_resource)
+{
+	//TODO, use wl_resource_get_user_data for position
+	struct weston_view *view, *next;
+	struct shell_ui *ui = wl_resource_get_user_data(wl_resource);
+	if (surface->committed) {
+		wl_resource_post_error(wl_resource,
+				       WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "surface already have a role");
+		return false;
+	}
+	wl_list_for_each_safe(view, next, &surface->views, surface_link)
+		weston_view_destroy(view);
+	for (int i = 0; i < shell_n_outputs(shell); i++) {
+		view = weston_view_create(surface);
+		view->output = shell->tw_outputs[i].output;
+	}
+	surface->committed = commit_lock_surface;
+	surface->committed_private = ui;
+	surface->output = shell->tw_outputs[0].output;
+
+	return true;
+}
+
 /*******************************************************************
  * tw_shell
  ******************************************************************/
@@ -440,7 +463,7 @@ create_ui_element(struct wl_client *client,
 		  uint32_t x, uint32_t y,
 		  enum tw_ui_type type)
 {
-	bool allocated = elem == NULL;
+	bool allocated = (elem == NULL);
 	struct weston_seat *seat = tw_get_default_seat(shell->ec);
 	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
 	weston_seat_set_keyboard_focus(seat, surface);
@@ -461,6 +484,7 @@ create_ui_element(struct wl_client *client,
 	else
 		wl_resource_set_implementation(tw_ui_resource, NULL, elem, shell_ui_unbind);
 
+	elem->shell = shell;
 	elem->x = x;
 	elem->y = y;
 	elem->type = type;
@@ -477,6 +501,10 @@ create_ui_element(struct wl_client *client,
 	case TW_UI_TYPE_WIDGET:
 		elem->layer = &shell->ui_layer;
 		set_surface(shell, surface, output, tw_ui_resource, commit_ui_surface);
+		break;
+	case TW_UI_TYPE_LOCKER:
+		elem->layer = &shell->locker_layer;
+		set_lock_surface(shell, surface, tw_ui_resource);
 		break;
 	}
 }
@@ -526,9 +554,24 @@ create_shell_background(struct wl_client *client,
 			  0, 0, TW_UI_TYPE_BACKGROUND);
 }
 
+static void
+create_shell_locker(struct wl_client *client,
+		    struct wl_resource *resource,
+		    uint32_t tw_ui,
+		    struct wl_resource *wl_surface,
+		    int32_t tw_output)
+{
+	struct shell *shell = wl_resource_get_user_data(resource);
+	struct shell_output *shell_output =
+		&shell->tw_outputs[0];
+	create_ui_element(client, shell, &shell->locker, tw_ui, wl_surface,
+			  shell_output->output, 0, 0, TW_UI_TYPE_LOCKER);
+}
+
 static struct tw_shell_interface shell_impl = {
 	.create_panel = create_shell_panel,
 	.create_background = create_shell_background,
+	.create_locker = create_shell_locker,
 	.launch_widget = launch_shell_widget,
 };
 
@@ -862,7 +905,10 @@ unbind_shell(struct wl_resource *resource)
 	struct shell *shell = wl_resource_get_user_data(resource);
 	weston_layer_unset_position(&shell->background_layer);
 	weston_layer_unset_position(&shell->ui_layer);
+	weston_layer_unset_position(&shell->locker_layer);
 
+	wl_list_for_each_safe(v, n, &shell->locker_layer.view_list.link, layer_link.link)
+		weston_view_unmap(v);
 	wl_list_for_each_safe(v, n, &shell->background_layer.view_list.link, layer_link.link)
 		weston_view_unmap(v);
 	wl_list_for_each_safe(v, n, &shell->ui_layer.view_list.link, layer_link.link)
@@ -896,6 +942,8 @@ bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 	weston_layer_set_position(&shell->background_layer, WESTON_LAYER_POSITION_BACKGROUND);
 	weston_layer_init(&shell->ui_layer, shell->ec);
 	weston_layer_set_position(&shell->ui_layer, WESTON_LAYER_POSITION_UI);
+	weston_layer_init(&shell->locker_layer, shell->ec);
+	weston_layer_set_position(&shell->locker_layer, WESTON_LAYER_POSITION_LOCK);
 
 	wl_resource_set_implementation(resource, &shell_impl, shell, unbind_shell);
 	shell->shell_resource = resource;
