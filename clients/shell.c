@@ -28,10 +28,8 @@ struct shell_output {
 	struct app_surface background;
 	struct app_surface panel;
 	struct app_event_filter background_events;
-
 	//a temporary struct
 	double widgets_span;
-
 };
 
 //state of current widget and widget to launch
@@ -59,14 +57,17 @@ struct desktop_shell {
 		struct nk_wl_backend *widget_backend;
 		struct wl_list shell_widgets;
 		struct widget_launch_info widget_launch;
+		//surface like locker, on-screen-keyboard will use this surface.
+		struct app_surface transient;
 	};
 	//outputs
 	struct shell_output *main_output;
 	struct shell_output shell_outputs[16];
 
 
-} oneshell; //singleton
+};
 
+static struct desktop_shell oneshell; //singleton
 
 ///////////////////////////////// background ////////////////////////////////////
 
@@ -164,7 +165,9 @@ launch_widget(struct app_surface *panel_surf)
 	info->current = info->widget;
 }
 
-//////////////////////////////// panel ////////////////////////////////////
+/*******************************************************************************
+ * shell panel
+ ******************************************************************************/
 static inline struct nk_vec2
 widget_launch_point_flat(struct nk_vec2 *label_span, struct shell_widget *clicked,
 			 struct app_surface *panel_surf)
@@ -221,7 +224,8 @@ shell_panel_measure_leading(struct nk_context *ctx, float width, float height,
 }
 
 static void
-shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_surface *panel_surf)
+shell_panel_frame(struct nk_context *ctx, float width, float height,
+		  struct app_surface *panel_surf)
 {
 	struct shell_output *shell_output =
 		container_of(panel_surf, struct shell_output, panel);
@@ -259,8 +263,10 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 				      widget_label.label, len);
 	}
 	nk_layout_row_end(ctx);
-	//check if widget is already launched
-	if (!clicked || clicked->widget.protocol || !clicked->draw_cb)
+	//widget launch condition
+	if (!clicked || clicked->widget.protocol ||
+	    !clicked->draw_cb ||
+	    shell->transient.wl_surface) //if other surface is ocuppying
 		return;
 	struct widget_launch_info *info = &shell->widget_launch;
 	info->widget = clicked;
@@ -271,9 +277,18 @@ shell_panel_frame(struct nk_context *ctx, float width, float height, struct app_
 }
 
 /*******************************************************************************
- *
+ * shell locker
  ******************************************************************************/
+static void
+shell_locker_frame(struct nk_context *ctx, float width, float height,
+		   struct app_surface *locker)
+{
+	/* static struct nk_text_edit edit; */
+}
 
+/*******************************************************************************
+ * shell_output apis
+ ******************************************************************************/
 static void
 shell_output_set_major(struct shell_output *w)
 {
@@ -305,7 +320,6 @@ shell_output_set_major(struct shell_output *w)
 	shell->main_output = w;
 }
 
-
 static void
 shell_output_init(struct shell_output *w, const struct bbox geo, bool major)
 {
@@ -334,7 +348,6 @@ shell_output_init(struct shell_output *w, const struct bbox geo, bool major)
 		app_surface_frame(&w->panel, false);
 	}
 }
-
 
 static void
 shell_output_release(struct shell_output *w)
@@ -439,6 +452,26 @@ desktop_shell_setup_widgets(struct desktop_shell *shell, const char *path)
 	}
 }
 
+static void
+desktop_shell_setup_locker(struct desktop_shell *shell)
+{
+	//priority over another
+	if (shell->transient.wl_surface)
+		app_surface_release(&shell->transient);
+	if (shell->widget_launch.current)
+		widget_should_close(&shell->widget_launch, NULL);
+	struct wl_surface *wl_surface =
+		wl_compositor_create_surface(shell->globals.compositor);
+	struct tw_ui *locker_ui =
+		tw_shell_create_locker(shell->interface, wl_surface, 0);
+	struct shell_output *output = shell->main_output;
+
+	app_surface_init(&shell->transient, wl_surface, (struct wl_proxy *)locker_ui,
+			 &shell->globals, APP_SURFACE_LOCKER, APP_SURFACE_NORESIZABLE);
+	nk_cairo_impl_app_surface(&shell->transient, shell->widget_backend,
+				  shell_locker_frame, output->bbox);
+	app_surface_frame(&shell->transient, false);
+}
 //right now we are using switch, but we can actually use a table, since we make
 //the msg_type a continues field.
 static void
@@ -468,6 +501,10 @@ desktop_shell_recv_msg(void *data,
 		break;
 	case TW_SHELL_MSG_TYPE_WIDGET:
 		desktop_shell_setup_widgets(shell, (const char *)arr->data);
+		break;
+	case TW_SHELL_MSG_TYPE_LOCK:
+		desktop_shell_setup_locker(shell);
+		break;
 	case TW_SHELL_MSG_TYPE_SWITCH_WORKSPACE:
 	{
 		fprintf(stderr, "switch workspace\n");
@@ -508,8 +545,6 @@ static struct tw_shell_listener tw_shell_impl = {
 	.output_configure = desktop_shell_output_configure,
 	.shell_msg = desktop_shell_recv_msg,
 };
-
-
 
 static void
 desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
