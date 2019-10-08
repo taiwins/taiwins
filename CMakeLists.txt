@@ -53,6 +53,7 @@ find_package(Lua REQUIRED)
 find_package(NVEGL)
 find_package(fontconfig REQUIRED)
 find_package(Freetype REQUIRED)
+find_package(PAM REQUIRED)
 
 set(CMAKE_THREAD_PREFER_PTHREAD)
 find_package(Threads REQUIRED)
@@ -136,6 +137,7 @@ set(CLIENT_LIBRARIES
   ${PIXMAN_LIBRARIES}
   ${FONTCONFIG_LIBRARIES}
   ${FREETYPE_LIBRARIES}
+  ${PAM_LIBRARIES}
   )
 list(REMOVE_DUPLICATES CLIENT_LIBRARIES)
 

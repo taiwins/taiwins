@@ -1,5 +1,10 @@
 add_executable(shell-taiwins
   shell.c
+  shell_bg.c
+  shell_panel.c
+  shell_lock.c
+  shell_msgs.c
+
   widget.c
   widgets/clock.c
   widgets/battery.c
