@@ -17,7 +17,6 @@
 #include "widget.h"
 #include "shell.h"
 
-static struct desktop_shell oneshell; //singleton
 
 
 /*******************************************************************************
@@ -81,8 +80,6 @@ shell_output_resize(struct shell_output *w, const struct bbox geo)
  * another monitor, it will choose the emtpy slots.
  ******************************************************************************/
 
-//right now we are using switch, but we can actually use a table, since we make
-//the msg_type a continues field.
 static void
 desktop_shell_recv_msg(void *data,
 		       struct tw_shell *tw_shell,
@@ -224,6 +221,7 @@ static struct wl_registry_listener registry_listener = {
 int
 main(int argc, char **argv)
 {
+	struct desktop_shell oneshell; //singleton
 	//shell-taiwins size is 112 it is not that
 	struct wl_display *display = wl_display_connect(NULL);
 	if (!display) {
