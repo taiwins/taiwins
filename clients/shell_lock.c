@@ -1,4 +1,3 @@
-#define _POSIX_C_SOURCE 200809L
 #include <security/pam_appl.h>
 #include <shadow.h>
 #include <stdbool.h>
@@ -10,6 +9,12 @@
 #include <ui.h>
 #include <client.h>
 #include <nk_backends.h>
+#include "shell.h"
+
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+
 
 struct auth_buffer {
 	struct app_surface *app;
@@ -43,7 +48,7 @@ conversation(int num_msg, const struct pam_message **msgs,
 		case PAM_PROMPT_ECHO_OFF:
 		case PAM_PROMPT_ECHO_ON:
 		{//givin back passwords
-			const char *msg_content = msgs[i]->msg;
+			/* const char *msg_content = msgs[i]->msg; */
 			char pass[100] = "blahblahblan";
 			arr_response[i].resp = (char *)malloc(strlen(pass)+1);
 			strcpy(arr_response[i].resp, pass);
@@ -94,12 +99,31 @@ shell_locker_frame(struct nk_context *ctx, float width, float height,
 	float x = width / 2.0 - 100.0;
 	float y = height / 2.0 - 25.0;
 
-	static struct nk_text_edit passwords;
+	/* static struct nk_text_edit passwords; */
 
 	if (nk_begin(ctx, "LOGIN", nk_rect(x, y, width, height),
 		    NK_WINDOW_NO_SCROLLBAR)) {
-		nk_layout_row_dynamic(ctx, 30, 1);
-		/* nk_textedit_text(&passwords, const char *, int total_len) */
-		nk_edit_buffer(ctx, nk_flags, &passwords, NULL);
+		/* nk_layout_row_dynamic(ctx, 30, 1); */
+		/* /\* nk_textedit_text(&passwords, const char *, int total_len) *\/ */
+		/* nk_edit_buffer(ctx, nk_flags, &passwords, NULL); */
 	}
 }
+
+
+void shell_locker_init(struct desktop_shell *shell)
+{
+		/* widget_should_close(&shell->widget_launch, NULL); */
+	struct wl_surface *wl_surface =
+		wl_compositor_create_surface(shell->globals.compositor);
+	struct tw_ui *locker_ui =
+		tw_shell_create_locker(shell->interface, wl_surface, 0);
+	struct shell_output *output = shell->main_output;
+
+	app_surface_init(&shell->transient, wl_surface, (struct wl_proxy *)locker_ui,
+			 &shell->globals, APP_SURFACE_LOCKER, APP_SURFACE_NORESIZABLE);
+	nk_cairo_impl_app_surface(&shell->transient, shell->widget_backend,
+				  shell_locker_frame, output->bbox);
+}
+
+
+#pragma GCC diagnostic pop
