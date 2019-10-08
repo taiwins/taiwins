@@ -16,10 +16,11 @@
 #pragma GCC diagnostic ignored "-Wunused-function"
 
 
-struct auth_buffer {
+static struct auth_buffer {
 	struct app_surface *app;
-	char passwd[256];
-};
+	struct nk_text_edit line;
+	char words[256];
+} AUTH;
 
 /**
  * @brief This function performs a conversation between our application and and
@@ -95,15 +96,23 @@ static void
 shell_locker_frame(struct nk_context *ctx, float width, float height,
 		   struct app_surface *locker)
 {
+
+	struct passwd *passwd = getpwuid(getuid());
+	const char *username = passwd->pw_name;
+	static char stars[256];
+
 	//so we need roughly 200 by 50
 	float x = width / 2.0 - 100.0;
 	float y = height / 2.0 - 25.0;
 
-	/* static struct nk_text_edit passwords; */
 
 	if (nk_begin(ctx, "LOGIN", nk_rect(x, y, width, height),
 		    NK_WINDOW_NO_SCROLLBAR)) {
-		/* nk_layout_row_dynamic(ctx, 30, 1); */
+		nk_layout_row_dynamic(ctx, 20, 1);
+		nk_label(ctx, username, NK_TEXT_ALIGN_MIDDLE);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_edit_buffer(ctx, NK_EDIT_FIELD, &AUTH.line, nk_filter_default);
+		//we have to replace
 		/* /\* nk_textedit_text(&passwords, const char *, int total_len) *\/ */
 		/* nk_edit_buffer(ctx, nk_flags, &passwords, NULL); */
 	}
@@ -123,6 +132,8 @@ void shell_locker_init(struct desktop_shell *shell)
 			 &shell->globals, APP_SURFACE_LOCKER, APP_SURFACE_NORESIZABLE);
 	nk_cairo_impl_app_surface(&shell->transient, shell->widget_backend,
 				  shell_locker_frame, output->bbox);
+
+	nk_textedit_init_fixed(&AUTH.line, AUTH.words, 256);
 }
 
 
