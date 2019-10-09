@@ -22,6 +22,7 @@ you will need following dependencies
 - librsvg
 - opengl>=3.3
 - cmake
+- pam
 
 build steps:
 
@@ -34,8 +35,8 @@ build steps:
 
 ## How to run
 
-Here is currently how I run the compositor, it has no configuration now, will be
-added as lua script later.
+Here is currently how I run the compositor, lua configuration is supported(in
+progress), see the [sample config](docs/config.lua) for example
 
 	cd build
 	./bin/taiwins ./bin/shell-taiwins ./bin/shell-console
