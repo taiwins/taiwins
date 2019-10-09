@@ -12,10 +12,6 @@
 #include "shell.h"
 
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-
-
 static struct auth_buffer {
 	struct app_surface *app;
 	/* struct nk_text_edit line; */
@@ -87,6 +83,7 @@ static int run_pam(struct tw_event *event, int fd)
 	if (retval == PAM_SUCCESS)
 		app_surface_release(app);
 locked:
+	memset(AUTH.stars, 0, 256);
 	memset(AUTH.codes, 0, 256);
 	AUTH.len = 0;
 	return TW_EVENT_DEL;
@@ -105,6 +102,7 @@ shell_locker_frame(struct nk_context *ctx, float width, float height,
 	float x = width / 2.0 - 100.0;
 	float y = height / 2.0 - 30.0;
 	float ratio[] = {0.9f, 0.1f};
+	int clicked = false;
 
 	//to input password, we need U+25CF(black circle), for now we just use
 	//'*'
@@ -115,14 +113,16 @@ shell_locker_frame(struct nk_context *ctx, float width, float height,
 		nk_layout_row(ctx, NK_DYNAMIC, 25, 2, ratio);
 		//so this line already copies data to command buffer at this
 		//line. you will see stars frame/maybe on releasing event.
-		nk_edit_string(ctx, NK_EDIT_SIMPLE, AUTH.codes,
+		nk_edit_string(ctx, NK_EDIT_SIMPLE, AUTH.stars,
 			       &AUTH.len, 256, nk_filter_ascii);
-		nk_button_symbol(ctx, NK_SYMBOL_TRIANGLE_RIGHT);
+		clicked = nk_button_symbol(ctx, NK_SYMBOL_TRIANGLE_RIGHT);
 	} nk_end(ctx);
-	//TODO. copy the last char into words, and swap it out with codes.
-
+	if (AUTH.stars[AUTH.len - 1] != '*') {
+		AUTH.codes[AUTH.len - 1] = AUTH.stars[AUTH.len - 1];
+		AUTH.stars[AUTH.len - 1] = '*';
+	}
 	//we need to swap out the buffer and copy the last char to
-	if (nk_input_is_key_pressed(&ctx->input, NK_KEY_ENTER)) {
+	if (nk_input_is_key_pressed(&ctx->input, NK_KEY_ENTER) || clicked) {
 		struct tw_event e = {
 			.data = locker,
 			.cb = run_pam,
@@ -147,9 +147,7 @@ void shell_locker_init(struct desktop_shell *shell)
 	nk_cairo_impl_app_surface(&shell->transient, shell->widget_backend,
 				  shell_locker_frame, output->bbox);
 
+	memset(AUTH.stars, 0, 256);
 	memset(AUTH.codes, 0, 256);
 	AUTH.len = 0;
 }
-
-
-#pragma GCC diagnostic pop
