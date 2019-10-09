@@ -18,9 +18,10 @@
 
 static struct auth_buffer {
 	struct app_surface *app;
-	struct nk_text_edit line;
+	/* struct nk_text_edit line; */
 	char stars[256];
 	char codes[256];
+	int len;
 } AUTH;
 
 /**
@@ -49,11 +50,10 @@ conversation(int num_msg, const struct pam_message **msgs,
 		switch (msgs[i]->msg_style) {
 		case PAM_PROMPT_ECHO_OFF:
 		case PAM_PROMPT_ECHO_ON:
-		{//givin back passwords
-			/* const char *msg_content = msgs[i]->msg; */
-			char pass[100] = "blahblahblan";
-			arr_response[i].resp = (char *)malloc(strlen(pass)+1);
-			strcpy(arr_response[i].resp, pass);
+		{
+			arr_response[i].resp =
+				(char *)malloc(strlen(AUTH.codes)+1);
+			strcpy(arr_response[i].resp, AUTH.codes);
 		}
 		break;
 		case PAM_ERROR_MSG:
@@ -70,7 +70,7 @@ static int run_pam(struct tw_event *event, int fd)
 	struct passwd *passwd = getpwuid(getuid());
 	char *username = passwd->pw_name;
 	struct app_surface *app = event->data;
-	int retval;
+	int retval = 0;
 	const struct pam_conv conv = {
 		.conv = conversation,
 		.appdata_ptr = NULL,
@@ -82,13 +82,13 @@ static int run_pam(struct tw_event *event, int fd)
 		goto locked;
 	if (retval == PAM_SUCCESS)
 		retval = pam_authenticate(auth_handle, 0);
-	if (retval == PAM_SUCCESS)
-		retval = pam_acct_mgmt(auth_handle, 0);
 	if (pam_end(auth_handle, retval) != PAM_SUCCESS)
 		goto locked;
 	if (retval == PAM_SUCCESS)
 		app_surface_release(app);
 locked:
+	memset(AUTH.codes, 0, 256);
+	AUTH.len = 0;
 	return TW_EVENT_DEL;
 }
 
@@ -115,17 +115,20 @@ shell_locker_frame(struct nk_context *ctx, float width, float height,
 		nk_layout_row(ctx, NK_DYNAMIC, 25, 2, ratio);
 		//so this line already copies data to command buffer at this
 		//line. you will see stars frame/maybe on releasing event.
-		nk_edit_buffer(ctx, NK_EDIT_FIELD, &AUTH.line,
-			       nk_filter_ascii);
+		nk_edit_string(ctx, NK_EDIT_SIMPLE, AUTH.codes,
+			       &AUTH.len, 256, nk_filter_ascii);
 		nk_button_symbol(ctx, NK_SYMBOL_TRIANGLE_RIGHT);
 	} nk_end(ctx);
 	//TODO. copy the last char into words, and swap it out with codes.
 
 	//we need to swap out the buffer and copy the last char to
 	if (nk_input_is_key_pressed(&ctx->input, NK_KEY_ENTER)) {
-		//testing with run_pam
+		struct tw_event e = {
+			.data = locker,
+			.cb = run_pam,
+		};
+		tw_event_queue_add_idle(&locker->wl_globals->event_queue, &e);
 	}
-
 }
 
 
@@ -144,7 +147,8 @@ void shell_locker_init(struct desktop_shell *shell)
 	nk_cairo_impl_app_surface(&shell->transient, shell->widget_backend,
 				  shell_locker_frame, output->bbox);
 
-	nk_textedit_init_fixed(&AUTH.line, AUTH.stars, 256);
+	memset(AUTH.codes, 0, 256);
+	AUTH.len = 0;
 }
 
 
