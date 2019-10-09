@@ -66,7 +66,10 @@ static void
 desktop_shell_setup_locker(struct desktop_shell *shell)
 {
 	//priority over another
-	if (shell->transient.wl_surface)
+	if (shell->transient.wl_surface &&
+	    shell->transient.type == APP_SURFACE_LOCKER)
+		return;
+	else if (shell->transient.wl_surface)
 		app_surface_release(&shell->transient);
 	if (shell->widget_launch.current)
 		kill_widget(shell);
