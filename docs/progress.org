@@ -37,7 +37,7 @@
 
 *** DONE change the ui element start or close implimentation
 
-* TODO [37%] Stage two: feature completion
+* TODO [57%] Stage two: feature completion
   - supporting multiple monitors/seats.
   - weston view focus defocus
   - a few different extensions.
@@ -138,9 +138,12 @@
     luckly that we have ~weston_desktop_suface_set_user_data~, it seems to fit
     perfectly in that position
 
-** TODO [92%] client-side optimization
+** DONE [100%] client shell optimization
 *** DONE take wallpaper from sever.
-*** TODO locker implemenation
+*** DONE locker implemenation
+**** DONE create lock surface
+**** DONE introducing PAM.
+**** DONE hiding cypher
 *** DONE app_surface flags, calculate app surface
 *** DONE [#C] take widgets from server and apply lua bindings.
 **** DONE loading widgets
@@ -148,7 +151,7 @@
 **** DONE implement clip board in nk_backends
 **** DONE a calendar implementation
 *** DONE ~nk_impl_shell_surface~ and ~nk_impl_xdg_surface~
-*** TODO huge amount of work with console.
+*** DONE huge amount of work with console.
 *** DONE resize window through idle task in the event queue.
 *** DONE add udev monitoring and inotify monitoring to event_queue
 *** DONE properly handling the frame callbacks for ~app_surface~
@@ -210,20 +213,21 @@
     applies it to nk_wl_egl, it should be done very soon, so I can totally
     remove the deprecated functions.
 *** DONE nk_cairo_backend multiple font support
-** DOIN [33%] launcher implementation
+** TODO [66%] launcher implementation
 *** DONE renaming launcher into console, since it will does much more than just launching
-*** TODO allow launcher to quit instead of launch weston-terminal all the time
+*** DONE allow launcher to quit instead of launch weston-terminal all the time
 *** TODO the real launcher implementation
-** TODO [0%] tw_theme protocol
-*** DONE creating the taiwins_theme header
-*** TODO tw_theme protocol
-*** TODO c files, you probably need to work with Json-c
 ** DONE [100%] protocols                                              :proto:
 *** DONE `tw_output` protocols to represent logical output
 ** TODO installing scripts
    write cmake install commands
 
 * TODO [33%]Stage three: extensions
+** TODO [0%] tw_theme protocol
+*** DONE creating the taiwins_theme header
+*** TODO tw_theme protocol
+*** TODO c files, you probably need to work with Json-c
+
 ** TODO patch 3rdparty libraries
    weston: output configure in the run time.
 ** TODO [0%] Tasks didn't finish in stage 2
@@ -250,6 +254,7 @@
     right click and left click provides different functions
     - preferably right click open an menu and left click opens selection.
     - for this work you need the support for resizing
+*** TODO better locker
 
 ** TODO possibly remove dynamic allocated objects
     reduce number of mallocs and memory fragmentation.
