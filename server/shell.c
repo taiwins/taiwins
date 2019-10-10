@@ -288,11 +288,15 @@ shell_output_resized(struct wl_listener *listener, void *data)
 static void
 shell_compositor_idle(struct wl_listener *listener, void *data)
 {
+
 	struct shell *shell =
 		container_of(listener, struct shell, idle_listener);
+	fprintf(stderr, "oh, I should lock right now %p\n", shell->locker.resource);
+
+	if (shell->locker.resource)
+		return;
 	if (shell->shell_resource)
 		shell_post_message(shell, TW_SHELL_MSG_TYPE_LOCK, " ");
-	fprintf(stderr, "oh, I should lock right now\n");
 }
 
 /*******************************************************************************************
@@ -440,6 +444,19 @@ set_lock_surface(struct shell *shell, struct weston_surface *surface,
 /*******************************************************************
  * tw_shell
  ******************************************************************/
+static void
+shell_ui_destroy_resource(struct wl_client *client,
+			  struct wl_resource *resource)
+{
+	wl_resource_destroy(resource);
+}
+
+
+static struct tw_ui_interface tw_ui_impl = {
+	.destroy = shell_ui_destroy_resource,
+};
+
+
 
 static inline void
 shell_send_panel_pos(struct shell *shell)
@@ -480,9 +497,9 @@ create_ui_element(struct wl_client *client,
 	else
 		shell_ui_create_simple(elem, tw_ui_resource, surface);
 	if (allocated)
-		wl_resource_set_implementation(tw_ui_resource, NULL, elem, shell_ui_unbind_free);
+		wl_resource_set_implementation(tw_ui_resource, &tw_ui_impl, elem, shell_ui_unbind_free);
 	else
-		wl_resource_set_implementation(tw_ui_resource, NULL, elem, shell_ui_unbind);
+		wl_resource_set_implementation(tw_ui_resource, &tw_ui_impl, elem, shell_ui_unbind);
 
 	elem->shell = shell;
 	elem->x = x;

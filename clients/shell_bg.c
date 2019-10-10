@@ -49,10 +49,10 @@ shell_init_bg_for_output(struct shell_output *w)
 	//background
 	struct wl_surface *bg_sf =
 		wl_compositor_create_surface(shell->globals.compositor);
-	struct tw_ui *bg_ui =
+	w->bg_ui =
 		tw_shell_create_background(shell->interface, bg_sf, w->index);
 
-	app_surface_init(&w->background, bg_sf, (struct wl_proxy *)bg_ui,
+	app_surface_init(&w->background, bg_sf,
 			 &shell->globals, APP_SURFACE_BACKGROUND,
 			 APP_SURFACE_NORESIZABLE);
 	shm_buffer_impl_app_surface(&w->background,

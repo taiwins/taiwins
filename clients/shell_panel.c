@@ -10,7 +10,10 @@ widget_should_close(void *data, struct tw_ui *ui_elem)
 {
 	struct widget_launch_info *info = (struct widget_launch_info *)data;
 	struct shell_widget *widget = info->current;
+
+	tw_ui_destroy(widget->proxy);
 	app_surface_release(&widget->widget);
+	widget->proxy = NULL;
 	info->current = NULL;
 }
 
@@ -39,10 +42,12 @@ launch_widget(struct app_surface *panel_surf)
 	struct tw_ui *widget_proxy =
 		tw_shell_launch_widget(shell->interface, widget_surface,
 				       shell_output->index, info->x, info->y);
+
+	info->widget->proxy = widget_proxy;
 	tw_ui_add_listener(widget_proxy, &widget_impl, info);
 	//launch widget
 	app_surface_init(&info->widget->widget, widget_surface,
-			 (struct wl_proxy *)widget_proxy, panel_surf->wl_globals,
+			 panel_surf->wl_globals,
 			 APP_SURFACE_WIDGET, APP_SURFACE_NORESIZABLE);
 	nk_cairo_impl_app_surface(&info->widget->widget, shell->widget_backend,
 				  info->widget->draw_cb,
@@ -153,8 +158,8 @@ shell_panel_frame(struct nk_context *ctx, float width, float height,
 				      widget_label.label, len);
 	}
 	nk_layout_row_end(ctx);
-	//widget launch condition
-	if (!clicked || clicked->widget.protocol ||
+	//widget launch condition, clicked->proxy means widget already clicked
+	if (!clicked || clicked->proxy ||
 	    !clicked->draw_cb ||
 	    shell->transient.wl_surface) //if other surface is ocuppying
 		return;
@@ -173,13 +178,11 @@ shell_init_panel_for_output(struct shell_output *w)
 {
 	struct desktop_shell *shell = w->shell;
 	struct wl_surface *pn_sf;
-	struct tw_ui *pn_ui;
 
 	//at this point, we are  sure to create the resource
 	pn_sf = wl_compositor_create_surface(shell->globals.compositor);
-	pn_ui = tw_shell_create_panel(shell->interface, pn_sf, w->index);
-	app_surface_init(&w->panel, pn_sf, (struct wl_proxy *)pn_ui,
-			 &shell->globals,
+	w->pn_ui = tw_shell_create_panel(shell->interface, pn_sf, w->index);
+	app_surface_init(&w->panel, pn_sf, &shell->globals,
 			 APP_SURFACE_PANEL, APP_SURFACE_NORESIZABLE);
 	nk_cairo_impl_app_surface(&w->panel, shell->panel_backend,
 				  shell_panel_frame,

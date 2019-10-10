@@ -66,6 +66,8 @@ static int run_pam(struct tw_event *event, int fd)
 	struct passwd *passwd = getpwuid(getuid());
 	char *username = passwd->pw_name;
 	struct app_surface *app = event->data;
+	struct desktop_shell *shell =
+		container_of(app, struct desktop_shell, transient);
 	int retval = 0;
 	const struct pam_conv conv = {
 		.conv = conversation,
@@ -81,7 +83,7 @@ static int run_pam(struct tw_event *event, int fd)
 	if (pam_end(auth_handle, retval) != PAM_SUCCESS)
 		goto locked;
 	if (retval == PAM_SUCCESS)
-		app_surface_release(app);
+		shell_end_transient_surface(shell);
 locked:
 	memset(AUTH.stars, 0, 256);
 	memset(AUTH.codes, 0, 256);
@@ -137,11 +139,11 @@ void shell_locker_init(struct desktop_shell *shell)
 		/* widget_should_close(&shell->widget_launch, NULL); */
 	struct wl_surface *wl_surface =
 		wl_compositor_create_surface(shell->globals.compositor);
-	struct tw_ui *locker_ui =
+	shell->transient_ui =
 		tw_shell_create_locker(shell->interface, wl_surface, 0);
 	struct shell_output *output = shell->main_output;
 
-	app_surface_init(&shell->transient, wl_surface, (struct wl_proxy *)locker_ui,
+	app_surface_init(&shell->transient, wl_surface,
 			 &shell->globals, APP_SURFACE_LOCKER,
 			 APP_SURFACE_NORESIZABLE | APP_SURFACE_COMPOSITE);
 	nk_cairo_impl_app_surface(&shell->transient, shell->widget_backend,

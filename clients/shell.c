@@ -39,6 +39,8 @@ shell_output_set_major(struct shell_output *w)
 static void
 shell_output_init(struct shell_output *w, const struct bbox geo, bool major)
 {
+	w->bg_ui = NULL;
+	w->pn_ui = NULL;
 	w->bbox = geo;
 	shell_init_bg_for_output(w);
 
@@ -52,14 +54,21 @@ shell_output_init(struct shell_output *w, const struct bbox geo, bool major)
 static void
 shell_output_release(struct shell_output *w)
 {
-	w->shell = NULL;
-	struct app_surface *surfaces[] = {
-		&w->panel,
-		&w->background,
+	struct {
+		struct app_surface *app;
+		struct tw_ui *protocol;
+	} uis[] = {
+		{&w->panel, w->bg_ui},
+		{&w->background, w->pn_ui}
 	};
+
 	for (int i = 0; i < 2; i++)
-		if (surfaces[i]->wl_surface)
-			app_surface_release(surfaces[i]);
+		if (uis[i].protocol) {
+			tw_ui_destroy(uis[i].protocol);
+			app_surface_release(uis[i].app);
+		}
+	w->shell = NULL;
+
 }
 
 static void

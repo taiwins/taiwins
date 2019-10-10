@@ -114,6 +114,11 @@
       destruction, work much like those shell surface interface.
     </description>
 
+    <request name="destroy" type="destructor">
+      <description summary="client no longer use tw_ui interface">
+      </description>
+    </request>
+
     <event name="close">
       <description summary="Server no longer composites this UI element">
 	Server indicates the client to destroy the wl_surface. In the case for
