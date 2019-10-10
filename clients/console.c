@@ -19,6 +19,7 @@
 
 struct desktop_console {
 	struct tw_console *interface;
+	struct tw_ui *proxy;
 	struct wl_globals globals;
 	struct app_surface surface;
 	struct shm_pool pool;
@@ -64,7 +65,8 @@ submit_console(struct app_surface *surf)
 	struct desktop_console *console =
 		container_of(surf, struct desktop_console, surface);
 	tw_console_submit(console->interface, console->decision_buffer, console->exec_id);
-
+	tw_ui_destroy(console->proxy);
+	console->proxy = NULL;
 	app_surface_release(&console->surface);
 }
 
@@ -139,14 +141,13 @@ start_console(void *data, struct tw_console *tw_console,
 	struct desktop_console *console = (struct desktop_console *)data;
 	struct app_surface *surface = &console->surface;
 	struct wl_surface *wl_surface = NULL;
-	struct tw_ui *ui;
 	int w = wl_fixed_to_int(width);
 	int h = wl_fixed_to_int(height);
 
 	wl_surface = wl_compositor_create_surface(console->globals.compositor);
-	ui = tw_console_launch(tw_console, wl_surface);
+	console->proxy = tw_console_launch(tw_console, wl_surface);
 
-	app_surface_init(surface, wl_surface, (struct wl_proxy *)ui,
+	app_surface_init(surface, wl_surface,
 			 &console->globals, APP_SURFACE_WIDGET,
 			 APP_SURFACE_NORESIZABLE);
 	surface->wl_globals = &console->globals;

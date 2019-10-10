@@ -31,7 +31,8 @@ struct shell_output {
 		struct bbox bbox;
 		int index;
 	};
-
+	struct tw_ui *bg_ui;
+	struct tw_ui *pn_ui;
 	struct app_surface background;
 	struct app_surface panel;
 	struct app_event_filter background_events;
@@ -65,6 +66,7 @@ struct desktop_shell {
 		struct wl_list shell_widgets;
 		struct widget_launch_info widget_launch;
 		//surface like locker, on-screen-keyboard will use this surface.
+		struct tw_ui *transient_ui;
 		struct app_surface transient;
 	};
 	//outputs
@@ -90,12 +92,18 @@ void shell_resize_bg_for_output(struct shell_output *output);
 void shell_init_panel_for_output(struct shell_output *output);
 void shell_resize_panel_for_output(struct shell_output *output);
 
-
 void shell_locker_init(struct desktop_shell *shell);
 
 void shell_process_msg(struct desktop_shell *shell, uint32_t type,
 		       const struct wl_array *data);
 
+static inline void
+shell_end_transient_surface(struct desktop_shell *shell)
+{
+	tw_ui_destroy(shell->transient_ui);
+	shell->transient_ui = NULL;
+	app_surface_release(&shell->transient);
+}
 
 #ifdef __cplusplus
 }

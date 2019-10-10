@@ -4,6 +4,8 @@
 static inline void
 kill_widget(struct desktop_shell *shell)
 {
+	tw_ui_destroy(shell->widget_launch.current->proxy);
+	shell->widget_launch.current->proxy = NULL;
 	app_surface_release(&shell->widget_launch.current->widget);
 	shell->widget_launch.current = NULL;
 }
@@ -70,7 +72,7 @@ desktop_shell_setup_locker(struct desktop_shell *shell)
 	    shell->transient.type == APP_SURFACE_LOCKER)
 		return;
 	else if (shell->transient.wl_surface)
-		app_surface_release(&shell->transient);
+		shell_end_transient_surface(shell);
 	if (shell->widget_launch.current)
 		kill_widget(shell);
 
