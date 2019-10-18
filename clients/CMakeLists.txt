@@ -38,7 +38,7 @@ target_include_directories(shell-console PUBLIC
   )
 
 target_link_libraries(shell-console
-  nk_egl_backend
+  nk_cairo_backend
   ${CLIENT_LIBRARIES}
   ${TRDPTY_LIBRARIES}
   ${WAYLAND_CURSOR_LIBRARIES}
