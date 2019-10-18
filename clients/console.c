@@ -16,7 +16,6 @@
 #include <nk_backends.h>
 #include "../shared_config.h"
 
-
 struct desktop_console {
 	struct tw_console *interface;
 	struct tw_ui *proxy;
@@ -24,20 +23,26 @@ struct desktop_console {
 	struct app_surface surface;
 	struct shm_pool pool;
 	struct wl_buffer *decision_buffer;
-
+	struct nk_wl_backend *bkend;
 	struct wl_callback *exec_cb;
 	uint32_t exec_id;
 
 	off_t cursor;
 	char chars[256];
 	bool quit;
-	//rendering data
-	//for nuklear
-	struct nk_wl_backend *bkend;
 	//a good hack is that this text_edit is stateless, we don't need to
 	//store anything once submitted
 	struct nk_text_edit text_edit;
+	vector_t completions;
 };
+
+//well, you could usually find icons in /usr/share/icons/hicolor/, which has a tons of icons
+//and you can generate caches for all those icons, need q quick way to compute hash though.
+struct completion_item {
+	struct nk_image icon;
+	char text[256];
+};
+
 
 static const char *tmp_tab_chars[5] = {
 	"aaaaaa",
@@ -132,8 +137,6 @@ update_app_config(void *data,
 //we don't nothing here now
 }
 
-
-
 static void
 start_console(void *data, struct tw_console *tw_console,
 	       wl_fixed_t width, wl_fixed_t height, wl_fixed_t scale)
@@ -151,7 +154,7 @@ start_console(void *data, struct tw_console *tw_console,
 			 &console->globals, APP_SURFACE_WIDGET,
 			 APP_SURFACE_NORESIZABLE);
 	surface->wl_globals = &console->globals;
-	nk_egl_impl_app_surface(surface, console->bkend, draw_console,
+	nk_cairo_impl_app_surface(surface, console->bkend, draw_console,
 				make_bbox_origin(w, h, 1));
 	app_surface_frame(surface, false);
 }
@@ -182,7 +185,7 @@ struct tw_console_listener console_impl = {
 	.exec = exec_application,
 };
 
-/** constructor-destructor **/
+
 static void
 init_console(struct desktop_console *console)
 {
@@ -195,24 +198,25 @@ init_console(struct desktop_console *console)
 							  sizeof(struct taiwins_decision_key),
 							  TW_CONSOLE_CONF_NUM_DECISIONS);
 
-	console->bkend = nk_egl_create_backend(console->globals.display);
+	console->bkend = nk_cairo_create_bkend();
 	nk_textedit_init_fixed(&console->text_edit, console->chars, 256);
+	vector_init_zero(&console->completions,
+			 sizeof(struct completion_item), NULL);
 }
 
-
 static void
-release_console(struct desktop_console *console)
+end_console(struct desktop_console *console)
 {
 	nk_textedit_free(&console->text_edit);
-	nk_egl_destroy_backend(console->bkend);
+	nk_cairo_destroy_bkend(console->bkend);
 	shm_pool_release(&console->pool);
 
 	tw_console_destroy(console->interface);
 	wl_globals_release(&console->globals);
+	vector_destroy(&console->completions);
 
 	console->quit = true;
 }
-
 
 static
 void announce_globals(void *data,
@@ -244,8 +248,6 @@ static struct wl_registry_listener registry_listener = {
 };
 
 
-
-
 int
 main(int argc, char *argv[])
 {
@@ -267,7 +269,7 @@ main(int argc, char *argv[])
 	//okay, now we should create the buffers
 	//event loop
 	while(wl_display_dispatch(display) != -1 && !tw_console.quit);
-	release_console(&tw_console);
+	end_console(&tw_console);
 	wl_registry_destroy(registry);
 	wl_display_disconnect(display);
 	return 0;
