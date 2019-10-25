@@ -45,3 +45,11 @@ target_link_libraries(shell-console
   m
   proto_client_libraries
   )
+
+add_executable(taiwins_update_icon_cache
+  update_icon_cache.c)
+
+
+target_link_libraries(taiwins_update_icon_cache
+  nk_cairo_backend
+  )
