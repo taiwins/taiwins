@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -6,6 +7,7 @@
 #include <nk_backends.h>
 #include <os/file.h>
 #include <sequential.h>
+#include <wayland-util.h>
 
 
 //the struct requires two parts, a image list with name and dimensions, and a
@@ -22,15 +24,6 @@ struct icon_cache_config {
 	int res;
 	int scale;
 	char *hicolor_path; //if not null, search the hicolor path for finding stuff as well.
-};
-
-//this would in turn be mmap-able
-struct icon_cache {
-	struct wl_array item_handles; //uint32_t
-	struct wl_array item_strings;
-
-	struct wl_array path_handles; //uint32_t
-	struct wl_array path_strings;
 };
 
 //match those with name
@@ -54,9 +47,25 @@ icon_size_cmp(const void *p1, const void *p2)
 	return p2_resx - p1_resx;
 }
 
-int
+static bool
+filename_exists(const char *filename,
+		const struct wl_array *handle_pool,
+		const struct wl_array *string_pool)
+{
+	off_t *off;
+	const char *ptr = string_pool->data;
+	wl_array_for_each(off, handle_pool) {
+		const char *path = ptr + *off;
+		if (strstr(path, filename))
+			return true;
+	}
+	return false;
+}
+
+static int
 search_icon_dir(const char *dir_path,
-		struct icon_cache *cache_system)
+		struct wl_array *handle_pool,
+		struct wl_array *string_pool)
 {
 	int count = 0;
 	struct dirent *entry;
@@ -66,10 +75,18 @@ search_icon_dir(const char *dir_path,
 		return count;
 	for (entry = readdir(dir); entry; entry = readdir(dir)) {
 		char file_path[1024];
+		//it could be png or svg
 		if (entry->d_type != DT_REG || !strstr(entry->d_name, "png"))
 			continue;
+		if (filename_exists(entry->d_name, handle_pool, string_pool))
+			continue;
 		strcpy(file_path, dir_path);
+		//find the same file in the string_pool
 		path_concat(file_path, 1024, 1, entry->d_name);
+		char *tocpy = wl_array_add(string_pool, sizeof(file_path)+1);
+		*(off_t *)wl_array_add(handle_pool, sizeof(off_t)) =
+			(tocpy - (char *)string_pool->data);
+		strcpy(tocpy, file_path);
 		count++;
 	}
 	closedir(dir);
@@ -81,10 +98,11 @@ search_theme(const struct icon_cache_config *config,
 	     struct wl_array *handle_pool,
 	     struct wl_array *str_pool)
 {
-	int ret = -1;
+	int count = 0;
 	vector_t resolutions;
 	vector_t hicolor_resolutions;
 	typedef char dir_name_t[256];
+
 
 	struct {
 		vector_t *res;
@@ -130,26 +148,36 @@ search_theme(const struct icon_cache_config *config,
 			path_concat(path, 1024, 2, pos, "apps");
 			if (!is_dir_exist(path))
 				continue;
-			//otherwise, we process this dir
+			count += search_icon_dir(path, handle_pool, str_pool);
 		}
 	}
 out:
 	vector_destroy(&resolutions);
 	vector_destroy(&hicolor_resolutions);
-	return ret;
+	return count;
 }
+
+//decided whether to search svgs, if we search for svgs, include rsvg is a necessary.
 
 int
 main(int argc, char *argv[])
 {
 	struct icon_cache_config config = {
 		.path = "/usr/share/icons/Adwaita",
-		.hicolor_path = NULL,
-		.res = 512,
+		.hicolor_path = "/usr/share/icons/hicolor",
+		.res = 256,
 		.scale = 1,
 	};
 	struct wl_array a, b;
+	wl_array_init(&a);
+	wl_array_init(&b);
 	search_theme(&config, &a, &b);
-
+	off_t *off;
+	wl_array_for_each(off, &a) {
+		const char *path = (char *)b.data + *off;
+		fprintf(stdout, "%s\n", path);
+	}
+	wl_array_release(&a);
+	wl_array_release(&b);
 	return 0;
 }
