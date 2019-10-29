@@ -3,12 +3,16 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <string.h>
+#include <libgen.h>
+#include <wayland-util.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <linux/limits.h>
+#include <fcntl.h>
 
-#include <nk_backends.h>
 #include <os/file.h>
 #include <sequential.h>
-#include <wayland-util.h>
-
+#include <image_cache.h>
 
 //the struct requires two parts, a image list with name and dimensions, and a
 //tile image.
@@ -75,8 +79,10 @@ search_icon_dir(const char *dir_path,
 		return count;
 	for (entry = readdir(dir); entry; entry = readdir(dir)) {
 		char file_path[1024];
-		//it could be png or svg
-		if (entry->d_type != DT_REG || !strstr(entry->d_name, "png"))
+		//TODO, take svg as well.
+		if (!(entry->d_type == DT_REG ||
+		      entry->d_type == DT_LNK) ||
+		    !is_file_type(entry->d_name, ".png"))
 			continue;
 		if (filename_exists(entry->d_name, handle_pool, string_pool))
 			continue;
@@ -103,13 +109,12 @@ search_theme(const struct icon_cache_config *config,
 	vector_t hicolor_resolutions;
 	typedef char dir_name_t[256];
 
-
 	struct {
 		vector_t *res;
 		const char *path;
 	} to_search[] = {
-		{&hicolor_resolutions, config->hicolor_path},
 		{&resolutions, config->path},
+		{&hicolor_resolutions, config->hicolor_path},
 	};
 
 	for (int i = 0; i < 2; i++) {
@@ -138,6 +143,11 @@ search_theme(const struct icon_cache_config *config,
 	}
 	if (!resolutions.len && !hicolor_resolutions.len)
 		goto out;
+	/* for (int i = 0; i < 2; i++) { */
+	/*	dir_name_t *pos; */
+	/*	vector_for_each(pos, to_search[i].res) */
+	/*		fprintf(stderr, "%s\n", *pos); */
+	/* } */
 
 	for (int i = 0; i < 2; i++) {
 		//search for some dirs and(right now just the app dir)
@@ -159,25 +169,100 @@ out:
 
 //decided whether to search svgs, if we search for svgs, include rsvg is a necessary.
 
+void
+path_to_node(char output[256], const char *input)
+{
+	char *copy = strdup(input);
+	char *base = basename(copy);
+	//remove png at the tail.
+	strncpy(output, base, 255);
+	free(copy);
+}
+
+#include <cairo.h>
+
+static bool
+create_directory(void)
+{
+	char cache_home[PATH_MAX];
+	mode_t cache_mode = S_IRWXU | S_IRGRP | S_IXGRP |
+		S_IROTH | S_IXOTH;
+
+	char *xdg_cache = getenv("XDG_CACHE_HOME");
+	if (xdg_cache)
+		sprintf(cache_home, "%s/taiwins", xdg_cache);
+	else
+		sprintf(cache_home, "%s/.cache/taiwins", getenv("HOME"));
+	if (mkdir_p(cache_home, cache_mode))
+		return false;
+	return true;
+}
+
+static bool
+parse_arguments(const int argc, const char *argv[])
+{
+	bool update_all = true;
+	const char *update_theme = NULL;
+
+	for (int i = 0; i < argc; i++) {
+		const char *arg = argv[i];
+		if (!strcmp(arg, "-f") || !strcmp(arg, "--force")) {
+			update_all = true;
+		}
+		else if (!strcmp(arg, "--theme") && (i+1) < argc) {
+			update_theme = argv[i+1];
+			++i;
+		}
+	}
+}
+
 int
 main(int argc, char *argv[])
 {
-	struct icon_cache_config config = {
-		.path = "/usr/share/icons/Adwaita",
-		.hicolor_path = "/usr/share/icons/hicolor",
-		.res = 256,
-		.scale = 1,
-	};
-	struct wl_array a, b;
-	wl_array_init(&a);
-	wl_array_init(&b);
-	search_theme(&config, &a, &b);
-	off_t *off;
-	wl_array_for_each(off, &a) {
-		const char *path = (char *)b.data + *off;
-		fprintf(stdout, "%s\n", path);
-	}
-	wl_array_release(&a);
-	wl_array_release(&b);
+	int fd = -1;
+	//TODO getting arguments
+
+	if (!create_directory())
+		return -1;
+
+	/* struct icon_cache_config config = { */
+	/*	.path = "/usr/share/icons/Adwaita", */
+	/*	.hicolor_path = "/usr/share/icons/hicolor", */
+	/*	.res = 256, */
+	/*	.scale = 1, */
+	/* }; */
+	/* struct wl_array a, b; */
+	/* wl_array_init(&a); */
+	/* wl_array_init(&b); */
+	/* search_theme(&config, &a, &b); */
+
+	/* struct image_cache cache = */
+	/*	image_cache_from_arrays(&a, &b, path_to_node); */
+	/* int flags = is_file_exist(argv[1]) ? O_RDWR : O_RDWR | O_CREAT; */
+	/* fd = open(argv[1], flags, S_IRUSR | S_IWUSR | S_IRGRP); */
+	/* image_cache_to_fd(&cache, fd); */
+	/* close(fd); */
+
+	fd = open(argv[1], O_RDONLY);
+	struct image_cache cache1 =
+		image_cache_from_fd(fd);
+	close(fd);
+	cairo_surface_t *surf =
+		cairo_image_surface_create_for_data(cache1.atlas,
+			CAIRO_FORMAT_ARGB32,
+			cache1.dimension.w, cache1.dimension.h,
+			cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, cache1.dimension.w));
+	cairo_surface_write_to_png(surf, argv[2]);
+	cairo_surface_destroy(surf);
+	/* off_t *off; */
+	/* wl_array_for_each(off, &a) { */
+	/*	const char *path = (char *)b.data + *off; */
+	/*	fprintf(stdout, "%s\n", path); */
+	/* } */
+	/* wl_array_release(&a); */
+	/* wl_array_release(&b); */
+	/* image_cache_release(&cache); */
+	image_cache_release(&cache1);
 	return 0;
+
 }
