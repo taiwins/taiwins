@@ -1,4 +1,6 @@
+#include "vector.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -23,12 +25,33 @@
 
 // then you would have a big ass tile picture that loads everything for you.
 // which we have a base resolution,
-struct icon_cache_config {
-	char *path;
-	int res;
-	int scale;
-	char *hicolor_path; //if not null, search the hicolor path for finding stuff as well.
+struct icon_cache_option {
+	bool update_all;
+	bool force_update;
+	const char *update_theme;
+	int high_res; //highest resolution to search
+	int low_res; //lowest resolution to search
 };
+
+struct icon_cache_config {
+	char path[256];
+	int res;
+};
+
+static const char *usage =
+	"usage: taiwins_update_icon_cache [OPTION...]\n"
+	"\n"
+	"Help option:\n"
+	"  --help\t\t\tshow help\n"
+	"\n"
+	"Application options:\n"
+	"  -f, --force\t\t\tIgnore the existing cache\n"
+	"  -h, --hires\t\t\tSpecify the highest resolution to sample, maximum 256, default 128\n"
+	"  -l, --lowres\t\t\tSpecify the lowest resolution to sample, minimum 32, default 32\n"
+	"  -t, --theme\t\t\tSepcify the theme to update\n"
+	"\n";
+
+static const char *hicolor_path = "/usr/share/icons/hicolor";
 
 //match those with name
 enum icon_type {
@@ -114,7 +137,7 @@ search_theme(const struct icon_cache_config *config,
 		const char *path;
 	} to_search[] = {
 		{&resolutions, config->path},
-		{&hicolor_resolutions, config->hicolor_path},
+		{&hicolor_resolutions, hicolor_path},
 	};
 
 	for (int i = 0; i < 2; i++) {
@@ -130,7 +153,7 @@ search_theme(const struct icon_cache_config *config,
 		for(entry = readdir(dir); entry; entry = readdir(dir)) {
 			if (sscanf(entry->d_name, "%dx%d", &resx, &resy) == 2 &&
 			    entry->d_type == DT_DIR &&
-			    resx <= config->res * config->scale) {
+			    resx <= config->res) {
 				char *path = vector_newelem(to_search[i].res);
 				strncpy(path, entry->d_name, 256);
 			}
@@ -182,87 +205,138 @@ path_to_node(char output[256], const char *input)
 #include <cairo.h>
 
 static bool
-create_directory(void)
+cache_need_update(const char *cache_file, const char *theme_path)
 {
-	char cache_home[PATH_MAX];
-	mode_t cache_mode = S_IRWXU | S_IRGRP | S_IXGRP |
-		S_IROTH | S_IXOTH;
+	struct stat cache_stat, theme_stat;
+	if (!is_file_exist(cache_file))
+		return true;
+	stat(cache_file, &cache_stat);
+	stat(theme_path, &theme_stat);
+	return theme_stat.st_mtim.tv_sec >
+		cache_stat.st_mtim.tv_sec;
+}
 
+static inline void
+taiwins_cache_dir(char cache_home[PATH_MAX])
+{
 	char *xdg_cache = getenv("XDG_CACHE_HOME");
 	if (xdg_cache)
 		sprintf(cache_home, "%s/taiwins", xdg_cache);
 	else
 		sprintf(cache_home, "%s/.cache/taiwins", getenv("HOME"));
+
+}
+
+static bool
+create_directory(void)
+{
+	char cache_home[PATH_MAX];
+	mode_t cache_mode = S_IRWXU | S_IRGRP | S_IXGRP |
+		S_IROTH | S_IXOTH;
+	taiwins_cache_dir(cache_home);
 	if (mkdir_p(cache_home, cache_mode))
 		return false;
 	return true;
 }
 
 static bool
-parse_arguments(const int argc, const char *argv[])
+parse_arguments(int argc, char *argv[],
+		struct icon_cache_option *option)
 {
-	bool update_all = true;
-	const char *update_theme = NULL;
-
-	for (int i = 0; i < argc; i++) {
+	//defaults
+	option->force_update = false;
+	option->update_all = true;
+	option->update_theme = NULL;
+	option->high_res = 128;
+	option->low_res = 32;
+	for (int i = 1; i < argc; i++) {
 		const char *arg = argv[i];
-		if (!strcmp(arg, "-f") || !strcmp(arg, "--force")) {
-			update_all = true;
-		}
+		if (!strcmp(arg, "--help")) {
+			fprintf(stderr, "%s", usage);
+			return false;
+		} else if (!strcmp(arg, "-f") || !strcmp(arg, "--force"))
+			option->force_update = true;
 		else if (!strcmp(arg, "--theme") && (i+1) < argc) {
-			update_theme = argv[i+1];
+			option->update_theme = argv[i+1];
+			option->update_all = false;
 			++i;
+		} else if ((!strcmp(arg, "-h") || !strcmp(arg, "--hires")) &&
+			   (i+1) < argc) {
+			option->high_res = atoi(argv[i+1]);
+			i++;
+		} else if ((!strcmp(arg, "-l") || !strcmp(arg, "--lowres")) &&
+			   (i+1) < argc) {
+			option->low_res = atoi(argv[i+1]);
+			i++;
+		} else {
+			fprintf(stderr, "%s", usage);
+			return false;
 		}
 	}
+	if (option->high_res <= option->low_res ||
+	    option->high_res > 256 || option->low_res < 32)
+		return false;
+	return true;
 }
 
 int
 main(int argc, char *argv[])
 {
 	int fd = -1;
-	//TODO getting arguments
+	vector_t theme_lookups;
+	struct icon_cache_option option;
+	struct icon_cache_config theme, *current = NULL;
+	char cache_home[PATH_MAX];
 
+	if (!parse_arguments(argc, argv, &option))
+		return -1;
 	if (!create_directory())
 		return -1;
-
-	/* struct icon_cache_config config = { */
-	/*	.path = "/usr/share/icons/Adwaita", */
-	/*	.hicolor_path = "/usr/share/icons/hicolor", */
-	/*	.res = 256, */
-	/*	.scale = 1, */
-	/* }; */
-	/* struct wl_array a, b; */
-	/* wl_array_init(&a); */
-	/* wl_array_init(&b); */
-	/* search_theme(&config, &a, &b); */
-
-	/* struct image_cache cache = */
-	/*	image_cache_from_arrays(&a, &b, path_to_node); */
-	/* int flags = is_file_exist(argv[1]) ? O_RDWR : O_RDWR | O_CREAT; */
-	/* fd = open(argv[1], flags, S_IRUSR | S_IWUSR | S_IRGRP); */
-	/* image_cache_to_fd(&cache, fd); */
-	/* close(fd); */
-
-	fd = open(argv[1], O_RDONLY);
-	struct image_cache cache1 =
-		image_cache_from_fd(fd);
-	close(fd);
-	cairo_surface_t *surf =
-		cairo_image_surface_create_for_data(cache1.atlas,
-			CAIRO_FORMAT_ARGB32,
-			cache1.dimension.w, cache1.dimension.h,
-			cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, cache1.dimension.w));
-	cairo_surface_write_to_png(surf, argv[2]);
-	cairo_surface_destroy(surf);
-	/* off_t *off; */
-	/* wl_array_for_each(off, &a) { */
-	/*	const char *path = (char *)b.data + *off; */
-	/*	fprintf(stdout, "%s\n", path); */
-	/* } */
-	/* wl_array_release(&a); */
-	/* wl_array_release(&b); */
-	/* image_cache_release(&cache); */
-	image_cache_release(&cache1);
+	vector_init_zero(&theme_lookups,
+			 sizeof(struct icon_cache_config),
+			 NULL);
+	theme.res = option.high_res;
+	if (option.update_theme) {
+		sprintf(theme.path, "%s/%s", "/usr/share/icons", option.update_theme);
+		if (!is_dir_exist(theme.path)) {
+			fprintf(stderr, "theme %s not found", option.update_theme);
+			return -1;
+		}
+		vector_append(&theme_lookups, &theme);
+	} else { /* update all */
+		DIR *dir = opendir("/usr/share/icons");
+		struct dirent *entry = NULL;
+		for(entry = readdir(dir); entry; entry = readdir(dir)) {
+			strcpy(theme.path, "/usr/share/icons/");
+			strcat(theme.path, entry->d_name);
+			vector_append(&theme_lookups, &theme);
+		}
+		closedir(dir);
+	}
+	//now we just do the config
+	vector_for_each(current, &theme_lookups) {
+		char *name = basename(current->path);
+		taiwins_cache_dir(cache_home);
+		strcat(cache_home, "/");
+		strcat(cache_home, name);
+		strcat(cache_home, ".icon.cache");
+		if (!option.force_update &&
+		    !cache_need_update(cache_home, current->path))
+			continue;
+		struct wl_array handles, strings;
+		wl_array_init(&handles);
+		wl_array_init(&strings);
+		search_theme(current, &handles, &strings);
+		struct image_cache cache =
+			image_cache_from_arrays(&handles, &strings, path_to_node);
+		int flags = is_file_exist(cache_home) ? O_RDWR : O_RDWR | O_CREAT;
+		fd = open(cache_home, flags, S_IRUSR | S_IWUSR | S_IRGRP);
+		image_cache_to_fd(&cache, fd);
+		wl_array_release(&handles);
+		wl_array_release(&strings);
+		image_cache_release(&cache);
+		close(fd);
+	}
+	vector_destroy(&theme_lookups);
 	return 0;
-
 }
