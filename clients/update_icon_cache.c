@@ -16,6 +16,8 @@
 #include <sequential.h>
 #include <image_cache.h>
 
+#include "common.h"
+
 //the struct requires two parts, a image list with name and dimensions, and a
 //tile image.
 
@@ -122,7 +124,7 @@ search_icon_dir(const char *dir_path,
 	return count;
 }
 
-int
+static int
 search_theme(const struct icon_cache_config *config,
 	     struct wl_array *handle_pool,
 	     struct wl_array *str_pool)
@@ -192,7 +194,7 @@ out:
 
 //decided whether to search svgs, if we search for svgs, include rsvg is a necessary.
 
-void
+static void
 path_to_node(char output[256], const char *input)
 {
 	char *copy = strdup(input);
@@ -205,7 +207,7 @@ path_to_node(char output[256], const char *input)
 #include <cairo.h>
 
 static bool
-cache_need_update(const char *cache_file, const char *theme_path)
+cache_needs_update(const char *cache_file, const char *theme_path)
 {
 	struct stat cache_stat, theme_stat;
 	if (!is_file_exist(cache_file))
@@ -214,29 +216,6 @@ cache_need_update(const char *cache_file, const char *theme_path)
 	stat(theme_path, &theme_stat);
 	return theme_stat.st_mtim.tv_sec >
 		cache_stat.st_mtim.tv_sec;
-}
-
-static inline void
-taiwins_cache_dir(char cache_home[PATH_MAX])
-{
-	char *xdg_cache = getenv("XDG_CACHE_HOME");
-	if (xdg_cache)
-		sprintf(cache_home, "%s/taiwins", xdg_cache);
-	else
-		sprintf(cache_home, "%s/.cache/taiwins", getenv("HOME"));
-
-}
-
-static bool
-create_directory(void)
-{
-	char cache_home[PATH_MAX];
-	mode_t cache_mode = S_IRWXU | S_IRGRP | S_IXGRP |
-		S_IROTH | S_IXOTH;
-	taiwins_cache_dir(cache_home);
-	if (mkdir_p(cache_home, cache_mode))
-		return false;
-	return true;
 }
 
 static bool
@@ -290,7 +269,7 @@ main(int argc, char *argv[])
 
 	if (!parse_arguments(argc, argv, &option))
 		return -1;
-	if (!create_directory())
+	if (!create_cache_dir())
 		return -1;
 	vector_init_zero(&theme_lookups,
 			 sizeof(struct icon_cache_config),
@@ -321,7 +300,7 @@ main(int argc, char *argv[])
 		strcat(cache_home, name);
 		strcat(cache_home, ".icon.cache");
 		if (!option.force_update &&
-		    !cache_need_update(cache_home, current->path))
+		    !cache_needs_update(cache_home, current->path))
 			continue;
 		struct wl_array handles, strings;
 		wl_array_init(&handles);
