@@ -71,9 +71,7 @@ endif(NVEGL_FOUND)
 #####################################################################
 ################# setup the project variables #######################
 #####################################################################
-add_subdirectory("3rdparties/twclient")
-add_subdirectory("3rdparties/iconheader")
-add_subdirectory("3rdparties/nklua")
+include("3rdparties.cmake")
 
 set(COMPOSITOR_LIBRARIES
   ${LIBWESTON_LIBRARIES}

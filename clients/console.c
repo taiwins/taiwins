@@ -13,8 +13,11 @@
 
 #include <client.h>
 #include <ui.h>
+#include <rax.h>
 #include <nk_backends.h>
 #include "../shared_config.h"
+
+#include "common.h"
 
 struct desktop_console {
 	struct tw_console *interface;
@@ -34,6 +37,7 @@ struct desktop_console {
 	//store anything once submitted
 	struct nk_text_edit text_edit;
 	vector_t completions;
+	rax *rax;
 };
 
 //well, you could usually find icons in /usr/share/icons/hicolor/, which has a tons of icons
@@ -42,7 +46,6 @@ struct completion_item {
 	struct nk_image icon;
 	char text[256];
 };
-
 
 static const char *tmp_tab_chars[5] = {
 	"aaaaaa",
@@ -185,7 +188,6 @@ struct tw_console_listener console_impl = {
 	.exec = exec_application,
 };
 
-
 static void
 init_console(struct desktop_console *console)
 {
@@ -197,6 +199,7 @@ init_console(struct desktop_console *console)
 	console->decision_buffer = shm_pool_alloc_buffer(&console->pool,
 							  sizeof(struct taiwins_decision_key),
 							  TW_CONSOLE_CONF_NUM_DECISIONS);
+	console->rax = raxNew();
 
 	console->bkend = nk_cairo_create_bkend();
 	nk_textedit_init_fixed(&console->text_edit, console->chars, 256);
@@ -214,6 +217,7 @@ end_console(struct desktop_console *console)
 	tw_console_destroy(console->interface);
 	wl_globals_release(&console->globals);
 	vector_destroy(&console->completions);
+	raxFree(console->rax);
 
 	console->quit = true;
 }
@@ -251,6 +255,9 @@ static struct wl_registry_listener registry_listener = {
 int
 main(int argc, char *argv[])
 {
+	if (!create_cache_dir())
+		return -1;
+
 	struct desktop_console tw_console;
 	struct wl_display *display = wl_display_connect(NULL);
 	if (!display) {

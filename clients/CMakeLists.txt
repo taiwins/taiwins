@@ -42,6 +42,7 @@ target_link_libraries(shell-console
   ${CLIENT_LIBRARIES}
   ${TRDPTY_LIBRARIES}
   ${WAYLAND_CURSOR_LIBRARIES}
+  rax
   m
   proto_client_libraries
   )
