@@ -18,27 +18,8 @@
 #include "../shared_config.h"
 
 #include "common.h"
+#include "console.h"
 
-struct desktop_console {
-	struct tw_console *interface;
-	struct tw_ui *proxy;
-	struct wl_globals globals;
-	struct app_surface surface;
-	struct shm_pool pool;
-	struct wl_buffer *decision_buffer;
-	struct nk_wl_backend *bkend;
-	struct wl_callback *exec_cb;
-	uint32_t exec_id;
-
-	off_t cursor;
-	char chars[256];
-	bool quit;
-	//a good hack is that this text_edit is stateless, we don't need to
-	//store anything once submitted
-	struct nk_text_edit text_edit;
-	vector_t completions;
-	rax *rax;
-};
 
 //well, you could usually find icons in /usr/share/icons/hicolor/, which has a tons of icons
 //and you can generate caches for all those icons, need q quick way to compute hash though.
