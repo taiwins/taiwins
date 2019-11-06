@@ -26,6 +26,7 @@ extern "C" {
 struct console_module {
 	//it supposed to have a vector of search result. Mutex
 	//rax and cache module
+	struct rax *radix;
 };
 
 struct desktop_console {
