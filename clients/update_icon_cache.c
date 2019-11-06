@@ -97,12 +97,11 @@ search_icon_dir(const char *dir_path,
 		struct wl_array *string_pool)
 {
 	int count = 0;
-	struct dirent *entry;
 	DIR *dir = opendir(dir_path);
 
 	if (!dir)
 		return count;
-	for (entry = readdir(dir); entry; entry = readdir(dir)) {
+	for (struct dirent *entry = readdir(dir); entry; entry = readdir(dir)) {
 		char file_path[1024];
 		//TODO, take svg as well.
 		if (!(entry->d_type == DT_REG ||
@@ -143,7 +142,6 @@ search_theme(const struct icon_cache_config *config,
 	};
 
 	for (int i = 0; i < 2; i++) {
-		struct dirent *entry;
 		DIR *dir = NULL;
 		int resx, resy;
 
@@ -152,7 +150,8 @@ search_theme(const struct icon_cache_config *config,
 			continue;
 		if (!(dir = opendir(to_search[i].path)))
 			break;
-		for(entry = readdir(dir); entry; entry = readdir(dir)) {
+		for(struct dirent *entry = readdir(dir);
+		    entry; entry = readdir(dir)) {
 			if (sscanf(entry->d_name, "%dx%d", &resx, &resy) == 2 &&
 			    entry->d_type == DT_DIR &&
 			    resx <= config->res) {
@@ -284,8 +283,8 @@ main(int argc, char *argv[])
 		vector_append(&theme_lookups, &theme);
 	} else { /* update all */
 		DIR *dir = opendir("/usr/share/icons");
-		struct dirent *entry = NULL;
-		for(entry = readdir(dir); entry; entry = readdir(dir)) {
+		for(struct dirent *entry = readdir(dir);
+		    entry; entry = readdir(dir)) {
 			strcpy(theme.path, "/usr/share/icons/");
 			strcat(theme.path, entry->d_name);
 			vector_append(&theme_lookups, &theme);
