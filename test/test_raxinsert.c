@@ -28,10 +28,10 @@ int main(int argc, char *argv[])
 	//so what is this concept of iterating?
 	struct raxIterator iter;
 	raxStart(&iter, r);
-	if (raxSeek(&iter, "<=", (unsigned char *)"bash", 4) == 0)
+	if (raxSeek(&iter, ">=", (unsigned char *)"a", 1) == 0)
 		goto cleanup;
 	while(raxNext(&iter)) {
-		if (strstr((char *)iter.key, "bash") != (char *)iter.key) {
+		if (strstr((char *)iter.key, "a") != (char *)iter.key) {
 			raxStop(&iter);
 			break;
 		}
