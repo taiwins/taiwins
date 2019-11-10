@@ -24,9 +24,28 @@ int main(int argc, char *argv[])
 		}
 		closedir(dir);
 	}
+
+	//so what is this concept of iterating?
+	struct raxIterator iter;
+	raxStart(&iter, r);
+	if (raxSeek(&iter, "<=", (unsigned char *)"bash", 4) == 0)
+		goto cleanup;
+	while(raxNext(&iter)) {
+		if (strstr((char *)iter.key, "bash") != (char *)iter.key) {
+			raxStop(&iter);
+			break;
+		}
+
+		printf("NEXT: %.*s, val %p\n", (int)iter.key_len,
+		       (char*)iter.key,
+		       iter.data);
+	}
+
 	void *found = raxFind(r, (unsigned char *)"2to3", strlen("2to3"));
 	printf("2to3 is%sfound\n", found != raxNotFound ? " " : " not ");
-	raxShow(r);
+	/* raxShow(r); */
+
+cleanup:
 	raxFree(r);
 	free(pathes);
 	return 0;
