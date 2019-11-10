@@ -61,7 +61,7 @@ submit_console(struct app_surface *surf)
 
 
 /**
- * @brief a more serious console implementation
+ * @brief
  */
 static void
 draw_console(struct nk_context *ctx, float width, float height,
@@ -71,6 +71,7 @@ draw_console(struct nk_context *ctx, float width, float height,
 	enum EDITSTATE {NORMAL, COMPLETING, SUBMITTING};
 	static enum EDITSTATE edit_state = NORMAL;
 	static char previous_tab[256] = {0};
+	struct console_module *module = NULL;
 
 	struct desktop_console *console =
 		container_of(surf, struct desktop_console, surface);
@@ -81,6 +82,31 @@ draw_console(struct nk_context *ctx, float width, float height,
 
 	nk_layout_row_static(ctx, height - 30, width, 1);
 	nk_edit_buffer(ctx, NK_EDIT_FIELD, &console->text_edit, nk_filter_default);
+	//giving commands, after this line, modules should be running
+	{
+		char command[256];
+		strncpy(command, (char *)console->text_edit.string.buffer.memory.ptr,
+			console->text_edit.string.len);
+		command[console->text_edit.string.len] = '\0';
+		vector_for_each(module, &console->modules)
+			console_module_command(module, command,
+					       NULL);
+	}
+
+	//now we checking the results, the results could be available in the
+	//keyup state. The events triggling could be a timer event or idle event, but anyway
+	vector_for_each(module, &console->modules) {
+		vector_t result = {0};
+		if (console_module_take_search_result(module, &result)) {
+			console_cmd_t *cmd;
+			vector_for_each(cmd, &result) {
+				fprintf(stdout, "%s\n", (char *)*cmd);
+			}
+			fprintf(stdout, "\n");
+			vector_destroy(&result);
+			result = (vector_t){0};
+		}
+	}
 	//we could go into two different state, first is compeletion, then it is submission
 	if (nk_wl_get_keyinput(ctx) == XKB_KEY_NoSymbol) //key up
 		return;
@@ -170,6 +196,14 @@ struct tw_console_listener console_impl = {
 };
 
 static void
+console_release_module(void *m)
+{
+	struct console_module *module = m;
+	console_module_release(module);
+}
+
+
+static void
 init_console(struct desktop_console *console)
 {
 	memset(console->chars, 0, sizeof(console->chars));
@@ -180,12 +214,19 @@ init_console(struct desktop_console *console)
 	console->decision_buffer = shm_pool_alloc_buffer(&console->pool,
 							  sizeof(struct taiwins_decision_key),
 							  TW_CONSOLE_CONF_NUM_DECISIONS);
-	console->rax = raxNew();
-
 	console->bkend = nk_cairo_create_bkend();
 	nk_textedit_init_fixed(&console->text_edit, console->chars, 256);
 	vector_init_zero(&console->completions,
 			 sizeof(struct completion_item), NULL);
+
+	struct console_module *module;
+	//init modules
+	vector_init(&console->modules, sizeof(struct console_module),
+		    console_release_module);
+	//adding modules
+	vector_append(&console->modules, &cmd_module);
+	vector_for_each(module, &console->modules)
+		console_module_init(module); //thread created
 }
 
 static void
@@ -198,7 +239,7 @@ end_console(struct desktop_console *console)
 	tw_console_destroy(console->interface);
 	wl_globals_release(&console->globals);
 	vector_destroy(&console->completions);
-	raxFree(console->rax);
+	vector_destroy(&console->modules);
 
 	console->quit = true;
 }
