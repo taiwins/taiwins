@@ -125,3 +125,10 @@ target_link_libraries(test_widget
   m
   proto_client_libraries
   )
+
+add_executable(test_raxinsert
+  test_raxinsert.c)
+
+target_link_libraries(test_raxinsert
+  m
+  rax)
