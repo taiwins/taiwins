@@ -19,6 +19,7 @@
 
 #include "common.h"
 #include "console.h"
+#include "vector.h"
 
 
 //well, you could usually find icons in /usr/share/icons/hicolor/, which has a tons of icons
@@ -28,25 +29,6 @@ struct completion_item {
 	char text[256];
 };
 
-static const char *tmp_tab_chars[5] = {
-	"aaaaaa",
-	"bbbbbb",
-	"cccccc",
-	"dddddd",
-	"eeeeee",
-};
-
-
-/**
- * @brief get the next
- */
-static const char *
-auto_complete(struct desktop_console *console)
-{
-	//we have some shadowed context here
-	static int i = 0;
-	return tmp_tab_chars[i++ % 5];
-}
 
 static void
 submit_console(struct app_surface *surf)
@@ -54,24 +36,79 @@ submit_console(struct app_surface *surf)
 	struct desktop_console *console =
 		container_of(surf, struct desktop_console, surface);
 	tw_console_submit(console->interface, console->decision_buffer, console->exec_id);
+	//and also do the exec.
 	tw_ui_destroy(console->proxy);
 	console->proxy = NULL;
 	app_surface_release(&console->surface);
 }
 
+static void
+issue_commands(struct desktop_console *console,
+	       const struct nk_str *str)
+{
+	struct console_module *module = NULL;
+	char command[256] = {0};
+
+	strncpy(command, (char *)str->buffer.memory.ptr,
+		MIN(255, str->len));
+	vector_for_each(module, &console->modules)
+		console_module_command(module, command, NULL);
+}
+
+/* static void */
+/* ui_header(struct nk_context *ctx, struct media *media, const char *title) */
+/* { */
+/*     nk_style_set_font(ctx, &media->font_18->handle); */
+/*     nk_layout_row_dynamic(ctx, 20, 1); */
+/*     nk_label(ctx, title, NK_TEXT_LEFT); */
+/* } */
+
+/* static void */
+/* ui_widget(struct nk_context *ctx, struct media *media, float height) */
+/* { */
+/*     static const float ratio[] = {0.15f, 0.85f}; */
+/*     nk_style_set_font(ctx, &media->font_22->handle); */
+/*     nk_layout_row(ctx, NK_DYNAMIC, height, 2, ratio); */
+/*     nk_spacing(ctx, 1); */
+/* } */
+
+
+static void
+draw_search_results(struct nk_context *ctx,
+		    struct desktop_console *console)
+{
+	struct console_module *module = NULL;
+	//now we checking the results, the results could be available in the
+	//keyup state. The events triggling could be a timer event or idle event, but anyway
+	vector_for_each(module, &console->modules) {
+		//ui_header(ctx, module->name);
+		vector_t result = {0};
+		if (console_module_take_search_result(module, &result)) {
+			console_cmd_t *cmd;
+			vector_for_each(cmd, &result) {
+				//ui_widget(ctx, something, 20);
+				fprintf(stdout, "%s\n", (char *)*cmd);
+			}
+			fprintf(stdout, "\n");
+			vector_destroy(&result);
+			result = (vector_t){0};
+		}
+	}
+	//it should be a group
+}
+
 
 /**
- * @brief
+ * @brief nuklear draw calls
  */
 static void
 draw_console(struct nk_context *ctx, float width, float height,
-	      struct app_surface *surf)
+	     struct app_surface *surf)
 {
 	//TODO change the state machine
-	enum EDITSTATE {NORMAL, COMPLETING, SUBMITTING};
+	enum EDITSTATE {NORMAL, SUBMITTING};
 	static enum EDITSTATE edit_state = NORMAL;
 	static char previous_tab[256] = {0};
-	struct console_module *module = NULL;
 
 	struct desktop_console *console =
 		container_of(surf, struct desktop_console, surface);
@@ -82,48 +119,20 @@ draw_console(struct nk_context *ctx, float width, float height,
 
 	nk_layout_row_static(ctx, height - 30, width, 1);
 	nk_edit_buffer(ctx, NK_EDIT_FIELD, &console->text_edit, nk_filter_default);
-	//giving commands, after this line, modules should be running
-	{
-		char command[256];
-		strncpy(command, (char *)console->text_edit.string.buffer.memory.ptr,
-			console->text_edit.string.len);
-		command[console->text_edit.string.len] = '\0';
-		vector_for_each(module, &console->modules)
-			console_module_command(module, command,
-					       NULL);
-	}
+	//issue commands only in key done state
+	if (nk_wl_get_keyinput(ctx) != XKB_KEY_NoSymbol)
+		issue_commands(console, &console->text_edit.string);
+	draw_search_results(ctx, console);
 
-	//now we checking the results, the results could be available in the
-	//keyup state. The events triggling could be a timer event or idle event, but anyway
-	vector_for_each(module, &console->modules) {
-		vector_t result = {0};
-		if (console_module_take_search_result(module, &result)) {
-			console_cmd_t *cmd;
-			vector_for_each(cmd, &result) {
-				fprintf(stdout, "%s\n", (char *)*cmd);
-			}
-			fprintf(stdout, "\n");
-			vector_destroy(&result);
-			result = (vector_t){0};
-		}
-	}
-	//we could go into two different state, first is compeletion, then it is submission
+	//we could go into two different state
 	if (nk_wl_get_keyinput(ctx) == XKB_KEY_NoSymbol) //key up
 		return;
-	if (nk_wl_get_keyinput(ctx) == XKB_KEY_Tab)
-		edit_state = COMPLETING;
-	else if (nk_wl_get_keyinput(ctx) == XKB_KEY_Return)
+	if (nk_wl_get_keyinput(ctx) == XKB_KEY_Return)
 		edit_state = SUBMITTING;
 	else
 		edit_state = NORMAL;
 
 	switch (edit_state) {
-	case COMPLETING:
-		nk_textedit_delete(&console->text_edit, console->text_edit.cursor - strlen(previous_tab),
-				   strlen(previous_tab));
-		strcpy(previous_tab, auto_complete(console));
-		nk_textedit_text(&console->text_edit, previous_tab, strlen(previous_tab));
-		break;
 	case SUBMITTING:
 		memset(previous_tab, 0, sizeof(previous_tab));
 		edit_state = NORMAL;
@@ -226,7 +235,7 @@ init_console(struct desktop_console *console)
 	//adding modules
 	vector_append(&console->modules, &cmd_module);
 	vector_for_each(module, &console->modules)
-		console_module_init(module); //thread created
+		console_module_init(module, console); //thread created
 }
 
 static void

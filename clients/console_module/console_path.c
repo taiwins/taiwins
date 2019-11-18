@@ -60,18 +60,18 @@ console_path_module_search(struct console_module *module, const char *to_search,
 
 	//get lines from buffer.
 	FILE *stream = fmemopen(buffer.elems, buffer.len, "r");
-	char *line = NULL;
-	size_t len = 0;
+	char *line = calloc(buffer.elemsize * buffer.len, 1);
+	size_t len = 0, totalsize = buffer.elemsize * buffer.len;
 
 	//getline has the contains the delimiter
 	//do not expect getline allocates memory for you.
 	vector_init_zero(result, sizeof(char *), free);
-	while ((len = getline(&line, 0, stream)) != -1) {
-		vector_append(result, &line);
+	while ((len = getline(&line, &totalsize, stream)) != -1) {
+		char *dup = strdup(line);
+		vector_append(result, &dup);
 		line = NULL;
 	}
-	if (line)
-		free(line);
+	free(line);
 	fclose(stream);
 
 	free(command);
@@ -84,4 +84,5 @@ console_path_module_search(struct console_module *module, const char *to_search,
 struct console_module path_module = {
 	.exec = console_path_module_exec,
 	.search = console_path_module_search,
+	.support_cache = true,
 };
