@@ -19,6 +19,78 @@
  * so at the module side, checking )
  */
 
+struct module_search_cache {
+	char *last_command;
+	vector_t last_results;
+};
+
+static inline void
+cache_takes(struct module_search_cache *cache,
+	    vector_t *v, const char *command)
+{
+	if (cache->last_command)
+		free(cache->last_command);
+	cache->last_command = strdup(command);
+	if (cache->last_results.elems) {
+		vector_destroy(&cache->last_results);
+	}
+	vector_copy(&cache->last_results, v);
+}
+
+static inline void
+cache_init(struct module_search_cache *cache)
+{
+	cache->last_command = NULL;
+	cache->last_results = (vector_t){0};
+}
+
+static inline void
+cache_free(struct module_search_cache *cache)
+{
+	if (cache->last_command)
+		free(cache->last_command);
+	if (cache->last_results.elems)
+		vector_destroy(&cache->last_results);
+	cache_init(cache);
+}
+
+static void
+cache_filter(struct module_search_cache *cache,
+	     char *command, vector_t *v)
+{
+	int cmp = strcmp(cache->last_command, command);
+
+	if (cmp == 0)
+		vector_copy(v, &cache->last_results);
+	//a more interesting case, results can be filtered locally
+	else if (cmp < 0) {
+		vector_init_zero(v, cache->last_results.elemsize,
+				 cache->last_results.free);
+
+		for (int i = 0; i < cache->last_results.len; i++) {
+			console_search_entry_t entry =
+				get_search_line(&cache->last_results, i);
+			if (entry.cmd && strcmp(command, *entry.cmd) <= 0)
+				vector_append(v, entry.cmd);
+			if (entry.app && strcmp(command, entry.app->exec) <= 0)
+				vector_append(v, entry.app);
+			if (entry.path && strstr(*entry.path, command)) {
+				char *path = strdup(*entry.path);
+				vector_append(v, &path);
+			}
+		}
+	}
+	cache_free(cache);
+	cache_takes(cache, v, command);
+}
+
+static inline bool
+cachable(const struct module_search_cache *cache,
+	 char *command) {
+	return command != NULL &&
+		cache->last_command != NULL &&
+		strcmp(cache->last_command, command) <= 0;
+}
 
 /**
  * @brief running thread for the module,
@@ -29,6 +101,10 @@
  * Console thread does the reverse. It is the consumer of results and producer
  * of commands, if the commands it produced is not taken, it needs to reset it
  * manually.
+ *
+ * It would be nice to have a cache method so we need not to call in search
+ * every time. The main thread does not know whether results answers to the last
+ * search; the threads however may lost their search.
  */
 void *
 thread_run_module(void *arg)
@@ -38,7 +114,9 @@ thread_run_module(void *arg)
 	char *exec_res;
 	vector_t search_results = {0};
 	int exec_ret, search_ret;
+	struct module_search_cache cache;
 
+	cache_init(&cache);
 	while (true) {
 		//exec, enter critial
 		pthread_mutex_lock(&module->command_mutex);
@@ -71,11 +149,15 @@ thread_run_module(void *arg)
 			module->search_command = NULL;
 		}
 		pthread_mutex_unlock(&module->command_mutex);
-		if (search_command) {
+		//deal with cache first
+		if (module->support_cache && cachable(&cache, search_command))
+			cache_filter(&cache, search_command, &search_results);
+		else if (search_command) {
 			search_ret = module->search(module, search_command,
 						    &search_results);
 			//fprintf(stderr, "search for %s has %d results\n", search_command,
 			//	search_results.len);
+			cache_takes(&cache, &search_results, search_command);
 			free(search_command);
 			search_command = NULL;
 		}
@@ -86,19 +168,19 @@ thread_run_module(void *arg)
 		module->search_results = search_results;
 		module->search_ret = search_ret;
 		search_results = (vector_t){0};
-
+		search_ret = 0;
 		pthread_mutex_unlock(&module->results_mutex);
-		//not sure
-		//int value;
-		//sem_getvalue(&module->semaphore, &value);
-		//fprintf(stderr, "sem value now : %d\n", value);
+
 		sem_wait(&module->semaphore);
 	}
+	cache_free(&cache);
 }
 
 void
-console_module_init(struct console_module *module)
+console_module_init(struct console_module *module,
+		    struct desktop_console *console)
 {
+	module->console = console;
 	pthread_mutex_init(&module->command_mutex, NULL);
 	pthread_mutex_init(&module->results_mutex, NULL);
 	sem_init(&module->semaphore, 0, 0);

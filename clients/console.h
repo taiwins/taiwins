@@ -19,6 +19,7 @@
 #include "../shared_config.h"
 
 #include "common.h"
+#include "vector.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,7 +40,7 @@ struct desktop_console {
 	char chars[256];
 	bool quit;
 	//a good hack is that this text_edit is stateless, we don't need to
-	//store anything once submitted
+	//store anything once submitte
 	struct nk_text_edit text_edit;
 	vector_t completions;
 
@@ -60,6 +61,7 @@ struct desktop_console {
 struct console_module {
 	struct desktop_console *console;
 	struct rax *radix;
+	const bool support_cache;
 
 	struct {
 		pthread_mutex_t command_mutex;
@@ -83,7 +85,8 @@ struct console_module {
 	void *user_data;
 };
 
-void console_module_init(struct console_module *module);
+void console_module_init(struct console_module *module,
+			 struct desktop_console *console);
 
 void console_module_release(struct console_module *module);
 
@@ -98,7 +101,7 @@ int console_module_take_search_result(struct console_module *module,
 int console_module_take_exec_result(struct console_module *module,
 				    char **result);
 
-
+/* a collection of commands */
 typedef char console_cmd_t[256];
 extern struct console_module cmd_module;
 
@@ -111,6 +114,24 @@ extern struct console_module app_module;
 typedef char *console_path_t;
 extern struct console_module path_module;
 
+typedef struct {
+	console_cmd_t *cmd;
+	console_app_t *app;
+	console_path_t *path;
+} console_search_entry_t;
+
+static inline console_search_entry_t
+get_search_line(vector_t *v, off_t idx)
+{
+	console_search_entry_t entry;
+	entry.cmd = (v->elemsize == sizeof(console_cmd_t)) ?
+		vector_at(v, idx) : NULL;
+	entry.app = (v->elemsize == sizeof(console_app_t)) ?
+		vector_at(v, idx) : NULL;
+	entry.path = (v->elemsize == sizeof(console_path_t)) ?
+		vector_at(v, idx) : NULL;
+	return entry;
+}
 
 #ifdef __cplusplus
 }

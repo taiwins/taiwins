@@ -104,4 +104,5 @@ struct console_module cmd_module = {
 	.search = console_cmd_module_search,
 	.init_hook = console_cmd_module_init,
 	.destroy_hook = console_cmd_module_destroy,
+	.support_cache = true,
 };
