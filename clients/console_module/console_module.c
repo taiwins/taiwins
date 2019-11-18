@@ -70,10 +70,14 @@ cache_filter(struct module_search_cache *cache,
 		for (int i = 0; i < cache->last_results.len; i++) {
 			console_search_entry_t entry =
 				get_search_line(&cache->last_results, i);
-			if (entry.cmd && strcmp(command, *entry.cmd) <= 0)
+			//for commands, we search whole string
+			if (entry.cmd && strstr(*entry.cmd, command) == *entry.cmd &&
+			    strcmp(command, *entry.cmd) <= 0)
 				vector_append(v, entry.cmd);
-			if (entry.app && strcmp(command, entry.app->exec) <= 0)
+			//for apps, lossily find
+			if (entry.app && strstr(entry.app->exec, command))
 				vector_append(v, entry.app);
+			//same as path
 			if (entry.path && strstr(*entry.path, command)) {
 				char *path = strdup(*entry.path);
 				vector_append(v, &path);
@@ -89,6 +93,7 @@ cachable(const struct module_search_cache *cache,
 	 char *command) {
 	return command != NULL &&
 		cache->last_command != NULL &&
+		strstr(command, cache->last_command) == command &&
 		strcmp(cache->last_command, command) <= 0;
 }
 
@@ -249,19 +254,28 @@ console_module_command(struct console_module *module,
 	//fprintf(stderr, "sem value now : %d\n", value);
 }
 
+static inline bool
+module_search_result_taken(const struct console_module *module)
+{
+	return (module->search_results.len == -1);
+}
+
 int
 console_module_take_search_result(struct console_module *module,
 				  vector_t *ret)
 {
 	int retcode = 0;
-	if (pthread_mutex_trylock(&module->results_mutex)) {
-		*ret = (vector_t){0};
+	if (pthread_mutex_trylock(&module->results_mutex))
 		return 0;
-	}
 	//pthread_mutex_lock(&module->results_mutex);
-	if (module->search_results.elems) {
+
+	//distinguish between no results and results taken
+	if (module_search_result_taken(module));
+	else {
+		vector_destroy(ret);
 		*ret = module->search_results;
 		module->search_results = (vector_t){0};
+		module->search_results.len = -1;
 		retcode = module->search_ret;
 		module->search_ret = 0;
 	}

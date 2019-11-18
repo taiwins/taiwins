@@ -45,10 +45,7 @@ struct desktop_console {
 	vector_t completions;
 
 	vector_t modules;
-/*
- * A good example here is ulauncher, it has many different extensions and
- * supports configuration, in that case though, we will rely on lua bindings
- */
+	vector_t search_results; //search results from modules moves to here
 };
 
 /**
@@ -62,6 +59,7 @@ struct console_module {
 	struct desktop_console *console;
 	struct rax *radix;
 	const bool support_cache;
+	const char name[32];
 
 	struct {
 		pthread_mutex_t command_mutex;
