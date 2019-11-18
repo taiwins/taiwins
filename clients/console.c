@@ -55,48 +55,56 @@ issue_commands(struct desktop_console *console,
 		console_module_command(module, command, NULL);
 }
 
-/* static void */
-/* ui_header(struct nk_context *ctx, struct media *media, const char *title) */
-/* { */
-/*     nk_style_set_font(ctx, &media->font_18->handle); */
-/*     nk_layout_row_dynamic(ctx, 20, 1); */
-/*     nk_label(ctx, title, NK_TEXT_LEFT); */
-/* } */
+static void
+search_res_header(struct nk_context *ctx, const char *title)
+{
+    /* nk_style_set_font(ctx, &media->font_18->handle); */
+    nk_layout_row_dynamic(ctx, 20, 1);
+    nk_label(ctx, title, NK_TEXT_LEFT);
+}
 
-/* static void */
-/* ui_widget(struct nk_context *ctx, struct media *media, float height) */
-/* { */
-/*     static const float ratio[] = {0.15f, 0.85f}; */
-/*     nk_style_set_font(ctx, &media->font_22->handle); */
-/*     nk_layout_row(ctx, NK_DYNAMIC, height, 2, ratio); */
-/*     nk_spacing(ctx, 1); */
-/* } */
+static int
+search_res_widget(struct nk_context *ctx, float height,
+		  const console_search_entry_t entry)
+{
+    static const float ratio[] = {0.15f, 0.85f};
+    /* nk_style_set_font(ctx, &media->font_22->handle); */
+    nk_layout_row(ctx, NK_DYNAMIC, height, 2, ratio);
+    nk_spacing(ctx, 1);
+    if (entry.app)
+	    return nk_button_label(ctx, entry.app->exec);
+    else if (entry.cmd)
+	    return nk_button_label(ctx, *entry.cmd);
+    else if (entry.path)
+	    return nk_button_label(ctx, *entry.path);
+    else {
+	    nk_spacing(ctx, 1);
+	    return 0;
+    }
+}
 
 
 static void
 draw_search_results(struct nk_context *ctx,
 		    struct desktop_console *console)
 {
-	struct console_module *module = NULL;
 	//now we checking the results, the results could be available in the
 	//keyup state. The events triggling could be a timer event or idle event, but anyway
-	vector_for_each(module, &console->modules) {
-		//ui_header(ctx, module->name);
-		vector_t result = {0};
-		if (console_module_take_search_result(module, &result)) {
-			console_cmd_t *cmd;
-			vector_for_each(cmd, &result) {
-				//ui_widget(ctx, something, 20);
-				fprintf(stdout, "%s\n", (char *)*cmd);
-			}
-			fprintf(stdout, "\n");
-			vector_destroy(&result);
-			result = (vector_t){0};
-		}
-	}
-	//it should be a group
-}
+	for (int i = 0; i < console->modules.len; i++) {
+		vector_t *result =
+			vector_at(&console->search_results, i);
+		struct console_module *module =
+			vector_at(&console->modules, i);
+		//update the results if there is new stuff
+		int errcode = console_module_take_search_result(module, result);
+		if (errcode || !result->len)
+			continue;
 
+		search_res_header(ctx, module->name);
+		for (int i = 0; i < result->len; i++)
+			search_res_widget(ctx, 30, get_search_line(result, i));
+	}
+}
 
 /**
  * @brief nuklear draw calls
@@ -113,18 +121,13 @@ draw_console(struct nk_context *ctx, float width, float height,
 	struct desktop_console *console =
 		container_of(surf, struct desktop_console, surface);
 
-	nk_layout_row_static(ctx, 30, 80, 2);
-	nk_button_label(ctx, "button");
-	nk_label(ctx, "another", NK_TEXT_LEFT);
-
-	nk_layout_row_static(ctx, height - 30, width, 1);
+	nk_layout_row_static(ctx, 30, width, 1);
 	nk_edit_buffer(ctx, NK_EDIT_FIELD, &console->text_edit, nk_filter_default);
 	//issue commands only in key done state
 	if (nk_wl_get_keyinput(ctx) != XKB_KEY_NoSymbol)
 		issue_commands(console, &console->text_edit.string);
 	draw_search_results(ctx, console);
 
-	//we could go into two different state
 	if (nk_wl_get_keyinput(ctx) == XKB_KEY_NoSymbol) //key up
 		return;
 	if (nk_wl_get_keyinput(ctx) == XKB_KEY_Return)
@@ -142,10 +145,8 @@ draw_console(struct nk_context *ctx, float width, float height,
 		memset(previous_tab, 0, sizeof(previous_tab));
 		break;
 	}
-	//TODO, have a close option, thus close without submiting
 }
 
-//fuck, I wish that I have c++
 static void
 update_app_config(void *data,
 		  struct tw_console *tw_console,
@@ -153,12 +154,12 @@ update_app_config(void *data,
 		  uint32_t floating,
 		  wl_fixed_t scale)
 {
-//we don't nothing here now
+
 }
 
 static void
 start_console(void *data, struct tw_console *tw_console,
-	       wl_fixed_t width, wl_fixed_t height, wl_fixed_t scale)
+	      wl_fixed_t width, wl_fixed_t height, wl_fixed_t scale)
 {
 	struct desktop_console *console = (struct desktop_console *)data;
 	struct app_surface *surface = &console->surface;
@@ -211,6 +212,13 @@ console_release_module(void *m)
 	console_module_release(module);
 }
 
+static void
+console_free_search_results(void *m)
+{
+	vector_t *v = m;
+	vector_destroy(v);
+}
+
 
 static void
 init_console(struct desktop_console *console)
@@ -229,13 +237,19 @@ init_console(struct desktop_console *console)
 			 sizeof(struct completion_item), NULL);
 
 	struct console_module *module;
-	//init modules
+	vector_t empty_res = {0};
+	// init modules
 	vector_init(&console->modules, sizeof(struct console_module),
 		    console_release_module);
 	//adding modules
 	vector_append(&console->modules, &cmd_module);
 	vector_for_each(module, &console->modules)
 		console_module_init(module, console); //thread created
+
+	vector_init(&console->search_results, sizeof(vector_t),
+		    console_free_search_results);
+	vector_for_each(module, &console->modules)
+		vector_append(&console->search_results, &empty_res);
 }
 
 static void
@@ -247,8 +261,10 @@ end_console(struct desktop_console *console)
 
 	tw_console_destroy(console->interface);
 	wl_globals_release(&console->globals);
+
 	vector_destroy(&console->completions);
 	vector_destroy(&console->modules);
+	vector_destroy(&console->search_results);
 
 	console->quit = true;
 }

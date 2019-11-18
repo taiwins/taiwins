@@ -82,6 +82,7 @@ console_path_module_search(struct console_module *module, const char *to_search,
 
 
 struct console_module path_module = {
+	.name = "MODULE_PATH",
 	.exec = console_path_module_exec,
 	.search = console_path_module_search,
 	.support_cache = true,

@@ -60,7 +60,7 @@ console_cmd_module_search(struct console_module *module, const char *to_search,
 	}
 out:
 	raxStop(&iter);
-	return result->len;
+	return 0;
 }
 
 static void
@@ -100,6 +100,7 @@ console_cmd_module_destroy(struct console_module *module)
 }
 
 struct console_module cmd_module = {
+	.name = "MODULE_CMD",
 	.exec = console_cmd_module_exec,
 	.search = console_cmd_module_search,
 	.init_hook = console_cmd_module_init,
