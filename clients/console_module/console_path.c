@@ -65,11 +65,10 @@ console_path_module_search(struct console_module *module, const char *to_search,
 
 	//getline has the contains the delimiter
 	//do not expect getline allocates memory for you.
-	vector_init_zero(result, sizeof(char *), free);
+	vector_init_zero(result, sizeof(console_search_entry1_t),
+		free_console_search_entry);
 	while ((len = getline(&line, &totalsize, stream)) != -1) {
-		char *dup = strdup(line);
-		vector_append(result, &dup);
-		line = NULL;
+		//copy to entrys
 	}
 	free(line);
 	fclose(stream);

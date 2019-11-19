@@ -65,24 +65,15 @@ search_res_header(struct nk_context *ctx, const char *title)
 
 static int
 search_res_widget(struct nk_context *ctx, float height,
-		  const console_search_entry_t entry)
+		  const console_search_entry_t *entry)
 {
     static const float ratio[] = {0.15f, 0.85f};
+    const char *str = search_entry_get_string(entry);
     /* nk_style_set_font(ctx, &media->font_22->handle); */
     nk_layout_row(ctx, NK_DYNAMIC, height, 2, ratio);
     nk_spacing(ctx, 1);
-    if (entry.app)
-	    return nk_button_label(ctx, entry.app->exec);
-    else if (entry.cmd)
-	    return nk_button_label(ctx, *entry.cmd);
-    else if (entry.path)
-	    return nk_button_label(ctx, *entry.path);
-    else {
-	    nk_spacing(ctx, 1);
-	    return 0;
-    }
+    return nk_button_label(ctx, str);
 }
-
 
 static void
 draw_search_results(struct nk_context *ctx,
@@ -97,12 +88,14 @@ draw_search_results(struct nk_context *ctx,
 			vector_at(&console->modules, i);
 		//update the results if there is new stuff
 		int errcode = console_module_take_search_result(module, result);
-		if (errcode || !result->len)
+		if (errcode || result->len <= 0)
 			continue;
-
+		console_search_entry_t *entry = NULL;
+		printf("console search res len: %d\n", result->len);
 		search_res_header(ctx, module->name);
-		for (int i = 0; i < result->len; i++)
-			search_res_widget(ctx, 30, get_search_line(result, i));
+		vector_for_each(entry, result) {
+			search_res_widget(ctx, 30, entry);
+		}
 	}
 }
 

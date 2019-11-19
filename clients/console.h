@@ -74,6 +74,7 @@ struct console_module {
 
 	int (*search)(struct console_module *, const char *, vector_t *);
 	int (*exec)(struct console_module *, const char *, char **);
+	bool (*filter_test)(const char *, const char *);
 
 	void (*init_hook)(struct console_module *);
 	void (*destroy_hook)(struct console_module *);
@@ -99,37 +100,35 @@ int console_module_take_search_result(struct console_module *module,
 int console_module_take_exec_result(struct console_module *module,
 				    char **result);
 
-/* a collection of commands */
-typedef char console_cmd_t[256];
-extern struct console_module cmd_module;
-
+//all the search component returns this
 typedef struct {
 	struct nk_image img;
-	char exec[256];
-} console_app_t;
-extern struct console_module app_module;
-
-typedef char *console_path_t;
-extern struct console_module path_module;
-
-typedef struct {
-	console_cmd_t *cmd;
-	console_app_t *app;
-	console_path_t *path;
+	char sstr[32]; //small string optimization
+	char *pstr;
 } console_search_entry_t;
 
-static inline console_search_entry_t
-get_search_line(vector_t *v, off_t idx)
+static inline const char *
+search_entry_get_string(const console_search_entry_t *entry)
 {
-	console_search_entry_t entry;
-	entry.cmd = (v->elemsize == sizeof(console_cmd_t)) ?
-		vector_at(v, idx) : NULL;
-	entry.app = (v->elemsize == sizeof(console_app_t)) ?
-		vector_at(v, idx) : NULL;
-	entry.path = (v->elemsize == sizeof(console_path_t)) ?
-		vector_at(v, idx) : NULL;
-	return entry;
+	return (entry->pstr) ? entry->pstr : &entry->sstr[0];
 }
+
+static inline void
+search_entry_move(console_search_entry_t *dst, console_search_entry_t *src)
+{
+	dst->img = src->img;
+	dst->pstr = src->pstr;
+	memcpy(dst->sstr, src->sstr, sizeof(src->sstr));
+	src->pstr = NULL;
+}
+
+extern void free_console_search_entry(void *);
+
+
+extern struct console_module cmd_module;
+extern struct console_module path_module;
+extern struct console_module app_module;
+
 
 #ifdef __cplusplus
 }

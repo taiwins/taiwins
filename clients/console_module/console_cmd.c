@@ -1,4 +1,5 @@
 #include <string.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <semaphore.h>
@@ -12,11 +13,31 @@
 #include "../console.h"
 
 
-/* exec an command, in the blocking mode */
+/**
+ * @brief command search is based on the first word
+ */
+static bool
+console_cmd_module_filter_test(const char *command, const char *candidate)
+{
+	const char *ptr = command;
+	while(*ptr && !isspace(*ptr))
+		ptr++;
+	return !strncmp(command, candidate, (ptr-command));
+}
+
 static int
 console_cmd_module_exec(struct console_module *module, const char *entry, char **result)
 {
 	vector_t buffer;
+	const char *ptr = entry;
+	*result = NULL;
+	//if the command is not known
+	while (*ptr && !isspace(*ptr))
+		ptr++;
+	if (raxFind(module->radix, (unsigned char *)entry,
+		    ptr-entry) == raxNotFound)
+		return -1;
+	//
 	vector_init_zero(&buffer, 1, NULL);
 	vector_resize(&buffer, 1000);
 
@@ -44,19 +65,26 @@ console_cmd_module_search(struct console_module *module, const char *to_search,
 
 	if (!module->radix)
 		return 0;
-	vector_init_zero(result, 256, NULL);
+	vector_init_zero(result, sizeof(console_search_entry_t),
+			 free_console_search_entry);
 
 	raxStart(&iter, module->radix);
-	//iterator behavior is not yet understanded, maybe wrong
-	if (raxSeek(&iter, ">=", (unsigned char *)to_search, strlen(to_search)) == 0)
+	//iterator behavior is not yet understood, maybe wrong
+	if (raxSeek(&iter, ">=", (unsigned char *)to_search,
+		    strlen(to_search)) == 0)
 		goto out;
 	while (raxNext(&iter)) {
 		if (strstr((char *)iter.key, to_search) != (char *)iter.key)
 			break;
-
-		char *cmd = vector_newelem(result);
-		memset(cmd, 0, sizeof(console_cmd_t));
-		strncpy(cmd, (char *)iter.key, MIN(255, iter.key_len));
+		console_search_entry_t *entry = vector_newelem(result);
+		if(iter.key_len < 32) {
+			strncpy(entry->sstr, (char *)iter.key, iter.key_len);
+			entry->sstr[iter.key_len] = '\0';
+			entry->pstr = NULL;
+		} else {
+			entry->pstr = calloc(1, iter.key_len+1);
+			strncpy(entry->pstr, (char *)iter.key, iter.key_len);
+		}
 	}
 out:
 	raxStop(&iter);
@@ -101,6 +129,7 @@ console_cmd_module_destroy(struct console_module *module)
 
 struct console_module cmd_module = {
 	.name = "MODULE_CMD",
+	.filter_test = console_cmd_module_filter_test,
 	.exec = console_cmd_module_exec,
 	.search = console_cmd_module_search,
 	.init_hook = console_cmd_module_init,
