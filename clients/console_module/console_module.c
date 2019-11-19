@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <string.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -56,43 +57,37 @@ cache_free(struct module_search_cache *cache)
 
 static void
 cache_filter(struct module_search_cache *cache,
-	     char *command, vector_t *v)
+	     char *command, vector_t *v,
+	     bool (*filter_test)(const char *cmd, const char *candidate))
 {
+	console_search_entry_t *entry = NULL;
 	int cmp = strcmp(cache->last_command, command);
+	printf("command: %s, last command %s, len (%d, %d) \n",
+	       command, cache->last_command, v->len, cache->last_results.len);
 
 	if (cmp == 0)
-		vector_copy(v, &cache->last_results);
-	//a more interesting case, results can be filtered locally
+		return;
 	else if (cmp < 0) {
-		vector_init_zero(v, cache->last_results.elemsize,
-				 cache->last_results.free);
-
-		for (int i = 0; i < cache->last_results.len; i++) {
-			console_search_entry_t entry =
-				get_search_line(&cache->last_results, i);
-			//for commands, we search whole string
-			if (entry.cmd && strstr(*entry.cmd, command) == *entry.cmd &&
-			    strcmp(command, *entry.cmd) <= 0)
-				vector_append(v, entry.cmd);
-			//for apps, lossily find
-			if (entry.app && strstr(entry.app->exec, command))
-				vector_append(v, entry.app);
-			//same as path
-			if (entry.path && strstr(*entry.path, command)) {
-				char *path = strdup(*entry.path);
-				vector_append(v, &path);
+		vector_init_zero(v, sizeof(console_search_entry_t),
+				 free_console_search_entry);
+		vector_for_each(entry, &cache->last_results) {
+			const char *str = search_entry_get_string(entry);
+			if (filter_test(command, str)) {
+				search_entry_move(vector_newelem(v), entry);
 			}
 		}
-	}
+	} else
+		assert(0);
+
 	cache_free(cache);
 	cache_takes(cache, v, command);
 }
 
 static inline bool
 cachable(const struct module_search_cache *cache,
-	 char *command) {
-	return command != NULL &&
-		cache->last_command != NULL &&
+	 char *command)
+{
+	return command != NULL && cache->last_command != NULL &&
 		strstr(command, cache->last_command) == command &&
 		strcmp(cache->last_command, command) <= 0;
 }
@@ -107,9 +102,7 @@ cachable(const struct module_search_cache *cache,
  * of commands, if the commands it produced is not taken, it needs to reset it
  * manually.
  *
- * It would be nice to have a cache method so we need not to call in search
- * every time. The main thread does not know whether results answers to the last
- * search; the threads however may lost their search.
+ * We have a general cache method to reduce the uncessary module searching.
  */
 void *
 thread_run_module(void *arg)
@@ -156,7 +149,8 @@ thread_run_module(void *arg)
 		pthread_mutex_unlock(&module->command_mutex);
 		//deal with cache first
 		if (module->support_cache && cachable(&cache, search_command))
-			cache_filter(&cache, search_command, &search_results);
+			cache_filter(&cache, search_command, &search_results,
+				module->filter_test);
 		else if (search_command) {
 			search_ret = module->search(module, search_command,
 						    &search_results);
@@ -171,6 +165,7 @@ thread_run_module(void *arg)
 		if (module->search_results.elems)
 			vector_destroy(&module->search_results);
 		module->search_results = search_results;
+		printf("search res len: %d\n", module->search_results.len);
 		module->search_ret = search_ret;
 		search_results = (vector_t){0};
 		search_ret = 0;
@@ -180,6 +175,14 @@ thread_run_module(void *arg)
 	}
 	cache_free(&cache);
 }
+
+static bool
+console_module_filter_test(const char *cmd, const char *entry)
+{
+	return (strstr(entry, cmd) == entry);
+}
+
+/******************************************************************************/
 
 void
 console_module_init(struct console_module *module,
@@ -193,6 +196,8 @@ console_module_init(struct console_module *module,
 		       (void *)module);
 	if (module->init_hook)
 		module->init_hook(module);
+	if (!module->filter_test)
+		module->filter_test = console_module_filter_test;
 }
 
 void
@@ -254,28 +259,21 @@ console_module_command(struct console_module *module,
 	//fprintf(stderr, "sem value now : %d\n", value);
 }
 
-static inline bool
-module_search_result_taken(const struct console_module *module)
-{
-	return (module->search_results.len == -1);
-}
-
 int
 console_module_take_search_result(struct console_module *module,
 				  vector_t *ret)
 {
 	int retcode = 0;
+
 	if (pthread_mutex_trylock(&module->results_mutex))
 		return 0;
-	//pthread_mutex_lock(&module->results_mutex);
-
-	//distinguish between no results and results taken
-	if (module_search_result_taken(module));
+	if (module->search_results.len == -1) //taken
+		;
 	else {
 		vector_destroy(ret);
 		*ret = module->search_results;
 		module->search_results = (vector_t){0};
-		module->search_results.len = -1;
+		module->search_results.len = -1; //taken
 		retcode = module->search_ret;
 		module->search_ret = 0;
 	}
@@ -303,6 +301,13 @@ console_module_take_exec_result(struct console_module *module,
 	return retcode;
 }
 
+void
+free_console_search_entry(void *m)
+{
+	console_search_entry_t *entry = m;
+	if (entry->pstr)
+		free(entry->pstr);
+}
 
 /******************************************************************************/
 static int
