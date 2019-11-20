@@ -10,6 +10,27 @@
 #include <vector.h>
 #include "../console.h"
 
+/******************************************************************************/
+static void
+search_entry_assign(void *dst, const void *src)
+{
+	console_search_entry_t *d = dst;
+	const console_search_entry_t *s = src;
+	*d = *s;
+	if (s->pstr)
+		d->pstr = strdup(s->pstr);
+}
+
+void
+free_console_search_entry(void *m)
+{
+	console_search_entry_t *entry = m;
+	if (entry->pstr)
+		free(entry->pstr);
+}
+
+/******************************************************************************/
+
 /**
  * @brief general scenario
  *
@@ -25,6 +46,7 @@ struct module_search_cache {
 	vector_t last_results;
 };
 
+
 static inline void
 cache_takes(struct module_search_cache *cache,
 	    vector_t *v, const char *command)
@@ -35,7 +57,8 @@ cache_takes(struct module_search_cache *cache,
 	if (cache->last_results.elems) {
 		vector_destroy(&cache->last_results);
 	}
-	vector_copy(&cache->last_results, v);
+	vector_copy_complex(&cache->last_results, v,
+			    search_entry_assign);
 }
 
 static inline void
@@ -62,8 +85,6 @@ cache_filter(struct module_search_cache *cache,
 {
 	console_search_entry_t *entry = NULL;
 	int cmp = strcmp(cache->last_command, command);
-	printf("command: %s, last command %s, len (%d, %d) \n",
-	       command, cache->last_command, v->len, cache->last_results.len);
 
 	if (cmp == 0)
 		return;
@@ -165,7 +186,6 @@ thread_run_module(void *arg)
 		if (module->search_results.elems)
 			vector_destroy(&module->search_results);
 		module->search_results = search_results;
-		printf("search res len: %d\n", module->search_results.len);
 		module->search_ret = search_ret;
 		search_results = (vector_t){0};
 		search_ret = 0;
@@ -301,13 +321,6 @@ console_module_take_exec_result(struct console_module *module,
 	return retcode;
 }
 
-void
-free_console_search_entry(void *m)
-{
-	console_search_entry_t *entry = m;
-	if (entry->pstr)
-		free(entry->pstr);
-}
 
 /******************************************************************************/
 static int
