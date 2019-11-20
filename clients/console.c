@@ -88,10 +88,10 @@ draw_search_results(struct nk_context *ctx,
 			vector_at(&console->modules, i);
 		//update the results if there is new stuff
 		int errcode = console_module_take_search_result(module, result);
-		if (errcode || result->len <= 0)
+		if (errcode || !result->len)
 			continue;
 		console_search_entry_t *entry = NULL;
-		printf("console search res len: %d\n", result->len);
+
 		search_res_header(ctx, module->name);
 		vector_for_each(entry, result) {
 			search_res_widget(ctx, 30, entry);
