@@ -122,7 +122,7 @@ should_start_console(struct weston_keyboard *keyboard, const struct timespec *ti
 
 	tw_console_send_start(lch->resource,
 				    wl_fixed_from_int(200),
-				    wl_fixed_from_int(100),
+				    wl_fixed_from_int(300),
 				    wl_fixed_from_int(1));
 }
 

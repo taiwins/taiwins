@@ -81,6 +81,8 @@ draw_search_results(struct nk_context *ctx,
 {
 	//now we checking the results, the results could be available in the
 	//keyup state. The events triggling could be a timer event or idle event, but anyway
+	nk_layout_row_dynamic(ctx, 200, 1);
+	nk_group_begin(ctx, "search_result", NK_WINDOW_SCALABLE);
 	for (int i = 0; i < console->modules.len; i++) {
 		vector_t *result =
 			vector_at(&console->search_results, i);
@@ -97,6 +99,7 @@ draw_search_results(struct nk_context *ctx,
 			search_res_widget(ctx, 30, entry);
 		}
 	}
+	nk_group_end(ctx);
 }
 
 /**
