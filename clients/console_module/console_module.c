@@ -11,11 +11,14 @@
 #include "../console.h"
 
 /******************************************************************************/
-static void
+void
 search_entry_assign(void *dst, const void *src)
 {
 	console_search_entry_t *d = dst;
 	const console_search_entry_t *s = src;
+
+	if (d->pstr)
+		free(d->pstr);
 	*d = *s;
 	if (s->pstr)
 		d->pstr = strdup(s->pstr);

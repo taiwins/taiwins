@@ -22,14 +22,6 @@
 #include "vector.h"
 
 
-//well, you could usually find icons in /usr/share/icons/hicolor/, which has a tons of icons
-//and you can generate caches for all those icons, need q quick way to compute hash though.
-struct completion_item {
-	struct nk_image icon;
-	char text[256];
-};
-
-
 static void
 submit_console(struct app_surface *surf)
 {
@@ -75,10 +67,13 @@ search_res_widget(struct nk_context *ctx, float height,
     return nk_button_label(ctx, str);
 }
 
-static void
+static console_search_entry_t
 draw_search_results(struct nk_context *ctx,
 		    struct desktop_console *console)
 {
+	console_search_entry_t selected;
+	memset(&selected, 0, sizeof(console_search_entry_t));
+
 	//now we checking the results, the results could be available in the
 	//keyup state. The events triggling could be a timer event or idle event, but anyway
 	nk_layout_row_dynamic(ctx, 200, 1);
@@ -96,10 +91,13 @@ draw_search_results(struct nk_context *ctx,
 
 		search_res_header(ctx, module->name);
 		vector_for_each(entry, result) {
-			search_res_widget(ctx, 30, entry);
+			if (search_res_widget(ctx, 30, entry)) {
+				search_entry_assign(&selected, entry);
+			}
 		}
 	}
 	nk_group_end(ctx);
+	return selected;
 }
 
 /**
@@ -122,7 +120,13 @@ draw_console(struct nk_context *ctx, float width, float height,
 	//issue commands only in key done state
 	if (nk_wl_get_keyinput(ctx) != XKB_KEY_NoSymbol)
 		issue_commands(console, &console->text_edit.string);
-	draw_search_results(ctx, console);
+	console_search_entry_t selected =
+		draw_search_results(ctx, console);
+	if (!search_entry_empty(&selected)) {
+		const char *line = search_entry_get_string(&selected);
+		nk_textedit_delete(&console->text_edit, 0, console->text_edit.string.len);
+		nk_textedit_text(&console->text_edit, line, strlen(line));
+	}
 
 	if (nk_wl_get_keyinput(ctx) == XKB_KEY_NoSymbol) //key up
 		return;
@@ -229,8 +233,6 @@ init_console(struct desktop_console *console)
 							  TW_CONSOLE_CONF_NUM_DECISIONS);
 	console->bkend = nk_cairo_create_bkend();
 	nk_textedit_init_fixed(&console->text_edit, console->chars, 256);
-	vector_init_zero(&console->completions,
-			 sizeof(struct completion_item), NULL);
 
 	struct console_module *module;
 	vector_t empty_res = {0};
@@ -258,7 +260,6 @@ end_console(struct desktop_console *console)
 	tw_console_destroy(console->interface);
 	wl_globals_release(&console->globals);
 
-	vector_destroy(&console->completions);
 	vector_destroy(&console->modules);
 	vector_destroy(&console->search_results);
 
