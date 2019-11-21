@@ -42,7 +42,6 @@ struct desktop_console {
 	//a good hack is that this text_edit is stateless, we don't need to
 	//store anything once submitte
 	struct nk_text_edit text_edit;
-	vector_t completions;
 
 	vector_t modules;
 	vector_t search_results; //search results from modules moves to here
@@ -107,6 +106,13 @@ typedef struct {
 	char *pstr;
 } console_search_entry_t;
 
+static inline bool
+search_entry_empty(const console_search_entry_t *entry)
+{
+	return strlen(entry->sstr) == 0 &&
+		entry->pstr == NULL;
+}
+
 static inline const char *
 search_entry_get_string(const console_search_entry_t *entry)
 {
@@ -122,6 +128,7 @@ search_entry_move(console_search_entry_t *dst, console_search_entry_t *src)
 	src->pstr = NULL;
 }
 
+extern void search_entry_assign(void *dst, const void *src);
 extern void free_console_search_entry(void *);
 
 

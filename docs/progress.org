@@ -213,14 +213,26 @@
     applies it to nk_wl_egl, it should be done very soon, so I can totally
     remove the deprecated functions.
 *** DONE nk_cairo_backend multiple font support
-** TODO [66%] launcher implementation
+** TODO [66%] console implementation
 *** DONE renaming launcher into console, since it will does much more than just launching
 *** DONE allow launcher to quit instead of launch weston-terminal all the time
-*** TODO the real launcher implementation
+*** TODO the real console implementation
+**** DONE take example of existing launcher application like (krunner, ulauncher...)
+**** DONE define console_module
+**** DOIN drawing console modules
+***** TODO debug the console module searching
+***** TODO connect the console module exec
+***** TODO replace button with selectables so you can do some control
+      
 ** DONE [100%] protocols                                              :proto:
 *** DONE `tw_output` protocols to represent logical output
-** TODO installing scripts
-   write cmake install commands
+
+** TODO installing scripts and publish
+   At this stage taiwins is working and very unusable. Though many future
+   developement needs to be done. But we should get voice out now.
+*** TODO chose the corect license and all that stuff.
+*** TODO write github pages
+*** TODO find a way to get the voice out
 
 * TODO [33%]Stage three: extensions
 ** TODO [0%] tw_theme protocol
@@ -288,6 +300,7 @@
     table.
 
 * TODO following up weston development
+** TODO eglstream patches
 ** TODO pipewire(can be used to stream wayland)
 ** TODO HDCP content protection
 
