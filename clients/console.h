@@ -45,6 +45,7 @@ struct desktop_console {
 
 	vector_t modules;
 	vector_t search_results; //search results from modules moves to here
+	uint32_t select_navigation[2]; //{module_idx, element_idx}
 };
 
 /**
