@@ -8,7 +8,7 @@
 #include <lauxlib.h>
 
 #include <vector.h>
-#include "../console.h"
+#include "console_module.h"
 
 /******************************************************************************/
 void
@@ -156,8 +156,10 @@ thread_run_module(void *arg)
 
 		//again, if results are not taken, we need to free it.
 		pthread_mutex_lock(&module->results_mutex);
-		if (module->exec_res)
+		if (module->exec_res) {
 			free(module->exec_res);
+			module->exec_res = NULL;
+		}
 		if (exec_res)
 			module->exec_res = exec_res;
 		module->exec_ret = exec_ret;
@@ -271,8 +273,8 @@ console_module_command(struct console_module *module,
 	}
 	if (exec && strlen(exec)) {
 		pthread_mutex_lock(&module->command_mutex);
-		if (module->search_command)
-			free(module->search_command);
+		if (module->exec_command)
+			free(module->exec_command);
 		module->exec_command = strdup(exec);
 		pthread_mutex_unlock(&module->command_mutex);
 		sem_post(&module->semaphore);
