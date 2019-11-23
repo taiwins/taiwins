@@ -10,7 +10,7 @@
 #include <rax.h>
 #include <vector.h>
 #include <helpers.h>
-#include "../console.h"
+#include "console_module.h"
 
 
 static int

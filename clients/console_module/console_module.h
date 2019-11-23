@@ -1,5 +1,5 @@
-#ifndef TW_CONSOLE_H
-#define TW_CONSOLE_H
+#ifndef TW_CONSOLE_MODULE_H
+#define TW_CONSOLE_MODULE_H
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -10,43 +10,18 @@
 
 #include <wayland-client.h>
 #include <wayland-taiwins-desktop-client-protocol.h>
+#include <os/file.h>
 #include <os/exec.h>
 
 #include <client.h>
 #include <ui.h>
 #include <rax.h>
 #include <nk_backends.h>
-#include "../shared_config.h"
-
-#include "common.h"
-#include "vector.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct desktop_console {
-	struct tw_console *interface;
-	struct tw_ui *proxy;
-	struct wl_globals globals;
-	struct app_surface surface;
-	struct shm_pool pool;
-	struct wl_buffer *decision_buffer;
-	struct nk_wl_backend *bkend;
-	struct wl_callback *exec_cb;
-	uint32_t exec_id;
-
-	off_t cursor;
-	char chars[256];
-	bool quit;
-	//a good hack is that this text_edit is stateless, we don't need to
-	//store anything once submitte
-	struct nk_text_edit text_edit;
-
-	vector_t modules;
-	vector_t search_results; //search results from modules moves to here
-	uint32_t select_navigation[2]; //{module_idx, element_idx}
-};
 
 /**
  * @brief a console module provides its set of features to the console

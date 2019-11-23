@@ -14,19 +14,41 @@
 #include <client.h>
 #include <ui.h>
 #include <rax.h>
+#include <sequential.h>
 #include <nk_backends.h>
 #include "../shared_config.h"
 
 #include "common.h"
-#include "console.h"
-#include "vector.h"
-
+#include "console_module/console_module.h"
 
 struct selected_search_entry {
 	console_search_entry_t entry;
 	struct console_module *module;
 };
 
+struct desktop_console {
+	struct tw_console *interface;
+	struct tw_ui *proxy;
+	struct wl_globals globals;
+	struct app_surface surface;
+	struct shm_pool pool;
+	struct wl_buffer *decision_buffer;
+	struct nk_wl_backend *bkend;
+	struct wl_callback *exec_cb;
+	uint32_t exec_id;
+
+	off_t cursor;
+	char chars[256];
+	bool quit;
+	//a good hack is that this text_edit is stateless, we don't need to
+	//store anything once submitte
+	struct nk_text_edit text_edit;
+
+	vector_t modules;
+	vector_t search_results; //search results from modules moves to here
+	struct selected_search_entry selected;
+	char *exec_result;
+};
 
 static void
 submit_console(struct app_surface *surf)
@@ -58,6 +80,8 @@ search_res_header(struct nk_context *ctx, const char *title)
 {
     /* nk_style_set_font(ctx, &media->font_18->handle); */
     nk_layout_row_dynamic(ctx, 20, 1);
+    /* struct nk_vec2 pos = nk_widget_position(ctx); */
+    /* fprintf(stderr, "pos: (%f, %f)\n", pos.x, pos.y); */
     nk_label(ctx, title, NK_TEXT_LEFT);
 }
 
@@ -70,6 +94,8 @@ search_res_widget(struct nk_context *ctx, float height,
     /* nk_style_set_font(ctx, &media->font_22->handle); */
     nk_layout_row(ctx, NK_DYNAMIC, height, 2, ratio);
     nk_spacing(ctx, 1);
+    /* struct nk_vec2 pos = nk_widget_size(ctx); */
+    /* fprintf(stderr, "bounds: (%f, %f)\n", pos.x, pos.y); */
     return nk_button_label(ctx, str);
 }
 
@@ -79,17 +105,13 @@ select_search_results(struct nk_context *ctx,
 		      struct desktop_console *console,
 		      struct selected_search_entry *selected)
 {
+	//we are drawing search results row by row.
+	//there are a few things we need to do here:
+	//1: offers user the ability to select the search results.
+	//2: show the search results correctly (offseting the scrollbar manually)
+	//3: search completetion and sorting, we can do neither of those now.
 	bool complete = false;
-	//don't change the selection here
-	if (nk_input_is_key_pressed(&ctx->input, NK_KEY_TAB))
-		complete = true;
-	else if (nk_input_is_key_pressed(&ctx->input, NK_KEY_DOWN))
-		console->select_navigation[1] += 1;
-	else if (nk_input_is_key_pressed(&ctx->input, NK_KEY_UP))
-		console->select_navigation[1] -=
-			(console->select_navigation[1] > 0) ? 1 : 0;
 
-	//TODO how to support key navigation?
 	nk_layout_row_dynamic(ctx, 200, 1);
 	nk_group_begin(ctx, "search_result", NK_WINDOW_SCALABLE);
 	for (int i = 0; i < console->modules.len; i++) {
@@ -127,24 +149,33 @@ draw_console(struct nk_context *ctx, float width, float height,
 	static enum EDITSTATE edit_state = NORMAL;
 	static char previous_tab[256] = {0};
 	bool completion = false;
-	struct selected_search_entry selected;
 	struct desktop_console *console =
 		container_of(surf, struct desktop_console, surface);
+	struct selected_search_entry *selected = &console->selected;
 
 	nk_layout_row_static(ctx, 30, width, 1);
-	nk_edit_buffer(ctx, NK_EDIT_FIELD, &console->text_edit, nk_filter_default);
+	nk_edit_buffer(ctx, NK_EDIT_FIELD, &console->text_edit,
+		       nk_filter_default);
 	//issue commands only in key done state
 	if (nk_wl_get_keyinput(ctx) != XKB_KEY_NoSymbol)
 		issue_commands(console, &console->text_edit.string);
-	completion = select_search_results(ctx, console, &selected);
+	completion = select_search_results(ctx, console, selected);
 	if (completion) {
-		const char *line = search_entry_get_string(&selected.entry);
+		const char *line =
+			search_entry_get_string(&selected->entry);
 		nk_textedit_delete(&console->text_edit, 0, console->text_edit.string.len);
 		nk_textedit_text(&console->text_edit, line, strlen(line));
 	}
-
 	if (nk_wl_get_keyinput(ctx) == XKB_KEY_NoSymbol) //key up
 		return;
+
+	/* if (nk_input_is_key_pressed(&ctx->input, NK_KEY_ENTER) && */
+	/*     nk_input_is_key_pressed(&ctx->input, NK_KEY_SHIFT)) { */
+	/*	//return and no closing */
+	/* } else if (nk_input_is_key_pressed(&ctx->input, NK_KEY_ENTER)) { */
+	/*	//return and closing */
+	/* } */
+
 	if (nk_wl_get_keyinput(ctx) == XKB_KEY_Return)
 		edit_state = SUBMITTING;
 	else
@@ -160,7 +191,6 @@ draw_console(struct nk_context *ctx, float width, float height,
 		memset(previous_tab, 0, sizeof(previous_tab));
 		break;
 	}
-	free_console_search_entry(&selected.entry);
 }
 
 static void
@@ -169,9 +199,7 @@ update_app_config(void *data,
 		  const char *app_name,
 		  uint32_t floating,
 		  wl_fixed_t scale)
-{
-
-}
+{}
 
 static void
 start_console(void *data, struct tw_console *tw_console,
@@ -196,23 +224,27 @@ start_console(void *data, struct tw_console *tw_console,
 }
 
 static void
-exec_application(void *data, struct tw_console *console, uint32_t id)
+exec_application(void *data, struct tw_console *tw_console, uint32_t id)
 {
-	struct desktop_console *desktop_console = data;
-	if (!strlen(desktop_console->chars))
-		return;
-	char *const forks[] = {desktop_console->chars, NULL};
+	struct desktop_console *console = data;
+	struct selected_search_entry *selected =
+		(console->selected.module) &&
+		!search_entry_empty(&console->selected.entry) ?
+		&console->selected : NULL;
 
-	if (id != desktop_console->exec_id) {
+	if (id != console->exec_id) {
 		fprintf(stderr, "exec order not consistant, something wrong.");
-	} else {
-		fprintf(stderr, "creating weston terminal");
+	} else if (selected){
+		console_module_command(selected->module, NULL,
+				       search_entry_get_string(&selected->entry));
+		free_console_search_entry(&selected->entry);
+		*selected = (struct selected_search_entry){0};
 		//parsing the input and command buffer. Then do it
-		fork_exec(1, forks);
+		/* fork_exec(1, forks); */
 	}
-	nk_textedit_init_fixed(&desktop_console->text_edit, desktop_console->chars, 256);
+	nk_textedit_init_fixed(&console->text_edit, console->chars, 256);
 
-	desktop_console->exec_id++;
+	console->exec_id++;
 }
 
 struct tw_console_listener console_impl = {
@@ -264,6 +296,7 @@ init_console(struct desktop_console *console)
 		    console_free_search_results);
 	vector_for_each(module, &console->modules)
 		vector_append(&console->search_results, &empty_res);
+	console->selected = (struct selected_search_entry){0};
 }
 
 static void

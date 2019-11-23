@@ -10,7 +10,7 @@
 #include <rax.h>
 #include <vector.h>
 #include <helpers.h>
-#include "../console.h"
+#include "console_module.h"
 
 
 /**
@@ -26,10 +26,12 @@ console_cmd_module_filter_test(const char *command, const char *candidate)
 }
 
 static int
-console_cmd_module_exec(struct console_module *module, const char *entry, char **result)
+console_cmd_module_exec(struct console_module *module, const char *entry,
+			char **result)
 {
 	vector_t buffer;
 	const char *ptr = entry;
+	int len = 0;
 	*result = NULL;
 	//if the command is not known
 	while (*ptr && !isspace(*ptr))
@@ -37,22 +39,28 @@ console_cmd_module_exec(struct console_module *module, const char *entry, char *
 	if (raxFind(module->radix, (unsigned char *)entry,
 		    ptr-entry) == raxNotFound)
 		return -1;
-	//
+
+	FILE *pipe = popen(entry, "re");//closeonexec
+	if (!pipe)
+		return -1;
+
+	fcntl(fileno(pipe), F_SETFL, O_NONBLOCK);
 	vector_init_zero(&buffer, 1, NULL);
 	vector_resize(&buffer, 1000);
 
-	FILE *pipe = popen(entry, "r");
-	//reads the
 	while (true) {
-		size_t read, to_read = buffer.alloc_len - buffer.len;
-		read = fread(vector_at(&buffer, buffer.len),
+		size_t read, to_read = buffer.len - len;
+		read = fread(vector_at(&buffer, len),
 			     buffer.elemsize, to_read, pipe);
+		len += read;
+		//ensure len is always smaller than buffer.len
 		if (read == to_read)
 			vector_resize(&buffer, buffer.len * 2);
-		if (feof(pipe) || ferror(pipe))
+		if (read == 0 || feof(pipe) || ferror(pipe))
 			break;
 	}
-	//it should return
+	*(char *)vector_at(&buffer, len) = '\0';
+	fprintf(stderr, "%s", (char *)buffer.elems);
 	*result = buffer.elems;
 	return pclose(pipe);
 }

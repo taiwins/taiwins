@@ -213,16 +213,19 @@
     applies it to nk_wl_egl, it should be done very soon, so I can totally
     remove the deprecated functions.
 *** DONE nk_cairo_backend multiple font support
-** TODO [66%] console implementation
+** TODO [80%] console implementation
 *** DONE renaming launcher into console, since it will does much more than just launching
 *** DONE allow launcher to quit instead of launch weston-terminal all the time
-*** TODO the real console implementation
-**** DONE take example of existing launcher application like (krunner, ulauncher...)
-**** DONE define console_module
-**** DOIN drawing console modules
-***** TODO debug the console module searching
-***** TODO connect the console module exec
-***** TODO replace button with selectables so you can do some control
+*** DONE take example of existing launcher application like (krunner, ulauncher...)
+*** DONE define console_module
+*** DOIN drawing console modules
+**** TODO offsetting search results
+     The idea here is simple, if we keep pressing DOWN(or UP), we would end up
+     going out of bounds, having the APP detecting that (or writing a GUI
+     helpers for that)
+**** TODO debug the console module searching
+**** TODO connect the console module exec
+**** TODO replace button with selectables so you can do some control
       
 ** DONE [100%] protocols                                              :proto:
 *** DONE `tw_output` protocols to represent logical output
