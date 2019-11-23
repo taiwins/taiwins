@@ -22,6 +22,12 @@
 #include "vector.h"
 
 
+struct selected_search_entry {
+	console_search_entry_t entry;
+	struct console_module *module;
+};
+
+
 static void
 submit_console(struct app_surface *surf)
 {
@@ -67,18 +73,27 @@ search_res_widget(struct nk_context *ctx, float height,
     return nk_button_label(ctx, str);
 }
 
-static console_search_entry_t
-draw_search_results(struct nk_context *ctx,
-		    struct desktop_console *console)
-{
-	console_search_entry_t selected;
-	memset(&selected, 0, sizeof(console_search_entry_t));
 
-	//now we checking the results, the results could be available in the
-	//keyup state. The events triggling could be a timer event or idle event, but anyway
+static bool
+select_search_results(struct nk_context *ctx,
+		      struct desktop_console *console,
+		      struct selected_search_entry *selected)
+{
+	bool complete = false;
+	//don't change the selection here
+	if (nk_input_is_key_pressed(&ctx->input, NK_KEY_TAB))
+		complete = true;
+	else if (nk_input_is_key_pressed(&ctx->input, NK_KEY_DOWN))
+		console->select_navigation[1] += 1;
+	else if (nk_input_is_key_pressed(&ctx->input, NK_KEY_UP))
+		console->select_navigation[1] -=
+			(console->select_navigation[1] > 0) ? 1 : 0;
+
+	//TODO how to support key navigation?
 	nk_layout_row_dynamic(ctx, 200, 1);
 	nk_group_begin(ctx, "search_result", NK_WINDOW_SCALABLE);
 	for (int i = 0; i < console->modules.len; i++) {
+		console_search_entry_t *entry = NULL;
 		vector_t *result =
 			vector_at(&console->search_results, i);
 		struct console_module *module =
@@ -87,17 +102,18 @@ draw_search_results(struct nk_context *ctx,
 		int errcode = console_module_take_search_result(module, result);
 		if (errcode || !result->len)
 			continue;
-		console_search_entry_t *entry = NULL;
 
 		search_res_header(ctx, module->name);
 		vector_for_each(entry, result) {
 			if (search_res_widget(ctx, 30, entry)) {
-				search_entry_assign(&selected, entry);
+				search_entry_assign(&selected->entry, entry);
+				selected->module = module;
+				complete = true;
 			}
 		}
 	}
 	nk_group_end(ctx);
-	return selected;
+	return complete;
 }
 
 /**
@@ -107,11 +123,11 @@ static void
 draw_console(struct nk_context *ctx, float width, float height,
 	     struct app_surface *surf)
 {
-	//TODO change the state machine
 	enum EDITSTATE {NORMAL, SUBMITTING};
 	static enum EDITSTATE edit_state = NORMAL;
 	static char previous_tab[256] = {0};
-
+	bool completion = false;
+	struct selected_search_entry selected;
 	struct desktop_console *console =
 		container_of(surf, struct desktop_console, surface);
 
@@ -120,10 +136,9 @@ draw_console(struct nk_context *ctx, float width, float height,
 	//issue commands only in key done state
 	if (nk_wl_get_keyinput(ctx) != XKB_KEY_NoSymbol)
 		issue_commands(console, &console->text_edit.string);
-	console_search_entry_t selected =
-		draw_search_results(ctx, console);
-	if (!search_entry_empty(&selected)) {
-		const char *line = search_entry_get_string(&selected);
+	completion = select_search_results(ctx, console, &selected);
+	if (completion) {
+		const char *line = search_entry_get_string(&selected.entry);
 		nk_textedit_delete(&console->text_edit, 0, console->text_edit.string.len);
 		nk_textedit_text(&console->text_edit, line, strlen(line));
 	}
@@ -145,6 +160,7 @@ draw_console(struct nk_context *ctx, float width, float height,
 		memset(previous_tab, 0, sizeof(previous_tab));
 		break;
 	}
+	free_console_search_entry(&selected.entry);
 }
 
 static void
