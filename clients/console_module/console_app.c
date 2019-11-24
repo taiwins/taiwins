@@ -1,77 +1,87 @@
-#include <string.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <semaphore.h>
-#include <dirent.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 
 #include <rax.h>
-#include <vector.h>
-#include <helpers.h>
+#include <desktop_entry.h>
 #include "console_module.h"
+#include "vector.h"
 
-
-struct xdg_entry {
-	char name[256]; //name, all lower case
-	char exec[256]; //exec commands
-	char icon[256];
-	bool terminal_app;
-	//have different action support
-};
-
-//very quick dirty method
-static inline bool
-is_section_name(const char *line)
+static inline void
+tolowers(char *line)
 {
-	return (*line == '[' && line[strlen(line)-1] == ']');
-}
-
-static inline bool
-is_empty_line(const char *line)
-{
-	return strlen(line) == 0;
+	for (; *line; line++) *line = tolower(*line);
 }
 
 
-static bool
-xdg_entry_from_file(const char *path, struct xdg_entry *entry)
+static int
+xdg_app_module_exec(struct console_module *module, const char *entry,
+		    char **result)
 {
-	FILE *file = NULL;
-	char *line = NULL;
-	size_t len = 0;
-
-	if (!is_file_exist(path))
-		return false;
-	file = fopen(path, "r");
-	if (!file)
-		return false;
-
-	while ((len = getline(&line, 0, file)) != -1) {
-		//get rid of comments first
-		char *comment_point = strstr(line, "#");
-		char *equal = NULL;
-		*comment_point = '\0';
-
-		if (is_empty_line(line))
-			goto free_line;
-		if (is_section_name(line))
-			goto free_line;
-		//get key value pair
-		equal = strstr(line, "=");
-		if (equal)
-			*equal = '\0';
+	return 0;
+}
 
 
+static int
+xdg_app_module_search(struct console_module *module, const char *to_search,
+		      vector_t *result)
+{
+	struct raxIterator iter;
+
+	if (!module->radix)
+		return 0;
+	//the search need to done for (strstr(x, to_search) for all x in my vec.)
+	//there should be a effective algorithm for that.
+
+	vector_init_zero(result, sizeof(console_search_entry_t),
+			 free_console_search_entry);
+
+	raxStart(&iter, module->radix);
+
+	return 0;
+}
 
 
-	free_line:
-		free(line);
-		line = NULL;
+static void
+xdg_app_module_init(struct console_module *module)
+{
+	vector_t *apps = module->user_data;
+
+	*apps = xdg_apps_gather();
+	module->radix = raxNew();
+	//insert into spaces
+	struct xdg_app_entry *app = NULL;
+	vector_for_each(app, apps) {
+		char *name = strdup(app->name);
+		tolowers(name);
+		raxInsert(module->radix, (unsigned char *)name, strlen(name),
+			  app, NULL);
+		free(name);
 	}
-	if (line)
-		free(line);
-
-	fclose(file);
 }
+
+
+static void
+xdg_app_module_destroy(struct console_module *module)
+{
+	raxFree(module->radix);
+	vector_destroy(module->user_data);
+}
+
+
+static vector_t xdg_app_vector;
+
+struct console_module app_module = {
+	.name = "MODULE_APP",
+	.exec = xdg_app_module_exec,
+	.search = xdg_app_module_search,
+	.init_hook = xdg_app_module_init,
+	.destroy_hook = xdg_app_module_destroy,
+	.support_cache = true,
+	.user_data = &xdg_app_vector,
+};

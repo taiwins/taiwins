@@ -31,6 +31,7 @@ add_executable(shell-console
   console.c
   console_module/console_module.c
   console_module/console_cmd.c
+  console_module/console_app.c
   )
 
 target_include_directories(shell-console PUBLIC
