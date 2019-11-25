@@ -3,6 +3,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <strops.h>
 #include <os/file.h>
 #include "../widget.h"
 #include <IconsFontAwesome5_c.h>
@@ -42,17 +43,17 @@ battery_anchor(struct shell_widget *widget, struct shell_widget_label *label)
 	float percent = (float)en / (float)ef;
 
 	if (ol == 1)
-		strncpy(label->label, ICON_FA_CHARGING_STATION, 256);
+		strop_ncpy(label->label, ICON_FA_CHARGING_STATION, 256);
 	else if (percent <= 0.1)
-		strncpy(label->label, ICON_FA_BATTERY_EMPTY, 256);
+		strop_ncpy(label->label, ICON_FA_BATTERY_EMPTY, 256);
 	else if (percent > 0.1 && percent <= 0.3)
-		strncpy(label->label, ICON_FA_BATTERY_QUARTER, 256);
+		strop_ncpy(label->label, ICON_FA_BATTERY_QUARTER, 256);
 	else if (percent > 0.3 && percent <= 0.6)
-		strncpy(label->label, ICON_FA_BATTERY_HALF, 256);
+		strop_ncpy(label->label, ICON_FA_BATTERY_HALF, 256);
 	else if (percent > 0.6 && percent <= 0.8)
-		strncpy(label->label, ICON_FA_BATTERY_THREE_QUARTERS, 256);
+		strop_ncpy(label->label, ICON_FA_BATTERY_THREE_QUARTERS, 256);
 	else
-		strncpy(label->label, ICON_FA_BATTERY_FULL, 256);
+		strop_ncpy(label->label, ICON_FA_BATTERY_FULL, 256);
 	return strlen(label->label);
 }
 
@@ -73,13 +74,13 @@ battery_sysfile_find(struct shell_widget *widget, char *path)
 	batt = dir_find_pattern(dir, "BAT%d", &bat_no);
 	if (!batt)
 		return 0;
-	strncpy(batt_file, batt->d_name, 128);
+	strop_ncpy(batt_file, batt->d_name, 128);
 	seekdir(dir, 0);
 
 	batt = dir_find_pattern(dir, "ADP%d", &adp_no);
 	if (!batt)
 		return 0;
-	strncpy(adp_file, batt->d_name, 128);
+	strop_ncpy(adp_file, batt->d_name, 128);
 	closedir(dir);
 
 	//we need to have additional checks

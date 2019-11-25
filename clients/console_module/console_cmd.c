@@ -10,6 +10,7 @@
 #include <rax.h>
 #include <vector.h>
 #include <helpers.h>
+#include <strops.h>
 #include "console_module.h"
 
 
@@ -86,12 +87,11 @@ console_cmd_module_search(struct console_module *module, const char *to_search,
 			break;
 		console_search_entry_t *entry = vector_newelem(result);
 		if(iter.key_len < 32) {
-			strncpy(entry->sstr, (char *)iter.key, iter.key_len);
-			entry->sstr[iter.key_len] = '\0';
+			strop_ncpy(entry->sstr, (char *)iter.key, iter.key_len+1);
 			entry->pstr = NULL;
 		} else {
 			entry->pstr = calloc(1, iter.key_len+1);
-			strncpy(entry->pstr, (char *)iter.key, iter.key_len);
+			strop_ncpy(entry->pstr, (char *)iter.key, iter.key_len+1);
 		}
 	}
 out:

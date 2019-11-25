@@ -196,6 +196,9 @@ thread_run_module(void *arg)
 		search_ret = 0;
 		pthread_mutex_unlock(&module->results_mutex);
 
+		/* int value; */
+		/* sem_getvalue(&module->semaphore, &value); */
+		/* fprintf(stderr, "sem value now : %d\n", value); */
 		sem_wait(&module->semaphore);
 	}
 	cache_free(&cache);
@@ -279,9 +282,9 @@ console_module_command(struct console_module *module,
 		pthread_mutex_unlock(&module->command_mutex);
 		sem_post(&module->semaphore);
 	}
-	//int value;
-	//sem_getvalue(&module->semaphore, &value);
-	//fprintf(stderr, "sem value now : %d\n", value);
+	/* int value; */
+	/* sem_getvalue(&module->semaphore, &value); */
+	/* fprintf(stderr, "sem value now : %d\n", value); */
 }
 
 int

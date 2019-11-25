@@ -7,6 +7,7 @@
 #include <string.h>
 #include <ctype.h>
 
+#include <strops.h>
 #include "config_internal.h"
 
 static inline bool
@@ -100,7 +101,7 @@ static bool
 parse_binding(struct taiwins_binding *b, const char *seq_string)
 {
 	char seq_copy[128];
-	strncpy(seq_copy, seq_string, 128);
+	strop_ncpy(seq_copy, seq_string, 128);
 	char *save_ptr;
 	char *c = strtok_r(seq_copy, " ,;", &save_ptr);
 	int count = 0;
@@ -288,7 +289,7 @@ _lua_set_bytype(lua_State *L, int pos, enum taiwins_option_type type,
 		listener->arg.i = lua_tonumber(L, pos);
 		break;
 	case TW_OPTION_STR:
-		strncpy((char *)listener->arg.s, lua_tostring(L, pos), 128);
+		strop_ncpy((char *)listener->arg.s, lua_tostring(L, pos), 128);
 		break;
 	case TW_OPTION_BOOL:
 		listener->arg.u = lua_toboolean(L, pos);

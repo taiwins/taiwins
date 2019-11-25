@@ -11,6 +11,7 @@
 
 #include <wayland-server.h>
 #include <wayland-util.h>
+#include <strops.h>
 #include <sequential.h>
 #include "../server/config.h"
 
@@ -77,9 +78,9 @@ _lua_parse_menu(struct lua_State *L, vector_t *menus)
 	if (_lua_is_menu_item(L, -1)) {
 		lua_rawgeti(L, -1, 1);
 		lua_rawgeti(L, -2, 2);
-		strncpy(menu_item.endnode.title, lua_tostring(L, -2),
+		strop_ncpy(menu_item.endnode.title, lua_tostring(L, -2),
 			TAIWINS_MAX_MENU_ITEM_NAME);
-		strncpy(menu_item.endnode.cmd, lua_tostring(L, -1),
+		strop_ncpy(menu_item.endnode.cmd, lua_tostring(L, -1),
 			TAIWINS_MAX_MENU_CMD_LEN);
 		lua_pop(L, 2);
 		vector_append(menus, &menu_item);
