@@ -1,3 +1,4 @@
+#include <strops.h>
 #include "shell.h"
 
 
@@ -37,7 +38,7 @@ static void
 desktop_shell_setup_wallpaper(struct desktop_shell *shell, const char *path)
 {
 	if (is_file_exist(path))
-		strncpy(shell->wallpaper_path, path, 127);
+		strop_ncpy(shell->wallpaper_path, path, 128);
 	for (int i = 0; i < desktop_shell_n_outputs(shell); i++) {
 		struct app_surface *bg =
 			&shell->shell_outputs[i].background;

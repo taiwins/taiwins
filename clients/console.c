@@ -14,6 +14,7 @@
 #include <client.h>
 #include <ui.h>
 #include <rax.h>
+#include <strops.h>
 #include <sequential.h>
 #include <nk_backends.h>
 #include "../shared_config.h"
@@ -68,9 +69,9 @@ issue_commands(struct desktop_console *console,
 {
 	struct console_module *module = NULL;
 	char command[256] = {0};
-
-	strncpy(command, (char *)str->buffer.memory.ptr,
-		MIN(255, str->len));
+	//careful here, cannot copy the all the command
+	strop_ncpy(command, (char *)str->buffer.memory.ptr,
+		MIN(256, str->len+1));
 	vector_for_each(module, &console->modules)
 		console_module_command(module, command, NULL);
 }

@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <wayland-util.h>
 #include <wayland-server.h>
+#include <strops.h>
 #include <helpers.h>
 #include <sequential.h>
 #include <wayland-taiwins-desktop-server-protocol.h>
@@ -547,7 +548,7 @@ task_switch_grab_key(struct weston_keyboard_grab *grab,
 			container_of(link, struct recent_view, link);
 		struct weston_desktop_surface *surface =
 			weston_surface_get_desktop_surface(rv->view->surface);
-		strncpy(brief->name, weston_desktop_surface_get_title(surface),
+		strop_ncpy(brief->name, weston_desktop_surface_get_title(surface),
 			sizeof(brief->name));
 		recent_view_get_origin_coord(rv, &brief->x, &brief->y);
 		brief->w = rv->view->surface->width;

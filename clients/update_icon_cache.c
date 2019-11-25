@@ -12,6 +12,7 @@
 #include <linux/limits.h>
 #include <fcntl.h>
 
+#include <strops.h>
 #include <os/file.h>
 #include <sequential.h>
 #include <image_cache.h>
@@ -156,7 +157,7 @@ search_theme(const struct icon_cache_config *config,
 			    entry->d_type == DT_DIR &&
 			    resx <= config->res) {
 				char *path = vector_newelem(to_search[i].res);
-				strncpy(path, entry->d_name, 256);
+				strop_ncpy(path, entry->d_name, 256);
 			}
 		}
 		closedir(dir);
@@ -199,7 +200,7 @@ path_to_node(char output[256], const char *input)
 	char *copy = strdup(input);
 	char *base = basename(copy);
 	//remove png at the tail.
-	strncpy(output, base, 255);
+	strop_ncpy(output, base, 256);
 	free(copy);
 }
 

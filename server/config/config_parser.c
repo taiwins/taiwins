@@ -7,6 +7,7 @@
 #include <sequential.h>
 #include <tree.h>
 #include <unistd.h>
+#include <strops.h>
 #include "config_internal.h"
 
 struct event_map {
@@ -193,7 +194,7 @@ parse_one_press(const char *code_str, const enum tw_binding_type type,
 	int count = 0;
 
 	*modifier = 0;
-	strncpy(str_cpy, code_str, sizeof(str_cpy));
+	strop_ncpy(str_cpy, code_str, sizeof(str_cpy));
 	if (*code_str == '-' || *(code_str+strlen(code_str)-1) == '-')
 		return false;
 

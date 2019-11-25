@@ -12,6 +12,7 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <linux/input.h>
 
+#include <strops.h>
 #include "config_internal.h"
 
 //////////////////////////////////////////////////////////////////
@@ -293,7 +294,7 @@ taiwins_run_config(struct taiwins_config *config, const char *path)
 {
 	bool error = false;
 	if (path) {
-		strncpy(config->path, path, 127);
+		strop_ncpy(config->path, path, 128);
 	}
 	//create temporary resource
 	struct tw_bindings *bindings = tw_bindings_create(config->compositor);
@@ -377,7 +378,7 @@ taiwins_config_add_option_listener(struct taiwins_config *config, const char *ke
 	}
 	if (new_option) {
 		opt = vector_newelem(&config->option_hooks);
-		strncpy(opt->key, key, 32);
+		strop_ncpy(opt->key, key, 32);
 		wl_list_init(&opt->listener_list);
 	}
 	wl_list_init(&listener->link);
