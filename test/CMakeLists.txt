@@ -136,8 +136,9 @@ target_link_libraries(test_raxinsert
 add_executable(test_readtheme
   test_read_theme.c)
 
-target_include_directories(test_readtheme
+target_include_directories(test_readtheme PRIVATE
   ${CLIENT_INCLUDE_DIRS})
 
 target_link_libraries(test_readtheme
+  ${TRDPTY_LIBRARIES}
   ${CLIENT_LIBRARIES})
