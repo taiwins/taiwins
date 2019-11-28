@@ -289,6 +289,7 @@ init_console(struct desktop_console *console)
 	vector_init(&console->modules, sizeof(struct console_module),
 		    console_release_module);
 	//adding modules
+	vector_append(&console->modules, &app_module);
 	vector_append(&console->modules, &cmd_module);
 	vector_for_each(module, &console->modules)
 		console_module_init(module, console); //thread created
