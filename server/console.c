@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sequential.h>
 #include <wayland-server.h>
-#include <wayland-taiwins-desktop-server-protocol.h>
+#include <wayland-taiwins-console-server-protocol.h>
 
 #include "taiwins.h"
 #include "desktop.h"

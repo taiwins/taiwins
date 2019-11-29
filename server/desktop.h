@@ -3,7 +3,7 @@
 
 #include <wayland-server.h>
 #include <sequential.h>
-#include <wayland-taiwins-desktop-server-protocol.h>
+#include <wayland-taiwins-shell-server-protocol.h>
 #include "bindings.h"
 
 #ifdef  __cplusplus

@@ -8,7 +8,7 @@
 #include <strops.h>
 #include <helpers.h>
 #include <sequential.h>
-#include <wayland-taiwins-desktop-server-protocol.h>
+#include <wayland-taiwins-shell-server-protocol.h>
 
 #define INCLUDE_DESKTOP
 #include "../../shared_config.h"
