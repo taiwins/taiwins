@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <wayland-server.h>
-#include <wayland-taiwins-desktop-server-protocol.h>
+#include <wayland-taiwins-shell-server-protocol.h>
 #include <helpers.h>
 #include <time.h>
 #include <linux/input.h>

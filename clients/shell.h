@@ -9,7 +9,7 @@
 #include <linux/input.h>
 #include <cairo/cairo.h>
 #include <poll.h>
-#include <wayland-taiwins-desktop-client-protocol.h>
+#include <wayland-taiwins-shell-client-protocol.h>
 #include <wayland-client.h>
 #include <sequential.h>
 #include <os/file.h>

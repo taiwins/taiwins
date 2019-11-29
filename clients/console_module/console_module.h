@@ -9,7 +9,6 @@
 #include <semaphore.h>
 
 #include <wayland-client.h>
-#include <wayland-taiwins-desktop-client-protocol.h>
 #include <os/file.h>
 #include <os/exec.h>
 

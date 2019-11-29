@@ -1,13 +1,23 @@
 include(Wayland)
 
 WAYLAND_ADD_PROTOCOL_CLIENT(proto_twshell_client
-  taiwins_desktop.xml
-  taiwins-desktop
+  taiwins_shell.xml
+  taiwins-shell
   )
 
 WAYLAND_ADD_PROTOCOL_SERVER(proto_twshell_server
-  taiwins_desktop.xml
-  taiwins-desktop
+  taiwins_shell.xml
+  taiwins-shell
+  )
+
+WAYLAND_ADD_PROTOCOL_CLIENT(proto_twconsole_client
+  taiwins_console.xml
+  taiwins-console
+  )
+
+WAYLAND_ADD_PROTOCOL_SERVER(proto_twconsole_server
+  taiwins_console.xml
+  taiwins-console
   )
 
 WAYLAND_ADD_PROTOCOL_SERVER(proto_twtheme_server
@@ -17,10 +27,12 @@ WAYLAND_ADD_PROTOCOL_SERVER(proto_twtheme_server
 
 add_library(proto_client_libraries STATIC
   ${proto_twshell_client}
+  ${proto_twconsole_client}
   )
 
 add_library(proto_server_libraries STATIC
   ${proto_twshell_server}
+  ${proto_twconsole_server}
   ${proto_twtheme_server}
   )
 

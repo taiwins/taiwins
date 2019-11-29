@@ -11,7 +11,8 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include <wayland-client.h>
-#include <wayland-taiwins-desktop-client-protocol.h>
+#include <wayland-taiwins-shell-client-protocol.h>
+#include <wayland-taiwins-console-client-protocol.h>
 
 #include <os/exec.h>
 #include <client.h>
