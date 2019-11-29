@@ -46,7 +46,6 @@ xdg_app_module_exec(struct console_module *module, const char *entry,
 	char *name = strop_ltrim((char *)entry);
 	char execpy[256];
 	char *argv[128] = {0};
-	int closepid;
 
 	vector_for_each(app, (vector_t *)module->user_data) {
 		if (strcasecmp(name, app->name) == 0)
@@ -81,7 +80,6 @@ xdg_app_module_search(struct console_module *module, const char *to_search,
 	//TODO replace this brute force with a more efficient algorithm
 	vector_for_each(app, (vector_t *)module->user_data) {
 		if (strcasestr(app->name, to_search)) {
-			printf("app name: %s, search: %s\n", app->name, to_search);
 			console_search_entry_t *entry =
 				vector_newelem(result);
 			if (strlen(app->name) < 32) {
@@ -94,6 +92,12 @@ xdg_app_module_search(struct console_module *module, const char *to_search,
 	//now we can have a sort, but it requires edit distance
 	/* qsort_r(result->elems, result->len, result->elemsize, NULL, to_search); */
 	return 0;
+}
+
+static bool
+xdg_app_filter(const char *command, const char *last)
+{
+	return strcasestr(last, command) != NULL;
 }
 
 
@@ -131,6 +135,7 @@ struct console_module app_module = {
 	.search = xdg_app_module_search,
 	.init_hook = xdg_app_module_init,
 	.destroy_hook = xdg_app_module_destroy,
-	.support_cache = false,
+	.filter_test = xdg_app_filter,
+	.support_cache = true,
 	.user_data = &xdg_app_vector,
 };

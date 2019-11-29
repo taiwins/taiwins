@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <signal.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
@@ -9,8 +12,8 @@
 
 #include <wayland-client.h>
 #include <wayland-taiwins-desktop-client-protocol.h>
-#include <os/exec.h>
 
+#include <os/exec.h>
 #include <client.h>
 #include <ui.h>
 #include <rax.h>
@@ -270,8 +273,16 @@ console_free_search_results(void *m)
 
 
 static void
+free_defunct_app(int signum)
+{
+	int wstatus;
+	wait(&wstatus);
+}
+
+static void
 init_console(struct desktop_console *console)
 {
+	signal(SIGCHLD, free_defunct_app);
 	memset(console->chars, 0, sizeof(console->chars));
 	console->quit = false;
 	shm_pool_init(&console->pool, console->globals.shm,
