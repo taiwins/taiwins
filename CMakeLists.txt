@@ -6,8 +6,10 @@ project(taiwins
 
 
 #####################################################################
-##############setup all the variables, standdards####################
+############### setup all the options, standdards####################
 #####################################################################
+
+option(BUILD_DOC "Build documentation" OFF)
 
 add_definitions(-D_GNU_SOURCE)
 set(CMAKE_C_STANDARD 11)
@@ -54,6 +56,8 @@ find_package(NVEGL)
 find_package(fontconfig REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(PAM REQUIRED)
+find_package(Doxygen COMPONENTS dot
+  OPTIONAL_COMPONENTS mscgen dia)
 
 set(CMAKE_THREAD_PREFER_PTHREAD)
 find_package(Threads REQUIRED)
@@ -64,8 +68,6 @@ if(NVEGL_FOUND)
 else()
   message("we are building with mesa opengl")
 endif(NVEGL_FOUND)
-
-
 
 
 #####################################################################
@@ -154,3 +156,30 @@ add_subdirectory(protocols)
 add_subdirectory(server)
 add_subdirectory(test)
 add_subdirectory(clients)
+
+#####################################################################
+if (DOXYGEN_FOUND AND BUILD_DOC)
+  message("Doxygen started")
+  set(DOXYGEN_CALL_GRAPH YES)
+  set(DOXYGEN_CALLER_GRAPH YES)
+  set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/docs)
+  set(DOXYGEN_EXCLUDE_PATTERNS
+    "*/cmake/*"
+    "*/nuklear/*"
+    "*/stb/*"
+    "*/test/*")
+
+  doxygen_add_docs(doxygen
+    ${PROJECT_SOURCE_DIR}/server
+    ${PROJECT_SOURCE_DIR}/clients
+    ${PROJECT_SOURCE_DIR}/3rdparties/twclient
+    )
+
+  add_custom_target(doc_doxygen ALL
+    COMMAND Doxygen::doxygen Doxyfile.doxygen
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Generating API documentation with Doxygen"
+    )
+
+
+endif()
