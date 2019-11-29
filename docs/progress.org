@@ -37,7 +37,7 @@
 
 *** DONE change the ui element start or close implimentation
 
-* TODO [57%] Stage two: feature completion
+* TODO [85%] Stage two: feature completion
   - supporting multiple monitors/seats.
   - weston view focus defocus
   - a few different extensions.
@@ -45,12 +45,12 @@
   - different layouting support
   - resize EGL windows.
   - compositing
-** TODO [91%] [staged] server-side optimization
+** DONE [100%] [staged] server-side optimization
 *** DONE setup the xkb context, again, related to [[configuration]]
     it is done by calling `weston_compositor_set_xkb_rule_names` which will not
     take any effect since the implementation right now will not do anything at
     runtime. Find a way to convince the weston guys to merge the patch.
-*** DOIN [#B] passing server events to shell, switch workspace. e.g.
+*** DONE [#B] passing server events to shell, switch workspace. e.g.
     - switch workspace.
     - keybindings activated, this is a bit hard, you need to add callbacks in
       the binding system. Or maybe cancel this feature.
@@ -213,19 +213,19 @@
     applies it to nk_wl_egl, it should be done very soon, so I can totally
     remove the deprecated functions.
 *** DONE nk_cairo_backend multiple font support
-** TODO [80%] console implementation
+** DONE [100%] console implementation
 *** DONE renaming launcher into console, since it will does much more than just launching
 *** DONE allow launcher to quit instead of launch weston-terminal all the time
 *** DONE take example of existing launcher application like (krunner, ulauncher...)
 *** DONE define console_module
-*** DOIN drawing console modules
-**** TODO offsetting search results
+*** DONE drawing console modules
+**** CANC offsetting search results
      The idea here is simple, if we keep pressing DOWN(or UP), we would end up
      going out of bounds, having the APP detecting that (or writing a GUI
      helpers for that)
-**** TODO debug the console module searching
-**** TODO connect the console module exec
-**** TODO replace button with selectables so you can do some control
+**** DONE debug the console module searching
+**** DONE connect the console module exec
+**** CANC replace button with selectables so you can do some control
       
 ** DONE [100%] protocols                                              :proto:
 *** DONE `tw_output` protocols to represent logical output
@@ -235,14 +235,20 @@
    developement needs to be done. But we should get voice out now.
 *** TODO chose the corect license and all that stuff.
 *** TODO write github pages
+*** TODO add CI
 *** TODO find a way to get the voice out
 
-* TODO [33%]Stage three: extensions
-** TODO [0%] tw_theme protocol
+* TODO [20%] Stage three: extensions/ post-pub features
+** TODO ADD DAMAGE SUPPORT in drawing!
+** TODO [40%] tw_theme protocol
 *** DONE creating the taiwins_theme header
 *** TODO tw_theme protocol
-*** TODO c files, you probably need to work with Json-c
-
+*** CANC c files, you probably need to work with Json-c
+*** TODO Add multiple font support
+    one icon one ascii font isn't really the best way to handle fonts(the text
+    handling code I wrote just to have two fonts working is crazy). Projects
+    like nerd-font is a sign that we can incorperate multiple emoji/symbols into
+    text.
 ** TODO patch 3rdparty libraries
    weston: output configure in the run time.
 ** TODO [0%] Tasks didn't finish in stage 2
@@ -269,10 +275,19 @@
     right click and left click provides different functions
     - preferably right click open an menu and left click opens selection.
     - for this work you need the support for resizing
-*** TODO better locker
+*** TODO better locker/using dot instead of stars
+*** TODO nku_branch 
+    For many widgets to work smoothly it is ensentially to have wrapper around
+    nuklear, have a branch to give some common routines. Then you can easily
+    finish decorating consoles
+*** TODO load only necessary icons
+    we load every thing now, it crashes for themes like deepin, which has
+    millions of icons out there. Chances are, you are not needing them.
+*** TODO create file type for taiwins icon cache.
+    
 
 ** TODO possibly remove dynamic allocated objects
-    reduce number of mallocs and memory fragmentation.
+    reduce number of mallocs and memory fragmentation(I just added a lot in console)
     - recent_view
     - tiling_view tree
     - tiling_output_list where it has a root of tiling
