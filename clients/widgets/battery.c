@@ -6,7 +6,6 @@
 #include <strops.h>
 #include <os/file.h>
 #include "../widget.h"
-#include <IconsFontAwesome5_c.h>
 
 
 //256 should be more than enough
@@ -43,17 +42,17 @@ battery_anchor(struct shell_widget *widget, struct shell_widget_label *label)
 	float percent = (float)en / (float)ef;
 
 	if (ol == 1)
-		strop_ncpy(label->label, ICON_FA_CHARGING_STATION, 256);
+		strop_ncpy(label->label, u8"\uf5e7", 256); //charging
 	else if (percent <= 0.1)
-		strop_ncpy(label->label, ICON_FA_BATTERY_EMPTY, 256);
+		strop_ncpy(label->label, u8"\uf244", 256); //battery empty
 	else if (percent > 0.1 && percent <= 0.3)
-		strop_ncpy(label->label, ICON_FA_BATTERY_QUARTER, 256);
+		strop_ncpy(label->label, u8"\uf243", 256); //battery quarter
 	else if (percent > 0.3 && percent <= 0.6)
-		strop_ncpy(label->label, ICON_FA_BATTERY_HALF, 256);
+		strop_ncpy(label->label, u8"\uf242", 256); //battery half
 	else if (percent > 0.6 && percent <= 0.8)
-		strop_ncpy(label->label, ICON_FA_BATTERY_THREE_QUARTERS, 256);
+		strop_ncpy(label->label, u8"\uf241", 256); //three quater
 	else
-		strop_ncpy(label->label, ICON_FA_BATTERY_FULL, 256);
+		strop_ncpy(label->label,  u8"\uf240", 256); //full
 	return strlen(label->label);
 }
 

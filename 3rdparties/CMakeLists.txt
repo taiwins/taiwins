@@ -1,11 +1,11 @@
 ################# 3rdparties ####################
 
-add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparties/twclient")
-add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparties/iconheader")
-add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparties/nklua")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/twclient")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/iconheader")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/nklua")
 
 #################### rax ########################
-set(RAX_DIR "${CMAKE_SOURCE_DIR}/3rdparties/rax")
+set(RAX_DIR "${CMAKE_CURRENT_SOURCE_DIR}/rax")
 find_path(RAX_INCLUDE_DIR rax.h
   HINTS ${RAX_DIR})
 
@@ -18,3 +18,5 @@ target_include_directories(rax PUBLIC ${RAX_INCLUDE_DIR})
 
 target_link_libraries(rax PRIVATE
   m)
+
+#################### rax ########################
