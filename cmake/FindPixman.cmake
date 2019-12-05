@@ -29,12 +29,20 @@ set_package_properties(Pixman PROPERTIES
    DESCRIPTION "Low-level software library for pixel manipulation")
 
 find_package(PkgConfig)
-pkg_check_modules(PC_PIXMAN QUIET pixman-1)
-find_library(PIXMAN_LIBRARIES NAMES pixman-1 HINTS ${PC_PIXMAN_LIBRARY_DIRS})
-find_path(PIXMAN_INCLUDE_DIRS NAMES pixman.h PATH_SUFFIXES pixman-1 HINTS ${PC_PIXMAN_INCLUDE_DIRS})
-
-set(PIXMAN_DEFINITIONS ${PC_PIXMAN_CFLAGS_OTHER})
-
+pkg_check_modules(PIXMAN QUIET pixman-1)
+find_library(PIXMAN_LOCATION NAMES pixman-1 HINTS ${PIXMAN_LIBRARY_DIRS})
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(PIXMAN DEFAULT_MSG PIXMAN_LIBRARIES PIXMAN_INCLUDE_DIRS)
+
+if (PIXMAN_FOUND AND NOT TARGET Pixman::Pixman)
+  add_library(Pixman::Pixman UNKNOWN IMPORTED)
+  set_target_properties(Pixman::Pixman PROPERTIES
+    IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+    IMPORTED_LOCATION "${PIXMAN_LOCATION}"
+    INTERFACE_LINK_DIRECTORIES "${PIXMAN_LIBRARY_DIRS}"
+    INTERFACE_LINK_LIBRARIES "${PIXMAN_LIBRARIES}"
+    INTERFACE_INCLUDE_DIRECTORIES "${PIXMAN_INCLUDE_DIRS}"
+    )
+endif()
+
 mark_as_advanced(PIXMAN_INCLUDE_DIRS PIXMAN_LIBRARIES PIXMAN_DEFINITIONS)

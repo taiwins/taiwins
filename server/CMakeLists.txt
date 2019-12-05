@@ -1,7 +1,6 @@
-include_directories(
-  ${COMPOSITOR_INCLUDE_DIRS}
-  ${PROTOCOLS_INCLUDE_DIR}
-  )
+################################################################################
+# library
+################################################################################
 
 add_library(twcore STATIC
   backend.c
@@ -31,42 +30,55 @@ add_library(twdesktop STATIC
   desktop/workspace.c
   )
 
-target_link_libraries(twcore
-  ${COMPOSITOR_LIBRARIES}
+target_link_libraries(twcore PUBLIC
+  Wayland::Server
+  Libweston::Libweston
+  LibInput::LibInput
+  Lua::Lua
+  Pixman::Pixman
+  XKBCommon::XKBCommon
+  ctypes
   )
 
-target_link_libraries(twshell PRIVATE
-  twcore)
-
-target_link_libraries(twconsole PRIVATE
-  twcore)
-
-target_link_libraries(twdesktop PRIVATE
-  twcore)
-
-target_link_libraries(twtheme PRIVATE
-  twcore)
-
-target_include_directories(twdesktop PRIVATE
-  ${COMPOSITOR_INCLUDE_DIRS}
-  ${PROTOCOLS_INCLUDE_DIR}
+target_link_libraries(twshell PUBLIC
+  twcore
+  protos-server
   )
 
-############################################
-## taiwins executable
-############################################
+target_link_libraries(twconsole PUBLIC
+  twcore
+  protos-server
+  )
+
+target_link_libraries(twdesktop PUBLIC
+  Libweston::Desktop
+  twcore
+  protos-server
+  )
+
+target_link_libraries(twtheme PUBLIC
+  twcore
+  protos-server
+  )
+
+################################################################################
+# executable
+################################################################################
 
 add_executable(taiwins
   main.c
   )
 
 target_link_libraries(taiwins
-  ${COMPOSITOR_LIBRARIES}
-  ${TRDPTY_LIBRARIES}
   twcore
   twshell
   twconsole
   twdesktop
   twtheme
-  proto_server_libraries
   )
+
+################################################################################
+# install
+################################################################################
+include(GNUInstallDirs)
+install(TARGETS taiwins DESTINATION ${CMAKE_INSTALL_BINDIR})

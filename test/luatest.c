@@ -8,7 +8,7 @@
 #include <lauxlib.h>
 #include <lualib.h>
 
-#include "../server/config.h"
+/* #include "../server/config.h" */
 
 
 //the basic lua functions

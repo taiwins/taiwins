@@ -1,4 +1,4 @@
-add_executable(shell-taiwins
+add_executable(taiwins-shell
   shell.c
   shell_bg.c
   shell_panel.c
@@ -11,49 +11,44 @@ add_executable(shell-taiwins
   widget_lua.c
   )
 
-target_include_directories(shell-taiwins PUBLIC
-  ${CLIENT_INCLUDE_DIRS}
-  ${PROTOCOLS_INCLUDE_DIR}
-  ${TRDPTY_INCLUDE_DIRS}
-  ${LOVE_NK_SRC_DIR}
-  )
-
-target_link_libraries(shell-taiwins
-  nk_cairo_backend
-  ${CLIENT_LIBRARIES}
-  ${TRDPTY_LIBRARIES}
-  ${WAYLAND_CURSOR_LIBRARIES}
+target_link_libraries(taiwins-shell
+  protos-client
+  twclient::nkcairo
+  Wayland::Cursor
+  nuklear::love
+  PAM::PAM
   m
-  proto_client_libraries
   )
 
-add_executable(shell-console
+add_executable(taiwins-console
   console.c
   console_module/console_module.c
   console_module/console_cmd.c
   console_module/console_app.c
   )
 
-target_include_directories(shell-console PUBLIC
-  ${CLIENT_INCLUDE_DIRS}
-  ${PROTOCOLS_INCLUDE_DIR}
-  ${TRDPTY_INCLUDE_DIRS}
-  )
-
-target_link_libraries(shell-console
-  nk_cairo_backend
-  ${CLIENT_LIBRARIES}
-  ${TRDPTY_LIBRARIES}
-  ${WAYLAND_CURSOR_LIBRARIES}
+target_link_libraries(taiwins-console
+  protos-client
+  twclient::nkcairo
+  twclient::icons
+  Wayland::Cursor
+  Threads::Threads
+  Lua::Lua
   rax
   m
-  proto_client_libraries
   )
 
-add_executable(taiwins_update_icon_cache
-  update_icon_cache.c)
-
-
-target_link_libraries(taiwins_update_icon_cache
-  nk_cairo_backend
+add_executable(taiwins-update-icon-cache
+  update_icon_cache.c
   )
+target_link_libraries(taiwins-update-icon-cache
+  twclient::icons
+  twclient::nkcairo
+  )
+
+################################################################################
+# install
+################################################################################
+include(GNUInstallDirs)
+install(TARGETS taiwins-shell taiwins-console taiwins-update-icon-cache
+  DESTINATION ${CMAKE_INSTALL_BINDIR})

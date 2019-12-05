@@ -1,3 +1,7 @@
+################################################################################
+# library
+################################################################################
+
 include(Wayland)
 
 WAYLAND_ADD_PROTOCOL_CLIENT(proto_twshell_client
@@ -25,16 +29,25 @@ WAYLAND_ADD_PROTOCOL_SERVER(proto_twtheme_server
   taiwins-theme
   )
 
-add_library(proto_client_libraries STATIC
+add_library(protos-client STATIC
   ${proto_twshell_client}
   ${proto_twconsole_client}
   )
 
-add_library(proto_server_libraries STATIC
+add_library(protos-server STATIC
   ${proto_twshell_server}
   ${proto_twconsole_server}
   ${proto_twtheme_server}
   )
 
-set(PROTOCOLS_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR} PARENT_SCOPE)
-message("protocols include dir: ${PROTOCOLS_INCLUDE_DIR}")
+target_include_directories(protos-client PUBLIC
+  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
+target_include_directories(protos-server PUBLIC
+  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
+
+################################################################################
+# install
+################################################################################
+include(GNUInstallDirs)
+install(FILES taiwins_shell.xml taiwins_console.xml
+  DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/taiwins/protocols)

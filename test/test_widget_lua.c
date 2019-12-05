@@ -1,13 +1,9 @@
 #include <ui.h>
-#include <widget.h>
+#include "../clients/widget.h"
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
 #include <wayland-util.h>
-
-
-void shell_widgets_load_script(struct wl_list *head, struct tw_event_queue *queue,
-			       const char *path);
 
 int main(int argc, char *argv[])
 {
