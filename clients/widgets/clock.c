@@ -1,4 +1,3 @@
-#include "../../3rdparties/iconheader/IconsFontAwesome5_c.h"
 #include "../widget.h"
 #include <stdlib.h>
 #include <time.h>
