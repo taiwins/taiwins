@@ -1,7 +1,6 @@
 ################# 3rdparties ####################
 
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/twclient")
-add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/iconheader")
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/nklua")
 
 #################### rax ########################
