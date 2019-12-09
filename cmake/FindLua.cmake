@@ -1,6 +1,6 @@
 find_package(PkgConfig)
-pkg_check_modules(LUA REQUIRED QUIET lua)
-find_library(LUA_LOCATION NAMES lua HINTS ${LUA_LIBRARY_DIRS} ${LUA_LIBDIR})
+pkg_search_module(LUA REQUIRED QUIET lua lua53)
+find_library(LUA_LOCATION NAMES lua lua53 lua5.3 HINTS ${LUA_LIBRARY_DIRS} ${LUA_LIBDIR})
 #deal with case where missing
 if(NOT LUA_INCLUDE_DIRS)
   set(LUA_INCLUDE_DIRS ${LUA_INCLUDEDIR})
