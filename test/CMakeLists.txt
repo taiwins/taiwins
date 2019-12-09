@@ -32,6 +32,7 @@ add_executable(test_lua
   )
 target_link_libraries(test_lua
   Lua::Lua
+  m
   )
 
 ###########################################
