@@ -1,0 +1,19 @@
+name: C/C++ CI
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: linux
+    
+    steps:
+    - uses: codehz/arch-cmake-builder@v0.1.3    
+    - name: intall deps
+      run: sudo pacman -S weston libxkbcommon pixman mesa wayland libglvnd wayland-protocols
+    - name: submodules
+      run: git submodule update --init --recursive
+    - name: cmake 
+      run: mkdir -p build && cd build && cmake ..
+    - name: make
+      run: cd build && make
