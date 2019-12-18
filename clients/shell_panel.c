@@ -99,6 +99,8 @@ shell_panel_measure_leading(struct nk_context *ctx, float width, float height,
 	nk_text_width_f text_width = ctx->style.font->width;
 	struct shell_widget_label widget_label;
 	struct shell_widget *widget = NULL;
+	//use the icon font
+	nk_style_push_font(ctx, shell->icon_font);
 
 	double total_width = 0.0;
 	int h = panel_surf->allocation.h;
@@ -116,6 +118,7 @@ shell_panel_measure_leading(struct nk_context *ctx, float width, float height,
 		total_width += width+10;
 	}
 	shell_output->widgets_span = total_width;
+	nk_style_pop_font(ctx);
 }
 
 static void
@@ -134,7 +137,9 @@ shell_panel_frame(struct nk_context *ctx, float width, float height,
 
 	int h = panel_surf->allocation.h;
 	int w = panel_surf->allocation.w;
-
+	//use the icon font
+	nk_style_push_font(ctx, shell->icon_font);
+	//draw
 	nk_layout_row_begin(ctx, NK_STATIC, h-12, n_widgets+1);
 	int leading = w - (int)(shell_output->widgets_span+0.5)-20;
 	nk_layout_row_push(ctx, leading);
@@ -158,6 +163,8 @@ shell_panel_frame(struct nk_context *ctx, float width, float height,
 				      widget_label.label, len);
 	}
 	nk_layout_row_end(ctx);
+	nk_style_pop_font(ctx);
+
 	//widget launch condition, clicked->proxy means widget already clicked
 	if (!clicked || clicked->proxy ||
 	    !clicked->draw_cb ||

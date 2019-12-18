@@ -131,6 +131,14 @@ static struct tw_shell_listener tw_shell_impl = {
 	.shell_msg = desktop_shell_recv_msg,
 };
 
+static const struct nk_wl_font_config icon_config = {
+	.name = "icons",
+	.slant = NK_WL_SLANT_ROMAN,
+	.pix_size = 16,
+	.scale = 1,
+	.TTFonly = false,
+};
+
 static void
 desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 {
@@ -145,6 +153,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 
 	shell->widget_backend = nk_cairo_create_bkend();
 	shell->panel_backend = nk_cairo_create_bkend();
+	shell->icon_font = nk_wl_new_font(icon_config, shell->panel_backend);
 	{
 		const struct nk_style *theme =
 			nk_wl_get_curr_style(shell->panel_backend);

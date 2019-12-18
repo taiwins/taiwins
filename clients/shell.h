@@ -56,6 +56,7 @@ struct desktop_shell {
 	struct {
 		struct nk_wl_backend *panel_backend;
 		struct nk_style_button label_style;
+		struct nk_user_font *icon_font;
 		char wallpaper_path[128];
 		//TODO calculated from font size
 		size_t panel_height;
