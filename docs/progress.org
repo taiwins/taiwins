@@ -233,7 +233,7 @@
 ** TODO installing scripts and publish
    At this stage taiwins is working and very unusable. Though many future
    developement needs to be done. But we should get voice out now.
-*** TODO chose the corect license and all that stuff.
+*** DONE chose the corect license(GPL decided)
 *** TODO write github pages
 *** TODO add CI
 *** TODO find a way to get the voice out
@@ -252,6 +252,7 @@
 ** TODO patch 3rdparty libraries
    weston: output configure in the run time.
 ** TODO [0%] Tasks didn't finish in stage 2
+*** TODO add dbus support
 *** TODO move workspace_add_view in the commit event.
     At that time, you would know about view geometry, it would be better for
     floating layer.
