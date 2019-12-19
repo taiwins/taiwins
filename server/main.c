@@ -26,6 +26,7 @@
 #include <signal.h>
 #include <string.h>
 #include <linux/input.h>
+#include <unistd.h>
 #include <wayland-server.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
@@ -33,6 +34,7 @@
 
 #include "backend.h"
 #include "desktop.h"
+#include "os/file.h"
 #include "taiwins.h"
 #include "config.h"
 #include "bindings.h"
@@ -99,6 +101,21 @@ tw_compositor_init(struct tw_compositor *tc, struct weston_compositor *ec,
 	taiwins_config_add_apply_bindings(config, &tc->add_binding);
 }
 
+static void
+get_compositor_socket(char *path)
+{
+	unsigned int socket_num = 0;
+	const char *runtime_dir = getenv("XDG_RUNTIME_DIR");
+	while(true) {
+		sprintf(path, "%s/wayland-%d", runtime_dir, socket_num);
+		if (access(path, F_OK) != 0) {
+			sprintf(path, "wayland-%d", socket_num);
+			break;
+		}
+		socket_num++;
+	}
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	int error = 0;
@@ -106,12 +123,13 @@ int main(int argc, char *argv[], char *envp[])
 	const char *shellpath = (argc > 1) ? argv[1] : NULL;
 	const char *launcherpath = (argc > 2) ? argv[2] : NULL;
 	struct wl_display *display = wl_display_create();
-	char config_file[100];
+	char path[100];
+
 
 	logfile = fopen("/tmp/taiwins_log", "w");
 	weston_log_set_handler(tw_log, tw_log);
-	//quit if we already have a wayland server
-	if (wl_display_add_socket(display, NULL) == -1)
+	get_compositor_socket(path);
+	if (wl_display_add_socket(display, path) == -1)
 		goto connect_err;
 
 	struct weston_log_context *context =
@@ -125,8 +143,8 @@ int main(int argc, char *argv[], char *envp[])
 	char *xdg_dir = getenv("XDG_CONFIG_HOME");
 	if (!xdg_dir)
 		xdg_dir = getenv("HOME");
-	strcpy(config_file, xdg_dir);
-	strcat(config_file, "/config.lua");
+	strcpy(path, xdg_dir);
+	strcat(path, "/config.lua");
 	struct taiwins_config *config =
 		taiwins_config_create(compositor, tw_log);
 
@@ -137,7 +155,7 @@ int main(int argc, char *argv[], char *envp[])
 	announce_console(compositor, sh, launcherpath, config);
 	announce_desktop(compositor, sh, config);
 
-	error = !taiwins_run_config(config, config_file);
+	error = !taiwins_run_config(config, path);
 	if (error) {
 		goto out;
 	}
