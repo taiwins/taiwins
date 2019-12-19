@@ -6,16 +6,12 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v2
-    - name: submodules
+    - uses: actions/checkout@v1
+    - name: submodule
       run: git submodule update --init --recursive
-      
-    - name: env
+    - name: run with docker env
       uses: docker://archlinux/base:latest
-    - name: build
-      run: |
-        sudo pacman -Syu --needed --noconfirm weston libxkbcommon pixman mesa wayland libglvnd wayland-protocols fontconfig freetype2
-        sudo pacman -Syu --needed --noconform cmake make gcc clang musl git meson ninja rsync
-        mkdir -p build && cd build && cmake .. && make
+      with:
+        entrypoint: ./.github/actions/entrypoint.sh
