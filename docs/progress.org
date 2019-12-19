@@ -234,25 +234,24 @@
    At this stage taiwins is working and very unusable. Though many future
    developement needs to be done. But we should get voice out now.
 *** DONE chose the corect license(GPL decided)
-*** TODO write github pages
-*** TODO add CI
+*** CANC write github pages (README done for twclient)
+*** DONE add CI
 *** TODO find a way to get the voice out
 
-* TODO [20%] Stage three: extensions/ post-pub features
+* TODO [16%] Stage three: extensions/ post-pub features
 ** TODO ADD DAMAGE SUPPORT in drawing!
-** TODO [40%] tw_theme protocol
+** TODO [75%] tw_theme protocol
 *** DONE creating the taiwins_theme header
 *** TODO tw_theme protocol
-*** CANC c files, you probably need to work with Json-c
-*** TODO Add multiple font support
-    one icon one ascii font isn't really the best way to handle fonts(the text
-    handling code I wrote just to have two fonts working is crazy). Projects
-    like nerd-font is a sign that we can incorperate multiple emoji/symbols into
-    text.
+*** CANC c files
+** DONE Add multiple font support
+   now twclient supports multiple fonts
 ** TODO patch 3rdparty libraries
    weston: output configure in the run time.
-** TODO [0%] Tasks didn't finish in stage 2
+** TODO [0%] new features
 *** TODO add dbus support
+    dbus can be used to sending commands to many services (networkmanager for
+    example), makes it easy to write shell widgets.
 *** TODO move workspace_add_view in the commit event.
     At that time, you would know about view geometry, it would be better for
     floating layer.
@@ -285,8 +284,6 @@
     we load every thing now, it crashes for themes like deepin, which has
     millions of icons out there. Chances are, you are not needing them.
 *** TODO create file type for taiwins icon cache.
-    
-
 ** TODO possibly remove dynamic allocated objects
     reduce number of mallocs and memory fragmentation(I just added a lot in console)
     - recent_view

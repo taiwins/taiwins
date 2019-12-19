@@ -35,6 +35,7 @@
 
 #include <strops.h>
 #include "config_internal.h"
+#include "os/file.h"
 
 //////////////////////////////////////////////////////////////////
 ////////////////////////////// API ///////////////////////////////
@@ -253,8 +254,10 @@ taiwins_config_try_config(struct taiwins_config *config)
 
 	taiwins_config_init_luastate(config);
 	taiwins_config_apply_default(config);
-	safe = safe && !luaL_loadfile(config->L, config->path);
-	safe = safe && !lua_pcall(config->L, 0, 0, 0);
+	if (is_file_exist(config->path)) {
+		safe = safe && !luaL_loadfile(config->L, config->path);
+		safe = safe && !lua_pcall(config->L, 0, 0, 0);
+	}
 
 	struct tw_bindings *bindings = taiwins_config_get_bindings(config);
 	struct taiwins_apply_bindings_listener *listener;
