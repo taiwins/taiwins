@@ -5,15 +5,16 @@ on: [push]
 jobs:
   build:
 
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ubuntu-latest
     
     steps:
-    - uses: codehz/arch-cmake-builder@v0.1.3    
-    - name: intall deps
-      run: sudo pacman -S weston libxkbcommon pixman mesa wayland libglvnd wayland-protocols
+    - uses: actions/checkout@v2
     - name: submodules
       run: git submodule update --init --recursive
-    - name: cmake 
-      run: mkdir -p build && cd build && cmake ..
-    - name: make
-      run: cd build && make
+    - name: env
+      uses: docker://archlinux/base:latest
+    - name: build
+      run: |
+        sudo pacman -Syu --needed --noconfirm weston libxkbcommon pixman mesa wayland libglvnd wayland-protocols fontconfig freetype2
+        sudo pacman -Syu --needed --noconform cmake make gcc clang musl git meson ninja rsync
+        mkdir -p build && cd build && cmake .. && make
