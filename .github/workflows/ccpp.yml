@@ -11,6 +11,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: submodules
       run: git submodule update --init --recursive
+      
     - name: env
       uses: docker://archlinux/base:latest
     - name: build
