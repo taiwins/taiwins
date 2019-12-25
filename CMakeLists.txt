@@ -45,7 +45,6 @@ find_package(Wayland REQUIRED)
 find_package(Cairo REQUIRED)
 find_package(OpenGL REQUIRED COMPONENTS EGL OpenGL)
 find_package(Lua REQUIRED)
-find_package(NVEGL)
 find_package(Fontconfig REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(PAM REQUIRED)
@@ -54,13 +53,6 @@ find_package(Doxygen COMPONENTS dot
 
 set(CMAKE_THREAD_PREFER_PTHREAD)
 find_package(Threads REQUIRED)
-
-if(NVEGL_FOUND)
- message("we are building with nvidia support")
- add_definitions(-D_WITH_NVIDIA)
-else()
-  message("we are building with mesa opengl")
-endif(NVEGL_FOUND)
 
 
 ################################################################################
