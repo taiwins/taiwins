@@ -1,6 +1,6 @@
 [submodule "3rdparties/twclient"]
 	path = 3rdparties/twclient
-	url = https://github.com/xeechou/twclient
+	url = https://github.com/taiwins/twclient
 [submodule "3rdparties/nklua"]
 	path = 3rdparties/nklua
 	url = https://github.com/xeechou/love-nuklear
