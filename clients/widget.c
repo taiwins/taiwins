@@ -206,7 +206,7 @@ shell_widgets_load_default(struct wl_list *head)
 {
 	wl_list_insert(head, &clock_widget.link);
 	wl_list_insert(head, &what_up_widget.link);
-	wl_list_insert(head, &battery_widget.link);
+	//wl_list_insert(head, &battery_widget.link);//due to errors
 }
 
 

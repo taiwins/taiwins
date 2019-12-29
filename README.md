@@ -1,11 +1,12 @@
-## Taiwins, a morden window manager based on libweston
+## Taiwins, a morden wayland window manager
 
-Taiwins is a wayland tiling window manager project based on **libweston**. It is
-designed to be mordern and modular. It has built-in shell and widget
-implementation thus it is extensible, it supports popular tiling window manager
-features like gapping.
+Taiwins is a wayland window manager, supports both tiling and floating
+layout. It is designed to be mordern and modular. It is extensible through lua
+script and it has built-in **shell** and **widgets** implementation through
+[nuklear GUI](https://github.com/vurtun/nuklear). It also supports popular
+tiling window manager features like gapping.
 
-It is currently usable but still under developement. You can refer to
+Taiwins is usable but currently under heavy developement. You can refer to
 [progress](docs/progress.org) for current progress.
 
 
@@ -21,12 +22,16 @@ you will need following dependencies
 - lua
 - librsvg
 - opengl>=3.3
+- vulkan
 - cmake
 - pam
+- fontconfig
+- freetype2
+- xcursor-themes(required for whiteglass cursor)
 
 build steps:
 
-	git clone https://github.com/xeechou/taiwins-weston taiwins && cd taiwins
+	git clone https://github.com/taiwins/taiwins taiwins && cd taiwins
 	git submodule init
 	git submodule update
 	mkdir build && cd build
@@ -39,10 +44,10 @@ Here is currently how I run the compositor, lua configuration is supported(in
 progress), see the [sample config](docs/config.lua) for example
 
 	cd build
-	./bin/taiwins ./bin/shell-taiwins ./bin/shell-console
+	./bin/taiwins ./bin/taiwins-shell ./bin/taiwins-console
 
 ### key-bindings
-Those bindings are hard-coded right now
+Though it is configurable, by default available bindings are
 
 - `F12` : quit taiwins
 - `Ctrl+LEFT/RIGHT` switch to previous/next workspace
