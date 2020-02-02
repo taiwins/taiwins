@@ -53,8 +53,8 @@ _lua_is_menu_item(struct lua_State *L, int idx)
 {
 	if (lua_rawlen(L, idx) != 2)
 		return false;
-	int len[2] = {TAIWINS_MAX_MENU_ITEM_NAME,
-		      TAIWINS_MAX_MENU_CMD_LEN};
+	size_t len[2] = {TAIWINS_MAX_MENU_ITEM_NAME,
+	                 TAIWINS_MAX_MENU_CMD_LEN};
 	for (int i = 0; i < 2; ++i) {
 		lua_rawgeti(L, idx, i+1);
 		const char *value = (lua_type(L, -1) == LUA_TSTRING) ?

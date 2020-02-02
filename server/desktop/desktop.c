@@ -203,7 +203,9 @@ twdesk_surface_added(struct weston_desktop_surface *surface,
 	struct desktop *desktop = user_data;
 	//remove old view (if any) and create one
 	struct weston_view *view, *next;
-	struct weston_surface *wt_surface = weston_desktop_surface_get_surface(surface);
+	struct weston_surface *wt_surface =
+		weston_desktop_surface_get_surface(surface);
+
 	wl_list_for_each_safe(view, next, &wt_surface->views, surface_link)
 		weston_view_destroy(view);
 	view = weston_desktop_surface_create_view(surface);
@@ -227,7 +229,8 @@ twdesk_surface_removed(struct weston_desktop_surface *surface,
 		       void *user_data)
 {
 	struct desktop *desktop = user_data;
-	struct weston_surface *wt_surface = weston_desktop_surface_get_surface(surface);
+	struct weston_surface *wt_surface =
+		weston_desktop_surface_get_surface(surface);
 	struct weston_view *view, *next;
 	//although this should never happen, but if desktop destroyed is not on
 	//current view, we have to deal with that as well.
@@ -260,10 +263,15 @@ static void
 twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
 			 int32_t sx, int32_t sy, void *data)
 {
-	struct weston_surface *surface =  weston_desktop_surface_get_surface(desktop_surface);
-	struct recent_view *rv = weston_desktop_surface_get_user_data(desktop_surface);
-	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
-	struct weston_geometry geo = weston_desktop_surface_get_geometry(desktop_surface);
+	struct weston_surface *surface =
+		weston_desktop_surface_get_surface(desktop_surface);
+	struct recent_view *rv =
+		weston_desktop_surface_get_user_data(desktop_surface);
+	struct weston_view *view =
+		container_of(surface->views.next, struct weston_view,
+		             surface_link);
+	struct weston_geometry geo =
+		weston_desktop_surface_get_geometry(desktop_surface);
 	//check the current surface geometry
 	if (geo.x != rv->visible_geometry.x || geo.y != rv->visible_geometry.y) {
 		float x, y;
@@ -282,7 +290,8 @@ twdesk_surface_move(struct weston_desktop_surface *desktop_surface,
 {
 	struct desktop *desktop = user_data;
 	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
-	struct weston_surface *surface = weston_desktop_surface_get_surface(desktop_surface);
+	struct weston_surface *surface =
+		weston_desktop_surface_get_surface(desktop_surface);
 	struct weston_view *view = tw_default_view_from_surface(surface);
 	if (pointer && pointer->focus && pointer->button_count > 0)
 		grab_interface_start_pointer(&desktop->moving_grab, view, seat);
@@ -438,7 +447,8 @@ pointer_motion_delta(struct weston_pointer *p,
 }
 
 static void
-alpha_axis(struct weston_pointer *pointer, struct weston_pointer_axis_event *event,
+alpha_axis(struct weston_pointer *pointer,
+           struct weston_pointer_axis_event *event,
 	   struct weston_view *view)
 {
 	float increment = 0.07;
@@ -458,10 +468,12 @@ alpha_axis(struct weston_pointer *pointer, struct weston_pointer_axis_event *eve
 /*********************************************************************/
 static void noop_grab_focus(struct weston_pointer_grab *grab) {}
 
-static void noop_grab_axis(struct weston_pointer_grab *grab, const struct timespec *time,
-		      struct weston_pointer_axis_event *event ) {}
+static void noop_grab_axis(struct weston_pointer_grab *grab,
+                           const struct timespec *time,
+                           struct weston_pointer_axis_event *event ) {}
 
-static void noop_grab_axis_source(struct weston_pointer_grab *grab, uint32_t source) {}
+static void noop_grab_axis_source(struct weston_pointer_grab *grab,
+                                  uint32_t source) {}
 
 static void noop_grab_frame(struct weston_pointer_grab *grab) {}
 
@@ -471,7 +483,8 @@ move_grab_pointer_motion(struct weston_pointer_grab *grab,
 			 struct weston_pointer_motion_event *event)
 {
 	double dx, dy;
-	struct grab_interface *gi = container_of(grab, struct grab_interface, pointer_grab);
+	struct grab_interface *gi = container_of(grab, struct grab_interface,
+	                                         pointer_grab);
 	struct desktop *d = container_of(gi, struct desktop, moving_grab);
 
 	struct workspace *ws = d->actived_workspace[0];
@@ -524,7 +537,8 @@ static void
 pointer_grab_cancel(struct weston_pointer_grab *grab)
 {
 	//an universal implemention, destroy the grab all the time
-	struct grab_interface *gi = container_of(grab, struct grab_interface, pointer_grab);
+	struct grab_interface *gi = container_of(grab, struct grab_interface,
+	                                         pointer_grab);
 	weston_pointer_end_grab(grab->pointer);
 	grab_interface_fini(gi);
 }
@@ -735,7 +749,8 @@ desktop_workspace_switch_recent(struct weston_keyboard *keyboard,
 {
 	struct desktop *desktop = data;
 	SWAP(desktop->actived_workspace[0], desktop->actived_workspace[1]);
-	workspace_switch(desktop->actived_workspace[0], desktop->actived_workspace[1], keyboard);
+	workspace_switch(desktop->actived_workspace[0], desktop->actived_workspace[1],
+	                 keyboard);
 }
 
 //not sure if we want to make it here
@@ -755,7 +770,7 @@ desktop_view_resize(struct weston_keyboard *keyboard,
 	struct desktop *desktop = data;
 	struct weston_view *view = tw_default_view_from_surface(keyboard->focus);
 	struct workspace *ws = get_workspace_for_view(view, desktop);
-	float dx, dy, x, y;
+	float dx = 0.0, dy = 0.0, x = 0.0, y = 0.0;
 	switch (option) {
 	case RESIZE_LEFT:
 		dx = -10;
@@ -768,6 +783,7 @@ desktop_view_resize(struct weston_keyboard *keyboard,
 		break;
 	case RESIZE_DOWN:
 		dy = 10;
+		break;
 	default:
 		dx = 10;
 	}
