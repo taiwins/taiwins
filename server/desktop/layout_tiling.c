@@ -271,7 +271,7 @@ is_subtree_valid(const struct weston_geometry *space, const bool vertical,
 
 	if (constrain->outer_gap * 2 >= outer_size)
 		return false;
-	for (int i = 0; i < len; i++)
+	for (unsigned i = 0; i < len; i++)
 		if (portions[i] < min_portion)
 			return false;
 	return true;
@@ -280,7 +280,8 @@ is_subtree_valid(const struct weston_geometry *space, const bool vertical,
 /* it could failed to insert the view */
 static bool
 tiling_view_insert(struct tiling_view *parent, struct tiling_view *tv, off_t offset,
-		   const struct weston_geometry *parent_geo, const struct tiling_output *output)
+		   const struct weston_geometry *parent_geo,
+                   const struct tiling_output *output)
 {
 	double occupied = 1.0 - (double)parent->node.children.len /
 		((double)parent->node.children.len+1);
@@ -289,7 +290,7 @@ tiling_view_insert(struct tiling_view *parent, struct tiling_view *tv, off_t off
 		//test possibility of insert
 		size_t len = parent->node.children.len;
 		float portions[len+1];
-		for (int i = 0; i < len; i++) {
+		for (unsigned i = 0; i < len; i++) {
 			struct tiling_view *sv = tiling_view_ith_node(parent, i);
 			portions[i] = sv->portion * occupied_rest;
 		}

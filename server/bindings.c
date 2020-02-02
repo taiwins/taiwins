@@ -49,13 +49,17 @@ static uint32_t
 modifier_mask_from_xkb_state(struct xkb_state *state)
 {
 	uint32_t mask = 0;
-	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE))
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_ALT,
+	                                 XKB_STATE_MODS_EFFECTIVE))
 		mask |= MODIFIER_ALT;
-	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE))
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_CTRL,
+	                                 XKB_STATE_MODS_EFFECTIVE))
 		mask |= MODIFIER_CTRL;
-	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_EFFECTIVE))
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_LOGO,
+	                                 XKB_STATE_MODS_EFFECTIVE))
 		mask |= MODIFIER_SUPER;
-	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE))
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_SHIFT,
+	                                 XKB_STATE_MODS_EFFECTIVE))
 		mask |= MODIFIER_SHIFT;
 	return mask;
 }
@@ -108,7 +112,7 @@ tw_keybinding_key(struct weston_keyboard_grab *grab,
 	uint32_t mod = modifier_mask_from_xkb_state(keyboard->xkb_state.state);
 
 	bool hit = false;
-	for (int i = 0; i < vtree_len(&tree->node); i++) {
+	for (unsigned i = 0; i < vtree_len(&tree->node); i++) {
 		struct tw_binding_node *node =
 			vtree_container(vtree_ith_child(&tree->node, i));
 		//end of a thread, hits a keybinding
@@ -307,7 +311,7 @@ tw_bindings_add_key(struct tw_bindings *root,
 		if (linux_code == KEY_RESERVED)
 			break;
 
-		for (int j = 0; j < vtree_len(&subtree->node); j++) {
+		for (unsigned j = 0; j < vtree_len(&subtree->node); j++) {
 			//find the collisions
 			struct tw_binding_node *binding =
 				vtree_container(vtree_ith_child(&subtree->node, j));
@@ -318,7 +322,8 @@ tw_bindings_add_key(struct tw_bindings *root,
 			}
 		}
 		if (hit == -1 && i == 0) {
-			struct taiwins_binding *new_binding = vector_newelem(&root->apply_list);
+			struct taiwins_binding *new_binding =
+				vector_newelem(&root->apply_list);
 			new_binding->type = TW_BINDING_key;
 			new_binding->keypress[0] = presses[0];
 		}
@@ -400,7 +405,8 @@ tw_bindings_apply(struct tw_bindings *root)
 
 static void print_node(const struct vtree_node *n)
 {
-	const struct tw_binding_node *node = container_of(n, const struct tw_binding_node, node);
+	const struct tw_binding_node *node =
+		container_of(n, const struct tw_binding_node, node);
 	fprintf(stderr, "%d, %d\n", node->keycode-8, node->modifier);
 }
 

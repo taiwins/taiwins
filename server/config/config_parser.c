@@ -141,7 +141,7 @@ static inline bool
 parse_table(const char *ptr, const struct event_map *table, size_t table_len,
 	    uint32_t *code)
 {
-	for (int i = 0; i < table_len; i++) {
+	for (unsigned i = 0; i < table_len; i++) {
 		if (strcasecmp(ptr, table[i].name) == 0) {
 			*code = table[i].event_code;
 			return true;
@@ -154,7 +154,7 @@ parse_table(const char *ptr, const struct event_map *table, size_t table_len,
 static inline unsigned int
 parse_modifier(const char *str)
 {
-	for (int i = 0; i < NUMOF(modifiers_map); i++) {
+	for (unsigned i = 0; i < NUMOF(modifiers_map); i++) {
 		if (strcasecmp(modifiers_map[i].name, str) == 0)
 			return modifiers_map[i].event_code;
 	}

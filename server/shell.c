@@ -35,9 +35,9 @@
 #include "bindings.h"
 #include "config.h"
 
-/*******************************************************************************************
+/*******************************************************************************
  * shell ui
- *******************************************************************************************/
+ ******************************************************************************/
 
 struct shell_ui {
 	struct shell *shell;
@@ -51,9 +51,9 @@ struct shell_ui {
 	enum tw_ui_type type;
 };
 
-/*******************************************************************************************
+/*******************************************************************************
  * shell interface
- *******************************************************************************************/
+ ******************************************************************************/
 
 
 /**
@@ -63,7 +63,6 @@ struct shell_ui {
  */
 struct shell_output {
 	struct weston_output *output;
-	/* struct wl_list creation_link; //used when new output is created and client is not ready */
 	struct shell *shell;
 	//ui elems
 	struct shell_ui background;
@@ -171,7 +170,7 @@ shell_ui_unbind(struct wl_resource *resource)
 		ui_elem->lose_pointer,
 		ui_elem->lose_touch,
 	};
-	for (int i = 0; i < NUMOF(bindings); i++)
+	for (unsigned i = 0; i < NUMOF(bindings); i++)
 		if (bindings[i] != NULL)
 			weston_binding_destroy(bindings[i]);
 	ui_elem->binded = NULL;
@@ -188,18 +187,22 @@ shell_ui_unbind_free(struct wl_resource *resource)
 }
 
 static bool
-shell_ui_create_with_binding(struct shell_ui *ui, struct wl_resource *tw_ui, struct weston_surface *s)
+shell_ui_create_with_binding(struct shell_ui *ui, struct wl_resource *tw_ui,
+                             struct weston_surface *s)
 {
 	struct weston_compositor *ec = s->compositor;
 	if (!ui)
 		goto err_ui_create;
-	struct weston_binding *k = weston_compositor_add_key_binding(ec, KEY_ESC, 0, does_ui_lose_keyboard, ui);
+	struct weston_binding *k = weston_compositor_add_key_binding(
+		ec, KEY_ESC, 0, does_ui_lose_keyboard, ui);
 	if (!k)
 		goto err_bind_keyboard;
-	struct weston_binding *p = weston_compositor_add_button_binding(ec, BTN_LEFT, 0, does_ui_lose_pointer, ui);
+	struct weston_binding *p = weston_compositor_add_button_binding(
+		ec, BTN_LEFT, 0, does_ui_lose_pointer, ui);
 	if (!p)
 		goto err_bind_ptr;
-	struct weston_binding *t = weston_compositor_add_touch_binding(ec, 0, does_ui_lose_touch, ui);
+	struct weston_binding *t = weston_compositor_add_touch_binding(
+		ec, 0, does_ui_lose_touch, ui);
 	if (!t)
 		goto err_bind_touch;
 
@@ -219,7 +222,8 @@ err_ui_create:
 }
 
 static bool
-shell_ui_create_simple(struct shell_ui *ui, struct wl_resource *tw_ui, struct weston_surface *s)
+shell_ui_create_simple(struct shell_ui *ui, struct wl_resource *tw_ui,
+                       struct weston_surface *s)
 {
 	ui->resource = tw_ui;
 	ui->binded = s;
@@ -227,9 +231,9 @@ shell_ui_create_simple(struct shell_ui *ui, struct wl_resource *tw_ui, struct we
 }
 
 
-/*******************************************************************************************
+/**********************************************************************************
  * tw_output and listeners
- *******************************************************************************************/
+ *********************************************************************************/
 
 static inline size_t
 shell_n_outputs(struct shell *shell)
@@ -298,13 +302,15 @@ static void
 shell_output_resized(struct wl_listener *listener, void *data)
 {
 	struct weston_output *output = data;
-	struct shell *shell = container_of(listener, struct shell, output_resize_listener);
-	uint32_t index = shell_ith_output(shell, output);
+	struct shell *shell =
+		container_of(listener, struct shell, output_resize_listener);
+	int index = shell_ith_output(shell, output);
 	if (index < 0 || !shell->shell_resource)
 		return;
 	tw_shell_send_output_configure(shell->shell_resource, index,
-				       output->width, output->height, output->scale,
-				       index == 0, TW_SHELL_OUTPUT_MSG_CHANGE);
+				       output->width, output->height,
+	                               output->scale, index == 0,
+	                               TW_SHELL_OUTPUT_MSG_CHANGE);
 }
 
 static void
@@ -321,9 +327,9 @@ shell_compositor_idle(struct wl_listener *listener, void *data)
 		shell_post_message(shell, TW_SHELL_MSG_TYPE_LOCK, " ");
 }
 
-/*******************************************************************************************
+/********************************************************************************
  * shell_view
- *******************************************************************************************/
+ *******************************************************************************/
 
 
 static void
@@ -452,7 +458,7 @@ set_lock_surface(struct shell *shell, struct weston_surface *surface,
 	}
 	wl_list_for_each_safe(view, next, &surface->views, surface_link)
 		weston_view_destroy(view);
-	for (int i = 0; i < shell_n_outputs(shell); i++) {
+	for (unsigned i = 0; i < shell_n_outputs(shell); i++) {
 		view = weston_view_create(surface);
 		view->output = shell->tw_outputs[i].output;
 	}
@@ -767,8 +773,8 @@ _lua_is_menu_item(struct lua_State *L, int idx)
 {
 	if (lua_rawlen(L, idx) != 2)
 		return false;
-	int len[2] = {TAIWINS_MAX_MENU_ITEM_NAME,
-		      TAIWINS_MAX_MENU_CMD_LEN};
+	size_t len[2] = {TAIWINS_MAX_MENU_ITEM_NAME,
+	                 TAIWINS_MAX_MENU_CMD_LEN};
 	for (int i = 0; i < 2; ++i) {
 		lua_rawgeti(L, idx, i+1);
 		const char *value = (lua_type(L, -1) == LUA_TSTRING) ?

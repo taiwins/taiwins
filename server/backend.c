@@ -336,7 +336,7 @@ _lua_get_windowed_output(lua_State *L)
 static inline enum wl_output_transform
 _lua_output_transfrom_from_value(lua_State *L, int rotate, bool flip)
 {
-	for (int i = 0; i < NUMOF(TRANSFORMS); i++)
+	for (unsigned i = 0; i < NUMOF(TRANSFORMS); i++)
 		if (TRANSFORMS[i].rotate == rotate && TRANSFORMS[i].flip == flip)
 			return TRANSFORMS[i].t;
 	return luaL_error(L, "invalid transforms option.");
