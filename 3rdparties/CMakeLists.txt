@@ -24,13 +24,16 @@ include(ExternalProject)
 find_program(NINJA_PROGRAM ninja REQUIRED)
 find_program(MESON_PROGRAM meson REQUIRED)
 
+
 set(LIBWESTON_SRC_DIR "${CMAKE_CURRENT_LIST_DIR}/libweston")
 set(LIBWESTON_BUILD_DIR "${CMAKE_BINARY_DIR}/libweston")
 set(LIBWESTON_INSTALL_DIR "${CMAKE_BINARY_DIR}/libweston-install")
-set(LIBWESTON_OPTIONS "--prefix=${LIBWESTON_INSTALL_DIR} -Dsimple-dmabuf-drm= -Dbackend-rdp=false")
+## NOTE: meson will usually set the libdir to multiarch on debian systems. But
+## cmake only does it when prefix is /usr. We set it directly into lib to
+## avoid that problem.
+set(LIBWESTON_OPTIONS "--prefix=${LIBWESTON_INSTALL_DIR} --libdir=lib -Dsimple-dmabuf-drm= -Dbackend-rdp=false")
 set(LIBWESTON_INSTALL_LIBDIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libweston-taiwins")
 
-#TODO get the libweston version from source
 include(WestonVersionParser)
 ParseWestonVersion(VER ${LIBWESTON_SRC_DIR})
 
@@ -79,7 +82,10 @@ set_target_properties(libweston::libweston-desktop PROPERTIES
 # install
 ################################################################################
 include(GNUInstallDirs)
-set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} ${CMAKE_INSTALL_LIBDIR}/libweston-taiwins)
+set(CMAKE_INSTALL_RPATH
+  ${CMAKE_INSTALL_RPATH}
+  ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/libweston-taiwins
+  PARENT_SCOPE)
 install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libweston-taiwins
   DESTINATION ${CMAKE_INSTALL_LIBDIR}
   USE_SOURCE_PERMISSIONS)
