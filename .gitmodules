@@ -7,3 +7,6 @@
 [submodule "3rdparties/rax"]
 	path = 3rdparties/rax
 	url = https://github.com/antirez/rax
+[submodule "3rdparties/libweston"]
+	path = 3rdparties/libweston
+	url = https://gitlab.freedesktop.org/wayland/weston.git

@@ -32,7 +32,7 @@ add_library(twdesktop STATIC
 
 target_link_libraries(twcore PUBLIC
   Wayland::Server
-  Libweston::Libweston
+  libweston::libweston
   LibInput::LibInput
   Lua::Lua
   Pixman::Pixman
@@ -51,7 +51,7 @@ target_link_libraries(twconsole PUBLIC
   )
 
 target_link_libraries(twdesktop PUBLIC
-  Libweston::Desktop
+  libweston::libweston-desktop
   twcore
   protos-server
   )
