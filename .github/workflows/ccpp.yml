@@ -31,7 +31,10 @@ jobs:
         sudo apt-get -y install libglvnd-dev libegl1-mesa-dev libgl1-mesa-dev mesa-common-dev
         sudo apt-get -y install vulkan-sdk
         sudo apt-get -y install libfontconfig1-dev libfreetype6-dev librsvg2-dev liblua5.3-dev libpam0g-dev
-        sudo apt-get -y install gcc-8 g++-8 cmake pkg-config git
+        sudo apt-get -y install libpng-dev libjpeg-dev libwebp-dev
+        sudo apt-get -y install gcc-8 g++-8 cmake pkg-config git ninja-build
+        sudo apt-get -y install python3 python3-pip python3-setuptools python3-wheels
+        sudo -H pip3 install meson
         git clone https://github.com/xeechou/weston-ubuntu-binaries bionic-debs
         rm bionic-debs/bionic/weston_7.0.91-1_amd64.deb
         rm bionic-debs/bionic/weston_7.0.92-1_amd64.deb
@@ -51,12 +54,11 @@ jobs:
     - uses: actions/checkout@v1
     - name: submodule
       run: git submodule update --init --recursive
-    - name: run with archlinux docker img
-      uses: docker://archlinux/base:latest
-      with:
-        entrypoint: ./.github/actions/entrypoint.sh
     - name: run with fedora docker img
       uses: docker://fedora:latest
       with:
         entrypoint: ./.github/actions/entrypoint-fedora.sh
-      
+    - name: run with archlinux docker img
+      uses: docker://archlinux/base:latest
+      with:
+        entrypoint: ./.github/actions/entrypoint.sh
