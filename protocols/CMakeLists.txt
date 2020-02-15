@@ -5,27 +5,27 @@
 include(Wayland)
 
 WAYLAND_ADD_PROTOCOL_CLIENT(proto_twshell_client
-  taiwins_shell.xml
+  "${TAIWINS_PROTOCOLS_DIR}/taiwins-shell.xml"
   taiwins-shell
   )
 
 WAYLAND_ADD_PROTOCOL_SERVER(proto_twshell_server
-  taiwins_shell.xml
+  "${TAIWINS_PROTOCOLS_DIR}/taiwins-shell.xml"
   taiwins-shell
   )
 
 WAYLAND_ADD_PROTOCOL_CLIENT(proto_twconsole_client
-  taiwins_console.xml
+  "${TAIWINS_PROTOCOLS_DIR}/taiwins-console.xml"
   taiwins-console
   )
 
 WAYLAND_ADD_PROTOCOL_SERVER(proto_twconsole_server
-  taiwins_console.xml
+  "${TAIWINS_PROTOCOLS_DIR}/taiwins-console.xml"
   taiwins-console
   )
 
 WAYLAND_ADD_PROTOCOL_SERVER(proto_twtheme_server
-  taiwins_theme.xml
+  "${TAIWINS_PROTOCOLS_DIR}/taiwins-theme.xml"
   taiwins-theme
   )
 
@@ -49,5 +49,8 @@ target_include_directories(protos-server PUBLIC
 # install
 ################################################################################
 include(GNUInstallDirs)
-install(FILES taiwins_shell.xml taiwins_console.xml
+install(FILES
+  "${TAIWINS_PROTOCOLS_DIR}/taiwins-theme.xml"
+  "${TAIWINS_PROTOCOLS_DIR}/taiwins-console.xml"
+  "${TAIWINS_PROTOCOLS_DIR}/taiwins-shell.xml"
   DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/taiwins/protocols)

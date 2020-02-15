@@ -48,7 +48,7 @@ struct shell_ui {
 	struct weston_binding *lose_touch;
 	uint32_t x; uint32_t y;
 	struct weston_layer *layer;
-	enum tw_ui_type type;
+	enum taiwins_ui_type type;
 };
 
 /*******************************************************************************
@@ -57,9 +57,9 @@ struct shell_ui {
 
 
 /**
- * @brief represents tw_output
+ * @brief represents taiwins_output
  *
- * the resource only creates for tw_shell object
+ * the resource only creates for taiwins_shell object
  */
 struct shell_output {
 	struct weston_output *output;
@@ -78,7 +78,7 @@ struct shell {
 	struct wl_global *shell_global;
 
 	struct { /* options */
-		enum tw_shell_panel_pos panel_pos;
+		enum taiwins_shell_panel_pos panel_pos;
 		int32_t lock_countdown; //invalid -1
 		int32_t sleep_countdown; //knvalid -1
 		vector_t menu;
@@ -113,7 +113,7 @@ struct shell {
 static struct shell oneshell;
 
 /*******************************************************************
- * tw_ui implementation
+ * taiwins_ui implementation
  ******************************************************************/
 
 static void
@@ -126,7 +126,7 @@ does_ui_lose_keyboard(struct weston_keyboard *keyboard,
 	//this is a tricky part, it should be desttroyed when focus, but I am
 	//not sure
 	if (keyboard->focus == surface && ui_elem->lose_keyboard) {
-		tw_ui_send_close(ui_elem->resource);
+		taiwins_ui_send_close(ui_elem->resource);
 		weston_binding_destroy(ui_elem->lose_keyboard);
 		ui_elem->lose_keyboard = NULL;
 	}
@@ -141,7 +141,7 @@ does_ui_lose_pointer(struct weston_pointer *pointer,
 	struct weston_surface *surface = ui_elem->binded;
 	if (pointer->focus != tw_default_view_from_surface(surface) &&
 		ui_elem->lose_pointer) {
-		tw_ui_send_close(ui_elem->resource);
+		taiwins_ui_send_close(ui_elem->resource);
 		weston_binding_destroy(ui_elem->lose_pointer);
 		ui_elem->lose_pointer = NULL;
 	}
@@ -155,7 +155,7 @@ does_ui_lose_touch(struct weston_touch *touch,
 	struct weston_view *view =
 		tw_default_view_from_surface(ui_elem->binded);
 	if (touch->focus != view && ui_elem->lose_touch) {
-		tw_ui_send_close(ui_elem->resource);
+		taiwins_ui_send_close(ui_elem->resource);
 		weston_binding_destroy(ui_elem->lose_touch);
 		ui_elem->lose_touch = NULL;
 	}
@@ -187,7 +187,7 @@ shell_ui_unbind_free(struct wl_resource *resource)
 }
 
 static bool
-shell_ui_create_with_binding(struct shell_ui *ui, struct wl_resource *tw_ui,
+shell_ui_create_with_binding(struct shell_ui *ui, struct wl_resource *taiwins_ui,
                              struct weston_surface *s)
 {
 	struct weston_compositor *ec = s->compositor;
@@ -209,7 +209,7 @@ shell_ui_create_with_binding(struct shell_ui *ui, struct wl_resource *tw_ui,
 	ui->lose_keyboard = k;
 	ui->lose_touch = t;
 	ui->lose_pointer = p;
-	ui->resource = tw_ui;
+	ui->resource = taiwins_ui;
 	ui->binded = s;
 	return true;
 err_bind_touch:
@@ -222,17 +222,17 @@ err_ui_create:
 }
 
 static bool
-shell_ui_create_simple(struct shell_ui *ui, struct wl_resource *tw_ui,
+shell_ui_create_simple(struct shell_ui *ui, struct wl_resource *taiwins_ui,
                        struct weston_surface *s)
 {
-	ui->resource = tw_ui;
+	ui->resource = taiwins_ui;
 	ui->binded = s;
 	return true;
 }
 
 
 /**********************************************************************************
- * tw_output and listeners
+ * taiwins_output and listeners
  *********************************************************************************/
 
 static inline size_t
@@ -281,10 +281,10 @@ shell_output_created(struct wl_listener *listener, void *data)
 
 	//defer the tw_output creation if shell is not ready.
 	if (shell->shell_resource)
-		tw_shell_send_output_configure(shell->shell_resource, ith_output,
+		taiwins_shell_send_output_configure(shell->shell_resource, ith_output,
 					       output->width, output->height, output->scale,
 					       ith_output == 0,
-					       TW_SHELL_OUTPUT_MSG_CONNECTED);
+					       TAIWINS_SHELL_OUTPUT_MSG_CONNECTED);
 }
 
 static void
@@ -307,10 +307,10 @@ shell_output_resized(struct wl_listener *listener, void *data)
 	int index = shell_ith_output(shell, output);
 	if (index < 0 || !shell->shell_resource)
 		return;
-	tw_shell_send_output_configure(shell->shell_resource, index,
+	taiwins_shell_send_output_configure(shell->shell_resource, index,
 				       output->width, output->height,
 	                               output->scale, index == 0,
-	                               TW_SHELL_OUTPUT_MSG_CHANGE);
+	                               TAIWINS_SHELL_OUTPUT_MSG_CHANGE);
 }
 
 static void
@@ -324,7 +324,7 @@ shell_compositor_idle(struct wl_listener *listener, void *data)
 	if (shell->locker.resource)
 		return;
 	if (shell->shell_resource)
-		shell_post_message(shell, TW_SHELL_MSG_TYPE_LOCK, " ");
+		shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_LOCK, " ");
 }
 
 /********************************************************************************
@@ -387,7 +387,7 @@ commit_panel(struct weston_surface *surface, int sx, int sy)
 	//the
 	if (!surface->buffer_ref.buffer)
 		return;
-	ui->y = (output->shell->panel_pos == TW_SHELL_PANEL_POS_TOP) ?
+	ui->y = (output->shell->panel_pos == TAIWINS_SHELL_PANEL_POS_TOP) ?
 		0 : output->output->height - surface->height;
 	setup_view(view, ui->layer, ui->x, ui->y);
 }
@@ -470,7 +470,7 @@ set_lock_surface(struct shell *shell, struct weston_surface *surface,
 }
 
 /*******************************************************************
- * tw_shell
+ * taiwins_shell
  ******************************************************************/
 static void
 shell_ui_destroy_resource(struct wl_client *client,
@@ -480,7 +480,7 @@ shell_ui_destroy_resource(struct wl_client *client,
 }
 
 
-static struct tw_ui_interface tw_ui_impl = {
+static struct taiwins_ui_interface tw_ui_impl = {
 	.destroy = shell_ui_destroy_resource,
 };
 
@@ -490,9 +490,9 @@ static inline void
 shell_send_panel_pos(struct shell *shell)
 {
 	char msg[32];
-	snprintf(msg, 31, "%d", shell->panel_pos == TW_SHELL_PANEL_POS_TOP ?
-		 TW_SHELL_PANEL_POS_TOP : TW_SHELL_PANEL_POS_BOTTOM);
-	shell_post_message(shell, TW_SHELL_MSG_TYPE_PANEL_POS, msg);
+	snprintf(msg, 31, "%d", shell->panel_pos == TAIWINS_SHELL_PANEL_POS_TOP ?
+		 TAIWINS_SHELL_PANEL_POS_TOP : TAIWINS_SHELL_PANEL_POS_BOTTOM);
+	shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_PANEL_POS, msg);
 }
 
 /*
@@ -506,13 +506,13 @@ create_ui_element(struct wl_client *client,
 		  struct wl_resource *wl_surface,
 		  struct weston_output *output,
 		  uint32_t x, uint32_t y,
-		  enum tw_ui_type type)
+		  enum taiwins_ui_type type)
 {
 	bool allocated = (elem == NULL);
 	struct weston_seat *seat = tw_get_default_seat(shell->ec);
 	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
 	weston_seat_set_keyboard_focus(seat, surface);
-	struct wl_resource *tw_ui_resource = wl_resource_create(client, &tw_ui_interface, 1, tw_ui);
+	struct wl_resource *tw_ui_resource = wl_resource_create(client, &taiwins_ui_interface, 1, tw_ui);
 	if (!tw_ui_resource) {
 		wl_client_post_no_memory(client);
 		return;
@@ -520,7 +520,7 @@ create_ui_element(struct wl_client *client,
 	if (!elem)
 		elem = zalloc(sizeof(struct shell_ui));
 
-	if (type == TW_UI_TYPE_WIDGET)
+	if (type == TAIWINS_UI_TYPE_WIDGET)
 		shell_ui_create_with_binding(elem, tw_ui_resource, surface);
 	else
 		shell_ui_create_simple(elem, tw_ui_resource, surface);
@@ -535,19 +535,19 @@ create_ui_element(struct wl_client *client,
 	elem->type = type;
 
 	switch (type) {
-	case TW_UI_TYPE_PANEL:
+	case TAIWINS_UI_TYPE_PANEL:
 		elem->layer = &shell->ui_layer;
 		set_surface(shell, surface, output, tw_ui_resource, commit_panel);
 		break;
-	case TW_UI_TYPE_BACKGROUND:
+	case TAIWINS_UI_TYPE_BACKGROUND:
 		elem->layer = &shell->background_layer;
 		set_surface(shell, surface, output, tw_ui_resource, commit_background);
 		break;
-	case TW_UI_TYPE_WIDGET:
+	case TAIWINS_UI_TYPE_WIDGET:
 		elem->layer = &shell->ui_layer;
 		set_surface(shell, surface, output, tw_ui_resource, commit_ui_surface);
 		break;
-	case TW_UI_TYPE_LOCKER:
+	case TAIWINS_UI_TYPE_LOCKER:
 		elem->layer = &shell->locker_layer;
 		set_lock_surface(shell, surface, tw_ui_resource);
 		break;
@@ -566,7 +566,7 @@ create_shell_panel(struct wl_client *client,
 	struct shell_output *output = &shell->tw_outputs[idx];
 	create_ui_element(client, shell, &output->panel,
 			tw_ui, wl_surface, output->output,
-			0, 0, TW_UI_TYPE_PANEL);
+			0, 0, TAIWINS_UI_TYPE_PANEL);
 }
 
 static void
@@ -581,7 +581,7 @@ launch_shell_widget(struct wl_client *client,
 	struct shell_output *output = &shell->tw_outputs[idx];
 	create_ui_element(client, shell, &shell->widget, tw_ui,
 			wl_surface, output->output,
-			x, y, TW_UI_TYPE_WIDGET);
+			x, y, TAIWINS_UI_TYPE_WIDGET);
 }
 
 static void
@@ -596,7 +596,7 @@ create_shell_background(struct wl_client *client,
 
 	create_ui_element(client, shell, &shell_output->background, tw_ui,
 			wl_surface, shell_output->output,
-			  0, 0, TW_UI_TYPE_BACKGROUND);
+			  0, 0, TAIWINS_UI_TYPE_BACKGROUND);
 }
 
 static void
@@ -610,10 +610,10 @@ create_shell_locker(struct wl_client *client,
 	struct shell_output *shell_output =
 		&shell->tw_outputs[0];
 	create_ui_element(client, shell, &shell->locker, tw_ui, wl_surface,
-			  shell_output->output, 0, 0, TW_UI_TYPE_LOCKER);
+			  shell_output->output, 0, 0, TAIWINS_UI_TYPE_LOCKER);
 }
 
-static struct tw_shell_interface shell_impl = {
+static struct taiwins_shell_interface shell_impl = {
 	.create_panel = create_shell_panel,
 	.create_background = create_shell_background,
 	.create_locker = create_shell_locker,
@@ -680,7 +680,7 @@ shell_reload_config(struct weston_keyboard *keyboard,
 	struct shell *shell = data;
 	if (!taiwins_run_config(shell->config, NULL)) {
 		const char *err_msg = taiwins_config_retrieve_error(shell->config);
-		shell_post_message(shell, TW_SHELL_MSG_TYPE_CONFIG_ERR, err_msg);
+		shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_CONFIG_ERR, err_msg);
 	}
 }
 
@@ -749,9 +749,9 @@ _lua_set_panel_position(lua_State *L)
 	luaL_checktype(L, 2, LUA_TSTRING);
 	const char *pos = lua_tostring(L, 2);
 	if (strcmp(pos, "bottom") == 0)
-		shell->panel_pos = TW_SHELL_PANEL_POS_BOTTOM;
+		shell->panel_pos = TAIWINS_SHELL_PANEL_POS_BOTTOM;
 	else if (strcmp(pos, "top") == 0)
-		shell->panel_pos = TW_SHELL_PANEL_POS_TOP;
+		shell->panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
 	else
 		luaL_error(L, "invalid panel position %s", pos);
 	return 0;
@@ -912,15 +912,15 @@ shell_apply_lua_config(struct taiwins_config *c, bool cleanup,
 	if (!shell->shell_resource)
 		return;
 	if (shell->wallpaper_path)
-		shell_post_message(shell, TW_SHELL_MSG_TYPE_WALLPAPER,
+		shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_WALLPAPER,
 				   shell->wallpaper_path);
 	if (shell->widget_path)
-		shell_post_message(shell, TW_SHELL_MSG_TYPE_WIDGET,
+		shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_WIDGET,
 				   shell->widget_path);
 	if (shell->menu.len) {
 		struct wl_array serialized =
 			taiwins_menu_to_wl_array(shell->menu.elems, shell->menu.len);
-		shell_post_data(shell, TW_SHELL_MSG_TYPE_MENU, &serialized);
+		shell_post_data(shell, TAIWINS_SHELL_MSG_TYPE_MENU, &serialized);
 	}
 	if (shell->lock_countdown > 0) {
 		shell->ec->idle_time = shell->lock_countdown;
@@ -969,8 +969,8 @@ bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 	struct wl_resource *resource = NULL;
 	struct weston_layer *layer;
 
-	resource = wl_resource_create(client, &tw_shell_interface,
-				      tw_shell_interface.version, id);
+	resource = wl_resource_create(client, &taiwins_shell_interface,
+				      taiwins_shell_interface.version, id);
 
 	wl_client_get_credentials(client, &pid, &uid, &gid);
 	if (shell->shell_client &&
@@ -999,10 +999,10 @@ bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 	struct weston_output *output;
 	wl_list_for_each(output, &shell->ec->output_list, link) {
 		int ith_output = shell_ith_output(shell, output);
-		tw_shell_send_output_configure(shell->shell_resource, ith_output,
+		taiwins_shell_send_output_configure(shell->shell_resource, ith_output,
 					       output->width, output->height, output->scale,
 					       ith_output == 0,
-					       TW_SHELL_OUTPUT_MSG_CONNECTED);
+					       TAIWINS_SHELL_OUTPUT_MSG_CONNECTED);
 	}
 }
 
@@ -1014,7 +1014,7 @@ shell_create_ui_elem(struct shell *shell,
 		     uint32_t tw_ui,
 		     struct wl_resource *wl_surface,
 		     uint32_t x, uint32_t y,
-		     enum tw_ui_type type)
+		     enum taiwins_ui_type type)
 {
 	struct weston_output *output = tw_get_focused_output(shell->ec);
 	create_ui_element(client, shell, NULL, tw_ui, wl_surface, output,
@@ -1025,7 +1025,7 @@ void
 shell_post_data(struct shell *shell, uint32_t type,
 		struct wl_array *msg)
 {
-	tw_shell_send_shell_msg(shell->shell_resource,
+	taiwins_shell_send_shell_msg(shell->shell_resource,
 				type, msg);
 }
 
@@ -1037,7 +1037,7 @@ shell_post_message(struct shell *shell, uint32_t type, const char *msg)
 	arr.data = len == 0 ? NULL : (void *)msg;
 	arr.size = len == 0 ? 0 : len+1;
 	arr.alloc = 0;
-	tw_shell_send_shell_msg(shell->shell_resource, type, &arr);
+	taiwins_shell_send_shell_msg(shell->shell_resource, type, &arr);
 }
 
 struct weston_geometry
@@ -1052,7 +1052,7 @@ shell_output_available_space(struct shell *shell, struct weston_output *output)
 
 	if (!shell_output || !shell_output->panel.binded)
 		return geo;
-	if (shell->panel_pos == TW_SHELL_PANEL_POS_TOP)
+	if (shell->panel_pos == TAIWINS_SHELL_PANEL_POS_TOP)
 		geo.y += shell_output->panel.binded->height;
 	else
 		geo.height -= shell_output->panel.binded->height;
@@ -1107,7 +1107,7 @@ static inline void
 shell_init_options(struct shell *shell)
 {
 	vector_init_zero(&shell->menu, sizeof(struct taiwins_menu_item), NULL);
-	shell->panel_pos = TW_SHELL_PANEL_POS_TOP;
+	shell->panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
 	shell->lock_countdown = -1;
 	shell->sleep_countdown = -1;
 	shell->wallpaper_path = NULL;
@@ -1131,9 +1131,12 @@ announce_shell(struct weston_compositor *ec, const char *path,
 	oneshell.config = config;
 
 	//TODO leaking a wl_global
-	oneshell.shell_global =  wl_global_create(ec->wl_display, &tw_shell_interface,
-						  tw_shell_interface.version, &oneshell,
-						  bind_shell);
+	oneshell.shell_global =
+		wl_global_create(ec->wl_display,
+		                 &taiwins_shell_interface,
+		                 taiwins_shell_interface.version,
+		                 &oneshell,
+		                 bind_shell);
 	if (path) {
 		assert(strlen(path) +1 <= sizeof(oneshell.path));
 		strcpy(oneshell.path, path);

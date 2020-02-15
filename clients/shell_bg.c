@@ -70,7 +70,7 @@ shell_init_bg_for_output(struct shell_output *w)
 	struct wl_surface *bg_sf =
 		wl_compositor_create_surface(shell->globals.compositor);
 	w->bg_ui =
-		tw_shell_create_background(shell->interface, bg_sf, w->index);
+		taiwins_shell_create_background(shell->interface, bg_sf, w->index);
 
 	tw_appsurf_init(&w->background, bg_sf,
 			 &shell->globals, TW_APPSURF_BACKGROUND,

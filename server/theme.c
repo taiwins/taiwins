@@ -59,12 +59,13 @@ bind_theme(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 	struct theme *theme = data;
 	struct theme_client *tc;
 	struct wl_resource *resource =
-		wl_resource_create(client, &tw_theme_interface,
-				   tw_theme_interface.version, id);
+		wl_resource_create(client, &taiwins_theme_interface,
+				   taiwins_theme_interface.version, id);
 	tc = zalloc(sizeof(struct theme_client));
 	if (!tc) {
 		wl_resource_post_error(resource, WL_DISPLAY_ERROR_NO_MEMORY,
-				       "failed to create theme for client %d", id);
+				       "failed to create theme for client %d",
+		                       id);
 		wl_resource_destroy(resource);
 	}
 	//theme does not have requests
@@ -88,8 +89,10 @@ annouce_theme(struct weston_compositor *ec, struct shell *shell,
 	      struct taiwins_config *config)
 {
 	THEME.ec = ec;
-	THEME.global = wl_global_create(ec->wl_display, &tw_theme_interface,
-					tw_theme_interface.version, &THEME,
+	THEME.global = wl_global_create(ec->wl_display,
+	                                &taiwins_theme_interface,
+					taiwins_theme_interface.version,
+	                                &THEME,
 					bind_theme);
 	wl_list_init(&THEME.clients);
 

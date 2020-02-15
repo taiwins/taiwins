@@ -73,7 +73,7 @@ close_console(struct wl_client *client,
 	fprintf(stderr, "the console client is %p\n", client);
 	struct console *lch = (struct console *)wl_resource_get_user_data(resource);
 	lch->decision_buffer = wl_shm_buffer_get(wl_buffer);
-	tw_console_send_exec(resource, exec_id);
+	taiwins_console_send_exec(resource, exec_id);
 }
 
 
@@ -85,13 +85,13 @@ set_console(struct wl_client *client,
 {
 	struct console *lch = wl_resource_get_user_data(resource);
 	shell_create_ui_elem(lch->shell, client, ui_elem, wl_surface,
-			     100, 100, TW_UI_TYPE_WIDGET);
+			     100, 100, TAIWINS_UI_TYPE_WIDGET);
 	lch->surface = tw_surface_from_resource(wl_surface);
 	wl_resource_add_destroy_listener(wl_surface, &lch->close_console_listener);
 }
 
 
-static struct tw_console_interface console_impl = {
+static struct taiwins_console_interface console_impl = {
 	.launch = set_console,
 	.submit = close_console
 };
@@ -113,7 +113,7 @@ static void
 bind_console(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
 	struct console *console = data;
-	struct wl_resource *wl_resource = wl_resource_create(client, &tw_console_interface,
+	struct wl_resource *wl_resource = wl_resource_create(client, &taiwins_console_interface,
 							  TWDESKP_VERSION, id);
 
 	uid_t uid; gid_t gid; pid_t pid;
@@ -141,7 +141,7 @@ should_start_console(struct weston_keyboard *keyboard, const struct timespec *ti
 	    wl_list_length(&lch->surface->views)) //or the console is active
 		return;
 
-	tw_console_send_start(lch->resource,
+	taiwins_console_send_start(lch->resource,
 				    wl_fixed_from_int(200),
 				    wl_fixed_from_int(300),
 				    wl_fixed_from_int(1));
@@ -161,8 +161,10 @@ console_add_bindings(struct tw_bindings *bindings, struct taiwins_config *config
 {
 	struct console *c = container_of(listener, struct console, add_binding);
 	const struct tw_key_press *open_console =
-		taiwins_config_get_builtin_binding(config, TW_OPEN_CONSOLE_BINDING)->keypress;
-	return tw_bindings_add_key(bindings, open_console, should_start_console, 0, c);
+		taiwins_config_get_builtin_binding(
+			config, TW_OPEN_CONSOLE_BINDING)->keypress;
+	return tw_bindings_add_key(bindings, open_console,
+	                           should_start_console, 0, c);
 }
 
 static void
@@ -184,13 +186,17 @@ announce_console(struct weston_compositor *compositor,
 	CONSOLE.compositor = compositor;
 	CONSOLE.shell = shell;
 	CONSOLE.global =
-		wl_global_create(compositor->wl_display, &tw_console_interface, TWDESKP_VERSION, &CONSOLE,
+		wl_global_create(compositor->wl_display,
+		                 &taiwins_console_interface,
+		                 TWDESKP_VERSION,
+		                 &CONSOLE,
 				 bind_console);
 
 	if (path) {
 		assert(strlen(path) +1 <= sizeof(CONSOLE.path));
 		strcpy(CONSOLE.path, path);
-		struct wl_event_loop *loop = wl_display_get_event_loop(compositor->wl_display);
+		struct wl_event_loop *loop =
+			wl_display_get_event_loop(compositor->wl_display);
 		wl_event_loop_add_idle(loop, launch_console_client, &CONSOLE);
 	}
 

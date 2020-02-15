@@ -64,7 +64,7 @@ typedef int (*shell_widget_path_find_t)(struct shell_widget *, char *path);
  * The beautiful thing about shell_widget is that it is pure data.
  */
 struct shell_widget {
-	struct tw_ui *proxy;
+	struct taiwins_ui *proxy;
 	struct tw_appsurf ancre;
 	struct tw_appsurf widget;
 	struct wl_list link;

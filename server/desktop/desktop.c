@@ -77,7 +77,7 @@ struct desktop {
 	struct grab_interface task_switch_grab;
 	//params
 	unsigned int inner_gap, outer_gap;
-	enum tw_shell_task_switch_effect ts_effect;
+	enum taiwins_shell_task_switch_effect ts_effect;
 };
 
 /***************************************************************
@@ -583,14 +583,15 @@ task_switch_grab_key(struct weston_keyboard_grab *grab,
 			container_of(link, struct recent_view, link);
 		struct weston_desktop_surface *surface =
 			weston_surface_get_desktop_surface(rv->view->surface);
-		strop_ncpy(brief->name, weston_desktop_surface_get_title(surface),
-			sizeof(brief->name));
+		strop_ncpy(brief->name,
+		           weston_desktop_surface_get_title(surface),
+		           sizeof(brief->name));
 		recent_view_get_origin_coord(rv, &brief->x, &brief->y);
 		brief->w = rv->view->surface->width;
 		brief->h = rv->view->surface->height;
 		link = link->next;
 	}
-	shell_post_data(d->shell, TW_SHELL_MSG_TYPE_TASK_SWITCHING,
+	shell_post_data(d->shell, TAIWINS_SHELL_MSG_TYPE_TASK_SWITCHING,
 			&tosent);
 	wl_array_release(&tosent);
 
@@ -606,10 +607,15 @@ task_switch_grab_modifier(struct weston_keyboard_grab *grab,
 static void
 task_switch_grab_cancel(struct weston_keyboard_grab *grab)
 {
-	struct grab_interface *gi = container_of(grab, struct grab_interface,
-						 keyboard_grab);
-	struct desktop *d = container_of(gi, struct desktop, task_switch_grab);
-	shell_post_message(d->shell, TW_SHELL_MSG_TYPE_SWITCH_WORKSPACE, "");
+	struct grab_interface *gi =
+		container_of(grab, struct grab_interface,
+		             keyboard_grab);
+	struct desktop *d = container_of(gi, struct desktop,
+	                                 task_switch_grab);
+
+	shell_post_message(d->shell,
+	                   TAIWINS_SHELL_MSG_TYPE_SWITCH_WORKSPACE,
+	                   "");
 	weston_keyboard_end_grab(grab->keyboard);
 	grab_interface_fini(gi);
 }
@@ -737,7 +743,8 @@ desktop_workspace_switch(struct weston_keyboard *keyboard,
 	char msg[32];
 	snprintf(msg, 32, "%d", (uint32_t)ws_idx);
 	shell_post_message(desktop->shell,
-			   TW_SHELL_MSG_TYPE_SWITCH_WORKSPACE, msg);
+			   TAIWINS_SHELL_MSG_TYPE_SWITCH_WORKSPACE,
+	                   msg);
 }
 
 
