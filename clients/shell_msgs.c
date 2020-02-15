@@ -27,7 +27,7 @@ kill_widget(struct desktop_shell *shell)
 {
 	tw_ui_destroy(shell->widget_launch.current->proxy);
 	shell->widget_launch.current->proxy = NULL;
-	app_surface_release(&shell->widget_launch.current->widget);
+	tw_appsurf_release(&shell->widget_launch.current->widget);
 	shell->widget_launch.current = NULL;
 }
 
@@ -60,10 +60,10 @@ desktop_shell_setup_wallpaper(struct desktop_shell *shell, const char *path)
 	if (is_file_exist(path))
 		strop_ncpy(shell->wallpaper_path, path, 128);
 	for (int i = 0; i < desktop_shell_n_outputs(shell); i++) {
-		struct app_surface *bg =
+		struct tw_appsurf *bg =
 			&shell->shell_outputs[i].background;
 		if (bg->wl_surface)
-			app_surface_frame(bg, false);
+			tw_appsurf_frame(bg, false);
 	}
 }
 
@@ -77,7 +77,7 @@ desktop_shell_setup_widgets(struct desktop_shell *shell, const char *path)
 	}
 	if (shell->main_output) {
 		struct shell_widget *widget;
-		struct app_surface *panel = &shell->main_output->panel;
+		struct tw_appsurf *panel = &shell->main_output->panel;
 		wl_list_for_each(widget, &shell->shell_widgets, link) {
 			shell_widget_hook_panel(widget, panel);
 			shell_widget_activate(widget, &shell->globals.event_queue);
@@ -90,7 +90,7 @@ desktop_shell_setup_locker(struct desktop_shell *shell)
 {
 	//priority over another
 	if (shell->transient.wl_surface &&
-	    shell->transient.type == APP_SURFACE_LOCKER)
+	    shell->transient.type == TW_APPSURF_LOCKER)
 		return;
 	else if (shell->transient.wl_surface)
 		shell_end_transient_surface(shell);
@@ -98,7 +98,7 @@ desktop_shell_setup_locker(struct desktop_shell *shell)
 		kill_widget(shell);
 
 	shell_locker_init(shell);
-	app_surface_frame(&shell->transient, false);
+	tw_appsurf_frame(&shell->transient, false);
 }
 
 void

@@ -96,7 +96,7 @@ days_in_a_year(int year)
 }
 
 static void
-calendar(struct nk_context *ctx, float width, float height, struct app_surface *app)
+calendar(struct nk_context *ctx, float width, float height, struct tw_appsurf *app)
 {
 	struct shell_widget *wig =
 		container_of(app, struct shell_widget, widget);

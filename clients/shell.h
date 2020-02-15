@@ -36,6 +36,7 @@
 #include <os/file.h>
 #include <client.h>
 #include <egl.h>
+#include <shmpool.h>
 #include <nk_backends.h>
 #include "../shared_config.h"
 #include "widget.h"
@@ -49,14 +50,14 @@ struct shell_output {
 	struct tw_output *output;
 	//options
 	struct {
-		struct bbox bbox;
+		struct tw_bbox bbox;
 		int index;
 	};
 	struct tw_ui *bg_ui;
 	struct tw_ui *pn_ui;
-	struct app_surface background;
-	struct app_surface panel;
-	struct app_event_filter background_events;
+	struct tw_appsurf background;
+	struct tw_appsurf panel;
+	struct tw_app_event_filter background_events;
 	//a temporary struct
 	double widgets_span;
 };
@@ -70,7 +71,7 @@ struct widget_launch_info {
 };
 
 struct desktop_shell {
-	struct wl_globals globals;
+	struct tw_globals globals;
 	struct tw_shell *interface;
 	enum tw_shell_panel_pos panel_pos;
 	//pannel configuration
@@ -89,7 +90,7 @@ struct desktop_shell {
 		struct widget_launch_info widget_launch;
 		//surface like locker, on-screen-keyboard will use this surface.
 		struct tw_ui *transient_ui;
-		struct app_surface transient;
+		struct tw_appsurf transient;
 	};
 	//outputs
 	struct shell_output *main_output;
@@ -124,7 +125,7 @@ shell_end_transient_surface(struct desktop_shell *shell)
 {
 	tw_ui_destroy(shell->transient_ui);
 	shell->transient_ui = NULL;
-	app_surface_release(&shell->transient);
+	tw_appsurf_release(&shell->transient);
 }
 
 #ifdef __cplusplus

@@ -65,8 +65,8 @@ typedef int (*shell_widget_path_find_t)(struct shell_widget *, char *path);
  */
 struct shell_widget {
 	struct tw_ui *proxy;
-	struct app_surface ancre;
-	struct app_surface widget;
+	struct tw_appsurf ancre;
+	struct tw_appsurf widget;
 	struct wl_list link;
 	shell_widget_draw_label_t ancre_cb;
 	shell_widget_setup_cb_t setup_cb;
@@ -100,9 +100,9 @@ void shell_widgets_load_script(struct wl_list *head, struct tw_event_queue *queu
 const struct shell_widget *shell_widget_get_builtin_by_name(const char *name);
 
 static inline void
-shell_widget_hook_panel(struct shell_widget *widget, struct app_surface *panel)
+shell_widget_hook_panel(struct shell_widget *widget, struct tw_appsurf *panel)
 {
-	embeded_impl_app_surface(&widget->ancre, panel, make_bbox_origin(0, 0, 1));
+	embeded_impl_app_surface(&widget->ancre, panel, tw_make_bbox_origin(0, 0, 1));
 	if (widget->setup_cb)
 		widget->setup_cb(widget);
 }

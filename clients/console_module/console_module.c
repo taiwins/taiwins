@@ -156,7 +156,7 @@ thread_run_module(void *arg)
 	char *exec_command = NULL, *search_command = NULL;
 	char *exec_res;
 	vector_t search_results = {0};
-	int exec_ret, search_ret;
+	int exec_ret = 0, search_ret = 0;
 	struct module_search_cache cache;
 
 	cache_init(&cache);

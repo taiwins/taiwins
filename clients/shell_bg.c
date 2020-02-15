@@ -22,7 +22,7 @@
 #include "shell.h"
 
 static bool
-shell_background_start_menu(struct app_surface *surf, const struct app_event *e)
+shell_background_start_menu(struct tw_appsurf *surf, const struct tw_app_event *e)
 {
 	if (e->ptr.btn == BTN_RIGHT && e->ptr.state)
 		fprintf(stderr, "should start menu by now");
@@ -30,16 +30,16 @@ shell_background_start_menu(struct app_surface *surf, const struct app_event *e)
 }
 
 static void
-shell_background_frame(struct app_surface *surf, struct wl_buffer *buffer,
-		       struct bbox *geo)
+shell_background_frame(struct tw_appsurf *surf, struct wl_buffer *buffer,
+		       struct tw_bbox *geo)
 
 {
-	//now it respond only app_surface_frame, we only need to add idle task
-	//as for app_surface_frame later
+	//now it respond only tw_appsurf_frame, we only need to add idle task
+	//as for tw_appsurf_frame later
 	struct shell_output *output = container_of(surf, struct shell_output, background);
 	struct desktop_shell *shell = output->shell;
 	*geo = surf->allocation;
-	void *buffer_data = shm_pool_buffer_access(buffer);
+	void *buffer_data = tw_shm_pool_buffer_access(buffer);
 	if (!strlen(shell->wallpaper_path))
 		sprintf(shell->wallpaper_path,
 			"%s/.wallpaper/wallpaper.png", getenv("HOME"));
@@ -53,7 +53,7 @@ shell_background_frame(struct app_surface *surf, struct wl_buffer *buffer,
 
 static void
 shell_background_impl_filter(struct wl_list *head,
-			     struct app_event_filter *filter)
+			     struct tw_app_event_filter *filter)
 {
 	wl_list_init(&filter->link);
 	filter->type = TW_POINTER_BTN;
@@ -72,9 +72,9 @@ shell_init_bg_for_output(struct shell_output *w)
 	w->bg_ui =
 		tw_shell_create_background(shell->interface, bg_sf, w->index);
 
-	app_surface_init(&w->background, bg_sf,
-			 &shell->globals, APP_SURFACE_BACKGROUND,
-			 APP_SURFACE_NORESIZABLE);
+	tw_appsurf_init(&w->background, bg_sf,
+			 &shell->globals, TW_APPSURF_BACKGROUND,
+			 TW_APPSURF_NORESIZABLE);
 	shm_buffer_impl_app_surface(&w->background,
 				    shell_background_frame,
 				    w->bbox);
@@ -86,7 +86,7 @@ void
 shell_resize_bg_for_output(struct shell_output *w)
 {
 	//TODO hacks here, we temporarily turn off non resizable flags
-	w->background.flags &= ~APP_SURFACE_NORESIZABLE;
-	app_surface_resize(&w->background, w->bbox.w, w->bbox.h, w->bbox.s);
-	w->background.flags |= APP_SURFACE_NORESIZABLE;
+	w->background.flags &= ~TW_APPSURF_NORESIZABLE;
+	tw_appsurf_resize(&w->background, w->bbox.w, w->bbox.h, w->bbox.s);
+	w->background.flags |= TW_APPSURF_NORESIZABLE;
 }
