@@ -3,6 +3,11 @@
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/twclient")
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/nklua")
 
+################## protocols #####################
+set(TAIWINS_PROTOCOLS_DIR
+  "${CMAKE_CURRENT_LIST_DIR}/taiwins-protocols"
+  PARENT_SCOPE)
+
 #################### rax ########################
 set(RAX_DIR "${CMAKE_CURRENT_SOURCE_DIR}/rax")
 find_path(RAX_INCLUDE_DIR rax.h

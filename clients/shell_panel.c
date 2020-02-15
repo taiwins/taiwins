@@ -27,18 +27,18 @@
  ******************************************************************************/
 
 static void
-widget_should_close(void *data, struct tw_ui *ui_elem)
+widget_should_close(void *data, struct taiwins_ui *ui_elem)
 {
 	struct widget_launch_info *info = (struct widget_launch_info *)data;
 	struct shell_widget *widget = info->current;
 
-	tw_ui_destroy(widget->proxy);
+	taiwins_ui_destroy(widget->proxy);
 	tw_appsurf_release(&widget->widget);
 	widget->proxy = NULL;
 	info->current = NULL;
 }
 
-static struct  tw_ui_listener widget_impl = {
+static struct  taiwins_ui_listener widget_impl = {
 	.close = widget_should_close,
 };
 
@@ -60,12 +60,12 @@ launch_widget(struct tw_appsurf *panel_surf)
 
 	struct wl_surface *widget_surface =
 		wl_compositor_create_surface(shell->globals.compositor);
-	struct tw_ui *widget_proxy =
-		tw_shell_launch_widget(shell->interface, widget_surface,
+	struct taiwins_ui *widget_proxy =
+		taiwins_shell_launch_widget(shell->interface, widget_surface,
 				       shell_output->index, info->x, info->y);
 
 	info->widget->proxy = widget_proxy;
-	tw_ui_add_listener(widget_proxy, &widget_impl, info);
+	taiwins_ui_add_listener(widget_proxy, &widget_impl, info);
 	//launch widget
 	tw_appsurf_init(&info->widget->widget, widget_surface,
 			 panel_surf->tw_globals,
@@ -100,7 +100,7 @@ widget_launch_point_flat(struct nk_vec2 *label_span, struct shell_widget *clicke
 	else
 		info.x = label_span->x;
 	//this totally depends on where the panel is
-	if (shell_output->shell->panel_pos == TW_SHELL_PANEL_POS_TOP)
+	if (shell_output->shell->panel_pos == TAIWINS_SHELL_PANEL_POS_TOP)
 		info.y = h;
 	else {
 		info.y = shell_output->bbox.h -
@@ -207,7 +207,7 @@ shell_init_panel_for_output(struct shell_output *w)
 
 	//at this point, we are  sure to create the resource
 	pn_sf = wl_compositor_create_surface(shell->globals.compositor);
-	w->pn_ui = tw_shell_create_panel(shell->interface, pn_sf, w->index);
+	w->pn_ui = taiwins_shell_create_panel(shell->interface, pn_sf, w->index);
 	tw_appsurf_init(&w->panel, pn_sf, &shell->globals,
 			 TW_APPSURF_PANEL, TW_APPSURF_NORESIZABLE);
 	nk_cairo_impl_app_surface(&w->panel, shell->panel_backend,
@@ -233,7 +233,9 @@ shell_resize_panel_for_output(struct shell_output *w)
 			shell_panel_measure_leading);
 
 	w->panel.flags &= ~TW_APPSURF_NORESIZABLE;
-	tw_appsurf_resize(&w->panel, w->bbox.w, w->shell->panel_height,
-			   w->bbox.s);
+	tw_appsurf_resize(&w->panel,
+	                  w->bbox.w,
+	                  w->shell->panel_height,
+	                  w->bbox.s);
 	w->panel.flags |= TW_APPSURF_NORESIZABLE;
 }

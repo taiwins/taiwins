@@ -47,14 +47,14 @@ extern "C" {
 
 struct shell_output {
 	struct desktop_shell *shell;
-	struct tw_output *output;
+	struct taiwins_output *output;
 	//options
 	struct {
 		struct tw_bbox bbox;
 		int index;
 	};
-	struct tw_ui *bg_ui;
-	struct tw_ui *pn_ui;
+	struct taiwins_ui *bg_ui;
+	struct taiwins_ui *pn_ui;
 	struct tw_appsurf background;
 	struct tw_appsurf panel;
 	struct tw_app_event_filter background_events;
@@ -72,8 +72,8 @@ struct widget_launch_info {
 
 struct desktop_shell {
 	struct tw_globals globals;
-	struct tw_shell *interface;
-	enum tw_shell_panel_pos panel_pos;
+	struct taiwins_shell *interface;
+	enum taiwins_shell_panel_pos panel_pos;
 	//pannel configuration
 	struct {
 		struct nk_wl_backend *panel_backend;
@@ -89,7 +89,7 @@ struct desktop_shell {
 		struct wl_list shell_widgets;
 		struct widget_launch_info widget_launch;
 		//surface like locker, on-screen-keyboard will use this surface.
-		struct tw_ui *transient_ui;
+		struct taiwins_ui *transient_ui;
 		struct tw_appsurf transient;
 	};
 	//outputs
@@ -123,7 +123,7 @@ void shell_process_msg(struct desktop_shell *shell, uint32_t type,
 static inline void
 shell_end_transient_surface(struct desktop_shell *shell)
 {
-	tw_ui_destroy(shell->transient_ui);
+	taiwins_ui_destroy(shell->transient_ui);
 	shell->transient_ui = NULL;
 	tw_appsurf_release(&shell->transient);
 }

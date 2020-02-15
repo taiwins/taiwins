@@ -77,7 +77,7 @@ shell_output_release(struct shell_output *w)
 {
 	struct {
 		struct tw_appsurf *app;
-		struct tw_ui *protocol;
+		struct taiwins_ui *protocol;
 	} uis[] = {
 		{&w->panel, w->bg_ui},
 		{&w->background, w->pn_ui}
@@ -85,7 +85,7 @@ shell_output_release(struct shell_output *w)
 
 	for (int i = 0; i < 2; i++)
 		if (uis[i].protocol) {
-			tw_ui_destroy(uis[i].protocol);
+			taiwins_ui_destroy(uis[i].protocol);
 			tw_appsurf_release(uis[i].app);
 		}
 	w->shell = NULL;
@@ -112,7 +112,7 @@ shell_output_resize(struct shell_output *w, const struct tw_bbox geo)
 
 static void
 desktop_shell_recv_msg(void *data,
-		       struct tw_shell *tw_shell,
+		       struct taiwins_shell *tw_shell,
 		       uint32_t type,
 		       struct wl_array *arr)
 {
@@ -122,7 +122,7 @@ desktop_shell_recv_msg(void *data,
 }
 
 static void
-desktop_shell_output_configure(void *data, struct tw_shell *tw_shell,
+desktop_shell_output_configure(void *data, struct taiwins_shell *tw_shell,
 			       uint32_t id, uint32_t width, uint32_t height,
 			       uint32_t scale, uint32_t major, uint32_t msg)
 {
@@ -132,13 +132,13 @@ desktop_shell_output_configure(void *data, struct tw_shell *tw_shell,
 	output->shell = shell;
 	output->index = id;
 	switch (msg) {
-	case TW_SHELL_OUTPUT_MSG_CONNECTED:
+	case TAIWINS_SHELL_OUTPUT_MSG_CONNECTED:
 		shell_output_init(output, geometry, major);
 		break;
-	case TW_SHELL_OUTPUT_MSG_CHANGE:
+	case TAIWINS_SHELL_OUTPUT_MSG_CHANGE:
 		shell_output_resize(output, geometry);
 		break;
-	case TW_SHELL_OUTPUT_MSG_LOST:
+	case TAIWINS_SHELL_OUTPUT_MSG_LOST:
 		shell_output_release(output);
 		break;
 	default:
@@ -147,7 +147,7 @@ desktop_shell_output_configure(void *data, struct tw_shell *tw_shell,
 	output->bbox = tw_make_bbox_origin(width, height, scale);
 }
 
-static struct tw_shell_listener tw_shell_impl = {
+static struct taiwins_shell_listener tw_shell_impl = {
 	.output_configure = desktop_shell_output_configure,
 	.shell_msg = desktop_shell_recv_msg,
 };
@@ -203,7 +203,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 static void
 desktop_shell_release(struct desktop_shell *shell)
 {
-	tw_shell_destroy(shell->interface);
+	taiwins_shell_destroy(shell->interface);
 
 	struct shell_widget *widget, *tmp;
 	wl_list_for_each_safe(widget, tmp, &shell->shell_widgets, link) {
@@ -236,11 +236,11 @@ void announce_globals(void *data,
 {
 	struct desktop_shell *twshell = (struct desktop_shell *)data;
 
-	if (strcmp(interface, tw_shell_interface.name) == 0) {
+	if (strcmp(interface, taiwins_shell_interface.name) == 0) {
 		fprintf(stderr, "shell registé\n");
-		twshell->interface = (struct tw_shell *)
-			wl_registry_bind(wl_registry, name, &tw_shell_interface, version);
-		tw_shell_add_listener(twshell->interface, &tw_shell_impl, twshell);
+		twshell->interface = (struct taiwins_shell *)
+			wl_registry_bind(wl_registry, name, &taiwins_shell_interface, version);
+		taiwins_shell_add_listener(twshell->interface, &tw_shell_impl, twshell);
 	}
 	else
 		tw_globals_announce(&twshell->globals, wl_registry, name, interface, version);

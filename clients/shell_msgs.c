@@ -25,7 +25,7 @@
 static inline void
 kill_widget(struct desktop_shell *shell)
 {
-	tw_ui_destroy(shell->widget_launch.current->proxy);
+	taiwins_ui_destroy(shell->widget_launch.current->proxy);
 	shell->widget_launch.current->proxy = NULL;
 	tw_appsurf_release(&shell->widget_launch.current->widget);
 	shell->widget_launch.current = NULL;
@@ -108,27 +108,27 @@ shell_process_msg(struct desktop_shell *shell,
 	union wl_argument arg;
 
 	switch (type) {
-	case TW_SHELL_MSG_TYPE_NOTIFICATION:
+	case TAIWINS_SHELL_MSG_TYPE_NOTIFICATION:
 		arg.s = data->data;
 		break;
-	case TW_SHELL_MSG_TYPE_PANEL_POS:
+	case TAIWINS_SHELL_MSG_TYPE_PANEL_POS:
 		arg.u = atoi((const char*)data->data);
-		shell->panel_pos = arg.u == TW_SHELL_PANEL_POS_TOP ?
-			TW_SHELL_PANEL_POS_TOP : TW_SHELL_PANEL_POS_BOTTOM;
+		shell->panel_pos = arg.u == TAIWINS_SHELL_PANEL_POS_TOP ?
+			TAIWINS_SHELL_PANEL_POS_TOP : TAIWINS_SHELL_PANEL_POS_BOTTOM;
 		break;
-	case TW_SHELL_MSG_TYPE_MENU:
+	case TAIWINS_SHELL_MSG_TYPE_MENU:
 		desktop_shell_setup_menu(shell, data);
 		break;
-	case TW_SHELL_MSG_TYPE_WALLPAPER:
+	case TAIWINS_SHELL_MSG_TYPE_WALLPAPER:
 		desktop_shell_setup_wallpaper(shell, (const char *)data->data);
 		break;
-	case TW_SHELL_MSG_TYPE_WIDGET:
+	case TAIWINS_SHELL_MSG_TYPE_WIDGET:
 		desktop_shell_setup_widgets(shell, (const char *)data->data);
 		break;
-	case TW_SHELL_MSG_TYPE_LOCK:
+	case TAIWINS_SHELL_MSG_TYPE_LOCK:
 		desktop_shell_setup_locker(shell);
 		break;
-	case TW_SHELL_MSG_TYPE_SWITCH_WORKSPACE:
+	case TAIWINS_SHELL_MSG_TYPE_SWITCH_WORKSPACE:
 	{
 		fprintf(stderr, "switch workspace\n");
 		break;
