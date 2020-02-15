@@ -34,7 +34,7 @@
 
 
 static struct auth_buffer {
-	struct app_surface *app;
+	struct tw_appsurf *app;
 	/* struct nk_text_edit line; */
 	char stars[256];
 	char codes[256];
@@ -86,7 +86,7 @@ static int run_pam(struct tw_event *event, int fd)
 {
 	struct passwd *passwd = getpwuid(getuid());
 	char *username = passwd->pw_name;
-	struct app_surface *app = event->data;
+	struct tw_appsurf *app = event->data;
 	struct desktop_shell *shell =
 		container_of(app, struct desktop_shell, transient);
 	int retval = 0;
@@ -115,7 +115,7 @@ locked:
 
 static void
 shell_locker_frame(struct nk_context *ctx, float width, float height,
-		   struct app_surface *locker)
+		   struct tw_appsurf *locker)
 {
 
 	struct passwd *passwd = getpwuid(getuid());
@@ -150,7 +150,7 @@ shell_locker_frame(struct nk_context *ctx, float width, float height,
 			.data = locker,
 			.cb = run_pam,
 		};
-		tw_event_queue_add_idle(&locker->wl_globals->event_queue, &e);
+		tw_event_queue_add_idle(&locker->tw_globals->event_queue, &e);
 	}
 }
 
@@ -164,9 +164,9 @@ void shell_locker_init(struct desktop_shell *shell)
 		tw_shell_create_locker(shell->interface, wl_surface, 0);
 	struct shell_output *output = shell->main_output;
 
-	app_surface_init(&shell->transient, wl_surface,
-			 &shell->globals, APP_SURFACE_LOCKER,
-			 APP_SURFACE_NORESIZABLE | APP_SURFACE_COMPOSITE);
+	tw_appsurf_init(&shell->transient, wl_surface,
+			 &shell->globals, TW_APPSURF_LOCKER,
+			 TW_APPSURF_NORESIZABLE | TW_APPSURF_COMPOSITE);
 	nk_cairo_impl_app_surface(&shell->transient, shell->widget_backend,
 				  shell_locker_frame, output->bbox);
 

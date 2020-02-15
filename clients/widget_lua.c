@@ -97,7 +97,7 @@ _lua_widget_anchor(struct shell_widget *widget, struct shell_widget_label *label
 
 static void
 _lua_widget_cb(struct nk_context *ctx, float width, float height,
-	       struct app_surface *app)
+	       struct tw_appsurf *app)
 {
 	//get widget
 	struct shell_widget *widget =

@@ -41,9 +41,9 @@ static int
 redraw_panel_for_file(struct tw_event *e, int fd)
 {
 	struct shell_widget *widget = e->data;
-	struct app_event ae = {
+	struct tw_app_event ae = {
 		.type = TW_TIMER,
-		.time = widget->ancre.wl_globals->inputs.millisec,
+		.time = widget->ancre.tw_globals->inputs.millisec,
 	};
 	//you set it here it will never work
 	widget->fd = fd;
@@ -60,9 +60,9 @@ static int
 redraw_panel_for_dev(struct tw_event *e, int fd)
 {
 	struct shell_widget *widget = e->data;
-	struct app_event ae = {
+	struct tw_app_event ae = {
 		.type = TW_TIMER,
-		.time = widget->ancre.wl_globals->inputs.millisec,
+		.time = widget->ancre.tw_globals->inputs.millisec,
 	};
 	widget->dev =
 		tw_event_get_udev_device(e);
@@ -76,9 +76,9 @@ static int
 redraw_panel_for_timer(struct tw_event *e, int fd)
 {
 	struct shell_widget *widget = e->data;
-	struct app_event ae = {
+	struct tw_app_event ae = {
 		.type = TW_TIMER,
-		.time = widget->ancre.wl_globals->inputs.millisec,
+		.time = widget->ancre.tw_globals->inputs.millisec,
 	};
 
 	widget->fd = fd;
@@ -175,7 +175,7 @@ shell_widget_activate(struct shell_widget *widget, struct tw_event_queue *queue)
 void
 shell_widget_disactivate(struct shell_widget *widget, struct tw_event_queue *queue)
 {
-	app_surface_release(&widget->ancre);
+	tw_appsurf_release(&widget->ancre);
 	struct tw_event e = {
 		.data = widget,
 	};

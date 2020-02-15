@@ -33,7 +33,7 @@ widget_should_close(void *data, struct tw_ui *ui_elem)
 	struct shell_widget *widget = info->current;
 
 	tw_ui_destroy(widget->proxy);
-	app_surface_release(&widget->widget);
+	tw_appsurf_release(&widget->widget);
 	widget->proxy = NULL;
 	info->current = NULL;
 }
@@ -44,7 +44,7 @@ static struct  tw_ui_listener widget_impl = {
 
 //later we can take advantage of the idle queue for this.
 void
-launch_widget(struct app_surface *panel_surf)
+launch_widget(struct tw_appsurf *panel_surf)
 {
 	struct shell_output *shell_output =
 		container_of(panel_surf, struct shell_output, panel);
@@ -54,7 +54,7 @@ launch_widget(struct app_surface *panel_surf)
 		return;
 	else if (info->current != NULL) {
 		//if there is a widget launched and is not current widget
-		app_surface_release(&info->current->widget);
+		tw_appsurf_release(&info->current->widget);
 		info->current = NULL;
 	}
 
@@ -67,16 +67,16 @@ launch_widget(struct app_surface *panel_surf)
 	info->widget->proxy = widget_proxy;
 	tw_ui_add_listener(widget_proxy, &widget_impl, info);
 	//launch widget
-	app_surface_init(&info->widget->widget, widget_surface,
-			 panel_surf->wl_globals,
-			 APP_SURFACE_WIDGET, APP_SURFACE_NORESIZABLE);
+	tw_appsurf_init(&info->widget->widget, widget_surface,
+			 panel_surf->tw_globals,
+			 TW_APPSURF_WIDGET, TW_APPSURF_NORESIZABLE);
 	nk_cairo_impl_app_surface(&info->widget->widget, shell->widget_backend,
 				  info->widget->draw_cb,
-				  make_bbox(info->x, info->y,
-					    info->widget->w, info->widget->h,
-					    shell_output->bbox.s));
+				  tw_make_bbox(info->x, info->y,
+				               info->widget->w, info->widget->h,
+				               shell_output->bbox.s));
 
-	app_surface_frame(&info->widget->widget, false);
+	tw_appsurf_frame(&info->widget->widget, false);
 
 	info->current = info->widget;
 }
@@ -86,7 +86,7 @@ launch_widget(struct app_surface *panel_surf)
  ******************************************************************************/
 static inline struct nk_vec2
 widget_launch_point_flat(struct nk_vec2 *label_span, struct shell_widget *clicked,
-			 struct app_surface *panel_surf)
+			 struct tw_appsurf *panel_surf)
 {
 	struct shell_output *shell_output =
 		container_of(panel_surf, struct shell_output, panel);
@@ -112,7 +112,7 @@ widget_launch_point_flat(struct nk_vec2 *label_span, struct shell_widget *clicke
 
 static void
 shell_panel_measure_leading(struct nk_context *ctx, float width, float height,
-			    struct app_surface *panel_surf)
+			    struct tw_appsurf *panel_surf)
 {
 	struct shell_output *shell_output =
 		container_of(panel_surf, struct shell_output, panel);
@@ -144,7 +144,7 @@ shell_panel_measure_leading(struct nk_context *ctx, float width, float height,
 
 static void
 shell_panel_frame(struct nk_context *ctx, float width, float height,
-		  struct app_surface *panel_surf)
+		  struct tw_appsurf *panel_surf)
 {
 	struct shell_output *shell_output =
 		container_of(panel_surf, struct shell_output, panel);
@@ -199,8 +199,6 @@ shell_panel_frame(struct nk_context *ctx, float width, float height,
 	nk_wl_add_idle(ctx, launch_widget);
 }
 
-
-
 void
 shell_init_panel_for_output(struct shell_output *w)
 {
@@ -210,12 +208,13 @@ shell_init_panel_for_output(struct shell_output *w)
 	//at this point, we are  sure to create the resource
 	pn_sf = wl_compositor_create_surface(shell->globals.compositor);
 	w->pn_ui = tw_shell_create_panel(shell->interface, pn_sf, w->index);
-	app_surface_init(&w->panel, pn_sf, &shell->globals,
-			 APP_SURFACE_PANEL, APP_SURFACE_NORESIZABLE);
+	tw_appsurf_init(&w->panel, pn_sf, &shell->globals,
+			 TW_APPSURF_PANEL, TW_APPSURF_NORESIZABLE);
 	nk_cairo_impl_app_surface(&w->panel, shell->panel_backend,
 				  shell_panel_frame,
-				  make_bbox_origin(w->bbox.w, shell->panel_height,
-						   w->bbox.s));
+				  tw_make_bbox_origin(w->bbox.w,
+				                      shell->panel_height,
+				                      w->bbox.s));
 
 	struct shell_widget *widget;
 	wl_list_for_each(widget, &shell->shell_widgets, link) {
@@ -233,8 +232,8 @@ shell_resize_panel_for_output(struct shell_output *w)
 	nk_wl_test_draw(w->shell->panel_backend, &w->panel,
 			shell_panel_measure_leading);
 
-	w->panel.flags &= ~APP_SURFACE_NORESIZABLE;
-	app_surface_resize(&w->panel, w->bbox.w, w->shell->panel_height,
+	w->panel.flags &= ~TW_APPSURF_NORESIZABLE;
+	tw_appsurf_resize(&w->panel, w->bbox.w, w->shell->panel_height,
 			   w->bbox.s);
-	w->panel.flags |= APP_SURFACE_NORESIZABLE;
+	w->panel.flags |= TW_APPSURF_NORESIZABLE;
 }

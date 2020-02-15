@@ -51,14 +51,14 @@ shell_output_set_major(struct shell_output *w)
 	if (shell->main_output == w)
 		return;
 	else if (shell->main_output)
-		app_surface_release(&shell->main_output->panel);
+		tw_appsurf_release(&shell->main_output->panel);
 
 	shell_init_panel_for_output(w);
 	shell->main_output = w;
 }
 
 static void
-shell_output_init(struct shell_output *w, const struct bbox geo, bool major)
+shell_output_init(struct shell_output *w, const struct tw_bbox geo, bool major)
 {
 	w->bg_ui = NULL;
 	w->pn_ui = NULL;
@@ -67,16 +67,16 @@ shell_output_init(struct shell_output *w, const struct bbox geo, bool major)
 
 	if (major) {
 		shell_output_set_major(w);
-		app_surface_frame(&w->panel, false);
+		tw_appsurf_frame(&w->panel, false);
 	}
-	app_surface_frame(&w->background, false);
+	tw_appsurf_frame(&w->background, false);
 }
 
 static void
 shell_output_release(struct shell_output *w)
 {
 	struct {
-		struct app_surface *app;
+		struct tw_appsurf *app;
 		struct tw_ui *protocol;
 	} uis[] = {
 		{&w->panel, w->bg_ui},
@@ -86,14 +86,14 @@ shell_output_release(struct shell_output *w)
 	for (int i = 0; i < 2; i++)
 		if (uis[i].protocol) {
 			tw_ui_destroy(uis[i].protocol);
-			app_surface_release(uis[i].app);
+			tw_appsurf_release(uis[i].app);
 		}
 	w->shell = NULL;
 
 }
 
 static void
-shell_output_resize(struct shell_output *w, const struct bbox geo)
+shell_output_resize(struct shell_output *w, const struct tw_bbox geo)
 {
 	w->bbox = geo;
 	shell_resize_bg_for_output(w);
@@ -128,7 +128,7 @@ desktop_shell_output_configure(void *data, struct tw_shell *tw_shell,
 {
 	struct desktop_shell *shell = data;
 	struct shell_output *output = &shell->shell_outputs[id];
-	struct bbox geometry =  make_bbox_origin(width, height, scale);
+	struct tw_bbox geometry =  tw_make_bbox_origin(width, height, scale);
 	output->shell = shell;
 	output->index = id;
 	switch (msg) {
@@ -144,7 +144,7 @@ desktop_shell_output_configure(void *data, struct tw_shell *tw_shell,
 	default:
 		break;
 	}
-	output->bbox = make_bbox_origin(width, height, scale);
+	output->bbox = tw_make_bbox_origin(width, height, scale);
 }
 
 static struct tw_shell_listener tw_shell_impl = {
@@ -165,7 +165,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 {
 	struct nk_style_button *style = &shell->label_style;
 
-	wl_globals_init(&shell->globals, display);
+	tw_globals_init(&shell->globals, display);
 	shell->globals.theme = taiwins_dark_theme;
 	shell->interface = NULL;
 	shell->panel_height = 32;
@@ -213,7 +213,7 @@ desktop_shell_release(struct desktop_shell *shell)
 
 	for (int i = 0; i < desktop_shell_n_outputs(shell); i++)
 		shell_output_release(&shell->shell_outputs[i]);
-	wl_globals_release(&shell->globals);
+	tw_globals_release(&shell->globals);
 	//destroy the backends
 	nk_cairo_destroy_bkend(shell->widget_backend);
 	nk_cairo_destroy_bkend(shell->panel_backend);
@@ -243,7 +243,7 @@ void announce_globals(void *data,
 		tw_shell_add_listener(twshell->interface, &tw_shell_impl, twshell);
 	}
 	else
-		wl_globals_announce(&twshell->globals, wl_registry, name, interface, version);
+		tw_globals_announce(&twshell->globals, wl_registry, name, interface, version);
 }
 
 static void
@@ -275,7 +275,7 @@ main(int argc, char **argv)
 	wl_display_roundtrip(display);
 
 	wl_display_flush(display);
-	wl_globals_dispatch_event_queue(&oneshell.globals);
+	tw_globals_dispatch_event_queue(&oneshell.globals);
 	//clear up
 	desktop_shell_release(&oneshell);
 	wl_registry_destroy(registry);

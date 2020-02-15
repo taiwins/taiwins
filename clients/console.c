@@ -38,6 +38,7 @@
 #include <os/exec.h>
 #include <client.h>
 #include <ui.h>
+#include <shmpool.h>
 #include <rax.h>
 #include <strops.h>
 #include <sequential.h>
@@ -55,9 +56,9 @@ struct selected_search_entry {
 struct desktop_console {
 	struct tw_console *interface;
 	struct tw_ui *proxy;
-	struct wl_globals globals;
-	struct app_surface surface;
-	struct shm_pool pool;
+	struct tw_globals globals;
+	struct tw_appsurf surface;
+	struct tw_shm_pool pool;
 	struct wl_buffer *decision_buffer;
 	struct nk_wl_backend *bkend;
 	struct wl_callback *exec_cb;
@@ -77,7 +78,7 @@ struct desktop_console {
 };
 
 static void
-submit_console(struct app_surface *surf)
+submit_console(struct tw_appsurf *surf)
 {
 	struct desktop_console *console =
 		container_of(surf, struct desktop_console, surface);
@@ -85,7 +86,7 @@ submit_console(struct app_surface *surf)
 	//and also do the exec.
 	tw_ui_destroy(console->proxy);
 	console->proxy = NULL;
-	app_surface_release(&console->surface);
+	tw_appsurf_release(&console->surface);
 }
 
 static void
@@ -169,7 +170,7 @@ select_search_results(struct nk_context *ctx,
  */
 static void
 draw_console(struct nk_context *ctx, float width, float height,
-	     struct app_surface *surf)
+	     struct tw_appsurf *surf)
 {
 	enum EDITSTATE {NORMAL, SUBMITTING};
 	static enum EDITSTATE edit_state = NORMAL;
@@ -232,7 +233,7 @@ start_console(void *data, struct tw_console *tw_console,
 	      wl_fixed_t width, wl_fixed_t height, wl_fixed_t scale)
 {
 	struct desktop_console *console = (struct desktop_console *)data;
-	struct app_surface *surface = &console->surface;
+	struct tw_appsurf *surface = &console->surface;
 	struct wl_surface *wl_surface = NULL;
 	int w = wl_fixed_to_int(width);
 	int h = wl_fixed_to_int(height);
@@ -240,13 +241,13 @@ start_console(void *data, struct tw_console *tw_console,
 	wl_surface = wl_compositor_create_surface(console->globals.compositor);
 	console->proxy = tw_console_launch(tw_console, wl_surface);
 
-	app_surface_init(surface, wl_surface,
-			 &console->globals, APP_SURFACE_WIDGET,
-			 APP_SURFACE_NORESIZABLE);
-	surface->wl_globals = &console->globals;
+	tw_appsurf_init(surface, wl_surface,
+			 &console->globals, TW_APPSURF_WIDGET,
+			 TW_APPSURF_NORESIZABLE);
+	surface->tw_globals = &console->globals;
 	nk_cairo_impl_app_surface(surface, console->bkend, draw_console,
-				make_bbox_origin(w, h, 1));
-	app_surface_frame(surface, false);
+				tw_make_bbox_origin(w, h, 1));
+	tw_appsurf_frame(surface, false);
 }
 
 static void
@@ -307,10 +308,10 @@ init_console(struct desktop_console *console)
 	signal(SIGCHLD, free_defunct_app);
 	memset(console->chars, 0, sizeof(console->chars));
 	console->quit = false;
-	shm_pool_init(&console->pool, console->globals.shm,
+	tw_shm_pool_init(&console->pool, console->globals.shm,
 		      TW_CONSOLE_CONF_NUM_DECISIONS * sizeof(struct taiwins_decision_key),
 		      console->globals.buffer_format);
-	console->decision_buffer = shm_pool_alloc_buffer(&console->pool,
+	console->decision_buffer = tw_shm_pool_alloc_buffer(&console->pool,
 							  sizeof(struct taiwins_decision_key),
 							  TW_CONSOLE_CONF_NUM_DECISIONS);
 	console->bkend = nk_cairo_create_bkend();
@@ -339,10 +340,10 @@ end_console(struct desktop_console *console)
 {
 	nk_textedit_free(&console->text_edit);
 	nk_cairo_destroy_bkend(console->bkend);
-	shm_pool_release(&console->pool);
+	tw_shm_pool_release(&console->pool);
 
 	tw_console_destroy(console->interface);
-	wl_globals_release(&console->globals);
+	tw_globals_release(&console->globals);
 
 	vector_destroy(&console->modules);
 	vector_destroy(&console->search_results);
@@ -365,7 +366,7 @@ void announce_globals(void *data,
 			wl_registry_bind(wl_registry, name, &tw_console_interface, version);
 		tw_console_add_listener(console->interface, &console_impl, console);
 	} else
-		wl_globals_announce(&console->globals, wl_registry, name, interface, version);
+		tw_globals_announce(&console->globals, wl_registry, name, interface, version);
 }
 
 
@@ -392,7 +393,7 @@ main(int argc, char *argv[])
 		fprintf(stderr, "could not connect to display\n");
 		return -1;
 	}
-	wl_globals_init(&tw_console.globals, display);
+	tw_globals_init(&tw_console.globals, display);
 
 	struct wl_registry *registry = wl_display_get_registry(display);
 	wl_registry_add_listener(registry, &registry_listener, &tw_console);
