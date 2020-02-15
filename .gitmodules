@@ -7,3 +7,6 @@
 [submodule "3rdparties/rax"]
 	path = 3rdparties/rax
 	url = https://github.com/antirez/rax
+[submodule "3rdparties/taiwins-protocols"]
+	path = 3rdparties/taiwins-protocols
+	url = https://github.com/taiwins/taiwins-protocols
