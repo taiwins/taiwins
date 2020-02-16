@@ -15,34 +15,18 @@ jobs:
       working-directory: './taiwins-ubuntu'
     - name: install dependencies for ubuntu
       run: |
-        wget -qO /tmp/key.asc http://packages.lunarg.com/lunarg-signing-key-pub.asc
-        sudo apt-key add /tmp/key.asc
-        sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.1.130-bionic.list http://packages.lunarg.com/vulkan/1.1.130/lunarg-vulkan-1.1.130-bionic.list
-
-        wget -qO /tmp/key1.asc https://apt.kitware.com/keys/kitware-archive-latest.asc
-        sudo apt-key add /tmp/key1.asc
-        echo 'deb https://apt.kitware.com/ubuntu/ bionic main' > /tmp/cmake-kitware.list
-        sudo mv /tmp/cmake-kitware.list /etc/apt/sources.list.d/
-
-        sudo apt-get update
-        sudo apt-get -y install wget
-        sudo apt-get -y install libc6-dev libcairo2-dev libdbus-1-dev libinput-dev libudev-dev libdbus-1-3
-        sudo apt-get -y install libxkbcommon-dev libpixman-1-dev
-        sudo apt-get -y install libglvnd-dev libegl1-mesa-dev libgl1-mesa-dev mesa-common-dev
-        sudo apt-get -y install vulkan-sdk
-        sudo apt-get -y install libfontconfig1-dev libfreetype6-dev librsvg2-dev liblua5.3-dev libpam0g-dev
-        sudo apt-get -y install gcc-8 g++-8 cmake pkg-config git
-        git clone https://github.com/xeechou/weston-ubuntu-binaries bionic-debs
-        rm bionic-debs/bionic/weston_7.0.0-1_amd64.deb
-        rm bionic-debs/bionic/weston_7.0.91-1_amd64.deb
-        cp bionic-debs/bionic/FindFontconfig.cmake ./taiwins-ubuntu/cmake/
-        sudo dpkg --install --recursive bionic-debs
+        chmod +x ./.github/actions/ubuntu-deps.sh
+        .github/actions/ubuntu-deps.sh
+      working-directory: './taiwins-ubuntu'
     - name: clean build
       working-directory: './taiwins-ubuntu'
       run: rm -rf build && mkdir -p build
     - name: build
       working-directory: './taiwins-ubuntu/build'
-      run: cmake -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ .. && make
+      run: |
+        export PATH=~/.local/bin:$PATH
+        export PKG_CONFIG_PATH=/usr/local/lib:${PKG_CONFIG_PATH}
+        cmake -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ .. && make
         
   other-ci:
     runs-on: ubuntu-latest
@@ -55,8 +39,3 @@ jobs:
       uses: docker://archlinux/base:latest
       with:
         entrypoint: ./.github/actions/entrypoint.sh
-    - name: run with fedora docker img
-      uses: docker://fedora:latest
-      with:
-        entrypoint: ./.github/actions/entrypoint-fedora.sh
-      

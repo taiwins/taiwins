@@ -19,14 +19,17 @@
  *
  */
 
+#include <linux/limits.h>
 #include <string.h>
 #include <stdio.h>
 #include <signal.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <dlfcn.h>
 #include <wayland-server.h>
-#include "taiwins.h"
 #include <os/os-compatibility.h>
+
+#include "taiwins.h"
 
 /* static void sigup_handler(int signum) */
 /* { */
@@ -201,4 +204,37 @@ tw_get_focused_output(struct weston_compositor *compositor)
 	}
 
 	return output;
+}
+
+void *
+tw_load_weston_module(const char *name, const char *entrypoint)
+{
+	void *module, *init;
+
+	if (name == NULL || entrypoint == NULL)
+		return NULL;
+
+	//our modules are in the rpath as we do not have the
+	//LIBWESTON_MODULEDIR, so we need to test name and
+	module = dlopen(name, RTLD_NOW | RTLD_NOLOAD);
+	if (module) {
+		weston_log("Module '%s' already loaded\n", name);
+		return NULL;
+	} else {
+		module = dlopen(name, RTLD_NOW);
+		if (!module) {
+			weston_log("Failed to load the module %s\n", name);
+			return NULL;
+		}
+	}
+
+	init = dlsym(module, entrypoint);
+	if (!init) {
+		weston_log("Faild to lookup function in module: %s\n",
+		           dlerror());
+		dlclose(module);
+		return NULL;
+	}
+	return init;
+
 }

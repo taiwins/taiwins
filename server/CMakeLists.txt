@@ -30,14 +30,16 @@ add_library(twdesktop STATIC
   desktop/workspace.c
   )
 
-target_link_libraries(twcore PUBLIC
+target_link_libraries(twcore
+  PUBLIC
   Wayland::Server
-  Libweston::Libweston
+  libweston::libweston
   LibInput::LibInput
   Lua::Lua
   Pixman::Pixman
   XKBCommon::XKBCommon
   ctypes
+  PRIVATE dl
   )
 
 target_link_libraries(twshell PUBLIC
@@ -51,7 +53,7 @@ target_link_libraries(twconsole PUBLIC
   )
 
 target_link_libraries(twdesktop PUBLIC
-  Libweston::Desktop
+  libweston::libweston-desktop
   twcore
   protos-server
   )

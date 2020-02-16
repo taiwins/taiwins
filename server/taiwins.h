@@ -149,7 +149,8 @@ void setup_static_view(struct weston_view *view, struct weston_layer *layer, int
 void setup_ui_view(struct weston_view *view, struct weston_layer *layer, int x, int y);
 
 
-
+//////////////////////// load weston modules //////////////////////////
+void *tw_load_weston_module(const char *name, const char *entrypoint);
 
 
 #ifdef  __cplusplus
