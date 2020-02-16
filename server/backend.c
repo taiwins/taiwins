@@ -19,6 +19,7 @@
  *
  */
 
+#include <libweston/libweston.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -577,6 +578,53 @@ setup_backend_listeners(struct tw_backend *b)
 	}
 }
 
+static const char *const backend_map[] = {
+    [WESTON_BACKEND_DRM] = "drm-backend.so",
+    [WESTON_BACKEND_FBDEV] = "fbdev-backend.so",
+    [WESTON_BACKEND_HEADLESS] = "headless-backend.so",
+    [WESTON_BACKEND_RDP] = "rdp-backend.so",
+    [WESTON_BACKEND_WAYLAND] = "wayland-backend.so",
+    [WESTON_BACKEND_X11] = "x11-backend.so",
+};
+
+/**
+ * @brief load a weston backend by loading a weston-module
+ *
+ * This works the same way as `weston_compositor_load_backend` except our
+ * modules is not in standard path
+ */
+static int
+load_weston_backend(struct weston_compositor *ec,
+                       enum weston_compositor_backend backend,
+                       struct weston_backend_config *config_base)
+{
+	int (*init_backend)(struct weston_compositor *c,
+	                    struct weston_backend_config *config_base);
+
+	if (ec->backend) {
+		weston_log("Error: a backend is already loaded.\n");
+		return -1;
+	}
+	if (backend > NUMOF(backend_map)) {
+		weston_log("Error: backend not supported.\n");
+		return -1;
+	}
+
+	init_backend = tw_load_weston_module(backend_map[backend],
+	                                     "weston_backend_init");
+	if (!init_backend) {
+		weston_log("Error: backend is not loaded correctly.\n");
+		return -1;
+	}
+
+	if (init_backend(ec, config_base) < 0) {
+		ec->backend = NULL;
+		return -1;
+	}
+
+	return 0;
+}
+
 bool
 tw_setup_backend(struct weston_compositor *compositor,
 		 struct taiwins_config *config)
@@ -597,8 +645,8 @@ tw_setup_backend(struct weston_compositor *compositor,
 	b->type = backend;
 	setup_backend_listeners(b);
 
-	weston_compositor_load_backend(
-		compositor, backend, &b->backend_config.drm.base);
+	load_weston_backend(compositor, backend,
+	                    &b->backend_config.drm.base);
 	if (backend == WESTON_BACKEND_WAYLAND ||
 	    backend == WESTON_BACKEND_X11)
 		windowed_head_check(compositor);
