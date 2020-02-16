@@ -10,3 +10,6 @@
 [submodule "3rdparties/taiwins-protocols"]
 	path = 3rdparties/taiwins-protocols
 	url = https://github.com/taiwins/taiwins-protocols
+[submodule "3rdparties/libweston"]
+	path = 3rdparties/libweston
+	url = https://gitlab.freedesktop.org/wayland/weston.git
