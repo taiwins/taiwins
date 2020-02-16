@@ -7,9 +7,11 @@
 #if defined (__GNUC__)
 #pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 #pragma GCC diagnostic ignored "-Wunused-function"
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #elif defined (__clang__)
 #pragma clang diagnostic ignored "-Wunused-but-set-variable"
 #pragma GCC diagnostic ignored "-Wunused-function"
+#pragma clang diagnostic ignored "-Wmaybe-uninitialized"
 #endif
 
 #define NK_IMPLEMENTATION
