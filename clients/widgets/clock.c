@@ -101,7 +101,7 @@ calendar(struct nk_context *ctx, float width, float height, struct tw_appsurf *a
 	struct shell_widget *wig =
 		container_of(app, struct shell_widget, widget);
 	struct clock_user_data_t *ut = wig->user_data;
-	char year[10], day[3];
+	char year[12], day[12]; //ensure enough size
 	struct tm tm;
 	time_t epochs = time(NULL);
 	localtime_r(&epochs, &tm);
