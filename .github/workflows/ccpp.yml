@@ -33,8 +33,8 @@ jobs:
         sudo apt-get -y install libfontconfig1-dev libfreetype6-dev librsvg2-dev liblua5.3-dev libpam0g-dev
         sudo apt-get -y install gcc-8 g++-8 cmake pkg-config git
         git clone https://github.com/xeechou/weston-ubuntu-binaries bionic-debs
+        rm bionic-debs/bionic/weston_7.0.0-1_amd64.deb
         rm bionic-debs/bionic/weston_7.0.91-1_amd64.deb
-        rm bionic-debs/bionic/weston_7.0.92-1_amd64.deb
         cp bionic-debs/bionic/FindFontconfig.cmake ./taiwins-ubuntu/cmake/
         sudo dpkg --install --recursive bionic-debs
     - name: clean build
