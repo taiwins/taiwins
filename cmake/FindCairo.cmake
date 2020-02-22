@@ -13,7 +13,7 @@ pkg_check_modules(CAIRO REQUIRED QUIET cairo)
 find_library(CAIRO_LOCATION NAMES cairo HINTS ${CAIRO_LIBRARY_DIRS})
 # Hide advanced variables from CMake GUIs
 MARK_AS_ADVANCED(CAIRO_LIBRARIES CAIRO_INCLUDE_DIRS)
-find_package_handle_standard_args(CAIRO DEFAULT_MSG CAIRO_LIBRARIES CAIRO_INCLUDE_DIRS)
+find_package_handle_standard_args(Cairo DEFAULT_MSG CAIRO_LIBRARIES CAIRO_INCLUDE_DIRS)
 
 if (CAIRO_FOUND AND NOT TARGET Cairo::Cairo)
   add_library(Cairo::Cairo UNKNOWN IMPORTED)
