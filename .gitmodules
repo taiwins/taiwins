@@ -13,3 +13,6 @@
 [submodule "3rdparties/libweston"]
 	path = 3rdparties/libweston
 	url = https://gitlab.freedesktop.org/wayland/weston.git
+[submodule "3rdparties/tdbus"]
+	path = 3rdparties/tdbus
+	url = https://github.com/xeechou/tdbus

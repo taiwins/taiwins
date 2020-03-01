@@ -2,6 +2,7 @@
 
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/twclient")
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/nklua")
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/tdbus")
 
 ################## protocols #####################
 set(TAIWINS_PROTOCOLS_DIR
