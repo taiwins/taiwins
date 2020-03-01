@@ -4,6 +4,7 @@ add_executable(taiwins-shell
   shell_panel.c
   shell_lock.c
   shell_msgs.c
+  shell_bus.c
 
   widget.c
   widgets/clock.c
@@ -13,6 +14,7 @@ add_executable(taiwins-shell
 
 target_link_libraries(taiwins-shell
   protos-client
+  tdbus
   twclient::nkcairo
   Wayland::Cursor
   nuklear::love

@@ -166,6 +166,8 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	struct nk_style_button *style = &shell->label_style;
 
 	tw_globals_init(&shell->globals, display);
+	shell_tdbus_init(shell);
+
 	shell->globals.theme = taiwins_dark_theme;
 	shell->interface = NULL;
 	shell->panel_height = 32;
@@ -213,6 +215,8 @@ desktop_shell_release(struct desktop_shell *shell)
 
 	for (int i = 0; i < desktop_shell_n_outputs(shell); i++)
 		shell_output_release(&shell->shell_outputs[i]);
+
+	shell_tdbus_end(shell);
 	tw_globals_release(&shell->globals);
 	//destroy the backends
 	nk_cairo_destroy_bkend(shell->widget_backend);

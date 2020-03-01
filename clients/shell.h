@@ -38,6 +38,7 @@
 #include <egl.h>
 #include <shmpool.h>
 #include <nk_backends.h>
+#include <tdbus.h>
 #include "../shared_config.h"
 #include "widget.h"
 
@@ -74,6 +75,8 @@ struct desktop_shell {
 	struct tw_globals globals;
 	struct taiwins_shell *interface;
 	enum taiwins_shell_panel_pos panel_pos;
+	struct tdbus *system_bus;
+	struct tdbus *session_bus;
 	//pannel configuration
 	struct {
 		struct nk_wl_backend *panel_backend;
@@ -112,6 +115,7 @@ desktop_shell_n_outputs(struct desktop_shell *shell)
 void shell_init_bg_for_output(struct shell_output *output);
 void shell_resize_bg_for_output(struct shell_output *output);
 
+
 void shell_init_panel_for_output(struct shell_output *output);
 void shell_resize_panel_for_output(struct shell_output *output);
 
@@ -119,6 +123,10 @@ void shell_locker_init(struct desktop_shell *shell);
 
 void shell_process_msg(struct desktop_shell *shell, uint32_t type,
 		       const struct wl_array *data);
+
+void shell_tdbus_init(struct desktop_shell *shell);
+
+void shell_tdbus_end(struct desktop_shell *shell);
 
 static inline void
 shell_end_transient_surface(struct desktop_shell *shell)
