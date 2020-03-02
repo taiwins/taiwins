@@ -45,8 +45,7 @@ redraw_panel_for_file(struct tw_event *e, int fd)
 		.type = TW_TIMER,
 		.time = widget->ancre.tw_globals->inputs.millisec,
 	};
-	//you set it here it will never work
-	widget->fd = fd;
+
 	//panel gets redrawed for once we have a event
 	widget->ancre.do_frame(&widget->ancre, &ae);
 	//if somehow my fd changes, it means I no longer watch this fd anymore
@@ -60,15 +59,16 @@ static int
 redraw_panel_for_dev(struct tw_event *e, int fd)
 {
 	struct shell_widget *widget = e->data;
+	struct tw_event_queue *queue = widget->queue;
 	struct tw_app_event ae = {
 		.type = TW_TIMER,
 		.time = widget->ancre.tw_globals->inputs.millisec,
 	};
-	widget->dev =
-		tw_event_get_udev_device(e);
+	widget->dev = tw_event_get_udev_device(queue, widget->fd);
 	widget->ancre.do_frame(&widget->ancre, &ae);
 	udev_device_unref(widget->dev);
 	widget->dev = NULL;
+
 	return TW_EVENT_NOOP;
 }
 
@@ -81,7 +81,6 @@ redraw_panel_for_timer(struct tw_event *e, int fd)
 		.time = widget->ancre.tw_globals->inputs.millisec,
 	};
 
-	widget->fd = fd;
 	widget->ancre.do_frame(&widget->ancre, &ae);
 	//test if this is a one time event
 	if (!(widget->interval).it_interval.tv_sec &&
@@ -99,7 +98,9 @@ shell_widget_event_from_timer(struct shell_widget *widget, struct itimerspec *ti
 		.data = widget,
 		.cb = redraw_panel_for_timer,
 	};
-	tw_event_queue_add_timer(event_queue, time, &redraw_widget);
+
+	widget->fd = tw_event_queue_add_timer(event_queue, time,
+	                                      &redraw_widget);
 }
 
 
@@ -107,20 +108,14 @@ static void
 shell_widget_event_from_file(struct shell_widget *widget, const char *path,
 			     struct tw_event_queue *event_queue)
 {
-	/* int fd = open(path, O_RDONLY | O_CLOEXEC); */
-	/* if (!fd) */
-	/*	return; */
-	/* //you don't need to set the fd here */
-	/* widget->fd = fd; */
-	/* //if mask is zero the client api will deal with a default flag */
 	uint32_t mask = 0;
-
 	struct tw_event redraw_widget = {
 		.data = widget,
 		.cb = redraw_panel_for_file,
 	};
-	tw_event_queue_add_file(event_queue, path, &redraw_widget, mask);
-	/* tw_event_queue_add_source(event_queue, fd, &redraw_widget, mask); */
+
+	widget->fd = tw_event_queue_add_file(event_queue, path,
+	                                     &redraw_widget, mask);
 }
 
 static void
@@ -131,7 +126,9 @@ shell_widget_event_from_device(struct shell_widget *widget, const char *subsyste
 		.data = widget,
 		.cb = redraw_panel_for_dev,
 	};
-	tw_event_queue_add_device(event_queue, subsystem, dev,  &redraw_widget);
+
+	widget->fd = tw_event_queue_add_device(event_queue, subsystem,
+	                                       dev, &redraw_widget);
 }
 
 static bool
@@ -157,6 +154,9 @@ shell_widget_get_builtin_by_name(const char *name)
 void
 shell_widget_activate(struct shell_widget *widget, struct tw_event_queue *queue)
 {
+	//subscribe on the event queue
+	widget->queue = queue;
+
 	if (widget->interval.it_value.tv_sec || widget->interval.it_value.tv_nsec)
 		shell_widget_event_from_timer(widget, &widget->interval, queue);
 	else if (widget->file_path)
@@ -175,12 +175,10 @@ shell_widget_activate(struct shell_widget *widget, struct tw_event_queue *queue)
 void
 shell_widget_disactivate(struct shell_widget *widget, struct tw_event_queue *queue)
 {
+	//TODO check for the right queue
 	tw_appsurf_release(&widget->ancre);
-	struct tw_event e = {
-		.data = widget,
-	};
-	//remove those resources
-	tw_event_queue_remove_source(queue, &e);
+
+	tw_event_queue_remove_source(queue, widget->fd);
 	//detect whether widget is a builtin widget
 	if (shell_widget_builtin(widget))
 		return;

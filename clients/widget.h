@@ -65,6 +65,7 @@ typedef int (*shell_widget_path_find_t)(struct shell_widget *, char *path);
  */
 struct shell_widget {
 	struct taiwins_ui *proxy;
+	struct tw_event_queue *queue;
 	struct tw_appsurf ancre;
 	struct tw_appsurf widget;
 	struct wl_list link;
