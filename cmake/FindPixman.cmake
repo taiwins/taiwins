@@ -32,7 +32,7 @@ find_package(PkgConfig)
 pkg_check_modules(PIXMAN QUIET pixman-1)
 find_library(PIXMAN_LOCATION NAMES pixman-1 HINTS ${PIXMAN_LIBRARY_DIRS})
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(PIXMAN DEFAULT_MSG PIXMAN_LIBRARIES PIXMAN_INCLUDE_DIRS)
+find_package_handle_standard_args(Pixman DEFAULT_MSG PIXMAN_LIBRARIES PIXMAN_INCLUDE_DIRS)
 
 if (PIXMAN_FOUND AND NOT TARGET Pixman::Pixman)
   add_library(Pixman::Pixman UNKNOWN IMPORTED)
