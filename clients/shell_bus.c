@@ -36,7 +36,21 @@ static void
 shell_bus_change_watch(void *user_data, int fd, struct tdbus *bus,
                        uint32_t mask, void *watch_data)
 {
-	//WE DO NOTHING NOW, but we can actualy remove the match
+	struct tw_event event;
+	struct desktop_shell *shell = user_data;
+	struct tw_event_queue *queue = &shell->globals.event_queue;
+	int epoll_mask = 0;
+
+	event.data = watch_data;
+	event.cb = dispatch_watch;
+	event.arg.o = (void *)bus;
+
+	if (mask & TDBUS_READABLE)
+		epoll_mask |= EPOLLIN;
+	if (mask & TDBUS_WRITABLE)
+		epoll_mask |= EPOLLOUT;
+
+	tw_event_queue_modify_source(queue, fd, &event, mask);
 }
 
 static void
@@ -45,11 +59,8 @@ shell_bus_remove_watch(void *user_data, int fd, struct tdbus *bus,
 {
 	struct desktop_shell *shell = user_data;
 	struct tw_event_queue *queue = &shell->globals.event_queue;
-	struct tw_event event = {
-		.data = watch_data,
-	};
 
-	tw_event_queue_remove_source(queue, &event);
+	tw_event_queue_remove_source(queue, fd);
 }
 
 static int
