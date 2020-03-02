@@ -12,7 +12,7 @@ endif()
 
 # Hide advanced variables from CMake GUIs
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(LUA DEFAULT_MSG LUA_LIBRARIES LUA_INCLUDE_DIRS)
+find_package_handle_standard_args(Lua DEFAULT_MSG LUA_LIBRARIES LUA_INCLUDE_DIRS)
 MARK_AS_ADVANCED(LUA_LIBRARIES LUA_INCLUDE_DIRS)
 
 if (CAIRO_FOUND AND NOT TARGET Lua::Lua)
