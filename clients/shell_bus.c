@@ -10,7 +10,6 @@ static int dispatch_watch(struct tw_event *event, int fd)
 	return TW_EVENT_NOOP;
 }
 
-
 static void
 shell_bus_add_watch(void *user_data, int fd, struct tdbus *bus,
                     uint32_t mask, void *watch_data)
@@ -75,8 +74,8 @@ shell_tdbus_init(struct desktop_shell *shell)
 {
 	struct tw_event session_event, system_event;
 
-	shell->system_bus = tdbus_new(SYSTEM_BUS, NULL);
-	shell->session_bus = tdbus_new(SESSION_BUS, NULL);
+	shell->system_bus = tdbus_new(SYSTEM_BUS);
+	shell->session_bus = tdbus_new(SESSION_BUS);
 
 	tdbus_set_nonblock(shell->system_bus, shell,
 	                   shell_bus_add_watch, shell_bus_change_watch,
@@ -94,7 +93,6 @@ shell_tdbus_init(struct desktop_shell *shell)
 	tw_event_queue_add_idle(&shell->globals.event_queue, &session_event);
 	tw_event_queue_add_idle(&shell->globals.event_queue, &system_event);
 }
-
 
 void shell_tdbus_end(struct desktop_shell *shell)
 {
