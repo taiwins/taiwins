@@ -86,7 +86,7 @@ end_theme(struct wl_listener *listener, void *data)
 
 void
 annouce_theme(struct weston_compositor *ec, struct shell *shell,
-	      struct taiwins_config *config)
+	      struct tw_config *config)
 {
 	THEME.ec = ec;
 	THEME.global = wl_global_create(ec->wl_display,

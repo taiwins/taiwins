@@ -69,8 +69,8 @@ struct desktop {
 	struct wl_listener output_create_listener;
 	struct wl_listener output_resize_listener;
 	struct wl_listener output_destroy_listener;
-	struct taiwins_apply_bindings_listener add_binding;
-	struct taiwins_config_component_listener config_component;
+	struct tw_apply_bindings_listener add_binding;
+	struct tw_config_component_listener config_component;
 	//grabs
 	struct grab_interface moving_grab;
 	struct grab_interface resizing_grab;
@@ -382,7 +382,7 @@ desktop_output_created(struct wl_listener *listener, void *data)
 	struct desktop *desktop =
 		container_of(listener, struct desktop, output_create_listener);
 
-	struct taiwins_output taiwins_output = {
+	struct tw_output tw_output = {
 		.output = output,
 		.desktop_area = shell_output_available_space(
 			desktop->shell, output),
@@ -390,7 +390,7 @@ desktop_output_created(struct wl_listener *listener, void *data)
 		.outer_gap = desktop->outer_gap,
 	};
 	for (int i = 0; i < MAX_WORKSPACE+1; i++) {
-		workspace_add_output(&desktop->workspaces[i], &taiwins_output);
+		workspace_add_output(&desktop->workspaces[i], &tw_output);
 	}
 }
 
@@ -401,7 +401,7 @@ desktop_output_resized(struct wl_listener *listener, void *data)
 	struct desktop *desktop =
 		container_of(listener, struct desktop, output_resize_listener);
 
-	struct taiwins_output taiwins_output = {
+	struct tw_output tw_output = {
 		.output = output,
 		.desktop_area = shell_output_available_space(
 			desktop->shell, output),
@@ -409,7 +409,7 @@ desktop_output_resized(struct wl_listener *listener, void *data)
 		.outer_gap = desktop->outer_gap,
 	};
 	for (int i = 0; i < MAX_WORKSPACE+1; i++)
-		workspace_resize_output(&desktop->workspaces[i], &taiwins_output);
+		workspace_resize_output(&desktop->workspaces[i], &tw_output);
 }
 
 static void
@@ -572,10 +572,10 @@ task_switch_grab_key(struct weston_keyboard_grab *grab,
 	struct workspace *w = d->actived_workspace[0];
 	struct wl_list *link = w->recent_views.next;
 	struct wl_array tosent;
-	struct taiwins_window_brief *brief;
+	struct tw_window_brief *brief;
 
 	wl_array_init(&tosent);
-	wl_array_add(&tosent, sizeof(struct taiwins_window_brief) *
+	wl_array_add(&tosent, sizeof(struct tw_window_brief) *
 		     wl_list_length(&w->recent_views));
 	//build the list of recent views.
 	wl_array_for_each(brief, &tosent) {
@@ -896,26 +896,26 @@ desktop_recent_view(struct weston_keyboard *keyboard,
 }
 
 static bool
-desktop_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
-		     struct taiwins_apply_bindings_listener *listener)
+desktop_add_bindings(struct tw_bindings *bindings, struct tw_config *c,
+		     struct tw_apply_bindings_listener *listener)
 {
 	struct desktop *d = container_of(listener, struct desktop, add_binding);
 	bool safe = true;
 	//////////////////////////////////////////////////////////
 	//move press
 	struct tw_btn_press move_press =
-		taiwins_config_get_builtin_binding(c, TW_MOVE_PRESS_BINDING)->btnpress;
+		tw_config_get_builtin_binding(c, TW_MOVE_PRESS_BINDING)->btnpress;
 	tw_bindings_add_btn(bindings, &move_press, desktop_click_move, d);
 	//////////////////////////////////////////////////////////
 	//transparent
 	struct tw_axis_motion axis_motion =
-		taiwins_config_get_builtin_binding(c, TW_ALPHA_AXIS_BINDING)->axisaction;
+		tw_config_get_builtin_binding(c, TW_ALPHA_AXIS_BINDING)->axisaction;
 	tw_bindings_add_axis(bindings, &axis_motion, desktop_alpha_axis, d);
 
 	//////////////////////////////////////////////////////////
 	//focus press
 	struct tw_btn_press focus_press =
-		taiwins_config_get_builtin_binding(c, TW_FOCUS_PRESS_BINDING)->btnpress;
+		tw_config_get_builtin_binding(c, TW_FOCUS_PRESS_BINDING)->btnpress;
 	tw_bindings_add_btn(bindings, &focus_press,
 			    desktop_click_activate_view, d);
 	tw_bindings_add_touch(bindings, 0, desktop_touch_activate_view, d);
@@ -923,13 +923,13 @@ desktop_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 	//////////////////////////////////////////////////////////
 	//switch workspace
 	const struct tw_key_press *switch_ws_left =
-		taiwins_config_get_builtin_binding(c, TW_SWITCH_WS_LEFT_BINDING)->keypress;
+		tw_config_get_builtin_binding(c, TW_SWITCH_WS_LEFT_BINDING)->keypress;
 
 	const struct tw_key_press *switch_ws_right =
-		taiwins_config_get_builtin_binding(c, TW_SWITCH_WS_RIGHT_BINDING)->keypress;
+		tw_config_get_builtin_binding(c, TW_SWITCH_WS_RIGHT_BINDING)->keypress;
 
 	const struct tw_key_press *switch_ws_back =
-		taiwins_config_get_builtin_binding(c, TW_SWITCH_WS_RECENT_BINDING)->keypress;
+		tw_config_get_builtin_binding(c, TW_SWITCH_WS_RECENT_BINDING)->keypress;
 	safe = safe && tw_bindings_add_key(bindings, switch_ws_left,
 					   desktop_workspace_switch,
 					   true, //switch to left
@@ -944,9 +944,9 @@ desktop_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 	//////////////////////////////////////////////////////////
 	//resize view
 	const struct tw_key_press *resize_left =
-		taiwins_config_get_builtin_binding(c, TW_RESIZE_ON_LEFT_BINDING)->keypress;
+		tw_config_get_builtin_binding(c, TW_RESIZE_ON_LEFT_BINDING)->keypress;
 	const struct tw_key_press *resize_right =
-		taiwins_config_get_builtin_binding(c, TW_RESIZE_ON_RIGHT_BINDING)->keypress;
+		tw_config_get_builtin_binding(c, TW_RESIZE_ON_RIGHT_BINDING)->keypress;
 	safe = safe &&
 		tw_bindings_add_key(bindings, resize_left, desktop_view_resize, RESIZE_LEFT, d);
 	safe = safe &&
@@ -955,17 +955,17 @@ desktop_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
 	//////////////////////////////////////////////////////////
 	//toggle views
 	const struct tw_key_press *toggle_vertical =
-		taiwins_config_get_builtin_binding(c, TW_TOGGLE_VERTICAL_BINDING)->keypress;
+		tw_config_get_builtin_binding(c, TW_TOGGLE_VERTICAL_BINDING)->keypress;
 	const struct tw_key_press *toggle_floating =
-		taiwins_config_get_builtin_binding(c, TW_TOGGLE_FLOATING_BINDING)->keypress;
+		tw_config_get_builtin_binding(c, TW_TOGGLE_FLOATING_BINDING)->keypress;
 	const struct tw_key_press *next_view =
-		taiwins_config_get_builtin_binding(c, TW_NEXT_VIEW_BINDING)->keypress;
+		tw_config_get_builtin_binding(c, TW_NEXT_VIEW_BINDING)->keypress;
 	const struct tw_key_press *vsplit =
-		taiwins_config_get_builtin_binding(c, TW_VSPLIT_WS_BINDING)->keypress;
+		tw_config_get_builtin_binding(c, TW_VSPLIT_WS_BINDING)->keypress;
 	const struct tw_key_press *hsplit =
-		taiwins_config_get_builtin_binding(c, TW_HSPLIT_WS_BINDING)->keypress;
+		tw_config_get_builtin_binding(c, TW_HSPLIT_WS_BINDING)->keypress;
 	const struct tw_key_press *merge =
-		taiwins_config_get_builtin_binding(c, TW_MERGE_BINDING)->keypress;
+		tw_config_get_builtin_binding(c, TW_MERGE_BINDING)->keypress;
 
 	safe = safe && tw_bindings_add_key(bindings, toggle_vertical, desktop_toggle_vertical, 0, d);
 	safe = safe && tw_bindings_add_key(bindings, toggle_floating, desktop_toggle_floating, 0, d);
@@ -1090,8 +1090,8 @@ _lua_request_desktop(lua_State *L)
  * workspace: switch layouts?
  */
 static bool
-desktop_init_config_component(struct taiwins_config *c, lua_State *L,
-			      struct taiwins_config_component_listener *listener)
+desktop_init_config_component(struct tw_config *c, lua_State *L,
+			      struct tw_config_component_listener *listener)
 {
 	struct desktop *d = container_of(listener, struct desktop, config_component);
 	lua_pushlightuserdata(L, d); //s1
@@ -1141,7 +1141,7 @@ end_desktop(struct wl_listener *listener, void *data)
 
 void
 announce_desktop(struct weston_compositor *ec, struct shell *shell,
-		 struct taiwins_config *config)
+		 struct tw_config *config)
 {
 	static struct desktop DESKTOP;
 	//initialize the desktop
@@ -1191,12 +1191,12 @@ announce_desktop(struct weston_compositor *ec, struct shell *shell,
 	//install bindings
 	wl_list_init(&DESKTOP.add_binding.link);
 	DESKTOP.add_binding.apply = desktop_add_bindings;
-	taiwins_config_add_apply_bindings(config, &DESKTOP.add_binding);
+	tw_config_add_apply_bindings(config, &DESKTOP.add_binding);
 
 	wl_list_init(&DESKTOP.config_component.link);
 	DESKTOP.config_component.init = desktop_init_config_component;
 	DESKTOP.config_component.apply = NULL;
-	taiwins_config_add_component(config, &DESKTOP.config_component);
+	tw_config_add_component(config, &DESKTOP.config_component);
 
 	wl_list_init(&DESKTOP.compositor_destroy_listener.link);
 	DESKTOP.compositor_destroy_listener.notify = end_desktop;

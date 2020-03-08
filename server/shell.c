@@ -57,7 +57,7 @@ struct shell_ui {
 
 
 /**
- * @brief represents taiwins_output
+ * @brief represents tw_output
  *
  * the resource only creates for taiwins_shell object
  */
@@ -72,7 +72,7 @@ struct shell_output {
 struct shell {
 	uid_t uid; gid_t gid; pid_t pid;
 	char path[256];
-	struct taiwins_config *config;
+	struct tw_config *config;
 	struct wl_client *shell_client;
 	struct wl_resource *shell_resource;
 	struct wl_global *shell_global;
@@ -98,8 +98,8 @@ struct shell {
 	struct wl_listener output_destroy_listener;
 	struct wl_listener output_resize_listener;
 	struct wl_listener idle_listener;
-	struct taiwins_apply_bindings_listener add_binding;
-	struct taiwins_config_component_listener config_component;
+	struct tw_apply_bindings_listener add_binding;
+	struct tw_config_component_listener config_component;
 
 	struct shell_ui widget;
 	struct shell_ui locker;
@@ -232,7 +232,7 @@ shell_ui_create_simple(struct shell_ui *ui, struct wl_resource *taiwins_ui,
 
 
 /**********************************************************************************
- * taiwins_output and listeners
+ * tw_output and listeners
  *********************************************************************************/
 
 static inline size_t
@@ -678,22 +678,22 @@ shell_reload_config(struct weston_keyboard *keyboard,
 		    uint32_t option, void *data)
 {
 	struct shell *shell = data;
-	if (!taiwins_run_config(shell->config, NULL)) {
-		const char *err_msg = taiwins_config_retrieve_error(shell->config);
+	if (!tw_config_run(shell->config, NULL)) {
+		const char *err_msg = tw_config_retrieve_error(shell->config);
 		shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_CONFIG_ERR, err_msg);
 	}
 }
 
 static bool
-shell_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
-		   struct taiwins_apply_bindings_listener *listener)
+shell_add_bindings(struct tw_bindings *bindings, struct tw_config *c,
+		   struct tw_apply_bindings_listener *listener)
 {
 	//be careful, the c here is the temporary config, so as the binding
 	struct shell *shell = container_of(listener, struct shell, add_binding);
 	const struct tw_axis_motion motion =
-		taiwins_config_get_builtin_binding(c, TW_ZOOM_AXIS_BINDING)->axisaction;
+		tw_config_get_builtin_binding(c, TW_ZOOM_AXIS_BINDING)->axisaction;
 	const struct tw_key_press *reload_press =
-		taiwins_config_get_builtin_binding(
+		tw_config_get_builtin_binding(
 			c, TW_RELOAD_CONFIG_BINDING)->keypress;
 	tw_bindings_add_axis(bindings, &motion, zoom_axis, shell);
 	return tw_bindings_add_key(bindings, reload_press, shell_reload_config, 0, shell);
@@ -758,11 +758,11 @@ _lua_set_panel_position(lua_State *L)
 }
 
 static inline struct wl_array
-taiwins_menu_to_wl_array(const struct taiwins_menu_item * items, const int len)
+taiwins_menu_to_wl_array(const struct tw_menu_item * items, const int len)
 {
 	struct wl_array serialized;
 	serialized.alloc = 0;
-	serialized.size = sizeof(struct taiwins_menu_item) * len;
+	serialized.size = sizeof(struct tw_menu_item) * len;
 	serialized.data = (void *)items;
 	return serialized;
 }
@@ -792,7 +792,7 @@ static bool
 _lua_parse_menu(struct lua_State *L, vector_t *menus)
 {
 	bool parsed = true;
-	struct taiwins_menu_item menu_item = {
+	struct tw_menu_item menu_item = {
 		.has_submenu = false,
 		.len = 0};
 	if (_lua_is_menu_item(L, -1)) {
@@ -827,7 +827,7 @@ _lua_set_menus(lua_State *L)
 {
 	struct shell *shell = _lua_to_shell(L);
 
-	vector_init_zero(&shell->menu, sizeof(struct taiwins_menu_item), NULL);
+	vector_init_zero(&shell->menu, sizeof(struct tw_menu_item), NULL);
 	_lua_stackcheck(L, 2);
 	luaL_checktype(L, 2, LUA_TTABLE);
 	if (!_lua_parse_menu(L, &shell->menu)) {
@@ -877,8 +877,8 @@ _lua_request_shell(lua_State *L)
  * - what else?
  */
 static bool
-shell_add_config_component(struct taiwins_config *c, lua_State *L,
-			   struct taiwins_config_component_listener *listener)
+shell_add_config_component(struct tw_config *c, lua_State *L,
+			   struct tw_config_component_listener *listener)
 {
 	struct shell *shell = container_of(listener, struct shell, config_component);
 	lua_pushlightuserdata(L, shell);
@@ -903,8 +903,8 @@ shell_add_config_component(struct taiwins_config *c, lua_State *L,
 }
 
 static void
-shell_apply_lua_config(struct taiwins_config *c, bool cleanup,
-		       struct taiwins_config_component_listener *listener)
+shell_apply_lua_config(struct tw_config *c, bool cleanup,
+		       struct tw_config_component_listener *listener)
 {
 	struct shell *shell = container_of(listener, struct shell, config_component);
 	if (cleanup)
@@ -1106,7 +1106,7 @@ shell_add_listeners(struct shell *shell)
 static inline void
 shell_init_options(struct shell *shell)
 {
-	vector_init_zero(&shell->menu, sizeof(struct taiwins_menu_item), NULL);
+	vector_init_zero(&shell->menu, sizeof(struct tw_menu_item), NULL);
 	shell->panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
 	shell->lock_countdown = -1;
 	shell->sleep_countdown = -1;
@@ -1122,7 +1122,7 @@ shell_init_options(struct shell *shell)
  */
 struct shell*
 announce_shell(struct weston_compositor *ec, const char *path,
-	       struct taiwins_config *config)
+	       struct tw_config *config)
 {
 	oneshell.ec = ec;
 	oneshell.ready = false;
@@ -1149,12 +1149,12 @@ announce_shell(struct weston_compositor *ec, const char *path,
 	//binding
 	wl_list_init(&oneshell.add_binding.link);
 	oneshell.add_binding.apply = shell_add_bindings;
-	taiwins_config_add_apply_bindings(config, &oneshell.add_binding);
+	tw_config_add_apply_bindings(config, &oneshell.add_binding);
 	//config_componenet
 	wl_list_init(&oneshell.config_component.link);
 	oneshell.config_component.init = shell_add_config_component;
 	oneshell.config_component.apply = shell_apply_lua_config;
-	taiwins_config_add_component(config, &oneshell.config_component);
+	tw_config_add_component(config, &oneshell.config_component);
 
 	return &oneshell;
 }

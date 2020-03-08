@@ -138,7 +138,7 @@ tiling_layout_end(struct layout *l)
  * tiling output
  ***************************************************************/
 void
-tiling_add_output(struct layout *l, struct taiwins_output *o)
+tiling_add_output(struct layout *l, struct tw_output *o)
 {
 	struct tiling_user_data *user_data =  l->user_data;
 	struct tiling_output output;
@@ -183,7 +183,7 @@ tiling_output_find(struct layout *l, struct weston_output *wo)
 }
 
 void
-tiling_resize_output(struct layout *l, struct taiwins_output *o)
+tiling_resize_output(struct layout *l, struct tw_output *o)
 {
 	struct tiling_output *output = tiling_output_find(l, o->output);
 	output->curr_geo = o->desktop_area;

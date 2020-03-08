@@ -46,8 +46,8 @@
 struct tw_compositor {
 	struct weston_compositor *ec;
 
-	struct taiwins_apply_bindings_listener add_binding;
-	struct taiwins_config_component_listener config_component;
+	struct tw_apply_bindings_listener add_binding;
+	struct tw_config_component_listener config_component;
 };
 
 
@@ -73,19 +73,19 @@ tw_compositor_quit(struct weston_keyboard *keyboard,
 }
 
 static bool
-tw_compositor_add_bindings(struct tw_bindings *bindings, struct taiwins_config *c,
-			struct taiwins_apply_bindings_listener *listener)
+tw_compositor_add_bindings(struct tw_bindings *bindings, struct tw_config *c,
+			struct tw_apply_bindings_listener *listener)
 {
 	struct tw_compositor *tc = container_of(listener, struct tw_compositor, add_binding);
 	const struct tw_key_press *quit_press =
-		taiwins_config_get_builtin_binding(c, TW_QUIT_BINDING)->keypress;
+		tw_config_get_builtin_binding(c, TW_QUIT_BINDING)->keypress;
 	tw_bindings_add_key(bindings, quit_press, tw_compositor_quit, 0, tc->ec);
 	return true;
 }
 
 static void
 tw_compositor_init(struct tw_compositor *tc, struct weston_compositor *ec,
-		   struct taiwins_config *config)
+		   struct tw_config *config)
 {
 	tc->ec = ec;
 	struct xkb_rule_names sample_rules =  {
@@ -98,7 +98,7 @@ tw_compositor_init(struct tw_compositor *tc, struct weston_compositor *ec,
 
 	wl_list_init(&tc->add_binding.link);
 	tc->add_binding.apply = tw_compositor_add_bindings;
-	taiwins_config_add_apply_bindings(config, &tc->add_binding);
+	tw_config_add_apply_bindings(config, &tc->add_binding);
 }
 
 static void
@@ -190,8 +190,8 @@ int main(int argc, char *argv[], char *envp[])
 		xdg_dir = getenv("HOME");
 	strcpy(path, xdg_dir);
 	strcat(path, "/config.lua");
-	struct taiwins_config *config =
-		taiwins_config_create(compositor, tw_log);
+	struct tw_config *config =
+		tw_config_create(compositor, tw_log);
 
 	tw_compositor_init(&tc, compositor, config);
 	tw_setup_backend(compositor, config);
@@ -200,7 +200,7 @@ int main(int argc, char *argv[], char *envp[])
 	announce_console(compositor, sh, launcherpath, config);
 	announce_desktop(compositor, sh, config);
 
-	error = !taiwins_run_config(config, path);
+	error = !tw_config_run(config, path);
 	if (error) {
 		goto out;
 	}
@@ -210,7 +210,7 @@ int main(int argc, char *argv[], char *envp[])
 	wl_display_run(display);
 
 out:
-	taiwins_config_destroy(config);
+	tw_config_destroy(config);
 	weston_compositor_tear_down(compositor);
 	weston_log_ctx_compositor_destroy(compositor);
 	wl_display_destroy(display);

@@ -98,7 +98,7 @@ typedef void (*tw_key_binding)(struct weston_keyboard *keyboard,
 struct tw_bindings;
 
 //the name of this struct is curious
-struct taiwins_binding {
+struct tw_binding {
 	char name[32];
 	enum tw_binding_type type;
 	union {
