@@ -99,9 +99,9 @@ struct layout {
 void layout_init(struct layout *l, struct weston_layer *layer);
 void layout_release(struct layout *l);
 
-void layout_add_output(struct layout *l, struct taiwins_output *o);
+void layout_add_output(struct layout *l, struct tw_output *o);
 void layout_rm_output(struct layout *l, struct weston_output *o);
-void layout_resize_output(struct layout *l, struct taiwins_output *o);
+void layout_resize_output(struct layout *l, struct tw_output *o);
 
 
 //the weston_output is not ready when we create it

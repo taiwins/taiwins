@@ -38,7 +38,7 @@ static inline bool
 _lua_isstring(lua_State *L, int pos) {return lua_type(L, pos) == LUA_TSTRING;}
 
 static inline void
-_lua_error(struct taiwins_config *config, const char *fmt, ...)
+_lua_error(struct tw_config *config, const char *fmt, ...)
 {
 	va_list argp;
 	va_start(argp, fmt);
@@ -46,11 +46,11 @@ _lua_error(struct taiwins_config *config, const char *fmt, ...)
 	va_end(argp);
 }
 
-static inline struct taiwins_config *
+static inline struct tw_config *
 to_user_config(lua_State *L)
 {
 	lua_getfield(L, LUA_REGISTRYINDEX, "__config");
-	struct taiwins_config *c = lua_touserdata(L, -1);
+	struct tw_config *c = lua_touserdata(L, -1);
 	lua_pop(L, 1);
 	return c;
 }
@@ -62,11 +62,11 @@ to_user_config(lua_State *L)
 static inline void
 _lua_run_binding(void *data)
 {
-	struct taiwins_binding *b = data;
+	struct tw_binding *b = data;
 	lua_State *L = b->user_data;
 	lua_getfield(L, LUA_REGISTRYINDEX, b->name);
 	if (lua_pcall(L, 0, 0, 0)) {
-		struct taiwins_config *config = to_user_config(L);
+		struct tw_config *config = to_user_config(L);
 		_lua_error(config, "error calling lua bindings\n");
 	}
 	lua_settop(L, 0);
@@ -96,10 +96,10 @@ _lua_run_axisbinding(struct weston_pointer *pointer,
 }
 
 
-static struct taiwins_binding *
-_new_lua_binding(struct taiwins_config *config, enum tw_binding_type type)
+static struct tw_binding *
+_new_lua_binding(struct tw_config *config, enum tw_binding_type type)
 {
-	struct taiwins_binding *b = vector_newelem(&config->lua_bindings);
+	struct tw_binding *b = vector_newelem(&config->lua_bindings);
 	b->user_data = config->L;
 	b->type = type;
 	sprintf(b->name, "luabinding_%x", config->lua_bindings.len);
@@ -119,7 +119,7 @@ _new_lua_binding(struct taiwins_config *config, enum tw_binding_type type)
 }
 
 static bool
-parse_binding(struct taiwins_binding *b, const char *seq_string)
+parse_binding(struct tw_binding *b, const char *seq_string)
 {
 	char seq_copy[128];
 	strop_ncpy(seq_copy, seq_string, 128);
@@ -164,8 +164,8 @@ parse_binding(struct taiwins_binding *b, const char *seq_string)
 	return true && parsed;
 }
 
-static inline struct taiwins_binding *
-taiwins_config_find_binding(struct taiwins_config *config,
+static inline struct tw_binding *
+tw_config_find_binding(struct tw_config *config,
 			    const char *name)
 {
 	for (int i = 0; i < TW_BUILTIN_BINDING_SIZE; i++) {
@@ -179,11 +179,11 @@ static inline int
 _lua_bind(lua_State *L, enum tw_binding_type binding_type)
 {
 	//first argument
-	struct taiwins_config *cd = to_user_config(L);
-	struct taiwins_binding *binding_to_find = NULL;
+	struct tw_config *cd = to_user_config(L);
+	struct tw_binding *binding_to_find = NULL;
 	const char *key = NULL;
 
-	struct taiwins_binding temp = {0};
+	struct tw_binding temp = {0};
 	const char *binding_seq = lua_tostring(L, 3);
 	temp.type = binding_type;
 	if (!binding_seq || !parse_binding(&temp, binding_seq))
@@ -191,7 +191,7 @@ _lua_bind(lua_State *L, enum tw_binding_type binding_type)
 	//builtin binding
 	if (_lua_isstring(L, 2)) {
 		key = lua_tostring(L, 2);
-		binding_to_find = taiwins_config_find_binding(cd, key);
+		binding_to_find = tw_config_find_binding(cd, key);
 		if (!binding_to_find || binding_to_find->type != binding_type)
 			goto err_binding;
 	}
@@ -268,7 +268,7 @@ _lua_is_color_code(lua_State *L, int pos)
 	return false;
 }
 
-static enum taiwins_option_type
+static enum tw_option_type
 _lua_type(lua_State *L, int pos)
 {
 	//here you need to check color first,
@@ -299,8 +299,8 @@ _lua_torgb(lua_State *L, int pos)
 }
 
 static void
-_lua_set_bytype(lua_State *L, int pos, enum taiwins_option_type type,
-	      struct taiwins_option_listener *listener)
+_lua_set_bytype(lua_State *L, int pos, enum tw_option_type type,
+	      struct tw_option_listener *listener)
 {
 	switch (type) {
 	case TW_OPTION_RGB:
@@ -324,15 +324,15 @@ static int
 _lua_set_value(lua_State *L)
 {
 	//okay?
-	struct taiwins_config *c = to_user_config(L);
-	enum taiwins_option_type type = _lua_type(L, 3);
+	struct tw_config *c = to_user_config(L);
+	enum tw_option_type type = _lua_type(L, 3);
 
 	if (!_lua_isstring(L, 2) || type == TW_OPTION_INVALID) {
 		return luaL_error(L, "invalid arguments\n");
 	}
-	struct taiwins_option *opt = NULL;
+	struct tw_option *opt = NULL;
 	vector_for_each(opt, &c->option_hooks) {
-		struct taiwins_option_listener *listener = NULL;
+		struct tw_option_listener *listener = NULL;
 		if (strncmp(opt->key, lua_tostring(L, 2), 32) == 0)
 			wl_list_for_each(listener, &opt->listener_list, link) {
 				if (listener->type != type)
@@ -353,7 +353,7 @@ err:
 static int
 _lua_set_keyboard_model(lua_State *L)
 {
-	struct taiwins_config *c = to_user_config(L);
+	struct tw_config *c = to_user_config(L);
 	_lua_stackcheck(L, 2);
 	c->xkb_rules.model = strdup(luaL_checkstring(L, 2));
 	return 0;
@@ -362,7 +362,7 @@ _lua_set_keyboard_model(lua_State *L)
 static int
 _lua_set_keyboard_layout(lua_State *L)
 {
-	struct taiwins_config *c = to_user_config(L);
+	struct tw_config *c = to_user_config(L);
 	_lua_stackcheck(L, 2);
 	c->xkb_rules.layout = strdup(luaL_checkstring(L, 2));
 	return 0;
@@ -371,7 +371,7 @@ _lua_set_keyboard_layout(lua_State *L)
 static int
 _lua_set_keyboard_options(lua_State *L)
 {
-	struct taiwins_config *c = to_user_config(L);
+	struct tw_config *c = to_user_config(L);
 	_lua_stackcheck(L, 2);
 	c->xkb_rules.options = strdup(luaL_checkstring(L, 2));
 	return 0;
@@ -381,7 +381,7 @@ _lua_set_keyboard_options(lua_State *L)
 static int
 _lua_set_repeat_info(lua_State *L)
 {
-	struct taiwins_config *c = to_user_config(L);
+	struct tw_config *c = to_user_config(L);
 	_lua_stackcheck(L, 3);
 	int32_t rate = luaL_checknumber(L, 2);
 	int32_t delay = luaL_checknumber(L, 3);
@@ -402,10 +402,10 @@ _lua_get_config(lua_State *L)
 
 
 void
-taiwins_config_init_luastate(struct taiwins_config *c)
+tw_config_init_luastate(struct tw_config *c)
 {
 	lua_State *L;
-	struct taiwins_config_component_listener *component;
+	struct tw_config_component_listener *component;
 
 	if (c->L)
 		lua_close(c->L);
@@ -415,7 +415,7 @@ taiwins_config_init_luastate(struct taiwins_config *c)
 	c->L = L;
 	if (c->lua_bindings.elems)
 		vector_destroy(&c->lua_bindings);
-	vector_init(&c->lua_bindings, sizeof(struct taiwins_binding), NULL);
+	vector_init(&c->lua_bindings, sizeof(struct tw_binding), NULL);
 
 	//config userdata
 	lua_pushlightuserdata(L, c); //s1

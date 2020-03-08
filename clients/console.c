@@ -309,11 +309,13 @@ init_console(struct desktop_console *console)
 	memset(console->chars, 0, sizeof(console->chars));
 	console->quit = false;
 	tw_shm_pool_init(&console->pool, console->globals.shm,
-		      TAIWINS_CONSOLE_CONF_NUM_DECISIONS * sizeof(struct taiwins_decision_key),
+	                 TAIWINS_CONSOLE_CONF_NUM_DECISIONS *
+	                 sizeof(struct tw_decision_key),
 		      console->globals.buffer_format);
-	console->decision_buffer = tw_shm_pool_alloc_buffer(&console->pool,
-							  sizeof(struct taiwins_decision_key),
-							  TAIWINS_CONSOLE_CONF_NUM_DECISIONS);
+	console->decision_buffer =
+		tw_shm_pool_alloc_buffer(&console->pool,
+		                         sizeof(struct tw_decision_key),
+		                         TAIWINS_CONSOLE_CONF_NUM_DECISIONS);
 	console->bkend = nk_cairo_create_bkend();
 	nk_textedit_init_fixed(&console->text_edit, console->chars, 256);
 

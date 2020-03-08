@@ -58,7 +58,7 @@ extern "C" {
 /*                           console                             */
 /*****************************************************************/
 
-struct taiwins_decision_key {
+struct tw_decision_key {
 	char app_name[128];
 	bool floating;
 	int  scale;
@@ -70,7 +70,7 @@ struct taiwins_decision_key {
 #define TAIWINS_MAX_MENU_CMD_LEN 63
 #define TAIWINS_MAX_MENU_ITEM_NAME 63
 
-struct taiwins_menu_item {
+struct tw_menu_item {
 
 	struct {
 		char title[TAIWINS_MAX_MENU_ITEM_NAME+1];
@@ -85,7 +85,7 @@ struct taiwins_menu_item {
 /* additional, we would have taiwins_menu_to_wl_array and
    taiwins_menu_from_wl_array */
 
-struct taiwins_window_brief {
+struct tw_window_brief {
 	float x,y,w,h;
 	char name[32];
 };

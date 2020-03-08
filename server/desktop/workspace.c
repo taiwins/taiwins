@@ -263,7 +263,7 @@ workspace_focus_view(struct workspace *ws, struct weston_view *v)
 }
 
 void
-workspace_add_output(struct workspace *wp, struct taiwins_output *output)
+workspace_add_output(struct workspace *wp, struct tw_output *output)
 {
 	//for floating layout, we do need to do anything
 	//TODO create the tiling_layout as well.
@@ -271,7 +271,7 @@ workspace_add_output(struct workspace *wp, struct taiwins_output *output)
 }
 
 void
-workspace_resize_output(struct workspace *wp, struct taiwins_output *output)
+workspace_resize_output(struct workspace *wp, struct tw_output *output)
 {
 	layout_resize_output(&wp->tiling_layout, output);
 	const struct layout_op arg = {

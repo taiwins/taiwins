@@ -49,8 +49,8 @@ struct console {
 	struct weston_surface *surface;
 	struct wl_listener compositor_destroy_listener;
 	struct wl_listener close_console_listener;
-	struct taiwins_apply_bindings_listener add_binding;
-	struct taiwins_config_component_listener config_component;
+	struct tw_apply_bindings_listener add_binding;
+	struct tw_config_component_listener config_component;
 	struct wl_global *global;
 };
 
@@ -156,12 +156,12 @@ launch_console_client(void *data)
 }
 
 static bool
-console_add_bindings(struct tw_bindings *bindings, struct taiwins_config *config,
-		     struct taiwins_apply_bindings_listener *listener)
+console_add_bindings(struct tw_bindings *bindings, struct tw_config *config,
+		     struct tw_apply_bindings_listener *listener)
 {
 	struct console *c = container_of(listener, struct console, add_binding);
 	const struct tw_key_press *open_console =
-		taiwins_config_get_builtin_binding(
+		tw_config_get_builtin_binding(
 			config, TW_OPEN_CONSOLE_BINDING)->keypress;
 	return tw_bindings_add_key(bindings, open_console,
 	                           should_start_console, 0, c);
@@ -179,7 +179,7 @@ end_console(struct wl_listener *listener, void *data)
 void
 announce_console(struct weston_compositor *compositor,
 		 struct shell *shell, const char *path,
-		 struct taiwins_config *config)
+		 struct tw_config *config)
 {
 	CONSOLE.surface = NULL;
 	CONSOLE.resource = NULL;
@@ -213,7 +213,7 @@ announce_console(struct weston_compositor *compositor,
 
 	wl_list_init(&CONSOLE.add_binding.link);
 	CONSOLE.add_binding.apply = console_add_bindings;
-	taiwins_config_add_apply_bindings(config, &CONSOLE.add_binding);
+	tw_config_add_apply_bindings(config, &CONSOLE.add_binding);
 
 	wl_list_init(&CONSOLE.config_component.link);
 

@@ -16,14 +16,14 @@
 #include "../server/config.h"
 
 static bool
-dummpy_apply(struct taiwins_config *c, struct taiwins_option_listener *l)
+dummpy_apply(struct tw_config *c, struct tw_option_listener *l)
 {
 	fprintf(stderr, "applying configuration\n");
 	return true;
 }
 
 
-struct taiwins_option_listener option = {
+struct tw_option_listener option = {
 	.type = TW_OPTION_RGB,
 	.apply = dummpy_apply,
 };
@@ -38,10 +38,9 @@ struct taiwins_option_listener option = {
 	})
 
 static inline struct wl_array
-taiwins_menu_to_wl_array(const struct taiwins_menu_item * items, const int len)
-{
+tw_menu_to_wl_array(const struct tw_menu_item *items, const int len) {
 	struct wl_array serialized;
-	serialized.alloc = sizeof(struct taiwins_menu_item) * len;
+	serialized.alloc = sizeof(struct tw_menu_item) * len;
 	serialized.size = serialized.alloc;
 	serialized.data = (void *)items;
 	return serialized;
@@ -72,7 +71,7 @@ static bool
 _lua_parse_menu(struct lua_State *L, vector_t *menus)
 {
 	bool parsed = true;
-	struct taiwins_menu_item menu_item = {
+	struct tw_menu_item menu_item = {
 		.has_submenu = false,
 		.len = 0};
 	if (_lua_is_menu_item(L, -1)) {
@@ -106,7 +105,7 @@ static int
 _lua_set_menus(lua_State *L)
 {
 	vector_t menus;
-	vector_init_zero(&menus, sizeof(struct taiwins_menu_item), NULL);
+	vector_init_zero(&menus, sizeof(struct tw_menu_item), NULL);
 	_lua_stackcheck(L, 2);
 	luaL_checktype(L, 2, LUA_TTABLE);
 	//once you have a heap allocated data, calling luaL_error afterwards
@@ -115,8 +114,9 @@ _lua_set_menus(lua_State *L)
 		vector_destroy(&menus);
 		return luaL_error(L, "error parsing menus.");
 	}
-	struct wl_array serialized = taiwins_menu_to_wl_array(menus.elems, menus.len);
-	(void)serialized;
+        struct wl_array serialized =
+            tw_menu_to_wl_array(menus.elems, menus.len);
+        (void)serialized;
 	vector_destroy(&menus);
 	return 0;
 }
@@ -184,8 +184,8 @@ lua_get_dummy_interface(lua_State *L)
 }
 
 static bool
-lua_component_init(struct taiwins_config *config, lua_State *L,
-		   struct taiwins_config_component_listener *listener)
+lua_component_init(struct tw_config *config, lua_State *L,
+		   struct tw_config_component_listener *listener)
 {
 	luaL_newmetatable(L, "metatable_dummy");
 	lua_pushcfunction(L, dummy_table__index);
@@ -204,7 +204,7 @@ lua_component_init(struct taiwins_config *config, lua_State *L,
 	return true;
 }
 
-struct taiwins_config_component_listener lua_component = {
+struct tw_config_component_listener lua_component = {
 	.link = {
 		&lua_component.link, &lua_component.link,},
 	.init = lua_component_init,
@@ -216,14 +216,14 @@ main(int argc, char *argv[])
 	struct wl_display *display = wl_display_create();
 	struct weston_log_context *context = weston_log_ctx_compositor_create();
 	struct weston_compositor *ec = weston_compositor_create(display, context, NULL);
-	struct taiwins_config *config = taiwins_config_create(ec, vprintf);
+	struct tw_config *config = tw_config_create(ec, vprintf);
 
-	taiwins_config_add_option_listener(config, "bigmac", &option);
-	taiwins_config_add_component(config, &lua_component);
+	tw_config_add_option_listener(config, "bigmac", &option);
+	tw_config_add_component(config, &lua_component);
 
-	taiwins_run_config(config, argv[1]);
+	tw_config_run(config, argv[1]);
 
-	taiwins_config_destroy(config);
+	tw_config_destroy(config);
 	weston_compositor_tear_down(ec);
 	weston_log_ctx_compositor_destroy(ec);
 	weston_compositor_destroy(ec);

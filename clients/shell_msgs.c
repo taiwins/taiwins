@@ -36,9 +36,9 @@ taiwins_menu_from_wl_array(const struct wl_array *serialized)
 {
 	vector_t dst;
 	vector_t src;
-	vector_init_zero(&dst, sizeof(struct taiwins_menu_item), NULL);
+	vector_init_zero(&dst, sizeof(struct tw_menu_item), NULL);
 	src = dst;
-	src.alloc_len = serialized->size / (sizeof(struct taiwins_menu_item));
+	src.alloc_len = serialized->size / (sizeof(struct tw_menu_item));
 	src.len = src.alloc_len;
 	src.elems = serialized->data;
 	vector_copy(&dst, &src);

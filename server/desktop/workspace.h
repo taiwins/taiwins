@@ -140,9 +140,9 @@ void workspace_maximize_view(struct workspace *w, struct weston_view *v, bool ma
 void workspace_minimize_view(struct workspace *w, struct weston_view *v);
 
 void workspace_switch_layout(struct workspace *w, struct weston_view *v);
-void workspace_add_output(struct workspace *wp, struct taiwins_output *output);
+void workspace_add_output(struct workspace *wp, struct tw_output *output);
 void workspace_remove_output(struct workspace *w, struct weston_output *output);
-void workspace_resize_output(struct workspace *wp, struct taiwins_output *output);
+void workspace_resize_output(struct workspace *wp, struct tw_output *output);
 
 
 #ifdef  __cplusplus

@@ -34,13 +34,13 @@
 extern "C" {
 #endif
 
-struct taiwins_config;
+struct tw_config;
 
 /////////////////////////////////////////////////////////
 // config options
 /////////////////////////////////////////////////////////
 
-enum taiwins_option_type {
+enum tw_option_type {
 	TW_OPTION_INVALID,
 	TW_OPTION_INT,
 	TW_OPTION_STR,
@@ -56,17 +56,17 @@ enum taiwins_option_type {
  * essenstially use wl_array for variable size data. this is very easy for you
  *
  */
-struct taiwins_option_listener {
-	const enum taiwins_option_type type;
+struct tw_option_listener {
+	const enum tw_option_type type;
 	union wl_argument arg;
 	struct wl_list link;
 	//Apply function need to verify the data first then apply
-	bool (*apply)(struct taiwins_config *, struct taiwins_option_listener *);
+	bool (*apply)(struct tw_config *, struct tw_option_listener *);
 };
 
-void taiwins_config_add_option_listener(struct taiwins_config *config,
+void tw_config_add_option_listener(struct tw_config *config,
 					const char *key,
-					struct taiwins_option_listener *listener);
+					struct tw_option_listener *listener);
 
 
 /////////////////////////////////////////////////////////
@@ -84,39 +84,39 @@ static inline int _lua_stackcheck(lua_State *L, int size)
 	return 0;
 }
 
-struct taiwins_config_component_listener {
+struct tw_config_component_listener {
 	struct wl_list link;
 	//called once in taiwins_run_config, for initialize lua metatable and
 	//setup functions
-	bool (*init)(struct taiwins_config *, lua_State *L,
-		     struct taiwins_config_component_listener *);
+	bool (*init)(struct tw_config *, lua_State *L,
+		     struct tw_config_component_listener *);
 	/* @param cleanup here indicates zero happens in the run config,
 	   please clean the cache config */
-	void (*apply)(struct taiwins_config *c, bool cleanup,
-		      struct taiwins_config_component_listener *listener);
+	void (*apply)(struct tw_config *c, bool cleanup,
+		      struct tw_config_component_listener *listener);
 };
 
-void taiwins_config_add_component(struct taiwins_config *,
-				  struct taiwins_config_component_listener *);
+void tw_config_add_component(struct tw_config *,
+				  struct tw_config_component_listener *);
 
-void taiwins_config_request_metatable(lua_State *L);
+void tw_config_request_metatable(lua_State *L);
 
 /////////////////////////////////////////////////////////
 // list of builtin bindings
 /////////////////////////////////////////////////////////
 
-struct taiwins_apply_bindings_listener {
+struct tw_apply_bindings_listener {
 	struct wl_list link;
 	bool (*apply)(struct tw_bindings *bindings,
-		      struct taiwins_config *config,
-		      struct taiwins_apply_bindings_listener *listener);
+		      struct tw_config *config,
+		      struct tw_apply_bindings_listener *listener);
 };
 
-void taiwins_config_add_apply_bindings(struct taiwins_config *,
-				      struct taiwins_apply_bindings_listener *);
+void tw_config_add_apply_bindings(struct tw_config *,
+				      struct tw_apply_bindings_listener *);
 
 
-enum taiwins_builtin_binding_t {
+enum tw_builtin_binding_t {
 	TW_QUIT_BINDING,
 	TW_RELOAD_CONFIG_BINDING,
 	//QUIT taiwins, rerun configuration
@@ -149,18 +149,18 @@ enum taiwins_builtin_binding_t {
 /**
  * /brief get the configuration for keybinding
  */
-const struct taiwins_binding *taiwins_config_get_builtin_binding(struct taiwins_config *,
-								 enum taiwins_builtin_binding_t);
+const struct tw_binding *tw_config_get_builtin_binding(struct tw_config *,
+                                                            enum tw_builtin_binding_t);
 
 /////////////////////////////////////////////////////////
 // APIS
 /////////////////////////////////////////////////////////
 
-struct taiwins_config *taiwins_config_create(struct weston_compositor *ec,
+struct tw_config *tw_config_create(struct weston_compositor *ec,
 					     log_func_t messenger);
-void taiwins_config_destroy(struct taiwins_config *);
+void tw_config_destroy(struct tw_config *);
 
-const char *taiwins_config_retrieve_error(struct taiwins_config *);
+const char *tw_config_retrieve_error(struct tw_config *);
 
 /**
  * /brief load and apply the config file
@@ -171,7 +171,7 @@ const char *taiwins_config_retrieve_error(struct taiwins_config *);
  * /param path if not present, use the internal path
  * /return true if config has no problem
  */
-bool taiwins_run_config(struct taiwins_config *config, const char *path);
+bool tw_config_run(struct tw_config *config, const char *path);
 
 
 #ifdef __cplusplus

@@ -30,9 +30,8 @@ extern "C" {
 #endif
 
 
-struct taiwins_config {
-	//configuration path, it is copied on first time runing config
-	char path[128];
+struct tw_config {
+	char path[128];	/**< it is copied on first time runing config */
 	struct weston_compositor *compositor;
 	struct tw_bindings *bindings;
 	lua_State *L;
@@ -43,25 +42,25 @@ struct taiwins_config {
 	struct wl_list lua_components;
 	struct wl_list apply_bindings;
 	vector_t option_hooks;
-	struct { //compositor option caches, and invalid values
+	struct { /**< compositor option caches, and invalid values */
 		struct xkb_rule_names xkb_rules;
-		int32_t kb_repeat; //invalid: -1
-		int32_t kb_delay; //invalid: -1
+		int32_t kb_repeat; /**< invalid: -1 */
+		int32_t kb_delay; /**< invalid: -1 */
 	};
-	/* user bindings */
+	/**< user bindings */
 	vector_t lua_bindings;
-	/* builtin bindings */
-	struct taiwins_binding builtin_bindings[TW_BUILTIN_BINDING_SIZE];
+	/**< builtin bindings */
+	struct tw_binding builtin_bindings[TW_BUILTIN_BINDING_SIZE];
 };
 
 
-struct taiwins_option {
+struct tw_option {
 	char key[32];
 	struct wl_list listener_list;
 };
 
 
-void taiwins_config_init_luastate(struct taiwins_config *c);
+void tw_config_init_luastate(struct tw_config *c);
 
 bool parse_one_press(const char *str, const enum tw_binding_type type,
 		     uint32_t *mod, uint32_t *code);

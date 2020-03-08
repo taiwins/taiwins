@@ -194,7 +194,7 @@ tw_bindings_create(struct weston_compositor *ec)
 		vtree_node_init(&root->root_node.node,
 				offsetof(struct tw_binding_node, node));
 	}
-	vector_init_zero(&root->apply_list, sizeof(struct taiwins_binding), NULL);
+	vector_init_zero(&root->apply_list, sizeof(struct tw_binding), NULL);
 	vector_init_zero(&root->weston_bindings, sizeof(struct weston_binding *), NULL);
 	return root;
 }
@@ -250,7 +250,7 @@ bool tw_bindings_add_axis(struct tw_bindings *root,
 			  const tw_axis_binding binding,
 			  void *data)
 {
-	struct taiwins_binding *new_binding = vector_newelem(&root->apply_list);
+	struct tw_binding *new_binding = vector_newelem(&root->apply_list);
 	new_binding->type = TW_BINDING_axis;
 	new_binding->axis_func = binding;
 	new_binding->axisaction = *motion;
@@ -264,7 +264,7 @@ tw_bindings_add_btn(struct tw_bindings *root,
 		    const tw_btn_binding binding,
 		    void *data)
 {
-	struct taiwins_binding *new_binding = vector_newelem(&root->apply_list);
+	struct tw_binding *new_binding = vector_newelem(&root->apply_list);
 	new_binding->type = TW_BINDING_btn;
 	new_binding->btn_func = binding;
 	new_binding->btnpress = *press;
@@ -278,7 +278,7 @@ tw_bindings_add_touch(struct tw_bindings *root,
 		      const tw_touch_binding binding,
 		      void *data)
 {
-	struct taiwins_binding *new_binding = vector_newelem(&root->apply_list);
+	struct tw_binding *new_binding = vector_newelem(&root->apply_list);
 	new_binding->type = TW_BINDING_tch;
 	new_binding->touch_func = binding;
 	new_binding->btnpress.modifier = modifier;
@@ -322,7 +322,7 @@ tw_bindings_add_key(struct tw_bindings *root,
 			}
 		}
 		if (hit == -1 && i == 0) {
-			struct taiwins_binding *new_binding =
+			struct tw_binding *new_binding =
 				vector_newelem(&root->apply_list);
 			new_binding->type = TW_BINDING_key;
 			new_binding->keypress[0] = presses[0];
@@ -367,7 +367,7 @@ tw_bindings_apply(struct tw_bindings *root)
 		weston_binding_destroy(*wbp);
 	vector_destroy(&root->weston_bindings);
 	//vector_for_each_safe
-	struct taiwins_binding *b;
+	struct tw_binding *b;
 	vector_for_each(b, &root->apply_list) {
 		switch (b->type) {
 		case TW_BINDING_key:
@@ -400,7 +400,7 @@ tw_bindings_apply(struct tw_bindings *root)
 	}
 	vector_destroy(&root->apply_list);
 	vector_init_zero(&root->apply_list,
-			 sizeof(struct taiwins_binding), NULL);
+			 sizeof(struct tw_binding), NULL);
 }
 
 static void print_node(const struct vtree_node *n)

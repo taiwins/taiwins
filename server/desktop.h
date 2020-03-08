@@ -37,25 +37,26 @@ extern "C" {
 struct shell;
 struct desktop;
 struct console;
-struct taiwins_config;
+struct tw_config;
 struct shell_ui;
+
 
 /**
  * @brief annouce globals
  */
 struct shell *announce_shell(struct weston_compositor *compositor, const char *path,
-			     struct taiwins_config *config);
+			     struct tw_config *config);
 
 void announce_console(struct weston_compositor *compositor,
 				 struct shell *shell, const char *exec_path,
-				 struct taiwins_config *config);
+				 struct tw_config *config);
 
 void announce_desktop(struct weston_compositor *compositor,
 				 struct shell *shell,
-				 struct taiwins_config *config);
+				 struct tw_config *config);
 
 void annouce_theme(struct weston_compositor *ec, struct shell *shell,
-		   struct taiwins_config *config);
+		   struct tw_config *config);
 
 // other APIs
 

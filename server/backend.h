@@ -22,14 +22,16 @@
 #ifndef TW_BACKEND_H
 #define TW_BACKEND_H
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 struct weston_compositor;
-struct taiwins_config;
+struct tw_config;
 
 bool
-tw_setup_backend(struct weston_compositor *ec, struct taiwins_config *c);
+tw_setup_backend(struct weston_compositor *ec, struct tw_config *c);
 
 #ifdef __cplusplus
 }
