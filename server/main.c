@@ -19,6 +19,7 @@
  *
  */
 
+#include <libweston/libweston.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -27,6 +28,7 @@
 #include <string.h>
 #include <linux/input.h>
 #include <unistd.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
@@ -58,7 +60,7 @@ tw_log(const char *format, va_list args)
 }
 
 static void
-taiwins_quit(struct weston_keyboard *keyboard,
+tw_compositor_quit(struct weston_keyboard *keyboard,
 	     const struct timespec *time,
 	     uint32_t key, uint32_t option,
 	     void *data)
@@ -68,7 +70,6 @@ taiwins_quit(struct weston_keyboard *keyboard,
 	struct wl_display *wl_display =
 		compositor->wl_display;
 	wl_display_terminate(wl_display);
-	exit(1);
 }
 
 static bool
@@ -78,10 +79,9 @@ tw_compositor_add_bindings(struct tw_bindings *bindings, struct taiwins_config *
 	struct tw_compositor *tc = container_of(listener, struct tw_compositor, add_binding);
 	const struct tw_key_press *quit_press =
 		taiwins_config_get_builtin_binding(c, TW_QUIT_BINDING)->keypress;
-	tw_bindings_add_key(bindings, quit_press, taiwins_quit, 0, tc->ec);
+	tw_bindings_add_key(bindings, quit_press, tw_compositor_quit, 0, tc->ec);
 	return true;
 }
-
 
 static void
 tw_compositor_init(struct tw_compositor *tc, struct weston_compositor *ec,
@@ -102,7 +102,7 @@ tw_compositor_init(struct tw_compositor *tc, struct weston_compositor *ec,
 }
 
 static void
-get_compositor_socket(char *path)
+tw_compositor_get_socket(char *path)
 {
 	unsigned int socket_num = 0;
 	const char *runtime_dir = getenv("XDG_RUNTIME_DIR");
@@ -116,30 +116,75 @@ get_compositor_socket(char *path)
 	}
 }
 
+static bool
+tw_compositor_set_socket(struct wl_display *display, const char *name)
+{
+        if (name) {
+                if (wl_display_add_socket(display, name)) {
+                        weston_log("failed to add socket %s", name);
+                        return false;
+                }
+        } else {
+                name = wl_display_add_socket_auto(display);
+                if (!name) {
+                        weston_log("failed to add socket %s", name);
+                        return false;
+                }
+        }
+        /* setenv("WAYLAND_DISPLAY", name, 1); */
+        return true;
+}
+
+
+static int
+tw_compositor_term_on_signal(int sig_num, void *data)
+{
+	struct wl_display *display = data;
+
+	weston_log("Caught signal %d\n", sig_num);
+	wl_display_terminate(display);
+	return 1;
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	int error = 0;
 	struct tw_compositor tc;
+	struct wl_event_source *signals[4];
 	const char *shellpath = (argc > 1) ? argv[1] : NULL;
 	const char *launcherpath = (argc > 2) ? argv[2] : NULL;
 	struct wl_display *display = wl_display_create();
+	struct wl_event_loop *event_loop = wl_display_get_event_loop(display);
+	struct weston_log_context *context;
+	struct weston_compositor *compositor;
 	char path[100];
-
 
 	logfile = fopen("/tmp/taiwins_log", "w");
 	weston_log_set_handler(tw_log, tw_log);
-	get_compositor_socket(path);
-	if (wl_display_add_socket(display, path) == -1)
-		goto connect_err;
 
-	struct weston_log_context *context =
-		weston_log_ctx_compositor_create();
-	struct weston_compositor *compositor =
-		weston_compositor_create(display, context, NULL);
-	//Hard code it here right now
+	tw_compositor_get_socket(path);
+	if (!tw_compositor_set_socket(display, path))
+		goto err_connect;
+
+	//setup the signals
+	signals[0] = wl_event_loop_add_signal(event_loop, SIGTERM,
+	                                      tw_compositor_term_on_signal,
+	                                      display);
+	signals[1] = wl_event_loop_add_signal(event_loop, SIGINT,
+	                                      tw_compositor_term_on_signal,
+	                                      display);
+	signals[2] = wl_event_loop_add_signal(event_loop, SIGQUIT,
+	                                      tw_compositor_term_on_signal,
+					      display);
+	//TODO handle chld exit
+	if (!signals[0] || !signals[1] || !signals[2])
+		goto err_signal;
+
+	context = weston_log_ctx_compositor_create();
+	compositor = weston_compositor_create(display, context, NULL);
 
 	weston_log_set_handler(tw_log, tw_log);
-	//get the configs now
+
 	char *xdg_dir = getenv("XDG_CONFIG_HOME");
 	if (!xdg_dir)
 		xdg_dir = getenv("HOME");
@@ -163,15 +208,18 @@ int main(int argc, char *argv[], char *envp[])
 	compositor->kb_repeat_rate = 40;
 
 	wl_display_run(display);
+
 out:
 	taiwins_config_destroy(config);
 	weston_compositor_tear_down(compositor);
 	weston_log_ctx_compositor_destroy(compositor);
-
-	weston_compositor_destroy(compositor);
 	wl_display_destroy(display);
+	weston_compositor_destroy(compositor);
 	return 0;
-connect_err:
+err_signal:
+	for (unsigned i = 0; i < 3; i++)
+		wl_event_source_remove(signals[i]);
+err_connect:
 	wl_display_destroy(display);
 	return -1;
 }
