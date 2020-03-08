@@ -146,6 +146,13 @@ tw_compositor_term_on_signal(int sig_num, void *data)
 	return 1;
 }
 
+static void
+tw_compositor_handle_exit(struct weston_compositor *c)
+{
+	wl_display_terminate(c->wl_display);
+}
+
+
 int main(int argc, char *argv[], char *envp[])
 {
 	int error = 0;
@@ -204,6 +211,8 @@ int main(int argc, char *argv[], char *envp[])
 	if (error) {
 		goto out;
 	}
+	compositor->default_pointer_grab = NULL;
+	compositor->exit = tw_compositor_handle_exit;
 	compositor->kb_repeat_delay = 400;
 	compositor->kb_repeat_rate = 40;
 
