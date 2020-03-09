@@ -23,12 +23,14 @@ shell_bus_add_watch(void *user_data, int fd, struct tdbus *bus,
 	event.cb = dispatch_watch;
 	event.arg.o = (void *)bus;
 
-	if (mask & TDBUS_READABLE)
-		epoll_mask |= EPOLLIN;
-	if (mask & TDBUS_WRITABLE)
-		epoll_mask |= EPOLLOUT;
+        if (mask & TDBUS_ENABLED) {
+	        if (mask & TDBUS_READABLE)
+		        epoll_mask |= EPOLLIN;
+	        if (mask & TDBUS_WRITABLE)
+		        epoll_mask |= EPOLLOUT;
 
-	tw_event_queue_add_source(queue, fd, &event, epoll_mask);
+	        tw_event_queue_add_source(queue, fd, &event, epoll_mask);
+        }
 }
 
 static void
@@ -44,12 +46,14 @@ shell_bus_change_watch(void *user_data, int fd, struct tdbus *bus,
 	event.cb = dispatch_watch;
 	event.arg.o = (void *)bus;
 
-	if (mask & TDBUS_READABLE)
-		epoll_mask |= EPOLLIN;
-	if (mask & TDBUS_WRITABLE)
-		epoll_mask |= EPOLLOUT;
+        if (mask & TDBUS_ENABLED) {
+	        if (mask & TDBUS_READABLE)
+		        epoll_mask |= EPOLLIN;
+	        if (mask & TDBUS_WRITABLE)
+		        epoll_mask |= EPOLLOUT;
 
-	tw_event_queue_modify_source(queue, fd, &event, mask);
+	        tw_event_queue_modify_source(queue, fd, &event, mask);
+        }
 }
 
 static void

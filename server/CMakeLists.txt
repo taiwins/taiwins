@@ -12,6 +12,10 @@ add_library(twcore STATIC
   config/config_lua.c
   )
 
+add_library(twbus STATIC
+  bus.c
+  )
+
 add_library(twshell STATIC
   shell.c
   )
@@ -40,6 +44,12 @@ target_link_libraries(twcore
   XKBCommon::XKBCommon
   ctypes
   PRIVATE dl
+  )
+
+target_link_libraries(twbus
+  PUBLIC
+  tdbus
+  twcore
   )
 
 target_link_libraries(twshell PUBLIC
@@ -77,6 +87,7 @@ target_link_libraries(taiwins
   twconsole
   twdesktop
   twtheme
+  twbus
   )
 
 ################################################################################
