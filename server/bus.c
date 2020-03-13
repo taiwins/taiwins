@@ -19,7 +19,11 @@
  *
  */
 
+#include <stdio.h>
+#include <string.h>
 #include <assert.h>
+#include <unistd.h>
+#include <sys/eventfd.h>
 #include <libweston/libweston.h>
 
 #include "config.h"
@@ -31,6 +35,7 @@ static struct tw_bus {
 	struct tw_config *config;
 
 	struct tdbus *dbus;
+	struct wl_event_source *source;
 
 	struct wl_listener compositor_distroy_listener;
 	struct tw_config_component_listener config_component;
@@ -71,15 +76,12 @@ tw_bus_add_watch(void *user_data, int unix_fd, struct tdbus *bus,
 			flags |= WL_EVENT_READABLE;
 		if (mask & TDBUS_WRITABLE)
 			flags |= WL_EVENT_WRITABLE;
+
+		s = wl_event_loop_add_fd(loop, unix_fd, flags,
+		                         tw_dbus_dispatch_watch,
+		                         watch_data);
+		tdbus_watch_set_user_data(watch_data, s);
 	}
-
-	s = wl_event_loop_add_fd(loop, unix_fd, flags, tw_dbus_dispatch_watch,
-	                         watch_data);
-
-	//TODO: notify system it does not work
-	if (!s)
-		return;
-
 }
 
 static void
@@ -117,12 +119,14 @@ tw_bus_rm_watch(void *user_data, int unix_fd, struct tdbus *bus,
 	wl_event_source_remove(s);
 }
 
-static void
-tw_bus_dispatch(void *data)
+static int
+tw_bus_dispatch(int fd, uint32_t mask, void *data)
 {
 	struct tw_bus *bus = data;
 
 	tdbus_dispatch_once(bus->dbus);
+
+	return 0;
 }
 
 static void
@@ -132,12 +136,53 @@ tw_bus_end(struct wl_listener *listener, void *data)
 	                                  compositor_distroy_listener);
 	struct tdbus *dbus = bus->dbus;
 
+	if (bus->source)
+		wl_event_source_remove(bus->source);
+
 	tdbus_delete(dbus);
 }
+
+static int tw_bus_read_request(const struct tdbus_method_call *call)
+{
+	char *msg_received = NULL, msg_reply[128];
+	const char *invalid_reply = "message not vaild";
+	struct tdbus_message *reply;
+	struct tdbus *bus = call->bus;
+
+	tdbus_read(call->message, "%s", &msg_received);
+	if (!msg_received || strlen(msg_received) > 120)
+		goto err_call;
+
+	strcpy(msg_reply, "recv: ");
+	strcat(msg_reply, msg_received);
+	free(msg_received);
+
+	reply = tdbus_reply_method(call->message, NULL);
+	tdbus_write(reply, "%s", msg_reply);
+	tdbus_send_message(bus, reply);
+
+	return 0;
+err_call:
+	if (msg_received)
+		free(msg_received);
+	reply = tdbus_reply_method(call->message, invalid_reply);
+	tdbus_write(reply, "%s", invalid_reply);
+	tdbus_send_message(bus, reply);
+	return 0;
+}
+
+static struct tdbus_call_answer tw_bus_answer = {
+	.interface = "org.taiwins.example",
+	.method = "Hello",
+	.in_signature = "s",
+	.out_signature = "s",
+	.reader = tw_bus_read_request,
+};
 
 bool
 tw_setup_bus(struct weston_compositor *ec, struct tw_config *config)
 {
+	int fd;
 	struct tw_bus *bus = get_bus();
 	struct wl_display *display;
 	struct wl_event_loop *loop;
@@ -148,19 +193,29 @@ tw_setup_bus(struct weston_compositor *ec, struct tw_config *config)
 	bus->config = config;
 	bus->dbus = tdbus_new_server(SESSION_BUS, "org.taiwins");
 
-	if (!bus->dbus)
-		return NULL;
-
 	wl_list_init(&bus->compositor_distroy_listener.link);
 	bus->compositor_distroy_listener.notify = tw_bus_end;
 	wl_signal_add(&ec->destroy_signal, &bus->compositor_distroy_listener);
 
+	if (!bus->dbus)
+		return NULL;
+
+	/* idle events cannot reschedule themselves */
+	fd = eventfd(0, EFD_CLOEXEC);
+	if (fd < 0)
+		return false;
+	bus->source = wl_event_loop_add_fd(loop, fd, 0, tw_bus_dispatch, bus);
+	if (!bus->source) {
+		tw_bus_end(&bus->compositor_distroy_listener, bus);
+		return false;
+	}
+	wl_event_source_check(bus->source);
+
+
 	tdbus_set_nonblock(bus->dbus, bus,
 	                   tw_bus_add_watch, tw_bus_ch_watch, tw_bus_rm_watch);
-	wl_event_loop_add_idle(loop, tw_bus_dispatch, bus);
 
-	//TODO we would add some methods for dbus
-	tdbus_server_add_methods(bus->dbus, "/org/taiwins", 0, NULL);
+	tdbus_server_add_methods(bus->dbus, "/org/taiwins", 1, &tw_bus_answer);
 
 	return true;
 }
