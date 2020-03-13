@@ -238,7 +238,7 @@
 *** DONE add CI
 *** TODO find a way to get the voice out
 
-* TODO [16%] Stage three: extensions/ post-pub features
+* TODO [28%] Stage three: extensions/ post-pub features
 ** TODO ADD DAMAGE SUPPORT in drawing!
 ** TODO [75%] tw_theme protocol
 *** DONE creating the taiwins_theme header
@@ -249,9 +249,14 @@
 ** TODO patch 3rdparty libraries
    weston: output configure in the run time.
 ** TODO [0%] new features
-*** TODO add dbus support
-    dbus can be used to sending commands to many services (networkmanager for
-    example), makes it easy to write shell widgets.
+*** DOIN add dbus support
+    now we have the dbus code, we can move some of the client requests into
+    dbus. But at the same time, for it to have users, we would need to have lua
+    bindings.
+**** DONE tdbus 3rdparties
+**** DONE tdbus added in client
+**** DONE tdbus added in server
+**** TODO tdbus lua callbacks?
 *** TODO move workspace_add_view in the commit event.
     At that time, you would know about view geometry, it would be better for
     floating layer.

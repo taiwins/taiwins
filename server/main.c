@@ -19,7 +19,7 @@
  *
  */
 
-#include <libweston/libweston.h>
+#include <assert.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <wayland-server-core.h>
 #include <wayland-server.h>
+#include <libweston/libweston.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -40,6 +41,7 @@
 #include "taiwins.h"
 #include "config.h"
 #include "bindings.h"
+#include "bus.h"
 
 //remove this two later
 
@@ -201,7 +203,8 @@ int main(int argc, char *argv[], char *envp[])
 		tw_config_create(compositor, tw_log);
 
 	tw_compositor_init(&tc, compositor, config);
-	tw_setup_backend(compositor, config);
+	assert(tw_setup_bus(compositor, config));
+	assert(tw_setup_backend(compositor, config));
 	weston_compositor_wake(compositor);
 	struct shell *sh = announce_shell(compositor, shellpath, config);
 	announce_console(compositor, sh, launcherpath, config);
@@ -217,7 +220,6 @@ int main(int argc, char *argv[], char *envp[])
 	compositor->kb_repeat_rate = 40;
 
 	wl_display_run(display);
-
 out:
 	tw_config_destroy(config);
 	weston_compositor_tear_down(compositor);
