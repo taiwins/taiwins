@@ -256,7 +256,45 @@
 **** DONE tdbus 3rdparties
 **** DONE tdbus added in client
 **** DONE tdbus added in server
-**** TODO tdbus lua callbacks?
+**** TODO tdbus lua callback
+     This is tricky, it would be a bit much to add lua code in the tdbus, if you
+     want to do it properly. On the other end, writing just a wrapper on the
+     shell would be easy, but it involves having a variable arg in the
+     runtime. The simplest way is actually writing a iterator since we already
+     have a iterating function in tdbus.
+
+     The major functions here are just sending and listening on signals. But
+     dbus interface is tricky, leading composary args followed by a variable
+     length of args. so I think the interface would look like this
+#+BEGIN_SRC lua
+
+busAPI = require('tw-bus')
+session_bus = busAPI:get_bus('session')
+system_bus = busAPI:get_bus('system')
+
+-- sample code for method call
+message = session_bus:call( function () return 'aaa' end,  -- the reply method
+{
+.path = '/org/taiwins',
+.interface = 'org.taiwins',
+.method = 'hello',
+.signature = 's',
+}, 'the message to send')
+
+session_bus.send(message)
+
+-- sample code for signal
+session_bus:signal_on(function (vol) w:volume = vol end, 
+{
+.path = '/org/taiwins',
+.interface = 'org.taiwins',
+.signal = 'some_signal',
+})
+
+-- it is either this API or reversing function and the table
+
+#+END_SRC
+
 *** TODO move workspace_add_view in the commit event.
     At that time, you would know about view geometry, it would be better for
     floating layer.
