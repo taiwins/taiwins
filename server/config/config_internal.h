@@ -54,12 +54,6 @@ struct tw_config {
 };
 
 
-struct tw_option {
-	char key[32];
-	struct wl_list listener_list;
-};
-
-
 void tw_config_init_luastate(struct tw_config *c);
 
 bool parse_one_press(const char *str, const enum tw_binding_type type,

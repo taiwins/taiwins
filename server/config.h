@@ -36,9 +36,16 @@ extern "C" {
 
 struct tw_config;
 
-/////////////////////////////////////////////////////////
-// config options
-/////////////////////////////////////////////////////////
+
+/*******************************************************************************
+ * lua config option
+ ******************************************************************************/
+
+struct tw_option {
+	char key[32];
+	struct wl_list listener_list;
+};
+
 
 enum tw_option_type {
 	TW_OPTION_INVALID,
@@ -50,17 +57,20 @@ enum tw_option_type {
 };
 
 /**
- * @brief option listener
+ * @brief config option listener
  *
- * The listener is responsible to provide the data container. You can
- * essenstially use wl_array for variable size data. this is very easy for you
- *
+ * Any struct implements this interface would have the ability to respond to a
+ * lua call `compositor:option('key', option)`. Those options can be anything
+ * from integers to rgb values.
  */
 struct tw_option_listener {
 	const enum tw_option_type type;
+	/** the argument is the source of the data */
 	union wl_argument arg;
 	struct wl_list link;
-	//Apply function need to verify the data first then apply
+
+	/** the type is verified before passing to listener, but the validity
+	 * of the option still need verifed */
 	bool (*apply)(struct tw_config *, struct tw_option_listener *);
 };
 
@@ -69,9 +79,10 @@ void tw_config_add_option_listener(struct tw_config *config,
 					struct tw_option_listener *listener);
 
 
-/////////////////////////////////////////////////////////
-// lua components
-/////////////////////////////////////////////////////////
+/*******************************************************************************
+ * lua components
+ ******************************************************************************/
+
 #define REGISTER_METHOD(l, name, func)		\
 	({lua_pushcfunction(l, func);		\
 		lua_setfield(l, -2, name);	\
@@ -84,10 +95,14 @@ static inline int _lua_stackcheck(lua_State *L, int size)
 	return 0;
 }
 
+/**
+ * @brief config component
+ *
+ * a config component adds a lua metatable or implements a function
+ */
 struct tw_config_component_listener {
 	struct wl_list link;
-	//called once in taiwins_run_config, for initialize lua metatable and
-	//setup functions
+	/** for initialize lua metatable and setup functions */
 	bool (*init)(struct tw_config *, lua_State *L,
 		     struct tw_config_component_listener *);
 	/* @param cleanup here indicates zero happens in the run config,
@@ -101,9 +116,9 @@ void tw_config_add_component(struct tw_config *,
 
 void tw_config_request_metatable(lua_State *L);
 
-/////////////////////////////////////////////////////////
-// list of builtin bindings
-/////////////////////////////////////////////////////////
+/*******************************************************************************
+ * list of builtin bindings
+ ******************************************************************************/
 
 struct tw_apply_bindings_listener {
 	struct wl_list link;
