@@ -243,6 +243,7 @@
 ** TODO [75%] tw_theme protocol
 *** DONE creating the taiwins_theme header
 *** TODO tw_theme protocol
+    Well, I should have documented the tw_theme work done before.
 *** CANC c files
 ** DONE Add multiple font support
    now twclient supports multiple fonts
