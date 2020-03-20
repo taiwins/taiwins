@@ -71,6 +71,7 @@ target_link_libraries(twdesktop PUBLIC
 target_link_libraries(twtheme PUBLIC
   twcore
   protos-server
+  twclient::theme
   )
 
 ################################################################################
