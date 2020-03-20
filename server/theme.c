@@ -26,6 +26,7 @@
 #include <os/file.h>
 #include <os/os-compatibility.h>
 #include <helpers.h>
+#include <theme.h>
 #include "taiwins.h"
 #include "config.h"
 
@@ -49,6 +50,12 @@ struct theme {
 
 } THEME;
 
+
+void
+tw_theme_from_lua_script(struct tw_theme *theme, const char *script)
+{
+
+}
 
 static void
 theme_send_config(struct theme *theme)
@@ -127,7 +134,6 @@ apply_theme_lua(struct tw_config *c, bool cleanup,
 		theme->theme_path = NULL;
 	}
 }
-
 
 static void
 unbind_theme(struct wl_resource *resource)
