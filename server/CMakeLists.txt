@@ -21,10 +21,13 @@ add_library(twshell STATIC
   )
 
 add_library(twconsole STATIC
-  console.c)
+  console.c
+  )
 
 add_library(twtheme STATIC
-  theme.c)
+  theme.c
+  theme_lua.c
+  )
 
 add_library(twdesktop STATIC
   desktop/desktop.c

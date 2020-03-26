@@ -34,6 +34,7 @@
 #include "desktop.h"
 #include "bindings.h"
 #include "config.h"
+#include "lua_helper.h"
 
 /*******************************************************************************
  * shell ui
@@ -718,7 +719,7 @@ static int
 _lua_set_wallpaper(lua_State *L)
 {
 	struct shell *shell = _lua_to_shell(L);
-	_lua_stackcheck(L, 2);
+	tw_lua_stackcheck(L, 2);
 	const char *path = luaL_checkstring(L, 2);
 	if (!is_file_exist(path))
 		return luaL_error(L, "wallpaper does not exist!");
@@ -732,7 +733,7 @@ static int
 _lua_set_widgets(lua_State *L)
 {
 	struct shell *shell = _lua_to_shell(L);
-	_lua_stackcheck(L, 2);
+	tw_lua_stackcheck(L, 2);
 	const char *path = luaL_checkstring(L, 2);
 	if (!is_file_exist(path))
 		return luaL_error(L, "widget path does not exist!");
@@ -828,7 +829,7 @@ _lua_set_menus(lua_State *L)
 	struct shell *shell = _lua_to_shell(L);
 
 	vector_init_zero(&shell->menu, sizeof(struct tw_menu_item), NULL);
-	_lua_stackcheck(L, 2);
+	tw_lua_stackcheck(L, 2);
 	luaL_checktype(L, 2, LUA_TTABLE);
 	if (!_lua_parse_menu(L, &shell->menu)) {
 		vector_destroy(&shell->menu);
@@ -848,7 +849,7 @@ static int
 _lua_set_lock_timer(lua_State *L)
 {
 	struct shell *shell = _lua_to_shell(L);
-	_lua_stackcheck(L, 2);
+	tw_lua_stackcheck(L, 2);
 	int32_t seconds = luaL_checknumber(L, 2);
 	if (seconds < 0) {
 		return luaL_error(L, "idle time must be a non negative integers.");

@@ -29,13 +29,8 @@
 #include <ctype.h>
 
 #include <strops.h>
+#include "../lua_helper.h"
 #include "config_internal.h"
-
-static inline bool
-_lua_isnumber(lua_State *L, int pos) {return lua_type(L, pos) == LUA_TNUMBER;}
-
-static inline bool
-_lua_isstring(lua_State *L, int pos) {return lua_type(L, pos) == LUA_TSTRING;}
 
 static inline void
 _lua_error(struct tw_config *config, const char *fmt, ...)
@@ -189,7 +184,7 @@ _lua_bind(lua_State *L, enum tw_binding_type binding_type)
 	if (!binding_seq || !parse_binding(&temp, binding_seq))
 		goto err_binding;
 	//builtin binding
-	if (_lua_isstring(L, 2)) {
+	if (tw_lua_isstring(L, 2)) {
 		key = lua_tostring(L, 2);
 		binding_to_find = tw_config_find_binding(cd, key);
 		if (!binding_to_find || binding_to_find->type != binding_type)
@@ -241,43 +236,15 @@ _lua_bind_tch(lua_State *L)
 ///////////////////// options functions //////////////////////////
 //////////////////////////////////////////////////////////////////
 
-static bool
-_lua_is_color_tuple(lua_State *L, int pos)
-{
-	int r = -1, g = -1, b = -1;
-	if (_lua_isnumber(L, pos))
-		r = lua_tonumber(L, pos);
-	if (_lua_isnumber(L, pos+1))
-		g = lua_tonumber(L, pos+1);
-	if (_lua_isnumber(L, pos+2))
-		b = lua_tonumber(L, pos+2);
-	return (r >= 0 && r <= 255) &&
-		(b >= 0 && b <= 255) &&
-		(g >= 0 && g <= 255) &&
-		lua_gettop(L) == 5;
-}
-
-static bool
-_lua_is_color_code(lua_State *L, int pos)
-{
-	int r,g,b;
-	if (_lua_isstring(L, pos) &&
-	    sscanf(lua_tostring(L, pos), "#%2x%2x%2x", &r,&g,&b) == 3 &&
-	    lua_gettop(L) == 3)
-		return true;
-	return false;
-}
-
 static enum tw_option_type
 _lua_type(lua_State *L, int pos)
 {
 	//here you need to check color first,
-	if (_lua_is_color_tuple(L, pos) ||
-	    _lua_is_color_code(L, pos))
+	if (tw_lua_is_rgb(L, pos, NULL))
 		return TW_OPTION_RGB;
-	if (_lua_isnumber(L, pos) && lua_gettop(L) == 3)
+	if (tw_lua_isnumber(L, pos) && lua_gettop(L) == 3)
 		return TW_OPTION_INT;
-	if (_lua_isstring(L, pos) && lua_gettop(L) == 3)
+	if (tw_lua_isstring(L, pos) && lua_gettop(L) == 3)
 		return TW_OPTION_STR;
 	if (lua_isboolean(L, pos) && lua_gettop(L) == 3)
 		return TW_OPTION_BOOL;
@@ -288,7 +255,7 @@ static inline uint32_t
 _lua_torgb(lua_State *L, int pos)
 {
 	unsigned int r,g,b;
-	if (_lua_isstring(L, pos))
+	if (tw_lua_isstring(L, pos))
 		sscanf(lua_tostring(L, pos), "#%2x%2x%2x", &r,&g,&b);
 	else {
 		r = lua_tonumber(L, pos);
@@ -327,7 +294,7 @@ _lua_set_value(lua_State *L)
 	struct tw_config *c = to_user_config(L);
 	enum tw_option_type type = _lua_type(L, 3);
 
-	if (!_lua_isstring(L, 2) || type == TW_OPTION_INVALID) {
+	if (!tw_lua_isstring(L, 2) || type == TW_OPTION_INVALID) {
 		return luaL_error(L, "invalid arguments\n");
 	}
 	struct tw_option *opt = NULL;
@@ -354,7 +321,7 @@ static int
 _lua_set_keyboard_model(lua_State *L)
 {
 	struct tw_config *c = to_user_config(L);
-	_lua_stackcheck(L, 2);
+	tw_lua_stackcheck(L, 2);
 	c->xkb_rules.model = strdup(luaL_checkstring(L, 2));
 	return 0;
 }
@@ -363,7 +330,7 @@ static int
 _lua_set_keyboard_layout(lua_State *L)
 {
 	struct tw_config *c = to_user_config(L);
-	_lua_stackcheck(L, 2);
+	tw_lua_stackcheck(L, 2);
 	c->xkb_rules.layout = strdup(luaL_checkstring(L, 2));
 	return 0;
 }
@@ -372,7 +339,7 @@ static int
 _lua_set_keyboard_options(lua_State *L)
 {
 	struct tw_config *c = to_user_config(L);
-	_lua_stackcheck(L, 2);
+	tw_lua_stackcheck(L, 2);
 	c->xkb_rules.options = strdup(luaL_checkstring(L, 2));
 	return 0;
 }
@@ -382,7 +349,7 @@ static int
 _lua_set_repeat_info(lua_State *L)
 {
 	struct tw_config *c = to_user_config(L);
-	_lua_stackcheck(L, 3);
+	tw_lua_stackcheck(L, 3);
 	int32_t rate = luaL_checknumber(L, 2);
 	int32_t delay = luaL_checknumber(L, 3);
 	c->kb_delay = delay;

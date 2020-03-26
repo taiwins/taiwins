@@ -12,27 +12,63 @@ compositor:bind_key("TW_OPEN_CONSOLE", "C-x,C-c")
 function random_function()
    compositor:do_weird_stuff()
 end
---this works
+
 compositor:bind_btn(random_function, "C-M-btn_l")
 
 -- compositor:option("bigmac", "#ffffff")
--- compositor:option("bigmac", 88, 87, 86)
+-- compositor:option("bigmac", {88, 87, 86})
 
-dummy = compositor:get_dummy_interface()
+-- dummy = compositor:get_dummy_interface()
 
-for _, tt in ipairs(dummy:get_dummy_table()) do
-   print(tt['haha'])
-   tt['adfasf'] = "bababa"
-end
+-- for _, tt in ipairs(dummy:get_dummy_table()) do
+--    print(tt['haha'])
+--    tt['adfasf'] = "bababa"
+-- end
 
-compositor:set_menus({
-      {
-	 {'bbbb','cccc'},
-	 {'dddd','ffff'}
-      },
-      {'aaaa', 'bbbb'},
-      {'aaa2', 'bbbb2'}
-})
+-- compositor:set_menus({
+--       {
+--	 {'bbbb','cccc'},
+--	 {'dddd','ffff'}
+--       },
+--       {'aaaa', 'bbbb'},
+--       {'aaa2', 'bbbb2'}
+-- })
+
+local buttonNormal = {r = 52, g = 69, b = 156}
+local buttonActive = {52, 69, 156}
+local buttonHover = {52, 69, 156}
+local checkboxTexture = 'skin/checkbox.png'
+local checkboxOff = {55, 58, 115}
+local checkboxOn = {60, 58, 115}
+
+
+local style = {
+	['text'] = {
+		['color'] = '#000000'
+	},
+	['button'] = {
+		['normal'] = buttonNormal,
+		['hover'] = buttonHover,
+		['active'] = buttonActive,
+		['text background'] = '#00000000',
+		['text normal'] = '#000000',
+		['text hover'] = '#000000',
+		['text active'] = '#ffffff'
+	},
+	['checkbox'] = {
+		['normal'] = checkboxOff,
+		['hover'] = checkboxOff,
+		['active'] = checkboxOff,
+		['cursor normal'] = checkboxOn,
+		['cursor hover'] = checkboxOn,
+		['text normal'] = '#000000',
+		['text hover'] = '#000000',
+		['text active'] = '#000000',
+		['text background'] = '#d3ceaa'
+	},
+}
+
+compositor:read_theme(style)
 
 -- -- general setup
 -- compositor:keyboard_layout("ctrl:swap_lalt_lctl")

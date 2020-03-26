@@ -13,7 +13,10 @@
 #include <wayland-util.h>
 #include <strops.h>
 #include <sequential.h>
+#include <theme.h>
+
 #include "../server/config.h"
+#include "../server/lua_helper.h"
 
 static bool
 dummpy_apply(struct tw_config *c, struct tw_option_listener *l)
@@ -28,14 +31,11 @@ struct tw_option_listener option = {
 	.apply = dummpy_apply,
 };
 
+extern int tw_theme_read(lua_State *L);
+
 /*****************************************************************
  * LUA_BINDINGS
  ****************************************************************/
-
-#define REGISTER_METHOD(l, name, func)		\
-	({lua_pushcfunction(l, func);		\
-		lua_setfield(l, -2, name);	\
-	})
 
 static inline struct wl_array
 tw_menu_to_wl_array(const struct tw_menu_item *items, const int len) {
@@ -106,7 +106,7 @@ _lua_set_menus(lua_State *L)
 {
 	vector_t menus;
 	vector_init_zero(&menus, sizeof(struct tw_menu_item), NULL);
-	_lua_stackcheck(L, 2);
+	tw_lua_stackcheck(L, 2);
 	luaL_checktype(L, 2, LUA_TTABLE);
 	//once you have a heap allocated data, calling luaL_error afterwards
 	//causes leaks
@@ -187,6 +187,7 @@ static bool
 lua_component_init(struct tw_config *config, lua_State *L,
 		   struct tw_config_component_listener *listener)
 {
+
 	luaL_newmetatable(L, "metatable_dummy");
 	lua_pushcfunction(L, dummy_table__index);
 	lua_setfield(L, -2, "__index");
@@ -201,6 +202,10 @@ lua_component_init(struct tw_config *config, lua_State *L,
 	REGISTER_METHOD(L, "get_dummy_interface", lua_get_dummy_interface);
 	REGISTER_METHOD(L, "set_menus", _lua_set_menus);
 
+	struct tw_theme *theme = lua_newuserdata(L, sizeof(struct tw_theme));
+	tw_theme_init_default(theme);
+	lua_setfield(L, LUA_REGISTRYINDEX, "tw_theme");
+	REGISTER_METHOD(L, "read_theme", tw_theme_read);
 	return true;
 }
 

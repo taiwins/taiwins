@@ -19,6 +19,7 @@
  *
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
@@ -247,6 +248,7 @@ tw_swap_config(struct tw_config *dst, struct tw_config *src)
 	free(src);
 }
 
+
 static void
 tw_config_try_config(struct tw_config *config)
 {
@@ -254,6 +256,7 @@ tw_config_try_config(struct tw_config *config)
 
 	tw_config_init_luastate(config);
 	tw_config_apply_default(config);
+
 	if (is_file_exist(config->path)) {
 		safe = safe && !luaL_loadfile(config->L, config->path);
 		safe = safe && !lua_pcall(config->L, 0, 0, 0);
