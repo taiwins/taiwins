@@ -36,6 +36,7 @@
 #include "../taiwins.h"
 #include "../desktop.h"
 #include "../config.h"
+#include "../lua_helper.h"
 #include "layout.h"
 #include "workspace.h"
 

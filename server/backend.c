@@ -35,6 +35,7 @@
 #define INCLUDE_BACKEND
 #include "taiwins.h"
 #include "config.h"
+#include "lua_helper.h"
 
 struct tw_backend;
 
@@ -391,7 +392,7 @@ _lua_output_scale(lua_State *L)
 		lua_pushinteger(L, lua_output->output->scale);
 		return 1;
 	} else {
-		_lua_stackcheck(L, 2);
+		tw_lua_stackcheck(L, 2);
 		int scale = luaL_checkinteger(L, 2);
 		if (scale <= 0 || scale > 4)
 			return luaL_error(L, "invalid display scale");
@@ -415,7 +416,7 @@ _lua_output_resolution(lua_State *L)
 		return 2;
 	} else {
 		//TODO we deal with THIS later
-		_lua_stackcheck(L, 2);
+		tw_lua_stackcheck(L, 2);
 		return 0;
 	}
 }
@@ -433,7 +434,7 @@ _lua_output_position(lua_State *L)
 		return 2;
 	} else {
 		//TODO we deal with this later.
-		_lua_stackcheck(L, 2);
+		tw_lua_stackcheck(L, 2);
 		return 0;
 	}
 }

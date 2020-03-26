@@ -1,5 +1,5 @@
 /*
- * theme.h - taiwins server theme header
+ * theme.c - taiwins server theme api
  *
  * Copyright (c) 2019 Xichen Zhou
  *
@@ -19,7 +19,12 @@
  *
  */
 
+#include <lauxlib.h>
+#include <lua.h>
+#include <string.h>
+#include <strings.h>
 #include <sys/mman.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 
 #include <wayland-taiwins-theme-server-protocol.h>
@@ -27,6 +32,9 @@
 #include <os/os-compatibility.h>
 #include <helpers.h>
 #include <theme.h>
+#include <wayland-util.h>
+
+#include "lua_helper.h"
 #include "taiwins.h"
 #include "config.h"
 
@@ -46,78 +54,33 @@ struct theme {
 	struct wl_list clients; //why do we need clients?
 	struct tw_config_component_listener config_component;
 
-	char *theme_path;
+	struct tw_theme global_theme;
 
 } THEME;
 
+extern void tw_theme_init_for_lua(struct tw_theme *theme, lua_State *L);
+extern int tw_theme_read(lua_State *L);
 
-void
-tw_theme_from_lua_script(struct tw_theme *theme, const char *script)
-{
-
-}
-
-static void
-theme_send_config(struct theme *theme)
-{
-	int fd;
-	char *path = theme->theme_path;
-	char *src;
-	struct theme_client *client;
-
-	if (!path)
-		return;
-	//you have to share a memory for copy
-	FILE *stream = fopen(path, "r");
-	size_t cr = ftell(stream);
-	fseek(stream, 0, SEEK_END);
-	size_t size = ftell(stream);
-
-	fd = os_create_anonymous_file(size);
-	if (fd < 0)
-		goto out;
-	src = mmap(NULL, size, PROT_WRITE, MAP_SHARED, fd, 0);
-	if (src == MAP_FAILED)
-		goto out;
-	if (fread(src, size, 1, stream) != size)
-		goto err_write;
-
-	wl_list_for_each(client, &theme->clients, link)
-		taiwins_theme_send_theme(client->resource, "theme", fd, size);
-
-err_write:
-	munmap(src, size);
-out:
-	close(fd);
-	fseek(stream, cr, SEEK_SET);
-	fclose(stream);
-}
 /*******************************************************************************
  * lua calls
  ******************************************************************************/
 
-static int
-_lua_read_theme(lua_State *L)
-{
-	struct theme *theme = &THEME;
-
-	_lua_stackcheck(L, 2);
-	const char *path = luaL_checkstring(L, 2);
-	if (!is_file_exist(path))
-		return luaL_error(L, "invalid theme path %s", path);
-
-	if (theme->theme_path)
-		free(theme->theme_path);
-	theme->theme_path = strdup(path);
-
-	return 0;
-}
 
 static bool
 init_theme_lua(struct tw_config *config, lua_State *L,
                struct tw_config_component_listener *comp)
 {
-	REGISTER_METHOD(L, "read_theme", _lua_read_theme);
+	struct theme *theme =
+		container_of(comp, struct theme, config_component);
+	struct tw_theme *tw_theme = &theme->global_theme;
+
+	if (tw_theme->handle_pool.data)
+		wl_array_release(&tw_theme->handle_pool);
+	if (tw_theme->string_pool.data)
+		wl_array_release(&tw_theme->string_pool);
+	tw_theme_init_default(tw_theme);
+	tw_theme_init_for_lua(tw_theme, L);
+
 	return true;
 }
 
@@ -125,15 +88,46 @@ static void
 apply_theme_lua(struct tw_config *c, bool cleanup,
                 struct tw_config_component_listener *listener)
 {
+
+	struct wl_resource *client;
 	struct theme *theme =
 		container_of(listener, struct theme, config_component);
-
-	if (theme->theme_path) {
-		theme_send_config(theme);
-		free(theme->theme_path);
-		theme->theme_path = NULL;
+	struct tw_theme *tw_theme = &theme->global_theme;
+	int fd = tw_theme_to_fd(&theme->global_theme);
+	if (fd > 0) {
+		wl_list_for_each(client, &theme->clients, link)
+			taiwins_theme_send_theme(client, "new theme", fd,
+			                         sizeof(struct tw_theme) +
+			                         tw_theme->handle_pool.size +
+			                         tw_theme->string_pool.size);
 	}
 }
+
+
+/**
+ * @brief loading a lua theme from a lua script
+ */
+void
+tw_theme_from_lua_script(struct tw_theme *theme, const char *script)
+{
+	lua_State *L;
+	if (!(L = luaL_newstate()))
+		return;
+	//insert theme as light user data
+	lua_pushlightuserdata(L, theme);
+	lua_setfield(L, LUA_REGISTRYINDEX, "tw_theme");
+
+
+	//TODO I should also setup error functions
+	if (!luaL_loadfile(L, script) || !lua_pcall(L, 0, 0, 0))
+		return;
+
+	lua_close(L);
+}
+
+/*******************************************************************************
+ * wayland globals
+ ******************************************************************************/
 
 static void
 unbind_theme(struct wl_resource *resource)
@@ -187,6 +181,8 @@ annouce_theme(struct weston_compositor *ec, struct shell *shell,
 					taiwins_theme_interface.version,
 	                                &THEME,
 					bind_theme);
+	memset(&THEME.global_theme, 0, sizeof(struct tw_theme));
+
 	wl_list_init(&THEME.clients);
 
 	wl_list_init(&THEME.compositor_destroy_listener.link);

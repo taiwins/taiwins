@@ -46,7 +46,6 @@ struct tw_option {
 	struct wl_list listener_list;
 };
 
-
 enum tw_option_type {
 	TW_OPTION_INVALID,
 	TW_OPTION_INT,
@@ -55,6 +54,8 @@ enum tw_option_type {
 	TW_OPTION_ARRAY,
 	TW_OPTION_RGB,
 };
+
+
 
 /**
  * @brief config option listener
@@ -75,25 +76,13 @@ struct tw_option_listener {
 };
 
 void tw_config_add_option_listener(struct tw_config *config,
-					const char *key,
-					struct tw_option_listener *listener);
+                                   const char *key,
+                                   struct tw_option_listener *listener);
 
 
 /*******************************************************************************
  * lua components
  ******************************************************************************/
-
-#define REGISTER_METHOD(l, name, func)		\
-	({lua_pushcfunction(l, func);		\
-		lua_setfield(l, -2, name);	\
-	})
-
-static inline int _lua_stackcheck(lua_State *L, int size)
-{
-	if (lua_gettop(L) != size)
-		return luaL_error(L, "invalid number of args, expected %d\n", size);
-	return 0;
-}
 
 /**
  * @brief config component
@@ -165,14 +154,14 @@ enum tw_builtin_binding_t {
  * /brief get the configuration for keybinding
  */
 const struct tw_binding *tw_config_get_builtin_binding(struct tw_config *,
-                                                            enum tw_builtin_binding_t);
+                                                       enum tw_builtin_binding_t);
 
 /////////////////////////////////////////////////////////
 // APIS
 /////////////////////////////////////////////////////////
 
 struct tw_config *tw_config_create(struct weston_compositor *ec,
-					     log_func_t messenger);
+                                   log_func_t messenger);
 void tw_config_destroy(struct tw_config *);
 
 const char *tw_config_retrieve_error(struct tw_config *);
@@ -192,11 +181,5 @@ bool tw_config_run(struct tw_config *config, const char *path);
 #ifdef __cplusplus
 }
 #endif
-
-
-
-
-
-
 
 #endif /* EOF */

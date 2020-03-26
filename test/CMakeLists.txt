@@ -38,6 +38,7 @@ target_link_libraries(test_lua
 ###########################################
 add_executable(test_config
   testconfig.c
+  ../server/theme_lua.c
   )
 
 target_include_directories(test_config PRIVATE
@@ -48,6 +49,7 @@ target_include_directories(test_config PRIVATE
 target_link_libraries(test_config
   ${COMPOSITOR_LIBRARIES}
   twcore
+  twclient::theme
   )
 
 
