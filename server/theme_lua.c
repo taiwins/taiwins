@@ -34,6 +34,9 @@
 #include "lua_helper.h"
 #include "taiwins.h"
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 
 static bool
 is_file_image_type(const char *path)
@@ -73,8 +76,16 @@ static inline void
 tw_theme_add_float(lua_State *L, float *value)
 {
 	tw_lua_assert(L, tw_lua_isnumber(L, -1),
-	              "expcting a floating value");
+	              "expecting a floating value");
 	*value = lua_tonumber(L, -1);
+	tw_lua_assert(L, *value >= 0, "expecting positive value");
+}
+
+static inline void
+tw_theme_add_bool(lua_State *L, int *value)
+{
+	tw_lua_assert(L, lua_isboolean(L, -1), "expecting a boolean");
+	*value = lua_toboolean(L, -1);
 }
 
 static void
@@ -138,7 +149,7 @@ tw_theme_add_alignment(lua_State *L, tw_flags *flags)
 	const char *alignment;
 
 	tw_lua_assert(L, tw_lua_isstring(L, -1),
-	              "expecting a alignment string");
+	              "expecting an alignment string");
 	alignment = lua_tostring(L, -1);
 	if (strcasecmp(alignment, "left") == 0)
 		*flags = TAIWINS_TEXT_LEFT;
@@ -150,38 +161,400 @@ tw_theme_add_alignment(lua_State *L, tw_flags *flags)
 		luaL_error(L, "invalid text alignment");
 }
 
-#define TW_THEME_ADD_STYLE(L, name, type, field)                        \
-	lua_getfield(L, -1, name); \
-	if (!lua_isnil(L, -1)) \
-		tw_theme_add_##type(L, field); \
-	lua_pop(L, 1);
-
 static void
-tw_theme_add_button(lua_State *L, struct tw_style_button *button)
+tw_theme_add_header_align(lua_State *L, enum tw_style_header_align *align)
 {
-	tw_lua_assert(L, lua_istable(L, -1), "button style must be a table");
-	TW_THEME_ADD_STYLE(L, "normal", item, &button->normal);
-	TW_THEME_ADD_STYLE(L, "hover", item, &button->hover);
-	TW_THEME_ADD_STYLE(L, "active", item, &button->active);
-	TW_THEME_ADD_STYLE(L, "border_color", color, &button->border_color);
-
-	TW_THEME_ADD_STYLE(L, "text_background", color, &button->text_background);
-	TW_THEME_ADD_STYLE(L, "text_normal", color, &button->text_normal);
-	TW_THEME_ADD_STYLE(L, "text_hover", color, &button->text_hover);
-	TW_THEME_ADD_STYLE(L, "text_active", color, &button->text_active);
-	TW_THEME_ADD_STYLE(L, "text_alignment", alignment, &button->text_alignment);
-
-	TW_THEME_ADD_STYLE(L, "border", ratio, &button->border);
-	TW_THEME_ADD_STYLE(L, "rounding", ratio, &button->rounding);
-	TW_THEME_ADD_STYLE(L, "padding", vec2, &button->padding);
-	TW_THEME_ADD_STYLE(L, "image_padding", vec2, &button->image_padding);
-	TW_THEME_ADD_STYLE(L, "touch_padding", vec2, &button->touch_padding);
+	const char *alignment;
+	tw_lua_assert(L, tw_lua_isstring(L, -1),
+	              "expecting an alignment string");
+	alignment = lua_tostring(L, -1);
+	if (strcasecmp(alignment, "left") == 0)
+		*align = TAIWINS_HEADER_LEFT;
+	else if (strcasecmp(alignment, "right") == 0)
+		*align = TAIWINS_HEADER_RIGHT;
+	else
+		luaL_error(L, "invalid header alignment");
 }
 
-//static void tw_theme_add_toggle(lua_State *L, struct tw_style_toggle *toggle) {}
+#define TW_THEME_ADD_STYLE(L, name, type, field)                        \
+	({ \
+		lua_getfield(L, -1, name); \
+		if (!lua_isnil(L, -1)) \
+			tw_theme_add_##type(L, field); \
+		lua_pop(L, 1); \
+	})
+
+#define TW_THEME_READ_SEC(L, pos, name, type, field)                           \
+  ({                                                                           \
+	  lua_getfield(L, pos, name); \
+	  if (!lua_isnil(L, -1)) { \
+		  tw_lua_assert(L, lua_istable(L, -1), \
+		                name " style must be a table"); \
+		  tw_theme_add_##type(L, field); \
+	  } \
+	  lua_pop(L, 1); \
+  })
+
+#define TW_THEME_READ_SEC_FALLBACK(L, pos, name, type, field, fb)              \
+  ({                                                                           \
+	  lua_getfield(L, pos, name); \
+	  if (!lua_isnil(L, -1)) { \
+		  tw_lua_assert(L, lua_istable(L, -1), \
+		                name " style must be a table"); \
+		  tw_theme_add_##type(L, field); \
+	  } else { \
+		  *field = *fb; \
+	  }; \
+  })
+
+static void
+tw_theme_add_button(lua_State *L, struct tw_style_button *style)
+{
+	TW_THEME_ADD_STYLE(L, "normal", item, &style->normal);
+	TW_THEME_ADD_STYLE(L, "hover", item, &style->hover);
+	TW_THEME_ADD_STYLE(L, "active", item, &style->active);
+	TW_THEME_ADD_STYLE(L, "border_color", color, &style->border_color);
+
+	TW_THEME_ADD_STYLE(L, "text_background", color, &style->text_background);
+	TW_THEME_ADD_STYLE(L, "text_normal", color, &style->text_normal);
+	TW_THEME_ADD_STYLE(L, "text_hover", color, &style->text_hover);
+	TW_THEME_ADD_STYLE(L, "text_active", color, &style->text_active);
+	TW_THEME_ADD_STYLE(L, "text_alignment", alignment, &style->text_alignment);
+
+	TW_THEME_ADD_STYLE(L, "border", ratio, &style->border);
+	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
+	TW_THEME_ADD_STYLE(L, "image_padding", vec2, &style->image_padding);
+	TW_THEME_ADD_STYLE(L, "touch_padding", vec2, &style->touch_padding);
+}
+
+static void
+tw_theme_add_text(lua_State *L, struct tw_style_text *style)
+{
+	TW_THEME_ADD_STYLE(L, "color", color, &style->color);
+	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
+	//we can also add font here
+}
+
+static void
+tw_theme_add_toggle(lua_State *L, struct tw_style_toggle *style)
+{
+	TW_THEME_ADD_STYLE(L, "normal", item, &style->normal);
+	TW_THEME_ADD_STYLE(L, "hover", item, &style->hover);
+	TW_THEME_ADD_STYLE(L, "active", item, &style->active);
+	TW_THEME_ADD_STYLE(L, "border_color", color, &style->border_color);
+
+	TW_THEME_ADD_STYLE(L, "normal_cursor", item, &style->cursor_normal);
+	TW_THEME_ADD_STYLE(L, "hover_cursor", item, &style->cursor_hover);
+
+	TW_THEME_ADD_STYLE(L, "normal_text", color, &style->text_normal);
+	TW_THEME_ADD_STYLE(L, "hover_text", color, &style->text_hover);
+	TW_THEME_ADD_STYLE(L, "active_text", color, &style->text_active);
+	TW_THEME_ADD_STYLE(L, "normal_background", color,
+	                   &style->text_background);
+	TW_THEME_ADD_STYLE(L, "alignment", alignment, &style->text_alignment);
+
+	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
+	TW_THEME_ADD_STYLE(L, "touch_padding", vec2, &style->touch_padding);
+	TW_THEME_ADD_STYLE(L, "spacing", float, &style->spacing);
+	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
+}
+
+static void
+tw_theme_add_selectable(lua_State *L, struct tw_style_selectable *style)
+{
+	TW_THEME_ADD_STYLE(L, "bg_normal", item, &style->normal);
+	TW_THEME_ADD_STYLE(L, "bg_hover", item, &style->hover);
+	TW_THEME_ADD_STYLE(L, "bg_pressed", item, &style->pressed);
+
+	TW_THEME_ADD_STYLE(L, "bg_normal_active", item, &style->normal_active);
+	TW_THEME_ADD_STYLE(L, "bg_hover_active", item, &style->hover_active);
+	TW_THEME_ADD_STYLE(L, "bg_pressed_active", item, &style->normal_active);
+
+	TW_THEME_ADD_STYLE(L, "normal_text", color, &style->text_normal);
+	TW_THEME_ADD_STYLE(L, "hover_text", color, &style->text_hover);
+	TW_THEME_ADD_STYLE(L, "active_text", color, &style->text_pressed);
+	TW_THEME_ADD_STYLE(L, "text_background", color, &style->text_background);
+	TW_THEME_ADD_STYLE(L, "alignment", alignment, &style->text_alignment);
+
+	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
+	TW_THEME_ADD_STYLE(L, "touch_padding", vec2, &style->touch_padding);
+	TW_THEME_ADD_STYLE(L, "image_padding", vec2, &style->image_padding);
+}
+
+static void
+tw_theme_add_slider(lua_State *L, struct tw_style_slider *style)
+{
+	TW_THEME_ADD_STYLE(L, "normal", item, &style->normal);
+	TW_THEME_ADD_STYLE(L, "hover", item, &style->hover);
+	TW_THEME_ADD_STYLE(L, "active", item, &style->active);
+	TW_THEME_ADD_STYLE(L, "border_color", color, &style->border_color);
+
+	TW_THEME_ADD_STYLE(L, "normal_bar", color, &style->bar_normal);
+	TW_THEME_ADD_STYLE(L, "hover_bar", color, &style->bar_hover);
+	TW_THEME_ADD_STYLE(L, "active_bar", color, &style->bar_active);
+	//TODO: this is crazy, merge with other properties
+	TW_THEME_ADD_STYLE(L, "filled_bar", color, &style->bar_filled);
+
+	TW_THEME_ADD_STYLE(L, "normal_cursor", item, &style->cursor_normal);
+	TW_THEME_ADD_STYLE(L, "hover_cursor", item, &style->cursor_hover);
+	TW_THEME_ADD_STYLE(L, "active_cursor", item, &style->cursor_active);
+
+	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
+	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
+	TW_THEME_ADD_STYLE(L, "spacing", vec2, &style->spacing);
+	TW_THEME_ADD_STYLE(L, "bar_height", float, &style->bar_height);
+	TW_THEME_ADD_STYLE(L, "cursor_size", vec2, &style->cursor_size);
+
+	TW_THEME_ADD_STYLE(L, "show_button", bool, &style->show_buttons);
+	TW_THEME_READ_SEC(L, -1, "increase_button", button, &style->inc_button);
+	TW_THEME_READ_SEC(L, -1, "decrease_button", button, &style->dec_button);
+}
+
+static void
+tw_theme_add_progress(lua_State *L, struct tw_style_progress *style)
+{
+	TW_THEME_ADD_STYLE(L, "bg_normal", item, &style->normal);
+	TW_THEME_ADD_STYLE(L, "bg_hover", item, &style->hover);
+	TW_THEME_ADD_STYLE(L, "bg_active", item, &style->active);
+	TW_THEME_ADD_STYLE(L, "border_color", color, &style->border_color);
+
+	TW_THEME_ADD_STYLE(L, "normal_cursor", item, &style->cursor_normal);
+	TW_THEME_ADD_STYLE(L, "hover_cursor", item, &style->cursor_hover);
+	TW_THEME_ADD_STYLE(L, "active_cursor", item, &style->cursor_active);
+	TW_THEME_ADD_STYLE(L, "cursor_border_color", color,
+	                   &style->cursor_border_color);
+
+	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
+	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "cursor_border", float, &style->cursor_border);
+	TW_THEME_ADD_STYLE(L, "cursor_rounding", ratio, &style->cursor_rounding);
+	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
+}
+
+static void
+tw_theme_add_scroll(lua_State *L, struct tw_style_scrollbar *style)
+{
+	TW_THEME_ADD_STYLE(L, "normal", item, &style->normal);
+	TW_THEME_ADD_STYLE(L, "hover", item, &style->hover);
+	TW_THEME_ADD_STYLE(L, "active", item, &style->active);
+	TW_THEME_ADD_STYLE(L, "border_color", color, &style->border_color);
+
+	TW_THEME_ADD_STYLE(L, "normal_cursor", item, &style->cursor_normal);
+	TW_THEME_ADD_STYLE(L, "hover_cursor", item, &style->cursor_hover);
+	TW_THEME_ADD_STYLE(L, "active_cursor", item, &style->cursor_active);
+	TW_THEME_ADD_STYLE(L, "cursor_border_color", color,
+	                   &style->cursor_border_color);
+
+	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
+	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "cursor_border", float, &style->border_cursor);
+	TW_THEME_ADD_STYLE(L, "cursor_rounding", ratio, &style->rounding_cursor);
+	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
+
+	TW_THEME_ADD_STYLE(L, "show_button", bool, &style->show_buttons);
+	//TODO I think I may need to apply the basic first, like scss, variable
+	//based
+	TW_THEME_READ_SEC(L, -1, "increase_button", button, &style->inc_button);
+	TW_THEME_READ_SEC(L, -1, "decrease_button", button, &style->dec_button);
+}
+
+static void
+tw_theme_add_edit(lua_State *L, struct tw_style_edit *style)
+{
+	struct tw_theme *theme = tw_theme_from_lua_state(L);
+
+	TW_THEME_ADD_STYLE(L, "normal", item, &style->normal);
+	TW_THEME_ADD_STYLE(L, "hover", item, &style->hover);
+	TW_THEME_ADD_STYLE(L, "active", item, &style->active);
+	TW_THEME_ADD_STYLE(L, "border_color", color, &style->border_color);
+	TW_THEME_READ_SEC_FALLBACK(L, -1, "scrollbar", scroll,
+	                           &style->scrollbar, &theme->scrollh);
+
+	TW_THEME_ADD_STYLE(L, "normal_cursor", color, &style->cursor_normal);
+	TW_THEME_ADD_STYLE(L, "hover_cursor", color, &style->cursor_hover);
+	TW_THEME_ADD_STYLE(L, "normal_text_cursor", color, &style->cursor_text_normal);
+	TW_THEME_ADD_STYLE(L, "hover_text_cursor", color, &style->cursor_text_hover);
+
+	TW_THEME_ADD_STYLE(L, "normal_text", color, &style->text_normal);
+	TW_THEME_ADD_STYLE(L, "hover_text", color, &style->text_hover);
+	TW_THEME_ADD_STYLE(L, "active_text", color, &style->text_active);
+
+	TW_THEME_ADD_STYLE(L, "selected_normal", color, &style->selected_normal);
+	TW_THEME_ADD_STYLE(L, "selected_hover", color, &style->selected_hover);
+	TW_THEME_ADD_STYLE(L, "selected_normal_text", color,
+	                   &style->selected_text_normal);
+	TW_THEME_ADD_STYLE(L, "selected_hover_text", color,
+	                   &style->selected_text_hover);
+
+	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
+	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "cursor_size", float, &style->cursor_size);
+	TW_THEME_ADD_STYLE(L, "scrollbar_size", vec2, &style->scrollbar_size);
+	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
+	TW_THEME_ADD_STYLE(L, "row_padding", float, &style->row_padding);
+}
+
+static void
+tw_theme_add_property(lua_State *L, struct tw_style_property *style)
+{
+	struct tw_theme *theme = tw_theme_from_lua_state(L);
+
+	TW_THEME_ADD_STYLE(L, "normal", item, &style->normal);
+	TW_THEME_ADD_STYLE(L, "hover", item, &style->hover);
+	TW_THEME_ADD_STYLE(L, "active", item, &style->active);
+	TW_THEME_ADD_STYLE(L, "border_color", color, &style->border_color);
+
+	TW_THEME_ADD_STYLE(L, "normal_text", color, &style->label_normal);
+	TW_THEME_ADD_STYLE(L, "hover_text", color, &style->label_hover);
+	TW_THEME_ADD_STYLE(L, "active_text", color, &style->label_active);
+
+	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
+	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
+
+	TW_THEME_READ_SEC_FALLBACK(L, -1, "edit", edit, &style->edit,
+	                           &theme->edit);
+}
+
+static void
+tw_theme_add_chart(lua_State *L, struct tw_style_chart *style)
+{
+	TW_THEME_ADD_STYLE(L, "background", item, &style->background);
+	TW_THEME_ADD_STYLE(L, "color", color, &style->color);
+	TW_THEME_ADD_STYLE(L, "border_color", color, &style->border_color);
+	TW_THEME_ADD_STYLE(L, "selected_color", color, &style->selected_color);
+
+	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
+	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
+}
+
+static void
+tw_theme_add_tab(lua_State *L, struct tw_style_tab *style)
+{
+	TW_THEME_ADD_STYLE(L, "background", item, &style->background);
+	TW_THEME_ADD_STYLE(L, "border_color", color, &style->border_color);
+
+	TW_THEME_READ_SEC(L, -1, "button", button, &style->tab_button);
+	memcpy(&style->node_button, &style->tab_button,
+	       sizeof(struct tw_style_button));
+
+	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
+	TW_THEME_ADD_STYLE(L, "indent", float, &style->indent);
+	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
+	TW_THEME_ADD_STYLE(L, "spacing", vec2, &style->spacing);
+}
+
+static void
+tw_theme_add_combo(lua_State *L, struct tw_style_combo *style)
+{
+	TW_THEME_ADD_STYLE(L, "normal", item, &style->normal);
+	TW_THEME_ADD_STYLE(L, "hover", item, &style->hover);
+	TW_THEME_ADD_STYLE(L, "active", item, &style->active);
+	TW_THEME_ADD_STYLE(L, "border_color", color, &style->border_color);
+
+	TW_THEME_ADD_STYLE(L, "normal_text", color, &style->label_normal);
+	TW_THEME_ADD_STYLE(L, "hover_text", color, &style->label_hover);
+	TW_THEME_ADD_STYLE(L, "active_text", color, &style->label_active);
+
+	style->symbol_normal = style->label_normal;
+	style->symbol_hover = style->label_hover;
+	style->symbol_active = style->label_active;
+	//TODO add default
+	TW_THEME_READ_SEC(L, -1, "button", button, &style->button);
+	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
+	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "content_padding", vec2, &style->content_padding);
+	TW_THEME_ADD_STYLE(L, "button_padding", vec2, &style->button_padding);
+	TW_THEME_ADD_STYLE(L, "spacing", vec2, &style->spacing);
+}
+
+static void
+tw_theme_add_header(lua_State *L, struct tw_style_window_header *style)
+{
+	TW_THEME_ADD_STYLE(L, "normal", item, &style->normal);
+	TW_THEME_ADD_STYLE(L, "hover", item, &style->hover);
+	TW_THEME_ADD_STYLE(L, "active", item, &style->active);
+
+	TW_THEME_READ_SEC(L, -1, "button", button, &style->button);
+
+	TW_THEME_ADD_STYLE(L, "normal_text", color, &style->label_normal);
+	TW_THEME_ADD_STYLE(L, "hover_text", color, &style->label_hover);
+	TW_THEME_ADD_STYLE(L, "active_text", color, &style->label_active);
+
+	TW_THEME_ADD_STYLE(L, "align", header_align, &style->align);
+        TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
+        TW_THEME_ADD_STYLE(L, "text_padding", vec2, &style->label_padding);
+        TW_THEME_ADD_STYLE(L, "spacing", vec2, &style->spacing);
+}
+
+static void
+tw_theme_add_window(lua_State *L, struct tw_style_window *style)
+{
+	TW_THEME_ADD_STYLE(L, "background", item, &style->background);
+	TW_THEME_ADD_STYLE(L, "scaler", item, &style->scaler);
+
+	//border colors
+	TW_THEME_ADD_STYLE(L, "border_color", color, &style->border_color);
+	style->popup_border_color = style->border_color;
+	TW_THEME_ADD_STYLE(L, "popup_border_color", color,
+	                   &style->popup_border_color);
+	style->combo_border_color = style->border_color;
+	TW_THEME_ADD_STYLE(L, "combo_border_color", color,
+	                   &style->combo_border_color);
+	style->contextual_border_color = style->border_color;
+	TW_THEME_ADD_STYLE(L, "contextual_border_color", color,
+	                   &style->contextual_border_color);
+	style->menu_border_color = style->border_color;
+	TW_THEME_ADD_STYLE(L, "menu_border_color", color,
+	                   &style->menu_border_color);
+	style->group_border_color = style->border_color;
+	TW_THEME_ADD_STYLE(L, "group_border_color", color,
+	                   &style->group_border_color);
+	style->tooltip_border_color = style->border_color;
+	TW_THEME_ADD_STYLE(L, "tooltip_border_color", color,
+	                   &style->tooltip_border_color);
+
+	//border weight
+	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
+	style->popup_border = style->border;
+	TW_THEME_ADD_STYLE(L, "popup_border", float,
+	                   &style->popup_border);
+	style->combo_border = style->border;
+	TW_THEME_ADD_STYLE(L, "combo_border", float,
+	                   &style->combo_border);
+	style->contextual_border = style->border;
+	TW_THEME_ADD_STYLE(L, "contextual_border", float,
+	                   &style->contextual_border);
+	style->menu_border = style->border;
+	TW_THEME_ADD_STYLE(L, "menu_border", float,
+	                   &style->menu_border);
+	style->group_border = style->border;
+	TW_THEME_ADD_STYLE(L, "group_border", float,
+	                   &style->group_border);
+	style->tooltip_border = style->border;
+	TW_THEME_ADD_STYLE(L, "tooltip_border", float,
+	                   &style->tooltip_border);
+
+	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+        TW_THEME_ADD_STYLE(L, "spacing", vec2, &style->spacing);
+        TW_THEME_ADD_STYLE(L, "scrollbar", vec2, &style->scrollbar_size);
+        TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
+	TW_THEME_ADD_STYLE(L, "popup_padding", vec2, &style->popup_padding);
+	TW_THEME_ADD_STYLE(L, "combo_padding", vec2, &style->combo_padding);
+	TW_THEME_ADD_STYLE(L, "contextual_padding", vec2,
+	                   &style->contextual_padding);
+	TW_THEME_ADD_STYLE(L, "menu_padding", vec2, &style->menu_padding);
+	TW_THEME_ADD_STYLE(L, "group_padding", vec2, &style->group_padding);
+	TW_THEME_ADD_STYLE(L, "tooltip_padding", vec2, &style->tooltip_padding);
+}
 
 /**
- * @called for processing the theme
+ * @Called for processing the theme
  *
  * expecting calling from lua in the form: read_taiwins_theme(style)
  */
@@ -199,9 +572,34 @@ tw_theme_read(lua_State *L)
 		wl_array_release(&theme->string_pool);
 	memset(theme, 0, sizeof(struct tw_theme));
 
-	lua_getfield(L, 2, "button");
-	tw_theme_add_button(L, &theme->button);
-	lua_pop(L, 1);
+	//applying the table, the order here is very important, as later styles
+	//could take advantage of earlier style
+
+	//TODO fix the defaults based on previous value
+
+	// basic style
+	TW_THEME_READ_SEC(L, 2, "text", text, &theme->text);
+	TW_THEME_READ_SEC(L, 2, "button", button, &theme->button);
+	TW_THEME_READ_SEC(L, 2, "contextual_button", button,
+	                  &theme->contextual_button);
+	TW_THEME_READ_SEC(L, 2, "menu_button", button, &theme->menu_button);
+	// compond style
+	TW_THEME_READ_SEC(L, 2, "scroll", scroll, &theme->scrollh);
+	memcpy(&theme->scrollv, &theme->scrollh,
+	       sizeof(struct tw_style_scrollbar));
+	TW_THEME_READ_SEC(L, 2, "edit", edit, &theme->edit);
+
+	TW_THEME_READ_SEC(L, 2, "option", toggle, &theme->option);
+	TW_THEME_READ_SEC(L, 2, "checkbox", toggle, &theme->checkbox);
+	TW_THEME_READ_SEC(L, 2, "selectable", selectable, &theme->selectable);
+	TW_THEME_READ_SEC(L, 2, "slider", slider, &theme->slider);
+	TW_THEME_READ_SEC(L, 2, "progress", progress, &theme->progress);
+	TW_THEME_READ_SEC(L, 2, "property", property, &theme->property);
+	TW_THEME_READ_SEC(L, 2, "chart", chart, &theme->chart);
+	TW_THEME_READ_SEC(L, 2, "tab", tab, &theme->tab);
+	TW_THEME_READ_SEC(L, 2, "combo", combo, &theme->combo);
+	TW_THEME_READ_SEC(L, 2, "header", header, &theme->window.header);
+	TW_THEME_READ_SEC(L, 2, "window", window, &theme->window);
 
 	return 0;
 }
