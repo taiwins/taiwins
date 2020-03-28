@@ -71,14 +71,6 @@ add_executable(test_widget_lua
   ../clients/widgets/battery.c
   )
 
-# target_include_directories(test_widget_lua PRIVATE
-#   "${CMAKE_SOURCE_DIR}/clients"
-#   ${CLIENT_INCLUDE_DIRS}
-#   ${PROTOCOLS_INCLUDE_DIR}
-#   ${TRDPTY_INCLUDE_DIRS}
-#   ${LOVE_NK_SRC_DIR}
-#   )
-
 target_link_libraries(test_widget_lua
   twclient::twclient
   twclient::nkcairo
@@ -94,4 +86,19 @@ add_executable(test_raxinsert
 target_link_libraries(test_raxinsert
   m
   rax
+  )
+
+add_executable(test_theme
+  test_theme.c
+  ../server/theme_lua.c
+  )
+
+target_link_libraries(
+  test_theme
+  twclient::theme
+  twclient::twclient
+  twclient::nkcairo
+  Lua::Lua
+  ctypes
+  m
   )
