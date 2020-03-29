@@ -19,6 +19,7 @@
  *
  */
 
+#include <image_cache.h>
 #include "shell.h"
 
 static bool
@@ -43,7 +44,7 @@ shell_background_frame(struct tw_appsurf *surf, struct wl_buffer *buffer,
 	if (!strlen(shell->wallpaper_path))
 		sprintf(shell->wallpaper_path,
 			"%s/.wallpaper/wallpaper.png", getenv("HOME"));
-	if (!nk_wl_load_image_for_buffer(shell->wallpaper_path, surf->pool->format,
+	if (!image_load_for_buffer(shell->wallpaper_path, surf->pool->format,
 		       surf->allocation.w*surf->allocation.s,
 		       surf->allocation.h*surf->allocation.s,
 		       (unsigned char *)buffer_data)) {

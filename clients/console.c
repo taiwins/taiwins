@@ -402,7 +402,8 @@ main(int argc, char *argv[])
 	wl_display_dispatch(display);
 	wl_display_roundtrip(display);
 	init_console(&tw_console);
-	tw_console.globals.theme = taiwins_dark_theme;
+	//TODO change to use theme
+	tw_console.globals.theme_color = &taiwins_dark_theme;
 
 	//okay, now we should create the buffers
 	//event loop

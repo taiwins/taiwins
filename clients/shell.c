@@ -168,7 +168,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	tw_globals_init(&shell->globals, display);
 	shell_tdbus_init(shell);
 
-	shell->globals.theme = taiwins_dark_theme;
+	shell->globals.theme_color = &taiwins_dark_theme;
 	shell->interface = NULL;
 	shell->panel_height = 32;
 	shell->main_output = NULL;
