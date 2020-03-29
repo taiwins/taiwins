@@ -20,7 +20,7 @@
  */
 
 #ifndef TW_SHELL_CLIENT_H
-#define TW_SHRLL_CLIENT_H
+#define TW_SHELL_CLIENT_H
 
 #include <unistd.h>
 #include <stdbool.h>
