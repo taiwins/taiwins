@@ -1369,15 +1369,23 @@ sample_widget(struct nk_context *ctx, float width, float height,
  * theme read
  ******************************************************************************/
 
+#define REGISTER_METHOD(l, name, func)                                  \
+	({lua_pushcfunction(l, func);		\
+		lua_setfield(l, -2, name);	\
+	})
 
-void tw_theme_init_for_lua(struct tw_theme *theme, lua_State *L);
+
+int tw_theme_read(lua_State *L);
 
 
 static void
 read_theme(lua_State *L, struct application *app, const char *script)
 {
         lua_newtable(L);
-        tw_theme_init_for_lua(&app->theme, L);
+	lua_pushlightuserdata(L, &app->theme);
+	lua_setfield(L, LUA_REGISTRYINDEX, "tw_theme");
+	REGISTER_METHOD(L, "read_theme", tw_theme_read);
+
         lua_getfield(L, -1, "read_theme");
         if (!lua_isnil(L, -1) && lua_isfunction(L, -1))
                 lua_setglobal(L, "read_theme");

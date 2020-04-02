@@ -21,9 +21,12 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <libweston/libweston.h>
+#include <libweston-desktop/libweston-desktop.h>
+
+#include "../taiwins.h"
 #include "workspace.h"
 #include "layout.h"
-#include "../taiwins.h"
 
 
 struct recent_view *

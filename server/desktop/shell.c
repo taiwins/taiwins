@@ -29,12 +29,12 @@
 #include <linux/input.h>
 #include <strops.h>
 #include <os/file.h>
+#include <vector.h>
 
-#include "taiwins.h"
-#include "desktop.h"
-#include "bindings.h"
-#include "config.h"
-#include "lua_helper.h"
+#include "../taiwins.h"
+#include "../bindings.h"
+#include "../config.h"
+#include "shell.h"
 
 /*******************************************************************************
  * shell ui
@@ -83,8 +83,8 @@ struct shell {
 		int32_t lock_countdown; //invalid -1
 		int32_t sleep_countdown; //knvalid -1
 		vector_t menu;
-		const char *wallpaper_path;
-		const char *widget_path;
+		char *wallpaper_path;
+		char *widget_path;
 	};
 	struct weston_compositor *ec;
 	//you probably don't want to have the layer
@@ -110,8 +110,11 @@ struct shell {
 
 };
 
-//we could make it static as well.
 static struct shell oneshell;
+
+struct shell *
+tw_shell_get_global() {return &oneshell; }
+
 
 /*******************************************************************
  * taiwins_ui implementation
@@ -700,63 +703,6 @@ shell_add_bindings(struct tw_bindings *bindings, struct tw_config *c,
 	return tw_bindings_add_key(bindings, reload_press, shell_reload_config, 0, shell);
 }
 
-/*******************************************************************
- * lua components
- ******************************************************************/
-#define METATABLE_SHELL "metatable_shell"
-#define REGISTRY_SHELL "__shell"
-
-static struct shell *
-_lua_to_shell(lua_State *L)
-{
-	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_SHELL);
-	struct shell *sh = lua_touserdata(L, -1);
-	lua_pop(L, 1);
-	return sh;
-}
-
-static int
-_lua_set_wallpaper(lua_State *L)
-{
-	struct shell *shell = _lua_to_shell(L);
-	tw_lua_stackcheck(L, 2);
-	const char *path = luaL_checkstring(L, 2);
-	if (!is_file_exist(path))
-		return luaL_error(L, "wallpaper does not exist!");
-	if (shell->wallpaper_path)
-		free((void *)shell->wallpaper_path);
-	shell->wallpaper_path = strdup(path);
-	return 0;
-}
-
-static int
-_lua_set_widgets(lua_State *L)
-{
-	struct shell *shell = _lua_to_shell(L);
-	tw_lua_stackcheck(L, 2);
-	const char *path = luaL_checkstring(L, 2);
-	if (!is_file_exist(path))
-		return luaL_error(L, "widget path does not exist!");
-	if (shell->widget_path)
-		free((void *)shell->widget_path);
-	shell->widget_path = strdup(path);
-	return 0;
-}
-
-static int
-_lua_set_panel_position(lua_State *L)
-{
-	struct shell *shell = _lua_to_shell(L);
-	luaL_checktype(L, 2, LUA_TSTRING);
-	const char *pos = lua_tostring(L, 2);
-	if (strcmp(pos, "bottom") == 0)
-		shell->panel_pos = TAIWINS_SHELL_PANEL_POS_BOTTOM;
-	else if (strcmp(pos, "top") == 0)
-		shell->panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
-	else
-		luaL_error(L, "invalid panel position %s", pos);
-	return 0;
-}
 
 static inline struct wl_array
 taiwins_menu_to_wl_array(const struct tw_menu_item * items, const int len)
@@ -768,140 +714,6 @@ taiwins_menu_to_wl_array(const struct tw_menu_item * items, const int len)
 	return serialized;
 }
 
-/* whether this is a menu item */
-static bool
-_lua_is_menu_item(struct lua_State *L, int idx)
-{
-	if (lua_rawlen(L, idx) != 2)
-		return false;
-	size_t len[2] = {TAIWINS_MAX_MENU_ITEM_NAME,
-	                 TAIWINS_MAX_MENU_CMD_LEN};
-	for (int i = 0; i < 2; ++i) {
-		lua_rawgeti(L, idx, i+1);
-		const char *value = (lua_type(L, -1) == LUA_TSTRING) ?
-			lua_tostring(L, -1) : NULL;
-		if (value == NULL || strlen(value) >= (len[i]-1)) {
-			lua_pop(L, 1);
-			return false;
-		}
-		lua_pop(L, 1);
-	}
-	return true;
-}
-
-static bool
-_lua_parse_menu(struct lua_State *L, vector_t *menus)
-{
-	bool parsed = true;
-	struct tw_menu_item menu_item = {
-		.has_submenu = false,
-		.len = 0};
-	if (_lua_is_menu_item(L, -1)) {
-		lua_rawgeti(L, -1, 1);
-		lua_rawgeti(L, -2, 2);
-		strop_ncpy(menu_item.endnode.title, lua_tostring(L, -2),
-			TAIWINS_MAX_MENU_ITEM_NAME);
-		strop_ncpy(menu_item.endnode.cmd, lua_tostring(L, -1),
-			TAIWINS_MAX_MENU_CMD_LEN);
-		lua_pop(L, 2);
-		vector_append(menus, &menu_item);
-	} else if (lua_istable(L, -1)) {
-		int n = lua_rawlen(L, -1);
-		int currlen = menus->len;
-		for (int i = 1; i <= n && parsed; i++) {
-			lua_rawgeti(L, -1, i);
-			parsed = parsed && _lua_parse_menu(L, menus);
-			lua_pop(L, 1);
-		}
-		if (parsed) {
-			menu_item.has_submenu = true;
-			menu_item.len = menus->len - currlen;
-			vector_append(menus, &menu_item);
-		}
-	} else
-		return false;
-	return parsed;
-}
-
-static int
-_lua_set_menus(lua_State *L)
-{
-	struct shell *shell = _lua_to_shell(L);
-
-	vector_init_zero(&shell->menu, sizeof(struct tw_menu_item), NULL);
-	tw_lua_stackcheck(L, 2);
-	luaL_checktype(L, 2, LUA_TTABLE);
-	if (!_lua_parse_menu(L, &shell->menu)) {
-		vector_destroy(&shell->menu);
-		return luaL_error(L, "error parsing menus.");
-	}
-	return 0;
-}
-
-static int
-_lua_set_sleep_timer(lua_State *L)
-{
-	return 0;
-}
-
-/* compositor will lock in the given seconds, then try to sleep after another few weeks */
-static int
-_lua_set_lock_timer(lua_State *L)
-{
-	struct shell *shell = _lua_to_shell(L);
-	tw_lua_stackcheck(L, 2);
-	int32_t seconds = luaL_checknumber(L, 2);
-	if (seconds < 0) {
-		return luaL_error(L, "idle time must be a non negative integers.");
-	}
-	shell->lock_countdown = seconds;
-	return 0;
-}
-
-static int
-_lua_request_shell(lua_State *L)
-{
-	lua_newtable(L);
-	//register global methods or fields
-	luaL_getmetatable(L, METATABLE_SHELL);
-	lua_setmetatable(L, -2);
-	return 1;
-}
-/*
- * function exposed for shell.
- *
- * set theme, we may actually creates a new theme globals.
- * - set wallpaper.
- * - init widgets.
- * - set menus.
- * - panel positions (we can only give it as top and down). Panel size is determined by font size, and all that color.
- * - what else?
- */
-static bool
-shell_add_config_component(struct tw_config *c, lua_State *L,
-			   struct tw_config_component_listener *listener)
-{
-	struct shell *shell = container_of(listener, struct shell, config_component);
-	lua_pushlightuserdata(L, shell);
-	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_SHELL);
-	//register global methods.
-	//creates its own metatable
-	luaL_newmetatable(L, METATABLE_SHELL);
-	lua_pushvalue(L, -1);
-	lua_setfield(L, -2, "__index");
-	//TODO make all those methods overrided
-	REGISTER_METHOD(L, "set_wallpaper", _lua_set_wallpaper);
-	REGISTER_METHOD(L, "init_widgets", _lua_set_widgets);
-	REGISTER_METHOD(L, "panel_position", _lua_set_panel_position);
-	REGISTER_METHOD(L, "set_menus", _lua_set_menus);
-	//now methods
-	lua_pop(L, 1);
-	REGISTER_METHOD(L, "shell", _lua_request_shell);
-	REGISTER_METHOD(L, "lock_in", _lua_set_lock_timer);
-	REGISTER_METHOD(L, "sleep_in", _lua_set_sleep_timer);
-
-	return true;
-}
 
 static void
 shell_apply_lua_config(struct tw_config *c, bool cleanup,
@@ -932,11 +744,11 @@ shell_apply_lua_config(struct tw_config *c, bool cleanup,
 cleanup:
 	vector_destroy(&shell->menu);
 	if (shell->wallpaper_path) {
-		free((void *)shell->wallpaper_path);
+		free(shell->wallpaper_path);
 		shell->wallpaper_path = NULL;
 	}
 	if (shell->widget_path) {
-		free((void *)shell->widget_path);
+		free(shell->widget_path);
 		shell->widget_path = NULL;
 	}
 }
@@ -1116,14 +928,42 @@ shell_init_options(struct shell *shell)
 }
 
 
-/**
- * @brief announce the taiwins shell protocols.
- *
- * We should start the client at this point as well.
- */
-struct shell*
-announce_shell(struct weston_compositor *ec, const char *path,
-	       struct tw_config *config)
+/*******************************************************************************
+ * public APIS
+ ******************************************************************************/
+void
+tw_shell_set_wallpaper(struct shell *shell, const char *wp)
+{
+	if (shell->wallpaper_path)
+		free(shell->wallpaper_path);
+	shell->wallpaper_path = strdup(wp);
+}
+
+void
+tw_shell_set_widget_path(struct shell *shell, const char *path)
+{
+	if (shell->widget_path)
+		free(shell->widget_path);
+	shell->widget_path = strdup(path);
+}
+
+void
+tw_shell_set_panel_pos(struct shell *shell, enum taiwins_shell_panel_pos pos)
+{
+	shell->panel_pos = pos;
+}
+
+void
+tw_shell_set_menu(struct shell *shell, vector_t *menu)
+{
+	vector_destroy(&shell->menu);
+	shell->menu = *menu;
+}
+
+
+bool
+tw_setup_shell(struct weston_compositor *ec, const char *path,
+               struct tw_config *config)
 {
 	oneshell.ec = ec;
 	oneshell.ready = false;
@@ -1153,9 +993,8 @@ announce_shell(struct weston_compositor *ec, const char *path,
 	tw_config_add_apply_bindings(config, &oneshell.add_binding);
 	//config_componenet
 	wl_list_init(&oneshell.config_component.link);
-	oneshell.config_component.init = shell_add_config_component;
 	oneshell.config_component.apply = shell_apply_lua_config;
 	tw_config_add_component(config, &oneshell.config_component);
 
-	return &oneshell;
+	return true;
 }

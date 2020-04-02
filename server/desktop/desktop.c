@@ -19,6 +19,7 @@
  *
  */
 
+#include <libweston/libweston.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -34,9 +35,8 @@
 #define INCLUDE_DESKTOP
 #include "../../shared_config.h"
 #include "../taiwins.h"
-#include "../desktop.h"
 #include "../config.h"
-#include "../lua_helper.h"
+#include "shell.h"
 #include "layout.h"
 #include "workspace.h"
 
@@ -55,7 +55,7 @@ struct grab_interface {
 	struct weston_view *view;
 };
 
-struct desktop {
+static struct desktop {
 	//does the desktop should have the shell ui layout? If that is the case,
 	//we should get the shell as well.
 	struct weston_compositor *compositor;
@@ -79,7 +79,10 @@ struct desktop {
 	//params
 	unsigned int inner_gap, outer_gap;
 	enum taiwins_shell_task_switch_effect ts_effect;
-};
+} DESKTOP;
+
+struct desktop *
+tw_desktop_get_global() {return &DESKTOP; }
 
 /***************************************************************
  * desktop APIs
@@ -978,155 +981,6 @@ desktop_add_bindings(struct tw_bindings *bindings, struct tw_config *c,
 	return safe;
 }
 
-/****************************************************************************
- * LUA components
- ***************************************************************************/
-#define METATABLE_WORKSPACE "metatable_workspace"
-#define METATABLE_DESKTOP "metatable_desktop"
-#define REGISTRY_DESKTOP "__desktop"
-
-static struct desktop*
-_lua_to_desktop(lua_State *L)
-{
-	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_DESKTOP);
-	struct desktop *d = lua_touserdata(L, -1);
-	lua_pop(L, 1);
-	return d;
-}
-
-static int
-_lua_request_workspaces(lua_State *L)
-{
-	struct desktop *d = _lua_to_desktop(L);
-	lua_newtable(L); //1
-	for (int i = 0; i < MAX_WORKSPACE; i++) {
-		struct workspace *ws = &d->workspaces[i];
-
-		lua_newtable(L); //2
-		luaL_getmetatable(L, METATABLE_WORKSPACE); //3
-		lua_setmetatable(L, -2); //2
-
-		lua_pushstring(L, "layout"); //3
-		lua_pushstring(L, workspace_layout_name(ws)); //4
-		lua_settable(L, -3); //2
-
-		lua_pushstring(L, "index"); //3
-		lua_pushnumber(L, i); //4
-		lua_settable(L, -3); //2
-
-
-		lua_rawseti(L, -2, i+1); //1
-	}
-	return 1;
-}
-
-static int
-_lua_set_ws_layout(lua_State *L)
-{
-	enum layout_type type;
-	struct desktop *d = _lua_to_desktop(L);
-	luaL_checktype(L, 2, LUA_TSTRING);
-	const char *layout = lua_tostring(L, 2);
-	if (strcmp(layout, "tiling") == 0)
-		type = LAYOUT_TILING;
-	else if (strcmp(layout, "floating") == 0)
-		type = LAYOUT_FLOATING;
-	else
-		return luaL_error(L, "invalid layout type %s\n", layout);
-	lua_pushstring(L, "index");
-	lua_gettable(L, 1);
-	desktop_set_worksace_layout(d, (uint32_t)lua_tonumber(L, -1), type);
-
-	lua_pop(L, 1);
-	return 0;
-}
-
-static int
-_lua_get_desktop_gap(lua_State *L)
-{
-	//TODO verify the metatable
-	struct desktop *d = _lua_to_desktop(L);
-	lua_pushinteger(L, d->inner_gap);
-	lua_pushinteger(L, d->outer_gap);
-	return 2;
-}
-
-static int
-_lua_set_desktop_gap(lua_State *L)
-{
-	int inner_gap, outer_gap;
-	struct desktop *d = _lua_to_desktop(L);
-	struct weston_output *output;
-
-	luaL_checktype(L, 2, LUA_TNUMBER);
-	luaL_checktype(L, 3, LUA_TNUMBER);
-	if (lua_gettop(L) != 3)
-		return luaL_error(L, "invalid size of params.");
-	inner_gap = lua_tointeger(L, 2);
-	outer_gap = lua_tointeger(L, 3);
-	if (inner_gap < 0 || inner_gap > 100 ||
-	    outer_gap < 0 || outer_gap > 100)
-		return luaL_error(L, "invalid size of gaps.");
-	d->inner_gap = inner_gap;
-	d->outer_gap = outer_gap;
-	wl_list_for_each(output, &d->compositor->output_list, link)
-		desktop_output_resized(&d->output_resize_listener, output);
-	return 0;
-}
-
-static int
-_lua_request_desktop(lua_State *L)
-{
-	lua_newtable(L);
-	luaL_getmetatable(L, METATABLE_DESKTOP);
-	lua_setmetatable(L, -2);
-	return 1;
-}
-
-/*
- * exposed lua functions
- *
- * desktop global: setting gap; get_workspaces;
- *
- * workspace: switch layouts?
- */
-static bool
-desktop_init_config_component(struct tw_config *c, lua_State *L,
-			      struct tw_config_component_listener *listener)
-{
-	struct desktop *d = container_of(listener, struct desktop, config_component);
-	lua_pushlightuserdata(L, d); //s1
-	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_DESKTOP); //s0
-
-
-	//metatable for desktop API
-	luaL_newmetatable(L, METATABLE_DESKTOP);
-	lua_pushvalue(L, -1);
-	lua_setfield(L, -2, "__index");
-
-	REGISTER_METHOD(L, "workspaces", _lua_request_workspaces);
-	REGISTER_METHOD(L, "get_gaps", _lua_get_desktop_gap);
-	REGISTER_METHOD(L, "set_gaps", _lua_set_desktop_gap);
-	lua_pop(L, 1);
-
-	//metatable for workspace
-	luaL_newmetatable(L, METATABLE_WORKSPACE);
-	lua_pushvalue(L, -1);
-	lua_setfield(L, -2, "__index");
-
-	REGISTER_METHOD(L, "set_layout", _lua_set_ws_layout);
-	lua_pop(L, 1);
-
-	REGISTER_METHOD(L, "desktop", _lua_request_desktop);
-
-	return true;
-}
-
-
-/***************************************************************
- * desktop constructor/destructor
- **************************************************************/
-
 static void
 end_desktop(struct wl_listener *listener, void *data)
 {
@@ -1140,14 +994,64 @@ end_desktop(struct wl_listener *listener, void *data)
 	weston_desktop_destroy(d->api);
 }
 
-void
-announce_desktop(struct weston_compositor *ec, struct shell *shell,
-		 struct tw_config *config)
+/*******************************************************************************
+ * public API
+ ******************************************************************************/
+int
+tw_desktop_num_workspaces(struct desktop *desktop)
 {
-	static struct desktop DESKTOP;
+	return MAX_WORKSPACE;
+}
+
+const char *
+tw_desktop_get_workspace_layout(struct desktop *desktop, unsigned int i)
+{
+	return (i > MAX_WORKSPACE) ? NULL :
+		workspace_layout_name(&desktop->workspaces[i]);
+}
+
+bool
+tw_desktop_set_workspace_layout(struct desktop *desktop, unsigned int i,
+                                const char *layout)
+{
+	bool ret = true;
+	if (i > MAX_WORKSPACE)
+		ret = false;
+	else if (!strcmp(layout, "float"))
+		desktop_set_worksace_layout(desktop, i, LAYOUT_FLOATING);
+	else if (!strcmp(layout, "tiling"))
+		desktop_set_worksace_layout(desktop, i, LAYOUT_TILING);
+	else
+		ret = false;
+	return ret;
+}
+void
+tw_desktop_get_gap(struct desktop *desktop, int *inner, int *outer)
+{
+	*inner = desktop->inner_gap;
+	*outer = desktop->outer_gap;
+}
+
+void
+tw_desktop_set_gap(struct desktop *desktop, int inner, int outer)
+{
+	struct weston_output *output;
+
+	desktop->inner_gap = inner;
+	desktop->outer_gap = outer;
+
+	wl_list_for_each(output, &desktop->compositor->output_list, link)
+		desktop_output_resized(&desktop->output_resize_listener,
+		                       output);
+}
+
+
+bool
+tw_setup_desktop(struct weston_compositor *ec,  struct tw_config *config)
+{
 	//initialize the desktop
 	DESKTOP.compositor = ec;
-	DESKTOP.shell = shell;
+	DESKTOP.shell = tw_shell_get_global();
 	//params
 	DESKTOP.inner_gap = 10;
 	DESKTOP.outer_gap = 10;
@@ -1195,7 +1099,6 @@ announce_desktop(struct weston_compositor *ec, struct shell *shell,
 	tw_config_add_apply_bindings(config, &DESKTOP.add_binding);
 
 	wl_list_init(&DESKTOP.config_component.link);
-	DESKTOP.config_component.init = desktop_init_config_component;
 	DESKTOP.config_component.apply = NULL;
 	tw_config_add_component(config, &DESKTOP.config_component);
 
@@ -1203,4 +1106,6 @@ announce_desktop(struct weston_compositor *ec, struct shell *shell,
 	DESKTOP.compositor_destroy_listener.notify = end_desktop;
 	wl_signal_add(&ec->destroy_signal,
 		      &DESKTOP.compositor_destroy_listener);
+
+	return true;
 }

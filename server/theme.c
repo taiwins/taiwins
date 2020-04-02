@@ -19,8 +19,6 @@
  *
  */
 
-#include <lauxlib.h>
-#include <lua.h>
 #include <string.h>
 #include <strings.h>
 #include <sys/mman.h>
@@ -34,7 +32,6 @@
 #include <theme.h>
 #include <wayland-util.h>
 
-#include "lua_helper.h"
 #include "taiwins.h"
 #include "config.h"
 
@@ -54,30 +51,12 @@ struct theme {
 
 } THEME;
 
-extern void tw_theme_init_for_lua(struct tw_theme *theme, lua_State *L);
-extern int tw_theme_read(lua_State *L);
-
-/*******************************************************************************
- * lua calls
- ******************************************************************************/
-
-static bool
-init_theme_lua(struct tw_config *config, lua_State *L,
-               struct tw_config_component_listener *comp)
+struct theme *
+tw_theme_get_global(void)
 {
-	struct theme *theme =
-		container_of(comp, struct theme, config_component);
-	struct tw_theme *tw_theme = &theme->global_theme;
-
-	if (tw_theme->handle_pool.data)
-		wl_array_release(&tw_theme->handle_pool);
-	if (tw_theme->string_pool.data)
-		wl_array_release(&tw_theme->string_pool);
-	tw_theme_init_default(tw_theme);
-	tw_theme_init_for_lua(tw_theme, L);
-
-	return true;
+	return &THEME;
 }
+
 
 static void
 apply_theme_lua(struct tw_config *c, bool cleanup,
@@ -151,8 +130,19 @@ end_theme(struct wl_listener *listener, void *data)
 	tw_theme_fini(&theme->global_theme);
 }
 
-void
-announce_theme(struct weston_compositor *ec, struct tw_config *config)
+/*******************************************************************************
+ * public APIs
+ ******************************************************************************/
+
+struct tw_theme *
+tw_theme_access_theme(struct theme *theme)
+{
+	return &theme->global_theme;
+}
+
+
+bool
+tw_setup_theme(struct weston_compositor *ec, struct tw_config *config)
 {
 	THEME.ec = ec;
 	THEME.global = wl_global_create(ec->wl_display,
@@ -170,6 +160,7 @@ announce_theme(struct weston_compositor *ec, struct tw_config *config)
 
 	wl_list_init(&THEME.config_component.link);
 	THEME.config_component.apply = apply_theme_lua;
-	THEME.config_component.init = init_theme_lua;
 	tw_config_add_component(config, &THEME.config_component);
+
+	return true;
 }
