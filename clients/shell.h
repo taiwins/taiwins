@@ -30,14 +30,17 @@
 #include <linux/input.h>
 #include <cairo/cairo.h>
 #include <poll.h>
-#include <wayland-taiwins-shell-client-protocol.h>
 #include <wayland-client.h>
+
+#include <wayland-taiwins-shell-client-protocol.h>
+#include <wayland-taiwins-theme-client-protocol.h>
 #include <sequential.h>
 #include <os/file.h>
 #include <client.h>
 #include <egl.h>
 #include <shmpool.h>
 #include <nk_backends.h>
+#include <theme.h>
 #include <tdbus.h>
 #include "../shared_config.h"
 #include "widget.h"
@@ -74,6 +77,7 @@ struct widget_launch_info {
 struct desktop_shell {
 	struct tw_globals globals;
 	struct taiwins_shell *interface;
+	struct taiwins_theme *theme_interface;
 	enum taiwins_shell_panel_pos panel_pos;
 	struct tdbus *system_bus;
 	struct tdbus *session_bus;
@@ -99,7 +103,7 @@ struct desktop_shell {
 	struct shell_output *main_output;
 	struct shell_output shell_outputs[16];
 
-
+	struct tw_theme theme;
 };
 
 static inline int

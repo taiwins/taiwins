@@ -209,6 +209,7 @@ int main(int argc, char *argv[], char *envp[])
 	struct shell *sh = announce_shell(compositor, shellpath, config);
 	announce_console(compositor, sh, launcherpath, config);
 	announce_desktop(compositor, sh, config);
+	announce_theme(compositor, config);
 
 	error = !tw_config_run(config, path);
 	if (error) {

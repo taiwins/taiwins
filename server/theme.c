@@ -40,11 +40,6 @@
 
 struct shell;
 
-struct theme_client {
-	struct wl_resource *resource;
-	struct wl_list link;
-};
-
 struct theme {
 	struct weston_compositor *ec;
 	struct wl_listener compositor_destroy_listener;
@@ -55,6 +50,7 @@ struct theme {
 	struct tw_config_component_listener config_component;
 
 	struct tw_theme global_theme;
+	int fd;
 
 } THEME;
 
@@ -64,7 +60,6 @@ extern int tw_theme_read(lua_State *L);
 /*******************************************************************************
  * lua calls
  ******************************************************************************/
-
 
 static bool
 init_theme_lua(struct tw_config *config, lua_State *L,
@@ -88,41 +83,27 @@ static void
 apply_theme_lua(struct tw_config *c, bool cleanup,
                 struct tw_config_component_listener *listener)
 {
-
 	struct wl_resource *client;
 	struct theme *theme =
 		container_of(listener, struct theme, config_component);
 	struct tw_theme *tw_theme = &theme->global_theme;
-	int fd = tw_theme_to_fd(&theme->global_theme);
-	if (fd > 0) {
-		wl_list_for_each(client, &theme->clients, link)
-			taiwins_theme_send_theme(client, "new theme", fd,
-			                         sizeof(struct tw_theme) +
-			                         tw_theme->handle_pool.size +
-			                         tw_theme->string_pool.size);
-	}
-}
 
-
-/**
- * @brief loading a lua theme from a lua script
- */
-void
-tw_theme_from_lua_script(struct tw_theme *theme, const char *script)
-{
-	lua_State *L;
-	if (!(L = luaL_newstate()))
+	if (cleanup)
 		return;
-	//insert theme as light user data
-	lua_pushlightuserdata(L, theme);
-	lua_setfield(L, LUA_REGISTRYINDEX, "tw_theme");
+	if (theme->fd > 0)
+		close(theme->fd);
 
-
-	//TODO I should also setup error functions
-	if (!luaL_loadfile(L, script) || !lua_pcall(L, 0, 0, 0))
+	theme->fd = tw_theme_to_fd(&theme->global_theme);
+	if (theme->fd <= 0)
+		return;
+	if (wl_list_length(&theme->clients) == 0)
 		return;
 
-	lua_close(L);
+	wl_list_for_each(client, &theme->clients, link)
+		taiwins_theme_send_theme(client, "new theme", theme->fd,
+		                         sizeof(struct tw_theme) +
+		                         tw_theme->handle_pool.size +
+		                         tw_theme->string_pool.size);
 }
 
 /*******************************************************************************
@@ -132,35 +113,30 @@ tw_theme_from_lua_script(struct tw_theme *theme, const char *script)
 static void
 unbind_theme(struct wl_resource *resource)
 {
-	struct theme_client *tc = wl_resource_get_user_data(resource);
-	wl_list_remove(&tc->link);
-	free(tc);
+	wl_list_remove(wl_resource_get_link(resource));
 }
 
 static void
 bind_theme(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
 	struct theme *theme = data;
-	struct theme_client *tc;
+	struct tw_theme *tw_theme = &theme->global_theme;
 	struct wl_resource *resource =
 		wl_resource_create(client, &taiwins_theme_interface,
 				   taiwins_theme_interface.version, id);
-	tc = zalloc(sizeof(struct theme_client));
-	if (!tc) {
-		wl_resource_post_error(resource, WL_DISPLAY_ERROR_NO_MEMORY,
-				       "failed to create theme for client %d",
-		                       id);
-		wl_resource_destroy(resource);
+	if (!resource) {
+		wl_client_post_no_memory(client);
+		return;
 	}
 	//theme does not have requests
-	wl_resource_set_implementation(resource, NULL, tc, unbind_theme);
+	wl_resource_set_implementation(resource, NULL, NULL, unbind_theme);
+	wl_list_insert(&theme->clients, wl_resource_get_link(resource));
 
-	// theme protocol does not have any
-	taiwins_theme_send_theme(resource, "theme", -1, 100);
-
-	tc->resource = resource;
-	wl_list_init(&tc->link);
-	wl_list_insert(&theme->clients, &tc->link);
+	if (theme->fd > 0)
+		taiwins_theme_send_theme(resource, "new_theme", theme->fd,
+		                         sizeof(struct tw_theme) +
+		                         tw_theme->handle_pool.size +
+		                         tw_theme->string_pool.size);
 }
 
 static void
@@ -169,11 +145,14 @@ end_theme(struct wl_listener *listener, void *data)
 	struct theme *theme = container_of(listener, struct theme,
 					   compositor_destroy_listener);
 	wl_global_destroy(theme->global);
+
+	if (theme->fd > 0)
+		close(theme->fd);
+	tw_theme_fini(&theme->global_theme);
 }
 
 void
-annouce_theme(struct weston_compositor *ec, struct shell *shell,
-	      struct tw_config *config)
+announce_theme(struct weston_compositor *ec, struct tw_config *config)
 {
 	THEME.ec = ec;
 	THEME.global = wl_global_create(ec->wl_display,
@@ -184,14 +163,13 @@ annouce_theme(struct weston_compositor *ec, struct shell *shell,
 	memset(&THEME.global_theme, 0, sizeof(struct tw_theme));
 
 	wl_list_init(&THEME.clients);
-
 	wl_list_init(&THEME.compositor_destroy_listener.link);
+
 	THEME.compositor_destroy_listener.notify = end_theme;
 	wl_signal_add(&ec->destroy_signal, &THEME.compositor_destroy_listener);
 
 	wl_list_init(&THEME.config_component.link);
 	THEME.config_component.apply = apply_theme_lua;
 	THEME.config_component.init = init_theme_lua;
-
 	tw_config_add_component(config, &THEME.config_component);
 }

@@ -55,8 +55,7 @@ void announce_desktop(struct weston_compositor *compositor,
 				 struct shell *shell,
 				 struct tw_config *config);
 
-void annouce_theme(struct weston_compositor *ec, struct shell *shell,
-		   struct tw_config *config);
+void announce_theme(struct weston_compositor *ec, struct tw_config *config);
 
 // other APIs
 
@@ -70,7 +69,8 @@ void shell_post_data(struct shell *shell, uint32_t type, struct wl_array *msg);
 void shell_post_message(struct shell *shell, uint32_t type, const char *msg);
 
 struct weston_geometry
-shell_output_available_space(struct shell *shell, struct weston_output *weston_output);
+shell_output_available_space(struct shell *shell,
+                             struct weston_output *weston_output);
 
 #ifdef  __cplusplus
 }

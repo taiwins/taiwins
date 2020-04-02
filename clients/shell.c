@@ -27,7 +27,7 @@
 #include <linux/input.h>
 #include <cairo/cairo.h>
 #include <poll.h>
-#include <wayland-taiwins-shell-client-protocol.h>
+#include <wayland-client-protocol.h>
 #include <wayland-client.h>
 #include <sequential.h>
 #include <os/file.h>
@@ -35,6 +35,9 @@
 #include <egl.h>
 #include <nk_backends.h>
 #include "../shared_config.h"
+#include "theme.h"
+#include "wayland-taiwins-theme-client-protocol.h"
+#include "wayland-taiwins-theme-server-protocol.h"
 #include "widget.h"
 #include "shell.h"
 
@@ -102,8 +105,8 @@ shell_output_resize(struct shell_output *w, const struct tw_bbox geo)
 }
 
 /*******************************************************************************
- * desktop shell interface
- *
+ * taiwins_theme_interface
+
  * just know this code has side effect: it works even you removed and plug back
  * the output, since n_outputs returns at the first time it hits NULL. Even if
  * there is output afterwards, it won't know, so next time when you plug in
@@ -160,6 +163,32 @@ static const struct nk_wl_font_config icon_config = {
 	.TTFonly = false,
 };
 
+/*******************************************************************************
+ * taiwins_theme_interface
+ ******************************************************************************/
+
+static void
+desktop_shell_apply_theme(void *data,
+                          struct taiwins_theme *taiwins_theme,
+                          const char *name,
+                          int32_t fd,
+                          uint32_t size)
+{
+	struct desktop_shell *shell = data;
+
+	tw_theme_fini(&shell->theme);
+	tw_theme_init_from_fd(&shell->theme, fd, size);
+}
+
+
+static const struct taiwins_theme_listener tw_theme_impl = {
+	.theme = desktop_shell_apply_theme,
+};
+
+/*******************************************************************************
+ * desktop_shell_interface
+ ******************************************************************************/
+
 static void
 desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 {
@@ -167,15 +196,16 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 
 	tw_globals_init(&shell->globals, display);
 	shell_tdbus_init(shell);
+	tw_theme_init_default(&shell->theme);
 
-	shell->globals.theme_color = &taiwins_dark_theme;
+	shell->globals.theme = &shell->theme;
 	shell->interface = NULL;
 	shell->panel_height = 32;
 	shell->main_output = NULL;
 	shell->wallpaper_path[0] = '\0';
 
-	shell->widget_backend = nk_cairo_create_bkend();
-	shell->panel_backend = nk_cairo_create_bkend();
+	shell->widget_backend = nk_cairo_create_backend();
+	shell->panel_backend = nk_cairo_create_backend();
 	shell->icon_font = nk_wl_new_font(icon_config, shell->panel_backend);
 	{
 		const struct nk_style *theme =
@@ -219,17 +249,18 @@ desktop_shell_release(struct desktop_shell *shell)
 	shell_tdbus_end(shell);
 	tw_globals_release(&shell->globals);
 	//destroy the backends
-	nk_cairo_destroy_bkend(shell->widget_backend);
-	nk_cairo_destroy_bkend(shell->panel_backend);
+	nk_cairo_destroy_backend(shell->widget_backend);
+	nk_cairo_destroy_backend(shell->panel_backend);
+	tw_theme_fini(&shell->theme);
 
 #ifdef __DEBUG
 	cairo_debug_reset_static_data();
 #endif
 }
 
-/************************** desktop_shell_interface ********************************/
-/*********************************** end *******************************************/
-
+/*******************************************************************************
+ * globals
+ ******************************************************************************/
 
 static
 void announce_globals(void *data,
@@ -241,12 +272,20 @@ void announce_globals(void *data,
 	struct desktop_shell *twshell = (struct desktop_shell *)data;
 
 	if (strcmp(interface, taiwins_shell_interface.name) == 0) {
-		fprintf(stderr, "shell registé\n");
+		fprintf(stdout, "shell registé\n");
 		twshell->interface = (struct taiwins_shell *)
-			wl_registry_bind(wl_registry, name, &taiwins_shell_interface, version);
-		taiwins_shell_add_listener(twshell->interface, &tw_shell_impl, twshell);
-	}
-	else
+			wl_registry_bind(wl_registry, name,
+			                 &taiwins_shell_interface, version);
+		taiwins_shell_add_listener(twshell->interface,
+		                           &tw_shell_impl, twshell);
+	} else if (strcmp(interface, taiwins_theme_interface.name) == 0) {
+		fprintf(stdout, "theme registe\n");
+		twshell->theme_interface = (struct taiwins_theme *)
+			wl_registry_bind(wl_registry, name,
+			                 &taiwins_theme_interface, version);
+		taiwins_theme_add_listener(twshell->theme_interface,
+		                           &tw_theme_impl, twshell);
+	} else
 		tw_globals_announce(&twshell->globals, wl_registry, name, interface, version);
 }
 

@@ -133,14 +133,6 @@ tw_theme_add_bool(lua_State *L, int *value)
 	*value = lua_toboolean(L, -1);
 }
 
-static void
-tw_theme_add_ratio(lua_State *L, float *value)
-{
-	tw_theme_add_float(L, value);
-	if (*value > 1.0 || *value < 0)
-		luaL_error(L, "expecting a value between [0, 1]");
-}
-
 //I think there is other stuff as well
 static void
 tw_theme_add_vec2(lua_State *L, tw_vec2_t *vec)
@@ -314,11 +306,10 @@ tw_theme_add_button(lua_State *L, struct tw_style_button *style)
 	                            &style->text_active, &style->text_normal);
 	TW_THEME_ADD_STYLE(L, "text_alignment", alignment, &style->text_alignment);
 
-	TW_THEME_ADD_STYLE(L, "border", ratio, &style->border);
-	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
+	TW_THEME_ADD_STYLE(L, "rounding", float, &style->rounding);
 	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
 	TW_THEME_ADD_STYLE(L, "image_padding", vec2, &style->image_padding);
-	TW_THEME_ADD_STYLE(L, "touch_padding", vec2, &style->touch_padding);
 }
 
 static void
@@ -349,7 +340,6 @@ tw_theme_add_toggle(lua_State *L, struct tw_style_toggle *style)
 	TW_THEME_ADD_STYLE(L, "alignment", alignment, &style->text_alignment);
 
 	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
-	TW_THEME_ADD_STYLE(L, "touch_padding", vec2, &style->touch_padding);
 	TW_THEME_ADD_STYLE(L, "spacing", float, &style->spacing);
 	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
 }
@@ -382,9 +372,8 @@ tw_theme_add_selectable(lua_State *L, struct tw_style_selectable *style)
 	TW_THEME_ADD_STYLE(L, "text_background", color, &style->text_background);
 	TW_THEME_ADD_STYLE(L, "alignment", alignment, &style->text_alignment);
 
-	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "rounding", float, &style->rounding);
 	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
-	TW_THEME_ADD_STYLE(L, "touch_padding", vec2, &style->touch_padding);
 	TW_THEME_ADD_STYLE(L, "image_padding", vec2, &style->image_padding);
 }
 
@@ -414,11 +403,11 @@ tw_theme_add_progress(lua_State *L, struct tw_style_progress *style)
 
 	TW_THEME_ADD_STYLE_FALLBACK(L, "border", float,
 	                            &style->border, &slider->border);
-	TW_THEME_ADD_STYLE_FALLBACK(L, "rounding", ratio,
+	TW_THEME_ADD_STYLE_FALLBACK(L, "rounding", float,
 	                            &style->rounding, &slider->rounding);
 	//progress does not have a cursor
 	TW_THEME_ADD_STYLE(L, "cursor_border", float, &style->cursor_border);
-	TW_THEME_ADD_STYLE(L, "cursor_rounding", ratio, &style->cursor_rounding);
+	TW_THEME_ADD_STYLE(L, "cursor_rounding", float, &style->cursor_rounding);
 	TW_THEME_ADD_STYLE_FALLBACK(L, "padding", vec2,
 	                            &style->padding, &slider->padding);
 }
@@ -433,7 +422,7 @@ tw_theme_add_chart(lua_State *L, struct tw_style_chart *style)
 
 	//this maybe half the button
 	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
-	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "rounding", float, &style->rounding);
 	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
 }
 
@@ -454,7 +443,6 @@ tw_theme_default_scroll_btn(lua_State *L, struct tw_style_scrollbar *scroll,
 	scroll_btn->text_active = defaults->text_color;
 
 	scroll_btn->padding = scroll->padding;
-	scroll_btn->touch_padding = (tw_vec2_t){0.0, 0.0f};
 	scroll_btn->text_alignment = TAIWINS_TEXT_CENTER;
 	scroll_btn->border = scroll->border;
 	scroll_btn->rounding = scroll->rounding;
@@ -475,9 +463,9 @@ tw_theme_add_scroll(lua_State *L, struct tw_style_scrollbar *style)
 	                   &style->cursor_border_color);
 
 	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
-	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "rounding", float, &style->rounding);
 	TW_THEME_ADD_STYLE(L, "cursor_border", float, &style->border_cursor);
-	TW_THEME_ADD_STYLE(L, "cursor_rounding", ratio, &style->rounding_cursor);
+	TW_THEME_ADD_STYLE(L, "cursor_rounding", float, &style->rounding_cursor);
 	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
 
 	TW_THEME_ADD_STYLE(L, "show_button", bool, &style->show_buttons);
@@ -510,7 +498,7 @@ tw_theme_add_slider(lua_State *L, struct tw_style_slider *style)
 	TW_THEME_ADD_STYLE(L, "active_cursor", item, &style->cursor_active);
 
 	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
-	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "rounding", float, &style->rounding);
 	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
 	TW_THEME_ADD_STYLE(L, "spacing", vec2, &style->spacing);
 	TW_THEME_ADD_STYLE(L, "bar_height", float, &style->bar_height);
@@ -572,7 +560,7 @@ tw_theme_add_edit(lua_State *L, struct tw_style_edit *style)
 	                            &style->selected_text_normal);
 
 	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
-	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "rounding", float, &style->rounding);
 	TW_THEME_ADD_STYLE(L, "cursor_size", float, &style->cursor_size);
 	TW_THEME_ADD_STYLE(L, "scrollbar_size", vec2, &style->scrollbar_size);
 	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
@@ -594,7 +582,7 @@ tw_theme_add_property(lua_State *L, struct tw_style_property *style)
 	TW_THEME_ADD_STYLE(L, "active_text", color, &style->label_active);
 
 	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
-	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "rounding", float, &style->rounding);
 	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
 
 	TW_THEME_READ_SEC_FALLBACK(L, -1, "edit", edit, &style->edit,
@@ -616,7 +604,7 @@ tw_theme_add_tab(lua_State *L, struct tw_style_tab *style)
 
 	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
 	TW_THEME_ADD_STYLE(L, "indent", float, &style->indent);
-	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "rounding", float, &style->rounding);
 	TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
 	TW_THEME_ADD_STYLE(L, "spacing", vec2, &style->spacing);
 }
@@ -635,7 +623,6 @@ tw_theme_default_combo_btn(struct tw_style_combo *style,
 	btn->text_active = style->label_active;
 
 	btn->padding = (tw_vec2_t){2.0, 2.0};
-	btn->touch_padding = (tw_vec2_t){0};
 	btn->border = style->border;
 	btn->rounding = style->rounding;
 }
@@ -666,7 +653,7 @@ tw_theme_add_combo(lua_State *L, struct tw_style_combo *style)
 	style->symbol_active = style->label_active;
 
 	TW_THEME_ADD_STYLE(L, "border", float, &style->border);
-	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "rounding", float, &style->rounding);
 	TW_THEME_ADD_STYLE(L, "content_padding", vec2, &style->content_padding);
 	TW_THEME_ADD_STYLE(L, "button_padding", vec2, &style->button_padding);
 	TW_THEME_ADD_STYLE(L, "spacing", vec2, &style->spacing);
@@ -750,7 +737,7 @@ tw_theme_add_window(lua_State *L, struct tw_style_window *style)
 	TW_THEME_ADD_STYLE(L, "tooltip_border", float,
 	                   &style->tooltip_border);
 
-	TW_THEME_ADD_STYLE(L, "rounding", ratio, &style->rounding);
+	TW_THEME_ADD_STYLE(L, "rounding", float, &style->rounding);
         TW_THEME_ADD_STYLE(L, "spacing", vec2, &style->spacing);
         TW_THEME_ADD_STYLE(L, "scrollbar", vec2, &style->scrollbar_size);
         TW_THEME_ADD_STYLE(L, "padding", vec2, &style->padding);
@@ -772,7 +759,7 @@ tw_theme_read_defaults(lua_State *L, struct tw_theme_default *colors)
 		TW_THEME_ADD_STYLE(L, "border_color", color,
 		                   &colors->border_color);
 		TW_THEME_ADD_STYLE(L, "border", float, &colors->border);
-		TW_THEME_ADD_STYLE(L, "rounding", ratio, &colors->rounding);
+		TW_THEME_ADD_STYLE(L, "rounding", float, &colors->rounding);
 		TW_THEME_ADD_STYLE(L, "padding", vec2, &colors->padding);
 		TW_THEME_ADD_STYLE(L, "spacing", vec2, &colors->spacing);
 	}
@@ -805,7 +792,7 @@ tw_theme_read(lua_State *L)
 		wl_array_release(&theme->handle_pool);
 	if (theme->string_pool.data)
 		wl_array_release(&theme->string_pool);
-	memset(theme, 0, sizeof(struct tw_theme));
+	tw_theme_init_default(theme);
 
 	tw_theme_read_defaults(L, &defaults);
 	// global
