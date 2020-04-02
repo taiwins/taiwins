@@ -27,10 +27,9 @@
 #include <wayland-server.h>
 #include <wayland-taiwins-console-server-protocol.h>
 
-#include "taiwins.h"
-#include "desktop.h"
-#include "config.h"
-
+#include "../taiwins.h"
+#include "../config.h"
+#include "shell.h"
 
 /**
  * this struct handles the request and sends the event from
@@ -50,7 +49,6 @@ struct console {
 	struct wl_listener compositor_destroy_listener;
 	struct wl_listener close_console_listener;
 	struct tw_apply_bindings_listener add_binding;
-	struct tw_config_component_listener config_component;
 	struct wl_global *global;
 };
 
@@ -176,11 +174,12 @@ end_console(struct wl_listener *listener, void *data)
 	wl_global_destroy(c->global);
 }
 
-void
-announce_console(struct weston_compositor *compositor,
-		 struct shell *shell, const char *path,
-		 struct tw_config *config)
+bool
+tw_setup_console(struct weston_compositor *compositor,
+		 const char *path, struct tw_config *config)
 {
+	struct shell *shell = tw_shell_get_global();
+
 	CONSOLE.surface = NULL;
 	CONSOLE.resource = NULL;
 	CONSOLE.compositor = compositor;
@@ -215,7 +214,6 @@ announce_console(struct weston_compositor *compositor,
 	CONSOLE.add_binding.apply = console_add_bindings;
 	tw_config_add_apply_bindings(config, &CONSOLE.add_binding);
 
-	wl_list_init(&CONSOLE.config_component.link);
-
 	//return &CONSOLE;
+	return true;
 }

@@ -38,7 +38,7 @@ struct tw_config;
 
 
 /*******************************************************************************
- * lua config option
+ * config option
  ******************************************************************************/
 
 struct tw_option {
@@ -54,8 +54,6 @@ enum tw_option_type {
 	TW_OPTION_ARRAY,
 	TW_OPTION_RGB,
 };
-
-
 
 /**
  * @brief config option listener
@@ -91,9 +89,6 @@ void tw_config_add_option_listener(struct tw_config *config,
  */
 struct tw_config_component_listener {
 	struct wl_list link;
-	/** for initialize lua metatable and setup functions */
-	bool (*init)(struct tw_config *, lua_State *L,
-		     struct tw_config_component_listener *);
 	/* @param cleanup here indicates zero happens in the run config,
 	   please clean the cache config */
 	void (*apply)(struct tw_config *c, bool cleanup,
@@ -101,12 +96,10 @@ struct tw_config_component_listener {
 };
 
 void tw_config_add_component(struct tw_config *,
-				  struct tw_config_component_listener *);
-
-void tw_config_request_metatable(lua_State *L);
+                             struct tw_config_component_listener *);
 
 /*******************************************************************************
- * list of builtin bindings
+ * bindings configs
  ******************************************************************************/
 
 struct tw_apply_bindings_listener {
@@ -156,9 +149,9 @@ enum tw_builtin_binding_t {
 const struct tw_binding *tw_config_get_builtin_binding(struct tw_config *,
                                                        enum tw_builtin_binding_t);
 
-/////////////////////////////////////////////////////////
-// APIS
-/////////////////////////////////////////////////////////
+/*******************************************************************************
+ * other APIs
+ ******************************************************************************/
 
 struct tw_config *tw_config_create(struct weston_compositor *ec,
                                    log_func_t messenger);

@@ -16,17 +16,9 @@ add_library(twbus STATIC
   bus.c
   )
 
-add_library(twshell STATIC
-  shell.c
-  )
-
-add_library(twconsole STATIC
-  console.c
-  )
-
 add_library(twtheme STATIC
   theme.c
-  theme_lua.c
+  config/theme_lua.c
   )
 
 add_library(twdesktop STATIC
@@ -35,10 +27,14 @@ add_library(twdesktop STATIC
   desktop/layout_floating.c
   desktop/layout_tiling.c
   desktop/workspace.c
+
+  desktop/shell.c
+  desktop/console.c
   )
 
 target_link_libraries(twcore
   PUBLIC
+  protos-server
   Wayland::Server
   libweston::libweston
   LibInput::LibInput
@@ -53,16 +49,6 @@ target_link_libraries(twbus
   PUBLIC
   tdbus
   twcore
-  )
-
-target_link_libraries(twshell PUBLIC
-  twcore
-  protos-server
-  )
-
-target_link_libraries(twconsole PUBLIC
-  twcore
-  protos-server
   )
 
 target_link_libraries(twdesktop PUBLIC
@@ -87,8 +73,6 @@ add_executable(taiwins
 
 target_link_libraries(taiwins
   twcore
-  twshell
-  twconsole
   twdesktop
   twtheme
   twbus

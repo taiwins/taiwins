@@ -23,6 +23,7 @@
 #define CONFIG_INTERNAL_H
 
 #include "../config.h"
+#include <libweston/libweston.h>
 
 
 #ifdef __cplusplus
@@ -42,7 +43,9 @@ struct tw_config {
 	struct wl_list lua_components;
 	struct wl_list apply_bindings;
 	vector_t option_hooks;
-	struct { /**< compositor option caches, and invalid values */
+
+	/**< compositor option caches, and invalid values */
+	struct {
 		struct xkb_rule_names xkb_rules;
 		int32_t kb_repeat; /**< invalid: -1 */
 		int32_t kb_delay; /**< invalid: -1 */
@@ -54,10 +57,12 @@ struct tw_config {
 };
 
 
-void tw_config_init_luastate(struct tw_config *c);
+void
+tw_config_init_luastate(struct tw_config *c);
 
-bool parse_one_press(const char *str, const enum tw_binding_type type,
-		     uint32_t *mod, uint32_t *code);
+bool
+parse_one_press(const char *str, const enum tw_binding_type type,
+                uint32_t *mod, uint32_t *code);
 
 
 
