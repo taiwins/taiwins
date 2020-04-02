@@ -160,7 +160,7 @@ thread_run_module(void *arg)
 	struct module_search_cache cache;
 
 	cache_init(&cache);
-	while (true) {
+	while (!module->quit) {
 		//exec, enter critial
 		pthread_mutex_lock(&module->command_mutex);
 		if (module->exec_command) {
@@ -223,6 +223,7 @@ thread_run_module(void *arg)
 		sem_wait(&module->semaphore);
 	}
 	cache_free(&cache);
+	return NULL;
 }
 
 static bool
@@ -237,6 +238,7 @@ void
 console_module_init(struct console_module *module,
 		    struct desktop_console *console)
 {
+	module->quit = false;
 	module->console = console;
 	pthread_mutex_init(&module->command_mutex, NULL);
 	pthread_mutex_init(&module->results_mutex, NULL);
@@ -254,6 +256,7 @@ console_module_release(struct console_module *module)
 {
 	int lock_state = -1;
 
+	module->quit = true;
 	pthread_mutex_lock(&module->command_mutex);
 	if (module->search_command) {
 		free(module->search_command);
@@ -281,6 +284,8 @@ console_module_release(struct console_module *module)
 		vector_destroy(&module->search_results);
 	if (module->destroy_hook)
 		module->destroy_hook(module);
+
+	pthread_join(module->thread, NULL);
 }
 
 void

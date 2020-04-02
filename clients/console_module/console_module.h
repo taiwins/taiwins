@@ -52,6 +52,7 @@ extern "C" {
  */
 struct console_module {
 	struct desktop_console *console;
+	bool quit;
 	struct rax *radix;
 	const bool support_cache;
 	const char name[32];
