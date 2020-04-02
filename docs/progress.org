@@ -240,11 +240,15 @@
 
 * TODO [28%] Stage three: extensions/ post-pub features
 ** TODO ADD DAMAGE SUPPORT in drawing!
-** TODO [75%] tw_theme protocol
+** TODO [83%] tw_theme protocol
 *** DONE creating the taiwins_theme header
-*** TODO tw_theme protocol
+*** DONE tw_theme protocol
     Well, I should have documented the tw_theme work done before.
+*** DONE tw_theme to nk_style
+*** DONE lua_theme to tw_theme
+*** TODO test theme with images, not just colors
 *** CANC c files
+
 ** DONE Add multiple font support
    now twclient supports multiple fonts
 ** TODO patch 3rdparty libraries
@@ -364,7 +368,8 @@ session_bus:signal_on(function (vol) w:volume = vol end,
 ** TODO pipewire(can be used to stream wayland)
 ** TODO HDCP content protection
 
-* [12%] Bugs
+* TODO [10%] Bugs
+** TODO console need to wait the threads to finish
 ** TODO [#A] recent view has some bugs,
    - for example, if an application in fullscreen mode, when you toggle views,
      the other views does not show up.
