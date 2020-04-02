@@ -24,12 +24,18 @@ WAYLAND_ADD_PROTOCOL_SERVER(proto_twconsole_server
   taiwins-console
   )
 
+WAYLAND_ADD_PROTOCOL_CLIENT(proto_twtheme_client
+  "${TAIWINS_PROTOCOLS_DIR}/taiwins-theme.xml"
+  taiwins-theme
+  )
+
 WAYLAND_ADD_PROTOCOL_SERVER(proto_twtheme_server
   "${TAIWINS_PROTOCOLS_DIR}/taiwins-theme.xml"
   taiwins-theme
   )
 
 add_library(protos-client STATIC
+  ${proto_twtheme_client}
   ${proto_twshell_client}
   ${proto_twconsole_client}
   )

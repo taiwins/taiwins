@@ -32,6 +32,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include <wayland-client.h>
+#include <wayland-taiwins-theme-client-protocol.h>
 #include <wayland-taiwins-shell-client-protocol.h>
 #include <wayland-taiwins-console-client-protocol.h>
 
@@ -43,6 +44,7 @@
 #include <strops.h>
 #include <sequential.h>
 #include <nk_backends.h>
+#include <theme.h>
 #include "../shared_config.h"
 
 #include "common.h"
@@ -55,6 +57,7 @@ struct selected_search_entry {
 
 struct desktop_console {
 	struct taiwins_console *interface;
+	struct taiwins_theme *theme_interface;
 	struct taiwins_ui *proxy;
 	struct tw_globals globals;
 	struct tw_appsurf surface;
@@ -75,6 +78,8 @@ struct desktop_console {
 	vector_t search_results; //search results from modules moves to here
 	struct selected_search_entry selected;
 	char *exec_result;
+
+	struct tw_theme theme;
 };
 
 static void
@@ -220,6 +225,10 @@ draw_console(struct nk_context *ctx, float width, float height,
 	}
 }
 
+/*******************************************************************************
+ * taiwins_console_interface
+ ******************************************************************************/
+
 static void
 update_app_config(void *data,
 		  struct taiwins_console *tw_console,
@@ -280,6 +289,32 @@ struct taiwins_console_listener console_impl = {
 	.exec = exec_application,
 };
 
+/*******************************************************************************
+ * taiwins_theme_interface
+ ******************************************************************************/
+
+static void
+console_apply_theme(void *data,
+                    struct taiwins_theme *taiwins_theme,
+                    const char *name,
+                    int32_t fd,
+                    uint32_t size)
+{
+	struct desktop_console *console = data;
+
+	tw_theme_fini(&console->theme);
+	tw_theme_init_from_fd(&console->theme, fd, size);
+}
+
+
+static const struct taiwins_theme_listener theme_impl = {
+	.theme = console_apply_theme,
+};
+
+/*******************************************************************************
+ * desktop_console_interface
+ ******************************************************************************/
+
 static void
 console_release_module(void *m)
 {
@@ -294,7 +329,6 @@ console_free_search_results(void *m)
 	vector_destroy(v);
 }
 
-
 static void
 free_defunct_app(int signum)
 {
@@ -303,11 +337,8 @@ free_defunct_app(int signum)
 }
 
 static void
-init_console(struct desktop_console *console)
+post_init_console(struct desktop_console *console)
 {
-	signal(SIGCHLD, free_defunct_app);
-	memset(console->chars, 0, sizeof(console->chars));
-	console->quit = false;
 	tw_shm_pool_init(&console->pool, console->globals.shm,
 	                 TAIWINS_CONSOLE_CONF_NUM_DECISIONS *
 	                 sizeof(struct tw_decision_key),
@@ -316,9 +347,11 @@ init_console(struct desktop_console *console)
 		tw_shm_pool_alloc_buffer(&console->pool,
 		                         sizeof(struct tw_decision_key),
 		                         TAIWINS_CONSOLE_CONF_NUM_DECISIONS);
-	console->bkend = nk_cairo_create_bkend();
+	//prepare backend
+	console->bkend = nk_cairo_create_backend();
 	nk_textedit_init_fixed(&console->text_edit, console->chars, 256);
 
+	//loading modules
 	struct console_module *module;
 	vector_t empty_res = {0};
 	// init modules
@@ -336,12 +369,23 @@ init_console(struct desktop_console *console)
 		vector_append(&console->search_results, &empty_res);
 	console->selected = (struct selected_search_entry){0};
 }
+static void
+init_console(struct desktop_console *console)
+{
+	signal(SIGCHLD, free_defunct_app);
+	memset(console->chars, 0, sizeof(console->chars));
+	console->quit = false;
+
+	tw_theme_init_default(&console->theme);
+	console->globals.theme = &console->theme;
+
+}
 
 static void
 end_console(struct desktop_console *console)
 {
 	nk_textedit_free(&console->text_edit);
-	nk_cairo_destroy_bkend(console->bkend);
+	nk_cairo_destroy_backend(console->bkend);
 	tw_shm_pool_release(&console->pool);
 
 	taiwins_console_destroy(console->interface);
@@ -352,6 +396,10 @@ end_console(struct desktop_console *console)
 
 	console->quit = true;
 }
+
+/*******************************************************************************
+ * globals
+ ******************************************************************************/
 
 static
 void announce_globals(void *data,
@@ -365,10 +413,21 @@ void announce_globals(void *data,
 	if (strcmp(interface, taiwins_console_interface.name) == 0) {
 		fprintf(stderr, "console registé\n");
 		console->interface = (struct taiwins_console *)
-			wl_registry_bind(wl_registry, name, &taiwins_console_interface, version);
-		taiwins_console_add_listener(console->interface, &console_impl, console);
+			wl_registry_bind(wl_registry, name,
+			                 &taiwins_console_interface, version);
+		taiwins_console_add_listener(console->interface,
+		                             &console_impl, console);
+
+	} else if (strcmp(interface, taiwins_theme_interface.name) == 0) {
+		console->theme_interface = (struct taiwins_theme *)
+			wl_registry_bind(wl_registry, name,
+			                 &taiwins_theme_interface, version);
+		taiwins_theme_add_listener(console->theme_interface,
+		                           &theme_impl, console);
+
 	} else
-		tw_globals_announce(&console->globals, wl_registry, name, interface, version);
+		tw_globals_announce(&console->globals, wl_registry, name,
+		                    interface, version);
 }
 
 
@@ -399,15 +458,14 @@ main(int argc, char *argv[])
 
 	struct wl_registry *registry = wl_display_get_registry(display);
 	wl_registry_add_listener(registry, &registry_listener, &tw_console);
+
+	init_console(&tw_console);
 	wl_display_dispatch(display);
 	wl_display_roundtrip(display);
-	init_console(&tw_console);
-	//TODO change to use theme
-	tw_console.globals.theme_color = &taiwins_dark_theme;
+	post_init_console(&tw_console);
 
-	//okay, now we should create the buffers
-	//event loop
-	while(wl_display_dispatch(display) != -1 && !tw_console.quit);
+	wl_display_flush(display);
+	tw_globals_dispatch_event_queue(&tw_console.globals);
 	end_console(&tw_console);
 	wl_registry_destroy(registry);
 	wl_display_disconnect(display);
