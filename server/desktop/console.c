@@ -22,6 +22,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <linux/input.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <sequential.h>
 #include <wayland-server.h>
@@ -172,6 +173,14 @@ end_console(struct wl_listener *listener, void *data)
 		container_of(listener, struct console,
 			     compositor_destroy_listener);
 	wl_global_destroy(c->global);
+
+	if (c->client) {
+		int pid;
+
+		wl_client_get_credentials(c->client, &pid, NULL, NULL);
+		wl_client_destroy(c->client);
+		waitpid(pid, NULL, 0);
+	}
 }
 
 bool
