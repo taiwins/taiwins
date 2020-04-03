@@ -28,6 +28,7 @@
 #include <string.h>
 #include <linux/input.h>
 #include <unistd.h>
+#include <sys/wait.h>
 #include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <libweston/libweston.h>
@@ -225,8 +226,10 @@ out:
 	tw_config_destroy(config);
 	weston_compositor_tear_down(compositor);
 	weston_log_ctx_compositor_destroy(compositor);
+	wl_display_destroy_clients(display);
 	wl_display_destroy(display);
 	weston_compositor_destroy(compositor);
+
 	return 0;
 err_signal:
 	for (unsigned i = 0; i < 3; i++)

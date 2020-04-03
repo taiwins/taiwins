@@ -22,6 +22,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <sys/wait.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <wayland-taiwins-shell-server-protocol.h>
 #include <helpers.h>
@@ -819,6 +821,11 @@ unbind_shell(struct wl_resource *resource)
 	wl_list_for_each_safe(v, n, &shell->ui_layer.view_list.link, layer_link.link)
 		weston_view_unmap(v);
 	fprintf(stderr, "shell-unbined\n");
+
+	shell->shell_client = NULL;
+	shell->pid = -1;
+	shell->uid = -1;
+	shell->gid = -1;
 }
 
 static void
@@ -929,6 +936,14 @@ end_shell(struct wl_listener *listener, void *data)
 	shell_apply_lua_config(NULL, true, &shell->config_component);
 
 	wl_global_destroy(shell->shell_global);
+
+	if (shell->shell_client) {
+		int pid;
+
+		wl_client_get_credentials(shell->shell_client, &pid, NULL, NULL);
+		wl_client_destroy(shell->shell_client);
+		waitpid(pid, NULL, 0);
+	}
 }
 
 static void

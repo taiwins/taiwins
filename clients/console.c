@@ -49,6 +49,7 @@
 
 #include "common.h"
 #include "console_module/console_module.h"
+#include "vector.h"
 
 struct selected_search_entry {
 	console_search_entry_t entry;
