@@ -1,5 +1,5 @@
 /*
- * desktop.h - taiwins desktop header
+ * shell.h - taiwins desktop shell header
  *
  * Copyright (c) 2019 Xichen Zhou
  *
@@ -25,52 +25,33 @@
 #include <wayland-server.h>
 #include <sequential.h>
 #include <wayland-taiwins-shell-server-protocol.h>
-#include "bindings.h"
+
+#include "../bindings.h"
+
+#define TWSHELL_VERSION 1
+#define TWDESKP_VERSION 1
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-#define TWSHELL_VERSION 1
-#define TWDESKP_VERSION 1
-
 struct shell;
-struct desktop;
-struct console;
-struct tw_config;
-struct shell_ui;
 
+void
+shell_create_ui_elem(struct shell *shell, struct wl_client *client,
+                     uint32_t tw_ui, struct wl_resource *wl_surface,
+                     uint32_t x, uint32_t y, enum taiwins_ui_type type);
+void
+shell_post_data(struct shell *shell, uint32_t type, struct wl_array *msg);
 
-/**
- * @brief annouce globals
- */
-struct shell *announce_shell(struct weston_compositor *compositor, const char *path,
-			     struct tw_config *config);
-
-void announce_console(struct weston_compositor *compositor,
-				 struct shell *shell, const char *exec_path,
-				 struct tw_config *config);
-
-void announce_desktop(struct weston_compositor *compositor,
-				 struct shell *shell,
-				 struct tw_config *config);
-
-void announce_theme(struct weston_compositor *ec, struct tw_config *config);
-
-// other APIs
-
-struct wl_client *shell_get_client(struct shell *shell);
-
-void shell_create_ui_elem(struct shell *shell, struct wl_client *client,
-			  uint32_t tw_ui, struct wl_resource *wl_surface,
-			  uint32_t x, uint32_t y, enum taiwins_ui_type type);
-
-void shell_post_data(struct shell *shell, uint32_t type, struct wl_array *msg);
-void shell_post_message(struct shell *shell, uint32_t type, const char *msg);
+void
+shell_post_message(struct shell *shell, uint32_t type, const char *msg);
 
 struct weston_geometry
 shell_output_available_space(struct shell *shell,
                              struct weston_output *weston_output);
+
+
 
 #ifdef  __cplusplus
 }

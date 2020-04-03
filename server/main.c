@@ -35,8 +35,6 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
-#include "backend.h"
-#include "desktop.h"
 #include "os/file.h"
 #include "taiwins.h"
 #include "config.h"
@@ -205,11 +203,13 @@ int main(int argc, char *argv[], char *envp[])
 	tw_compositor_init(&tc, compositor, config);
 	assert(tw_setup_bus(compositor, config));
 	assert(tw_setup_backend(compositor, config));
+
 	weston_compositor_wake(compositor);
-	struct shell *sh = announce_shell(compositor, shellpath, config);
-	announce_console(compositor, sh, launcherpath, config);
-	announce_desktop(compositor, sh, config);
-	announce_theme(compositor, config);
+
+	assert(tw_setup_shell(compositor, shellpath, config));
+	assert(tw_setup_console(compositor, launcherpath, config));
+	assert(tw_setup_desktop(compositor, config));
+	assert(tw_setup_theme(compositor, config));
 
 	error = !tw_config_run(config, path);
 	if (error) {

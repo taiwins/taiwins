@@ -31,10 +31,6 @@
 #include <libweston/zalloc.h>
 #include <libweston/libweston.h>
 
-//the declarations we need to move back
-void
-weston_output_move(struct weston_output *output, int x, int y);
-
 
 #if defined (INCLUDE_DESKTOP)
 #include <libweston-desktop/libweston-desktop.h>
@@ -47,15 +43,22 @@ weston_output_move(struct weston_output *output, int x, int y);
 #include <libweston/windowed-output-api.h>
 #endif
 
-#include "../shared_config.h"
+#include <wayland-taiwins-shell-server-protocol.h>
 
+#include "../shared_config.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
+struct tw_config;
+
+/*******************************************************************************
+ * desktop functions
+ ******************************************************************************/
+
 /**
- * /brief taiwins output information
+ * @brief taiwins output information
  *
  * here we define some template structures. It is passed as pure data, and they
  * are not persistent. So don't store them as pointers.
@@ -69,9 +72,19 @@ struct tw_output {
 	uint32_t outer_gap;
 };
 
-///////////////////////// UTILS Functions ///////////////////////// this maybe a
-//stupid idea to use weston prefix, since libweston could add the function with
-//same name
+void
+tw_lose_surface_focus(struct weston_surface *surface);
+
+void
+tw_focus_surface(struct weston_surface *surface);
+
+struct weston_output *
+tw_get_focused_output(struct weston_compositor *compositor);
+
+/*******************************************************************************
+ * util functions
+ ******************************************************************************/
+
 static inline struct weston_output *
 tw_get_default_output(struct weston_compositor *compositor)
 {
@@ -121,21 +134,132 @@ tw_map_view(struct weston_view *view)
 	view->is_mapped = true;
 }
 
-struct wl_client *tw_launch_client(struct weston_compositor *ec, const char *path);
-/* kill a client */
-void tw_end_client(struct wl_client *client);
+/*******************************************************************************
+ * shell functions
+ ******************************************************************************/
 
+struct shell;
 
-void tw_lose_surface_focus(struct weston_surface *surface);
-void tw_focus_surface(struct weston_surface *surface);
-struct weston_output *tw_get_focused_output(struct weston_compositor *compositor);
+/**
+ * @brief annouce globals
+ */
+bool
+tw_setup_shell(struct weston_compositor *compositor, const char *path,
+               struct tw_config *config);
 
+void
+tw_shell_set_wallpaper(struct shell *shell, const char *wp);
 
-///////////////////////// UTILS Functions /////////////////////////
+void
+tw_shell_set_widget_path(struct shell *shell, const char *path);
 
+void
+tw_shell_set_panel_pos(struct shell *shell, enum taiwins_shell_panel_pos pos);
 
+void
+tw_shell_set_menu(struct shell *shell, vector_t *menu);
 
-/* here are the experimental code, it may not be anyway useful */
+struct shell *tw_shell_get_global();
+
+/*******************************************************************************
+ * console functions
+ ******************************************************************************/
+
+struct console;
+
+bool
+tw_setup_console(struct weston_compositor *compositor,
+                 const char *exec_path,
+                 struct tw_config *config);
+
+struct console *tw_console_get_global();
+
+/*******************************************************************************
+ * desktop functions
+ ******************************************************************************/
+struct desktop;
+
+bool
+tw_setup_desktop(struct weston_compositor *compositor,
+                 struct tw_config *config);
+
+struct desktop *tw_desktop_get_global();
+
+int
+tw_desktop_num_workspaces(struct desktop *desktop);
+
+const char *
+tw_desktop_get_workspace_layout(struct desktop *desktop, unsigned int i);
+
+bool
+tw_desktop_set_workspace_layout(struct desktop *desktop, unsigned int i,
+                                const char *layout);
+void
+tw_desktop_get_gap(struct desktop *desktop, int *inner, int *outer);
+
+void
+tw_desktop_set_gap(struct desktop *desktop, int inner, int outer);
+
+/*******************************************************************************
+ * theme functions
+ ******************************************************************************/
+struct theme;
+
+bool
+tw_setup_theme(struct weston_compositor *ec, struct tw_config *config);
+
+struct theme *tw_theme_get_global();
+
+struct tw_theme *
+tw_theme_access_theme(struct theme *theme);
+
+/*******************************************************************************
+ * client functions
+ ******************************************************************************/
+
+struct wl_client *
+tw_launch_client(struct weston_compositor *ec, const char *path);
+
+void
+tw_end_client(struct wl_client *client);
+
+/*******************************************************************************
+ * bus functions
+ ******************************************************************************/
+
+bool
+tw_setup_bus(struct weston_compositor *ec, struct tw_config *config);
+
+/*******************************************************************************
+ * backend functions
+ ******************************************************************************/
+
+struct tw_backend;
+struct tw_backend_output;
+
+bool
+tw_setup_backend(struct weston_compositor *ec, struct tw_config *c);
+
+struct tw_backend *tw_backend_get_global();
+
+struct tw_backend_output *
+tw_backend_output_from_weston_output(struct weston_output *output,
+                                     struct tw_backend *b);
+void
+tw_backend_output_set_scale(struct tw_backend_output *output,
+                                    unsigned int scale);
+enum weston_compositor_backend
+tw_backend_get_type(struct tw_backend *be);
+
+void
+tw_backend_output_set_transform(struct tw_backend_output *output,
+                                enum wl_output_transform transform);
+//TODO resolution
+
+/*******************************************************************************
+ * util functions
+ ******************************************************************************/
+
 bool tw_set_wl_surface(struct wl_client *client,
 		       struct wl_resource *resource,
 		       struct wl_resource *surface,
@@ -147,9 +271,15 @@ void setup_static_view(struct weston_view *view, struct weston_layer *layer, int
 void setup_ui_view(struct weston_view *view, struct weston_layer *layer, int x, int y);
 
 
-//////////////////////// load weston modules //////////////////////////
+/*******************************************************************************
+ * libweston interface functions
+ ******************************************************************************/
+
 void *tw_load_weston_module(const char *name, const char *entrypoint);
 
+//the declarations we need to move back
+void
+weston_output_move(struct weston_output *output, int x, int y);
 
 #ifdef  __cplusplus
 }

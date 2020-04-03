@@ -23,9 +23,10 @@
 #define TW_WORKSPACE_H
 
 #include <stdbool.h>
+#include <unistd.h>
 #define INCLUDE_DESKTOP
+
 #include "../taiwins.h"
-#include "unistd.h"
 #include "layout.h"
 
 #ifdef  __cplusplus
