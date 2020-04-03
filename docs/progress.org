@@ -238,8 +238,10 @@
 *** DONE add CI
 *** TODO find a way to get the voice out
 
-* TODO [28%] Stage three: extensions/ post-pub features
+* TODO [42%] Stage three: extensions/ post-pub features
 ** TODO ADD DAMAGE SUPPORT in drawing!
+   for EGL backend, this would be impossible, but maybe you can do something in
+   the cairo backend
 ** TODO [83%] tw_theme protocol
 *** DONE creating the taiwins_theme header
 *** DONE tw_theme protocol
@@ -251,7 +253,7 @@
 
 ** DONE Add multiple font support
    now twclient supports multiple fonts
-** TODO patch 3rdparty libraries
+** CANC patch 3rdparty libraries
    weston: output configure in the run time.
 ** TODO [0%] new features
 *** DOIN add dbus support
@@ -309,13 +311,14 @@ session_bus:signal_on(function (vol) w:volume = vol end,
     libweston haven't properly support multi display yet.
 **** TODO adding/disabling new output
 **** TODO clone mode and set output layout
+**** TODO expose drm output, not just windowed output for configuration
 **** TODO dynamic changing output scale
 
 *** TODO utilise weston-animations
     fade/zoom/move, it should be relative easy to use.
 
 *** TODO adding support for notification. All those can be implement
-*** TODO adding support for menu(right-click),
+*** TODO adding support for menu(right-click)
     special case we need to handle for background, which is not ideal for
     shm_buffer implementation. I think you will have no choice but have a custom
     grab interface.
