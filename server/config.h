@@ -110,7 +110,7 @@ struct tw_apply_bindings_listener {
 };
 
 void tw_config_add_apply_bindings(struct tw_config *,
-				      struct tw_apply_bindings_listener *);
+                                  struct tw_apply_bindings_listener *);
 
 
 enum tw_builtin_binding_t {
