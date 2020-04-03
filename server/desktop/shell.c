@@ -55,8 +55,9 @@ struct shell_ui {
 /*******************************************************************************
  * shell interface
  ******************************************************************************/
-
-
+typedef OPTION(char *, path) path_option_t;
+typedef OPTION(int32_t, value) int_option_t;
+typedef OPTION(enum taiwins_shell_panel_pos, pos) pos_option_t;
 /**
  * @brief represents tw_output
  *
@@ -79,12 +80,13 @@ struct shell {
 	struct wl_global *shell_global;
 
 	struct { /* options */
-		enum taiwins_shell_panel_pos panel_pos;
-		int32_t lock_countdown; //invalid -1
-		int32_t sleep_countdown; //knvalid -1
+		pos_option_t pending_panel_pos;;
+		int_option_t lock_countdown;
+		int_option_t sleep_countdown;
+		/**> invalid when empty */
 		vector_t menu;
-		char *wallpaper_path;
-		char *widget_path;
+		path_option_t wallpaper_path;
+		path_option_t widget_path;
 	};
 	struct weston_compositor *ec;
 	//you probably don't want to have the layer
@@ -92,8 +94,9 @@ struct shell {
 	struct weston_layer ui_layer;
 	struct weston_layer locker_layer;
 
-	//the widget is the global view
 	struct weston_surface *the_widget_surface;
+	enum taiwins_shell_panel_pos panel_pos;
+
 	struct wl_listener compositor_destroy_listener;
 	struct wl_listener output_create_listener;
 	struct wl_listener output_destroy_listener;
@@ -715,6 +718,43 @@ taiwins_menu_to_wl_array(const struct tw_menu_item * items, const int len)
 }
 
 
+
+static inline void
+shell_init_options(struct shell *shell)
+{
+	vector_init_zero(&shell->menu, sizeof(struct tw_menu_item), NULL);
+	shell->pending_panel_pos.valid = false;
+	shell->lock_countdown.valid = false;
+	shell->sleep_countdown.valid = false;
+	shell->wallpaper_path.path = NULL;
+	shell->wallpaper_path.valid = false;
+	shell->widget_path.path = NULL;
+	shell->widget_path.valid = false;
+
+}
+
+static inline void
+shell_purge_options(struct shell *shell)
+{
+	vector_destroy(&shell->menu);
+
+	if (shell->wallpaper_path.path) {
+		free(shell->wallpaper_path.path);
+		shell->wallpaper_path.path = NULL;
+	}
+	shell->wallpaper_path.valid = false;
+
+	if (shell->widget_path.path) {
+		free(shell->widget_path.path);
+		shell->widget_path.path = NULL;
+	}
+	shell->widget_path.valid = false;
+
+	shell->pending_panel_pos.valid = false;
+	shell->lock_countdown.valid = false;
+	shell->sleep_countdown.valid = false;
+}
+
 static void
 shell_apply_lua_config(struct tw_config *c, bool cleanup,
 		       struct tw_config_component_listener *listener)
@@ -724,33 +764,40 @@ shell_apply_lua_config(struct tw_config *c, bool cleanup,
 		goto cleanup;
 	if (!shell->shell_resource)
 		return;
-	if (shell->wallpaper_path)
+
+	if (shell->wallpaper_path.valid) {
 		shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_WALLPAPER,
-				   shell->wallpaper_path);
-	if (shell->widget_path)
+				   shell->wallpaper_path.path);
+		shell->wallpaper_path.valid = false;
+	}
+
+	if (shell->widget_path.valid) {
 		shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_WIDGET,
-				   shell->widget_path);
+				   shell->widget_path.path);
+		shell->wallpaper_path.valid = false;
+	}
+
 	if (shell->menu.len) {
 		struct wl_array serialized =
 			taiwins_menu_to_wl_array(shell->menu.elems, shell->menu.len);
 		shell_post_data(shell, TAIWINS_SHELL_MSG_TYPE_MENU, &serialized);
+		vector_destroy(&shell->menu);
 	}
-	if (shell->lock_countdown > 0) {
-		shell->ec->idle_time = shell->lock_countdown;
-		shell->lock_countdown = -1;
+
+	if (shell->lock_countdown.valid &&
+	    shell->lock_countdown.value > 1) {
+		shell->ec->idle_time = shell->lock_countdown.value;
+		shell->lock_countdown.valid = false;
 	}
-	shell_send_panel_pos(shell);
+
+	if (shell->pending_panel_pos.valid) {
+		shell->panel_pos = shell->pending_panel_pos.pos;
+		shell->pending_panel_pos.valid = false;
+		shell_send_panel_pos(shell);
+	}
 
 cleanup:
-	vector_destroy(&shell->menu);
-	if (shell->wallpaper_path) {
-		free(shell->wallpaper_path);
-		shell->wallpaper_path = NULL;
-	}
-	if (shell->widget_path) {
-		free(shell->widget_path);
-		shell->widget_path = NULL;
-	}
+	shell_purge_options(shell);
 }
 
 ////////////////////////// SHELL FUNCIONS /////////////////////////////////
@@ -916,41 +963,41 @@ shell_add_listeners(struct shell *shell)
 		shell_output_created(&shell->output_create_listener, output);
 }
 
-static inline void
-shell_init_options(struct shell *shell)
-{
-	vector_init_zero(&shell->menu, sizeof(struct tw_menu_item), NULL);
-	shell->panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
-	shell->lock_countdown = -1;
-	shell->sleep_countdown = -1;
-	shell->wallpaper_path = NULL;
-	shell->widget_path = NULL;
-}
-
-
 /*******************************************************************************
  * public APIS
  ******************************************************************************/
 void
 tw_shell_set_wallpaper(struct shell *shell, const char *wp)
 {
-	if (shell->wallpaper_path)
-		free(shell->wallpaper_path);
-	shell->wallpaper_path = strdup(wp);
+	if (shell->wallpaper_path.path &&
+	    !strcmp(shell->wallpaper_path.path, wp))
+		return;
+	if (shell->wallpaper_path.path)
+		free(shell->wallpaper_path.path);
+	shell->wallpaper_path.path = strdup(wp);
+	shell->wallpaper_path.valid = true;
 }
 
 void
 tw_shell_set_widget_path(struct shell *shell, const char *path)
 {
-	if (shell->widget_path)
-		free(shell->widget_path);
-	shell->widget_path = strdup(path);
+	if (shell->widget_path.path &&
+	    !strcmp(shell->widget_path.path, path))
+		return;
+
+	if (shell->widget_path.path)
+		free(shell->widget_path.path);
+	shell->widget_path.path = strdup(path);
+	shell->widget_path.valid = true;
 }
 
 void
 tw_shell_set_panel_pos(struct shell *shell, enum taiwins_shell_panel_pos pos)
 {
-	shell->panel_pos = pos;
+	if (shell->panel_pos != pos) {
+		shell->pending_panel_pos.pos = pos;
+		shell->pending_panel_pos.valid = true;
+	}
 }
 
 void
@@ -959,7 +1006,6 @@ tw_shell_set_menu(struct shell *shell, vector_t *menu)
 	vector_destroy(&shell->menu);
 	shell->menu = *menu;
 }
-
 
 bool
 tw_setup_shell(struct weston_compositor *ec, const char *path,
@@ -970,8 +1016,8 @@ tw_setup_shell(struct weston_compositor *ec, const char *path,
 	oneshell.the_widget_surface = NULL;
 	oneshell.shell_client = NULL;
 	oneshell.config = config;
+	oneshell.panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
 
-	//TODO leaking a wl_global
 	oneshell.shell_global =
 		wl_global_create(ec->wl_display,
 		                 &taiwins_shell_interface,
