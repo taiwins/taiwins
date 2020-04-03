@@ -38,7 +38,7 @@ target_link_libraries(test_lua
 ###########################################
 add_executable(test_config
   testconfig.c
-  ../server/theme_lua.c
+  ../server/config/theme_lua.c
   )
 
 target_include_directories(test_config PRIVATE
@@ -49,6 +49,8 @@ target_include_directories(test_config PRIVATE
 target_link_libraries(test_config
   ${COMPOSITOR_LIBRARIES}
   twcore
+  twdesktop
+  twtheme
   twclient::theme
   )
 
@@ -90,7 +92,7 @@ target_link_libraries(test_raxinsert
 
 add_executable(test_theme
   test_theme.c
-  ../server/theme_lua.c
+  ../server/config/theme_lua.c
   )
 
 target_link_libraries(

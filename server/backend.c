@@ -29,13 +29,13 @@
 #include <string.h>
 #include <linux/input.h>
 #include <pixman.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <helpers.h>
 
 #define INCLUDE_BACKEND
 #include "taiwins.h"
 #include "config.h"
-#include "lua_helper.h"
 
 struct tw_backend;
 
@@ -74,10 +74,16 @@ struct tw_backend {
 
 static struct tw_backend TWbackend;
 
+struct tw_backend *
+tw_backend_get_global(void)
+{
+	return &TWbackend;
+}
 
 /******************************************************************
  * tw_backend_output
  *****************************************************************/
+
 static void
 tw_backend_init_output(struct tw_backend *b, struct weston_output *output)
 {
@@ -104,7 +110,7 @@ tw_backend_fini_output(struct tw_backend_output *o)
 	o->pending_transform.valid = false;
 }
 
-static inline struct tw_backend_output*
+struct tw_backend_output*
 tw_backend_output_from_weston_output(struct weston_output *o, struct tw_backend *b)
 {
 	for (int i = 0; i < 32; i++)
@@ -117,8 +123,6 @@ tw_backend_output_from_weston_output(struct weston_output *o, struct tw_backend 
 /******************************************************************
  * head functions
  *****************************************************************/
-/* here we just create one output, every thing else attach to it, but later, we
- * can create other outputs */
 static void
 drm_head_enable(struct weston_head *head, struct weston_compositor *compositor,
 		struct tw_backend *backend)
@@ -131,6 +135,9 @@ drm_head_enable(struct weston_head *head, struct weston_compositor *compositor,
 	//use the clone method
 	struct weston_output *output =
 		weston_compositor_create_output_with_head(compositor, head);
+
+	// here we just create one output, every thing else attach to it, but
+	// later, we can create other outputs
 
 	api->set_mode(output, WESTON_DRM_BACKEND_OUTPUT_PREFERRED, NULL);
 	api->set_gbm_format(output, NULL);
@@ -261,185 +268,6 @@ windowed_head_changed(struct wl_listener *listener, void *data)
 /************************************************************
  * config components
  ***********************************************************/
-#define METATABLE_OUTPUT "metatable_output"
-#define REGISTRY_BACKEND "__backend"
-
-typedef struct { int rotate; bool flip; enum wl_output_transform t;} transform_t;
-static transform_t TRANSFORMS[] = {
-	{0, false, WL_OUTPUT_TRANSFORM_NORMAL},
-	{90, false, WL_OUTPUT_TRANSFORM_90},
-	{180, false, WL_OUTPUT_TRANSFORM_180},
-	{270, false, WL_OUTPUT_TRANSFORM_270},
-	{0, true, WL_OUTPUT_TRANSFORM_FLIPPED},
-	{90, true, WL_OUTPUT_TRANSFORM_FLIPPED_90},
-	{180, true, WL_OUTPUT_TRANSFORM_FLIPPED_180},
-	{270, true, WL_OUTPUT_TRANSFORM_FLIPPED_270},
-};
-
-static inline struct tw_backend *
-_lua_to_backend(lua_State *L)
-{
-	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_BACKEND);
-	struct tw_backend *b = lua_touserdata(L, -1);
-	lua_pop(L, 1);
-	return b;
-}
-
-static int
-_lua_is_under_x11(lua_State *L)
-{
-	struct tw_backend *b = _lua_to_backend(L);
-	lua_pushboolean(L, (b->type == WESTON_BACKEND_X11));
-	return 1;
-}
-
-static int
-_lua_is_under_wayland(lua_State *L)
-{
-	struct tw_backend *b = _lua_to_backend(L);
-	lua_pushboolean(L, (b->type == WESTON_BACKEND_WAYLAND));
-	return 1;
-}
-
-static int
-_lua_is_windowed_display(lua_State *L)
-{
-	struct tw_backend *b = _lua_to_backend(L);
-	lua_pushboolean(L, (b->type == WESTON_BACKEND_X11 ||
-			    b->type == WESTON_BACKEND_WAYLAND ||
-			    b->type == WESTON_BACKEND_RDP ||
-			    b->type == WESTON_BACKEND_HEADLESS));
-	return 1;
-}
-
-static int
-_lua_get_windowed_output(lua_State *L)
-{
-	struct tw_backend_output *to = NULL;
-	struct tw_backend *backend = _lua_to_backend(L);
-	//we create a copy of it
-	if (!wl_list_length(&backend->compositor->output_list)) {
-		return luaL_error(L, "no displays available");
-	} else {
-		struct weston_output *output =
-			container_of(backend->compositor->output_list.next,
-				     struct weston_output, link);
-		to = tw_backend_output_from_weston_output(output, backend);
-	}
-	//we are using this only for weston_output
-	struct tw_backend_output *lua_output =
-		lua_newuserdata(L, sizeof(struct tw_backend_output));
-	lua_output->output = to->output;
-	luaL_getmetatable(L, METATABLE_OUTPUT);
-	lua_setmetatable(L, -2);
-	return 1;
-}
-
-static inline enum wl_output_transform
-_lua_output_transfrom_from_value(lua_State *L, int rotate, bool flip)
-{
-	for (unsigned i = 0; i < NUMOF(TRANSFORMS); i++)
-		if (TRANSFORMS[i].rotate == rotate && TRANSFORMS[i].flip == flip)
-			return TRANSFORMS[i].t;
-	return luaL_error(L, "invalid transforms option.");
-}
-
-static int
-_lua_output_rotate_flip(lua_State *L)
-{
-	struct tw_backend *backend = _lua_to_backend(L);
-	struct tw_backend_output *lua_output =
-		luaL_checkudata(L, 1, METATABLE_OUTPUT);
-	struct tw_backend_output *output = tw_backend_output_from_weston_output(
-		lua_output->output, backend);
-
-	if (lua_gettop(L) == 1) {
-		transform_t transform =
-			TRANSFORMS[lua_output->output->transform];
-		lua_pushinteger(L, transform.rotate);
-		lua_pushboolean(L, transform.flip);
-		return 2;
-	} else if(lua_gettop(L) == 2) {
-		int rotate = luaL_checkinteger(L, 2);
-		bool flip = false;
-		output->pending_transform.transform =
-			_lua_output_transfrom_from_value(L, rotate, flip);
-		output->pending_transform.valid = true;
-		return 0;
-	} else if (lua_gettop(L) == 3) {
-		luaL_checktype(L, 3, LUA_TBOOLEAN);
-		int rotate = luaL_checkinteger(L, 2);
-		int flip = lua_toboolean(L, 3);
-		output->pending_transform.transform =
-			_lua_output_transfrom_from_value(L, rotate, flip);
-		output->pending_transform.valid = true;
-		return 0;
-	} else
-		return luaL_error(L, "invalid number of arguments");
-}
-
-static int
-_lua_output_scale(lua_State *L)
-{
-	struct tw_backend *backend =
-		_lua_to_backend(L);
-	struct tw_backend_output *lua_output =
-		luaL_checkudata(L, 1, METATABLE_OUTPUT);
-	struct tw_backend_output *output =
-		tw_backend_output_from_weston_output(lua_output->output,
-						  backend);
-	if (lua_gettop(L) == 1) {
-		lua_pushinteger(L, lua_output->output->scale);
-		return 1;
-	} else {
-		tw_lua_stackcheck(L, 2);
-		int scale = luaL_checkinteger(L, 2);
-		if (scale <= 0 || scale > 4)
-			return luaL_error(L, "invalid display scale");
-		output->pending_scale.scale = scale;
-		output->pending_scale.valid = true;
-		return 0;
-	}
-}
-
-//weston provides method to setup resolution/refresh_rate/aspect_ratio.
-//we just deal with resolution now
-static int
-_lua_output_resolution(lua_State *L)
-{
-	struct tw_backend_output *lua_output =
-		luaL_checkudata(L, 1, METATABLE_OUTPUT);
-
-	if (lua_gettop(L) == 1) {
-		lua_pushinteger(L, lua_output->output->width);
-		lua_pushinteger(L, lua_output->output->height);
-		return 2;
-	} else {
-		//TODO we deal with THIS later
-		tw_lua_stackcheck(L, 2);
-		return 0;
-	}
-}
-
-static int
-_lua_output_position(lua_State *L)
-{
-	struct tw_backend_output *output =
-		luaL_checkudata(L, 1, METATABLE_OUTPUT);
-	(void)output;
-
-	if (lua_gettop(L) == 1) {
-		lua_pushinteger(L, output->output->x);
-		lua_pushinteger(L, output->output->y);
-		return 2;
-	} else {
-		//TODO we deal with this later.
-		tw_lua_stackcheck(L, 2);
-		return 0;
-	}
-}
-
-//we also need to be able to clone someone
 
 static void
 backend_apply_lua_config(struct tw_config *c, bool cleanup,
@@ -479,47 +307,9 @@ backend_apply_lua_config(struct tw_config *c, bool cleanup,
 	weston_compositor_schedule_repaint(b->compositor);
 }
 
-static bool
-backend_init_config_component(struct tw_config *c, lua_State *L,
-			      struct tw_config_component_listener *listener)
-{
-	struct tw_backend *b = container_of(listener, struct tw_backend,
-					    config_component);
-	lua_pushlightuserdata(L, b);
-	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_BACKEND);
-	//metatable for output
-	luaL_newmetatable(L, METATABLE_OUTPUT);
-	lua_pushvalue(L, -1);
-	lua_setfield(L, -2, "__index");
-	lua_pushvalue(L, -1);
-	lua_setfield(L, -2, "__newindex");
-	//here we choose to make into functions so use output:flip(270) instead of output.flip = 270
-	REGISTER_METHOD(L, "rotate_flip", _lua_output_rotate_flip);
-	REGISTER_METHOD(L, "scale", _lua_output_scale);
-	REGISTER_METHOD(L, "resolution", _lua_output_resolution);
-	REGISTER_METHOD(L, "position", _lua_output_position);
-	lua_pop(L, 1);
-
-	//global methods
-	REGISTER_METHOD(L, "is_windowed_display", _lua_is_windowed_display);
-	REGISTER_METHOD(L, "is_under_x11", _lua_is_under_x11);
-	REGISTER_METHOD(L, "is_under_wayland", _lua_is_under_wayland);
-	//we are calling display instead of output
-	REGISTER_METHOD(L, "get_window_display", _lua_get_windowed_output);
-
-	return true;
-}
-
 /************************************************************
  * global functions
  ***********************************************************/
-
-static inline struct tw_backend *
-get_backend(void)
-{
-	return &TWbackend;
-}
-
 
 static void
 end_backends(struct wl_listener *listener, void *data)
@@ -543,7 +333,6 @@ setup_backend_listeners(struct tw_backend *b)
 	wl_signal_add(&b->compositor->destroy_signal,
 		      &b->compositor_distroy_listener);
 	wl_list_init(&b->config_component.link);
-	b->config_component.init = backend_init_config_component;
 	b->config_component.apply = backend_apply_lua_config;
 	tw_config_add_component(b->config, &b->config_component);
 
@@ -626,12 +415,39 @@ load_weston_backend(struct weston_compositor *ec,
 	return 0;
 }
 
+
+/************************************************************
+ * public functions
+ ***********************************************************/
+enum weston_compositor_backend
+tw_backend_get_type(struct tw_backend *be)
+{
+	return be->type;
+}
+
+void
+tw_backend_output_set_scale(struct tw_backend_output *output,
+                            unsigned int scale)
+{
+	output->pending_scale.scale = scale;
+	output->pending_scale.valid = true;
+}
+
+void
+tw_backend_output_set_transform(struct tw_backend_output *output,
+                                enum wl_output_transform transform)
+{
+	output->pending_transform.transform = transform;
+	output->pending_transform.valid = true;
+}
+
+
 bool
 tw_setup_backend(struct weston_compositor *compositor,
 		 struct tw_config *config)
 {
 	enum weston_compositor_backend backend;
-	struct tw_backend *b = get_backend();
+	struct tw_backend *b = tw_backend_get_global();
 	compositor->vt_switching = true;
 	b->config = config;
 	b->compositor = compositor;

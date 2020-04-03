@@ -56,13 +56,12 @@ tw_config_get_bindings(struct tw_config *config)
 static inline void
 swap_listener(struct wl_list *dst, struct wl_list *src)
 {
-	struct wl_list *pos, *tmp;
-	for (pos = src->next, tmp = pos->next;
-	     pos != src;
-	     pos = tmp, tmp = pos->next) {
-		wl_list_remove(pos);
-		wl_list_insert(dst, pos);
-	}
+	wl_list_init(dst);
+	dst->next = src->next;
+	dst->prev = src->prev;
+	src->next->prev = dst;
+	src->prev->next = dst;
+	wl_list_init(src);
 }
 
 static void

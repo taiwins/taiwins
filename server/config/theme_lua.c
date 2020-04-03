@@ -824,11 +824,3 @@ tw_theme_read(lua_State *L)
 
 	return 0;
 }
-
-void
-tw_theme_init_for_lua(struct tw_theme *theme, lua_State *L)
-{
-	lua_pushlightuserdata(L, theme);
-	lua_setfield(L, LUA_REGISTRYINDEX, "tw_theme");
-	REGISTER_METHOD(L, "read_theme", tw_theme_read);
-}
