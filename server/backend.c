@@ -123,8 +123,6 @@ tw_backend_output_from_weston_output(struct weston_output *o, struct tw_backend 
 /******************************************************************
  * head functions
  *****************************************************************/
-/* here we just create one output, every thing else attach to it, but later, we
- * can create other outputs */
 static void
 drm_head_enable(struct weston_head *head, struct weston_compositor *compositor,
 		struct tw_backend *backend)
@@ -137,6 +135,9 @@ drm_head_enable(struct weston_head *head, struct weston_compositor *compositor,
 	//use the clone method
 	struct weston_output *output =
 		weston_compositor_create_output_with_head(compositor, head);
+
+	// here we just create one output, every thing else attach to it, but
+	// later, we can create other outputs
 
 	api->set_mode(output, WESTON_DRM_BACKEND_OUTPUT_PREFERRED, NULL);
 	api->set_gbm_format(output, NULL);
@@ -268,8 +269,6 @@ windowed_head_changed(struct wl_listener *listener, void *data)
  * config components
  ***********************************************************/
 
-//we also need to be able to clone someone
-
 static void
 backend_apply_lua_config(struct tw_config *c, bool cleanup,
 			 struct tw_config_component_listener *listener)
@@ -334,7 +333,6 @@ setup_backend_listeners(struct tw_backend *b)
 	wl_signal_add(&b->compositor->destroy_signal,
 		      &b->compositor_distroy_listener);
 	wl_list_init(&b->config_component.link);
-	//b->config_component.init = backend_init_config_component;
 	b->config_component.apply = backend_apply_lua_config;
 	tw_config_add_component(b->config, &b->config_component);
 

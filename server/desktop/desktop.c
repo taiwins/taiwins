@@ -55,12 +55,11 @@ struct grab_interface {
 	struct weston_view *view;
 };
 
+typedef OPTION(unsigned int, value) gap_option_t;
+
 static struct desktop {
-	//does the desktop should have the shell ui layout? If that is the case,
-	//we should get the shell as well.
 	struct weston_compositor *compositor;
 	struct shell *shell;
-	//why do I need the launcher here?
 	/* managing current status */
 	struct workspace *actived_workspace[2];
 	struct workspace workspaces[9];
@@ -77,7 +76,7 @@ static struct desktop {
 	struct grab_interface resizing_grab;
 	struct grab_interface task_switch_grab;
 	//params
-	unsigned int inner_gap, outer_gap;
+	gap_option_t inner_gap, outer_gap;
 	enum taiwins_shell_task_switch_effect ts_effect;
 } DESKTOP;
 
@@ -107,7 +106,8 @@ get_workspace_for_view(struct weston_view *v, struct desktop *d)
 }
 
 static inline void
-desktop_set_worksace_layout(struct desktop *d, unsigned int i, enum layout_type type)
+desktop_set_worksace_layout(struct desktop *d, unsigned int i,
+                            enum layout_type type)
 {
 	struct workspace *w;
 
@@ -390,8 +390,8 @@ desktop_output_created(struct wl_listener *listener, void *data)
 		.output = output,
 		.desktop_area = shell_output_available_space(
 			desktop->shell, output),
-		.inner_gap = desktop->inner_gap,
-		.outer_gap = desktop->outer_gap,
+		.inner_gap = desktop->inner_gap.value,
+		.outer_gap = desktop->outer_gap.value,
 	};
 	for (int i = 0; i < MAX_WORKSPACE+1; i++) {
 		workspace_add_output(&desktop->workspaces[i], &tw_output);
@@ -409,8 +409,8 @@ desktop_output_resized(struct wl_listener *listener, void *data)
 		.output = output,
 		.desktop_area = shell_output_available_space(
 			desktop->shell, output),
-		.inner_gap = desktop->inner_gap,
-		.outer_gap = desktop->outer_gap,
+		.inner_gap = desktop->inner_gap.value,
+		.outer_gap = desktop->outer_gap.value,
 	};
 	for (int i = 0; i < MAX_WORKSPACE+1; i++)
 		workspace_resize_output(&desktop->workspaces[i], &tw_output);
@@ -982,11 +982,29 @@ desktop_add_bindings(struct tw_bindings *bindings, struct tw_config *c,
 }
 
 static void
+desktop_apply_config(struct tw_config *c, bool cleanup,
+                     struct tw_config_component_listener *listener)
+{
+	struct weston_output *output;
+	struct desktop *d =
+		container_of(listener, struct desktop, config_component);
+
+	if (d->inner_gap.valid || d->outer_gap.valid) {
+		wl_list_for_each(output, &d->compositor->output_list, link)
+			desktop_output_resized(&d->output_resize_listener,
+			                       output);
+		d->inner_gap.valid = false;
+		d->outer_gap.valid = false;
+	}
+
+}
+
+static void
 end_desktop(struct wl_listener *listener, void *data)
 {
 	struct desktop *d = container_of(listener, struct desktop,
 					 compositor_destroy_listener);
-	//remove listeners
+
 	wl_list_remove(&d->output_create_listener.link);
 	wl_list_remove(&d->output_destroy_listener.link);
 	for (int i = 0; i < MAX_WORKSPACE+1; i++)
@@ -1028,21 +1046,17 @@ tw_desktop_set_workspace_layout(struct desktop *desktop, unsigned int i,
 void
 tw_desktop_get_gap(struct desktop *desktop, int *inner, int *outer)
 {
-	*inner = desktop->inner_gap;
-	*outer = desktop->outer_gap;
+	*inner = desktop->inner_gap.value;
+	*outer = desktop->outer_gap.value;
 }
 
 void
 tw_desktop_set_gap(struct desktop *desktop, int inner, int outer)
 {
-	struct weston_output *output;
-
-	desktop->inner_gap = inner;
-	desktop->outer_gap = outer;
-
-	wl_list_for_each(output, &desktop->compositor->output_list, link)
-		desktop_output_resized(&desktop->output_resize_listener,
-		                       output);
+	desktop->inner_gap.valid = true;
+	desktop->inner_gap.value = inner;
+	desktop->outer_gap.valid = true;
+	desktop->outer_gap.value = outer;
 }
 
 
@@ -1053,8 +1067,11 @@ tw_setup_desktop(struct weston_compositor *ec,  struct tw_config *config)
 	DESKTOP.compositor = ec;
 	DESKTOP.shell = tw_shell_get_global();
 	//params
-	DESKTOP.inner_gap = 10;
-	DESKTOP.outer_gap = 10;
+	DESKTOP.inner_gap.value = 10;
+	DESKTOP.outer_gap.value = 10;
+	DESKTOP.inner_gap.valid = false;
+	DESKTOP.outer_gap.valid = false;
+
 	struct workspace *wss = DESKTOP.workspaces;
 	{
 		for (int i = 0; i < MAX_WORKSPACE+1; i++)
@@ -1099,7 +1116,7 @@ tw_setup_desktop(struct weston_compositor *ec,  struct tw_config *config)
 	tw_config_add_apply_bindings(config, &DESKTOP.add_binding);
 
 	wl_list_init(&DESKTOP.config_component.link);
-	DESKTOP.config_component.apply = NULL;
+	DESKTOP.config_component.apply = desktop_apply_config;
 	tw_config_add_component(config, &DESKTOP.config_component);
 
 	wl_list_init(&DESKTOP.compositor_destroy_listener.link);

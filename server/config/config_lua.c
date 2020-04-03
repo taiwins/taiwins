@@ -516,10 +516,9 @@ _lua_get_windowed_output(lua_State *L)
 	struct tw_backend_output *to = NULL;
 	struct weston_output *output;
 	struct _lua_bkend_output *lua_output;
-
 	struct tw_backend *backend = _lua_to_backend(L);
 	int bkend_type;
-	//we create a copy of it
+
 	ec = _lua_to_compositor(L);
 	bkend_type = tw_backend_get_type(backend);
 	if (bkend_type != WESTON_BACKEND_X11 &&
@@ -602,8 +601,6 @@ _lua_output_scale(lua_State *L)
 	}
 }
 
-//weston provides method to setup resolution/refresh_rate/aspect_ratio.
-//we just deal with resolution now
 static int
 _lua_output_resolution(lua_State *L)
 {
@@ -650,7 +647,8 @@ _lua_init_backend(struct tw_config *c, lua_State *L,
 	lua_setfield(L, -2, "__index");
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -2, "__newindex");
-	//here we choose to make into functions so use output:flip(270) instead of output.flip = 270
+	//here we choose to make into functions so use output:flip(270) instead
+	//of output.flip = 270
 	REGISTER_METHOD(L, "rotate_flip", _lua_output_rotate_flip);
 	REGISTER_METHOD(L, "scale", _lua_output_scale);
 	REGISTER_METHOD(L, "resolution", _lua_output_resolution);
@@ -661,7 +659,9 @@ _lua_init_backend(struct tw_config *c, lua_State *L,
 	REGISTER_METHOD(L, "is_windowed_display", _lua_is_windowed_display);
 	REGISTER_METHOD(L, "is_under_x11", _lua_is_under_x11);
 	REGISTER_METHOD(L, "is_under_wayland", _lua_is_under_wayland);
-	//we are calling display instead of output
+
+	//TODO for now we now allows creating windowed output for user to
+	//configure
 	REGISTER_METHOD(L, "get_window_display", _lua_get_windowed_output);
 
 	return true;
@@ -722,7 +722,6 @@ _lua_set_panel_position(lua_State *L)
 	return 0;
 }
 
-/* whether this is a menu item */
 static bool
 _lua_is_menu_item(struct lua_State *L, int idx)
 {
@@ -819,39 +818,25 @@ static int
 _lua_request_shell(lua_State *L)
 {
 	lua_newtable(L);
-	//register global methods or fields
 	luaL_getmetatable(L, METATABLE_SHELL);
 	lua_setmetatable(L, -2);
 	return 1;
 }
 
-/*
- * function exposed for shell.
- *
- * set theme, we may actually creates a new theme globals.
- * - set wallpaper.
- * - init widgets.
- * - set menus.
- * - panel positions (we can only give it as top and down). Panel size is determined by font size, and all that color.
- * - what else?
- */
 static bool
 _lua_init_shell(struct tw_config *c, lua_State *L, struct shell *shell)
-
 {
 	lua_pushlightuserdata(L, shell);
 	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_SHELL);
-	//register global methods.
-	//creates its own metatable
+	//shell methods
 	luaL_newmetatable(L, METATABLE_SHELL);
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -2, "__index");
-	//TODO make all those methods overrided
 	REGISTER_METHOD(L, "set_wallpaper", _lua_set_wallpaper);
 	REGISTER_METHOD(L, "init_widgets", _lua_set_widgets);
 	REGISTER_METHOD(L, "panel_position", _lua_set_panel_position);
 	REGISTER_METHOD(L, "set_menus", _lua_set_menus);
-	//now methods
+	//global methods
 	lua_pop(L, 1);
 	REGISTER_METHOD(L, "shell", _lua_request_shell);
 	REGISTER_METHOD(L, "lock_in", _lua_set_lock_timer);
@@ -863,6 +848,7 @@ _lua_init_shell(struct tw_config *c, lua_State *L, struct shell *shell)
 /****************************************************************************
  * desktop config
  ***************************************************************************/
+
 #define METATABLE_WORKSPACE "metatable_workspace"
 #define METATABLE_DESKTOP "metatable_desktop"
 #define REGISTRY_DESKTOP "__desktop"
@@ -942,28 +928,6 @@ _lua_desktop_gap(lua_State *L)
 	}
 	return luaL_error(L, "invalid size of params for gap.");
 }
-
-/*static int
-_lua_set_desktop_gap(lua_State *L)
-{
-        int inner_gap, outer_gap;
-        struct desktop *d = _lua_to_desktop(L);
-        struct weston_output *output;
-
-        if (lua_gettop(L) != 3)
-                return luaL_error(L, "invalid size of params.");
-        inner_gap = lua_tointeger(L, 2);
-        outer_gap = lua_tointeger(L, 3);
-        if (inner_gap < 0 || inner_gap > 100 ||
-            outer_gap < 0 || outer_gap > 100)
-                return luaL_error(L, "invalid size of gaps.");
-        d->inner_gap = inner_gap;
-        d->outer_gap = outer_gap;
-        wl_list_for_each(output, &d->compositor->output_list, link)
-                desktop_output_resized(&d->output_resize_listener, output);
-        return 0;
-}
-*/
 
 static int
 _lua_request_desktop(lua_State *L)
