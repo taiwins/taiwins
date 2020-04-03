@@ -69,7 +69,6 @@ struct tw_backend {
 	struct wl_listener compositor_distroy_listener;
 	struct wl_listener windowed_head_changed;
 	struct wl_listener drm_head_changed;
-	struct wl_listener config_listener;
 	struct tw_config_component_listener config_component;
 };
 
