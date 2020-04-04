@@ -5,6 +5,7 @@ add_executable(taiwins-shell
   shell_lock.c
   shell_msgs.c
   shell_bus.c
+  shell_ui.c
 
   widget.c
   widgets/clock.c

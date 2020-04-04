@@ -22,6 +22,7 @@
 #ifndef TW_SHELL_CLIENT_H
 #define TW_SHELL_CLIENT_H
 
+#include <stdint.h>
 #include <unistd.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -77,6 +78,8 @@ struct widget_launch_info {
 	uint32_t y;
 	struct shell_widget *widget;
 	struct shell_widget *current;
+	/**> which output to launch */
+	struct shell_output *output;
 };
 
 struct desktop_shell {
@@ -116,6 +119,7 @@ struct desktop_shell {
 		struct tw_signal msg_del_signal;
 	} notifs;
 
+	vector_t menu;
 	//outputs
 	struct shell_output *main_output;
 	struct shell_output shell_outputs[16];
@@ -167,6 +171,17 @@ shell_tdbus_end(struct desktop_shell *shell);
 void
 shell_cleanup_notifications(struct desktop_shell *shell);
 
+void
+shell_launch_menu(struct desktop_shell *shell, struct shell_output *o,
+                  uint32_t x, uint32_t y);
+void
+shell_launch_notif(struct desktop_shell *shell, struct shell_notif *n);
+
+void
+shell_launch_widget(struct desktop_shell *shell);
+
+void
+shell_close_widget(struct desktop_shell *shell);
 
 #ifdef __cplusplus
 }
