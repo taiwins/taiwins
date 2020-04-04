@@ -37,6 +37,7 @@
 #include <wayland-util.h>
 #include "../shared_config.h"
 #include "theme.h"
+#include "vector.h"
 #include "wayland-taiwins-theme-client-protocol.h"
 #include "wayland-taiwins-theme-server-protocol.h"
 #include "widget.h"
@@ -239,6 +240,9 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	wl_list_init(&shell->notifs.msgs);
 	tw_signal_init(&shell->notifs.msg_recv_signal);
 	tw_signal_init(&shell->notifs.msg_del_signal);
+
+	//menu
+	vector_init_zero(&shell->menu, sizeof(struct tw_menu_item), NULL);
 }
 
 static void
@@ -263,6 +267,7 @@ desktop_shell_release(struct desktop_shell *shell)
 	tw_theme_fini(&shell->theme);
 	//destroy left over notifications
 	shell_cleanup_notifications(shell);
+	vector_destroy(&shell->menu);
 
 #ifdef __DEBUG
 	cairo_debug_reset_static_data();

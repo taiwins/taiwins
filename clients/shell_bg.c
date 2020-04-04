@@ -25,8 +25,11 @@
 static bool
 shell_background_start_menu(struct tw_appsurf *surf, const struct tw_app_event *e)
 {
+	struct shell_output *output = container_of(surf, struct shell_output, background);
+	struct desktop_shell *shell = output->shell;
+
 	if (e->ptr.btn == BTN_RIGHT && e->ptr.state)
-		fprintf(stderr, "should start menu by now");
+		shell_launch_menu(shell, output, e->ptr.x, e->ptr.y);
 	return true;
 }
 

@@ -27,6 +27,7 @@
 #include <wayland-util.h>
 #include "client.h"
 #include "shell.h"
+#include "vector.h"
 
 static inline struct shell_notif *
 make_shell_notif(const char *msg)
@@ -54,7 +55,7 @@ shell_add_notif(struct desktop_shell *shell,
 	if (notif && shell) {
 		wl_list_insert(&shell->notifs.msgs,
 		               &notif->link);
-		//TODO notification widget should listen on this
+		shell_launch_notif(shell, notif);
 		tw_signal_emit(&shell->notifs.msg_recv_signal,
 		               notif);
 	}
@@ -78,15 +79,6 @@ shell_cleanup_notifications(struct desktop_shell *shell)
 		shell_destroy_notify(shell, pos);
 }
 
-static inline void
-kill_widget(struct desktop_shell *shell)
-{
-	taiwins_ui_destroy(shell->widget_launch.current->proxy);
-	shell->widget_launch.current->proxy = NULL;
-	tw_appsurf_release(&shell->widget_launch.current->widget);
-	shell->widget_launch.current = NULL;
-}
-
 static vector_t
 taiwins_menu_from_wl_array(const struct wl_array *serialized)
 {
@@ -105,9 +97,10 @@ static void
 desktop_shell_setup_menu(struct desktop_shell *shell,
 			 const struct wl_array *serialized)
 {
-	vector_t menus = taiwins_menu_from_wl_array(serialized);
-	//what you do here? you can validate it, then copy to shell.
-	vector_destroy(&menus);
+	vector_t new_menu = taiwins_menu_from_wl_array(serialized);
+
+	vector_destroy(&shell->menu);
+	shell->menu = new_menu;
 }
 
 static void
@@ -151,7 +144,7 @@ desktop_shell_setup_locker(struct desktop_shell *shell)
 	else if (shell->transient.wl_surface)
 		shell_end_transient_surface(shell);
 	if (shell->widget_launch.current)
-		kill_widget(shell);
+		shell_close_widget(shell);
 
 	shell_locker_init(shell);
 	tw_appsurf_frame(&shell->transient, false);
