@@ -37,18 +37,18 @@
  ******************************************************************************/
 
 static void
-shell_draw_submenu(struct nk_context *ctx, struct tw_menu_item *item,
-                   int clicked)
+shell_draw_submenu(struct nk_context *ctx, struct tw_menu_item *item, int id)
 {
 	struct nk_style_button *style =
 		&ctx->style.contextual_button;
 
-	if (clicked &&
-	    nk_tree_push(ctx, NK_TREE_TAB, item->endnode.title, NK_MINIMIZED)) {
+	if (nk_tree_push_id(ctx, NK_TREE_TAB, item->endnode.title,
+	                    NK_MINIMIZED, id)) {
 		for (unsigned i = 0; i < item->len; i++) {
+			struct tw_menu_item *sub_item = item + i + 1;
 			nk_layout_row_dynamic(ctx, 25, 1);
 			if (nk_button_label_styled(ctx, style,
-			                           item->endnode.title))
+			                           sub_item->endnode.title))
 				fprintf(stderr, "should run command %s",
 				        item->endnode.cmd);
 		}
@@ -60,31 +60,35 @@ static void
 shell_draw_menu(struct nk_context *ctx, float width, float height,
                 struct tw_appsurf *app)
 {
+	static int clicked;
+	int i = 0;
 	struct tw_menu_item *item;
 	struct nk_style_button *style;
-	int clicked;
-
 	struct shell_widget *menu = container_of(app, struct shell_widget,
 	                                         widget);
 	vector_t *menu_data = menu->user_data;
 
 	style = &ctx->style.contextual_button;
 
-	vector_for_each(item, menu_data) {
-		nk_layout_row_dynamic(ctx, 25, 1);
-		clicked = nk_button_label_styled(ctx, style,
-		                                 item->endnode.title);
+	while (i < menu_data->len) {
+		item = vector_at(menu_data, i);
 		if (item->has_submenu)
-			shell_draw_submenu(ctx, item, clicked);
-		else if (clicked)
-			fprintf(stderr, "should run cmd: %s\n",
-			        item->endnode.cmd);
-	}
+			shell_draw_submenu(ctx, item, i);
+		else {
+			nk_layout_row_dynamic(ctx, 25, 1);
+			if ((clicked = nk_button_label_styled(ctx, style,
+		                                           item->endnode.title)))
+				fprintf(stderr, "should run cmd: %s\n",
+				        item->endnode.cmd);
+		}
+
+		i+= (item->has_submenu) ? 1 + item->len : 1;
+	};
 }
 
 static struct shell_widget menu_widget = {
-	.w = 40,
-	.h = 60,
+	.w = 120,
+	.h = 110,
 	.draw_cb = shell_draw_menu,
 };
 
@@ -114,6 +118,9 @@ struct shell_widget notification_widget = {
 	.draw_cb = shell_draw_notif,
 };
 
+/*******************************************************************************
+ *  shell widget api
+ ******************************************************************************/
 
 static void
 widget_should_close(void *data, struct taiwins_ui *ui_elem)
@@ -130,7 +137,6 @@ widget_should_close(void *data, struct taiwins_ui *ui_elem)
 static struct  taiwins_ui_listener widget_impl = {
 	.close = widget_should_close,
 };
-
 
 void
 shell_close_widget(struct desktop_shell *shell)

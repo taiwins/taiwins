@@ -162,7 +162,6 @@ shell_process_msg(struct desktop_shell *shell,
 		arg.s = data->data;
 		notification = make_shell_notif(arg.s);
 		shell_add_notif(shell, notification);
-		//TODO launch_maybe_notify?
 		break;
 	case TAIWINS_SHELL_MSG_TYPE_PANEL_POS:
 		arg.u = atoi((const char*)data->data);
