@@ -22,6 +22,7 @@
 #ifndef TW_SHELL_CLIENT_H
 #define TW_SHELL_CLIENT_H
 
+#include <stdint.h>
 #include <unistd.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -37,17 +38,22 @@
 #include <sequential.h>
 #include <os/file.h>
 #include <client.h>
-#include <egl.h>
 #include <shmpool.h>
 #include <nk_backends.h>
 #include <theme.h>
 #include <tdbus.h>
+#include <wayland-util.h>
 #include "../shared_config.h"
 #include "widget.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct shell_notif {
+	char *msg;
+	struct wl_list link;
+};
 
 struct shell_output {
 	struct desktop_shell *shell;
@@ -72,6 +78,8 @@ struct widget_launch_info {
 	uint32_t y;
 	struct shell_widget *widget;
 	struct shell_widget *current;
+	/**> which output to launch */
+	struct shell_output *output;
 };
 
 struct desktop_shell {
@@ -81,7 +89,7 @@ struct desktop_shell {
 	enum taiwins_shell_panel_pos panel_pos;
 	struct tdbus *system_bus;
 	struct tdbus *session_bus;
-	//pannel configuration
+	/**< widget configurations */
 	struct {
 		struct nk_wl_backend *panel_backend;
 		struct nk_style_button label_style;
@@ -90,15 +98,28 @@ struct desktop_shell {
 		//TODO calculated from font size
 		size_t panel_height;
 	};
-	//widget configures
+	/**< widget configurations */
 	struct {
 		struct nk_wl_backend *widget_backend;
 		struct wl_list shell_widgets;
 		struct widget_launch_info widget_launch;
-		//surface like locker, on-screen-keyboard will use this surface.
+		//surface like locker, on-screen-keyboard, menu, notification
 		struct taiwins_ui *transient_ui;
 		struct tw_appsurf transient;
 	};
+
+	/**< notifications for shell to show */
+	struct {
+		/* supporting functions should be push notificaiton; delete
+		 * notification; since notification does not necessarily create, delete
+		 * in order, we would need to use a list, there should also be a signal,
+		 * notifying the any new notifications coming */
+		struct wl_list msgs;
+		struct tw_signal msg_recv_signal;
+		struct tw_signal msg_del_signal;
+	} notifs;
+
+	vector_t menu;
 	//outputs
 	struct shell_output *main_output;
 	struct shell_output shell_outputs[16];
@@ -115,23 +136,6 @@ desktop_shell_n_outputs(struct desktop_shell *shell)
 	return 16;
 }
 
-
-void shell_init_bg_for_output(struct shell_output *output);
-void shell_resize_bg_for_output(struct shell_output *output);
-
-
-void shell_init_panel_for_output(struct shell_output *output);
-void shell_resize_panel_for_output(struct shell_output *output);
-
-void shell_locker_init(struct desktop_shell *shell);
-
-void shell_process_msg(struct desktop_shell *shell, uint32_t type,
-		       const struct wl_array *data);
-
-void shell_tdbus_init(struct desktop_shell *shell);
-
-void shell_tdbus_end(struct desktop_shell *shell);
-
 static inline void
 shell_end_transient_surface(struct desktop_shell *shell)
 {
@@ -139,6 +143,45 @@ shell_end_transient_surface(struct desktop_shell *shell)
 	shell->transient_ui = NULL;
 	tw_appsurf_release(&shell->transient);
 }
+
+void
+shell_init_bg_for_output(struct shell_output *output);
+
+void
+shell_resize_bg_for_output(struct shell_output *output);
+
+void
+shell_init_panel_for_output(struct shell_output *output);
+
+void
+shell_resize_panel_for_output(struct shell_output *output);
+
+void
+shell_locker_init(struct desktop_shell *shell);
+
+void
+shell_process_msg(struct desktop_shell *shell, uint32_t type,
+                  const struct wl_array *data);
+void
+shell_tdbus_init(struct desktop_shell *shell);
+
+void
+shell_tdbus_end(struct desktop_shell *shell);
+
+void
+shell_cleanup_notifications(struct desktop_shell *shell);
+
+void
+shell_launch_menu(struct desktop_shell *shell, struct shell_output *o,
+                  uint32_t x, uint32_t y);
+void
+shell_launch_notif(struct desktop_shell *shell, struct shell_notif *n);
+
+void
+shell_launch_widget(struct desktop_shell *shell);
+
+void
+shell_close_widget(struct desktop_shell *shell);
 
 #ifdef __cplusplus
 }

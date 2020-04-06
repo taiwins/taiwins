@@ -19,71 +19,18 @@
  *
  */
 
+#include "event_queue.h"
+#include "helpers.h"
 #include "shell.h"
 
 
-/*******************************************************************************
- * widgets
- ******************************************************************************/
-
-static void
-widget_should_close(void *data, struct taiwins_ui *ui_elem)
+static int
+panel_launch_widget(struct tw_event *event, int fd)
 {
-	struct widget_launch_info *info = (struct widget_launch_info *)data;
-	struct shell_widget *widget = info->current;
-
-	taiwins_ui_destroy(widget->proxy);
-	tw_appsurf_release(&widget->widget);
-	widget->proxy = NULL;
-	info->current = NULL;
+	shell_launch_widget(event->data);
+	return  TW_EVENT_DEL;
 }
 
-static struct  taiwins_ui_listener widget_impl = {
-	.close = widget_should_close,
-};
-
-//later we can take advantage of the idle queue for this.
-void
-launch_widget(struct tw_appsurf *panel_surf)
-{
-	struct shell_output *shell_output =
-		container_of(panel_surf, struct shell_output, panel);
-	struct desktop_shell *shell = shell_output->shell;
-	struct widget_launch_info *info = &shell->widget_launch;
-	if (info->current == info->widget)
-		return;
-	else if (info->current != NULL) {
-		//if there is a widget launched and is not current widget
-		tw_appsurf_release(&info->current->widget);
-		info->current = NULL;
-	}
-
-	struct wl_surface *widget_surface =
-		wl_compositor_create_surface(shell->globals.compositor);
-	struct taiwins_ui *widget_proxy =
-		taiwins_shell_launch_widget(shell->interface, widget_surface,
-				       shell_output->index, info->x, info->y);
-
-	info->widget->proxy = widget_proxy;
-	taiwins_ui_add_listener(widget_proxy, &widget_impl, info);
-	//launch widget
-	tw_appsurf_init(&info->widget->widget, widget_surface,
-			 panel_surf->tw_globals,
-			 TW_APPSURF_WIDGET, TW_APPSURF_NORESIZABLE);
-	nk_cairo_impl_app_surface(&info->widget->widget, shell->widget_backend,
-				  info->widget->draw_cb,
-				  tw_make_bbox(info->x, info->y,
-				               info->widget->w, info->widget->h,
-				               shell_output->bbox.s));
-
-	tw_appsurf_frame(&info->widget->widget, false);
-
-	info->current = info->widget;
-}
-
-/*******************************************************************************
- * shell panel
- ******************************************************************************/
 static inline struct nk_vec2
 widget_launch_point_flat(struct nk_vec2 *label_span, struct shell_widget *clicked,
 			 struct tw_appsurf *panel_surf)
@@ -191,12 +138,22 @@ shell_panel_frame(struct nk_context *ctx, float width, float height,
 	    !clicked->draw_cb ||
 	    shell->transient.wl_surface) //if other surface is ocuppying
 		return;
+
+	//launch widget
 	struct widget_launch_info *info = &shell->widget_launch;
+	struct tw_event launch_widget = {
+		.data = shell,
+		.cb = panel_launch_widget,
+	};
+
 	info->widget = clicked;
+	info->output = container_of(panel_surf, struct shell_output, panel);
 	struct nk_vec2 p = widget_launch_point_flat(&label_span, clicked, panel_surf);
 	info->x = (int)p.x;
 	info->y = (int)p.y;
-	nk_wl_add_idle(ctx, launch_widget);
+
+	tw_event_queue_add_idle(&shell->globals.event_queue, &launch_widget);
+
 }
 
 void

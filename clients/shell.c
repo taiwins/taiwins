@@ -34,8 +34,10 @@
 #include <client.h>
 #include <egl.h>
 #include <nk_backends.h>
+#include <wayland-util.h>
 #include "../shared_config.h"
 #include "theme.h"
+#include "vector.h"
 #include "wayland-taiwins-theme-client-protocol.h"
 #include "wayland-taiwins-theme-server-protocol.h"
 #include "widget.h"
@@ -218,18 +220,29 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 		style->border_color = theme->window.background;
 		style->text_background = theme->window.background;
 		style->text_normal = text_normal;
-		style->text_hover = nk_rgba(text_normal.r + 20, text_normal.g + 20,
-					    text_normal.b + 20, text_normal.a);
-		style->text_active = nk_rgba(text_normal.r + 40, text_normal.g + 40,
-					     text_normal.b + 40, text_normal.a);
+		style->text_hover = nk_rgba(text_normal.r + 20,
+		                            text_normal.g + 20,
+					    text_normal.b + 20,
+		                            text_normal.a);
+		style->text_active = nk_rgba(text_normal.r + 40,
+		                             text_normal.g + 40,
+					     text_normal.b + 40,
+		                             text_normal.a);
 	}
 
-	//right now we just hard coded some link
-	//add the widgets here
+	//widgets
 	wl_list_init(&shell->shell_widgets);
 	shell_widgets_load_default(&shell->shell_widgets);
 
 	shell->widget_launch = (struct widget_launch_info){0};
+
+	//notifications
+	wl_list_init(&shell->notifs.msgs);
+	tw_signal_init(&shell->notifs.msg_recv_signal);
+	tw_signal_init(&shell->notifs.msg_del_signal);
+
+	//menu
+	vector_init_zero(&shell->menu, sizeof(struct tw_menu_item), NULL);
 }
 
 static void
@@ -252,6 +265,9 @@ desktop_shell_release(struct desktop_shell *shell)
 	nk_cairo_destroy_backend(shell->widget_backend);
 	nk_cairo_destroy_backend(shell->panel_backend);
 	tw_theme_fini(&shell->theme);
+	//destroy left over notifications
+	shell_cleanup_notifications(shell);
+	vector_destroy(&shell->menu);
 
 #ifdef __DEBUG
 	cairo_debug_reset_static_data();
@@ -262,12 +278,12 @@ desktop_shell_release(struct desktop_shell *shell)
  * globals
  ******************************************************************************/
 
-static
-void announce_globals(void *data,
-		      struct wl_registry *wl_registry,
-		      uint32_t name,
-		      const char *interface,
-		      uint32_t version)
+static void
+announce_globals(void *data,
+                 struct wl_registry *wl_registry,
+                 uint32_t name,
+                 const char *interface,
+                 uint32_t version)
 {
 	struct desktop_shell *twshell = (struct desktop_shell *)data;
 
