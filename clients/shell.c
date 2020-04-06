@@ -278,12 +278,12 @@ desktop_shell_release(struct desktop_shell *shell)
  * globals
  ******************************************************************************/
 
-static
-void announce_globals(void *data,
-		      struct wl_registry *wl_registry,
-		      uint32_t name,
-		      const char *interface,
-		      uint32_t version)
+static void
+announce_globals(void *data,
+                 struct wl_registry *wl_registry,
+                 uint32_t name,
+                 const char *interface,
+                 uint32_t version)
 {
 	struct desktop_shell *twshell = (struct desktop_shell *)data;
 

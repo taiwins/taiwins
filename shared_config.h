@@ -69,6 +69,7 @@ struct tw_decision_key {
 /*****************************************************************/
 #define TAIWINS_MAX_MENU_CMD_LEN 15
 #define TAIWINS_MAX_MENU_ITEM_NAME 15
+#define TAIWINS_MAX_MENU_LEN 16
 
 struct tw_menu_item {
 
