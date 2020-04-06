@@ -30,6 +30,7 @@
 #include <strops.h>
 #include <os/file.h>
 #include <vector.h>
+#include <wayland-util.h>
 
 #include "../taiwins.h"
 #include "../bindings.h"
@@ -58,6 +59,7 @@ struct shell_ui {
 typedef OPTION(char *, path) path_option_t;
 typedef OPTION(int32_t, value) int_option_t;
 typedef OPTION(enum taiwins_shell_panel_pos, pos) pos_option_t;
+
 /**
  * @brief represents tw_output
  *
@@ -118,6 +120,25 @@ static struct shell oneshell;
 struct shell *
 tw_shell_get_global() {return &oneshell; }
 
+/*******************************************************************
+ * default taiwins_shell data
+ ******************************************************************/
+static struct tw_menu_item shell_default_menu[] = {
+	{
+		.endnode.title = "Application",
+		.has_submenu = true,
+		.len = 0,
+	},
+	{
+		.endnode.title = "System",
+		.has_submenu = true,
+		.len = 1,
+	},
+	{
+		.endnode.title = "Reconfigure",
+		.has_submenu = false,
+	},
+};
 
 /*******************************************************************
  * taiwins_ui implementation
@@ -237,7 +258,6 @@ shell_ui_create_simple(struct shell_ui *ui, struct wl_resource *taiwins_ui,
 	return true;
 }
 
-
 /**********************************************************************************
  * tw_output and listeners
  *********************************************************************************/
@@ -337,7 +357,6 @@ shell_compositor_idle(struct wl_listener *listener, void *data)
 /********************************************************************************
  * shell_view
  *******************************************************************************/
-
 
 static void
 setup_view(struct weston_view *view, struct weston_layer *layer,
@@ -718,7 +737,6 @@ taiwins_menu_to_wl_array(const struct tw_menu_item * items, const int len)
 }
 
 
-
 static inline void
 shell_init_options(struct shell *shell)
 {
@@ -800,7 +818,31 @@ cleanup:
 	shell_purge_options(shell);
 }
 
-////////////////////////// SHELL FUNCIONS /////////////////////////////////
+static void
+shell_send_default_config(struct shell *shell)
+{
+	struct weston_output *output;
+
+	wl_list_for_each(output, &shell->ec->output_list, link) {
+		int ith_output = shell_ith_output(shell, output);
+		taiwins_shell_send_output_configure(shell->shell_resource,
+		                                    ith_output,
+		                                    output->width,
+		                                    output->height,
+		                                    output->scale,
+		                                    ith_output == 0,
+		                                    TAIWINS_SHELL_OUTPUT_MSG_CONNECTED);
+	}
+	if (shell->menu.len == 0) {
+		struct wl_array default_menu =
+			taiwins_menu_to_wl_array(shell_default_menu, 3);
+		shell_post_data(shell, TAIWINS_SHELL_MSG_TYPE_MENU,
+		                &default_menu);
+	}
+}
+/*******************************************************************
+ * shell function
+ ******************************************************************/
 
 static void
 unbind_shell(struct wl_resource *resource)
@@ -822,7 +864,8 @@ unbind_shell(struct wl_resource *resource)
 }
 
 static void
-bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
+bind_shell(struct wl_client *client, void *data, uint32_t version,
+           uint32_t id)
 {
 	struct shell *shell = data;
 	uid_t uid; gid_t gid; pid_t pid;
@@ -854,19 +897,14 @@ bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 	shell->shell_resource = resource;
 	shell->ready = true;
 
-	//send configurations to clients now
+	/// send configurations to clients now
+	shell_send_default_config(shell);
 	shell_apply_lua_config(shell->config, false, &shell->config_component);
-	struct weston_output *output;
-	wl_list_for_each(output, &shell->ec->output_list, link) {
-		int ith_output = shell_ith_output(shell, output);
-		taiwins_shell_send_output_configure(shell->shell_resource, ith_output,
-					       output->width, output->height, output->scale,
-					       ith_output == 0,
-					       TAIWINS_SHELL_OUTPUT_MSG_CONNECTED);
-	}
 }
 
-///////////////////////// exposed APIS ////////////////////////////////
+/*******************************************************************
+ * exposed API
+ ******************************************************************/
 
 void
 shell_create_ui_elem(struct shell *shell,

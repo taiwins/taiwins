@@ -49,7 +49,7 @@ struct shell_widget;
  * it to its unicode
  */
 struct shell_widget_label {
-	char label[256];
+	char label[32];
 };
 typedef int (*shell_widget_draw_label_t)(struct shell_widget *, struct shell_widget_label *);
 typedef int (*shell_widget_setup_cb_t)(struct shell_widget *);
