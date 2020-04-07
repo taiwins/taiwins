@@ -21,6 +21,9 @@ add_library(twtheme STATIC
   config/theme_lua.c
   )
 
+add_library(twxwayland STATIC
+  xwayland.c)
+
 add_library(twdesktop STATIC
   desktop/desktop.c
   desktop/layout.c
@@ -63,6 +66,10 @@ target_link_libraries(twtheme PUBLIC
   twclient::theme
   )
 
+target_link_libraries(twxwayland PUBLIC
+  twcore
+  libweston::libweston)
+
 ################################################################################
 # executable
 ################################################################################
@@ -75,6 +82,7 @@ target_link_libraries(taiwins
   twcore
   twdesktop
   twtheme
+  twxwayland
   twbus
   )
 

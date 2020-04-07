@@ -52,14 +52,7 @@ struct tw_compositor {
 	struct tw_config_component_listener config_component;
 };
 
-
-static FILE *logfile = NULL;
-
-static int
-tw_log(const char *format, va_list args)
-{
-	return vfprintf(logfile, format, args);
-}
+extern FILE *logfile;
 
 static void
 tw_compositor_quit(struct weston_keyboard *keyboard,
@@ -170,7 +163,7 @@ tw_compositor_sigchld(int sig_num, void *data)
 
 		wl_list_remove(&subproc->link);
 		if (subproc->chld_handler)
-			subproc->chld_handler(subproc);
+			subproc->chld_handler(subproc, status);
 	}
 	if (pid < 0 && errno != ECHILD)
 		weston_log("error in waiting child with status %s\n",
@@ -245,6 +238,7 @@ int main(int argc, char *argv[], char *envp[])
 	assert(tw_setup_console(compositor, launcherpath, config));
 	assert(tw_setup_desktop(compositor, config));
 	assert(tw_setup_theme(compositor, config));
+	assert(tw_setup_xwayland(compositor, config));
 
 	error = !tw_config_run(config, path);
 	if (error) {
