@@ -28,6 +28,7 @@
 #include <dlfcn.h>
 #include <wayland-server.h>
 #include <os/os-compatibility.h>
+#include <wayland-util.h>
 
 #include "taiwins.h"
 
@@ -74,11 +75,13 @@ exec_wayland_client(const char *path, int fd)
 
 //return the client pid
 struct wl_client *
-tw_launch_client(struct weston_compositor *ec, const char *path)
+tw_launch_client(struct weston_compositor *ec, const char *path,
+                 struct tw_subprocess *chld)
 {
 	int sv[2];
 	pid_t pid;
 	struct wl_client *client;
+	struct wl_list *clients = tw_get_clients_head();
 	//now we have to do the close on exec thing
 	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0, sv)) {
 		weston_log("taiwins_client launch: "
@@ -117,10 +120,25 @@ tw_launch_client(struct weston_compositor *ec, const char *path)
 			   "failed to create wl_client for %s", path);
 		return NULL;
 	}
+	if (chld) {
+		chld->pid = pid;
+		wl_list_init(&chld->link);
+		wl_list_insert(clients, &chld->link);
+	}
 	//now we some probably need to add signal on the server side
 	return client;
 }
 
+
+struct wl_list *tw_get_clients_head()
+{
+	static struct wl_list clients_head = {
+		.prev = &clients_head,
+		.next = &clients_head,
+	};
+
+	return &clients_head;
+}
 
 void
 tw_end_client(struct wl_client *client)
