@@ -50,6 +50,7 @@ struct console {
 	struct wl_listener close_console_listener;
 	struct tw_apply_bindings_listener add_binding;
 	struct wl_global *global;
+	struct tw_subprocess process;
 };
 
 static struct console CONSOLE;
@@ -149,8 +150,15 @@ static void
 launch_console_client(void *data)
 {
 	struct console *console = data;
-	console->client = tw_launch_client(console->compositor, console->path);
-	wl_client_get_credentials(console->client, &console->pid, &console->uid, &console->gid);
+
+	console->process.user_data = console;
+	console->process.chld_handler = NULL;
+	console->client = tw_launch_client(console->compositor, console->path,
+	                                   &console->process);
+
+	wl_client_get_credentials(console->client, &console->pid,
+	                          &console->uid,
+	                          &console->gid);
 }
 
 static bool

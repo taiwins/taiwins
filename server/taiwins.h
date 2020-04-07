@@ -217,8 +217,18 @@ tw_theme_access_theme(struct theme *theme);
  * client functions
  ******************************************************************************/
 
+struct tw_subprocess {
+	pid_t pid;
+	struct wl_list link;
+	void *user_data;
+	void (*chld_handler)(struct tw_subprocess *proc);
+};
+
+struct wl_list *tw_get_clients_head();
+
 struct wl_client *
-tw_launch_client(struct weston_compositor *ec, const char *path);
+tw_launch_client(struct weston_compositor *ec, const char *path,
+                 struct tw_subprocess *chld);
 
 void
 tw_end_client(struct wl_client *client);
