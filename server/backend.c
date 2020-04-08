@@ -183,7 +183,7 @@ windowed_head_enable(struct weston_head *head, struct weston_compositor *composi
 		weston_compositor_create_output_with_head(compositor, head);
 	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
 	weston_output_set_scale(output, 1);
-	api->output_set_size(output, 500, 500);
+	api->output_set_size(output, 1000, 800);
 	if (!output->enabled)
 		weston_output_enable(output);
 	tw_backend_init_output(backend, output);
