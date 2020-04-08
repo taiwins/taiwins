@@ -77,6 +77,7 @@ tw_xwayland_handle_chld(struct tw_subprocess *chld, int status)
 	xwayland->pid = -1;
 	xwayland->abstract_fd = -1;
 	xwayland->unix_fd = -1;
+	xwayland->xwayland = NULL;
 }
 
 
@@ -181,7 +182,6 @@ tw_spawn_xwayland(void *user_data, const char *display, int abstract_fd,
 	                                  tw_xwayland_fork,
 	                                  tw_xwayland_exec);
 	xwayland->client = client;
-	//ALSO, setup the sigchld handler
 
 	return xwayland->pid;
 }
@@ -197,11 +197,18 @@ tw_xwayland_apply_config(struct tw_config *c, bool cleanup,
 	if (cleanup)
 		return;
 
+	//once xwayland module loaded, you need to check for reloading, since it
+	//is not good intention to load another xwayland wm. exiting xwayland
+	//and reload is not a good idea either, so here we only load xwayland if
+	// 1) it is not loaded already
+	// 2) option tells us to do it.
 	xwayland = tw_xwayland->api->get(tw_xwayland->compositor);
-	tw_xwayland->xwayland = xwayland;
-	if (tw_xwayland->enabled.enable && tw_xwayland->enabled.valid)
+	if (!tw_xwayland->xwayland &&
+	    tw_xwayland->enabled.enable && tw_xwayland->enabled.valid)
 		tw_xwayland->api->listen(xwayland, tw_xwayland,
 		                         tw_spawn_xwayland);
+	tw_xwayland->xwayland = xwayland;
+	tw_xwayland->enabled.valid = false;
 }
 
 /*******************************************************************************
