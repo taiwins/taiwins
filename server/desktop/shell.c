@@ -106,6 +106,7 @@ struct shell {
 	struct wl_listener idle_listener;
 	struct tw_apply_bindings_listener add_binding;
 	struct tw_config_component_listener config_component;
+	struct tw_subprocess process;
 
 	struct shell_ui widget;
 	struct shell_ui locker;
@@ -650,8 +651,14 @@ static void
 launch_shell_client(void *data)
 {
 	struct shell *shell = data;
-	shell->shell_client = tw_launch_client(shell->ec, shell->path);
-	wl_client_get_credentials(shell->shell_client, &shell->pid, &shell->uid, &shell->gid);
+
+	shell->process.chld_handler = NULL;
+	shell->process.user_data = shell;
+	shell->shell_client = tw_launch_client(shell->ec, shell->path,
+	                                       &shell->process);
+	wl_client_get_credentials(shell->shell_client, &shell->pid,
+	                          &shell->uid,
+	                          &shell->gid);
 }
 
 /*******************************************************************

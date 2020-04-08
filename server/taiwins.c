@@ -26,64 +26,62 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <dlfcn.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
+#include <libweston/libweston.h>
 #include <os/os-compatibility.h>
+#include <wayland-util.h>
 
 #include "taiwins.h"
 
-/* static void sigup_handler(int signum) */
-/* { */
-/*	raise(SIGTERM); */
-/* } */
+FILE *logfile;
+
+int
+tw_log(const char *format, va_list args)
+{
+	return vfprintf(logfile, format, args);
+}
 
 static int
-exec_wayland_client(const char *path, int fd)
+tw_launch_default_fork(pid_t pid, struct tw_subprocess *chld)
 {
-	if (seteuid(getuid()) == -1) {
-		return -1;
-	}
-	//unblock all the signals
+	return 0;
+}
 
-	sigset_t allsignals;
-	sigfillset(&allsignals);
-	sigprocmask(SIG_UNBLOCK, &allsignals, NULL);
-	/* struct sigaction sa = { */
-	/*	.sa_mask = allsignals, */
-	/*	.sa_flags = SA_RESTART, */
-	/*	.sa_handler = sigup_handler, */
-	/* }; */
-	/* there seems to be no actual automatic mechism to notify child process
-	 * of the termination, I will have to do it myself. */
-
-	char sn[10];
-	int clientid = dup(fd);
-	snprintf(sn, sizeof(sn), "%d", clientid);
-	setenv("WAYLAND_SOCKET", sn, 1);
-	/* const char *for_shell = "/usr/lib/x86_64-linux-gnu/mesa:/usr/lib/x86_64-linux-gnu/mesa-egl:"; */
-	/* const char new_env[strlen(for_shell) + 1]; */
-	/* strcpy(new_env, for_shell); */
-	/* setenv(("LD_LIBRARY_PATH"), new_env, 1); */
-
+static int
+tw_launch_default_exec(const char *path, struct tw_subprocess *chld)
+{
 	if (execlp(path, path, NULL) == -1) {
-		weston_log("failed to execute the client %s\n", path);
-		close(clientid);
+		tw_logl("tw_launch_client: "
+		        "failed to exec the client %s\n", path);
 		return -1;
 	}
 	return 0;
 }
 
-//return the client pid
 struct wl_client *
-tw_launch_client(struct weston_compositor *ec, const char *path)
+tw_launch_client_complex(struct weston_compositor *ec, const char *path,
+                         struct tw_subprocess *chld,
+                         int (*fork_cb)(pid_t, struct tw_subprocess *),
+                         int (*exec_cb)(const char *,struct tw_subprocess *))
 {
-	int sv[2];
+	int sv[2], fd;
 	pid_t pid;
-	struct wl_client *client;
-	//now we have to do the close on exec thing
+	struct wl_client *client = NULL;
+	struct wl_list *clients = tw_get_clients_head();
+	char socket_fd_str[12];
+	sigset_t allsignals;
+
+	if (!fork_cb)
+		fork_cb = tw_launch_default_fork;
+	if (!exec_cb)
+		exec_cb = tw_launch_default_exec;
+
+	//always need to create wayland socket
 	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0, sv)) {
-		weston_log("taiwins_client launch: "
-			   "failed to create the socket for client `%s`\n",
-			   path);
+		tw_logl("taiwins client launch: "
+		        "failed to create the socket for client %s\n",
+		        path);
 		return NULL;
 	}
 
@@ -91,36 +89,71 @@ tw_launch_client(struct weston_compositor *ec, const char *path)
 	if (pid == -1) {
 		close(sv[0]);
 		close(sv[1]);
-		weston_log("taiwins_client launch: "
-			   "failed to create the process, `%s`\n",
-			path);
+		tw_logl("taiwins client launch: "
+		        "failed to create new process, %s\n",
+		        path);
+		return NULL;
+	} else if (pid == 0) {
+		//child holds sv[1] and closes sv[0]
+		close(sv[0]);
+
+		if (seteuid(getuid()) == -1)
+			goto fail;
+
+		//unblocking signals
+		sigfillset(&allsignals);
+		sigprocmask(SIG_UNBLOCK, &allsignals, NULL);
+		//duplicate the socket since it is close-on-exec
+		fd = dup(sv[1]);
+		snprintf(socket_fd_str, sizeof(socket_fd_str), "%d", fd);
+		setenv("WAYLAND_SOCKET", socket_fd_str, 1);
+		//do the fork
+		if (fork_cb(pid, chld) ||  exec_cb(path, chld))
+			goto fail;
+	fail:
+		close(sv[1]);
+		_exit(-1);
+	} else {
+		//parent holds sv[0] and closes sv[1]
+		close(sv[1]);
+		if (fork_cb(pid, chld))
+			goto fail_p;
+		client = wl_client_create(ec->wl_display, sv[0]);
+		if (!client) {
+			tw_logl("taiwins_client_launch: "
+			        "failed to create wl_client for %s\n", path);
+			return NULL;
+		}
+		if (chld) {
+			chld->pid = pid;
+			wl_list_init(&chld->link);
+			wl_list_insert(clients, &chld->link);
+		}
+		return client;
+	fail_p:
+		close(sv[0]);
 		return NULL;
 	}
-	if (pid == 0) {
-		//you should close the server end
-		close(sv[0]);
-		//find a way to exec the child with sv[0];
-		//okay, this is basically setting the environment variables
-		exec_wayland_client(path, sv[1]);
-		//replace this
-		exit(-1);
-	}
-	//for parents, we don't need socket[1]
-	close(sv[1]);
-	//wayland client launch setup: by leveraging the UNIX
-	//socketpair functions. when the socket pair is created. The
-	client = wl_client_create(ec->wl_display, sv[0]);
-	if (!client) {
-		//this can't be happening, but housework need to be done
-		close(sv[0]);
-		weston_log("taiwins_client launch: "
-			   "failed to create wl_client for %s", path);
-		return NULL;
-	}
-	//now we some probably need to add signal on the server side
 	return client;
+
 }
 
+struct wl_client *
+tw_launch_client(struct weston_compositor *ec, const char *path,
+                 struct tw_subprocess *chld)
+{
+	return tw_launch_client_complex(ec, path, chld, NULL, NULL);
+}
+
+struct wl_list *tw_get_clients_head()
+{
+	static struct wl_list clients_head = {
+		.prev = &clients_head,
+		.next = &clients_head,
+	};
+
+	return &clients_head;
+}
 
 void
 tw_end_client(struct wl_client *client)

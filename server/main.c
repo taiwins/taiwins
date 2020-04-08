@@ -26,9 +26,11 @@
 #include <errno.h>
 #include <signal.h>
 #include <string.h>
+#include <sys/types.h>
 #include <linux/input.h>
+#include <sys/wait.h>
 #include <unistd.h>
-#include <wayland-server-core.h>
+#include <wayland-util.h>
 #include <wayland-server.h>
 #include <libweston/libweston.h>
 #include <xkbcommon/xkbcommon.h>
@@ -50,14 +52,7 @@ struct tw_compositor {
 	struct tw_config_component_listener config_component;
 };
 
-
-static FILE *logfile = NULL;
-
-static int
-tw_log(const char *format, va_list args)
-{
-	return vfprintf(logfile, format, args);
-}
+extern FILE *logfile;
 
 static void
 tw_compositor_quit(struct weston_keyboard *keyboard,
@@ -146,6 +141,36 @@ tw_compositor_term_on_signal(int sig_num, void *data)
 	return 1;
 }
 
+static int
+tw_compositor_sigchld(int sig_num, void *data)
+{
+	struct wl_list *head;
+	struct tw_subprocess *subproc;
+	int status;
+	pid_t pid;
+
+	head = tw_get_clients_head();
+
+	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+		wl_list_for_each(subproc, head, link)
+			if (pid == subproc->pid)
+				break;
+
+		if (&subproc->link == head) {
+			weston_log("unknown process exited\n");
+			continue;
+		}
+
+		wl_list_remove(&subproc->link);
+		if (subproc->chld_handler)
+			subproc->chld_handler(subproc, status);
+	}
+	if (pid < 0 && errno != ECHILD)
+		weston_log("error in waiting child with status %s\n",
+		           strerror(errno));
+	return 1;
+}
+
 static void
 tw_compositor_handle_exit(struct weston_compositor *c)
 {
@@ -183,8 +208,11 @@ int main(int argc, char *argv[], char *envp[])
 	signals[2] = wl_event_loop_add_signal(event_loop, SIGQUIT,
 	                                      tw_compositor_term_on_signal,
 					      display);
-	//TODO handle chld exit
-	if (!signals[0] || !signals[1] || !signals[2])
+	signals[3] = wl_event_loop_add_signal(event_loop, SIGCHLD,
+	                                      tw_compositor_sigchld,
+	                                      display);
+
+	if (!signals[0] || !signals[1] || !signals[2] || !signals[3])
 		goto err_signal;
 
 	context = weston_log_ctx_compositor_create();
@@ -206,6 +234,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	weston_compositor_wake(compositor);
 
+	assert(tw_setup_xwayland(compositor, config));
 	assert(tw_setup_shell(compositor, shellpath, config));
 	assert(tw_setup_console(compositor, launcherpath, config));
 	assert(tw_setup_desktop(compositor, config));
