@@ -204,6 +204,21 @@ tw_xwayland_apply_config(struct tw_config *c, bool cleanup,
 		                         tw_spawn_xwayland);
 }
 
+/*******************************************************************************
+ * public functions
+ ******************************************************************************/
+struct tw_xwayland *
+tw_xwayland_get_global()
+{
+	return &s_xwayland;
+}
+
+void
+tw_xwayland_enable(struct tw_xwayland *xwayland, bool enable)
+{
+	xwayland->enabled.enable = enable;
+	xwayland->enabled.valid = true;
+}
 
 bool
 tw_setup_xwayland(struct weston_compositor *ec, struct tw_config *config)

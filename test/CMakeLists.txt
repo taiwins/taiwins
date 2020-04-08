@@ -51,6 +51,7 @@ target_link_libraries(test_config
   twcore
   twdesktop
   twtheme
+  twxwayland
   twclient::theme
   )
 

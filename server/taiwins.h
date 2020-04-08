@@ -312,8 +312,15 @@ tw_backend_output_set_transform(struct tw_backend_output *output,
 /*******************************************************************************
  * xwayland functions
  ******************************************************************************/
+struct tw_xwayland;
+
+struct tw_xwayland *tw_xwayland_get_global();
+
 bool
 tw_setup_xwayland(struct weston_compositor *ec, struct tw_config *config);
+
+void
+tw_xwayland_enable(struct tw_xwayland *xwayland, bool enable);
 
 /*******************************************************************************
  * util functions

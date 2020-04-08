@@ -339,6 +339,9 @@ _lua_init_shell(struct tw_config *, lua_State *, struct shell *);
 static bool
 _lua_init_theme(struct tw_config *, lua_State *, struct theme *);
 
+static bool
+_lua_init_xwayland(struct tw_config *, lua_State *, struct tw_xwayland *);
+
 static inline struct weston_compositor *
 _lua_to_compositor(lua_State *L)
 {
@@ -441,6 +444,7 @@ tw_config_init_luastate(struct tw_config *c)
 	_lua_init_shell(c, L, tw_shell_get_global());
 	_lua_init_desktop(c, L, tw_desktop_get_global());
 	_lua_init_theme(c, L, tw_theme_get_global());
+	_lua_init_xwayland(c, L, tw_xwayland_get_global());
 
 	lua_pushcfunction(L, _lua_get_config);
 	lua_setglobal(L, "require_compositor");
@@ -985,5 +989,41 @@ _lua_init_theme(struct tw_config *config, lua_State *L, struct theme *theme)
 	lua_setfield(L, LUA_REGISTRYINDEX, "tw_theme");
 	REGISTER_METHOD(L, "read_theme", tw_theme_read);
 
+	return true;
+}
+
+/*******************************************************************************
+ * tw_xwayland
+ ******************************************************************************/
+static inline struct tw_xwayland *
+_lua_to_xwayland(lua_State *L)
+{
+	struct tw_xwayland *data;
+
+	lua_getfield(L, LUA_REGISTRYINDEX, "tw_xwayland");
+	data = lua_touserdata(L, -1);
+	lua_pop(L, 1);
+	return data;
+}
+
+static int
+_lua_enable_xwayland(lua_State *L)
+{
+	bool val;
+	struct tw_xwayland *xwayland = _lua_to_xwayland(L);
+	tw_lua_assert(L, lua_gettop(L) == 2,
+	              "xwayland: invalid number of arguments");
+	val = lua_toboolean(L, 2);
+	tw_xwayland_enable(xwayland, val);
+	return 0;
+}
+
+static bool
+_lua_init_xwayland(struct tw_config *config, lua_State *L,
+                   struct tw_xwayland *xwayland)
+{
+	lua_pushlightuserdata(L, tw_xwayland_get_global());
+	lua_setfield(L, LUA_REGISTRYINDEX, "tw_xwayland");
+	REGISTER_METHOD(L, "enable_xwayland", _lua_enable_xwayland);
 	return true;
 }
