@@ -82,6 +82,12 @@ struct recent_view {
 	struct weston_geometry old_geometry;
 	struct wl_list link;
 	enum layout_type type;
+
+	struct {
+		int32_t x;
+		int32_t y;
+		bool is_xwayland;
+	} xwayland;
 };
 
 /*************************************************************

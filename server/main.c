@@ -234,11 +234,11 @@ int main(int argc, char *argv[], char *envp[])
 
 	weston_compositor_wake(compositor);
 
+	assert(tw_setup_xwayland(compositor, config));
 	assert(tw_setup_shell(compositor, shellpath, config));
 	assert(tw_setup_console(compositor, launcherpath, config));
 	assert(tw_setup_desktop(compositor, config));
 	assert(tw_setup_theme(compositor, config));
-	assert(tw_setup_xwayland(compositor, config));
 
 	error = !tw_config_run(config, path);
 	if (error) {
