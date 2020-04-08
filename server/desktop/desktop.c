@@ -19,18 +19,22 @@
  *
  */
 
-#include <libweston/libweston.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <linux/input.h>
 #include <unistd.h>
+#include <wayland-server-core.h>
 #include <wayland-util.h>
 #include <wayland-server.h>
 #include <strops.h>
 #include <helpers.h>
 #include <sequential.h>
 #include <wayland-taiwins-shell-server-protocol.h>
+#include <libweston-desktop/libweston-desktop.h>
+#include <libweston/xwayland-api.h>
+#include <libweston/libweston.h>
 
 #define INCLUDE_DESKTOP
 #include "../../shared_config.h"
@@ -64,11 +68,13 @@ static struct desktop {
 	struct workspace *actived_workspace[2];
 	struct workspace workspaces[9];
 	struct weston_desktop *api;
+	const struct weston_xwayland_surface_api *xwayland_api;
 
 	struct wl_listener compositor_destroy_listener;
 	struct wl_listener output_create_listener;
 	struct wl_listener output_resize_listener;
 	struct wl_listener output_destroy_listener;
+	struct wl_listener surface_transform_listener;
 	struct tw_apply_bindings_listener add_binding;
 	struct tw_config_component_listener config_component;
 	//grabs
@@ -78,14 +84,14 @@ static struct desktop {
 	//params
 	gap_option_t inner_gap, outer_gap;
 	enum taiwins_shell_task_switch_effect ts_effect;
-} DESKTOP;
+} s_desktop;
 
 struct desktop *
-tw_desktop_get_global() {return &DESKTOP; }
+tw_desktop_get_global() {return &s_desktop; }
 
-/***************************************************************
- * desktop APIs
- **************************************************************/
+/*******************************************************************************
+ * desktop API
+ ******************************************************************************/
 
 static inline off_t
 get_workspace_index(struct workspace *ws, struct desktop *d)
@@ -117,9 +123,9 @@ desktop_set_worksace_layout(struct desktop *d, unsigned int i,
 	w->current_layout = type;
 }
 
-/***************************************************************
+/*******************************************************************************
  * grab interface apis
- **************************************************************/
+ ******************************************************************************/
 static inline void
 grab_interface_init(struct grab_interface *gi,
 		    const struct weston_pointer_grab_interface *pi,
@@ -169,9 +175,9 @@ grab_interface_start_keyboard(struct grab_interface *gi, struct weston_view *v,
 		weston_keyboard_start_grab(keyboard, &gi->keyboard_grab);
 }
 
-/***************************************************************
- * libweston_desktop implementation
- **************************************************************/
+/*******************************************************************************
+ * libwestop desktop implementaiton
+ ******************************************************************************/
 
 /*
  * here we are facing this problem, desktop_view has an additional geometry. The
@@ -204,11 +210,15 @@ static void
 twdesk_surface_added(struct weston_desktop_surface *surface,
 		     void *user_data)
 {
+	enum layout_type layout;
+	struct workspace *wsp = NULL;
+	struct recent_view *rv = NULL;
 	struct desktop *desktop = user_data;
 	//remove old view (if any) and create one
 	struct weston_view *view, *next;
 	struct weston_surface *wt_surface =
 		weston_desktop_surface_get_surface(surface);
+
 
 	wl_list_for_each_safe(view, next, &wt_surface->views, surface_link)
 		weston_view_destroy(view);
@@ -219,9 +229,17 @@ twdesk_surface_added(struct weston_desktop_surface *surface,
 	weston_desktop_surface_set_activated(surface, true);
 	view->output = tw_get_focused_output(wt_surface->compositor);
 	wt_surface->output = view->output;
-	//focus on it
-	struct workspace *wsp = desktop->actived_workspace[0];
-	struct recent_view *rv = recent_view_create(view, wsp->current_layout);
+
+	//creating recent view
+	wsp = desktop->actived_workspace[0];
+	//if xwayland, we will add it to floating surface
+	if (desktop->xwayland_api &&
+	    desktop->xwayland_api->is_xwayland_surface(wt_surface))
+		layout = LAYOUT_FLOATING;
+	else
+		layout = wsp->current_layout;
+
+	rv = recent_view_create(view, layout);
 	weston_desktop_surface_set_user_data(surface, rv);
 
 	workspace_add_view(wsp, view);
@@ -301,7 +319,6 @@ twdesk_surface_move(struct weston_desktop_surface *desktop_surface,
 		grab_interface_start_pointer(&desktop->moving_grab, view, seat);
 }
 
-
 static void
 twdesk_surface_resize(struct weston_desktop_surface *desktop_surface,
 		      struct weston_seat *seat, uint32_t serial,
@@ -360,6 +377,28 @@ twdesk_minimized(struct weston_desktop_surface *surface,
 		workspace_minimize_view(ws, view);
 }
 
+static void
+twdesk_xwayland_pos(struct weston_desktop_surface *surface,
+                    int32_t x, int32_t y, void *user_data)
+{
+	struct recent_view *rv;
+	struct desktop *d = user_data;
+	struct workspace *ws = d->actived_workspace[0];
+
+	if (d->xwayland_api) {
+		rv = weston_desktop_surface_get_user_data(surface);
+		rv->xwayland.is_xwayland = true;
+		rv->xwayland.x = x;
+		rv->xwayland.y = y;
+
+		//if it is not on the workspace, we pending this work later
+		if (!is_view_on_workspace(rv->view, ws))
+			return;
+		if (rv->type != LAYOUT_FLOATING)
+			workspace_switch_layout(ws, rv->view);
+	}
+}
+
 static struct weston_desktop_api desktop_impl =  {
 	.ping_timeout = twdesk_ping_timeout,
 	.pong = twdesk_pong,
@@ -371,13 +410,41 @@ static struct weston_desktop_api desktop_impl =  {
 	.fullscreen_requested = twdesk_fullscreen,
 	.maximized_requested = twdesk_maximized,
 	.minimized_requested = twdesk_minimized,
+	.set_xwayland_position = twdesk_xwayland_pos,
 	//set_xwayland_position
 	.struct_size = sizeof(struct weston_desktop_api),
 };
 
-/***************************************************************
+/*******************************************************************************
+ * desktop.surface listener
+ ******************************************************************************/
+static void
+desktop_surface_transformed(struct wl_listener *listener, void *data)
+{
+	int x, y;
+	struct recent_view *rv;
+	struct weston_surface *surface = data;
+	struct weston_desktop_surface *desktop_surface;
+
+	struct desktop *desktop =
+		container_of(listener, struct desktop,
+		             surface_transform_listener);
+	if (!weston_surface_is_desktop_surface(surface))
+		return;
+	desktop_surface = weston_surface_get_desktop_surface(surface);
+	rv = weston_desktop_surface_get_user_data(desktop_surface);
+
+	if (desktop->xwayland_api && weston_view_is_mapped(rv->view)) {
+		x = rv->view->geometry.x;
+		y = rv->view->geometry.y;
+
+		desktop->xwayland_api->send_position(surface, x, y);
+	}
+}
+
+/*******************************************************************************
  * desktop.output listener
- **************************************************************/
+ ******************************************************************************/
 
 static void
 desktop_output_created(struct wl_listener *listener, void *data)
@@ -500,8 +567,7 @@ move_grab_pointer_motion(struct weston_pointer_grab *grab,
 	//so this function will have no effect on tiling views
 	//you don't need to arrange view here
 	workspace_move_view(ws, gi->view, &(struct weston_position) {
-			gi->view->geometry.x + dx,
-				gi->view->geometry.y + dy});
+			gi->view->geometry.x + dx, gi->view->geometry.y + dy});
 }
 
 static void
@@ -1059,70 +1125,78 @@ tw_desktop_set_gap(struct desktop *desktop, int inner, int outer)
 	desktop->outer_gap.value = outer;
 }
 
-
 bool
 tw_setup_desktop(struct weston_compositor *ec,  struct tw_config *config)
 {
 	//initialize the desktop
-	DESKTOP.compositor = ec;
-	DESKTOP.shell = tw_shell_get_global();
+	s_desktop.compositor = ec;
+	s_desktop.shell = tw_shell_get_global();
 	//params
-	DESKTOP.inner_gap.value = 10;
-	DESKTOP.outer_gap.value = 10;
-	DESKTOP.inner_gap.valid = false;
-	DESKTOP.outer_gap.valid = false;
+	s_desktop.inner_gap.value = 10;
+	s_desktop.outer_gap.value = 10;
+	s_desktop.inner_gap.valid = false;
+	s_desktop.outer_gap.valid = false;
 
-	struct workspace *wss = DESKTOP.workspaces;
+	struct workspace *wss = s_desktop.workspaces;
 	{
 		for (int i = 0; i < MAX_WORKSPACE+1; i++)
 			workspace_init(&wss[i], ec);
-		DESKTOP.actived_workspace[0] = &wss[0];
-		DESKTOP.actived_workspace[1] = &wss[1];
-		workspace_switch(DESKTOP.actived_workspace[0], DESKTOP.actived_workspace[0], NULL);
+		s_desktop.actived_workspace[0] = &wss[0];
+		s_desktop.actived_workspace[1] = &wss[1];
+		workspace_switch(s_desktop.actived_workspace[0],
+		                 s_desktop.actived_workspace[0], NULL);
 	}
-	DESKTOP.api = weston_desktop_create(ec, &desktop_impl, &DESKTOP);
+	s_desktop.api = weston_desktop_create(ec, &desktop_impl, &s_desktop);
 	//setup listeners
 	struct weston_output *output;
 	//install grab
-	grab_interface_init(&DESKTOP.moving_grab,
+	grab_interface_init(&s_desktop.moving_grab,
 			    &desktop_moving_grab, NULL, NULL);
-	grab_interface_init(&DESKTOP.resizing_grab,
+	grab_interface_init(&s_desktop.resizing_grab,
 			    &desktop_resizing_grab, NULL, NULL);
-	grab_interface_init(&DESKTOP.task_switch_grab,
+	grab_interface_init(&s_desktop.task_switch_grab,
 			    NULL, &desktop_task_switch_grab, NULL);
 	//install signals
-	wl_list_init(&DESKTOP.output_create_listener.link);
-	wl_list_init(&DESKTOP.output_destroy_listener.link);
-	wl_list_init(&DESKTOP.output_resize_listener.link);
+	wl_list_init(&s_desktop.output_create_listener.link);
+	wl_list_init(&s_desktop.output_destroy_listener.link);
+	wl_list_init(&s_desktop.output_resize_listener.link);
+	wl_list_init(&s_desktop.surface_transform_listener.link);
 
-	DESKTOP.output_create_listener.notify = desktop_output_created;
-	DESKTOP.output_destroy_listener.notify = desktop_output_destroyed;
-	DESKTOP.output_resize_listener.notify = desktop_output_resized;
+	s_desktop.output_create_listener.notify = desktop_output_created;
+	s_desktop.output_destroy_listener.notify = desktop_output_destroyed;
+	s_desktop.output_resize_listener.notify = desktop_output_resized;
+	s_desktop.surface_transform_listener.notify = desktop_surface_transformed;
 
 	//add existing output
 	wl_signal_add(&ec->output_created_signal,
-		      &DESKTOP.output_create_listener);
+		      &s_desktop.output_create_listener);
 	wl_signal_add(&ec->output_resized_signal,
-		      &DESKTOP.output_resize_listener);
+		      &s_desktop.output_resize_listener);
 	wl_signal_add(&ec->output_destroyed_signal,
-		      &DESKTOP.output_destroy_listener);
+		      &s_desktop.output_destroy_listener);
+	wl_signal_add(&ec->transform_signal,
+	              &s_desktop.surface_transform_listener);
 
 	wl_list_for_each(output, &ec->output_list, link)
-		desktop_output_created(&DESKTOP.output_create_listener,
+		desktop_output_created(&s_desktop.output_create_listener,
 				       output);
 	//install bindings
-	wl_list_init(&DESKTOP.add_binding.link);
-	DESKTOP.add_binding.apply = desktop_add_bindings;
-	tw_config_add_apply_bindings(config, &DESKTOP.add_binding);
+	wl_list_init(&s_desktop.add_binding.link);
+	s_desktop.add_binding.apply = desktop_add_bindings;
+	tw_config_add_apply_bindings(config, &s_desktop.add_binding);
 
-	wl_list_init(&DESKTOP.config_component.link);
-	DESKTOP.config_component.apply = desktop_apply_config;
-	tw_config_add_component(config, &DESKTOP.config_component);
+	wl_list_init(&s_desktop.config_component.link);
+	s_desktop.config_component.apply = desktop_apply_config;
+	tw_config_add_component(config, &s_desktop.config_component);
 
-	wl_list_init(&DESKTOP.compositor_destroy_listener.link);
-	DESKTOP.compositor_destroy_listener.notify = end_desktop;
+	wl_list_init(&s_desktop.compositor_destroy_listener.link);
+	s_desktop.compositor_destroy_listener.notify = end_desktop;
 	wl_signal_add(&ec->destroy_signal,
-		      &DESKTOP.compositor_destroy_listener);
+		      &s_desktop.compositor_destroy_listener);
 
+	///getting the xwayland API now, xwayland module has to load at this
+	///point, we would need the API here to deal with xwayland surface, it
+	///it is not available, it must mean we do not deal with xwayland here
+	s_desktop.xwayland_api = weston_xwayland_surface_get_api(ec);
 	return true;
 }

@@ -38,7 +38,8 @@ recent_view_create(struct weston_view *v, enum layout_type type)
 	wl_list_init(&rv->link);
 	rv->view = v;
 	rv->type = type;
-	//right now it should (0,0,0,0)
+	rv->xwayland.is_xwayland = false;
+	//right now visible geomtry should be (0,0,0,0)
 	rv->visible_geometry = weston_desktop_surface_get_geometry(ds);
 	weston_desktop_surface_set_user_data(ds, rv);
 	return rv;
@@ -127,9 +128,7 @@ workspace_view_get_layout(const struct workspace *ws, const struct weston_view *
 static void
 apply_layout_operations(const struct layout_op *ops, const int len)
 {
-	for (int i = 0; i < len; i++) {
-		if (ops[i].end)
-			break;
+	for (int i = 0; i < len && !ops[i].end; i++) {
 		struct weston_desktop_surface *desk_surf =
 			weston_surface_get_desktop_surface(ops[i].v->surface);
 		struct recent_view *rv =
@@ -152,17 +151,17 @@ arrange_view_for_layout(struct workspace *ws, struct layout *layout,
 			const enum layout_command command,
 			const struct layout_op *arg)
 {
-	//so this is the very smart part of the operation, you know the largest
+	//this is the very smart part of the operation, you know the largest
 	//possible number of operations, and give pass that into layouting
-	//algorithm, so you don't need any memory allocations
-	//here we have a extra buffer
-	int len = wl_list_length(&ws->floating_layer.view_list.link) +
+	//algorithm, so you don't need any memory allocations here we have a
+	//extra buffer
+	int max_len = wl_list_length(&ws->floating_layer.view_list.link) +
 		wl_list_length(&ws->tiling_layer.view_list.link) +
 		((command == DPSR_add) ? 2 : 1);
-	struct layout_op ops[len];
+	struct layout_op ops[max_len];
 	memset(ops, 0, sizeof(ops));
 	layout->command(command, arg, v, layout, ops);
-	apply_layout_operations(ops, len);
+	apply_layout_operations(ops, max_len);
 }
 
 static void

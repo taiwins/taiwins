@@ -22,10 +22,7 @@
 #ifndef TAIWINS_H
 #define TAIWINS_H
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-
+#include <stdarg.h>
 #include <helpers.h>
 #include <wayland-server.h>
 #include <libweston/zalloc.h>
@@ -47,11 +44,33 @@
 
 #include "../shared_config.h"
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
 struct tw_config;
+
+/*******************************************************************************
+ * logging functions
+ ******************************************************************************/
+int
+tw_log(const char *format, va_list args);
+
+static inline int
+tw_logl(const char *format, ...)
+{
+	int ret;
+	va_list ap;
+	va_start(ap, format);
+	ret = tw_log(format, ap);
+	va_end(ap);
+
+	return ret;
+}
 
 /*******************************************************************************
  * desktop functions
@@ -217,8 +236,42 @@ tw_theme_access_theme(struct theme *theme);
  * client functions
  ******************************************************************************/
 
+struct tw_subprocess {
+	pid_t pid;
+	struct wl_list link;
+	void *user_data;
+	void (*chld_handler)(struct tw_subprocess *proc, int status);
+};
+
+struct wl_list *tw_get_clients_head();
+
+/**
+ * @brief front end of tw_launch_client_complex
+ *
+ * works like tw_launch_client_complex(ec, path, chld, NULL, NULL);
+ */
 struct wl_client *
-tw_launch_client(struct weston_compositor *ec, const char *path);
+tw_launch_client(struct weston_compositor *ec, const char *path,
+                 struct tw_subprocess *chld);
+
+/**
+ * @brief launch wayland client
+ *
+ * this function follows the fork-exec routine and creates a new wayland client,
+ * setting wayland socket is taking care of and you can optionally set your own
+ * fork and exec routine.
+ *
+ * The optional fork routine is done after fork() is called. It can be used to
+ * setup the post forking procedures for parent and child process.
+ *
+ * The optional exec routine need to actually call exec*() and return the
+ * non-zero if it fails.
+ */
+struct wl_client *
+tw_launch_client_complex(struct weston_compositor *ec, const char *path,
+                         struct tw_subprocess *chld,
+                         int (*fork)(pid_t, struct tw_subprocess *),
+                         int (*exec)(const char *, struct tw_subprocess *));
 
 void
 tw_end_client(struct wl_client *client);
@@ -255,6 +308,19 @@ void
 tw_backend_output_set_transform(struct tw_backend_output *output,
                                 enum wl_output_transform transform);
 //TODO resolution
+
+/*******************************************************************************
+ * xwayland functions
+ ******************************************************************************/
+struct tw_xwayland;
+
+struct tw_xwayland *tw_xwayland_get_global();
+
+bool
+tw_setup_xwayland(struct weston_compositor *ec, struct tw_config *config);
+
+void
+tw_xwayland_enable(struct tw_xwayland *xwayland, bool enable);
 
 /*******************************************************************************
  * util functions
