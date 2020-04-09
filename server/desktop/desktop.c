@@ -422,6 +422,7 @@ static void
 desktop_surface_transformed(struct wl_listener *listener, void *data)
 {
 	int x, y;
+	struct weston_view *view;
 	struct recent_view *rv;
 	struct weston_surface *surface = data;
 	struct weston_desktop_surface *desktop_surface;
@@ -434,12 +435,27 @@ desktop_surface_transformed(struct wl_listener *listener, void *data)
 	desktop_surface = weston_surface_get_desktop_surface(surface);
 	rv = weston_desktop_surface_get_user_data(desktop_surface);
 
-	if (desktop->xwayland_api && weston_view_is_mapped(rv->view)) {
+	//this could be pop-up window in window in X that does not have any
+	//information.
+	if (!rv) {
+		struct weston_seat *default_seat  =
+			tw_get_default_seat(surface->compositor);
+		struct weston_pointer *default_pointer =
+			weston_seat_get_pointer(default_seat);
+		if (!default_pointer)
+			return;
+
+		x = wl_fixed_to_int(default_pointer->x);
+		y = wl_fixed_to_int(default_pointer->y);
+		view = tw_default_view_from_surface(surface);
+	} else {
+		view = rv->view;
 		x = rv->view->geometry.x;
 		y = rv->view->geometry.y;
-
-		desktop->xwayland_api->send_position(surface, x, y);
 	}
+
+	if (desktop->xwayland_api && weston_view_is_mapped(view))
+		desktop->xwayland_api->send_position(surface, x, y);
 }
 
 /*******************************************************************************
