@@ -19,6 +19,7 @@
  *
  */
 
+#include <libweston/libweston.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -84,7 +85,7 @@ tw_config_apply_default(struct tw_config *c)
 		.name = "TW_RELOAD_CONFIG",
 	};
 	c->builtin_bindings[TW_OPEN_CONSOLE_BINDING] = (struct tw_binding) {
-		.keypress = {{KEY_P, MODIFIER_CTRL}, {0}, {0}, {0}, {0}},
+		.keypress = {{KEY_P, MODIFIER_SUPER}, {0}, {0}, {0}, {0}},
 		.type = TW_BINDING_key,
 		.name = "TW_OPEN_CONSOLE",
 	};
@@ -127,7 +128,7 @@ tw_config_apply_default(struct tw_config *c)
 		.name = "TW_MOVE_TO_RECENT_WORKSPACE",
 	};
 	c->builtin_bindings[TW_TOGGLE_FLOATING_BINDING] = (struct tw_binding){
-		.keypress = {{KEY_SPACE, MODIFIER_CTRL}, {0}, {0}, {0}, {0}},
+		.keypress = {{KEY_SPACE, MODIFIER_SUPER}, {0}, {0}, {0}, {0}},
 		.type = TW_BINDING_key,
 		.name = "TW_TOGGLE_FLOATING",
 	};
@@ -138,17 +139,17 @@ tw_config_apply_default(struct tw_config *c)
 		.name = "TW_TOGGLE_VERTICAL",
 	};
 	c->builtin_bindings[TW_VSPLIT_WS_BINDING] = (struct tw_binding){
-		.keypress = {{KEY_V, MODIFIER_CTRL}, {0}, {0}, {0}, {0}},
+		.keypress = {{KEY_V, MODIFIER_SUPER}, {0}, {0}, {0}, {0}},
 		.type = TW_BINDING_key,
 		.name = "TW_VIEW_SPLIT_VERTICAL",
 	};
 	c->builtin_bindings[TW_HSPLIT_WS_BINDING] = (struct tw_binding){
-		.keypress = {{KEY_H, MODIFIER_CTRL}, {0}, {0}, {0}, {0}},
+		.keypress = {{KEY_H, MODIFIER_SUPER}, {0}, {0}, {0}, {0}},
 		.type = TW_BINDING_key,
 		.name = "TW_VIEW_SPLIT_HORIZENTAL",
 	};
 	c->builtin_bindings[TW_MERGE_BINDING] = (struct tw_binding){
-		.keypress = {{KEY_M, MODIFIER_CTRL},
+		.keypress = {{KEY_M, MODIFIER_SUPER},
 			     {0}, {0}, {0}, {0}},
 		.type = TW_BINDING_key,
 		.name = "TW_VIEW_MERGE",
