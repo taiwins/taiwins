@@ -150,7 +150,7 @@ tw_setup_theme(struct weston_compositor *ec, struct tw_config *config)
 					taiwins_theme_interface.version,
 	                                &THEME,
 					bind_theme);
-	memset(&THEME.global_theme, 0, sizeof(struct tw_theme));
+	tw_theme_init_default(&THEME.global_theme);
 
 	wl_list_init(&THEME.clients);
 	wl_list_init(&THEME.compositor_destroy_listener.link);
