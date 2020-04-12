@@ -306,9 +306,24 @@ console_apply_theme(void *data,
 	tw_theme_init_from_fd(&console->theme, fd, size);
 }
 
+static void
+console_apply_cursor(void *data,
+                     struct taiwins_theme *taiwins_theme,
+                     const char *name,
+                     uint32_t size)
+{
+	struct desktop_console *console = data;
+
+	strncpy(console->globals.inputs.cursor_theme_name, name, 63);
+	console->globals.inputs.cursor_size = size;
+
+	tw_globals_reload_cursor_theme(&console->globals);
+}
+
 
 static const struct taiwins_theme_listener theme_impl = {
 	.theme = console_apply_theme,
+	.cursor = console_apply_cursor,
 };
 
 /*******************************************************************************

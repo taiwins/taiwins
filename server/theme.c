@@ -116,6 +116,7 @@ bind_theme(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 		                         sizeof(struct tw_theme) +
 		                         tw_theme->handle_pool.size +
 		                         tw_theme->string_pool.size);
+	/* taiwins_theme_send_cursor(resource, "whiteglass", 24); */
 }
 
 static void
