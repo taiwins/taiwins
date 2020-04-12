@@ -182,9 +182,23 @@ desktop_shell_apply_theme(void *data,
 	tw_theme_init_from_fd(&shell->theme, fd, size);
 }
 
+static void
+desktop_shell_apply_cursor(void *data,
+                           struct taiwins_theme *taiwins_theme,
+                           const char *name,
+                           uint32_t size)
+{
+	struct desktop_shell *shell = data;
+
+	strncpy(shell->globals.inputs.cursor_theme_name, name, 63);
+	shell->globals.inputs.cursor_size = size;
+
+	tw_globals_reload_cursor_theme(&shell->globals);
+}
 
 static const struct taiwins_theme_listener tw_theme_impl = {
 	.theme = desktop_shell_apply_theme,
+	.cursor = desktop_shell_apply_cursor,
 };
 
 /*******************************************************************************
