@@ -239,7 +239,7 @@
 *** TODO find a way to get the voice out
 
 * TODO [42%] Stage three: extensions/ post-pub features
-** TODO ADD DAMAGE SUPPORT in drawing!
+** PEND ADD DAMAGE SUPPORT in drawing!
    for EGL backend, this would be impossible, but maybe you can do something in
    the cairo backend
 ** TODO [83%] tw_theme protocol
@@ -255,7 +255,7 @@
    now twclient supports multiple fonts
 ** CANC patch 3rdparty libraries
    weston: output configure in the run time.
-** TODO [0%] new features
+** TODO [27%] new features
 *** DOIN add dbus support
     now we have the dbus code, we can move some of the client requests into
     dbus. But at the same time, for it to have users, we would need to have lua
@@ -302,9 +302,11 @@ session_bus:signal_on(function (vol) w:volume = vol end,
 **** TODO tdbus functions in server
      this would take a list and continuing effort for adding new methods.
 
-*** TODO move workspace_add_view in the commit event.
+*** CANC move workspace_add_view in the commit event.
     At that time, you would know about view geometry, it would be better for
     floating layer.
+
+    This cannot be done, as commit can happen multiple times.
 *** TODO set animations?
     - animation for desktop apps and widgets.
 *** TODO backend configuration
@@ -317,8 +319,8 @@ session_bus:signal_on(function (vol) w:volume = vol end,
 *** TODO utilise weston-animations
     fade/zoom/move, it should be relative easy to use.
 
-*** TODO adding support for notification. All those can be implement
-*** TODO adding support for menu(right-click)
+*** DONE adding support for notification. All those can be implement
+*** DONE adding support for menu(right-click)
     special case we need to handle for background, which is not ideal for
     shm_buffer implementation. I think you will have no choice but have a custom
     grab interface.
@@ -354,20 +356,14 @@ session_bus:signal_on(function (vol) w:volume = vol end,
   - screen capture and screen record(audio support?).
   - westons's zoom support.
 
-*** TODO update with damage (pixman_region)
-    currently you do only ~wl_surface_damage(0, 0, w, h)~, which causes whole
-    buffer to redraw, I think there is a better solution for that.
-
-    If you check the doc, you are responsible for knowing where is the damage,
-    especially for the double buffer case. It is quit unsure what is the damage
-    there for the buffers.
 *** CANC svg2ttf implementation
 *** TODO client search buffer                                         :proto:
     for this to work, we probably will need ~radix tree~ or ~trie~ or hash
     table.
 
 * TODO following up weston development
-** TODO eglstream patches
+** CANC eglstream patches
+   The patch nividia has was really bad, will never get merged.
 ** TODO pipewire(can be used to stream wayland)
 ** TODO HDCP content protection
 
