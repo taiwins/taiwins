@@ -70,6 +70,7 @@ static struct desktop {
 	struct weston_desktop *api;
 	const struct weston_xwayland_surface_api *xwayland_api;
 
+	struct wl_listener desktop_area_listener;
 	struct wl_listener compositor_destroy_listener;
 	struct wl_listener output_create_listener;
 	struct wl_listener output_resize_listener;
@@ -228,6 +229,8 @@ twdesk_surface_added(struct weston_desktop_surface *surface,
 	wt_surface->is_mapped = true;
 	weston_desktop_surface_set_activated(surface, true);
 	view->output = tw_get_focused_output(wt_surface->compositor);
+	if (!view->output)
+		view->output = tw_get_default_output(wt_surface->compositor);
 	wt_surface->output = view->output;
 
 	//creating recent view
@@ -476,9 +479,8 @@ desktop_output_created(struct wl_listener *listener, void *data)
 		.inner_gap = desktop->inner_gap.value,
 		.outer_gap = desktop->outer_gap.value,
 	};
-	for (int i = 0; i < MAX_WORKSPACE+1; i++) {
+	for (int i = 0; i < MAX_WORKSPACE+1; i++)
 		workspace_add_output(&desktop->workspaces[i], &tw_output);
-	}
 }
 
 static void
@@ -506,12 +508,28 @@ desktop_output_destroyed(struct wl_listener *listener, void *data)
 	struct desktop *desktop =
 		container_of(listener, struct desktop, output_destroy_listener);
 
-
 	for (int i = 0; i < MAX_WORKSPACE+1; i++) {
 		struct workspace *w = &desktop->workspaces[i];
 		//you somehow need to move the views to other output
 		workspace_remove_output(w, output);
 	}
+}
+
+static void
+desktop_area_changed(struct wl_listener *listener, void *data)
+{
+	struct weston_output *output = data;
+	struct desktop *desktop =
+		container_of(listener, struct desktop, desktop_area_listener);
+	struct tw_output tw_output = {
+		.output = output,
+		.desktop_area = shell_output_available_space(
+			desktop->shell, output),
+		.inner_gap = desktop->inner_gap.value,
+		.outer_gap = desktop->outer_gap.value,
+	};
+	for (int i = 0; i < MAX_WORKSPACE+1; i++)
+		workspace_resize_output(&desktop->workspaces[i], &tw_output);
 }
 
 static void
@@ -1147,7 +1165,7 @@ tw_setup_desktop(struct weston_compositor *ec,  struct tw_config *config)
 	//initialize the desktop
 	s_desktop.compositor = ec;
 	s_desktop.shell = tw_shell_get_global();
-	//params
+	//default params
 	s_desktop.inner_gap.value = 10;
 	s_desktop.outer_gap.value = 10;
 	s_desktop.inner_gap.valid = false;
@@ -1173,17 +1191,21 @@ tw_setup_desktop(struct weston_compositor *ec,  struct tw_config *config)
 	grab_interface_init(&s_desktop.task_switch_grab,
 			    NULL, &desktop_task_switch_grab, NULL);
 	//install signals
+	wl_list_init(&s_desktop.desktop_area_listener.link);
 	wl_list_init(&s_desktop.output_create_listener.link);
 	wl_list_init(&s_desktop.output_destroy_listener.link);
 	wl_list_init(&s_desktop.output_resize_listener.link);
 	wl_list_init(&s_desktop.surface_transform_listener.link);
 
+	s_desktop.desktop_area_listener.notify = desktop_area_changed;
 	s_desktop.output_create_listener.notify = desktop_output_created;
 	s_desktop.output_destroy_listener.notify = desktop_output_destroyed;
 	s_desktop.output_resize_listener.notify = desktop_output_resized;
 	s_desktop.surface_transform_listener.notify = desktop_surface_transformed;
 
 	//add existing output
+	shell_add_desktop_area_listener(tw_shell_get_global(),
+	                          &s_desktop.desktop_area_listener);
 	wl_signal_add(&ec->output_created_signal,
 		      &s_desktop.output_create_listener);
 	wl_signal_add(&ec->output_resized_signal,
