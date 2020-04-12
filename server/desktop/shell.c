@@ -43,6 +43,7 @@
 
 struct shell_ui {
 	struct shell *shell;
+	struct weston_output *output;
 	struct wl_resource *resource;
 	struct weston_surface *binded;
 	struct weston_binding *lose_keyboard;
@@ -69,6 +70,7 @@ struct shell_output {
 	struct weston_output *output;
 	struct shell *shell;
 	//ui elems
+	int32_t panel_height;
 	struct shell_ui background;
 	struct shell_ui panel;
 };
@@ -99,6 +101,8 @@ struct shell {
 	struct weston_surface *the_widget_surface;
 	enum taiwins_shell_panel_pos panel_pos;
 
+	struct wl_signal output_area_signal;
+
 	struct wl_listener compositor_destroy_listener;
 	struct wl_listener output_create_listener;
 	struct wl_listener output_destroy_listener;
@@ -121,9 +125,48 @@ static struct shell oneshell;
 struct shell *
 tw_shell_get_global() {return &oneshell; }
 
-/*******************************************************************
+static inline size_t
+shell_n_outputs(struct shell *shell)
+{
+	for (int i = 0; i < 16; i++) {
+		if (shell->tw_outputs[i].output == NULL)
+			return i;
+	}
+	return 16;
+}
+
+static inline int
+shell_ith_output(struct shell *shell, struct weston_output *output)
+{
+	for (int i = 0; i < 16; i++) {
+		if (shell->tw_outputs[i].output == output)
+			return i;
+	}
+	return -1;
+}
+
+static inline struct shell_output*
+shell_output_from_weston_output(struct shell *shell, struct weston_output *output)
+{
+	for (int i = 0; i < 16; i++) {
+		if (shell->tw_outputs[i].output == output)
+			return &shell->tw_outputs[i];
+	}
+	return NULL;
+}
+
+static void
+shell_output_available_space_changed(void *data)
+{
+	struct shell_output *output = data;
+	struct shell *shell = output->shell;
+	wl_signal_emit(&shell->output_area_signal, output->output);
+}
+
+/*******************************************************************************
  * default taiwins_shell data
- ******************************************************************/
+ ******************************************************************************/
+
 static struct tw_menu_item shell_default_menu[] = {
 	{
 		.endnode.title = "Application",
@@ -141,14 +184,14 @@ static struct tw_menu_item shell_default_menu[] = {
 	},
 };
 
-/*******************************************************************
+/*******************************************************************************
  * taiwins_ui implementation
- ******************************************************************/
+ ******************************************************************************/
 
 static void
 does_ui_lose_keyboard(struct weston_keyboard *keyboard,
-			 const struct timespec *time, uint32_t key,
-			 void *data)
+                      const struct timespec *time, uint32_t key,
+                      void *data)
 {
 	struct shell_ui *ui_elem = data;
 	struct weston_surface *surface = ui_elem->binded;
@@ -163,8 +206,8 @@ does_ui_lose_keyboard(struct weston_keyboard *keyboard,
 
 static void
 does_ui_lose_pointer(struct weston_pointer *pointer,
-			const struct timespec *time, uint32_t button,
-			void *data)
+                     const struct timespec *time, uint32_t button,
+                     void *data)
 {
 	struct shell_ui *ui_elem = data;
 	struct weston_surface *surface = ui_elem->binded;
@@ -178,7 +221,7 @@ does_ui_lose_pointer(struct weston_pointer *pointer,
 
 static void
 does_ui_lose_touch(struct weston_touch *touch,
-		      const struct timespec *time, void *data)
+                   const struct timespec *time, void *data)
 {
 	struct shell_ui *ui_elem = data;
 	struct weston_view *view =
@@ -193,6 +236,10 @@ does_ui_lose_touch(struct weston_touch *touch,
 static void
 shell_ui_unbind(struct wl_resource *resource)
 {
+	struct wl_display *display;
+	struct wl_event_loop *loop;
+	struct shell_output *output;
+
 	struct shell_ui *ui_elem = wl_resource_get_user_data(resource);
 	struct weston_binding *bindings[] = {
 		ui_elem->lose_keyboard,
@@ -202,6 +249,22 @@ shell_ui_unbind(struct wl_resource *resource)
 	for (unsigned i = 0; i < NUMOF(bindings); i++)
 		if (bindings[i] != NULL)
 			weston_binding_destroy(bindings[i]);
+
+	//clean up shell_output
+	output = shell_output_from_weston_output(ui_elem->shell, ui_elem->output);
+	display = ui_elem->shell->ec->wl_display;
+	loop = wl_display_get_event_loop(display);
+	if (output) {
+		if (ui_elem == &output->panel) {
+			output->panel = (struct shell_ui){0};
+			output->panel_height = 0;
+			wl_event_loop_add_idle(loop,
+			                       shell_output_available_space_changed,
+			                       output);
+		} else if (ui_elem == &output->background)
+			output->background = (struct shell_ui){0};
+	}
+
 	ui_elem->binded = NULL;
 	ui_elem->layer = NULL;
 	ui_elem->resource = NULL;
@@ -263,36 +326,6 @@ shell_ui_create_simple(struct shell_ui *ui, struct wl_resource *taiwins_ui,
  * tw_output and listeners
  *********************************************************************************/
 
-static inline size_t
-shell_n_outputs(struct shell *shell)
-{
-	for (int i = 0; i < 16; i++) {
-		if (shell->tw_outputs[i].output == NULL)
-			return i;
-	}
-	return 16;
-}
-
-static inline int
-shell_ith_output(struct shell *shell, struct weston_output *output)
-{
-	for (int i = 0; i < 16; i++) {
-		if (shell->tw_outputs[i].output == output)
-			return i;
-	}
-	return -1;
-}
-
-static inline struct shell_output*
-shell_output_from_weston_output(struct shell *shell, struct weston_output *output)
-{
-	for (int i = 0; i < 16; i++) {
-		if (shell->tw_outputs[i].output == output)
-			return &shell->tw_outputs[i];
-	}
-	return NULL;
-}
-
 static void
 shell_output_created(struct wl_listener *listener, void *data)
 {
@@ -306,7 +339,7 @@ shell_output_created(struct wl_listener *listener, void *data)
 	/* wl_list_init(&shell->tw_outputs[ith_output].creation_link); */
 	shell->tw_outputs[ith_output].output = output;
 	shell->tw_outputs[ith_output].shell = shell;
-
+	shell->tw_outputs[ith_output].panel_height = 0;
 	//defer the tw_output creation if shell is not ready.
 	if (shell->shell_resource)
 		taiwins_shell_send_output_configure(shell->shell_resource, ith_output,
@@ -385,9 +418,7 @@ setup_view(struct weston_view *view, struct weston_layer *layer,
 		weston_layer_entry_insert(&layer->view_list, &view->layer_link);
 		weston_compositor_schedule_repaint(view->surface->compositor);
 	}
-
 }
-
 
 static void
 commit_background(struct weston_surface *surface, int sx, int sy)
@@ -411,12 +442,24 @@ commit_panel(struct weston_surface *surface, int sx, int sy)
 			     struct weston_view, surface_link);
 	struct shell_output *output =
 		container_of(ui, struct shell_output, panel);
-	//the
+	struct shell *shell = output->shell;
+	struct wl_display *display = shell->ec->wl_display;
+	struct wl_event_loop *loop = wl_display_get_event_loop(display);
+
 	if (!surface->buffer_ref.buffer)
 		return;
 	ui->y = (output->shell->panel_pos == TAIWINS_SHELL_PANEL_POS_TOP) ?
 		0 : output->output->height - surface->height;
 	setup_view(view, ui->layer, ui->x, ui->y);
+
+	// This is a bit unpleasent, but we would only know the size of the
+	// panel at this point, for binding signals we would need to supply
+	// which output, but unbinding signal we will
+	if (output->panel_height != surface->height)
+		wl_event_loop_add_idle(loop,
+		                       shell_output_available_space_changed,
+		                       output);
+	output->panel_height = surface->height;
 }
 
 static void
@@ -424,11 +467,14 @@ commit_ui_surface(struct weston_surface *surface, int sx, int sy)
 {
 	//the sx and sy are from attach or attach_buffer attach sets pending
 	//state, when commit request triggered, pending state calls
-	//weston_surface_state_commit to use the sx, and sy in here
-	//the confusion is that we cannot use sx and sy directly almost all the time.
+	//weston_surface_state_commit to use the sx, and sy in here the
+	//confusion is that we cannot use sx and sy directly almost all the
+	//time.
 	struct shell_ui *ui = surface->committed_private;
 	//get the first view, as ui element has only one view
-	struct weston_view *view = container_of(surface->views.next, struct weston_view, surface_link);
+	struct weston_view *view =
+		container_of(surface->views.next,
+		             struct weston_view, surface_link);
 	//it is not true for both
 	if (surface->buffer_ref.buffer)
 		setup_view(view, ui->layer, ui->x, ui->y);
@@ -506,12 +552,9 @@ shell_ui_destroy_resource(struct wl_client *client,
 	wl_resource_destroy(resource);
 }
 
-
 static struct taiwins_ui_interface tw_ui_impl = {
 	.destroy = shell_ui_destroy_resource,
 };
-
-
 
 static inline void
 shell_send_panel_pos(struct shell *shell)
@@ -560,6 +603,7 @@ create_ui_element(struct wl_client *client,
 	elem->x = x;
 	elem->y = y;
 	elem->type = type;
+	elem->output = output;
 
 	switch (type) {
 	case TAIWINS_UI_TYPE_PANEL:
@@ -847,6 +891,7 @@ shell_send_default_config(struct shell *shell)
 		                &default_menu);
 	}
 }
+
 /*******************************************************************
  * shell function
  ******************************************************************/
@@ -867,7 +912,7 @@ unbind_shell(struct wl_resource *resource)
 		weston_view_unmap(v);
 	wl_list_for_each_safe(v, n, &shell->ui_layer.view_list.link, layer_link.link)
 		weston_view_unmap(v);
-	fprintf(stderr, "shell-unbined\n");
+	tw_logl("shell_unbinded!\n");
 }
 
 static void
@@ -890,7 +935,7 @@ bind_shell(struct wl_client *client, void *data, uint32_t version,
 		wl_resource_destroy(resource);
 	}
 	wl_list_for_each(layer, &shell->ec->layer_list, link) {
-		weston_log("layer position %x\n", layer->position);
+		tw_logl("layer position %x\n", layer->position);
 	}
 	//only add the layers if we have a shell.
 	weston_layer_init(&shell->background_layer, shell->ec);
@@ -909,9 +954,9 @@ bind_shell(struct wl_client *client, void *data, uint32_t version,
 	shell_apply_lua_config(shell->config, false, &shell->config_component);
 }
 
-/*******************************************************************
+/*******************************************************************************
  * exposed API
- ******************************************************************/
+ ******************************************************************************/
 
 void
 shell_create_ui_elem(struct shell *shell,
@@ -958,11 +1003,21 @@ shell_output_available_space(struct shell *shell, struct weston_output *output)
 	if (!shell_output || !shell_output->panel.binded)
 		return geo;
 	if (shell->panel_pos == TAIWINS_SHELL_PANEL_POS_TOP)
-		geo.y += shell_output->panel.binded->height;
+		geo.y += shell_output->panel_height;
 	else
-		geo.height -= shell_output->panel.binded->height;
+		geo.height -= shell_output->panel_height;
 	return geo;
 }
+
+void
+shell_add_desktop_area_listener(struct shell *shell, struct wl_listener *listener)
+{
+	wl_signal_add(&shell->output_area_signal, listener);
+}
+
+/*******************************************************************************
+ * constructor / destructor
+ ******************************************************************************/
 
 static void
 end_shell(struct wl_listener *listener, void *data)
@@ -1062,6 +1117,8 @@ tw_setup_shell(struct weston_compositor *ec, const char *path,
 	oneshell.shell_client = NULL;
 	oneshell.config = config;
 	oneshell.panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
+
+	wl_signal_init(&oneshell.output_area_signal);
 
 	oneshell.shell_global =
 		wl_global_create(ec->wl_display,
