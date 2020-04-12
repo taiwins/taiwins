@@ -229,6 +229,8 @@ twdesk_surface_added(struct weston_desktop_surface *surface,
 	wt_surface->is_mapped = true;
 	weston_desktop_surface_set_activated(surface, true);
 	view->output = tw_get_focused_output(wt_surface->compositor);
+	if (!view->output)
+		view->output = tw_get_default_output(wt_surface->compositor);
 	wt_surface->output = view->output;
 
 	//creating recent view
