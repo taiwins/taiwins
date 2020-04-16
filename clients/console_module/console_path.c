@@ -82,12 +82,12 @@ console_path_module_search(struct console_module *module, const char *to_search,
 	//get lines from buffer.
 	FILE *stream = fmemopen(buffer.elems, buffer.len, "r");
 	char *line = calloc(buffer.elemsize * buffer.len, 1);
-	size_t len = 0, totalsize = buffer.elemsize * buffer.len;
+	int len = 0; size_t totalsize = buffer.elemsize * buffer.len;
 
 	//getline has the contains the delimiter
 	//do not expect getline allocates memory for you.
-	vector_init_zero(result, sizeof(console_search_entry1_t),
-		free_console_search_entry);
+	vector_init_zero(result, sizeof(console_search_entry_t),
+	                 search_entry_free);
 	while ((len = getline(&line, &totalsize, stream)) != -1) {
 		//copy to entrys
 	}

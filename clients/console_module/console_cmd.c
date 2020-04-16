@@ -96,7 +96,7 @@ console_cmd_module_search(struct console_module *module, const char *to_search,
 	if (!module->radix)
 		return 0;
 	vector_init_zero(result, sizeof(console_search_entry_t),
-			 free_console_search_entry);
+			 search_entry_free);
 
 	raxStart(&iter, module->radix);
 	//iterator behavior is not yet understood, maybe wrong
