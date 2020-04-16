@@ -246,8 +246,8 @@ int main(int argc, char *argv[], char *envp[])
 	}
 	compositor->default_pointer_grab = NULL;
 	compositor->exit = tw_compositor_handle_exit;
-	compositor->kb_repeat_delay = 400;
-	compositor->kb_repeat_rate = 40;
+	compositor->kb_repeat_delay = 500;
+	compositor->kb_repeat_rate = 20;
 
 	wl_display_run(display);
 out:
