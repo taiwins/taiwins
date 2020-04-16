@@ -238,7 +238,7 @@
 *** DONE add CI
 *** TODO find a way to get the voice out
 
-* TODO [42%] Stage three: extensions/ post-pub features
+* TODO [37%] Stage three: extensions/ post-pub features
 ** PEND ADD DAMAGE SUPPORT in drawing!
    for EGL backend, this would be impossible, but maybe you can do something in
    the cairo backend
@@ -250,12 +250,30 @@
 *** DONE lua_theme to tw_theme
 *** TODO test theme with images, not just colors
 *** CANC c files
+** TODO console improvements
+   Now the launcher, or we called it console is able to start some application,
+   but it is really ugly, does not support any keyboard based navigations. 
+   So there are few things left:
+   - navigation support, tab/enter control
+   - resizing.
+   - better drawing.
+   - loading also the icons(since you had icon caches).
+   - configuration and plugins. Yes, of course you need plugins.
+
+*** TODO nku_branch 
+    For many widgets to work smoothly it is ensentially to have wrapper around
+    nuklear, have a branch to give some common routines. Then you can easily
+    finish decorating consoles
+*** TODO load only necessary icons
+    we load every thing now, it crashes for themes like deepin, which has
+    millions of icons out there. Chances are, you are not needing them.
+*** TODO create file type for taiwins icon cache.
 
 ** DONE Add multiple font support
    now twclient supports multiple fonts
 ** CANC patch 3rdparty libraries
    weston: output configure in the run time.
-** TODO [27%] new features
+** TODO [37%] new features
 *** DOIN add dbus support
     now we have the dbus code, we can move some of the client requests into
     dbus. But at the same time, for it to have users, we would need to have lua
@@ -329,14 +347,6 @@ session_bus:signal_on(function (vol) w:volume = vol end,
     - preferably right click open an menu and left click opens selection.
     - for this work you need the support for resizing
 *** TODO better locker/using dot instead of stars
-*** TODO nku_branch 
-    For many widgets to work smoothly it is ensentially to have wrapper around
-    nuklear, have a branch to give some common routines. Then you can easily
-    finish decorating consoles
-*** TODO load only necessary icons
-    we load every thing now, it crashes for themes like deepin, which has
-    millions of icons out there. Chances are, you are not needing them.
-*** TODO create file type for taiwins icon cache.
 ** TODO possibly remove dynamic allocated objects
     reduce number of mallocs and memory fragmentation(I just added a lot in console)
     - recent_view
