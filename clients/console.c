@@ -110,6 +110,13 @@ console_issue_commands(struct desktop_console *console,
 		console_module_command(module, command, NULL);
 }
 
+static inline bool
+console_has_selected(struct desktop_console *console)
+{
+	return console->selected.module &&
+		!search_entry_empty(&console->selected.entry);
+}
+
 static inline void
 console_clear_selected(struct desktop_console *console)
 {
@@ -184,24 +191,82 @@ console_select_default(struct desktop_console *console)
 static inline void
 console_update_selected(struct desktop_console *console)
 {
-	if (console->selected.module &&
-	    !search_entry_empty(&console->selected.entry))
+	if (console_has_selected(console))
 		return;
 
 	console_select_default(console);
 }
 
 static void
-console_handle_tab_key(struct desktop_console *console)
+console_handle_tab(struct desktop_console *console)
 {
 	const char *line;
 
-	if (console_select_default(console)) {
+	if (console_has_selected(console) ||
+	    console_select_default(console)) {
 		line = search_entry_get_string(&console->selected.entry);
 		nk_textedit_delete(&console->text_edit, 0,
 		                   console->text_edit.string.len);
 		nk_textedit_text(&console->text_edit, line, strlen(line));
 	}
+}
+
+static void
+console_handle_nav(struct desktop_console *console, bool up)
+{
+	console_search_entry_t *prev, *curr, *next;
+	struct console_module *module;
+	struct console_module *prev_module, *curr_module, *next_module;
+	console_search_entry_t *entry;
+	vector_t *result;
+	bool selected = false;
+
+	prev = curr = next = NULL;
+	prev_module = curr_module = next_module = NULL;
+
+	for (int i = 0; i < console->modules.len; i++) {
+		result = vector_at(&console->search_results, i);
+		module = vector_at(&console->modules, i);
+
+		if (!result->len)
+			continue;
+		// updating prev, curr, next
+		vector_for_each(entry, result) {
+			if (selected) {
+				next = entry;
+				next_module = module;
+				break;
+			} else {
+				if (search_entry_equal(&console->selected.entry,
+				                       entry))
+					selected = true;
+				prev = curr;
+				curr = entry;
+				prev_module = curr_module;
+				curr_module = module;
+			}
+		}
+		if (next)
+			break;
+	}
+	// handling selected is first or last elem.
+	if (!prev)
+		prev = curr;
+	if (!next)
+		next = curr;
+	if (!prev_module)
+		prev_module = curr_module;
+	if (!next_module)
+		next_module = curr_module;
+
+	if (up) {
+		console->selected.module = prev_module;
+		search_entry_assign(&console->selected.entry, prev);
+	} else {
+		console->selected.module = next_module;
+		search_entry_assign(&console->selected.entry, next);
+	}
+
 }
 
 /*******************************************************************************
@@ -223,16 +288,20 @@ draw_module_results(struct nk_context *ctx, struct desktop_console *console,
 			search_entry_equal(&console->selected.entry,
 			                   entry);
 		if (selected)
-			fprintf(stdout, "%s is selected\n", search_entry_get_string(entry));
+			fprintf(stdout, "%s is selected\n",
+			        search_entry_get_string(entry));
 
 		nk_layout_row(ctx, NK_DYNAMIC, 20,  2, ratio);
 		nk_spacing(ctx, 1);
 		bound = nk_widget_bounds(ctx);
-		nk_selectable_label(ctx, search_entry_get_string(entry), NK_TEXT_CENTERED,
-		                    &selected);
-		clicked = nk_input_is_mouse_click_in_rect(&ctx->input, NK_BUTTON_LEFT, bound);
+		nk_selectable_label(ctx, search_entry_get_string(entry),
+		                    NK_TEXT_CENTERED, &selected);
+		clicked = nk_input_is_mouse_click_in_rect(&ctx->input,
+		                                          NK_BUTTON_LEFT,
+		                                          bound);
 		if (clicked) {
 			search_entry_assign(&console->selected.entry, entry);
+			console->selected.module = module;
 		}
 	}
 
@@ -289,11 +358,18 @@ draw_console(struct nk_context *ctx, float width, float height,
 	//we shall get our default selection here...
 
 	if (nk_input_is_key_pressed(&ctx->input, NK_KEY_TAB)) {
-		console_handle_tab_key(console);
+		console_handle_tab(console);
                 disable_clearing = true;
-        } else if (nk_input_is_key_pressed(&ctx->input, NK_KEY_ENTER))
+	} else if (nk_input_is_key_pressed(&ctx->input, NK_KEY_ENTER)) {
 		submit = true;
-	//TODO: deal with up down key
+		disable_clearing = true;
+	} else if (nk_input_is_key_pressed(&ctx->input, NK_KEY_UP)) {
+		console_handle_nav(console, true);
+		disable_clearing = true;
+	} else if (nk_input_is_key_pressed(&ctx->input, NK_KEY_DOWN)) {
+		console_handle_nav(console, false);
+		disable_clearing = true;
+	}
 
 	nk_layout_row_static(ctx, 30, width, 1);
 	nk_edit_focus(ctx, 0);
@@ -353,9 +429,7 @@ exec_application(void *data, struct taiwins_console *protocol, uint32_t id)
 {
 	struct desktop_console *console = data;
 	struct selected_search_entry *selected =
-		(console->selected.module) &&
-		!search_entry_empty(&console->selected.entry) ?
-		&console->selected : NULL;
+		console_has_selected(console) ? &console->selected : NULL;
 
 	if (id != console->exec_id) {
 		fprintf(stderr, "exec order not consistant, something wrong.");
