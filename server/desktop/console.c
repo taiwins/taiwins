@@ -141,7 +141,7 @@ should_start_console(struct weston_keyboard *keyboard, const struct timespec *ti
 		return;
 
 	taiwins_console_send_start(lch->resource,
-				    wl_fixed_from_int(200),
+				    wl_fixed_from_int(600),
 				    wl_fixed_from_int(300),
 				    wl_fixed_from_int(1));
 }

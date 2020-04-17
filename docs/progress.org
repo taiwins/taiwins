@@ -250,20 +250,18 @@
 *** DONE lua_theme to tw_theme
 *** TODO test theme with images, not just colors
 *** CANC c files
-** TODO console improvements
+** TODO [33%] console improvements
    Now the launcher, or we called it console is able to start some application,
    but it is really ugly, does not support any keyboard based navigations. 
    So there are few things left:
-   - navigation support, tab/enter control
-   - resizing.
-   - better drawing.
-   - loading also the icons(since you had icon caches).
-   - configuration and plugins. Yes, of course you need plugins.
-
-*** TODO nku_branch 
-    For many widgets to work smoothly it is ensentially to have wrapper around
-    nuklear, have a branch to give some common routines. Then you can easily
-    finish decorating consoles
+*** DONE navigation support, tab/enter control
+*** TODO resizing.
+*** DONE better drawing.
+*** TODO loading also the icons(since you had icon caches).
+*** TODO configuration and plugins. Yes, of course you need plugins.
+*** CANC nku_branch (widget helper)
+    I did not need it in the end. Maybe writing a nku branch would be a good
+    idea in the end, but creating it just for one app is not sufficient.
 *** TODO load only necessary icons
     we load every thing now, it crashes for themes like deepin, which has
     millions of icons out there. Chances are, you are not needing them.
