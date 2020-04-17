@@ -250,12 +250,12 @@
 *** DONE lua_theme to tw_theme
 *** TODO test theme with images, not just colors
 *** CANC c files
-** TODO [33%] console improvements
+** TODO [50%] console improvements
    Now the launcher, or we called it console is able to start some application,
    but it is really ugly, does not support any keyboard based navigations. 
    So there are few things left:
 *** DONE navigation support, tab/enter control
-*** TODO resizing.
+*** DONE resizing.
 *** DONE better drawing.
 *** TODO loading also the icons(since you had icon caches).
 *** TODO configuration and plugins. Yes, of course you need plugins.

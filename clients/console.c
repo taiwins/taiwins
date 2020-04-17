@@ -52,6 +52,11 @@
 #include "common.h"
 #include "console_module/console_module.h"
 
+
+#define CON_EDIT_H 30
+#define CON_ENTY_H 24
+#define CON_MOD_GAP 4
+
 struct selected_search_entry {
 	console_search_entry_t entry;
 	struct console_module *module;
@@ -71,9 +76,6 @@ struct desktop_console {
 
 	char cmds[256];
 	char prev_cmds[256];
-	int prev_cmds_len;
-	//a good hack is that this text_edit is stateless, we don't need to
-	//store anything once submitte
 	struct nk_text_edit text_edit;
 
 	vector_t modules;
@@ -83,19 +85,24 @@ struct desktop_console {
 	char *exec_result;
 
 	struct tw_theme theme;
+	struct tw_bbox collapsed_bounds;
+	struct tw_bbox bounds;
 };
 
-static void
-console_do_submit(struct tw_appsurf *surf)
+static int
+console_do_submit(struct tw_event *e, int fd)
 {
+	struct tw_appsurf *surf = e->data;
 	struct desktop_console *console =
 		container_of(surf, struct desktop_console, surface);
+
 	taiwins_console_submit(console->interface, console->decision_buffer,
 	                       console->exec_id);
 	// and also do the exec.
 	taiwins_ui_destroy(console->proxy);
 	console->proxy = NULL;
 	tw_appsurf_release(&console->surface);
+	return TW_EVENT_DEL;
 }
 
 static void
@@ -274,6 +281,21 @@ console_handle_nav(struct desktop_console *console, bool up)
 
 }
 
+static int
+console_resize(struct tw_event *e, int fd)
+{
+	struct tw_appsurf *console_surf = e->data;
+	uint32_t nh = e->arg.u;
+
+	(void)fd;
+	tw_appsurf_resize(console_surf,
+	                  console_surf->allocation.w,
+	                  nh,
+	                  console_surf->allocation.s);
+
+	return TW_EVENT_DEL;
+}
+
 /*******************************************************************************
  * console drawing functions
  ******************************************************************************/
@@ -297,7 +319,7 @@ console_draw_module_results(struct nk_context *ctx,
 			search_entry_equal(&console->selected.entry,
 			                   entry);
 
-		nk_layout_row(ctx, NK_DYNAMIC, 20,  2, ratio);
+		nk_layout_row(ctx, NK_DYNAMIC, CON_ENTY_H, 2, ratio);
 		//draw module title
 		if (!draw_module_name) {
 			nk_label(ctx, module->name, NK_TEXT_LEFT);
@@ -353,7 +375,7 @@ console_draw_search_results(struct nk_context *ctx,
 	nk_flags flags = NK_WINDOW_NO_SCROLLBAR;
 
 	//calculate bound
-	nk_layout_row_dynamic(ctx, 200, 1);
+	nk_layout_row_dynamic(ctx, 240, 1);
 	results_bound = nk_widget_bounds(ctx);
 
 	if (nk_group_scrolled_begin(ctx, &offset, "search_result", flags)) {
@@ -361,6 +383,9 @@ console_draw_search_results(struct nk_context *ctx,
 			module = vector_at(&console->modules, i);
 			results = vector_at(&console->search_results, i);
 			//header
+			nk_layout_row_dynamic(ctx, CON_MOD_GAP, 1);
+			nk_spacing(ctx, 1);
+
 			//module results
 			if (console_draw_module_results(ctx, console, module,
 			                        results, &selected_bound))
@@ -379,8 +404,7 @@ console_edit_filter(const struct nk_text_edit *box, nk_rune unicode)
 {
 	NK_UNUSED(box);
 
-	//TODO: deal with things like backspace
-	if (isprint(unicode) && !isspace(unicode))
+	if (isprint(unicode) && (!isspace(unicode) || unicode == '\n'))
 		return nk_true;
 	else
 		return nk_false;
@@ -396,7 +420,7 @@ console_clean_nav_key(struct nk_context *ctx)
 }
 
 /**
- * @brief nuklear draw calls
+ * @brief draw the console application
  */
 static void
 console_draw(struct nk_context *ctx, float width, float height,
@@ -407,8 +431,16 @@ console_draw(struct nk_context *ctx, float width, float height,
         bool has_results = false;
         struct desktop_console *console =
 		container_of(surf, struct desktop_console, surface);
+        struct tw_event_queue *queue = &console->globals.event_queue;
+        struct tw_event resize_event = {
+	        .cb = console_resize,
+	        .data = surf,
+        };
+        struct tw_event submit_event = {
+	        .cb = console_do_submit,
+	        .data = surf,
+        };
 
-        NK_UNUSED(height);
 	has_results = console_update_search_results(console);
 	console_update_selected(console);
 
@@ -427,23 +459,36 @@ console_draw(struct nk_context *ctx, float width, float height,
 	}
 	console_clean_nav_key(ctx);
 
-	nk_layout_row_static(ctx, 30, width, 1);
-	nk_edit_focus(ctx, 0);
-	nk_edit_buffer(ctx, NK_EDIT_FIELD, &console->text_edit,
-	               console_edit_filter);
+	// actual drawing part
+	if (nk_begin(ctx, "taiwins_console", nk_rect(0, 0, width, height),
+	             NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
 
-	if (console_edit_changed(console, &prev_cmd_len)) {
-		console_issue_commands(console, &console->text_edit.string);
-		if (!disable_clearing)
-	          console_clear_selected(console);
-	}
+		nk_layout_row_dynamic(ctx, CON_EDIT_H, 1);
+		nk_edit_focus(ctx, 0);
+		nk_edit_buffer(ctx, NK_EDIT_FIELD, &console->text_edit,
+		               console_edit_filter);
 
-	if (has_results && console_draw_search_results(ctx, console))
-		submit = true;
+		if (console_edit_changed(console, &prev_cmd_len)) {
+			console_issue_commands(console,
+			                       &console->text_edit.string);
+			if (!disable_clearing)
+				console_clear_selected(console);
+		}
+
+		if (has_results && console_draw_search_results(ctx, console))
+			submit = true;
+	} nk_end(ctx);
 
 	if (submit) {
-		nk_wl_add_idle(ctx, console_do_submit);
+		tw_event_queue_add_idle(queue, &submit_event);
 		prev_cmd_len = 0;
+	}
+	if (has_results && (height != console->bounds.h)) {
+		resize_event.arg.u = console->bounds.h;
+		tw_event_queue_add_idle(queue, &resize_event);
+	} else if (!has_results && (height != console->collapsed_bounds.h)) {
+		resize_event.arg.u = console->collapsed_bounds.h;
+		tw_event_queue_add_idle(queue, &resize_event);
 	}
 }
 
@@ -469,16 +514,23 @@ start_console(void *data, struct taiwins_console *tw_console,
 	int w = wl_fixed_to_int(width);
 	int h = wl_fixed_to_int(height);
 	int s = wl_fixed_to_int(scale);
+	int border = console->theme.window.border;
+	int margin = console->theme.window.spacing.y;
+
+	console->bounds = tw_make_bbox_origin(w, h, s);
+	console->collapsed_bounds =
+		tw_make_bbox_origin(w, CON_EDIT_H + border * 2 + margin * 2, s);
 
 	wl_surface = wl_compositor_create_surface(console->globals.compositor);
 	console->proxy = taiwins_console_launch(tw_console, wl_surface);
 
 	tw_appsurf_init(surface, wl_surface,
-			 &console->globals, TW_APPSURF_WIDGET,
-			 TW_APPSURF_NORESIZABLE);
+	                &console->globals, TW_APPSURF_WIDGET,
+	                TW_APPSURF_COMPOSITE);
 	surface->tw_globals = &console->globals;
 	nk_cairo_impl_app_surface(surface, console->bkend, console_draw,
-				tw_make_bbox_origin(w, h, s));
+				console->collapsed_bounds);
+
 	tw_appsurf_frame(surface, false);
 }
 
@@ -672,7 +724,6 @@ static struct wl_registry_listener registry_listener = {
 	.global = announce_globals,
 	.global_remove = announce_global_remove
 };
-
 
 int
 main(int argc, char *argv[])
