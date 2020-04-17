@@ -55,6 +55,7 @@ struct console_module {
 	struct rax *radix;
 	const bool support_cache;
 	const char name[32];
+	bool quit;
 
 	struct {
 		pthread_mutex_t command_mutex;
