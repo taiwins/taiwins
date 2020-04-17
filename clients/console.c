@@ -1,7 +1,7 @@
 /*
  * console.c - taiwins client console implementation
  *
- * Copyright (c) 2019 Xichen Zhou
+ * Copyright (c) 2019-2020 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <unistd.h>
+#include <wayland-util.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -149,16 +150,20 @@ console_edit_changed(struct desktop_console *console, int *prev_len)
 	return changed;
 }
 
-static inline void
+static inline bool
 console_update_search_results(struct desktop_console *console)
 {
+	bool has_results = false;
 	struct console_module *module;
 	vector_t *results;
 	for (int i = 0; i < console->modules.len; i++) {
 		module = vector_at(&console->modules, i);
 		results = vector_at(&console->search_results, i);
 		console_module_take_search_result(module, results);
+		if (results->len > 0)
+			has_results = true;
 	}
+	return has_results;
 }
 
 static bool
@@ -273,59 +278,100 @@ console_handle_nav(struct desktop_console *console, bool up)
  * console drawing functions
  ******************************************************************************/
 
-static void
-draw_module_results(struct nk_context *ctx, struct desktop_console *console,
-            struct console_module *module, vector_t *results)
+static bool
+console_draw_module_results(struct nk_context *ctx,
+                            struct desktop_console *console,
+                            struct console_module *module, vector_t *results,
+                            struct nk_rect *selected_bound)
 {
+	bool ret = false;
 	console_search_entry_t *entry = NULL;
 	int selected = 0;
 	int clicked = 0;
 	struct nk_rect bound;
-	static const float ratio[] = {0.15f, 0.85f};
+	static const float ratio[] = {0.30, 0.70f};
+	bool draw_module_name = false;
 
 	vector_for_each(entry, results) {
 		selected = (module == console->selected.module) &&
 			search_entry_equal(&console->selected.entry,
 			                   entry);
-		if (selected)
-			fprintf(stdout, "%s is selected\n",
-			        search_entry_get_string(entry));
 
 		nk_layout_row(ctx, NK_DYNAMIC, 20,  2, ratio);
-		nk_spacing(ctx, 1);
+		//draw module title
+		if (!draw_module_name) {
+			nk_label(ctx, module->name, NK_TEXT_LEFT);
+			draw_module_name = true;
+		} else
+			nk_spacing(ctx, 1);
+		//draw the actual widget
 		bound = nk_widget_bounds(ctx);
 		nk_selectable_label(ctx, search_entry_get_string(entry),
 		                    NK_TEXT_CENTERED, &selected);
 		clicked = nk_input_is_mouse_click_in_rect(&ctx->input,
 		                                          NK_BUTTON_LEFT,
 		                                          bound);
+		if (selected)
+			*selected_bound = bound;
 		if (clicked) {
 			search_entry_assign(&console->selected.entry, entry);
 			console->selected.module = module;
+			ret = true;
 		}
 	}
-
+	return ret;
 }
 
 static void
-draw_search_results(struct nk_context *ctx, struct desktop_console *console)
+console_calc_scroll(const struct nk_rect *selected,
+                    const struct nk_rect *bound, struct nk_scroll *scroll)
 {
-	vector_t *results;
-	struct console_module *module;
+	int yoffset = (int)scroll->y;
+	int top_diff = (int)selected->y - (int)bound->y ;
+	int bottom_diff = (int)(selected->y + selected->h) -
+		(int)(bound->y + bound->h);
 
+	if (top_diff < 0)
+		yoffset = MAX(0, yoffset + top_diff);
+	else if (bottom_diff > 0)
+		yoffset += bottom_diff;
+
+	scroll->y = yoffset;
+}
+
+static bool
+console_draw_search_results(struct nk_context *ctx,
+                            struct desktop_console *console)
+{
+	bool clicked = false;
+	vector_t *results;
+	struct nk_style_window *style = &ctx->style.window;
+	struct console_module *module;
+	struct nk_rect selected_bound = {0};
+	struct nk_rect results_bound;
+	static struct nk_scroll offset = {0, 0};
+	nk_flags flags = NK_WINDOW_NO_SCROLLBAR;
+
+	//calculate bound
 	nk_layout_row_dynamic(ctx, 200, 1);
-	if (nk_group_begin(ctx, "search_result", NK_WINDOW_SCALABLE)) {
+	results_bound = nk_widget_bounds(ctx);
+
+	if (nk_group_scrolled_begin(ctx, &offset, "search_result", flags)) {
 		for (int i = 0; i < console->modules.len; i++) {
 			module = vector_at(&console->modules, i);
 			results = vector_at(&console->search_results, i);
 			//header
-			nk_layout_row_dynamic(ctx, 20, 1);
-			nk_label(ctx, module->name, NK_TEXT_LEFT);
 			//module results
-			draw_module_results(ctx, console, module, results);
+			if (console_draw_module_results(ctx, console, module,
+			                        results, &selected_bound))
+				clicked = true;
 		}
-		nk_group_end(ctx);
+		nk_group_scrolled_end(ctx);
 	}
+	results_bound.h -= style->padding.y + style->spacing.y;
+	console_calc_scroll(&selected_bound, &results_bound, &offset);
+
+	return clicked;
 }
 
 static int
@@ -340,22 +386,31 @@ console_edit_filter(const struct nk_text_edit *box, nk_rune unicode)
 		return nk_false;
 }
 
+static inline void
+console_clean_nav_key(struct nk_context *ctx)
+{
+	ctx->input.keyboard.keys[NK_KEY_UP].down = 0;
+	ctx->input.keyboard.keys[NK_KEY_UP].clicked = 0;
+	ctx->input.keyboard.keys[NK_KEY_DOWN].down = 0;
+	ctx->input.keyboard.keys[NK_KEY_DOWN].clicked = 0;
+}
+
 /**
  * @brief nuklear draw calls
  */
 static void
-draw_console(struct nk_context *ctx, float width, float height,
+console_draw(struct nk_context *ctx, float width, float height,
 	     struct tw_appsurf *surf)
 {
 	static int prev_cmd_len = 0;
         bool submit = false, disable_clearing = false;
+        bool has_results = false;
         struct desktop_console *console =
 		container_of(surf, struct desktop_console, surface);
 
         NK_UNUSED(height);
-	console_update_search_results(console);
+	has_results = console_update_search_results(console);
 	console_update_selected(console);
-	//we shall get our default selection here...
 
 	if (nk_input_is_key_pressed(&ctx->input, NK_KEY_TAB)) {
 		console_handle_tab(console);
@@ -370,6 +425,7 @@ draw_console(struct nk_context *ctx, float width, float height,
 		console_handle_nav(console, false);
 		disable_clearing = true;
 	}
+	console_clean_nav_key(ctx);
 
 	nk_layout_row_static(ctx, 30, width, 1);
 	nk_edit_focus(ctx, 0);
@@ -377,16 +433,17 @@ draw_console(struct nk_context *ctx, float width, float height,
 	               console_edit_filter);
 
 	if (console_edit_changed(console, &prev_cmd_len)) {
-          console_issue_commands(console, &console->text_edit.string);
-          if (!disable_clearing)
-            console_clear_selected(console);
+		console_issue_commands(console, &console->text_edit.string);
+		if (!disable_clearing)
+	          console_clear_selected(console);
 	}
-	//we need to get here as well
-	draw_search_results(ctx, console);
+
+	if (has_results && console_draw_search_results(ctx, console))
+		submit = true;
 
 	if (submit) {
-          nk_wl_add_idle(ctx, console_do_submit);
-          prev_cmd_len = 0;
+		nk_wl_add_idle(ctx, console_do_submit);
+		prev_cmd_len = 0;
 	}
 }
 
@@ -411,6 +468,7 @@ start_console(void *data, struct taiwins_console *tw_console,
 	struct wl_surface *wl_surface = NULL;
 	int w = wl_fixed_to_int(width);
 	int h = wl_fixed_to_int(height);
+	int s = wl_fixed_to_int(scale);
 
 	wl_surface = wl_compositor_create_surface(console->globals.compositor);
 	console->proxy = taiwins_console_launch(tw_console, wl_surface);
@@ -419,8 +477,8 @@ start_console(void *data, struct taiwins_console *tw_console,
 			 &console->globals, TW_APPSURF_WIDGET,
 			 TW_APPSURF_NORESIZABLE);
 	surface->tw_globals = &console->globals;
-	nk_cairo_impl_app_surface(surface, console->bkend, draw_console,
-				tw_make_bbox_origin(w, h, 1));
+	nk_cairo_impl_app_surface(surface, console->bkend, console_draw,
+				tw_make_bbox_origin(w, h, s));
 	tw_appsurf_frame(surface, false);
 }
 
