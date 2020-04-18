@@ -1,7 +1,7 @@
 /*
  * console.c - taiwins client console implementation
  *
- * Copyright (c) 2019 Xichen Zhou
+ * Copyright (c) 2019-2020 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,33 +22,40 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
-#include <xkbcommon/xkbcommon.h>
+#include <unistd.h>
+#include <wayland-util.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
-
 #include <wayland-client.h>
 #include <wayland-taiwins-theme-client-protocol.h>
 #include <wayland-taiwins-shell-client-protocol.h>
 #include <wayland-taiwins-console-client-protocol.h>
 
-#include <os/exec.h>
 #include <client.h>
 #include <ui.h>
-#include <shmpool.h>
-#include <rax.h>
-#include <strops.h>
-#include <sequential.h>
 #include <nk_backends.h>
 #include <theme.h>
+#include <shmpool.h>
+#include <helpers.h>
+#include <strops.h>
+#include <sequential.h>
 #include "../shared_config.h"
 
 #include "common.h"
 #include "console_module/console_module.h"
+#include "event_queue.h"
+#include "ui_event.h"
+#include "vector.h"
+
+
+#define CON_EDIT_H 30
+#define CON_ENTY_H 24
+#define CON_MOD_GAP 4
 
 struct selected_search_entry {
 	console_search_entry_t entry;
@@ -67,163 +74,459 @@ struct desktop_console {
 	struct wl_callback *exec_cb;
 	uint32_t exec_id;
 
-	off_t cursor;
-	char chars[256];
-	bool quit;
-	//a good hack is that this text_edit is stateless, we don't need to
-	//store anything once submitte
+	char cmds[256];
+	char prev_cmds[256];
 	struct nk_text_edit text_edit;
 
 	vector_t modules;
-	vector_t search_results; //search results from modules moves to here
+	/**< search results from modules, same length as modules */
+	vector_t search_results;
 	struct selected_search_entry selected;
 	char *exec_result;
 
 	struct tw_theme theme;
+	struct tw_bbox collapsed_bounds;
+	struct tw_bbox bounds;
 };
 
-static void
-submit_console(struct tw_appsurf *surf)
+static int
+console_do_submit(struct tw_event *e, int fd)
 {
+	struct tw_appsurf *surf = e->data;
 	struct desktop_console *console =
 		container_of(surf, struct desktop_console, surface);
-	taiwins_console_submit(console->interface, console->decision_buffer, console->exec_id);
-	//and also do the exec.
+
+	taiwins_console_submit(console->interface, console->decision_buffer,
+	                       console->exec_id);
+	// and also do the exec.
 	taiwins_ui_destroy(console->proxy);
 	console->proxy = NULL;
 	tw_appsurf_release(&console->surface);
+	return TW_EVENT_DEL;
 }
 
 static void
-issue_commands(struct desktop_console *console,
-	       const struct nk_str *str)
+console_issue_commands(struct desktop_console *console,
+                       const struct nk_str *str)
 {
 	struct console_module *module = NULL;
 	char command[256] = {0};
-	//careful here, cannot copy the all the command
+	// careful here, cannot copy the all the command
 	strop_ncpy(command, (char *)str->buffer.memory.ptr,
-		MIN(256, str->len+1));
+	           MIN(256, str->len + 1));
 	vector_for_each(module, &console->modules)
 		console_module_command(module, command, NULL);
 }
 
-static void
-search_res_header(struct nk_context *ctx, const char *title)
+static inline bool
+console_has_selected(struct desktop_console *console)
 {
-    /* nk_style_set_font(ctx, &media->font_18->handle); */
-    nk_layout_row_dynamic(ctx, 20, 1);
-    /* struct nk_vec2 pos = nk_widget_position(ctx); */
-    /* fprintf(stderr, "pos: (%f, %f)\n", pos.x, pos.y); */
-    nk_label(ctx, title, NK_TEXT_LEFT);
+	return console->selected.module &&
+		!search_entry_empty(&console->selected.entry);
+}
+
+static inline void
+console_clear_selected(struct desktop_console *console)
+{
+	console->selected.module = NULL;
+	console->selected.entry.pstr = NULL;
+	console->selected.entry.sstr[0] = '\0';
+}
+
+static inline void
+console_clear_edit(struct desktop_console *console)
+{
+	memset(console->cmds, 0, NUMOF(console->cmds));
+	memset(console->prev_cmds, 0, NUMOF(console->prev_cmds));
+	nk_textedit_init_fixed(&console->text_edit, console->cmds,
+	                       NUMOF(console->cmds));
+}
+
+static bool
+console_edit_changed(struct desktop_console *console, int *prev_len)
+{
+	int len = console->text_edit.string.len;
+	bool changed = (*prev_len != len) ||
+		memcmp(console->cmds, console->prev_cmds,
+		       MIN((size_t)len, NUMOF(console->cmds))) != 0;
+
+	if (changed)
+		memcpy(console->prev_cmds, console->cmds,
+		       NUMOF(console->cmds));
+	*prev_len = console->text_edit.string.len;
+	return changed;
+}
+
+static inline bool
+console_update_search_results(struct desktop_console *console)
+{
+	bool has_results = false, clean_results = false;
+	struct console_module *module;
+	vector_t *results;
+	if (console->text_edit.string.len == 0)
+		clean_results = true;
+
+	for (int i = 0; i < console->modules.len; i++) {
+		module = vector_at(&console->modules, i);
+		results = vector_at(&console->search_results, i);
+		if (clean_results)
+			vector_destroy(results);
+		else
+			console_module_take_search_result(module, results);
+		if (results->len > 0)
+			has_results = true;
+	}
+	return has_results;
+}
+
+static bool
+console_select_default(struct desktop_console *console)
+{
+	bool updated = false;
+	struct console_module *module;
+	console_search_entry_t *entry;
+	vector_t *result;
+
+	for (int i = 0; i < console->modules.len; i++) {
+		result = vector_at(&console->search_results, i);
+		module = vector_at(&console->modules, i);
+
+		if (!result->len)
+			continue;
+
+		vector_for_each(entry, result) {
+			search_entry_assign(&console->selected.entry, entry);
+			console->selected.module = module;
+			updated = true;
+			break;
+		}
+		break;
+	}
+	return updated;
+}
+
+static inline void
+console_update_selected(struct desktop_console *console)
+{
+	if (console_has_selected(console))
+		return;
+
+	console_select_default(console);
+}
+
+static void
+console_handle_tab(struct desktop_console *console)
+{
+	const char *line;
+
+	if (console_has_selected(console) ||
+	    console_select_default(console)) {
+		line = search_entry_get_string(&console->selected.entry);
+		nk_textedit_delete(&console->text_edit, 0,
+		                   console->text_edit.string.len);
+		nk_textedit_text(&console->text_edit, line, strlen(line));
+	}
+}
+
+static void
+console_handle_nav(struct desktop_console *console, bool up)
+{
+	console_search_entry_t *prev, *curr, *next;
+	struct console_module *module;
+	struct console_module *prev_module, *curr_module, *next_module;
+	console_search_entry_t *entry;
+	vector_t *result;
+	bool selected = false;
+
+	prev = curr = next = NULL;
+	prev_module = curr_module = next_module = NULL;
+
+	for (int i = 0; i < console->modules.len; i++) {
+		result = vector_at(&console->search_results, i);
+		module = vector_at(&console->modules, i);
+
+		if (!result->len)
+			continue;
+		// updating prev, curr, next
+		vector_for_each(entry, result) {
+			if (selected) {
+				next = entry;
+				next_module = module;
+				break;
+			} else {
+				if (search_entry_equal(&console->selected.entry,
+				                       entry))
+					selected = true;
+				prev = curr;
+				curr = entry;
+				prev_module = curr_module;
+				curr_module = module;
+			}
+		}
+		if (next)
+			break;
+	}
+	// handling edge case.
+	if (!prev)
+		prev = curr;
+	if (!next)
+		next = curr;
+	if (!prev_module)
+		prev_module = curr_module;
+	if (!next_module)
+		next_module = curr_module;
+
+	if (up) {
+		console->selected.module = prev_module;
+		search_entry_assign(&console->selected.entry, prev);
+	} else {
+		console->selected.module = next_module;
+		search_entry_assign(&console->selected.entry, next);
+	}
+
 }
 
 static int
-search_res_widget(struct nk_context *ctx, float height,
-		  const console_search_entry_t *entry)
+console_resize(struct tw_event *e, int fd)
 {
-    static const float ratio[] = {0.15f, 0.85f};
-    const char *str = search_entry_get_string(entry);
-    /* nk_style_set_font(ctx, &media->font_22->handle); */
-    nk_layout_row(ctx, NK_DYNAMIC, height, 2, ratio);
-    nk_spacing(ctx, 1);
-    /* struct nk_vec2 pos = nk_widget_size(ctx); */
-    /* fprintf(stderr, "bounds: (%f, %f)\n", pos.x, pos.y); */
-    return nk_button_label(ctx, str);
+	struct tw_appsurf *console_surf = e->data;
+	uint32_t nh = e->arg.u;
+
+	(void)fd;
+	tw_appsurf_resize(console_surf,
+	                  console_surf->allocation.w,
+	                  nh,
+	                  console_surf->allocation.s);
+
+	return TW_EVENT_DEL;
 }
 
+/*******************************************************************************
+ * console drawing functions
+ ******************************************************************************/
 
 static bool
-select_search_results(struct nk_context *ctx,
-		      struct desktop_console *console,
-		      struct selected_search_entry *selected)
+console_draw_module_results(struct nk_context *ctx,
+                            struct desktop_console *console,
+                            struct console_module *module, vector_t *results,
+                            struct nk_rect *selected_bound)
 {
-	//we are drawing search results row by row.
-	//there are a few things we need to do here:
-	//1: offers user the ability to select the search results.
-	//2: show the search results correctly (offseting the scrollbar manually)
-	//3: search completetion and sorting, we can do neither of those now.
-	bool complete = false;
+	bool ret = false;
+	console_search_entry_t *entry = NULL;
+	int selected = 0;
+	int clicked = 0;
+	struct nk_rect bound;
+	static const float ratio[] = {0.30, 0.70f};
+	bool draw_module_name = false;
 
-	nk_layout_row_dynamic(ctx, 200, 1);
-	nk_group_begin(ctx, "search_result", NK_WINDOW_SCALABLE);
-	for (int i = 0; i < console->modules.len; i++) {
-		console_search_entry_t *entry = NULL;
-		vector_t *result =
-			vector_at(&console->search_results, i);
-		struct console_module *module =
-			vector_at(&console->modules, i);
-		//update the results if there is new stuff
-		int errcode = console_module_take_search_result(module, result);
-		if (errcode || !result->len)
-			continue;
+	vector_for_each(entry, results) {
+		selected = (module == console->selected.module) &&
+			search_entry_equal(&console->selected.entry,
+			                   entry);
 
-		search_res_header(ctx, module->name);
-		vector_for_each(entry, result) {
-			if (search_res_widget(ctx, 30, entry)) {
-				search_entry_assign(&selected->entry, entry);
-				selected->module = module;
-				complete = true;
-			}
+		nk_layout_row(ctx, NK_DYNAMIC, CON_ENTY_H, 2, ratio);
+		//draw module title
+		if (!draw_module_name) {
+			nk_label(ctx, module->name, NK_TEXT_LEFT);
+			draw_module_name = true;
+		} else
+			nk_spacing(ctx, 1);
+		//draw the actual widget
+		bound = nk_widget_bounds(ctx);
+		nk_selectable_label(ctx, search_entry_get_string(entry),
+		                    NK_TEXT_CENTERED, &selected);
+		clicked = nk_input_is_mouse_click_in_rect(&ctx->input,
+		                                          NK_BUTTON_LEFT,
+		                                          bound);
+		if (selected)
+			*selected_bound = bound;
+		if (clicked) {
+			search_entry_assign(&console->selected.entry, entry);
+			console->selected.module = module;
+			ret = true;
 		}
 	}
-	nk_group_end(ctx);
-	return complete;
+	return ret;
+}
+
+static void
+console_calc_scroll(const struct nk_rect *selected,
+                    const struct nk_rect *bound, struct nk_scroll *scroll)
+{
+	int yoffset = (int)scroll->y;
+	int top_diff = (int)selected->y - (int)bound->y ;
+	int bottom_diff = (int)(selected->y + selected->h) -
+		(int)(bound->y + bound->h);
+
+	if (top_diff < 0)
+		yoffset = MAX(0, yoffset + top_diff);
+	else if (bottom_diff > 0)
+		yoffset += bottom_diff;
+
+	scroll->y = yoffset;
+}
+
+static bool
+console_draw_search_results(struct nk_context *ctx,
+                            struct desktop_console *console)
+{
+	bool clicked = false;
+	vector_t *results;
+	struct nk_style_window *style = &ctx->style.window;
+	struct console_module *module;
+	struct nk_rect selected_bound = {0};
+	struct nk_rect results_bound;
+	static struct nk_scroll offset = {0, 0};
+	nk_flags flags = NK_WINDOW_NO_SCROLLBAR;
+
+	//calculate bound
+	nk_layout_row_dynamic(ctx, 240, 1);
+	results_bound = nk_widget_bounds(ctx);
+
+	if (nk_group_scrolled_begin(ctx, &offset, "search_result", flags)) {
+		for (int i = 0; i < console->modules.len; i++) {
+			module = vector_at(&console->modules, i);
+			results = vector_at(&console->search_results, i);
+			//header
+			nk_layout_row_dynamic(ctx, CON_MOD_GAP, 1);
+			nk_spacing(ctx, 1);
+
+			//module results
+			if (console_draw_module_results(ctx, console, module,
+			                        results, &selected_bound))
+				clicked = true;
+		}
+		nk_group_scrolled_end(ctx);
+	}
+	results_bound.h -= style->padding.y + style->spacing.y;
+	console_calc_scroll(&selected_bound, &results_bound, &offset);
+
+	return clicked;
+}
+
+static int
+console_edit_filter(const struct nk_text_edit *box, nk_rune unicode)
+{
+	NK_UNUSED(box);
+
+	if (isprint(unicode) &&
+	    (!isspace(unicode) || unicode == '\n' || unicode == ' '))
+		return nk_true;
+	else
+		return nk_false;
+}
+
+static inline void
+console_clean_nav_key(struct nk_context *ctx)
+{
+	ctx->input.keyboard.keys[NK_KEY_UP].down = 0;
+	ctx->input.keyboard.keys[NK_KEY_UP].clicked = 0;
+	ctx->input.keyboard.keys[NK_KEY_DOWN].down = 0;
+	ctx->input.keyboard.keys[NK_KEY_DOWN].clicked = 0;
 }
 
 /**
- * @brief nuklear draw calls
+ * @brief draw the console application
  */
 static void
-draw_console(struct nk_context *ctx, float width, float height,
+console_draw(struct nk_context *ctx, float width, float height,
 	     struct tw_appsurf *surf)
 {
-	enum EDITSTATE {NORMAL, SUBMITTING};
-	static enum EDITSTATE edit_state = NORMAL;
-	static char previous_tab[256] = {0};
-	bool completion = false;
-	struct desktop_console *console =
+	static int prev_cmd_len = 0;
+        bool submit = false, disable_clearing = false;
+        bool has_results = false;
+        struct desktop_console *console =
 		container_of(surf, struct desktop_console, surface);
-	struct selected_search_entry *selected = &console->selected;
+        struct tw_event_queue *queue = &console->globals.event_queue;
+        struct tw_event resize_event = {
+	        .cb = console_resize,
+	        .data = surf,
+        };
+        struct tw_event submit_event = {
+	        .cb = console_do_submit,
+	        .data = surf,
+        };
 
-	nk_layout_row_static(ctx, 30, width, 1);
-	nk_edit_buffer(ctx, NK_EDIT_FIELD, &console->text_edit,
-		       nk_filter_default);
-	//issue commands only in key done state
-	if (nk_wl_get_keyinput(ctx) != XKB_KEY_NoSymbol)
-		issue_commands(console, &console->text_edit.string);
-	completion = select_search_results(ctx, console, selected);
-	if (completion) {
-		const char *line =
-			search_entry_get_string(&selected->entry);
-		nk_textedit_delete(&console->text_edit, 0, console->text_edit.string.len);
-		nk_textedit_text(&console->text_edit, line, strlen(line));
+	has_results = console_update_search_results(console);
+	console_update_selected(console);
+
+	if (nk_input_is_key_pressed(&ctx->input, NK_KEY_TAB)) {
+		console_handle_tab(console);
+                disable_clearing = true;
+	} else if (nk_input_is_key_pressed(&ctx->input, NK_KEY_ENTER)) {
+		submit = true;
+		disable_clearing = true;
+	} else if (nk_input_is_key_pressed(&ctx->input, NK_KEY_UP)) {
+		console_handle_nav(console, true);
+		disable_clearing = true;
+	} else if (nk_input_is_key_pressed(&ctx->input, NK_KEY_DOWN)) {
+		console_handle_nav(console, false);
+		disable_clearing = true;
 	}
-	if (nk_wl_get_keyinput(ctx) == XKB_KEY_NoSymbol) //key up
-		return;
+	console_clean_nav_key(ctx);
 
-	/* if (nk_input_is_key_pressed(&ctx->input, NK_KEY_ENTER) && */
-	/*     nk_input_is_key_pressed(&ctx->input, NK_KEY_SHIFT)) { */
-	/*	//return and no closing */
-	/* } else if (nk_input_is_key_pressed(&ctx->input, NK_KEY_ENTER)) { */
-	/*	//return and closing */
-	/* } */
+	// actual drawing part
+	if (nk_begin(ctx, "taiwins_console", nk_rect(0, 0, width, height),
+	             NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
 
-	if (nk_wl_get_keyinput(ctx) == XKB_KEY_Return)
-		edit_state = SUBMITTING;
-	else
-		edit_state = NORMAL;
+		nk_layout_row_dynamic(ctx, CON_EDIT_H, 1);
+		nk_edit_focus(ctx, 0);
+		nk_edit_buffer(ctx, NK_EDIT_FIELD, &console->text_edit,
+		               console_edit_filter);
 
-	switch (edit_state) {
-	case SUBMITTING:
-		memset(previous_tab, 0, sizeof(previous_tab));
-		edit_state = NORMAL;
-		nk_wl_add_idle(ctx, submit_console);
-		break;
-	case NORMAL:
-		memset(previous_tab, 0, sizeof(previous_tab));
-		break;
+		if (console_edit_changed(console, &prev_cmd_len)) {
+			console_issue_commands(console,
+			                       &console->text_edit.string);
+			if (!disable_clearing)
+				console_clear_selected(console);
+		}
+
+		if (has_results && console_draw_search_results(ctx, console))
+			submit = true;
+	} nk_end(ctx);
+
+	if (submit) {
+		tw_event_queue_add_idle(queue, &submit_event);
+		prev_cmd_len = 0;
+	}
+	if (has_results && (height != console->bounds.h)) {
+		resize_event.arg.u = console->bounds.h;
+		tw_event_queue_add_idle(queue, &resize_event);
+	} else if (!has_results && (height != console->collapsed_bounds.h)) {
+		resize_event.arg.u = console->collapsed_bounds.h;
+		tw_event_queue_add_idle(queue, &resize_event);
 	}
 }
+
+/*******************************************************************************
+ * taiwins_console_filter
+ ******************************************************************************/
+
+static bool
+suspend_console_on_esc(struct tw_appsurf *app, const struct tw_app_event *e)
+{
+	struct desktop_console *console =
+		container_of(app, struct desktop_console, surface);
+	struct tw_event_queue *queue = &console->globals.event_queue;
+        struct tw_event submit_event = {
+	        .cb = console_do_submit,
+	        .data = app,
+        };
+
+	if (e->key.sym == XKB_KEY_Escape) {
+		console_clear_selected(console);
+		tw_event_queue_add_idle(queue, &submit_event);
+		return true;
+	} else
+		return false;
+}
+
+static struct tw_app_event_filter console_key_filter = {
+	.intercept = suspend_console_on_esc,
+	.type = TW_KEY_BTN,
+	.link.prev = &console_key_filter.link,
+	.link.next = &console_key_filter.link,
+};
 
 /*******************************************************************************
  * taiwins_console_interface
@@ -246,40 +549,49 @@ start_console(void *data, struct taiwins_console *tw_console,
 	struct wl_surface *wl_surface = NULL;
 	int w = wl_fixed_to_int(width);
 	int h = wl_fixed_to_int(height);
+	int s = wl_fixed_to_int(scale);
+	int border = console->theme.window.border;
+	int margin = console->theme.window.spacing.y;
+
+	console->bounds = tw_make_bbox_origin(w, h, s);
+	console->collapsed_bounds =
+		tw_make_bbox_origin(w, CON_EDIT_H + border * 2 + margin * 2, s);
 
 	wl_surface = wl_compositor_create_surface(console->globals.compositor);
 	console->proxy = taiwins_console_launch(tw_console, wl_surface);
 
 	tw_appsurf_init(surface, wl_surface,
-			 &console->globals, TW_APPSURF_WIDGET,
-			 TW_APPSURF_NORESIZABLE);
+	                &console->globals, TW_APPSURF_WIDGET,
+	                TW_APPSURF_COMPOSITE);
 	surface->tw_globals = &console->globals;
-	nk_cairo_impl_app_surface(surface, console->bkend, draw_console,
-				tw_make_bbox_origin(w, h, 1));
+	wl_list_insert(&surface->filter_head, &console_key_filter.link);
+	nk_cairo_impl_app_surface(surface, console->bkend, console_draw,
+				console->collapsed_bounds);
+
 	tw_appsurf_frame(surface, false);
 }
 
 static void
-exec_application(void *data, struct taiwins_console *tw_console, uint32_t id)
+exec_application(void *data, struct taiwins_console *protocol, uint32_t id)
 {
 	struct desktop_console *console = data;
 	struct selected_search_entry *selected =
-		(console->selected.module) &&
-		!search_entry_empty(&console->selected.entry) ?
-		&console->selected : NULL;
+		console_has_selected(console) ? &console->selected : NULL;
 
 	if (id != console->exec_id) {
 		fprintf(stderr, "exec order not consistant, something wrong.");
 	} else if (selected){
-		console_module_command(selected->module, NULL,
-				       search_entry_get_string(&selected->entry));
-		free_console_search_entry(&selected->entry);
-		*selected = (struct selected_search_entry){0};
-		//parsing the input and command buffer. Then do it
-		/* fork_exec(1, forks); */
-	}
-	nk_textedit_init_fixed(&console->text_edit, console->chars, 256);
+		const char *cmd;
+		const char *df_cmd = search_entry_get_string(&selected->entry);
 
+		console->cmds[console->text_edit.string.len] = '\0';
+		cmd = (strstr(console->cmds, df_cmd)) ? console->cmds : df_cmd;
+		console_module_command(selected->module, NULL, cmd);
+
+		search_entry_free(&selected->entry);
+		selected->module = NULL;
+	}
+	console_clear_edit(console);
 	console->exec_id++;
 }
 
@@ -347,8 +659,11 @@ console_free_search_results(void *m)
 static void
 free_defunct_app(int signum)
 {
-	int wstatus;
-	wait(&wstatus);
+	int pid, status;
+	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+		fprintf(stderr, "defunct child exit!\n");
+		continue;
+	}
 }
 
 static void
@@ -364,7 +679,7 @@ post_init_console(struct desktop_console *console)
 		                         TAIWINS_CONSOLE_CONF_NUM_DECISIONS);
 	//prepare backend
 	console->bkend = nk_cairo_create_backend();
-	nk_textedit_init_fixed(&console->text_edit, console->chars, 256);
+	console_clear_edit(console);
 
 	//loading modules
 	struct console_module *module;
@@ -372,7 +687,7 @@ post_init_console(struct desktop_console *console)
 	// init modules
 	vector_init(&console->modules, sizeof(struct console_module),
 		    console_release_module);
-	//adding modules
+	//adding default modules
 	vector_append(&console->modules, &app_module);
 	vector_append(&console->modules, &cmd_module);
 	vector_for_each(module, &console->modules)
@@ -384,16 +699,14 @@ post_init_console(struct desktop_console *console)
 		vector_append(&console->search_results, &empty_res);
 	console->selected = (struct selected_search_entry){0};
 }
+
 static void
 init_console(struct desktop_console *console)
 {
 	signal(SIGCHLD, free_defunct_app);
-	memset(console->chars, 0, sizeof(console->chars));
-	console->quit = false;
 
 	tw_theme_init_default(&console->theme);
 	console->globals.theme = &console->theme;
-
 }
 
 static void
@@ -408,8 +721,6 @@ end_console(struct desktop_console *console)
 
 	vector_destroy(&console->modules);
 	vector_destroy(&console->search_results);
-
-	console->quit = true;
 }
 
 /*******************************************************************************
@@ -455,7 +766,6 @@ static struct wl_registry_listener registry_listener = {
 	.global = announce_globals,
 	.global_remove = announce_global_remove
 };
-
 
 int
 main(int argc, char *argv[])

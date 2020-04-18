@@ -55,6 +55,7 @@ struct console_module {
 	struct rax *radix;
 	const bool support_cache;
 	const char name[32];
+	bool quit;
 
 	struct {
 		pthread_mutex_t command_mutex;
@@ -98,7 +99,7 @@ int console_module_take_exec_result(struct console_module *module,
 //all the search component returns this
 typedef struct {
 	struct nk_image img;
-	char sstr[32]; //small string optimization
+	char sstr[32]; /**< small string optimization */
 	char *pstr;
 } console_search_entry_t;
 
@@ -124,8 +125,14 @@ search_entry_move(console_search_entry_t *dst, console_search_entry_t *src)
 	src->pstr = NULL;
 }
 
-extern void search_entry_assign(void *dst, const void *src);
-extern void free_console_search_entry(void *);
+extern bool
+search_entry_equal(console_search_entry_t *, console_search_entry_t *);
+
+extern void
+search_entry_assign(void *dst, const void *src);
+
+extern void
+search_entry_free(void *);
 
 
 extern struct console_module cmd_module;
