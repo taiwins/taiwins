@@ -97,7 +97,7 @@ xdg_app_module_search(struct console_module *module, const char *to_search,
 	//there should be a effective algorithm for that.
 
 	vector_init_zero(result, sizeof(console_search_entry_t),
-			 free_console_search_entry);
+			 search_entry_free);
 	//TODO replace this brute force with a more efficient algorithm
 	vector_for_each(app, (vector_t *)module->user_data) {
 		if (strcasestr(app->name, to_search)) {

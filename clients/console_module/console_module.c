@@ -38,19 +38,36 @@ search_entry_assign(void *dst, const void *src)
 	console_search_entry_t *d = dst;
 	const console_search_entry_t *s = src;
 
-	if (d->pstr)
-		free(d->pstr);
-	*d = *s;
+	search_entry_free(dst);
+	strncpy(d->sstr, s->sstr, 32);
 	if (s->pstr)
 		d->pstr = strdup(s->pstr);
 }
 
 void
-free_console_search_entry(void *m)
+search_entry_free(void *m)
 {
 	console_search_entry_t *entry = m;
-	if (entry->pstr)
+	if (entry->pstr) {
 		free(entry->pstr);
+		entry->pstr = NULL;
+	}
+	entry->sstr[0] = '\0';
+}
+
+bool
+search_entry_equal(console_search_entry_t *l, console_search_entry_t *r)
+{
+	int lcmp = 0;
+	int scmp = strncmp(l->sstr, r->sstr, 32);
+
+	if (!l->pstr && !r->pstr)
+		lcmp = 0;
+	else if (l->pstr && r->pstr)
+		lcmp = strcmp(l->pstr, r->pstr);
+	else
+		lcmp = 1;
+	return ((lcmp == 0) && (scmp == 0)) ? true : false;
 }
 
 /******************************************************************************/
@@ -114,7 +131,7 @@ cache_filter(struct module_search_cache *cache,
 		return;
 	else if (cmp < 0) {
 		vector_init_zero(v, sizeof(console_search_entry_t),
-				 free_console_search_entry);
+				 search_entry_free);
 		vector_for_each(entry, &cache->last_results) {
 			const char *str = search_entry_get_string(entry);
 			if (filter_test(command, str)) {
@@ -160,7 +177,7 @@ thread_run_module(void *arg)
 	struct module_search_cache cache;
 
 	cache_init(&cache);
-	while (true) {
+	while (!module->quit) {
 		//exec, enter critial
 		pthread_mutex_lock(&module->command_mutex);
 		if (module->exec_command) {
@@ -223,6 +240,7 @@ thread_run_module(void *arg)
 		sem_wait(&module->semaphore);
 	}
 	cache_free(&cache);
+	return NULL;
 }
 
 static bool
@@ -247,12 +265,21 @@ console_module_init(struct console_module *module,
 		module->init_hook(module);
 	if (!module->filter_test)
 		module->filter_test = console_module_filter_test;
+	module->quit = false;
 }
 
 void
 console_module_release(struct console_module *module)
 {
 	int lock_state = -1;
+
+	module->quit = true;
+	//wake the threads
+	while (lock_state <= 0) {
+		sem_getvalue(&module->semaphore, &lock_state);
+		sem_post(&module->semaphore);
+	}
+	pthread_join(module->thread, NULL);
 
 	pthread_mutex_lock(&module->command_mutex);
 	if (module->search_command) {
@@ -265,18 +292,10 @@ console_module_release(struct console_module *module)
 	}
 	pthread_mutex_unlock(&module->command_mutex);
 
-	//wake the threads
-	while (lock_state <= 0) {
-		sem_getvalue(&module->semaphore, &lock_state);
-		sem_post(&module->semaphore);
-	}
-	pthread_cancel(module->thread);
-	pthread_join(module->thread, NULL);
 	pthread_mutex_destroy(&module->command_mutex);
 	pthread_mutex_destroy(&module->results_mutex);
 	sem_destroy(&module->semaphore);
 
-	//maybe results copied
 	if (module->search_results.elems)
 		vector_destroy(&module->search_results);
 	if (module->destroy_hook)
