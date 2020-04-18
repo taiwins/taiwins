@@ -24,7 +24,6 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
 #include <unistd.h>
@@ -32,25 +31,26 @@
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
-
 #include <wayland-client.h>
 #include <wayland-taiwins-theme-client-protocol.h>
 #include <wayland-taiwins-shell-client-protocol.h>
 #include <wayland-taiwins-console-client-protocol.h>
 
-#include <os/exec.h>
 #include <client.h>
 #include <ui.h>
+#include <nk_backends.h>
+#include <theme.h>
 #include <shmpool.h>
 #include <helpers.h>
 #include <strops.h>
 #include <sequential.h>
-#include <nk_backends.h>
-#include <theme.h>
 #include "../shared_config.h"
 
 #include "common.h"
 #include "console_module/console_module.h"
+#include "event_queue.h"
+#include "ui_event.h"
+#include "vector.h"
 
 
 #define CON_EDIT_H 30
@@ -160,13 +160,19 @@ console_edit_changed(struct desktop_console *console, int *prev_len)
 static inline bool
 console_update_search_results(struct desktop_console *console)
 {
-	bool has_results = false;
+	bool has_results = false, clean_results = false;
 	struct console_module *module;
 	vector_t *results;
+	if (console->text_edit.string.len == 0)
+		clean_results = true;
+
 	for (int i = 0; i < console->modules.len; i++) {
 		module = vector_at(&console->modules, i);
 		results = vector_at(&console->search_results, i);
-		console_module_take_search_result(module, results);
+		if (clean_results)
+			vector_destroy(results);
+		else
+			console_module_take_search_result(module, results);
 		if (results->len > 0)
 			has_results = true;
 	}
@@ -180,8 +186,7 @@ console_select_default(struct desktop_console *console)
 	struct console_module *module;
 	console_search_entry_t *entry;
 	vector_t *result;
-	//for every module, in the list, find the the
-	// first elements is the
+
 	for (int i = 0; i < console->modules.len; i++) {
 		result = vector_at(&console->search_results, i);
 		module = vector_at(&console->modules, i);
@@ -261,7 +266,7 @@ console_handle_nav(struct desktop_console *console, bool up)
 		if (next)
 			break;
 	}
-	// handling selected is first or last elem.
+	// handling edge case.
 	if (!prev)
 		prev = curr;
 	if (!next)
@@ -404,7 +409,8 @@ console_edit_filter(const struct nk_text_edit *box, nk_rune unicode)
 {
 	NK_UNUSED(box);
 
-	if (isprint(unicode) && (!isspace(unicode) || unicode == '\n'))
+	if (isprint(unicode) &&
+	    (!isspace(unicode) || unicode == '\n' || unicode == ' '))
 		return nk_true;
 	else
 		return nk_false;
@@ -493,6 +499,36 @@ console_draw(struct nk_context *ctx, float width, float height,
 }
 
 /*******************************************************************************
+ * taiwins_console_filter
+ ******************************************************************************/
+
+static bool
+suspend_console_on_esc(struct tw_appsurf *app, const struct tw_app_event *e)
+{
+	struct desktop_console *console =
+		container_of(app, struct desktop_console, surface);
+	struct tw_event_queue *queue = &console->globals.event_queue;
+        struct tw_event submit_event = {
+	        .cb = console_do_submit,
+	        .data = app,
+        };
+
+	if (e->key.sym == XKB_KEY_Escape) {
+		console_clear_selected(console);
+		tw_event_queue_add_idle(queue, &submit_event);
+		return true;
+	} else
+		return false;
+}
+
+static struct tw_app_event_filter console_key_filter = {
+	.intercept = suspend_console_on_esc,
+	.type = TW_KEY_BTN,
+	.link.prev = &console_key_filter.link,
+	.link.next = &console_key_filter.link,
+};
+
+/*******************************************************************************
  * taiwins_console_interface
  ******************************************************************************/
 
@@ -528,6 +564,7 @@ start_console(void *data, struct taiwins_console *tw_console,
 	                &console->globals, TW_APPSURF_WIDGET,
 	                TW_APPSURF_COMPOSITE);
 	surface->tw_globals = &console->globals;
+	wl_list_insert(&surface->filter_head, &console_key_filter.link);
 	nk_cairo_impl_app_surface(surface, console->bkend, console_draw,
 				console->collapsed_bounds);
 
@@ -544,8 +581,13 @@ exec_application(void *data, struct taiwins_console *protocol, uint32_t id)
 	if (id != console->exec_id) {
 		fprintf(stderr, "exec order not consistant, something wrong.");
 	} else if (selected){
-		console_module_command(selected->module, NULL,
-				       search_entry_get_string(&selected->entry));
+		const char *cmd;
+		const char *df_cmd = search_entry_get_string(&selected->entry);
+
+		console->cmds[console->text_edit.string.len] = '\0';
+		cmd = (strstr(console->cmds, df_cmd)) ? console->cmds : df_cmd;
+		console_module_command(selected->module, NULL, cmd);
+
 		search_entry_free(&selected->entry);
 		selected->module = NULL;
 	}
