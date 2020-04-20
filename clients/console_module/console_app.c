@@ -1,7 +1,7 @@
 /*
  * console_app.c - taiwins client console app module
  *
- * Copyright (c) 2019 Xichen Zhou
+ * Copyright (c) 2019-2020 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,11 @@
 
 #ifndef _GNU_SOURCE /* for qsort_r */
 #define _GNU_SOURCE
+#include "nk_backends.h"
+#include "os/file.h"
+#include "ui.h"
+#include <fcntl.h>
+#include <linux/limits.h>
 #endif
 
 #include <ctype.h>
@@ -37,11 +42,18 @@
 
 #include <rax.h>
 #include <desktop_entry.h>
+#include <image_cache.h>
 #include <os/exec.h>
 #include <strops.h>
-#include "console_module.h"
 #include <vector.h>
+#include <hash.h>
 
+#include "console_module.h"
+
+static struct app_module_data {
+	vector_t  xdg_app_vector;
+	vector_t icons;
+} module_data = {0};
 
 static inline void
 tolowers(char *line)
@@ -64,11 +76,12 @@ xdg_app_module_exec(struct console_module *module, const char *entry,
 		    char **result)
 {
 	struct xdg_app_entry *app = NULL;
+	struct app_module_data *userdata = module->user_data;
 	char *name = strop_ltrim((char *)entry);
 	char execpy[256];
 	char *argv[128] = {0};
 
-	vector_for_each(app, (vector_t *)module->user_data) {
+	vector_for_each(app, &userdata->xdg_app_vector) {
 		if (strcasecmp(name, app->name) == 0)
 			break;
 	}
@@ -93,21 +106,27 @@ xdg_app_module_search(struct console_module *module, const char *to_search,
 		      vector_t *result)
 {
 	struct xdg_app_entry *app = NULL;
-	//the search need to done for (strstr(x, to_search) for all x in my vec.)
-	//there should be a effective algorithm for that.
+	struct nk_image *icon = NULL;
+	console_search_entry_t *entry = NULL;
+	struct app_module_data *userdata = module->user_data;
+	vector_t *apps = &userdata->xdg_app_vector;
+	vector_t *icons = &userdata->icons;
 
 	vector_init_zero(result, sizeof(console_search_entry_t),
 			 search_entry_free);
+
 	//TODO replace this brute force with a more efficient algorithm
-	vector_for_each(app, (vector_t *)module->user_data) {
+	for (int i = 0; i < apps->len; i++) {
+		app = vector_at(apps, i);
+		icon = vector_at(icons, i);
 		if (strcasestr(app->name, to_search)) {
-			console_search_entry_t *entry =
-				vector_newelem(result);
+			 entry = vector_newelem(result);
 			if (strlen(app->name) < 32) {
 				strcpy(entry->sstr, app->name);
 				entry->pstr = NULL;
 			} else
 				entry->pstr = strdup(app->name);
+			entry->img = *icon;
 		}
 	}
 	//now we can have a sort, but it requires edit distance
@@ -121,42 +140,140 @@ xdg_app_filter(const char *command, const char *last)
 	return strcasestr(last, command) != NULL;
 }
 
+/*******************************************************************************
+ * icon search routines
+ ******************************************************************************/
+
+static bool
+xdg_app_module_init_image_cache(struct image_cache *cache, const char *path)
+{
+	int fd, flags;
+	char iconpath[PATH_MAX];
+	//loading image_cache
+	taiwins_cache_dir(iconpath);
+	path_concat(iconpath, PATH_MAX, 1, path);
+	if (!is_file_exist(iconpath))
+		return false;
+	flags = O_RDONLY;
+	fd = open(iconpath, flags, S_IRUSR | S_IRGRP);
+	if (fd < 0)
+		return false;
+	*cache = image_cache_from_fd(fd);
+	return true;
+}
+
+/**
+ * @brief update the desktop_entry icons with cache
+ *
+ * create a hash search table first, then go through all the xdg_app_entrys, if
+ * it does not hav a icon, try to update with this cache.
+ */
+static void
+xdg_app_module_update_icons(struct console_module *module, struct nk_image *img,
+                            struct image_cache *cache)
+{
+	struct app_module_data *userdata = module->user_data;
+	struct xdg_app_entry *app = NULL;
+	vector_t *apps = &userdata->xdg_app_vector;
+	vector_t *images = &userdata->icons;
+	struct dhash_table icons;
+	struct tw_bbox *box;
+	struct nk_image subimg, *pimg;
+	off_t offset;
+	char *key;
+
+	//generate hashing cache for images
+	dhash_init(&icons, hash_djb2, hash_sdbm, hash_cmp_str,
+	           sizeof(char *), sizeof(struct nk_image), NULL, NULL);
+	for (unsigned i = 0; i < cache->handles.size / sizeof(off_t); i++) {
+		offset = *((off_t *)cache->handles.data + i);
+		key = (char *)cache->strings.data + offset;
+		box = (struct tw_bbox *)cache->image_boxes.data + i;
+		subimg = nk_subimage_handle(img->handle, img->w, img->h,
+		                         nk_rect(box->x, box->y,
+		                                 box->w, box->h));
+		dhash_insert(&icons, &key, &subimg);
+	}
+
+	//retrieving images from hash table
+	subimg = nk_image_id(0);
+	for (int i = 0; i < apps->len; i++) {
+		app = vector_at(apps, i);
+		key = app->icon;
+		pimg = vector_at(images, i);
+		if (pimg->handle.ptr)
+			continue;
+		else if ((pimg = dhash_search(&icons, &key)))
+			*(struct nk_image *)vector_at(images, i) = *pimg;
+	}
+	dhash_destroy(&icons);
+}
+
+static void
+xdg_app_module_icons_init(struct console_module *module)
+{
+	struct image_cache cache;
+	struct nk_image img;
+
+	//loading image_cache
+	xdg_app_module_init_image_cache(&cache, "Adwaita.apps.icon.cache");
+	if (!cache.atlas || !cache.dimension.w || !cache.dimension.h)
+		return;
+
+	//copy images to nuklear backend
+	img = nk_wl_image_from_buffer(cache.atlas, module->bkend,
+	                              cache.dimension.w, cache.dimension.h,
+	                              cache.dimension.w * 4, true);
+	//now pimg holds the data in the backend
+	nk_wl_add_image(img, module->bkend);
+	cache.atlas = NULL;
+	//now adding it
+	xdg_app_module_update_icons(module, &img, &cache);
+	image_cache_release(&cache);
+}
+
+/*******************************************************************************
+ * inits
+ ******************************************************************************/
+static void
+xdg_app_module_thread_init(struct console_module *module)
+{
+	//loading icons
+	xdg_app_module_icons_init(module);
+}
 
 static void
 xdg_app_module_init(struct console_module *module)
 {
-	//use signal for this
-	//TODO check signal to terminate children if children terminated
-	vector_t *apps = module->user_data;
+	struct app_module_data *userdata = module->user_data;
+	vector_t *apps = &userdata->xdg_app_vector;
+	vector_t *images = &userdata->icons;
 
+	//gather desktop entries
 	*apps = xdg_apps_gather();
-	//insert into spaces
-	struct xdg_app_entry *app = NULL;
-	vector_for_each(app, apps) {
-		char *name = strdup(app->name);
-		tolowers(name);
-		free(name);
-	}
+	vector_init_zero(images, sizeof(struct nk_image), NULL);
+	vector_resize(images, apps->len);
+	memset(images->elems, 0, sizeof(struct nk_image) * apps->len);
 }
-
 
 static void
 xdg_app_module_destroy(struct console_module *module)
 {
-	vector_t *apps = module->user_data;
-	vector_destroy(apps);
+	struct app_module_data *userdata = module->user_data;
+
+	vector_destroy(&userdata->xdg_app_vector);
+	vector_destroy(&userdata->icons);
 }
 
-
-static vector_t xdg_app_vector;
 
 struct console_module app_module = {
 	.name = "MODULE_APP",
 	.exec = xdg_app_module_exec,
 	.search = xdg_app_module_search,
 	.init_hook = xdg_app_module_init,
+	.thread_init = xdg_app_module_thread_init,
 	.destroy_hook = xdg_app_module_destroy,
 	.filter_test = xdg_app_filter,
 	.support_cache = true,
-	.user_data = &xdg_app_vector,
+	.user_data = &module_data,
 };

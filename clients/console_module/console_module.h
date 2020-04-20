@@ -1,7 +1,7 @@
 /*
  * console_module.h - taiwins client console module header
  *
- * Copyright (c) 2019 Xichen Zhou
+ * Copyright (c) 2019-2020 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,6 +38,8 @@
 #include <rax.h>
 #include <nk_backends.h>
 
+#include "../common.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -52,6 +54,7 @@ extern "C" {
  */
 struct console_module {
 	struct desktop_console *console;
+	struct nk_wl_backend *bkend;
 	struct rax *radix;
 	const bool support_cache;
 	const char name[32];
@@ -73,6 +76,8 @@ struct console_module {
 	bool (*filter_test)(const char *, const char *);
 
 	void (*init_hook)(struct console_module *);
+	/**< thread init, called after  **/
+	void (*thread_init)(struct console_module *);
 	void (*destroy_hook)(struct console_module *);
 
 	pthread_t thread;
@@ -81,7 +86,8 @@ struct console_module {
 };
 
 void console_module_init(struct console_module *module,
-			 struct desktop_console *console);
+                         struct desktop_console *console,
+                         struct nk_wl_backend *bkend);
 
 void console_module_release(struct console_module *module);
 
