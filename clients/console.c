@@ -333,8 +333,9 @@ console_draw_module_results(struct nk_context *ctx,
 			nk_spacing(ctx, 1);
 		//draw the actual widget
 		bound = nk_widget_bounds(ctx);
-		nk_selectable_label(ctx, search_entry_get_string(entry),
-		                    NK_TEXT_CENTERED, &selected);
+		nk_selectable_image_label(ctx, entry->img,
+		                          search_entry_get_string(entry),
+		                          NK_TEXT_CENTERED, &selected);
 		clicked = nk_input_is_mouse_click_in_rect(&ctx->input,
 		                                          NK_BUTTON_LEFT,
 		                                          bound);
@@ -687,11 +688,11 @@ post_init_console(struct desktop_console *console)
 	// init modules
 	vector_init(&console->modules, sizeof(struct console_module),
 		    console_release_module);
-	//adding default modules
+	// TODO: repleacing modules
 	vector_append(&console->modules, &app_module);
 	vector_append(&console->modules, &cmd_module);
 	vector_for_each(module, &console->modules)
-		console_module_init(module, console); //thread created
+		console_module_init(module, console, console->bkend);
 
 	vector_init(&console->search_results, sizeof(vector_t),
 		    console_free_search_results);
