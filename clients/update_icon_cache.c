@@ -19,12 +19,15 @@
  *
  */
 
+#ifndef _GNU_SOURCE /* for basename */
+#define _GNU_SOURCE
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <string.h>
-#include <libgen.h>
 #include <wayland-util.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -36,8 +39,12 @@
 #include <os/file.h>
 #include <sequential.h>
 #include <image_cache.h>
+#include <desktop_entry.h>
 
 #include "common.h"
+#include "hash.h"
+#include "vector.h"
+
 
 struct icon_cache_option {
 	bool update_all;
@@ -228,17 +235,31 @@ retrieve_themes_to_search(vector_t *theme_lookups,
 static void
 path_to_node(char output[256], const char *input)
 {
-	char *copy = strdup(input);
-	char *base = basename(copy);
-	*strrchr(base, '.') = 0;
+	char *base = basename(input);
+
 	strop_ncpy(output, base, 256);
-	free(copy);
+	*strrchr(output, '.') = 0;
+}
+
+static bool
+icon_is_app(const char *key, void *user_data)
+{
+	char output[256];
+	struct dhash_table *table = user_data;
+	const char **same_key;
+	path_to_node(output, key);
+	key = output;
+	same_key = dhash_search(table, &key);
+	if (same_key && !strcmp(key, *same_key))
+		return true;
+	return false;
 }
 
 static void
 update_theme(const struct icon_cache_config *current,
              const struct icon_cache_option *option,
-             const struct icontheme_dir *hicolor)
+             const struct icontheme_dir *hicolor,
+             struct dhash_table *table)
 {
 	char cache_file[PATH_MAX];
 	char path[256];
@@ -269,18 +290,37 @@ update_theme(const struct icon_cache_config *current,
 			continue;
 		//retrieve image files
 		struct wl_array string_pool, handle_pool;
+
 		wl_array_init(&string_pool);
 		wl_array_init(&handle_pool);
+		// search on the dirs
 		search_icon_imgs(&handle_pool, &string_pool, current->path,
 		                 dirs[i]);
+		// search on the hicolor dir
 		search_icon_imgs(&handle_pool, &string_pool, hicolor_path,
 		                 hdirs[i]);
+		// this is special for apps, as they can take
+		// "/usr/share/pixmans" in the search range
+		if (i == 0)
+			search_icon_imgs_subdir(&handle_pool, &string_pool,
+			                        "/usr/share/pixmaps");
 		if (!handle_pool.size)
 			goto skip_writing;
+
 		//write cache
-		struct image_cache cache =
-			image_cache_from_arrays(&handle_pool, &string_pool,
-			                        path_to_node);
+		struct image_cache cache;
+		//TODO: later we may need other filters as well
+		if (i == 0)
+			cache = image_cache_from_arrays_filtered(&handle_pool,
+			                                         &string_pool,
+			                                         path_to_node,
+			                                         icon_is_app,
+			                                         table);
+		else
+			cache = image_cache_from_arrays(&handle_pool,
+			                                &string_pool,
+			                                path_to_node);
+
 		int flags = is_file_exist(cache_file) ? O_RDWR : O_RDWR | O_CREAT;
 		int fd = open(cache_file, flags, S_IRUSR | S_IWUSR | S_IRGRP);
 		image_cache_to_fd(&cache, fd);
@@ -310,6 +350,9 @@ main(int argc, char *argv[])
 	vector_t theme_lookups;
 	struct icon_cache_option option;
 	struct icon_cache_config *current = NULL;
+	struct xdg_app_entry *app;
+	vector_t apps = {0};
+	struct dhash_table apps_cache;
 
 	if (!parse_arguments(argc, argv, &option))
 		return -1;
@@ -318,15 +361,26 @@ main(int argc, char *argv[])
 	if (!retrieve_themes_to_search(&theme_lookups, &option))
 		return -1;
 
+	//create xdg_entries
+	apps = xdg_apps_gather();
+	dhash_init(&apps_cache, hash_djb2, hash_sdbm, hash_cmp_str,
+	           sizeof(char *), sizeof(char *), NULL, NULL);
+	vector_for_each(app, &apps) {
+		char *key = app->icon;
+		dhash_insert(&apps_cache, &key, &key);
+	}
+
 	struct icontheme_dir hicolor_theme;
 	icontheme_dir_init(&hicolor_theme, hicolor_path);
 	search_icon_dirs(&hicolor_theme, option.low_res-1, option.high_res);
 
 	//now we just do the config
 	vector_for_each(current, &theme_lookups)
-		update_theme(current, &option, &hicolor_theme);
+		update_theme(current, &option, &hicolor_theme, &apps_cache);
 
 	icontheme_dir_release(&hicolor_theme);
 	vector_destroy(&theme_lookups);
+	vector_destroy(&apps);
+	dhash_destroy(&apps_cache);
 	return 0;
 }

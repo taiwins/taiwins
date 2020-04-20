@@ -1,7 +1,7 @@
 /*
  * console_module.c - taiwins client console module functions
  *
- * Copyright (c) 2019 Xichen Zhou
+ * Copyright (c) 2019-2020 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -42,6 +42,7 @@ search_entry_assign(void *dst, const void *src)
 	strncpy(d->sstr, s->sstr, 32);
 	if (s->pstr)
 		d->pstr = strdup(s->pstr);
+	d->img = s->img;
 }
 
 void
@@ -177,6 +178,9 @@ thread_run_module(void *arg)
 	struct module_search_cache cache;
 
 	cache_init(&cache);
+	if (!module->quit && module->thread_init)
+		module->thread_init(module);
+
 	while (!module->quit) {
 		//exec, enter critial
 		pthread_mutex_lock(&module->command_mutex);
@@ -253,9 +257,11 @@ console_module_filter_test(const char *cmd, const char *entry)
 
 void
 console_module_init(struct console_module *module,
-		    struct desktop_console *console)
+                    struct desktop_console *console,
+                    struct nk_wl_backend *bkend)
 {
 	module->console = console;
+	module->bkend = bkend;
 	pthread_mutex_init(&module->command_mutex, NULL);
 	pthread_mutex_init(&module->results_mutex, NULL);
 	sem_init(&module->semaphore, 0, 0);
