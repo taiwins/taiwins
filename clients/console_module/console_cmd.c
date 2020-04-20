@@ -107,6 +107,7 @@ console_cmd_module_search(struct console_module *module, const char *to_search,
 		if (strstr((char *)iter.key, to_search) != (char *)iter.key)
 			break;
 		console_search_entry_t *entry = vector_newelem(result);
+		memset(entry, 0, sizeof(console_search_entry_t));
 		if(iter.key_len < 32) {
 			strop_ncpy(entry->sstr, (char *)iter.key, iter.key_len+1);
 			entry->pstr = NULL;
