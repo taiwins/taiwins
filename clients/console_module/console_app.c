@@ -150,7 +150,7 @@ xdg_app_module_init_image_cache(struct image_cache *cache, const char *path)
 	int fd, flags;
 	char iconpath[PATH_MAX];
 	//loading image_cache
-	taiwins_cache_dir(iconpath);
+	tw_cache_dir(iconpath);
 	path_concat(iconpath, PATH_MAX, 1, path);
 	if (!is_file_exist(iconpath))
 		return false;
