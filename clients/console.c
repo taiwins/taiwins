@@ -46,7 +46,6 @@
 #include <sequential.h>
 #include "../shared_config.h"
 
-#include "common.h"
 #include "console_module/console_module.h"
 #include "event_queue.h"
 #include "ui_event.h"
@@ -771,7 +770,7 @@ static struct wl_registry_listener registry_listener = {
 int
 main(int argc, char *argv[])
 {
-	if (!create_cache_dir())
+	if (!tw_create_cache_dir())
 		return -1;
 
 	struct desktop_console tw_console;

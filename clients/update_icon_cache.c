@@ -1,7 +1,7 @@
 /*
  * update_icon_cache.c - taiwins_update_icon_cache main functions
  *
- * Copyright (c) 2019 Xichen Zhou
+ * Copyright (c) 2019-2020 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,11 +39,10 @@
 #include <os/file.h>
 #include <sequential.h>
 #include <image_cache.h>
+#include <hash.h>
 #include <desktop_entry.h>
 
-#include "common.h"
-#include "hash.h"
-#include "vector.h"
+#include "../shared_config.h"
 
 
 struct icon_cache_option {
@@ -280,7 +279,7 @@ update_theme(const struct icon_cache_config *current,
 	for (unsigned int i = 0; i < 5; i++) {
 		if (!(1 << i & option->update_list))
 			continue;
-		taiwins_cache_dir(cache_file);
+		tw_cache_dir(cache_file);
 		strcat(cache_file, "/");
 		strcat(cache_file, name);
 		strcat(cache_file, name_from_icon_type(1 << i));
@@ -356,7 +355,7 @@ main(int argc, char *argv[])
 
 	if (!parse_arguments(argc, argv, &option))
 		return -1;
-	if (!create_cache_dir())
+	if (!tw_create_cache_dir())
 		return -1;
 	if (!retrieve_themes_to_search(&theme_lookups, &option))
 		return -1;

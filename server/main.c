@@ -20,6 +20,7 @@
  */
 
 #include <assert.h>
+#include <linux/limits.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -189,7 +190,7 @@ int main(int argc, char *argv[], char *envp[])
 	struct wl_event_loop *event_loop = wl_display_get_event_loop(display);
 	struct weston_log_context *context;
 	struct weston_compositor *compositor;
-	char path[100];
+	char path[PATH_MAX];
 
 	logfile = fopen("/tmp/taiwins_log", "w");
 	weston_log_set_handler(tw_log, tw_log);
@@ -220,10 +221,8 @@ int main(int argc, char *argv[], char *envp[])
 
 	weston_log_set_handler(tw_log, tw_log);
 
-	char *xdg_dir = getenv("XDG_CONFIG_HOME");
-	if (!xdg_dir)
-		xdg_dir = getenv("HOME");
-	strcpy(path, xdg_dir);
+	tw_create_config_dir();
+	tw_config_dir(path);
 	strcat(path, "/config.lua");
 	struct tw_config *config =
 		tw_config_create(compositor, tw_log);

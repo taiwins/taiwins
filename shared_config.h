@@ -30,6 +30,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <wayland-util.h>
 #include <sequential.h>
+#include <os/file.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -90,6 +91,55 @@ struct tw_window_brief {
 	float x,y,w,h;
 	char name[32];
 };
+
+/*****************************************************************/
+/*                           config                              */
+/*****************************************************************/
+static inline void
+tw_config_dir(char cache_home[PATH_MAX])
+{
+	char *xdg_cache = getenv("XDG_CONFIG_HOME");
+	if (xdg_cache)
+		sprintf(cache_home, "%s/taiwins", xdg_cache);
+	else
+		sprintf(cache_home, "%s/.config/taiwins", getenv("HOME"));
+
+}
+
+static inline bool
+tw_create_config_dir(void)
+{
+	char cache_home[PATH_MAX];
+	mode_t cache_mode = S_IRWXU | S_IRGRP | S_IXGRP |
+		S_IROTH | S_IXOTH;
+	tw_config_dir(cache_home);
+	if (mkdir_p(cache_home, cache_mode))
+		return false;
+	return true;
+}
+
+static inline void
+tw_cache_dir(char cache_home[PATH_MAX])
+{
+	char *xdg_cache = getenv("XDG_CACHE_HOME");
+	if (xdg_cache)
+		sprintf(cache_home, "%s/taiwins", xdg_cache);
+	else
+		sprintf(cache_home, "%s/.cache/taiwins", getenv("HOME"));
+
+}
+
+static inline bool
+tw_create_cache_dir(void)
+{
+	char cache_home[PATH_MAX];
+	mode_t cache_mode = S_IRWXU | S_IRGRP | S_IXGRP |
+		S_IROTH | S_IXOTH;
+	tw_cache_dir(cache_home);
+	if (mkdir_p(cache_home, cache_mode))
+		return false;
+	return true;
+}
 
 #ifdef __cplusplus
 }

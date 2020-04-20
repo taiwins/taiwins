@@ -38,7 +38,7 @@
 #include <rax.h>
 #include <nk_backends.h>
 
-#include "../common.h"
+#include "../../shared_config.h"
 
 #ifdef __cplusplus
 extern "C" {
