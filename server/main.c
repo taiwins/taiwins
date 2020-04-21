@@ -19,8 +19,6 @@
  *
  */
 
-#include <assert.h>
-#include <linux/limits.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -38,7 +36,8 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
-#include "os/file.h"
+#include <os/file.h>
+#include "../shared_config.h"
 #include "taiwins.h"
 #include "config.h"
 #include "bindings.h"
@@ -228,16 +227,24 @@ int main(int argc, char *argv[], char *envp[])
 		tw_config_create(compositor, tw_log);
 
 	tw_compositor_init(&tc, compositor, config);
-	assert(tw_setup_bus(compositor, config));
-	assert(tw_setup_backend(compositor, config));
+	if (!tw_setup_bus(compositor, config))
+		goto out;
+	if (!tw_setup_backend(compositor, config))
+		goto out;
 
 	weston_compositor_wake(compositor);
 
-	assert(tw_setup_xwayland(compositor, config));
-	assert(tw_setup_shell(compositor, shellpath, config));
-	assert(tw_setup_console(compositor, launcherpath, config));
-	assert(tw_setup_desktop(compositor, config));
-	assert(tw_setup_theme(compositor, config));
+	if (!tw_setup_xwayland(compositor, config))
+		goto out;
+	if (!tw_setup_shell(compositor, shellpath, config))
+		goto out;
+	if (!tw_setup_console(compositor, launcherpath, config))
+		goto out;
+
+	if (!tw_setup_desktop(compositor, config))
+		goto out;
+	if (!tw_setup_theme(compositor, config))
+		goto out;
 
 	error = !tw_config_run(config, path);
 	if (error) {

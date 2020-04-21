@@ -53,7 +53,7 @@ struct console {
 	struct tw_subprocess process;
 };
 
-static struct console CONSOLE;
+static struct console s_console;
 
 static void
 console_surface_destroy_cb(struct wl_listener *listener, void *data)
@@ -187,41 +187,41 @@ tw_setup_console(struct weston_compositor *compositor,
 		 const char *path, struct tw_config *config)
 {
 	struct shell *shell = tw_shell_get_global();
+	if(path && (strlen(path) +1 > NUMOF(s_console.path)))
+		return false;
 
-	CONSOLE.surface = NULL;
-	CONSOLE.resource = NULL;
-	CONSOLE.compositor = compositor;
-	CONSOLE.shell = shell;
-	CONSOLE.global =
+	s_console.surface = NULL;
+	s_console.resource = NULL;
+	s_console.compositor = compositor;
+	s_console.shell = shell;
+	s_console.global =
 		wl_global_create(compositor->wl_display,
 		                 &taiwins_console_interface,
 		                 TWDESKP_VERSION,
-		                 &CONSOLE,
+		                 &s_console,
 				 bind_console);
 
 	if (path) {
-		assert(strlen(path) +1 <= sizeof(CONSOLE.path));
-		strcpy(CONSOLE.path, path);
+		strcpy(s_console.path, path);
 		struct wl_event_loop *loop =
 			wl_display_get_event_loop(compositor->wl_display);
-		wl_event_loop_add_idle(loop, launch_console_client, &CONSOLE);
+		wl_event_loop_add_idle(loop, launch_console_client, &s_console);
 	}
 
 	//close close
-	wl_list_init(&CONSOLE.close_console_listener.link);
-	CONSOLE.close_console_listener.notify = console_surface_destroy_cb;
+	wl_list_init(&s_console.close_console_listener.link);
+	s_console.close_console_listener.notify = console_surface_destroy_cb;
 	//where is the signal for console close???
 
 	//destroy globals
-	wl_list_init(&CONSOLE.compositor_destroy_listener.link);
-	CONSOLE.compositor_destroy_listener.notify = end_console;
+	wl_list_init(&s_console.compositor_destroy_listener.link);
+	s_console.compositor_destroy_listener.notify = end_console;
 	wl_signal_add(&compositor->destroy_signal,
-		      &CONSOLE.compositor_destroy_listener);
+		      &s_console.compositor_destroy_listener);
 
-	wl_list_init(&CONSOLE.add_binding.link);
-	CONSOLE.add_binding.apply = console_add_bindings;
-	tw_config_add_apply_bindings(config, &CONSOLE.add_binding);
+	wl_list_init(&s_console.add_binding.link);
+	s_console.add_binding.apply = console_add_bindings;
+	tw_config_add_apply_bindings(config, &s_console.add_binding);
 
-	//return &CONSOLE;
 	return true;
 }
