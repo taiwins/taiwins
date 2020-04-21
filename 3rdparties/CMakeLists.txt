@@ -37,6 +37,7 @@ set(LIBWESTON_INSTALL_DIR "${CMAKE_BINARY_DIR}/libweston-install")
 ## NOTE: meson will usually set the libdir to multiarch on debian systems. But
 ## cmake only does it when prefix is /usr. We set it directly into lib to
 ## avoid that problem.
+
 set(LIBWESTON_OPTIONS "--prefix=${LIBWESTON_INSTALL_DIR} --libdir=lib -Dsimple-dmabuf-drm= -Dbackend-rdp=false")
 set(LIBWESTON_INSTALL_LIBDIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libweston-taiwins")
 
@@ -50,7 +51,7 @@ ExternalProject_Add(pj_libweston
   #config
   CONFIGURE_COMMAND sh -c "meson ${LIBWESTON_OPTIONS} ${LIBWESTON_BUILD_DIR} ${LIBWESTON_SRC_DIR}"
   #build
-  BUILD_COMMAND sh -c "ninja -C ${LIBWESTON_BUILD_DIR} install"
+  BUILD_COMMAND sh -c "DESTDIR='' ninja -C ${LIBWESTON_BUILD_DIR} install"
   BUILD_ALWAYS ON
   #install, it seems always run
   INSTALL_COMMAND ""
