@@ -22,6 +22,7 @@
 #ifndef TW_WORKSPACE_H
 #define TW_WORKSPACE_H
 
+#include <libweston/libweston.h>
 #include <stdbool.h>
 #include <unistd.h>
 #define INCLUDE_DESKTOP
@@ -117,39 +118,69 @@ recent_view_get_origin_coord(const struct recent_view *v, float *x, float *y)
 /************************************************************
  * workspace API
  ***********************************************************/
-void workspace_init(struct workspace *wp, struct weston_compositor *compositor);
-void workspace_release(struct workspace *);
-void workspace_switch(struct workspace *to, struct workspace *from,
+void
+workspace_init(struct workspace *wp, struct weston_compositor *compositor);
+
+void
+workspace_release(struct workspace *);
+
+void
+workspace_switch(struct workspace *to, struct workspace *from,
 		      struct weston_keyboard *keyboard);
+const char *
+workspace_layout_name(struct workspace *ws);
 
-const char *workspace_layout_name(struct workspace *ws);
+bool
+is_view_on_workspace(const struct weston_view *v, const struct workspace *ws);
 
-bool is_view_on_workspace(const struct weston_view *v, const struct workspace *ws);
-bool is_workspace_empty(const struct workspace *ws);
+bool
+is_workspace_empty(const struct workspace *ws);
 
 //we probably should leave this function to arrange_view_for_workspace
-bool workspace_focus_view(struct workspace *ws, struct weston_view *v);
-void workspace_add_view(struct workspace *w, struct weston_view *view);
-bool workspace_move_view(struct workspace *w, struct weston_view *v,
-				  const struct weston_position *pos);
+bool
+workspace_focus_view(struct workspace *ws, struct weston_view *v);
 
-void workspace_resize_view(struct workspace *w, struct weston_view *v,
-			   wl_fixed_t x, wl_fixed_t y,
-			   double dx, double dy);
+void
+workspace_add_view(struct workspace *w, struct weston_view *view);
 
-void workspace_view_run_command(struct workspace *w, struct weston_view *v,
-				enum layout_command command);
+bool
+workspace_move_view(struct workspace *w, struct weston_view *v,
+                    const struct weston_position *pos);
+void
+workspace_resize_view(struct workspace *w, struct weston_view *v,
+                      wl_fixed_t x, wl_fixed_t y,
+                      double dx, double dy);
+
+void
+workspace_view_run_command(struct workspace *w, struct weston_view *v,
+                           enum layout_command command);
 
 //resize is done directly inside desktop for now
-bool workspace_remove_view(struct workspace *w, struct weston_view *v);
-void workspace_fullscreen_view(struct workspace *w, struct weston_view *v, bool fullscreen);
-void workspace_maximize_view(struct workspace *w, struct weston_view *v, bool maximized);
-void workspace_minimize_view(struct workspace *w, struct weston_view *v);
+bool
+workspace_remove_view(struct workspace *w, struct weston_view *v);
 
-void workspace_switch_layout(struct workspace *w, struct weston_view *v);
-void workspace_add_output(struct workspace *wp, struct tw_output *output);
-void workspace_remove_output(struct workspace *w, struct weston_output *output);
-void workspace_resize_output(struct workspace *wp, struct tw_output *output);
+void
+workspace_fullscreen_view(struct workspace *w, struct weston_view *v,
+                          bool fullscreen);
+
+void
+workspace_maximize_view(struct workspace *w, struct weston_view *v,
+                        bool maximized, const struct weston_geometry *geo);
+
+void
+workspace_minimize_view(struct workspace *w, struct weston_view *v);
+
+void
+workspace_switch_layout(struct workspace *w, struct weston_view *v);
+
+void
+workspace_add_output(struct workspace *wp, struct tw_output *output);
+
+void
+workspace_remove_output(struct workspace *w, struct weston_output *output);
+
+void
+workspace_resize_output(struct workspace *wp, struct tw_output *output);
 
 
 #ifdef  __cplusplus

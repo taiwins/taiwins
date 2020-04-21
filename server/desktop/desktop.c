@@ -362,9 +362,11 @@ twdesk_maximized(struct weston_desktop_surface *surface,
 	struct workspace *ws = d->actived_workspace[0];
 	struct weston_surface *weston_surface =
 		weston_desktop_surface_get_surface(surface);
+	struct weston_geometry geo =
+		shell_output_available_space(d->shell, weston_surface->output);
 	struct weston_view *view =
 		tw_default_view_from_surface(weston_surface);
-	workspace_maximize_view(ws, view, maximized);
+	workspace_maximize_view(ws, view, maximized, &geo);
 }
 
 static void
