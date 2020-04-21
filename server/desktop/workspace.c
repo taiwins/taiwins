@@ -25,6 +25,7 @@
 #include <libweston-desktop/libweston-desktop.h>
 
 #include "../taiwins.h"
+#include "shell.h"
 #include "workspace.h"
 #include "layout.h"
 
@@ -397,14 +398,15 @@ workspace_resize_view(struct workspace *w, struct weston_view *v,
 }
 
 static void
-workspace_fullmax_view(struct workspace *w, struct weston_view *v, bool max)
+workspace_fullmax_view(struct workspace *w, struct weston_view *v,
+                       bool max, const struct weston_geometry *geo)
 {
 	struct layout_op ops[2];
-	struct weston_output *output = v->output;
 	struct weston_desktop_surface *dsurf =
 		weston_surface_get_desktop_surface(v->surface);
 	struct recent_view *rv =
 		weston_desktop_surface_get_user_data(dsurf);
+
 	if (max) {
 		rv->old_geometry.x = v->geometry.x + rv->visible_geometry.x;
 		rv->old_geometry.y = v->geometry.y + rv->visible_geometry.y;
@@ -413,10 +415,10 @@ workspace_fullmax_view(struct workspace *w, struct weston_view *v, bool max)
 	}
 	ops[0].end = false;
 	ops[0].v = v;
-	ops[0].pos.x = (max) ? output->x : rv->old_geometry.x;
-	ops[0].pos.y = (max) ? output->y : rv->old_geometry.y;
-	ops[0].size.width = (max) ? output->width : rv->old_geometry.width;
-	ops[0].size.height = (max) ? output->height : rv->old_geometry.height;
+	ops[0].pos.x = (max) ? geo->x : rv->old_geometry.x;
+	ops[0].pos.y = (max) ? geo->y : rv->old_geometry.y;
+	ops[0].size.width = (max) ? geo->width : rv->old_geometry.width;
+	ops[0].size.height = (max) ? geo->height : rv->old_geometry.height;
 	ops[1].end = true;
 
 	if (max) {
@@ -425,12 +427,17 @@ workspace_fullmax_view(struct workspace *w, struct weston_view *v, bool max)
 }
 
 void
-workspace_fullscreen_view(struct workspace *w, struct weston_view *v, bool fullscreen)
+workspace_fullscreen_view(struct workspace *w, struct weston_view *v,
+                          bool fullscreen)
 {
+	struct weston_geometry geo = {
+		v->output->x, v->output->y,
+		v->output->width, v->output->height,
+	};
 	weston_desktop_surface_set_fullscreen(
 		weston_surface_get_desktop_surface(v->surface),
 		fullscreen);
-	workspace_fullmax_view(w, v, fullscreen);
+	workspace_fullmax_view(w, v, fullscreen, &geo);
 	workspace_remove_view(w, v);
 	if (fullscreen) {
 		weston_layer_entry_remove(&v->layer_link);
@@ -442,11 +449,12 @@ workspace_fullscreen_view(struct workspace *w, struct weston_view *v, bool fulls
 }
 
 void
-workspace_maximize_view(struct workspace *w, struct weston_view *v, bool maximized)
+workspace_maximize_view(struct workspace *w, struct weston_view *v,
+                        bool maximized, const struct weston_geometry *geo)
 {
 	weston_desktop_surface_set_maximized(
 		weston_surface_get_desktop_surface(v->surface), maximized);
-	workspace_fullmax_view(w, v, maximized);
+	workspace_fullmax_view(w, v, maximized, geo);
 	if (!maximized) {
 		workspace_remove_view(w, v);
 		workspace_reinsert_view(w, v);
