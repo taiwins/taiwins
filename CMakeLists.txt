@@ -76,6 +76,17 @@ add_subdirectory(test)
 add_subdirectory(clients)
 
 ################################################################################
+# uninstall
+################################################################################
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/cmake/cmake_uninstall.cmake"
+  IMMEDIATE @ONLY)
+
+add_custom_target(uninstall
+  "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake/cmake_uninstall.cmake")
+
+################################################################################
 # doc
 ################################################################################
 if (DOXYGEN_FOUND AND BUILD_DOC)
