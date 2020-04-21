@@ -430,14 +430,6 @@ _lua_register_widget(lua_State *L)
 		return _lua_new_widget_from_table(L);
 	else
 		return luaL_error(L, "invalid number of arguments in new_widget()");
-
-	assert(lua_gettop(L) == 1 || lua_gettop(L) == 0);
-	if (lua_gettop(L) == 0)
-		return _lua_new_widget_empty(L);
-	else if (lua_gettop(L) == 1)
-		return _lua_new_widget_from_table(L);
-	else
-		return luaL_error(L, "invalid number of arguments.");
 }
 
 static int

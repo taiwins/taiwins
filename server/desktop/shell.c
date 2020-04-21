@@ -1,7 +1,7 @@
 /*
  * shell.c - taiwins shell server functions
  *
- * Copyright (c) 2019 Xichen Zhou
+ * Copyright (c) 2019-2020 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,16 +21,14 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <wayland-server.h>
 #include <wayland-taiwins-shell-server-protocol.h>
-#include <helpers.h>
 #include <time.h>
 #include <linux/input.h>
+#include <helpers.h>
 #include <strops.h>
 #include <os/file.h>
 #include <vector.h>
-#include <wayland-util.h>
 
 #include "../taiwins.h"
 #include "../bindings.h"
@@ -120,10 +118,10 @@ struct shell {
 
 };
 
-static struct shell oneshell;
+static struct shell s_shell;
 
 struct shell *
-tw_shell_get_global() {return &oneshell; }
+tw_shell_get_global() {return &s_shell; }
 
 static inline size_t
 shell_n_outputs(struct shell *shell)
@@ -1111,38 +1109,40 @@ bool
 tw_setup_shell(struct weston_compositor *ec, const char *path,
                struct tw_config *config)
 {
-	oneshell.ec = ec;
-	oneshell.ready = false;
-	oneshell.the_widget_surface = NULL;
-	oneshell.shell_client = NULL;
-	oneshell.config = config;
-	oneshell.panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
+	s_shell.ec = ec;
+	s_shell.ready = false;
+	s_shell.the_widget_surface = NULL;
+	s_shell.shell_client = NULL;
+	s_shell.config = config;
+	s_shell.panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
 
-	wl_signal_init(&oneshell.output_area_signal);
+	wl_signal_init(&s_shell.output_area_signal);
 
-	oneshell.shell_global =
+	if (path && (strlen(path) + 1 > NUMOF(s_shell.path)))
+		return false;
+
+	s_shell.shell_global =
 		wl_global_create(ec->wl_display,
 		                 &taiwins_shell_interface,
 		                 taiwins_shell_interface.version,
-		                 &oneshell,
+		                 &s_shell,
 		                 bind_shell);
 	if (path) {
-		assert(strlen(path) +1 <= sizeof(oneshell.path));
-		strcpy(oneshell.path, path);
+		strcpy(s_shell.path, path);
 		struct wl_event_loop *loop = wl_display_get_event_loop(ec->wl_display);
-		wl_event_loop_add_idle(loop, launch_shell_client, &oneshell);
+		wl_event_loop_add_idle(loop, launch_shell_client, &s_shell);
 	}
-	shell_add_listeners(&oneshell);
-	shell_init_options(&oneshell);
+	shell_add_listeners(&s_shell);
+	shell_init_options(&s_shell);
 
 	//binding
-	wl_list_init(&oneshell.add_binding.link);
-	oneshell.add_binding.apply = shell_add_bindings;
-	tw_config_add_apply_bindings(config, &oneshell.add_binding);
+	wl_list_init(&s_shell.add_binding.link);
+	s_shell.add_binding.apply = shell_add_bindings;
+	tw_config_add_apply_bindings(config, &s_shell.add_binding);
 	//config_componenet
-	wl_list_init(&oneshell.config_component.link);
-	oneshell.config_component.apply = shell_apply_lua_config;
-	tw_config_add_component(config, &oneshell.config_component);
+	wl_list_init(&s_shell.config_component.link);
+	s_shell.config_component.apply = shell_apply_lua_config;
+	tw_config_add_component(config, &s_shell.config_component);
 
 	return true;
 }

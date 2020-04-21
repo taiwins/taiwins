@@ -139,7 +139,7 @@ cache_filter(struct module_search_cache *cache,
 				search_entry_move(vector_newelem(v), entry);
 			}
 		}
-	} else
+	} else //cachable ensures that cmp will not be positive
 		assert(0);
 
 	cache_free(cache);
