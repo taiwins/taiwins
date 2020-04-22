@@ -1002,8 +1002,7 @@ shell_output_available_space(struct shell *shell, struct weston_output *output)
 		return geo;
 	if (shell->panel_pos == TAIWINS_SHELL_PANEL_POS_TOP)
 		geo.y += shell_output->panel_height;
-	else
-		geo.height -= shell_output->panel_height;
+	geo.height -= shell_output->panel_height;
 	return geo;
 }
 
