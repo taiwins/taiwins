@@ -124,6 +124,16 @@ desktop_set_worksace_layout(struct desktop *d, unsigned int i,
 	w->current_layout = type;
 }
 
+static inline bool
+is_desktop_surface(struct weston_surface *surface)
+{
+	struct weston_desktop_surface *ds =
+		weston_surface_get_desktop_surface(surface);
+	struct recent_view *rv =
+		weston_desktop_surface_get_user_data(ds);
+	return rv && weston_surface_is_desktop_surface(surface);
+}
+
 /*******************************************************************************
  * grab interface apis
  ******************************************************************************/
@@ -791,16 +801,18 @@ desktop_click_activate_view(struct weston_pointer *pointer,
 {
 	struct desktop *desktop = data;
 	struct workspace *ws = desktop->actived_workspace[0];
+	struct weston_surface *surface = pointer->focus->surface;
+	struct weston_desktop_surface *s =
+		weston_surface_get_desktop_surface(pointer->focus->surface);
+
 	if (pointer->grab != &pointer->default_grab)
 		return;
 	if (!pointer->focus || !pointer->button_count ||
-	    !weston_surface_is_desktop_surface(pointer->focus->surface))
+		!is_desktop_surface(surface))
 		return;
 	if (workspace_focus_view(ws, pointer->focus)) {
 		weston_view_activate(pointer->focus, pointer->seat,
 				     WESTON_ACTIVATE_FLAG_CLICKED);
-		struct weston_desktop_surface *s =
-			weston_surface_get_desktop_surface(pointer->focus->surface);
 		weston_desktop_client_ping(
 			weston_desktop_surface_get_client(s));
 	}
@@ -1137,7 +1149,7 @@ tw_desktop_set_workspace_layout(struct desktop *desktop, unsigned int i,
 	bool ret = true;
 	if (i > MAX_WORKSPACE)
 		ret = false;
-	else if (!strcmp(layout, "float"))
+	else if (!strcmp(layout, "floating"))
 		desktop_set_worksace_layout(desktop, i, LAYOUT_FLOATING);
 	else if (!strcmp(layout, "tiling"))
 		desktop_set_worksace_layout(desktop, i, LAYOUT_TILING);
