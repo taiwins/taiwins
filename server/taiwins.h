@@ -42,7 +42,7 @@
 
 #include <wayland-taiwins-shell-server-protocol.h>
 
-#include "../shared_config.h"
+#include <shared_config.h>
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE

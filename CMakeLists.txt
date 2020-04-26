@@ -69,6 +69,7 @@ message("3rdparty lib: ${TRDPTY_LIBRARIES}")
 
 set(SERVER_DIR "${CMAKE_SOURCE_DIR}/server")
 set(CLINET_DIR "${CMAKE_SOURCE_DIR}/clients")
+set(SHARED_CONFIG_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_subdirectory(protocols)
 add_subdirectory(server)

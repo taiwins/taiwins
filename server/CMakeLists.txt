@@ -35,6 +35,10 @@ add_library(twdesktop STATIC
   desktop/console.c
   )
 
+target_include_directories(twcore
+  PUBLIC ${SHARED_CONFIG_DIR}
+  )
+
 target_link_libraries(twcore
   PUBLIC
   protos-server
@@ -77,7 +81,6 @@ target_link_libraries(twxwayland PUBLIC
 add_executable(taiwins
   main.c
   )
-
 target_link_libraries(taiwins
   twcore
   twdesktop

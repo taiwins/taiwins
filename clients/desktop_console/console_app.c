@@ -26,6 +26,7 @@
 #include "ui.h"
 #include <fcntl.h>
 #include <linux/limits.h>
+#include <wayland-util.h>
 #endif
 
 #include <ctype.h>
@@ -246,11 +247,17 @@ static void
 xdg_app_module_init(struct console_module *module)
 {
 	struct app_module_data *userdata = module->user_data;
+	struct wl_array apps_data;
 	vector_t *apps = &userdata->xdg_app_vector;
 	vector_t *images = &userdata->icons;
 
 	//gather desktop entries
-	*apps = xdg_apps_gather();
+	apps_data = xdg_apps_gather();
+	vector_init_zero(apps, sizeof(struct xdg_app_entry), NULL);
+	apps->elems = apps_data.data;
+	apps->len = apps_data.size / apps->elemsize;
+	apps->alloc_len = apps_data.alloc / apps->elemsize;
+
 	vector_init_zero(images, sizeof(struct nk_image), NULL);
 	vector_resize(images, apps->len);
 	memset(images->elems, 0, sizeof(struct nk_image) * apps->len);
