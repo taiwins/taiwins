@@ -44,12 +44,9 @@
 #include <helpers.h>
 #include <strops.h>
 #include <sequential.h>
-#include "../shared_config.h"
+#include <shared_config.h>
 
-#include "console_module/console_module.h"
-#include "event_queue.h"
-#include "ui_event.h"
-#include "vector.h"
+#include "console_module.h"
 
 
 #define CON_EDIT_H 30

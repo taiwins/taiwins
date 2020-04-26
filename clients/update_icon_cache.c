@@ -42,7 +42,7 @@
 #include <hash.h>
 #include <desktop_entry.h>
 
-#include "../shared_config.h"
+#include <shared_config.h>
 
 
 struct icon_cache_option {
@@ -265,11 +265,11 @@ update_theme(const struct icon_cache_config *current,
 	strcpy(path, current->path);
 	char *name = basename(path);
 	struct icontheme_dir theme;
-	const vector_t *dirs[] = {
+	const struct wl_array *dirs[] = {
 		&theme.apps, &theme.mimes, &theme.places,
 		&theme.status, &theme.devices
 	};
-	const vector_t *hdirs[] = {
+	const struct wl_array *hdirs[] = {
 		&hicolor->apps, &hicolor->mimes, &hicolor->places,
 		&hicolor->status, &hicolor->devices
 	};
@@ -350,7 +350,7 @@ main(int argc, char *argv[])
 	struct icon_cache_option option;
 	struct icon_cache_config *current = NULL;
 	struct xdg_app_entry *app;
-	vector_t apps = {0};
+	struct wl_array apps = {0};
 	struct dhash_table apps_cache;
 
 	if (!parse_arguments(argc, argv, &option))
@@ -364,7 +364,7 @@ main(int argc, char *argv[])
 	apps = xdg_apps_gather();
 	dhash_init(&apps_cache, hash_djb2, hash_sdbm, hash_cmp_str,
 	           sizeof(char *), sizeof(char *), NULL, NULL);
-	vector_for_each(app, &apps) {
+	wl_array_for_each(app, &apps) {
 		char *key = app->icon;
 		dhash_insert(&apps_cache, &key, &key);
 	}
@@ -379,7 +379,7 @@ main(int argc, char *argv[])
 
 	icontheme_dir_release(&hicolor_theme);
 	vector_destroy(&theme_lookups);
-	vector_destroy(&apps);
+	wl_array_release(&apps);
 	dhash_destroy(&apps_cache);
 	return 0;
 }

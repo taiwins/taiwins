@@ -37,7 +37,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include <os/file.h>
-#include "../shared_config.h"
+#include <shared_config.h>
 #include "taiwins.h"
 #include "config.h"
 #include "bindings.h"

@@ -19,7 +19,8 @@
  *
  */
 
-#include "../widget.h"
+#include "widget.h"
+#include <helpers.h>
 #include <stdlib.h>
 #include <time.h>
 

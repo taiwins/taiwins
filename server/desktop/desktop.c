@@ -37,7 +37,7 @@
 #include <libweston/libweston.h>
 
 #define INCLUDE_DESKTOP
-#include "../../shared_config.h"
+#include <shared_config.h>
 #include "../taiwins.h"
 #include "../config.h"
 #include "shell.h"

@@ -24,13 +24,13 @@
 #include <string.h>
 #include <wayland-client-protocol.h>
 
-#include "helpers.h"
-#include "nk_backends.h"
+#include <helpers.h>
+#include <nk_backends.h>
+#include <ui.h>
+#include <vector.h>
+#include <widget/widget.h>
+
 #include "shell.h"
-#include "ui.h"
-#include "vector.h"
-#include "wayland-taiwins-shell-client-protocol.h"
-#include "widget.h"
 
 /*******************************************************************************
  * menu widget

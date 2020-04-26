@@ -27,6 +27,7 @@
 #include <lualib.h>
 #include <lauxlib.h>
 #include <nk_backends.h>
+#include <helpers.h>
 #include <os/file.h>
 
 #include <nuklear_love.h>
