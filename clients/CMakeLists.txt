@@ -1,18 +1,20 @@
 add_executable(taiwins-shell
-  shell.c
-  shell_bg.c
-  shell_panel.c
-  shell_lock.c
-  shell_msgs.c
-  shell_bus.c
-  shell_ui.c
+  desktop_shell/shell.c
+  desktop_shell/shell_bg.c
+  desktop_shell/shell_panel.c
+  desktop_shell/shell_lock.c
+  desktop_shell/shell_msgs.c
+  desktop_shell/shell_bus.c
+  desktop_shell/shell_ui.c
 
   widget/widget.c
   widget/clock.c
   widget/battery.c
   widget/widget_lua.c
   )
-
+target_include_directories(taiwins-shell
+  PRIVATE ${SHARED_CONFIG_DIR} ${CMAKE_CURRENT_LIST_DIR}
+  )
 target_link_libraries(taiwins-shell
   protos-client
   tdbus
@@ -23,13 +25,16 @@ target_link_libraries(taiwins-shell
   m
   )
 
-add_executable(taiwins-console
-  console.c
-  console_module/console_module.c
-  console_module/console_cmd.c
-  console_module/console_app.c
-  )
 
+add_executable(taiwins-console
+  desktop_console/console.c
+  desktop_console/console_module.c
+  desktop_console/console_cmd.c
+  desktop_console/console_app.c
+  )
+target_include_directories(taiwins-console
+  PRIVATE ${SHARED_CONFIG_DIR} ${CMAKE_CURRENT_LIST_DIR}
+  )
 target_link_libraries(taiwins-console
   protos-client
   twclient::nkcairo
@@ -43,6 +48,9 @@ target_link_libraries(taiwins-console
 
 add_executable(taiwins-update-icon-cache
   update_icon_cache.c
+  )
+target_include_directories(taiwins-update-icon-cache
+  PRIVATE ${SHARED_CONFIG_DIR} ${CMAKE_CURRENT_LIST_DIR}
   )
 target_link_libraries(taiwins-update-icon-cache
   twclient::icons
