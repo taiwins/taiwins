@@ -35,12 +35,11 @@
 #include <egl.h>
 #include <nk_backends.h>
 #include <wayland-util.h>
-#include "../shared_config.h"
-#include "theme.h"
-#include "vector.h"
-#include "wayland-taiwins-theme-client-protocol.h"
-#include "wayland-taiwins-theme-server-protocol.h"
-#include "widget/widget.h"
+#include <theme.h>
+#include <wayland-taiwins-theme-client-protocol.h>
+#include <wayland-taiwins-theme-server-protocol.h>
+#include <shared_config.h>
+#include <widget/widget.h>
 #include "shell.h"
 
 

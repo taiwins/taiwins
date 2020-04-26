@@ -42,7 +42,7 @@
 #include <hash.h>
 #include <desktop_entry.h>
 
-#include "../shared_config.h"
+#include <shared_config.h>
 
 
 struct icon_cache_option {
