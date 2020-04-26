@@ -44,7 +44,7 @@
 #include <tdbus.h>
 #include <wayland-util.h>
 #include "../shared_config.h"
-#include "widget.h"
+#include "widget/widget.h"
 
 #ifdef __cplusplus
 extern "C" {

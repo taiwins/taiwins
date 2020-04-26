@@ -40,7 +40,7 @@
 #include "vector.h"
 #include "wayland-taiwins-theme-client-protocol.h"
 #include "wayland-taiwins-theme-server-protocol.h"
-#include "widget.h"
+#include "widget/widget.h"
 #include "shell.h"
 
 
