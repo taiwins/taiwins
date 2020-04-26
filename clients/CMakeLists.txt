@@ -7,10 +7,10 @@ add_executable(taiwins-shell
   shell_bus.c
   shell_ui.c
 
-  widget.c
-  widgets/clock.c
-  widgets/battery.c
-  widget_lua.c
+  widget/widget.c
+  widget/clock.c
+  widget/battery.c
+  widget/widget_lua.c
   )
 
 target_link_libraries(taiwins-shell

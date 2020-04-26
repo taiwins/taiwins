@@ -30,7 +30,7 @@
 #include "ui.h"
 #include "vector.h"
 #include "wayland-taiwins-shell-client-protocol.h"
-#include "widget.h"
+#include "widget/widget.h"
 
 /*******************************************************************************
  * menu widget

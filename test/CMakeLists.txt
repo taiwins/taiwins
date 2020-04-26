@@ -68,10 +68,10 @@ target_link_libraries(test_cairo_transform
 
 add_executable(test_widget_lua
   test_widget_lua.c
-  ../clients/widget.c
-  ../clients/widget_lua.c
-  ../clients/widgets/clock.c
-  ../clients/widgets/battery.c
+  ../clients/widget/widget.c
+  ../clients/widget/widget_lua.c
+  ../clients/widget/clock.c
+  ../clients/widget/battery.c
   )
 
 target_link_libraries(test_widget_lua

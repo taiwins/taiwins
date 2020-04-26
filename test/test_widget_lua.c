@@ -1,5 +1,6 @@
 #include <ui.h>
-#include "../clients/widget.h"
+#include <client.h>
+#include "../clients/widget/widget.h"
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>

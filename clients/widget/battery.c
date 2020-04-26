@@ -26,7 +26,7 @@
 #include <unistd.h>
 #include <strops.h>
 #include <os/file.h>
-#include "../widget.h"
+#include "widget.h"
 
 
 //256 should be more than enough
