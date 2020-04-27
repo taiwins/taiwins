@@ -1,18 +1,18 @@
 [submodule "3rdparties/twclient"]
-	path = 3rdparties/twclient
+	path = subprojects/twclient
 	url = https://github.com/taiwins/twclient
 [submodule "3rdparties/nklua"]
-	path = 3rdparties/nklua
+	path = subprojects/nklua
 	url = https://github.com/xeechou/love-nuklear
 [submodule "3rdparties/rax"]
-	path = 3rdparties/rax
+	path = subprojects/rax
 	url = https://github.com/antirez/rax
 [submodule "3rdparties/taiwins-protocols"]
-	path = 3rdparties/taiwins-protocols
+	path = subprojects/taiwins-protocols
 	url = https://github.com/taiwins/taiwins-protocols
 [submodule "3rdparties/libweston"]
-	path = 3rdparties/libweston
+	path = subprojects/libweston
 	url = https://gitlab.freedesktop.org/wayland/weston.git
 [submodule "3rdparties/tdbus"]
-	path = 3rdparties/tdbus
+	path = subprojects/tdbus
 	url = https://github.com/xeechou/tdbus
