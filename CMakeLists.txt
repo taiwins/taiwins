@@ -5,6 +5,11 @@ project(taiwins
   LANGUAGES C)
 
 ################################################################################
+# options
+################################################################################
+option(INSTALL_TWCLIENT "install taiwins client library" OFF)
+
+################################################################################
 # project setup
 ################################################################################
 option(BUILD_DOC "Build documentation" OFF)
@@ -17,7 +22,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
-
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-parameter")
 if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -58,7 +62,7 @@ find_package(Threads REQUIRED)
 ################################################################################
 # 3rdparties
 ################################################################################
-add_subdirectory(3rdparties)
+add_subdirectory(subprojects)
 
 ################################################################################
 # message
@@ -104,7 +108,7 @@ if (DOXYGEN_FOUND AND BUILD_DOC)
   doxygen_add_docs(doxygen
     ${PROJECT_SOURCE_DIR}/server
     ${PROJECT_SOURCE_DIR}/clients
-    ${PROJECT_SOURCE_DIR}/3rdparties/twclient
+    ${PROJECT_SOURCE_DIR}/subprojects/twclient
     )
 
   add_custom_target(doc_doxygen ALL
