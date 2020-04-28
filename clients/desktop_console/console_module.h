@@ -38,11 +38,46 @@
 #include <rax.h>
 #include <nk_backends.h>
 
-#include "../../shared_config.h"
+#include <shared_config.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+
+struct desktop_console;
+struct console_module;
+/** public console data shared by console modules **/
+
+/* this is majorly for adding images, an alternative is for console_module to
+ * request images, does it need application images? mime-images? categorie
+ * images? places images? and console could return a generic image if not
+ * found */
+struct nk_wl_backend *
+desktop_console_aquire_nk_backend(struct desktop_console *console);
+
+const struct nk_image*
+desktop_console_request_image(struct desktop_console *console,
+                              const char *name, const char *fallback,
+                              int category);
+void
+desktop_console_append_module(struct desktop_console *console,
+                              struct console_module *module);
+bool
+desktop_console_run_config_lua(struct desktop_console *console);
+
+void
+desktop_console_release_lua_config(struct desktop_console *console);
+
+/* critical race condition code is wrapped here, so it would be transparent
+ * to console itself */
+int
+desktop_console_take_search_result(struct console_module *module,
+                                  vector_t *ret);
+
+int
+desktop_console_take_exec_result(struct console_module *module,
+                                char **result);
 
 
 /**
@@ -54,7 +89,6 @@ extern "C" {
  */
 struct console_module {
 	struct desktop_console *console;
-	struct nk_wl_backend *bkend;
 	struct rax *radix;
 	const bool support_cache;
 	const char name[32];
@@ -85,22 +119,16 @@ struct console_module {
 	void *user_data;
 };
 
-void console_module_init(struct console_module *module,
-                         struct desktop_console *console,
-                         struct nk_wl_backend *bkend);
+void
+console_module_init(struct console_module *module,
+                    struct desktop_console *console);
+void
+console_module_release(struct console_module *module);
 
-void console_module_release(struct console_module *module);
+void
+console_module_command(struct console_module *module, const char *search,
+                       const char *exec);
 
-void console_module_command(struct console_module *module, const char *search,
-			    const char *exec);
-
-/* critical race condition code is wrapped here, so it would be transparent
- * to console itself */
-int console_module_take_search_result(struct console_module *module,
-				      vector_t *ret);
-
-int console_module_take_exec_result(struct console_module *module,
-				    char **result);
 
 //all the search component returns this
 typedef struct {

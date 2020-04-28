@@ -25,12 +25,12 @@ target_link_libraries(taiwins-shell
   m
   )
 
-
 add_executable(taiwins-console
   desktop_console/console.c
   desktop_console/console_module.c
   desktop_console/console_cmd.c
   desktop_console/console_app.c
+  desktop_console/console_config_lua.c
   )
 target_include_directories(taiwins-console
   PRIVATE ${SHARED_CONFIG_DIR} ${CMAKE_CURRENT_LIST_DIR}
