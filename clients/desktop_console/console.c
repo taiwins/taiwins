@@ -44,10 +44,11 @@
 #include <helpers.h>
 #include <strops.h>
 #include <sequential.h>
+#include <hash.h>
 #include <shared_config.h>
 
 #include "console_module.h"
-
+#include "vector.h"
 
 #define CON_EDIT_H 30
 #define CON_ENTY_H 24
@@ -65,8 +66,12 @@ struct desktop_console {
 	struct tw_globals globals;
 	struct tw_appsurf surface;
 	struct tw_shm_pool pool;
-	struct wl_buffer *decision_buffer;
+
+        /**< shared data */
 	struct nk_wl_backend *bkend;
+
+        /**< exec data */
+	struct wl_buffer *decision_buffer;
 	struct wl_callback *exec_cb;
 	uint32_t exec_id;
 
@@ -168,7 +173,7 @@ console_update_search_results(struct desktop_console *console)
 		if (clean_results)
 			vector_destroy(results);
 		else
-			console_module_take_search_result(module, results);
+			desktop_console_take_search_result(module, results);
 		if (results->len > 0)
 			has_results = true;
 	}
@@ -674,9 +679,10 @@ post_init_console(struct desktop_console *console)
 		tw_shm_pool_alloc_buffer(&console->pool,
 		                         sizeof(struct tw_decision_key),
 		                         TAIWINS_CONSOLE_CONF_NUM_DECISIONS);
-	//prepare backend
-	console->bkend = nk_cairo_create_backend();
 	console_clear_edit(console);
+
+	//prepare shared data
+	console->bkend = nk_cairo_create_backend();
 
 	//loading modules
 	struct console_module *module;
@@ -684,11 +690,12 @@ post_init_console(struct desktop_console *console)
 	// init modules
 	vector_init(&console->modules, sizeof(struct console_module),
 		    console_release_module);
-	// TODO: repleacing modules
-	vector_append(&console->modules, &app_module);
-	vector_append(&console->modules, &cmd_module);
+	if (!desktop_console_run_config_lua(console)) {
+		vector_append(&console->modules, &app_module);
+		vector_append(&console->modules, &cmd_module);
+	}
 	vector_for_each(module, &console->modules)
-		console_module_init(module, console, console->bkend);
+		console_module_init(module, console);
 
 	vector_init(&console->search_results, sizeof(vector_t),
 		    console_free_search_results);
@@ -763,6 +770,31 @@ static struct wl_registry_listener registry_listener = {
 	.global = announce_globals,
 	.global_remove = announce_global_remove
 };
+
+/*******************************************************************************
+ * shared APIs
+ ******************************************************************************/
+struct nk_wl_backend *
+desktop_console_aquire_nk_backend(struct desktop_console *console)
+{
+	return console->bkend;
+}
+
+const struct nk_image*
+desktop_console_request_image(struct desktop_console *console,
+                              const char *name, const char *fallback,
+                              int category)
+{
+	return NULL;
+}
+
+void
+desktop_console_append_module(struct desktop_console *console,
+                              struct console_module *module)
+{
+	vector_append(&console->modules, module);
+}
+
 
 int
 main(int argc, char *argv[])

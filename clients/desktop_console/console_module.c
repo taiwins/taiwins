@@ -257,11 +257,9 @@ console_module_filter_test(const char *cmd, const char *entry)
 
 void
 console_module_init(struct console_module *module,
-                    struct desktop_console *console,
-                    struct nk_wl_backend *bkend)
+                    struct desktop_console *console)
 {
 	module->console = console;
-	module->bkend = bkend;
 	pthread_mutex_init(&module->command_mutex, NULL);
 	pthread_mutex_init(&module->results_mutex, NULL);
 	sem_init(&module->semaphore, 0, 0);
@@ -271,6 +269,15 @@ console_module_init(struct console_module *module,
 		module->init_hook(module);
 	if (!module->filter_test)
 		module->filter_test = console_module_filter_test;
+
+	//cleanup the module data
+	module->exec_command = NULL;
+	module->search_command = NULL;
+	module->search_ret = 0;
+	module->exec_ret = 0;
+	vector_init_zero(&module->search_results,
+	                 sizeof(console_search_entry_t), search_entry_free);
+	module->exec_res = NULL;
 	module->quit = false;
 }
 
@@ -334,7 +341,7 @@ console_module_command(struct console_module *module,
 }
 
 int
-console_module_take_search_result(struct console_module *module,
+desktop_console_take_search_result(struct console_module *module,
 				  vector_t *ret)
 {
 	int retcode = 0;
@@ -356,7 +363,7 @@ console_module_take_search_result(struct console_module *module,
 }
 
 int
-console_module_take_exec_result(struct console_module *module,
+desktop_console_take_exec_result(struct console_module *module,
 				char **result)
 {
 	int retcode = 0;
@@ -374,7 +381,6 @@ console_module_take_exec_result(struct console_module *module,
 
 	return retcode;
 }
-
 
 /******************************************************************************/
 static int

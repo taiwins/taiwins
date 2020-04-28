@@ -21,12 +21,6 @@
 
 #ifndef _GNU_SOURCE /* for qsort_r */
 #define _GNU_SOURCE
-#include "nk_backends.h"
-#include "os/file.h"
-#include "ui.h"
-#include <fcntl.h>
-#include <linux/limits.h>
-#include <wayland-util.h>
 #endif
 
 #include <ctype.h>
@@ -215,6 +209,8 @@ xdg_app_module_icons_init(struct console_module *module)
 {
 	struct image_cache cache;
 	struct nk_image img;
+	struct nk_wl_backend *bkend =
+		desktop_console_aquire_nk_backend(module->console);
 
 	//loading image_cache
 	xdg_app_module_init_image_cache(&cache, "Adwaita.apps.icon.cache");
@@ -222,11 +218,11 @@ xdg_app_module_icons_init(struct console_module *module)
 		return;
 
 	//copy images to nuklear backend
-	img = nk_wl_image_from_buffer(cache.atlas, module->bkend,
+	img = nk_wl_image_from_buffer(cache.atlas, bkend,
 	                              cache.dimension.w, cache.dimension.h,
 	                              cache.dimension.w * 4, true);
 	//now pimg holds the data in the backend
-	nk_wl_add_image(img, module->bkend);
+	nk_wl_add_image(img, bkend);
 	cache.atlas = NULL;
 	//now adding it
 	xdg_app_module_update_icons(module, &img, &cache);
