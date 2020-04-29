@@ -772,17 +772,6 @@ update_console_icon_search(struct desktop_console *console,
 	}
 }
 
-/* void */
-/* debug_img_cache(struct image_cache *cache) */
-/* { */
-/*	for (unsigned i = 0; i < cache->handles.size / sizeof(off_t); i++) { */
-/*		off_t offset = *((off_t *)cache->handles.data + i); */
-/*		char *key = (char *)cache->strings.data + offset; */
-/*		fprintf(stderr, "%s\n", key); */
-/*	} */
-/*	fprintf(stderr, "\n"); */
-/* } */
-
 static void
 load_console_icons(struct desktop_console *console, uint32_t icons)
 {
@@ -813,7 +802,6 @@ load_console_icons(struct desktop_console *console, uint32_t icons)
 		close(fd);
 		if (!cache.atlas || !cache.dimension.w || !cache.dimension.h)
 			continue;
-		/* debug_img_cache(&cache); */
 		update_console_icon_search(console, &cache);
 		image_cache_release(&cache);
 
@@ -824,9 +812,13 @@ load_console_icons(struct desktop_console *console, uint32_t icons)
 static void
 reload_console_modules(struct desktop_console *console)
 {
+	char configpath[PATH_MAX];
 	struct console_module *module;
 	vector_t empty_res = {0};
 	uint32_t requested_icons = 0;
+
+	tw_config_dir(configpath);
+	path_concat(configpath, PATH_MAX, 1, "console.lua");
 
 	if (console->modules.len)
 		vector_destroy(&console->modules);
@@ -834,14 +826,11 @@ reload_console_modules(struct desktop_console *console)
 		vector_destroy(&console->search_results);
 	console->selected = (struct selected_search_entry){0};
 	//load default modules
-	vector_append(&console->modules, &app_module);
-	vector_append(&console->modules, &cmd_module);
-
-	/* if (!desktop_console_run_config_lua(console, "/tmp/console.lua")) { */
-	/*	//load default modules */
-	/*	vector_append(&console->modules, &app_module); */
-	/*	vector_append(&console->modules, &cmd_module); */
-	/* } */
+	if (!desktop_console_run_config_lua(console, configpath)) {
+		//load default modules
+		vector_append(&console->modules, &app_module);
+		vector_append(&console->modules, &cmd_module);
+	}
 	vector_for_each(module, &console->modules) {
 		requested_icons = (requested_icons | module->supported_icons);
 	}
