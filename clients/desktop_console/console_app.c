@@ -43,7 +43,7 @@
 #include <vector.h>
 #include <hash.h>
 
-#include "console_module.h"
+#include "console.h"
 
 static struct app_module_data {
 	vector_t  xdg_app_vector;
@@ -136,26 +136,8 @@ xdg_app_filter(const char *command, const char *last)
 }
 
 /*******************************************************************************
- * icon search routines
+ * inits
  ******************************************************************************/
-
-static bool
-xdg_app_module_init_image_cache(struct image_cache *cache, const char *path)
-{
-	int fd, flags;
-	char iconpath[PATH_MAX];
-	//loading image_cache
-	tw_cache_dir(iconpath);
-	path_concat(iconpath, PATH_MAX, 1, path);
-	if (!is_file_exist(iconpath))
-		return false;
-	flags = O_RDONLY;
-	fd = open(iconpath, flags, S_IRUSR | S_IRGRP);
-	if (fd < 0)
-		return false;
-	*cache = image_cache_from_fd(fd);
-	return true;
-}
 
 /**
  * @brief update the desktop_entry icons with cache
@@ -164,79 +146,30 @@ xdg_app_module_init_image_cache(struct image_cache *cache, const char *path)
  * it does not hav a icon, try to update with this cache.
  */
 static void
-xdg_app_module_update_icons(struct console_module *module, struct nk_image *img,
-                            struct image_cache *cache)
+xdg_app_module_update_icons(struct console_module *module)
 {
 	struct app_module_data *userdata = module->user_data;
 	struct xdg_app_entry *app = NULL;
 	vector_t *apps = &userdata->xdg_app_vector;
 	vector_t *images = &userdata->icons;
-	struct dhash_table icons;
-	struct tw_bbox *box;
-	struct nk_image subimg, *pimg;
-	off_t offset;
+	struct nk_image empty;
+	const struct nk_image *requested;
 	char *key;
 
-	//generate hashing cache for images
-	dhash_init(&icons, hash_djb2, hash_sdbm, hash_cmp_str,
-	           sizeof(char *), sizeof(struct nk_image), NULL, NULL);
-	for (unsigned i = 0; i < cache->handles.size / sizeof(off_t); i++) {
-		offset = *((off_t *)cache->handles.data + i);
-		key = (char *)cache->strings.data + offset;
-		box = (struct tw_bbox *)cache->image_boxes.data + i;
-		subimg = nk_subimage_handle(img->handle, img->w, img->h,
-		                         nk_rect(box->x, box->y,
-		                                 box->w, box->h));
-		dhash_insert(&icons, &key, &subimg);
-	}
-
 	//retrieving images from hash table
-	subimg = nk_image_id(0);
+	empty = nk_image_id(0);
 	for (int i = 0; i < apps->len; i++) {
 		app = vector_at(apps, i);
 		key = app->icon;
-		pimg = vector_at(images, i);
-		if (pimg->handle.ptr)
-			continue;
-		else if ((pimg = dhash_search(&icons, &key)))
-			*(struct nk_image *)vector_at(images, i) = *pimg;
+		requested = desktop_console_request_image(
+			module->console, key, "application-x-executable");
+		if (requested)
+			memcpy(vector_at(images, i), requested,
+			       sizeof(struct nk_image));
+		else
+			memcpy(vector_at(images, i), &empty,
+			       sizeof(struct nk_image));
 	}
-	dhash_destroy(&icons);
-}
-
-static void
-xdg_app_module_icons_init(struct console_module *module)
-{
-	struct image_cache cache;
-	struct nk_image img;
-	struct nk_wl_backend *bkend =
-		desktop_console_aquire_nk_backend(module->console);
-
-	//loading image_cache
-	xdg_app_module_init_image_cache(&cache, "Adwaita.apps.icon.cache");
-	if (!cache.atlas || !cache.dimension.w || !cache.dimension.h)
-		return;
-
-	//copy images to nuklear backend
-	img = nk_wl_image_from_buffer(cache.atlas, bkend,
-	                              cache.dimension.w, cache.dimension.h,
-	                              cache.dimension.w * 4, true);
-	//now pimg holds the data in the backend
-	nk_wl_add_image(img, bkend);
-	cache.atlas = NULL;
-	//now adding it
-	xdg_app_module_update_icons(module, &img, &cache);
-	image_cache_release(&cache);
-}
-
-/*******************************************************************************
- * inits
- ******************************************************************************/
-static void
-xdg_app_module_thread_init(struct console_module *module)
-{
-	//loading icons
-	xdg_app_module_icons_init(module);
 }
 
 static void
@@ -257,6 +190,9 @@ xdg_app_module_init(struct console_module *module)
 	vector_init_zero(images, sizeof(struct nk_image), NULL);
 	vector_resize(images, apps->len);
 	memset(images->elems, 0, sizeof(struct nk_image) * apps->len);
+
+	//I can actually directly do it here
+	xdg_app_module_update_icons(module);
 }
 
 static void
@@ -274,9 +210,9 @@ struct console_module app_module = {
 	.exec = xdg_app_module_exec,
 	.search = xdg_app_module_search,
 	.init_hook = xdg_app_module_init,
-	.thread_init = xdg_app_module_thread_init,
 	.destroy_hook = xdg_app_module_destroy,
 	.filter_test = xdg_app_filter,
 	.support_cache = true,
+	.supported_icons = CONSOLE_ICON_APP | CONSOLE_ICON_MIME,
 	.user_data = &module_data,
 };

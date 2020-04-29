@@ -32,7 +32,7 @@
 #include <vector.h>
 #include <helpers.h>
 #include <strops.h>
-#include "console_module.h"
+#include "console.h"
 
 
 /**
@@ -164,5 +164,6 @@ struct console_module cmd_module = {
 	.search = console_cmd_module_search,
 	.init_hook = console_cmd_module_init,
 	.destroy_hook = console_cmd_module_destroy,
+	.supported_icons = CONSOLE_ICON_MIME,
 	.support_cache = true,
 };

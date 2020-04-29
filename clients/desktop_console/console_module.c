@@ -24,12 +24,8 @@
 #include <pthread.h>
 #include <semaphore.h>
 
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-
 #include <vector.h>
-#include "console_module.h"
+#include "console.h"
 
 /******************************************************************************/
 void
@@ -178,8 +174,6 @@ thread_run_module(void *arg)
 	struct module_search_cache cache;
 
 	cache_init(&cache);
-	if (!module->quit && module->thread_init)
-		module->thread_init(module);
 
 	while (!module->quit) {
 		//exec, enter critial
@@ -380,36 +374,4 @@ desktop_console_take_exec_result(struct console_module *module,
 	pthread_mutex_unlock(&module->results_mutex);
 
 	return retcode;
-}
-
-/******************************************************************************/
-static int
-console_lua_module_search(struct console_module *module,
-			  const char *search,
-			  vector_t *res)
-{
-	return 0;
-}
-
-static int
-console_lua_module_exec(struct console_module *module, const char *entry,
-			char **out)
-{
-	return 0;
-}
-
-void
-console_lua_module_init(struct console_module *module)
-{
-	lua_State *L = luaL_newstate();
-	module->search = console_lua_module_search;
-	module->exec = console_lua_module_exec;
-	module->user_data = L;
-}
-
-void
-console_lua_module_deinit(struct console_module *module)
-{
-	lua_State *L = module->user_data;
-	lua_close(L);
 }
