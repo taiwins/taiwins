@@ -7,9 +7,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <wayland-util.h>
 
 #include "console.h"
 #include "helpers.h"
+#include "os/file.h"
 
 /* static data used only in this function */
 #define MODULES_COUNT "_module_count"
@@ -566,6 +568,45 @@ _lua_request_module_metatable(lua_State *L)
 	return 1;
 }
 
+/* this function cannot crash */
+static int
+_lua_console_load_images(lua_State *L)
+{
+	struct wl_array handle_array, string_array;
+	off_t *offset;
+	char *string;
+	const char *tocpy;
+	struct desktop_console *console = _lua_to_console(L);
+
+	wl_array_init(&handle_array);
+	wl_array_init(&string_array);
+
+	if (lua_gettop(L) != 1 || !lua_istable(L, 1)) {
+		lua_pushboolean(L, false);
+		return 1;
+	}
+	for (size_t i = 0; i < lua_rawlen(L, 1); i++) {
+		lua_rawgeti(L, -1, i+1);
+		tocpy = lua_tostring(L, -1);
+		if (lua_isstring(L, -1) && is_file_exist(tocpy) &&
+		    is_file_type(tocpy, ".png")) {
+			string = wl_array_add(&string_array, strlen(tocpy)+1);
+			offset = wl_array_add(&handle_array, sizeof(off_t));
+			strcpy(string, tocpy);
+			*offset = (tocpy - (const char *)string_array.data);
+		}
+		lua_pop(L, 1);
+	}
+	if (handle_array.size && string_array.size)
+		desktop_console_load_icons(console,
+		                           &handle_array, &string_array);
+	wl_array_release(&handle_array);
+	wl_array_release(&string_array);
+
+	lua_pushboolean(L, true);
+	return 1;
+}
+
 static int
 luaopen_taiwins_console(lua_State *L)
 {
@@ -574,6 +615,7 @@ luaopen_taiwins_console(lua_State *L)
 		{"load_module", _lua_load_module},
 		{"load_builtin_module", _lua_load_builtin_module},
 		{"module_base", _lua_request_module_metatable},
+		{"load_images", _lua_console_load_images},
 	};
 	luaL_newlib(L, lib);
 	return 1;
