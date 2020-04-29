@@ -810,6 +810,17 @@ load_console_icons(struct desktop_console *console, uint32_t icons)
 }
 
 static void
+release_console_modules(struct desktop_console *console)
+{
+	if (console->modules.len)
+		vector_destroy(&console->modules);
+	if (console->search_results.len)
+		vector_destroy(&console->search_results);
+	console->selected = (struct selected_search_entry){0};
+	desktop_console_release_lua_config(console);
+}
+
+static void
 reload_console_modules(struct desktop_console *console)
 {
 	char configpath[PATH_MAX];
@@ -820,11 +831,7 @@ reload_console_modules(struct desktop_console *console)
 	tw_config_dir(configpath);
 	path_concat(configpath, PATH_MAX, 1, "console.lua");
 
-	if (console->modules.len)
-		vector_destroy(&console->modules);
-	if (console->search_results.len)
-		vector_destroy(&console->search_results);
-	console->selected = (struct selected_search_entry){0};
+	release_console_modules(console);
 	//load default modules
 	if (!desktop_console_run_config_lua(console, configpath)) {
 		//load default modules
@@ -886,8 +893,7 @@ init_console(struct desktop_console *console)
 static void
 end_console(struct desktop_console *console)
 {
-	vector_destroy(&console->modules);
-	vector_destroy(&console->search_results);
+	release_console_modules(console);
 
 	nk_textedit_free(&console->text_edit);
 	nk_cairo_destroy_backend(console->bkend);
@@ -945,7 +951,7 @@ static struct wl_registry_listener registry_listener = {
 };
 
 /*******************************************************************************
- * shared APIs
+ * public APIs
  ******************************************************************************/
 struct nk_wl_backend *
 desktop_console_aquire_nk_backend(struct desktop_console *console)
