@@ -8,7 +8,7 @@
 #include <string.h>
 #include <strings.h>
 
-#include "console_module.h"
+#include "console.h"
 #include "helpers.h"
 
 /* static data used only in this function */
@@ -327,7 +327,6 @@ console_module_from_lua_table(lua_State *L, int pos)
 	new_module->search = console_lua_module_search;
 	new_module->exec = console_lua_module_exec;
 	new_module->init_hook = console_lua_module_init;
-	new_module->thread_init = NULL;
 	new_module->destroy_hook = console_lua_module_destroy;
 	// assign index does not change the stack
 	console_module_assign_table(L, new_module, pos);
@@ -490,8 +489,7 @@ _lua_request_console_img(lua_State *L)
 	    !(string = lua_tostring(L, 1)))
 		lua_pushnil(L);
 	else {
-		im_data = desktop_console_request_image(console, string,
-		                                        NULL, 0);
+		im_data = desktop_console_request_image(console, string, NULL);
 		if (im_data)
 			lua_pushnil(L);
 		else {
@@ -616,7 +614,8 @@ _lua_register_metatables(lua_State *L, struct desktop_console *console)
 }
 
 bool
-desktop_console_run_config_lua(struct desktop_console *console)
+desktop_console_run_config_lua(struct desktop_console *console,
+                               const char *path)
 {
 	const char *err_msg;
 	lua_State *L;
@@ -634,7 +633,7 @@ desktop_console_run_config_lua(struct desktop_console *console)
 	luaL_requiref(L, "taiwins_console",
 	              luaopen_taiwins_console, true);
 
-	if (luaL_dofile(L, "/tmp/console.lua")) {
+	if (luaL_dofile(L, path)) {
 		n = _lua_n_console_modules(L);
 		err_msg = lua_tostring(L, -1);
 		fprintf(stderr,"ERROR occured: %s\n", err_msg);

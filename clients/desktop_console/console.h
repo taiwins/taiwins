@@ -1,5 +1,5 @@
 /*
- * console_module.h - taiwins client console module header
+ * console.h - taiwins client console header
  *
  * Copyright (c) 2019-2020 Xichen Zhou
  *
@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef TW_CONSOLE_MODULE_H
-#define TW_CONSOLE_MODULE_H
+#ifndef TW_CONSOLE_H
+#define TW_CONSOLE_H
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -39,6 +39,7 @@
 #include <nk_backends.h>
 
 #include <shared_config.h>
+#include <wayland-util.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,13 +59,18 @@ desktop_console_aquire_nk_backend(struct desktop_console *console);
 
 const struct nk_image*
 desktop_console_request_image(struct desktop_console *console,
-                              const char *name, const char *fallback,
-                              int category);
+                              const char *name, const char *fallback);
+/* load self defined icons */
+void
+desktop_console_load_icons(struct desktop_console *console,
+                            const struct wl_array *handle_list,
+                            const struct wl_array *string_list);
 void
 desktop_console_append_module(struct desktop_console *console,
                               struct console_module *module);
 bool
-desktop_console_run_config_lua(struct desktop_console *console);
+desktop_console_run_config_lua(struct desktop_console *console,
+                               const char *path);
 
 void
 desktop_console_release_lua_config(struct desktop_console *console);
@@ -80,6 +86,14 @@ desktop_console_take_exec_result(struct console_module *module,
                                 char **result);
 
 
+enum console_icon_type {
+	CONSOLE_ICON_APP = 1 << 0,
+	CONSOLE_ICON_MIME = 1 << 1,
+	CONSOLE_ICON_PLACE = 1 << 2,
+	CONSOLE_ICON_STATUS = 1 << 3,
+	CONSOLE_ICON_DEVICE = 1 << 4,
+};
+
 /**
  * @brief a console module provides its set of features to the console
  *
@@ -88,11 +102,13 @@ desktop_console_take_exec_result(struct console_module *module,
  *
  */
 struct console_module {
+	const char name[32];
 	struct desktop_console *console;
 	struct rax *radix;
+	uint32_t supported_icons;
 	const bool support_cache;
-	const char name[32];
 	bool quit;
+
 
 	struct {
 		pthread_mutex_t command_mutex;
@@ -110,8 +126,6 @@ struct console_module {
 	bool (*filter_test)(const char *, const char *);
 
 	void (*init_hook)(struct console_module *);
-	/**< thread init, called after  **/
-	void (*thread_init)(struct console_module *);
 	void (*destroy_hook)(struct console_module *);
 
 	pthread_t thread;
