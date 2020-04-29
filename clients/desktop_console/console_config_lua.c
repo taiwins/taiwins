@@ -24,8 +24,8 @@
 #define CONSOLE "_console"
 
 static lua_State *s_L = NULL;
-static pthread_mutex_t s_lua_search_lock;
-static pthread_mutex_t s_lua_exec_lock;
+static pthread_mutex_t s_lua_search_lock = {0};
+static pthread_mutex_t s_lua_exec_lock = {0};
 
 /*******************************************************************************
  * lua helpers
@@ -664,6 +664,8 @@ desktop_console_run_config_lua(struct desktop_console *console,
 	int n;
 	struct console_module *module;
 
+	if (s_L)
+		desktop_console_release_lua_config(console);
 	//for all the modules inside the folder. lets create module from that
 	pthread_mutex_init(&s_lua_search_lock, NULL);
 	pthread_mutex_init(&s_lua_exec_lock, NULL);
@@ -700,8 +702,11 @@ desktop_console_run_config_lua(struct desktop_console *console,
 void
 desktop_console_release_lua_config(struct desktop_console *console)
 {
-	pthread_mutex_destroy(&s_lua_search_lock);
-	pthread_mutex_destroy(&s_lua_exec_lock);
+	if (s_L) {
+		pthread_mutex_destroy(&s_lua_search_lock);
+		pthread_mutex_destroy(&s_lua_exec_lock);
 
-	lua_close(s_L);
+		lua_close(s_L);
+	}
+	s_L = NULL;
 }
