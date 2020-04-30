@@ -33,7 +33,6 @@
 extern "C" {
 #endif
 
-
 struct tw_config {
 	char path[128];	/**< it is copied on first time runing config */
 	struct weston_compositor *compositor;
@@ -43,15 +42,8 @@ struct tw_config {
 	char *err_msg;
 	bool quit;
 	bool _config_time; /**< mark for configuration is running */
-
-	//get the pointer here.
-	struct tw_backend *backend;
-	struct desktop *desktop;
-	struct shell *shell;
-	struct console *console;
-	struct theme *theme;
-	struct tw_xwayland *xwayland;
-	/* struct tw_dbus *bus; */
+	const char *shell_path, *console_path;
+	vector_t registry;
 
 	/**< lua code may use this */
 	struct wl_listener output_created_listener;
@@ -95,10 +87,16 @@ tw_load_default_config(struct tw_config *c);
 /*******************************************************************************
  * private APIs
  ******************************************************************************/
+struct tw_config_obj {
+	char name[32];
+	void *data;
+};
+
 enum tw_config_ws_layout {
 	TW_FLOATING_LAYOUT,
 	TW_TILING_LAYOUT,
 };
+
 
 typedef struct {
 	int rotate;
@@ -155,6 +153,10 @@ tw_config_table_dirty(struct tw_config_table *table, bool dirty);
 
 void
 tw_config_table_flush(struct tw_config_table *table);
+
+void *
+tw_config_request_object(struct tw_config *config,
+                         const char *name);
 
 
 #ifdef __cplusplus

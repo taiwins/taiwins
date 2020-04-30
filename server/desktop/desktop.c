@@ -41,6 +41,7 @@
 #include "../taiwins.h"
 #include "../config.h"
 #include "shell.h"
+#include "desktop.h"
 #include "layout.h"
 #include "workspace.h"
 
@@ -1173,7 +1174,10 @@ tw_desktop_set_gap(struct desktop *desktop, int inner, int outer)
 	desktop->outer_gap.value = outer;
 }
 
-bool
+/* TODO: remove this */
+struct shell *tw_shell_get_global();
+
+struct desktop *
 tw_setup_desktop(struct weston_compositor *ec,  struct tw_config *config)
 {
 	//initialize the desktop
@@ -1250,5 +1254,5 @@ tw_setup_desktop(struct weston_compositor *ec,  struct tw_config *config)
 	///point, we would need the API here to deal with xwayland surface, it
 	///it is not available, it must mean we do not deal with xwayland here
 	s_desktop.xwayland_api = weston_xwayland_surface_get_api(ec);
-	return true;
+	return &s_desktop;
 }

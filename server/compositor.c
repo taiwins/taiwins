@@ -38,13 +38,14 @@
 
 #include <os/file.h>
 #include <shared_config.h>
+#include "server/config/config_internal.h"
 #include "taiwins.h"
 #include "backend.h"
 #include "config.h"
 #include "bindings.h"
-#include "bus.h"
+#include "compositor.h"
 
-//remove this two later
+extern FILE *logfile;
 
 struct tw_compositor {
 	struct weston_compositor *ec;
@@ -53,7 +54,6 @@ struct tw_compositor {
 	struct tw_config_component_listener config_component;
 };
 
-extern FILE *logfile;
 
 static void
 tw_compositor_quit(struct weston_keyboard *keyboard,
@@ -181,7 +181,6 @@ tw_compositor_handle_exit(struct weston_compositor *c)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	int error = 0;
 	struct tw_compositor tc;
 	struct wl_event_source *signals[4];
 	const char *shellpath = (argc > 1) ? argv[1] : NULL;
@@ -190,6 +189,7 @@ int main(int argc, char *argv[], char *envp[])
 	struct wl_event_loop *event_loop = wl_display_get_event_loop(display);
 	struct weston_log_context *context;
 	struct weston_compositor *compositor;
+	struct tw_config *config;
 	char path[PATH_MAX];
 
 	logfile = fopen("/tmp/taiwins_log", "w");
@@ -218,46 +218,45 @@ int main(int argc, char *argv[], char *envp[])
 
 	context = weston_log_ctx_compositor_create();
 	compositor = weston_compositor_create(display, context, NULL);
-
 	weston_log_set_handler(tw_log, tw_log);
+	compositor->exit = tw_compositor_handle_exit;
 
 	tw_create_config_dir();
 	tw_config_dir(path);
 	strcat(path, "/config.lua");
-	struct tw_config *config =
-		tw_config_create(compositor, tw_log);
-
+	config = tw_config_create(compositor, tw_log);
+	tw_config_register_object(config, "shell_path", (void *)shellpath);
+	tw_config_register_object(config, "console_path", (void *)launcherpath);
 	tw_compositor_init(&tc, compositor, config);
-	if (!tw_setup_bus(compositor))
-		goto out;
-	if (!tw_setup_backend(compositor))
-		goto out;
+	/* if (!tw_setup_bus(compositor)) */
+	/*	goto out; */
+	/* if (!tw_setup_backend(compositor)) */
+	/*	goto out; */
 
-	weston_compositor_wake(compositor);
+	/* weston_compositor_wake(compositor); */
 
-	if (!tw_setup_xwayland(compositor, config))
-		goto out;
-	if (!tw_setup_shell(compositor, shellpath, config))
-		goto out;
-	if (!tw_setup_console(compositor, launcherpath, config))
-		goto out;
+	/* if (!tw_setup_xwayland(compositor, config)) */
+	/*	goto out; */
+	/* if (!tw_setup_shell(compositor, shellpath, config)) */
+	/*	goto out; */
+	/* if (!tw_setup_console(compositor, launcherpath, config)) */
+	/*	goto out; */
 
-	if (!tw_setup_desktop(compositor, config))
-		goto out;
-	if (!tw_setup_theme(compositor, config))
-		goto out;
+	/* if (!tw_setup_desktop(compositor, config)) */
+	/*	goto out; */
+	/* if (!tw_setup_theme(compositor, config)) */
+	/*	goto out; */
 
-	error = !tw_config_run(config, path);
-	if (error) {
-		goto out;
-	}
-	compositor->default_pointer_grab = NULL;
-	compositor->exit = tw_compositor_handle_exit;
-	compositor->kb_repeat_delay = 500;
-	compositor->kb_repeat_rate = 20;
-
+	/* error = !tw_config_run(config, path); */
+	/* if (error) { */
+	/*	goto out; */
+	/* } */
+	/* compositor->default_pointer_grab = NULL; */
+	/* compositor->kb_repeat_delay = 500; */
+	/* compositor->kb_repeat_rate = 20; */
+	tw_run_default_config(config);
 	wl_display_run(display);
-out:
+
 	tw_config_destroy(config);
 	weston_compositor_tear_down(compositor);
 	weston_log_ctx_compositor_destroy(compositor);

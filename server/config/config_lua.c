@@ -368,7 +368,7 @@ _lua_to_backend(lua_State *L)
 	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
 	config = lua_touserdata(L, -1);
 	lua_pop(L, 1);
-	return config ->backend;
+	return tw_config_request_object(config, "backend");
 }
 
 static inline struct shell *
@@ -378,7 +378,7 @@ _lua_to_shell(lua_State *L)
 	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
 	config = lua_touserdata(L, -1);
 	lua_pop(L, 1);
-	return config->shell;
+	return tw_config_request_object(config, "shell");
 }
 
 static inline struct desktop*
@@ -388,7 +388,7 @@ _lua_to_desktop(lua_State *L)
 	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
 	config = lua_touserdata(L, -1);
 	lua_pop(L, 1);
-	return config->desktop;
+	return tw_config_request_object(config, "desktop");
 }
 
 static inline struct tw_xwayland *
@@ -398,7 +398,7 @@ _lua_to_xwayland(lua_State *L)
 	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
 	config = lua_touserdata(L, -1);
 	lua_pop(L, 1);
-	return config->xwayland;
+	return tw_config_request_object(config, "xwayland");
 }
 
 static inline struct tw_config_table *
@@ -416,13 +416,11 @@ static inline struct tw_theme *
 _lua_to_theme(lua_State *L)
 {
 	struct tw_config *config;
-	struct theme *theme;
 
 	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
 	config = lua_touserdata(L, -1);
-	theme = config->theme;
 	lua_pop(L, 1);
-	return tw_theme_access_theme(theme);
+	return tw_config_request_object(config, "theme");
 }
 
 extern int tw_theme_read(lua_State *L);

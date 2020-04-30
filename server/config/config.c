@@ -40,14 +40,13 @@
 
 #include <strops.h>
 #include "config_internal.h"
-#include "os/file.h"
-#include "server/bus.h"
-#include "server/taiwins.h"
-#include "vector.h"
+#include "server/compositor.h"
+#include "server/desktop/desktop.h"
 
-//////////////////////////////////////////////////////////////////
-////////////////////////////// API ///////////////////////////////
-//////////////////////////////////////////////////////////////////
+/******************************************************************************
+ * API
+ *****************************************************************************/
+
 static inline void
 tw_config_set_bindings(struct tw_config *config, struct tw_bindings *b)
 {
@@ -177,9 +176,6 @@ tw_config_apply_default(struct tw_config *c)
 	};
 }
 
-
-//right now this function can run once, if we ever need to run multiple times,
-//we need to clean up the
 struct tw_config*
 tw_config_create(struct weston_compositor *ec, log_func_t log)
 {
@@ -193,6 +189,8 @@ tw_config_create(struct weston_compositor *ec, log_func_t log)
 	wl_list_init(&config->apply_bindings);
 	vector_init_zero(&config->option_hooks,
 			 sizeof(struct tw_option), NULL);
+	vector_init_zero(&config->registry,
+	                 sizeof(struct tw_config_obj), NULL);
 
 	return config;
 }
@@ -245,7 +243,6 @@ tw_swap_config(struct tw_config *dst, struct tw_config *src)
 
 	free(src);
 }
-
 
 static void
 tw_config_try_config(struct tw_config *config)
@@ -410,27 +407,76 @@ tw_config_add_option_listener(struct tw_config *config, const char *key,
 	wl_list_insert(&opt->listener_list, &listener->link);
 }
 
+void
+tw_config_register_object(struct tw_config *config,
+                          const char *name, void *obj)
+{
+	struct tw_config_obj object;
+
+	strop_ncpy((char *)object.name, name, 32);
+	object.data = obj;
+	vector_append(&config->registry, &object);
+}
+
+void *
+tw_config_request_object(struct tw_config *config,
+                         const char *name)
+{
+	struct tw_config_obj *obj;
+
+	vector_for_each(obj, &config->registry) {
+		if (!strcmp(name, obj->name))
+			return obj->data;
+	}
+	return NULL;
+}
 
 bool
 tw_run_default_config(struct tw_config *config)
 {
-	struct weston_compositor *compositor =
-		config->compositor;
-	//well, we do not have any lua config
-	if (!(config->backend = tw_setup_backend(compositor)))
-		goto out;
-	/* if (!tw_setup_bus(compositor)) */
-	/*	goto out; */
-	//does not load shell or console path
-	if (!tw_setup_shell(compositor, NULL, config))
-		goto out;
-	if (!tw_setup_console(compositor, NULL, config))
-		goto out;
+	struct shell *shell;
+	struct console *console;
+	struct tw_backend *backend;
+	struct tw_bus *bus;
+	struct tw_theme *theme;
+	struct desktop *desktop;
 
-	if (!tw_setup_desktop(compositor, config))
+	const char *shell_path;
+	const char *console_path;
+	struct weston_compositor *ec = config->compositor;
+
+	shell_path =  tw_config_request_object(config, "shell_path");
+	console_path = tw_config_request_object(config, "console_path");
+
+	weston_compositor_wake(ec);
+
+	if (!(backend = tw_setup_backend(ec)))
 		goto out;
-	if (!tw_setup_theme(compositor, config))
+        tw_config_register_object(config, "backend", backend);
+
+        if (!(bus = tw_setup_bus(ec)))
 		goto out;
+        tw_config_register_object(config, "bus", bus);
+
+	if (!(shell = tw_setup_shell(ec, shell_path,config)))
+		goto out;
+        tw_config_register_object(config, "shell", shell);
+
+        if (!(console = tw_setup_console(ec, console_path, config)))
+		goto out;
+	tw_config_register_object(config, "console", console);
+
+	if (!(desktop = tw_setup_desktop(ec, config)))
+		goto out;
+	tw_config_register_object(config, "desktop", desktop);
+
+	if (!(theme = tw_setup_theme(ec, config)))
+		goto out;
+	tw_config_register_object(config, "theme", theme);
+
+        ec->default_pointer_grab = NULL;
+	ec->kb_repeat_delay = 500;
+	ec->kb_repeat_rate = 20;
 
 out:
 	return false;
@@ -467,8 +513,13 @@ tw_config_table_flush(struct tw_config_table *t)
 {
 	struct tw_config *c = t->config;
 	struct weston_compositor *ec = t->config->compositor;
-	struct desktop *desktop = c->desktop;
-	struct shell *shell = c->shell;
+	struct desktop *desktop;
+	struct shell *shell;
+	struct tw_xwayland *xwayland;
+
+	desktop = tw_config_request_object(c, "desktop");
+	shell  = tw_config_request_object(c, "shell");
+	xwayland = tw_config_request_object(c, "xwayland");
 
 	for (int i = 0; i < 32; i++) {
 		struct weston_output *output =
@@ -490,7 +541,7 @@ tw_config_table_flush(struct tw_config_table *t)
 		}
 		wl_signal_emit(&ec->output_resized_signal, output);
 	}
-	for (int i = 0; i < tw_desktop_num_workspaces(c->desktop); i++) {
+	for (int i = 0; i < tw_desktop_num_workspaces(desktop); i++) {
 		/* if (t->workspaces[i].layout.valid) */
 		/*	tw_desktop_set_workspace_layout(c->desktop, i, */
 		/*	                                t->workspaces[i].layout.layout); */
@@ -505,7 +556,7 @@ tw_config_table_flush(struct tw_config_table *t)
 	}
 
 	if (t->xwayland.valid) {
-		tw_xwayland_enable(c->xwayland, t->xwayland.enable);
+		tw_xwayland_enable(xwayland, t->xwayland.enable);
 		t->xwayland.valid = false;
 	}
 

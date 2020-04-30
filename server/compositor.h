@@ -1,5 +1,5 @@
 /*
- * bus.h - taiwins server bus header
+ * bus.h - taiwins server compositor header
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef TW_BUS_H
-#define TW_BUS_H
+#ifndef TW_COMPOSITOR_H
+#define TW_COMPOSITOR_H
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -35,9 +35,22 @@ extern "C" {
 #endif
 
 struct tw_bus;
+struct tw_backend;
+struct tw_xwayland;
+struct tw_theme;
 
 struct tw_bus *
 tw_setup_bus(struct weston_compositor *ec);
+
+struct tw_xwayland *
+tw_setup_xwayland(struct weston_compositor *ec, struct tw_config *config);
+
+void
+tw_xwayland_enable(struct tw_xwayland *xwayland, bool enable);
+
+struct tw_theme *
+tw_setup_theme(struct weston_compositor *ec, struct tw_config *config);
+
 
 #ifdef  __cplusplus
 }

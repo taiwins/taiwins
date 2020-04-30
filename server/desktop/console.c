@@ -182,13 +182,16 @@ end_console(struct wl_listener *listener, void *data)
 	wl_global_destroy(c->global);
 }
 
-bool
+/* TODO: remove this */
+struct shell *tw_shell_get_global();
+
+struct console *
 tw_setup_console(struct weston_compositor *compositor,
 		 const char *path, struct tw_config *config)
 {
 	struct shell *shell = tw_shell_get_global();
 	if(path && (strlen(path) +1 > NUMOF(s_console.path)))
-		return false;
+		return NULL;
 
 	s_console.surface = NULL;
 	s_console.resource = NULL;
@@ -223,5 +226,5 @@ tw_setup_console(struct weston_compositor *compositor,
 	s_console.add_binding.apply = console_add_bindings;
 	tw_config_add_apply_bindings(config, &s_console.add_binding);
 
-	return true;
+	return &s_console;
 }
