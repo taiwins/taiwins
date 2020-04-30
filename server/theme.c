@@ -136,13 +136,6 @@ end_theme(struct wl_listener *listener, void *data)
  ******************************************************************************/
 
 struct tw_theme *
-tw_theme_access_theme(struct theme *theme)
-{
-	return &theme->global_theme;
-}
-
-
-bool
 tw_setup_theme(struct weston_compositor *ec, struct tw_config *config)
 {
 	THEME.ec = ec;
@@ -163,5 +156,5 @@ tw_setup_theme(struct weston_compositor *ec, struct tw_config *config)
 	THEME.config_component.apply = apply_theme_lua;
 	tw_config_add_component(config, &THEME.config_component);
 
-	return true;
+	return &THEME.global_theme;
 }

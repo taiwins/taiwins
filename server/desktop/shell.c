@@ -1104,7 +1104,7 @@ tw_shell_set_menu(struct shell *shell, vector_t *menu)
 	shell->menu = *menu;
 }
 
-bool
+struct shell *
 tw_setup_shell(struct weston_compositor *ec, const char *path,
                struct tw_config *config)
 {
@@ -1143,5 +1143,5 @@ tw_setup_shell(struct weston_compositor *ec, const char *path,
 	s_shell.config_component.apply = shell_apply_lua_config;
 	tw_config_add_component(config, &s_shell.config_component);
 
-	return true;
+	return &s_shell;
 }

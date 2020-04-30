@@ -227,7 +227,7 @@ tw_xwayland_enable(struct tw_xwayland *xwayland, bool enable)
 	xwayland->enabled.valid = true;
 }
 
-bool
+struct tw_xwayland *
 tw_setup_xwayland(struct weston_compositor *ec, struct tw_config *config)
 {
 	const struct weston_xwayland_api *api;
@@ -237,14 +237,14 @@ tw_setup_xwayland(struct weston_compositor *ec, struct tw_config *config)
 
 	if (!(xwayland_init =
 	      tw_load_weston_module("xwayland.so", "weston_module_init")))
-		return false;
+		return NULL;
 	if (xwayland_init(ec) < 0)
-		return false;
+		return NULL;
 
 	api = weston_xwayland_get_api(ec);
 	if (!api) {
 		weston_log("faild to load xwayland API.\n");
-		return false;
+		return NULL;
 	}
 
 	s_xwayland.compositor = ec;
@@ -273,5 +273,5 @@ tw_setup_xwayland(struct weston_compositor *ec, struct tw_config *config)
 		                         tw_xwayland_handle_sigusr1,
 		                         &s_xwayland);
 
-	return true;
+	return &s_xwayland;
 }

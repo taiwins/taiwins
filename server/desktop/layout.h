@@ -25,8 +25,7 @@
 #include <stdbool.h>
 #include <helpers.h>
 #include <wayland-server.h>
-#define INCLUDE_DESKTOP
-#include "../taiwins.h"
+#include "desktop.h"
 
 #ifdef  __cplusplus
 extern "C" {

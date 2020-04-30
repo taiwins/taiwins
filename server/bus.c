@@ -26,7 +26,7 @@
 #include <libweston/libweston.h>
 #include <tdbus.h>
 
-#include "bus.h"
+#include "compositor.h"
 
 static struct tw_bus {
 	struct weston_compositor *compositor;
@@ -35,7 +35,6 @@ static struct tw_bus {
 
 	struct wl_listener compositor_distroy_listener;
 } s_bus;
-
 
 static inline struct tw_bus *
 get_bus(void)

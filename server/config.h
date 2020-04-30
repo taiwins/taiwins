@@ -30,13 +30,16 @@
 #include "taiwins.h"
 #include "backend.h"
 #include "bindings.h"
+#include "compositor.h"
+#include "desktop/desktop.h"
+#include "desktop/shell.h"
+#include "desktop/console.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 struct tw_config;
-
 
 /*******************************************************************************
  * config option
@@ -149,17 +152,25 @@ enum tw_builtin_binding_t {
 const struct tw_binding *tw_config_get_builtin_binding(struct tw_config *,
                                                        enum tw_builtin_binding_t);
 
-/*******************************************************************************
+/******************************************************************************
  * other APIs
- ******************************************************************************/
+ *****************************************************************************/
 
-struct tw_config *tw_config_create(struct weston_compositor *ec,
+struct tw_config *
+tw_config_create(struct weston_compositor *ec,
                                    log_func_t messenger);
-void tw_config_destroy(struct tw_config *);
+void
+tw_config_destroy(struct tw_config *);
 
-const char *tw_config_retrieve_error(struct tw_config *);
+const char *
+tw_config_retrieve_error(struct tw_config *);
 
-bool tw_run_default_config(struct tw_config *config);
+bool
+tw_run_default_config(struct tw_config *config);
+
+void
+tw_config_register_object(struct tw_config *config,
+                          const char *name, void *obj);
 
 /**
  * /brief load and apply the config file
