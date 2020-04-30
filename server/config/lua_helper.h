@@ -45,6 +45,34 @@ tw_lua_isnumber(lua_State *L, int pos) {return lua_type(L, pos) == LUA_TNUMBER;}
 static inline bool
 tw_lua_isstring(lua_State *L, int pos) {return lua_type(L, pos) == LUA_TSTRING;}
 
+static inline bool
+tw_lua_istable(lua_State *L, int pos, const char *type)
+{
+	bool same = false;
+	if (!lua_istable(L, pos))
+		return false;
+	if (lua_getmetatable(L, pos) != 0) { //+1
+		luaL_getmetatable(L, type); //+2
+		same = lua_compare(L, -1, -2, LUA_OPEQ);
+		lua_pop(L, 2);
+	}
+	return same;
+}
+
+static inline void *
+tw_lua_isudata(lua_State *L, int pos, const char *type)
+{
+	bool same = false;
+	if (!lua_isuserdata(L, pos))
+		return NULL;
+	if (lua_getmetatable(L, pos) != 0) {
+		luaL_getmetatable(L, type);
+		same = lua_compare(L, -1, -2, LUA_OPEQ);
+		lua_pop(L, 2);
+	}
+	return same ? lua_touserdata(L, pos) : NULL;
+}
+
 static inline int
 tw_lua_stackcheck(lua_State *L, int size)
 {

@@ -1,7 +1,7 @@
 /*
  * config.h - taiwins config header
  *
- * Copyright (c) 2019 Xichen Zhou
+ * Copyright (c) 2019-2020 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@
 #include <lauxlib.h>
 #include <sequential.h>
 #include "taiwins.h"
+#include "backend.h"
 #include "bindings.h"
 
 #ifdef __cplusplus
@@ -112,7 +113,6 @@ struct tw_apply_bindings_listener {
 void tw_config_add_apply_bindings(struct tw_config *,
                                   struct tw_apply_bindings_listener *);
 
-
 enum tw_builtin_binding_t {
 	TW_QUIT_BINDING,
 	TW_RELOAD_CONFIG_BINDING,
@@ -158,6 +158,8 @@ struct tw_config *tw_config_create(struct weston_compositor *ec,
 void tw_config_destroy(struct tw_config *);
 
 const char *tw_config_retrieve_error(struct tw_config *);
+
+bool tw_run_default_config(struct tw_config *config);
 
 /**
  * /brief load and apply the config file

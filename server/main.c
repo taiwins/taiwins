@@ -39,6 +39,7 @@
 #include <os/file.h>
 #include <shared_config.h>
 #include "taiwins.h"
+#include "backend.h"
 #include "config.h"
 #include "bindings.h"
 #include "bus.h"
@@ -227,9 +228,9 @@ int main(int argc, char *argv[], char *envp[])
 		tw_config_create(compositor, tw_log);
 
 	tw_compositor_init(&tc, compositor, config);
-	if (!tw_setup_bus(compositor, config))
+	if (!tw_setup_bus(compositor))
 		goto out;
-	if (!tw_setup_backend(compositor, config))
+	if (!tw_setup_backend(compositor))
 		goto out;
 
 	weston_compositor_wake(compositor);

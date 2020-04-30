@@ -24,27 +24,23 @@
 #include <unistd.h>
 #include <sys/eventfd.h>
 #include <libweston/libweston.h>
+#include <tdbus.h>
 
-#include "config.h"
 #include "bus.h"
-
 
 static struct tw_bus {
 	struct weston_compositor *compositor;
-	struct tw_config *config;
-
 	struct tdbus *dbus;
 	struct wl_event_source *source;
 
 	struct wl_listener compositor_distroy_listener;
-	struct tw_config_component_listener config_component;
-} TWbus;
+} s_bus;
 
 
 static inline struct tw_bus *
 get_bus(void)
 {
-	return &TWbus;
+	return &s_bus;
 }
 
 static int
@@ -178,8 +174,8 @@ static struct tdbus_call_answer tw_bus_answer = {
 	.reader = tw_bus_read_request,
 };
 
-bool
-tw_setup_bus(struct weston_compositor *ec, struct tw_config *config)
+struct tw_bus *
+tw_setup_bus(struct weston_compositor *ec)
 {
 	int fd;
 	struct tw_bus *bus = get_bus();
@@ -189,7 +185,6 @@ tw_setup_bus(struct weston_compositor *ec, struct tw_config *config)
 	display = ec->wl_display;
 	loop = wl_display_get_event_loop(display);
 	bus->compositor = ec;
-	bus->config = config;
 	bus->dbus = tdbus_new_server(SESSION_BUS, "org.taiwins");
 
 	wl_list_init(&bus->compositor_distroy_listener.link);
@@ -202,19 +197,18 @@ tw_setup_bus(struct weston_compositor *ec, struct tw_config *config)
 	/* idle events cannot reschedule themselves */
 	fd = eventfd(0, EFD_CLOEXEC);
 	if (fd < 0)
-		return false;
+		return NULL;
 	bus->source = wl_event_loop_add_fd(loop, fd, 0, tw_bus_dispatch, bus);
 	if (!bus->source) {
 		tw_bus_end(&bus->compositor_distroy_listener, bus);
-		return false;
+		return NULL;
 	}
 	wl_event_source_check(bus->source);
-
 
 	tdbus_set_nonblock(bus->dbus, bus,
 	                   tw_bus_add_watch, tw_bus_ch_watch, tw_bus_rm_watch);
 
 	tdbus_server_add_methods(bus->dbus, "/org/taiwins", 1, &tw_bus_answer);
 
-	return true;
+	return &s_bus;
 }

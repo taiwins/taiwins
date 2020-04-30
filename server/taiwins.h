@@ -33,12 +33,6 @@
 #include <libweston-desktop/libweston-desktop.h>
 #endif
 
-#if defined (INCLUDE_BACKEND)
-#include <libweston/backend-drm.h>
-#include <libweston/backend-wayland.h>
-#include <libweston/backend-x11.h>
-#include <libweston/windowed-output-api.h>
-#endif
 
 #include <wayland-taiwins-shell-server-protocol.h>
 
@@ -275,39 +269,6 @@ tw_launch_client_complex(struct weston_compositor *ec, const char *path,
 
 void
 tw_end_client(struct wl_client *client);
-
-/*******************************************************************************
- * bus functions
- ******************************************************************************/
-
-bool
-tw_setup_bus(struct weston_compositor *ec, struct tw_config *config);
-
-/*******************************************************************************
- * backend functions
- ******************************************************************************/
-
-struct tw_backend;
-struct tw_backend_output;
-
-bool
-tw_setup_backend(struct weston_compositor *ec, struct tw_config *c);
-
-struct tw_backend *tw_backend_get_global();
-
-struct tw_backend_output *
-tw_backend_output_from_weston_output(struct weston_output *output,
-                                     struct tw_backend *b);
-void
-tw_backend_output_set_scale(struct tw_backend_output *output,
-                                    unsigned int scale);
-enum weston_compositor_backend
-tw_backend_get_type(struct tw_backend *be);
-
-void
-tw_backend_output_set_transform(struct tw_backend_output *output,
-                                enum wl_output_transform transform);
-//TODO resolution
 
 /*******************************************************************************
  * xwayland functions
