@@ -19,7 +19,6 @@
  *
  */
 
-#include <libweston/libweston.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -29,32 +28,26 @@
 #include <string.h>
 #include <linux/input.h>
 #include <pixman.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <helpers.h>
 
-#define INCLUDE_BACKEND
+#include <libweston/backend-drm.h>
+#include <libweston/backend-wayland.h>
+#include <libweston/backend-x11.h>
+#include <libweston/windowed-output-api.h>
+#include "backend.h"
 #include "taiwins.h"
-#include "config.h"
 
 struct tw_backend;
-
-typedef OPTION(struct weston_geometry, geometry) tw_option_geometry;
-typedef OPTION(int32_t, scale) tw_option_scale;
-typedef OPTION(enum wl_output_transform, transform) tw_option_output_transform;
 
 struct tw_backend_output {
 	int id;
 	struct tw_backend *backend;
 	struct weston_output *output;
-	tw_option_geometry pending_geometry;
-	tw_option_scale pending_scale;
-	tw_option_output_transform pending_transform;
 };
 
 struct tw_backend {
 	struct weston_compositor *compositor;
-	struct tw_config *config;
 	enum weston_compositor_backend type;
 	//like weston, we have maximum 32 outputs.
 	uint32_t output_pool;
@@ -69,12 +62,11 @@ struct tw_backend {
 	struct wl_listener compositor_distroy_listener;
 	struct wl_listener windowed_head_changed;
 	struct wl_listener drm_head_changed;
-	struct tw_config_component_listener config_component;
 };
 
 static struct tw_backend TWbackend;
 
-struct tw_backend *
+static struct tw_backend *
 tw_backend_get_global(void)
 {
 	return &TWbackend;
@@ -93,9 +85,6 @@ tw_backend_init_output(struct tw_backend *b, struct weston_output *output)
 	b->outputs[id].id = id;
 	b->outputs[id].output = output;
 	b->outputs[id].backend = b;
-	b->outputs[id].pending_geometry.valid = false;
-	b->outputs[id].pending_scale.valid = false;
-	b->outputs[id].pending_transform.valid = false;
 }
 
 static void
@@ -105,9 +94,6 @@ tw_backend_fini_output(struct tw_backend_output *o)
 	backend->output_pool &= ~(1u << o->id);
 	o->id = 0xffffffff;
 	o->output = NULL;
-	o->pending_geometry.valid = false;
-	o->pending_scale.valid = false;
-	o->pending_transform.valid = false;
 }
 
 struct tw_backend_output*
@@ -266,48 +252,6 @@ windowed_head_changed(struct wl_listener *listener, void *data)
 }
 
 /************************************************************
- * config components
- ***********************************************************/
-
-static void
-backend_apply_lua_config(struct tw_config *c, bool cleanup,
-			 struct tw_config_component_listener *listener)
-{
-	struct weston_output *o;
-	struct tw_backend *b = container_of(listener, struct tw_backend,
-					    config_component);
-
-	wl_list_for_each(o, &b->compositor->output_list, link) {
-		struct tw_backend_output *to =
-			tw_backend_output_from_weston_output(o, b);
-		bool valid = to->pending_scale.valid ||
-			to->pending_geometry.valid ||
-			to->pending_transform.valid;
-		if (cleanup) {
-			to->pending_scale.valid = false;
-			to->pending_geometry.valid = false;
-			to->pending_transform.valid = false;
-			break;
-		}
-		if (to->pending_scale.valid) {
-			o->scale = to->pending_scale.scale;
-			//weston prevents us from doing this
-			/* weston_output_set_scale( */
-			/*	o, to->pending_scale.scale); */
-			to->pending_scale.valid = false;
-		}
-		if (to->pending_transform.valid) {
-			weston_output_set_transform(
-				o, to->pending_transform.transform);
-			to->pending_transform.valid = false;
-		}
-		if (valid)
-			wl_signal_emit(&b->compositor->output_resized_signal, o);
-	}
-	weston_compositor_schedule_repaint(b->compositor);
-}
-
-/************************************************************
  * global functions
  ***********************************************************/
 
@@ -332,9 +276,6 @@ setup_backend_listeners(struct tw_backend *b)
 	b->compositor_distroy_listener.notify = end_backends;
 	wl_signal_add(&b->compositor->destroy_signal,
 		      &b->compositor_distroy_listener);
-	wl_list_init(&b->config_component.link);
-	b->config_component.apply = backend_apply_lua_config;
-	tw_config_add_component(b->config, &b->config_component);
 
 	switch (b->type) {
 	case WESTON_BACKEND_DRM:
@@ -425,31 +366,12 @@ tw_backend_get_type(struct tw_backend *be)
 	return be->type;
 }
 
-void
-tw_backend_output_set_scale(struct tw_backend_output *output,
-                            unsigned int scale)
-{
-	output->pending_scale.scale = scale;
-	output->pending_scale.valid = true;
-}
-
-void
-tw_backend_output_set_transform(struct tw_backend_output *output,
-                                enum wl_output_transform transform)
-{
-	output->pending_transform.transform = transform;
-	output->pending_transform.valid = true;
-}
-
-
-bool
-tw_setup_backend(struct weston_compositor *compositor,
-		 struct tw_config *config)
+struct tw_backend *
+tw_setup_backend(struct weston_compositor *compositor)
 {
 	enum weston_compositor_backend backend;
 	struct tw_backend *b = tw_backend_get_global();
 	compositor->vt_switching = true;
-	b->config = config;
 	b->compositor = compositor;
 	b->output_pool = 0;
 	//how to launch an rdp server here?
@@ -469,5 +391,5 @@ tw_setup_backend(struct weston_compositor *compositor,
 		windowed_head_check(compositor);
 	weston_compositor_flush_heads_changed(compositor);
 
-	return true;
+	return b;
 }

@@ -29,6 +29,9 @@
 #include <lauxlib.h>
 #include <lualib.h>
 #include <sequential.h>
+#include <wayland-client-core.h>
+#include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 #include <wayland-util.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-compose.h>
@@ -38,6 +41,9 @@
 #include <strops.h>
 #include "config_internal.h"
 #include "os/file.h"
+#include "server/bus.h"
+#include "server/taiwins.h"
+#include "vector.h"
 
 //////////////////////////////////////////////////////////////////
 ////////////////////////////// API ///////////////////////////////
@@ -207,15 +213,7 @@ _tw_config_release(struct tw_config *config)
 	if (config->err_msg)
 		free(config->err_msg);
 
-	vector_destroy(&config->lua_bindings);
-	if (config->L)
-		lua_close(config->L);
-	config->L = NULL;
-	if (config->bindings)
-		tw_bindings_destroy(config->bindings);
-	config->bindings = NULL;
-	//release everything but not apply_bindings
-	wl_list_init(&config->apply_bindings);
+	vector_destroy(&config->config_bindings);
 }
 
 void
@@ -240,7 +238,7 @@ tw_swap_config(struct tw_config *dst, struct tw_config *src)
 	//clone everthing.
 	dst->L = src->L;
 	dst->bindings = src->bindings;
-	dst->lua_bindings = src->lua_bindings;
+	dst->config_bindings = src->config_bindings;
 	dst->xkb_rules = src->xkb_rules;
 	swap_listener(&dst->apply_bindings, &src->apply_bindings);
 	swap_listener(&dst->lua_components, &src->lua_components);
@@ -269,7 +267,7 @@ tw_config_try_config(struct tw_config *config)
 			safe = safe && listener->apply(bindings, config, listener);
 	if (safe) {
 		struct tw_binding *binding;
-		vector_for_each(binding, &config->lua_bindings) {
+		vector_for_each(binding, &config->config_bindings) {
 			switch (binding->type) {
 			case TW_BINDING_key:
 				tw_bindings_add_key(bindings, binding->keypress,
@@ -410,4 +408,136 @@ tw_config_add_option_listener(struct tw_config *config, const char *key,
 	}
 	wl_list_init(&listener->link);
 	wl_list_insert(&opt->listener_list, &listener->link);
+}
+
+
+bool
+tw_run_default_config(struct tw_config *config)
+{
+	struct weston_compositor *compositor =
+		config->compositor;
+	//well, we do not have any lua config
+	if (!(config->backend = tw_setup_backend(compositor)))
+		goto out;
+	/* if (!tw_setup_bus(compositor)) */
+	/*	goto out; */
+	//does not load shell or console path
+	if (!tw_setup_shell(compositor, NULL, config))
+		goto out;
+	if (!tw_setup_console(compositor, NULL, config))
+		goto out;
+
+	if (!tw_setup_desktop(compositor, config))
+		goto out;
+	if (!tw_setup_theme(compositor, config))
+		goto out;
+
+out:
+	return false;
+}
+
+static void
+tw_config_table_apply(void *data)
+{
+	struct tw_config_table *t = data;
+	tw_config_table_flush(t);
+}
+
+void
+tw_config_table_dirty(struct tw_config_table *t, bool dirty)
+{
+	struct wl_display *display;
+	struct wl_event_loop *loop;
+
+	if (t->config->_config_time || !dirty)
+		return;
+	display = t->config->compositor->wl_display;
+	loop = wl_display_get_event_loop(display);
+
+	wl_event_loop_add_idle(loop, tw_config_table_apply, t);
+}
+
+/* this function is the only point we apply for configurations, It can may run
+   in the middle of the configuration as well. For example, if lua config is
+   calling compositor.wake(). tw_config_table_apply would run and apply for the
+   configuration first before actually wakening the comositor.
+*/
+void
+tw_config_table_flush(struct tw_config_table *t)
+{
+	struct tw_config *c = t->config;
+	struct weston_compositor *ec = t->config->compositor;
+	struct desktop *desktop = c->desktop;
+	struct shell *shell = c->shell;
+
+	for (int i = 0; i < 32; i++) {
+		struct weston_output *output =
+			 t->outputs[i].output;
+		enum wl_output_transform transform =
+			t->outputs[i].transform.transform;
+		int32_t scale =
+			t->outputs[i].scale.val;
+		//this does not work for output already enabled actually.
+		if (!output)
+			continue;
+		if (t->outputs[i].transform.valid) {
+			weston_output_set_transform(output, transform);
+			t->outputs[i].transform.valid = false;
+		}
+		if (t->outputs[i].scale.valid) {
+			weston_output_set_scale(output, scale);
+			t->outputs[i].scale.valid = false;
+		}
+		wl_signal_emit(&ec->output_resized_signal, output);
+	}
+	for (int i = 0; i < tw_desktop_num_workspaces(c->desktop); i++) {
+		/* if (t->workspaces[i].layout.valid) */
+		/*	tw_desktop_set_workspace_layout(c->desktop, i, */
+		/*	                                t->workspaces[i].layout.layout); */
+	}
+
+	if (t->desktop_igap.valid || t->desktop_ogap.valid) {
+		tw_desktop_set_gap(desktop,
+		                   t->desktop_igap.val,
+		                   t->desktop_ogap.val);
+		t->desktop_igap.valid = false;
+		t->desktop_ogap.valid = false;
+	}
+
+	if (t->xwayland.valid) {
+		tw_xwayland_enable(c->xwayland, t->xwayland.enable);
+		t->xwayland.valid = false;
+	}
+
+	if (t->background_path.valid) {
+		tw_shell_set_wallpaper(shell, t->background_path.path);
+		free(t->background_path.path);
+		t->background_path.valid = false;
+		t->background_path.path = NULL;
+	}
+
+        if (t->widgets_path.valid) {
+		tw_shell_set_widget_path(shell, t->widgets_path.path);
+		free(t->widgets_path.path);
+		t->widgets_path.valid = false;
+		t->widgets_path.path = NULL;
+	}
+
+	if (t->menu.valid) {
+		tw_shell_set_menu(shell, &t->menu.vec);
+		vector_init_zero(&t->menu.vec, 1, NULL);
+		t->menu.valid = false;
+	}
+
+	if (t->lock_timer.valid) {
+		ec->idle_time = t->lock_timer.val;
+		t->lock_timer.valid = false;
+	}
+
+	weston_compositor_set_xkb_rule_names(ec, &t->xkb_rules);
+	ec->kb_repeat_rate = t->kb_repeat;
+	ec->kb_repeat_delay = t->kb_delay;
+
+
+	weston_compositor_schedule_repaint(ec);
 }
