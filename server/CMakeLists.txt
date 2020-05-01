@@ -54,6 +54,7 @@ add_executable(taiwins
   config/config_parser.c
   config/config.c
   config/config_lua.c
+  config/config_bindings.c
   config/theme_lua.c
   )
 target_link_libraries(taiwins
