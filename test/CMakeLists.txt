@@ -102,6 +102,7 @@ add_executable(test_theme
 
 target_link_libraries(
   test_theme
+  libweston::libweston
   twclient::theme
   twclient::twclient
   twclient::nkcairo

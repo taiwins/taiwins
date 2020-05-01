@@ -19,29 +19,27 @@
  *
  */
 
-#include <libweston/libweston.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <xkbcommon/xkbcommon.h>
+#include <xkbcommon/xkbcommon-compose.h>
+#include <xkbcommon/xkbcommon-names.h>
+#include <linux/input.h>
 #include <ctype.h>
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
 #include <sequential.h>
-#include <wayland-client-core.h>
-#include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
-#include <wayland-util.h>
-#include <xkbcommon/xkbcommon.h>
-#include <xkbcommon/xkbcommon-compose.h>
-#include <xkbcommon/xkbcommon-names.h>
-#include <linux/input.h>
-
+#include <os/file.h>
 #include <strops.h>
+#include <libweston/libweston.h>
+
 #include "config_internal.h"
 #include "server/compositor.h"
 #include "server/desktop/desktop.h"
+#include "server/taiwins.h"
 
 /******************************************************************************
  * API
@@ -439,6 +437,7 @@ tw_run_default_config(struct tw_config *config)
 	struct tw_backend *backend;
 	struct tw_bus *bus;
 	struct tw_theme *theme;
+	struct tw_xwayland *xwayland;
 	struct desktop *desktop;
 
 	const char *shell_path;
@@ -458,7 +457,7 @@ tw_run_default_config(struct tw_config *config)
 		goto out;
         tw_config_register_object(config, "bus", bus);
 
-	if (!(shell = tw_setup_shell(ec, shell_path,config)))
+	if (!(shell = tw_setup_shell(ec, shell_path)))
 		goto out;
         tw_config_register_object(config, "shell", shell);
 
@@ -470,9 +469,13 @@ tw_run_default_config(struct tw_config *config)
 		goto out;
 	tw_config_register_object(config, "desktop", desktop);
 
-	if (!(theme = tw_setup_theme(ec, config)))
+	if (!(theme = tw_setup_theme(ec)))
 		goto out;
 	tw_config_register_object(config, "theme", theme);
+
+	if (!(xwayland = tw_setup_xwayland(ec)))
+		goto out;
+        tw_config_register_object(config, "xwayland", xwayland);
 
         ec->default_pointer_grab = NULL;
 	ec->kb_repeat_delay = 500;
@@ -504,9 +507,9 @@ tw_config_table_dirty(struct tw_config_table *t, bool dirty)
 }
 
 /* this function is the only point we apply for configurations, It can may run
-   in the middle of the configuration as well. For example, if lua config is
-   calling compositor.wake(). tw_config_table_apply would run and apply for the
-   configuration first before actually wakening the comositor.
+ * in the middle of the configuration as well. For example, if lua config is
+ * calling compositor.wake(). tw_config_table_apply would run and apply for the
+ * configuration first before actually wakening the comositor.
 */
 void
 tw_config_table_flush(struct tw_config_table *t)
@@ -516,10 +519,12 @@ tw_config_table_flush(struct tw_config_table *t)
 	struct desktop *desktop;
 	struct shell *shell;
 	struct tw_xwayland *xwayland;
+	struct tw_theme *theme;
 
 	desktop = tw_config_request_object(c, "desktop");
 	shell  = tw_config_request_object(c, "shell");
 	xwayland = tw_config_request_object(c, "xwayland");
+	theme = tw_config_request_object(c, "theme");
 
 	for (int i = 0; i < 32; i++) {
 		struct weston_output *output =
@@ -589,6 +594,11 @@ tw_config_table_flush(struct tw_config_table *t)
 	ec->kb_repeat_rate = t->kb_repeat;
 	ec->kb_repeat_delay = t->kb_delay;
 
+	if (t->theme.valid) {
+		tw_theme_notify(theme);
+		t->theme.read = false;
+		t->theme.valid = false;
+	}
 
 	weston_compositor_schedule_repaint(ec);
 }

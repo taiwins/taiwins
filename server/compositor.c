@@ -38,14 +38,11 @@
 
 #include <os/file.h>
 #include <shared_config.h>
-#include "server/config/config_internal.h"
 #include "taiwins.h"
-#include "backend.h"
 #include "config.h"
-#include "bindings.h"
 #include "compositor.h"
 
-extern FILE *logfile;
+FILE *logfile;
 
 struct tw_compositor {
 	struct weston_compositor *ec;

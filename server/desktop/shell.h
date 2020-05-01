@@ -38,8 +38,8 @@ extern "C" {
 struct shell;
 
 struct shell *
-tw_setup_shell(struct weston_compositor *compositor, const char *path,
-               struct tw_config *config);
+tw_setup_shell(struct weston_compositor *compositor, const char *path);
+
 void
 tw_shell_set_wallpaper(struct shell *shell, const char *wp);
 

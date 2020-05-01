@@ -43,13 +43,16 @@ struct tw_bus *
 tw_setup_bus(struct weston_compositor *ec);
 
 struct tw_xwayland *
-tw_setup_xwayland(struct weston_compositor *ec, struct tw_config *config);
+tw_setup_xwayland(struct weston_compositor *ec);
 
 void
 tw_xwayland_enable(struct tw_xwayland *xwayland, bool enable);
 
 struct tw_theme *
-tw_setup_theme(struct weston_compositor *ec, struct tw_config *config);
+tw_setup_theme(struct weston_compositor *ec);
+
+void
+tw_theme_notify(struct tw_theme *theme);
 
 
 #ifdef  __cplusplus

@@ -27,10 +27,8 @@
 #include <lualib.h>
 #include <lauxlib.h>
 #include <sequential.h>
-#include "taiwins.h"
 #include "backend.h"
 #include "bindings.h"
-#include "compositor.h"
 #include "desktop/desktop.h"
 #include "desktop/shell.h"
 #include "desktop/console.h"
@@ -149,16 +147,16 @@ enum tw_builtin_binding_t {
 /**
  * /brief get the configuration for keybinding
  */
-const struct tw_binding *tw_config_get_builtin_binding(struct tw_config *,
-                                                       enum tw_builtin_binding_t);
+const struct tw_binding *
+tw_config_get_builtin_binding(struct tw_config *, enum tw_builtin_binding_t);
 
 /******************************************************************************
  * other APIs
  *****************************************************************************/
 
 struct tw_config *
-tw_config_create(struct weston_compositor *ec,
-                                   log_func_t messenger);
+tw_config_create(struct weston_compositor *ec, log_func_t messenger);
+
 void
 tw_config_destroy(struct tw_config *);
 

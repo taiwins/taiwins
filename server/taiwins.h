@@ -25,7 +25,6 @@
 #include <stdarg.h>
 #include <helpers.h>
 #include <wayland-server.h>
-#include <libweston/zalloc.h>
 #include <libweston/libweston.h>
 
 
@@ -33,10 +32,6 @@
 #include <libweston-desktop/libweston-desktop.h>
 #endif
 
-
-#include <wayland-taiwins-shell-server-protocol.h>
-
-#include <shared_config.h>
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE

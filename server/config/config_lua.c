@@ -953,6 +953,18 @@ _lua_set_repeat_info(lua_State *L)
 }
 
 static int
+_lua_read_theme(lua_State *L)
+{
+	struct tw_config_table *table = _lua_to_config_table(L);
+
+	tw_theme_read(L);
+	SET_PENDING(&table->theme, read, true);
+	tw_config_table_dirty(table, true);
+
+	return 0;
+}
+
+static int
 _lua_get_config(lua_State *L)
 {
 	lua_newtable(L);
@@ -1020,7 +1032,7 @@ luaopen_taiwins(lua_State *L)
 	REGISTER_METHOD(L, "workspaces", _lua_request_workspaces);
 	REGISTER_METHOD(L, "desktop_gaps", _lua_desktop_gap);
 	//theme method
-	REGISTER_METHOD(L, "read_theme", tw_theme_read);
+	REGISTER_METHOD(L, "read_theme", _lua_read_theme);
 	//xwayland
 	REGISTER_METHOD(L, "enable_xwayland", _lua_enable_xwayland);
 
@@ -1057,7 +1069,6 @@ tw_config_init_luastate(struct tw_config *c)
 	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_COMPOSITOR); //0
 	lua_pushlightuserdata(L, _lua_to_theme(L));
 	lua_setfield(L, LUA_REGISTRYINDEX, "tw_theme");
-
 
         //config table
 	table = lua_newuserdata(L, sizeof(struct tw_config_table));

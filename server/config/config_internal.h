@@ -22,12 +22,14 @@
 #ifndef CONFIG_INTERNAL_H
 #define CONFIG_INTERNAL_H
 
-#include "../config.h"
-#include "server/taiwins.h"
-#include "wayland-taiwins-shell-server-protocol.h"
 #include <libweston/libweston.h>
 #include <stdint.h>
 #include <wayland-server-protocol.h>
+#include <shared_config.h>
+
+#include "../config.h"
+#include "server/taiwins.h"
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -112,6 +114,8 @@ typedef OPTION(enum taiwins_shell_panel_pos, pos) pending_panel_pos_t;
 typedef OPTION(enum taiwins_shell_task_switch_effect, eff) pending_effect_t;
 typedef OPTION(vector_t, vec) pending_vec_t;
 typedef OPTION(int32_t, val) pending_intval_t;
+typedef OPTION(bool, read) pending_theme_reading_t;
+
 
 #define SET_PENDING(ptr, name, value)                                   \
 	({ \
@@ -133,6 +137,7 @@ struct tw_config_table {
 	pending_intval_t desktop_igap;
 	pending_intval_t desktop_ogap;
 	pending_xwayland_enable_t xwayland;
+	pending_theme_reading_t theme;
 
         pending_path_t background_path;
 	pending_path_t widgets_path;
