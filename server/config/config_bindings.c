@@ -19,13 +19,14 @@
  *
  */
 
-
+#include <helpers.h>
 #include "config_internal.h"
 
 /* TW_ZOOM_AXIS_BINDING */
-static void
-zoom_axis(struct weston_pointer *pointer, const struct timespec *time,
-	   struct weston_pointer_axis_event *event, void *data)
+void
+zoom_axis(struct weston_pointer *pointer,
+          UNUSED_ARG(const struct timespec *time),
+          struct weston_pointer_axis_event *event, UNUSED_ARG(void *data))
 {
 	struct weston_compositor *ec = pointer->seat->compositor;
 	double augment;
@@ -64,10 +65,11 @@ zoom_axis(struct weston_pointer *pointer, const struct timespec *time,
 }
 
 /* TW_RELOAD_CONFIG_BINDING */
-static void
-reload_config(struct weston_keyboard *keyboard,
-		    const struct timespec *time, uint32_t key,
-		    uint32_t option, void *data)
+void
+reload_config(UNUSED_ARG( struct weston_keyboard *keyboard ),
+              UNUSED_ARG( const struct timespec *time ),
+              UNUSED_ARG( uint32_t key ), UNUSED_ARG( uint32_t option ),
+              void *data)
 {
 	struct tw_config *config = data;
 	struct shell *shell = tw_config_request_object(config, "shell");
