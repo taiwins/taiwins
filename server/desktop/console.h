@@ -30,12 +30,12 @@ extern "C" {
 #endif
 
 struct console;
-struct tw_config;
 
 struct console *
-tw_setup_console(struct weston_compositor *compositor,
-                 const char *exec_path,
-                 struct tw_config *config);
+tw_setup_console(struct weston_compositor *compositor, const char *exec_path,
+                 struct shell *shell);
+void
+tw_console_start_client(struct console *console);
 
 #ifdef  __cplusplus
 }

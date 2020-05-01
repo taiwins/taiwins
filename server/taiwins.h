@@ -28,14 +28,17 @@
 #include <libweston/libweston.h>
 
 
-#if defined (INCLUDE_DESKTOP)
-#include <libweston-desktop/libweston-desktop.h>
-#endif
-
-
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+
+#define MAX_WORKSPACE 8
+
+enum tw_layout_type {
+	LAYOUT_FLOATING,
+	LAYOUT_TILING,
+};
+
 
 #ifdef  __cplusplus
 extern "C" {
