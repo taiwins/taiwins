@@ -319,7 +319,7 @@ tw_config_run(struct tw_config *config, const char *path)
 	//create temporary resource
 	struct tw_bindings *bindings = tw_bindings_create(config->compositor);
 	struct tw_config *temp_config = tw_config_create(config->compositor, config->print);
-	struct tw_config_component_listener *component;
+	/* struct tw_config_component_listener *component; */
 	//setup the temporary config
 	temp_config->option_hooks = config->option_hooks;
 	strcpy(temp_config->path, config->path);
@@ -331,16 +331,16 @@ tw_config_run(struct tw_config *config, const char *path)
 	error = temp_config->quit;
 	//apply all the components
 	if (!error) {
-		struct tw_option *opt = NULL;
-		struct tw_option_listener *listener;
+		/* struct tw_option *opt = NULL; */
+		/* struct tw_option_listener *listener; */
 		//clean up the bindings we have right now
 		tw_bindings_apply(bindings);
 		tw_swap_config(config, temp_config);
 		tw_config_apply_cached(config);
 		//run all the hooks registered
-		vector_for_each(opt, &config->option_hooks)
-			wl_list_for_each(listener, &opt->listener_list, link)
-				listener->apply(config, listener);
+		/* vector_for_each(opt, &config->option_hooks) */
+		/*	wl_list_for_each(listener, &opt->listener_list, link) */
+		/*		listener->apply(config, listener); */
 	} else {
 		if (config->err_msg)
 			free(config->err_msg);
@@ -349,9 +349,9 @@ tw_config_run(struct tw_config *config, const char *path)
 		swap_listener(&config->lua_components, &temp_config->lua_components);
 		tw_config_destroy(temp_config);
 	}
-	wl_list_for_each(component, &config->lua_components, link)
-		if (component->apply)
-			component->apply(config, error, component);
+	/* wl_list_for_each(component, &config->lua_components, link) */
+	/*	if (component->apply) */
+	/*		component->apply(config, error, component); */
 
 	return (!error);
 }
@@ -447,6 +447,7 @@ tw_run_default_config(struct tw_config *config)
 	shell_path =  tw_config_request_object(config, "shell_path");
 	console_path = tw_config_request_object(config, "console_path");
 
+	//install bindings here?
 	weston_compositor_wake(ec);
 
 	if (!(backend = tw_setup_backend(ec)))
@@ -461,11 +462,11 @@ tw_run_default_config(struct tw_config *config)
 		goto out;
         tw_config_register_object(config, "shell", shell);
 
-        if (!(console = tw_setup_console(ec, console_path, config)))
+        if (!(console = tw_setup_console(ec, console_path, shell)))
 		goto out;
 	tw_config_register_object(config, "console", console);
 
-	if (!(desktop = tw_setup_desktop(ec, config)))
+	if (!(desktop = tw_setup_desktop(ec, shell)))
 		goto out;
 	tw_config_register_object(config, "desktop", desktop);
 

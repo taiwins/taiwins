@@ -28,7 +28,6 @@
 #include <wayland-taiwins-console-server-protocol.h>
 
 #include "../taiwins.h"
-#include "../config.h"
 #include "shell.h"
 
 /**
@@ -48,7 +47,6 @@ struct console {
 	struct weston_surface *surface;
 	struct wl_listener compositor_destroy_listener;
 	struct wl_listener close_console_listener;
-	struct tw_apply_bindings_listener add_binding;
 	struct wl_global *global;
 	struct tw_subprocess process;
 };
@@ -129,22 +127,6 @@ bind_console(struct wl_client *client, void *data, uint32_t version, uint32_t id
 	wl_resource_set_implementation(wl_resource, &console_impl, console, unbind_console);
 }
 
-static void
-should_start_console(struct weston_keyboard *keyboard, const struct timespec *time,
-		     uint32_t key, uint32_t option, void *data)
-{
-	struct console *lch = data;
-	if (!lch->client) //we do not have a console
-		return;
-	if ((lch->surface) &&
-	    wl_list_length(&lch->surface->views)) //or the console is active
-		return;
-
-	taiwins_console_send_start(lch->resource,
-				    wl_fixed_from_int(600),
-				    wl_fixed_from_int(300),
-				    wl_fixed_from_int(1));
-}
 
 static void
 launch_console_client(void *data)
@@ -161,16 +143,19 @@ launch_console_client(void *data)
 	                          &console->gid);
 }
 
-static bool
-console_add_bindings(struct tw_bindings *bindings, struct tw_config *config,
-		     struct tw_apply_bindings_listener *listener)
+void
+tw_console_start_client(struct console *console)
 {
-	struct console *c = container_of(listener, struct console, add_binding);
-	const struct tw_key_press *open_console =
-		tw_config_get_builtin_binding(
-			config, TW_OPEN_CONSOLE_BINDING)->keypress;
-	return tw_bindings_add_key(bindings, open_console,
-	                           should_start_console, 0, c);
+	if (!console || !console->client) //we do not have a console
+		return;
+	if ((console->surface) &&  //or the console is active
+	    wl_list_length(&console->surface->views))
+		return;
+
+	taiwins_console_send_start(console->resource,
+				    wl_fixed_from_int(600),
+				    wl_fixed_from_int(300),
+				    wl_fixed_from_int(1));
 }
 
 static void
@@ -182,14 +167,11 @@ end_console(struct wl_listener *listener, void *data)
 	wl_global_destroy(c->global);
 }
 
-/* TODO: remove this */
-struct shell *tw_shell_get_global();
 
 struct console *
-tw_setup_console(struct weston_compositor *compositor,
-		 const char *path, struct tw_config *config)
+tw_setup_console(struct weston_compositor *compositor, const char *path,
+                 struct shell *shell)
 {
-	struct shell *shell = tw_shell_get_global();
 	if(path && (strlen(path) +1 > NUMOF(s_console.path)))
 		return NULL;
 
@@ -221,10 +203,6 @@ tw_setup_console(struct weston_compositor *compositor,
 	s_console.compositor_destroy_listener.notify = end_console;
 	wl_signal_add(&compositor->destroy_signal,
 		      &s_console.compositor_destroy_listener);
-
-	wl_list_init(&s_console.add_binding.link);
-	s_console.add_binding.apply = console_add_bindings;
-	tw_config_add_apply_bindings(config, &s_console.add_binding);
 
 	return &s_console;
 }

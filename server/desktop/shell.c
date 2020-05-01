@@ -32,7 +32,6 @@
 #include <shared_config.h>
 
 #include "../taiwins.h"
-#include "../bindings.h"
 #include "shell.h"
 
 /*******************************************************************************
@@ -55,9 +54,6 @@ struct shell_ui {
 /*******************************************************************************
  * shell interface
  ******************************************************************************/
-typedef OPTION(char *, path) path_option_t;
-typedef OPTION(int32_t, value) int_option_t;
-typedef OPTION(enum taiwins_shell_panel_pos, pos) pos_option_t;
 
 /**
  * @brief represents tw_output

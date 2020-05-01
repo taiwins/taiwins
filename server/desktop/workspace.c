@@ -31,7 +31,7 @@
 
 
 struct recent_view *
-recent_view_create(struct weston_view *v, enum layout_type type)
+recent_view_create(struct weston_view *v, enum tw_layout_type type)
 {
 	struct weston_desktop_surface *ds =
 		weston_surface_get_desktop_surface(v->surface);
@@ -185,9 +185,8 @@ arrange_view_for_workspace(struct workspace *ws, struct weston_view *v,
 }
 
 
-void
-workspace_switch(struct workspace *to, struct workspace *from,
-		 struct weston_keyboard *keyboard)
+struct weston_view *
+workspace_switch(struct workspace *to, struct workspace *from)
 {
 	weston_layer_unset_position(&from->floating_layer);
 	weston_layer_unset_position(&from->tiling_layer);
@@ -196,18 +195,7 @@ workspace_switch(struct workspace *to, struct workspace *from,
 	weston_layer_set_position(&to->tiling_layer, WESTON_LAYER_POSITION_NORMAL);
 	weston_layer_set_position(&to->floating_layer , WESTON_LAYER_POSITION_NORMAL+1);
 	weston_layer_set_position(&to->fullscreen_layer, WESTON_LAYER_POSITION_FULLSCREEN);
-	struct weston_view *view = workspace_get_top_view(to);
-
-	if (!keyboard)
-		return;
-	if (keyboard->focus)
-		if (keyboard->focus)
-			tw_lose_surface_focus(keyboard->focus);
-	if (view)
-		weston_keyboard_set_focus(keyboard, view->surface);
-
-	weston_compositor_damage_all(to->floating_layer.compositor);
-	weston_compositor_schedule_repaint(to->floating_layer.compositor);
+	return workspace_get_top_view(to);
 }
 
 

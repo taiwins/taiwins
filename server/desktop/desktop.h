@@ -45,21 +45,32 @@ struct tw_output {
 	uint32_t outer_gap;
 };
 
+//not sure if we want to make it here
+enum tw_desktop_view_resize_option {
+	RESIZE_LEFT, RESIZE_RIGHT,
+	RESIZE_UP, RESIZE_DOWN,
+};
 
 /*******************************************************************************
  * desktop functions
  ******************************************************************************/
 struct desktop;
-struct tw_config;
+struct shell;
 
 struct desktop *
 tw_setup_desktop(struct weston_compositor *compositor,
-                 struct tw_config *config);
+                 struct shell *shell);
 
 struct desktop *tw_desktop_get_global();
 
 int
 tw_desktop_num_workspaces(struct desktop *desktop);
+
+int
+tw_desktop_get_current_workspace(struct desktop *desktop);
+
+int
+tw_desktop_get_last_workspace(struct desktop *desktop);
 
 const char *
 tw_desktop_get_workspace_layout(struct desktop *desktop, unsigned int i);
@@ -73,7 +84,37 @@ tw_desktop_get_gap(struct desktop *desktop, int *inner, int *outer);
 void
 tw_desktop_set_gap(struct desktop *desktop, int inner, int outer);
 
+void
+tw_desktop_start_transparency_grab(struct desktop *desktop,
+                                   struct weston_pointer *pointer);
+void
+tw_desktop_start_moving_grab(struct desktop *desktop,
+                             struct weston_pointer *pointer);
+void
+tw_desktop_start_task_switch_grab(struct desktop *desktop,
+                                  struct weston_keyboard *keyboard);
+bool
+tw_desktop_activate_view(struct desktop *desktop, struct weston_view *view);
 
+/* returns the top view on workspace switched to */
+struct weston_view *
+tw_desktop_switch_workspace(struct desktop *desktop, uint32_t to);
+
+void
+tw_desktop_start_resize_grab(struct desktop *desktop, struct weston_view *view,
+                             uint32_t option);
+
+void
+tw_desktop_toggle_view_layout(struct desktop *desktop, struct weston_view *view);
+
+void
+tw_desktop_toggle_view_split(struct desktop *desktop, struct weston_view *view);
+
+void
+tw_desktop_split_on_view(struct desktop *desktop, struct weston_view *view,
+                         bool vsplit);
+void
+tw_desktop_merge_view(struct desktop *desktop, struct weston_view *view);
 
 #ifdef  __cplusplus
 }
