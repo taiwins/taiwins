@@ -29,10 +29,10 @@
 #include <strops.h>
 #include <os/file.h>
 #include <vector.h>
+#include <shared_config.h>
 
 #include "../taiwins.h"
 #include "../bindings.h"
-#include "../config.h"
 #include "shell.h"
 
 /*******************************************************************************
@@ -76,20 +76,10 @@ struct shell_output {
 struct shell {
 	uid_t uid; gid_t gid; pid_t pid;
 	char path[256];
-	struct tw_config *config;
 	struct wl_client *shell_client;
 	struct wl_resource *shell_resource;
 	struct wl_global *shell_global;
 
-	struct { /* options */
-		pos_option_t pending_panel_pos;;
-		int_option_t lock_countdown;
-		int_option_t sleep_countdown;
-		/**> invalid when empty */
-		vector_t menu;
-		path_option_t wallpaper_path;
-		path_option_t widget_path;
-	};
 	struct weston_compositor *ec;
 	//you probably don't want to have the layer
 	struct weston_layer background_layer;
@@ -106,8 +96,6 @@ struct shell {
 	struct wl_listener output_destroy_listener;
 	struct wl_listener output_resize_listener;
 	struct wl_listener idle_listener;
-	struct tw_apply_bindings_listener add_binding;
-	struct tw_config_component_listener config_component;
 	struct tw_subprocess process;
 
 	struct shell_ui widget;
@@ -707,6 +695,7 @@ launch_shell_client(void *data)
  * bindings
  ******************************************************************/
 
+/*
 static void
 zoom_axis(struct weston_pointer *pointer, const struct timespec *time,
 	   struct weston_pointer_axis_event *event, void *data)
@@ -747,6 +736,7 @@ zoom_axis(struct weston_pointer *pointer, const struct timespec *time,
 	}
 }
 
+
 static void
 shell_reload_config(struct weston_keyboard *keyboard,
 		    const struct timespec *time, uint32_t key,
@@ -759,6 +749,7 @@ shell_reload_config(struct weston_keyboard *keyboard,
 	}
 }
 
+
 static bool
 shell_add_bindings(struct tw_bindings *bindings, struct tw_config *c,
 		   struct tw_apply_bindings_listener *listener)
@@ -770,9 +761,9 @@ shell_add_bindings(struct tw_bindings *bindings, struct tw_config *c,
 	const struct tw_key_press *reload_press =
 		tw_config_get_builtin_binding(
 			c, TW_RELOAD_CONFIG_BINDING)->keypress;
-	tw_bindings_add_axis(bindings, &motion, zoom_axis, shell);
-	return tw_bindings_add_key(bindings, reload_press, shell_reload_config, 0, shell);
+	return tw_bindings_add_axis(bindings, &motion, zoom_axis, shell);
 }
+*/
 
 
 static inline struct wl_array
@@ -783,88 +774,6 @@ taiwins_menu_to_wl_array(const struct tw_menu_item * items, const int len)
 	serialized.size = sizeof(struct tw_menu_item) * len;
 	serialized.data = (void *)items;
 	return serialized;
-}
-
-
-static inline void
-shell_init_options(struct shell *shell)
-{
-	vector_init_zero(&shell->menu, sizeof(struct tw_menu_item), NULL);
-	shell->pending_panel_pos.valid = false;
-	shell->lock_countdown.valid = false;
-	shell->sleep_countdown.valid = false;
-	shell->wallpaper_path.path = NULL;
-	shell->wallpaper_path.valid = false;
-	shell->widget_path.path = NULL;
-	shell->widget_path.valid = false;
-
-}
-
-static inline void
-shell_purge_options(struct shell *shell)
-{
-	vector_destroy(&shell->menu);
-
-	if (shell->wallpaper_path.path) {
-		free(shell->wallpaper_path.path);
-		shell->wallpaper_path.path = NULL;
-	}
-	shell->wallpaper_path.valid = false;
-
-	if (shell->widget_path.path) {
-		free(shell->widget_path.path);
-		shell->widget_path.path = NULL;
-	}
-	shell->widget_path.valid = false;
-
-	shell->pending_panel_pos.valid = false;
-	shell->lock_countdown.valid = false;
-	shell->sleep_countdown.valid = false;
-}
-
-static void
-shell_apply_lua_config(struct tw_config *c, bool cleanup,
-		       struct tw_config_component_listener *listener)
-{
-	struct shell *shell = container_of(listener, struct shell, config_component);
-	if (cleanup)
-		goto cleanup;
-	if (!shell->shell_resource)
-		return;
-
-	if (shell->wallpaper_path.valid) {
-		shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_WALLPAPER,
-				   shell->wallpaper_path.path);
-		shell->wallpaper_path.valid = false;
-	}
-
-	if (shell->widget_path.valid) {
-		shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_WIDGET,
-				   shell->widget_path.path);
-		shell->wallpaper_path.valid = false;
-	}
-
-	if (shell->menu.len) {
-		struct wl_array serialized =
-			taiwins_menu_to_wl_array(shell->menu.elems, shell->menu.len);
-		shell_post_data(shell, TAIWINS_SHELL_MSG_TYPE_MENU, &serialized);
-		vector_destroy(&shell->menu);
-	}
-
-	if (shell->lock_countdown.valid &&
-	    shell->lock_countdown.value > 1) {
-		shell->ec->idle_time = shell->lock_countdown.value;
-		shell->lock_countdown.valid = false;
-	}
-
-	if (shell->pending_panel_pos.valid) {
-		shell->panel_pos = shell->pending_panel_pos.pos;
-		shell->pending_panel_pos.valid = false;
-		shell_send_panel_pos(shell);
-	}
-
-cleanup:
-	shell_purge_options(shell);
 }
 
 static void
@@ -882,12 +791,11 @@ shell_send_default_config(struct shell *shell)
 		                                    ith_output == 0,
 		                                    TAIWINS_SHELL_OUTPUT_MSG_CONNECTED);
 	}
-	if (shell->menu.len == 0) {
-		struct wl_array default_menu =
-			taiwins_menu_to_wl_array(shell_default_menu, 3);
-		shell_post_data(shell, TAIWINS_SHELL_MSG_TYPE_MENU,
-		                &default_menu);
-	}
+	struct wl_array default_menu =
+		taiwins_menu_to_wl_array(shell_default_menu, 3);
+	shell_post_data(shell, TAIWINS_SHELL_MSG_TYPE_MENU,
+	                &default_menu);
+
 }
 
 /*******************************************************************
@@ -949,7 +857,6 @@ bind_shell(struct wl_client *client, void *data, uint32_t version,
 
 	/// send configurations to clients now
 	shell_send_default_config(shell);
-	shell_apply_lua_config(shell->config, false, &shell->config_component);
 }
 
 /*******************************************************************************
@@ -1022,8 +929,6 @@ end_shell(struct wl_listener *listener, void *data)
 	struct shell *shell =
 		container_of(listener, struct shell,
 			     compositor_destroy_listener);
-	//clean up resources
-	shell_apply_lua_config(NULL, true, &shell->config_component);
 
 	wl_global_destroy(shell->shell_global);
 }
@@ -1066,53 +971,47 @@ shell_add_listeners(struct shell *shell)
 void
 tw_shell_set_wallpaper(struct shell *shell, const char *wp)
 {
-	if (shell->wallpaper_path.path &&
-	    !strcmp(shell->wallpaper_path.path, wp))
+	if (!shell->shell_resource)
 		return;
-	if (shell->wallpaper_path.path)
-		free(shell->wallpaper_path.path);
-	shell->wallpaper_path.path = strdup(wp);
-	shell->wallpaper_path.valid = true;
+	shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_WALLPAPER, wp);
 }
 
 void
 tw_shell_set_widget_path(struct shell *shell, const char *path)
 {
-	if (shell->widget_path.path &&
-	    !strcmp(shell->widget_path.path, path))
+	if (!shell->shell_resource)
 		return;
-
-	if (shell->widget_path.path)
-		free(shell->widget_path.path);
-	shell->widget_path.path = strdup(path);
-	shell->widget_path.valid = true;
+	shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_WIDGET, path);
 }
 
 void
 tw_shell_set_panel_pos(struct shell *shell, enum taiwins_shell_panel_pos pos)
 {
+	if (!shell->shell_resource)
+		return;
 	if (shell->panel_pos != pos) {
-		shell->pending_panel_pos.pos = pos;
-		shell->pending_panel_pos.valid = true;
+		shell->panel_pos = pos;
+		shell_send_panel_pos(shell);
 	}
 }
 
 void
 tw_shell_set_menu(struct shell *shell, vector_t *menu)
 {
-	vector_destroy(&shell->menu);
-	shell->menu = *menu;
+	struct wl_array serialized =
+		taiwins_menu_to_wl_array(menu->elems, menu->len);
+	if (!shell->shell_resource)
+		return;
+	shell_post_data(shell, TAIWINS_SHELL_MSG_TYPE_MENU, &serialized);
 }
 
 struct shell *
-tw_setup_shell(struct weston_compositor *ec, const char *path,
-               struct tw_config *config)
+tw_setup_shell(struct weston_compositor *ec, const char *path)
 {
 	s_shell.ec = ec;
 	s_shell.ready = false;
 	s_shell.the_widget_surface = NULL;
 	s_shell.shell_client = NULL;
-	s_shell.config = config;
 	s_shell.panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
 
 	wl_signal_init(&s_shell.output_area_signal);
@@ -1132,16 +1031,6 @@ tw_setup_shell(struct weston_compositor *ec, const char *path,
 		wl_event_loop_add_idle(loop, launch_shell_client, &s_shell);
 	}
 	shell_add_listeners(&s_shell);
-	shell_init_options(&s_shell);
-
-	//binding
-	wl_list_init(&s_shell.add_binding.link);
-	s_shell.add_binding.apply = shell_add_bindings;
-	tw_config_add_apply_bindings(config, &s_shell.add_binding);
-	//config_componenet
-	wl_list_init(&s_shell.config_component.link);
-	s_shell.config_component.apply = shell_apply_lua_config;
-	tw_config_add_component(config, &s_shell.config_component);
 
 	return &s_shell;
 }
