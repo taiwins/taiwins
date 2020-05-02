@@ -19,26 +19,6 @@
 #include "../server/config.h"
 #include "../server/config/lua_helper.h"
 
-static bool
-dummy_apply(struct tw_config *c, struct tw_option_listener *l)
-{
-	fprintf(stderr, "applying configuration\n");
-	return true;
-}
-
-
-struct tw_option_listener option = {
-	.type = TW_OPTION_RGB,
-	.apply = dummy_apply,
-};
-
-extern int tw_theme_read(lua_State *L);
-
-struct tw_config_component_listener lua_component = {
-	.link = {
-		&lua_component.link, &lua_component.link,},
-};
-
 int
 main(int argc, char *argv[])
 {
@@ -47,12 +27,9 @@ main(int argc, char *argv[])
 	struct weston_compositor *ec = weston_compositor_create(display, context, NULL);
 	struct tw_config *config = tw_config_create(ec, vprintf);
 
-	tw_config_add_option_listener(config, "bigmac", &option);
-	tw_config_add_component(config, &lua_component);
 
-	//TODO we can actually get the shell/desktop/theme config here
-
-	tw_config_run(config, argv[1]);
+	if (!tw_run_config(config))
+		tw_run_default_config(config);
 
 	tw_config_destroy(config);
 	weston_compositor_tear_down(ec);

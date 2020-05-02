@@ -291,8 +291,10 @@ twdesk_surface_removed(struct weston_desktop_surface *surface,
 
 static void
 twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
-			 int32_t sx, int32_t sy, void *data)
+                         UNUSED_ARG(int32_t sx), UNUSED_ARG(int32_t sy),
+                         UNUSED_ARG(void *data))
 {
+	float x, y;
 	struct weston_surface *surface =
 		weston_desktop_surface_get_surface(desktop_surface);
 	struct recent_view *rv =
@@ -304,7 +306,6 @@ twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
 		weston_desktop_surface_get_geometry(desktop_surface);
 	//check the current surface geometry
 	if (geo.x != rv->visible_geometry.x || geo.y != rv->visible_geometry.y) {
-		float x, y;
 		recent_view_get_origin_coord(rv, &x, &y);
 		weston_view_set_position(view, x - geo.x, y - geo.y);
 		weston_view_geometry_dirty(view);
@@ -316,7 +317,8 @@ twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 static void
 twdesk_surface_move(struct weston_desktop_surface *desktop_surface,
-		    struct weston_seat *seat, uint32_t serial, void *user_data)
+		    struct weston_seat *seat, UNUSED_ARG(uint32_t serial),
+                    void *user_data)
 {
 	struct desktop *desktop = user_data;
 	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
@@ -329,8 +331,10 @@ twdesk_surface_move(struct weston_desktop_surface *desktop_surface,
 
 static void
 twdesk_surface_resize(struct weston_desktop_surface *desktop_surface,
-		      struct weston_seat *seat, uint32_t serial,
-		      enum weston_desktop_surface_edge edges, void *user_data)
+                      UNUSED_ARG(struct weston_seat *seat),
+                      UNUSED_ARG(uint32_t serial),
+                      UNUSED_ARG(enum weston_desktop_surface_edge edges),
+                      void *user_data)
 {
 	struct desktop *desktop = user_data;
 	struct weston_pointer *pointer =
@@ -347,7 +351,7 @@ twdesk_surface_resize(struct weston_desktop_surface *desktop_surface,
 static void
 twdesk_fullscreen(struct weston_desktop_surface *surface,
 		  bool fullscreen,
-		  struct weston_output *output,
+                  UNUSED_ARG(struct weston_output *output),
 		  void *user_data)
 {
 	struct desktop *d = user_data;
@@ -892,7 +896,6 @@ tw_desktop_switch_workspace(struct desktop *desktop, uint32_t to)
 	return focused;
 }
 
-
 void
 tw_desktop_start_resize_grab(struct desktop *desktop,
                              struct weston_view *view, uint32_t option)
@@ -997,17 +1000,13 @@ tw_desktop_get_workspace_layout(struct desktop *desktop, unsigned int i)
 
 bool
 tw_desktop_set_workspace_layout(struct desktop *desktop, unsigned int i,
-                                const char *layout)
+                                enum tw_layout_type layout)
 {
 	bool ret = true;
 	if (i > MAX_WORKSPACE)
 		ret = false;
-	else if (!strcmp(layout, "floating"))
-		desktop_set_worksace_layout(desktop, i, LAYOUT_FLOATING);
-	else if (!strcmp(layout, "tiling"))
-		desktop_set_worksace_layout(desktop, i, LAYOUT_TILING);
-	else
-		ret = false;
+	desktop_set_worksace_layout(desktop, i, layout);
+
 	return ret;
 }
 void

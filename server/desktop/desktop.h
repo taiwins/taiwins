@@ -25,6 +25,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <libweston/libweston.h>
+#include "../taiwins.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -77,7 +78,7 @@ tw_desktop_get_workspace_layout(struct desktop *desktop, unsigned int i);
 
 bool
 tw_desktop_set_workspace_layout(struct desktop *desktop, unsigned int i,
-                                const char *layout);
+                                enum tw_layout_type type);
 void
 tw_desktop_get_gap(struct desktop *desktop, int *inner, int *outer);
 
@@ -96,14 +97,12 @@ tw_desktop_start_task_switch_grab(struct desktop *desktop,
 bool
 tw_desktop_activate_view(struct desktop *desktop, struct weston_view *view);
 
-/* returns the top view on workspace switched to */
 struct weston_view *
 tw_desktop_switch_workspace(struct desktop *desktop, uint32_t to);
 
 void
 tw_desktop_start_resize_grab(struct desktop *desktop, struct weston_view *view,
                              uint32_t option);
-
 void
 tw_desktop_toggle_view_layout(struct desktop *desktop, struct weston_view *view);
 

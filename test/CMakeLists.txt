@@ -44,6 +44,7 @@ add_executable(test_config
   ../server/config/config.c
   ../server/config/config_lua.c
   ../server/config/config_parser.c
+  ../server/config/config_bindings.c
   )
 
 target_include_directories(test_config PRIVATE

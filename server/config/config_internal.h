@@ -22,8 +22,10 @@
 #ifndef CONFIG_INTERNAL_H
 #define CONFIG_INTERNAL_H
 
-#include <libweston/libweston.h>
+
 #include <stdint.h>
+#include <stdbool.h>
+#include <libweston/libweston.h>
 #include <wayland-server-protocol.h>
 #include <shared_config.h>
 
@@ -35,25 +37,25 @@
 extern "C" {
 #endif
 
+struct tw_config_table;
+
 struct tw_config {
-	char path[128];	/**< it is copied on first time runing config */
 	struct weston_compositor *compositor;
 	struct tw_bindings *bindings;
+	struct tw_config_table *config_table;
 	lua_State *L;
 	log_func_t print;
-	char *err_msg;
 	bool quit;
 	bool _config_time; /**< mark for configuration is running */
-	const char *shell_path, *console_path;
 	vector_t registry;
 
 	/**< lua code may use this */
 	struct wl_listener output_created_listener;
 	struct wl_listener output_destroyed_listner;
 
-	struct wl_list lua_components;
-	struct wl_list apply_bindings;
-	vector_t option_hooks;
+	/* struct wl_list lua_components; */
+	/* struct wl_list apply_bindings; */
+	/* vector_t option_hooks; */
 
 	/**< compositor option caches, and invalid values */
 	struct {
@@ -61,6 +63,14 @@ struct tw_config {
 		int32_t kb_repeat; /**< invalid: -1 */
 		int32_t kb_delay; /**< invalid: -1 */
 	};
+
+	//ideally, we would use function pointers to wrap lua code together
+	void (*initialize)(struct tw_config *);
+	bool (*read_config)(struct tw_config *, const char *);
+	char *(*read_error)(struct tw_config *);
+	void *user_data;
+	char *err_msg;
+
 	/**< user bindings */
 	vector_t config_bindings;
 	/**< builtin bindings */
@@ -69,6 +79,12 @@ struct tw_config {
 
 void
 tw_config_init_luastate(struct tw_config *c);
+
+void
+tw_config_default_bindings(struct tw_config *c);
+
+bool
+tw_config_install_bindings(struct tw_config *c, struct tw_bindings *root);
 
 bool
 parse_one_press(const char *str, const enum tw_binding_type type,
@@ -86,6 +102,8 @@ parse_one_press(const char *str, const enum tw_binding_type type,
 void
 tw_load_default_config(struct tw_config *c);
 
+bool
+tw_config_wake_compositor(struct tw_config *c);
 /*******************************************************************************
  * private APIs
  ******************************************************************************/
@@ -94,12 +112,6 @@ struct tw_config_obj {
 	void *data;
 };
 
-enum tw_config_ws_layout {
-	TW_FLOATING_LAYOUT,
-	TW_TILING_LAYOUT,
-};
-
-
 typedef struct {
 	int rotate;
 	bool flip;
@@ -107,7 +119,7 @@ typedef struct {
 } tw_config_transform_t;
 
 typedef OPTION(enum wl_output_transform, transform) pending_transform_t;
-typedef OPTION(enum tw_config_ws_layout, layout) pending_layout_t;
+typedef OPTION(enum tw_layout_type, layout) pending_layout_t;
 typedef OPTION(bool, enable) pending_xwayland_enable_t;
 typedef OPTION(char *, path) pending_path_t;
 typedef OPTION(enum taiwins_shell_panel_pos, pos) pending_panel_pos_t;
@@ -132,7 +144,7 @@ struct tw_config_table {
 
 	struct {
 		pending_layout_t layout;
-	} workspaces[10];
+	} workspaces[MAX_WORKSPACE];
 
 	pending_intval_t desktop_igap;
 	pending_intval_t desktop_ogap;
@@ -147,11 +159,17 @@ struct tw_config_table {
 	pending_intval_t lock_timer;
 
 	struct xkb_rule_names xkb_rules;
-	int32_t kb_repeat; /**< invalid: -1 */
-	int32_t kb_delay; /**< invalid: -1 */
+	pending_intval_t kb_repeat; /**< invalid: -1 */
+	pending_intval_t kb_delay; /**< invalid: -1 */
 
 	struct tw_config *config;
 };
+
+struct tw_config_table *
+tw_config_table_new(struct tw_config *c);
+
+void
+tw_config_table_destroy(struct tw_config_table *);
 
 void
 tw_config_table_dirty(struct tw_config_table *table, bool dirty);
