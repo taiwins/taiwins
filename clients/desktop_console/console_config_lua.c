@@ -616,6 +616,7 @@ luaopen_taiwins_console(lua_State *L)
 		{"load_builtin_module", _lua_load_builtin_module},
 		{"module_base", _lua_request_module_metatable},
 		{"load_images", _lua_console_load_images},
+		{NULL, NULL},
 	};
 	luaL_newlib(L, lib);
 	return 1;
