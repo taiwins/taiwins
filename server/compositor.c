@@ -46,35 +46,9 @@ FILE *logfile;
 
 struct tw_compositor {
 	struct weston_compositor *ec;
-
-	struct tw_apply_bindings_listener add_binding;
 	struct tw_config_component_listener config_component;
 };
 
-
-static void
-tw_compositor_quit(struct weston_keyboard *keyboard,
-	     const struct timespec *time,
-	     uint32_t key, uint32_t option,
-	     void *data)
-{
-	struct weston_compositor *compositor = data;
-	fprintf(stderr, "quitting taiwins\n");
-	struct wl_display *wl_display =
-		compositor->wl_display;
-	wl_display_terminate(wl_display);
-}
-
-static bool
-tw_compositor_add_bindings(struct tw_bindings *bindings, struct tw_config *c,
-			struct tw_apply_bindings_listener *listener)
-{
-	struct tw_compositor *tc = container_of(listener, struct tw_compositor, add_binding);
-	const struct tw_key_press *quit_press =
-		tw_config_get_builtin_binding(c, TW_QUIT_BINDING)->keypress;
-	tw_bindings_add_key(bindings, quit_press, tw_compositor_quit, 0, tc->ec);
-	return true;
-}
 
 static void
 tw_compositor_init(struct tw_compositor *tc, struct weston_compositor *ec,
@@ -88,10 +62,6 @@ tw_compositor_init(struct tw_compositor *tc, struct weston_compositor *ec,
 			.options = strdup("ctrl:swap_lalt_lctl"),
 		};
 	weston_compositor_set_xkb_rule_names(ec, &sample_rules);
-
-	wl_list_init(&tc->add_binding.link);
-	tc->add_binding.apply = tw_compositor_add_bindings;
-	tw_config_add_apply_bindings(config, &tc->add_binding);
 }
 
 static void
@@ -225,33 +195,10 @@ int main(int argc, char *argv[], char *envp[])
 	tw_config_register_object(config, "shell_path", (void *)shellpath);
 	tw_config_register_object(config, "console_path", (void *)launcherpath);
 	tw_compositor_init(&tc, compositor, config);
-	/* if (!tw_setup_bus(compositor)) */
-	/*	goto out; */
-	/* if (!tw_setup_backend(compositor)) */
-	/*	goto out; */
 
-	/* weston_compositor_wake(compositor); */
+	if (!tw_run_config(config))
+		tw_run_default_config(config);
 
-	/* if (!tw_setup_xwayland(compositor, config)) */
-	/*	goto out; */
-	/* if (!tw_setup_shell(compositor, shellpath, config)) */
-	/*	goto out; */
-	/* if (!tw_setup_console(compositor, launcherpath, config)) */
-	/*	goto out; */
-
-	/* if (!tw_setup_desktop(compositor, config)) */
-	/*	goto out; */
-	/* if (!tw_setup_theme(compositor, config)) */
-	/*	goto out; */
-
-	/* error = !tw_config_run(config, path); */
-	/* if (error) { */
-	/*	goto out; */
-	/* } */
-	/* compositor->default_pointer_grab = NULL; */
-	/* compositor->kb_repeat_delay = 500; */
-	/* compositor->kb_repeat_rate = 20; */
-	tw_run_default_config(config);
 	wl_display_run(display);
 
 	tw_config_destroy(config);

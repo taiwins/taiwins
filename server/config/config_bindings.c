@@ -20,8 +20,11 @@
  */
 
 #include <helpers.h>
+#include <linux/input.h>
 #include <libweston/libweston.h>
 #include "config_internal.h"
+#include "server/bindings.h"
+#include "server/config.h"
 #include "server/desktop/desktop.h"
 #include "server/taiwins.h"
 
@@ -77,7 +80,7 @@ reload_config(UNUSED_ARG( struct weston_keyboard *keyboard ),
 	struct tw_config *config = data;
 	struct shell *shell = tw_config_request_object(config, "shell");
 
-	if (!tw_config_run(config, NULL)) {
+	if (!tw_run_config(config)) {
 		const char *err_msg = tw_config_retrieve_error(config);
 		shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_CONFIG_ERR,
 		                   err_msg);
@@ -193,10 +196,10 @@ switch_workspace(struct weston_keyboard *keyboard,
 
 
 void
-switch_workspace_recent(struct weston_keyboard *keyboard,
-                        UNUSED_ARG(const struct timespec *time),
-                        UNUSED_ARG(uint32_t key), UNUSED_ARG(uint32_t option),
-                        void *data)
+switch_workspace_last(struct weston_keyboard *keyboard,
+                      UNUSED_ARG(const struct timespec *time),
+                      UNUSED_ARG(uint32_t key), UNUSED_ARG(uint32_t option),
+                      void *data)
 {
 	struct weston_view *view;
 	struct tw_config *config = data;
@@ -315,86 +318,244 @@ desktop_recent_view(struct weston_keyboard *keyboard,
 	tw_desktop_start_task_switch_grab(desktop, keyboard);
 }
 
-/*
-static bool
-desktop_add_bindings(struct tw_bindings *bindings, struct tw_config *c,
-		     struct tw_apply_bindings_listener *listener)
+static void
+quit_compositor(UNUSED_ARG(struct weston_keyboard *keyboard),
+                UNUSED_ARG(const struct timespec *time),
+                UNUSED_ARG(uint32_t key), UNUSED_ARG(uint32_t option),
+                void *data)
 {
-	struct desktop *d = container_of(listener, struct desktop, add_binding);
-	bool safe = true;
-	//////////////////////////////////////////////////////////
-	//move press
-	struct tw_btn_press move_press =
-		tw_config_get_builtin_binding(c, TW_MOVE_PRESS_BINDING)->btnpress;
-	tw_bindings_add_btn(bindings, &move_press, desktop_click_move, d);
-	//////////////////////////////////////////////////////////
-	//transparent
-	struct tw_axis_motion axis_motion =
-		tw_config_get_builtin_binding(c, TW_ALPHA_AXIS_BINDING)->axisaction;
-	tw_bindings_add_axis(bindings, &axis_motion, desktop_alpha_axis, d);
+	struct tw_config *config = data;
+	struct weston_compositor *compositor = config->compositor;
+	struct wl_display *wl_display = compositor->wl_display;
 
-	//////////////////////////////////////////////////////////
-	//focus press
-	struct tw_btn_press focus_press =
-		tw_config_get_builtin_binding(c, TW_FOCUS_PRESS_BINDING)->btnpress;
-	tw_bindings_add_btn(bindings, &focus_press,
-			    desktop_click_activate_view, d);
-	tw_bindings_add_touch(bindings, 0, desktop_touch_activate_view, d);
-
-	//////////////////////////////////////////////////////////
-	//switch workspace
-	const struct tw_key_press *switch_ws_left =
-		tw_config_get_builtin_binding(c, TW_SWITCH_WS_LEFT_BINDING)->keypress;
-
-	const struct tw_key_press *switch_ws_right =
-		tw_config_get_builtin_binding(c, TW_SWITCH_WS_RIGHT_BINDING)->keypress;
-
-	const struct tw_key_press *switch_ws_back =
-		tw_config_get_builtin_binding(c, TW_SWITCH_WS_RECENT_BINDING)->keypress;
-	safe = safe && tw_bindings_add_key(bindings, switch_ws_left,
-					   desktop_workspace_switch,
-					   true, //switch to left
-					   d);
-	safe = safe && tw_bindings_add_key(bindings, switch_ws_right,
-					   desktop_workspace_switch,
-					   false, //switch to right
-					   d);
-	safe = safe && tw_bindings_add_key(bindings, switch_ws_back, desktop_workspace_switch_recent,
-					 0, d);
-
-	//////////////////////////////////////////////////////////
-	//resize view
-	const struct tw_key_press *resize_left =
-		tw_config_get_builtin_binding(c, TW_RESIZE_ON_LEFT_BINDING)->keypress;
-	const struct tw_key_press *resize_right =
-		tw_config_get_builtin_binding(c, TW_RESIZE_ON_RIGHT_BINDING)->keypress;
-	safe = safe &&
-		tw_bindings_add_key(bindings, resize_left, desktop_view_resize, RESIZE_LEFT, d);
-	safe = safe &&
-		tw_bindings_add_key(bindings, resize_right, desktop_view_resize, RESIZE_RIGHT, d);
-
-	//////////////////////////////////////////////////////////
-	//toggle views
-	const struct tw_key_press *toggle_vertical =
-		tw_config_get_builtin_binding(c, TW_TOGGLE_VERTICAL_BINDING)->keypress;
-	const struct tw_key_press *toggle_floating =
-		tw_config_get_builtin_binding(c, TW_TOGGLE_FLOATING_BINDING)->keypress;
-	const struct tw_key_press *next_view =
-		tw_config_get_builtin_binding(c, TW_NEXT_VIEW_BINDING)->keypress;
-	const struct tw_key_press *vsplit =
-		tw_config_get_builtin_binding(c, TW_VSPLIT_WS_BINDING)->keypress;
-	const struct tw_key_press *hsplit =
-		tw_config_get_builtin_binding(c, TW_HSPLIT_WS_BINDING)->keypress;
-	const struct tw_key_press *merge =
-		tw_config_get_builtin_binding(c, TW_MERGE_BINDING)->keypress;
-
-	safe = safe && tw_bindings_add_key(bindings, toggle_vertical, desktop_toggle_vertical, 0, d);
-	safe = safe && tw_bindings_add_key(bindings, toggle_floating, desktop_toggle_floating, 0, d);
-	safe = safe && tw_bindings_add_key(bindings, next_view, desktop_recent_view, 0, d);
-	safe = safe && tw_bindings_add_key(bindings, vsplit, desktop_split_view, 0, d);
-	safe = safe && tw_bindings_add_key(bindings, hsplit, desktop_split_view, 1, d);
-	safe = safe && tw_bindings_add_key(bindings, merge, desktop_merge_view, 0, d);
-
-	return safe;
+	tw_logl("%s: quit taiwins", "taiwins");
+	wl_display_terminate(wl_display);
 }
-*/
+
+void
+tw_config_default_bindings(struct tw_config *c)
+{
+	//apply bindings
+	c->builtin_bindings[TW_QUIT_BINDING] = (struct tw_binding) {
+		.keypress = {{KEY_F12, 0}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_QUIT",
+	};
+	c->builtin_bindings[TW_RELOAD_CONFIG_BINDING] = (struct tw_binding) {
+		.keypress = {{KEY_R, MODIFIER_CTRL | MODIFIER_ALT},
+			     {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_RELOAD_CONFIG",
+	};
+	c->builtin_bindings[TW_OPEN_CONSOLE_BINDING] = (struct tw_binding) {
+		.keypress = {{KEY_P, MODIFIER_SUPER}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_OPEN_CONSOLE",
+	};
+	c->builtin_bindings[TW_ZOOM_AXIS_BINDING] = (struct tw_binding) {
+		.axisaction = {.axis_event = WL_POINTER_AXIS_VERTICAL_SCROLL,
+			       .modifier = MODIFIER_CTRL | MODIFIER_SUPER},
+		.type = TW_BINDING_axis,
+		.name = "TW_ZOOM_AXIS",
+	};
+	c->builtin_bindings[TW_ALPHA_AXIS_BINDING] = (struct tw_binding) {
+		.axisaction = {.axis_event = WL_POINTER_AXIS_VERTICAL_SCROLL,
+			       .modifier = MODIFIER_CTRL | MODIFIER_SHIFT},
+		.type = TW_BINDING_axis,
+		.name = "TW_ALPHA_AXIS",
+	};
+	c->builtin_bindings[TW_MOVE_PRESS_BINDING] = (struct tw_binding) {
+		.btnpress = {BTN_LEFT, MODIFIER_SUPER},
+		.type = TW_BINDING_btn,
+		.name = "TW_MOVE_VIEW_BTN",
+	};
+	c->builtin_bindings[TW_FOCUS_PRESS_BINDING] = (struct tw_binding) {
+		.btnpress = {BTN_LEFT, 0},
+		.type = TW_BINDING_btn,
+		.name = "TW_FOCUS_VIEW_BTN",
+	};
+	c->builtin_bindings[TW_SWITCH_WS_LEFT_BINDING] = (struct tw_binding){
+		.keypress = {{KEY_LEFT, MODIFIER_CTRL}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_MOVE_TO_LEFT_WORKSPACE",
+	};
+	c->builtin_bindings[TW_SWITCH_WS_RIGHT_BINDING] = (struct tw_binding){
+		.keypress = {{KEY_RIGHT, MODIFIER_CTRL}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_MOVE_TO_RIGHT_WORKSPACE",
+	};
+	c->builtin_bindings[TW_SWITCH_WS_RECENT_BINDING] = (struct tw_binding){
+		.keypress = {{KEY_B, MODIFIER_CTRL}, {KEY_B, MODIFIER_CTRL},
+			     {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_MOVE_TO_RECENT_WORKSPACE",
+	};
+	c->builtin_bindings[TW_TOGGLE_FLOATING_BINDING] = (struct tw_binding){
+		.keypress = {{KEY_SPACE, MODIFIER_SUPER}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_TOGGLE_FLOATING",
+	};
+	c->builtin_bindings[TW_TOGGLE_VERTICAL_BINDING] = (struct tw_binding){
+		.keypress = {{KEY_SPACE, MODIFIER_ALT | MODIFIER_SHIFT},
+			     {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_TOGGLE_VERTICAL",
+	};
+	c->builtin_bindings[TW_VSPLIT_WS_BINDING] = (struct tw_binding){
+		.keypress = {{KEY_V, MODIFIER_SUPER}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_VIEW_SPLIT_VERTICAL",
+	};
+	c->builtin_bindings[TW_HSPLIT_WS_BINDING] = (struct tw_binding){
+		.keypress = {{KEY_H, MODIFIER_SUPER}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_VIEW_SPLIT_HORIZENTAL",
+	};
+	c->builtin_bindings[TW_MERGE_BINDING] = (struct tw_binding){
+		.keypress = {{KEY_M, MODIFIER_SUPER},
+			     {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_VIEW_MERGE",
+	};
+	c->builtin_bindings[TW_RESIZE_ON_LEFT_BINDING] = (struct tw_binding){
+		.keypress = {{KEY_LEFT, MODIFIER_ALT}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_VIEW_RESIZE_LEFT",
+	};
+	c->builtin_bindings[TW_RESIZE_ON_RIGHT_BINDING] = (struct tw_binding){
+		.keypress = {{KEY_RIGHT, MODIFIER_ALT}, {0}, {0}, {0}, {0}},
+		.type = TW_BINDING_key,
+		.name = "TW_VIEW_RESIZE_RIGHT",
+	};
+	c->builtin_bindings[TW_NEXT_VIEW_BINDING] = (struct tw_binding){
+		.keypress = {{KEY_J, MODIFIER_ALT | MODIFIER_SHIFT},{0},{0},{0},{0}},
+		.type = TW_BINDING_key,
+		.name = "TW_NEXT_VIEW",
+	};
+}
+
+bool
+tw_config_install_bindings(struct tw_config *c, struct tw_bindings *root)
+{
+	bool safe = true;
+	struct tw_binding *ub;
+	const struct tw_binding *b;
+	const struct tw_key_press *keypress;
+	const struct tw_btn_press *btnpress;
+	const struct tw_axis_motion *axisaction;
+
+	b = tw_config_get_builtin_binding(c, TW_QUIT_BINDING);
+	keypress = b->keypress;
+	if (!tw_bindings_add_key(root, keypress, quit_compositor, 0, c))
+		return false;
+
+	b = tw_config_get_builtin_binding(c, TW_RELOAD_CONFIG_BINDING);
+	keypress = b->keypress;
+	if (!tw_bindings_add_key(root, keypress, reload_config, 0, c))
+		return false;
+
+	b = tw_config_get_builtin_binding(c, TW_OPEN_CONSOLE_BINDING);
+	keypress = b->keypress;
+	if (!tw_bindings_add_key(root, keypress, should_start_console, 0, c))
+		return false;
+
+	b = tw_config_get_builtin_binding(c, TW_ZOOM_AXIS_BINDING);
+	axisaction = &b->axisaction;
+	if (!tw_bindings_add_axis(root, axisaction, zoom_axis, c))
+		return false;
+
+	b = tw_config_get_builtin_binding(c, TW_ALPHA_AXIS_BINDING);
+	axisaction = &b->axisaction;
+	if (!tw_bindings_add_axis(root, axisaction, alpha_axis, c))
+		return false;
+
+        b = tw_config_get_builtin_binding(c, TW_MOVE_PRESS_BINDING);
+	btnpress = &b->btnpress;
+	if (!tw_bindings_add_btn(root, btnpress, moving_surface_pointer, c))
+		return false;
+
+        b = tw_config_get_builtin_binding(c, TW_FOCUS_PRESS_BINDING);
+	btnpress = &b->btnpress;
+	if (!tw_bindings_add_btn(root, btnpress, click_activate_surface, c))
+		return false;
+
+        b = tw_config_get_builtin_binding(c, TW_SWITCH_WS_LEFT_BINDING);
+	keypress = b->keypress;
+	if (!tw_bindings_add_key(root, keypress, switch_workspace, true, c))
+		return false;
+
+	b = tw_config_get_builtin_binding(c, TW_SWITCH_WS_RIGHT_BINDING);
+	keypress = b->keypress;
+	if (!tw_bindings_add_key(root, keypress, switch_workspace, false, c))
+		return false;
+
+	b = tw_config_get_builtin_binding(c,TW_SWITCH_WS_RECENT_BINDING);
+	keypress = b->keypress;
+	if (!tw_bindings_add_key(root, keypress, switch_workspace_last, 0, c))
+		return false;
+
+        b = tw_config_get_builtin_binding(c,TW_TOGGLE_FLOATING_BINDING);
+	keypress = b->keypress;
+	if (!tw_bindings_add_key(root, keypress, toggle_view_layout, 0, c))
+		return false;
+
+	b = tw_config_get_builtin_binding(c,TW_TOGGLE_VERTICAL_BINDING);
+	keypress = b->keypress;
+	if (!tw_bindings_add_key(root, keypress, toggle_view_split, 0, c))
+		return false;
+
+	b = tw_config_get_builtin_binding(c,TW_VSPLIT_WS_BINDING);
+	keypress = b->keypress;
+	if (!tw_bindings_add_key(root, keypress, split_desktop_view, 0, c))
+		return false;
+
+        b = tw_config_get_builtin_binding(c,TW_HSPLIT_WS_BINDING);
+	keypress = b->keypress;
+	if (!tw_bindings_add_key(root, keypress, split_desktop_view, 1, c))
+		return false;
+
+        b = tw_config_get_builtin_binding(c,TW_MERGE_BINDING);
+	keypress = b->keypress;
+	if (!tw_bindings_add_key(root, keypress, merge_desktop_view, 0, c))
+		return false;
+
+        b = tw_config_get_builtin_binding(c,TW_RESIZE_ON_LEFT_BINDING);
+	keypress = b->keypress;
+	if (!tw_bindings_add_key(root, keypress, resize_view, RESIZE_LEFT, c))
+		return false;
+
+        b = tw_config_get_builtin_binding(c,TW_RESIZE_ON_RIGHT_BINDING);
+	keypress = b->keypress;
+	if (!tw_bindings_add_key(root, keypress, resize_view, RESIZE_RIGHT, c))
+		return false;
+
+	b = tw_config_get_builtin_binding(c,TW_NEXT_VIEW_BINDING);
+	keypress = b->keypress;
+	if (!tw_bindings_add_key(root, keypress, desktop_recent_view, 0, c))
+		return false;
+
+        vector_for_each(ub, &c->config_bindings) {
+		switch (ub->type) {
+		case TW_BINDING_key:
+			safe = safe && tw_bindings_add_key(root, ub->keypress,
+			                                   ub->key_func, 0,ub);
+			break;
+		case TW_BINDING_btn:
+			safe = safe && tw_bindings_add_btn(root, &ub->btnpress,
+			                                   ub->btn_func, ub);
+			break;
+		case TW_BINDING_axis:
+			safe = safe && tw_bindings_add_axis(root,
+			                                    &ub->axisaction,
+			                                    ub->axis_func, ub);
+			break;
+		default:
+			break;
+
+		}
+		if (!safe)
+			break;
+	}
+
+        return safe;
+}

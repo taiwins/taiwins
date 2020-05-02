@@ -145,7 +145,7 @@ enum tw_builtin_binding_t {
 };
 
 /**
- * /brief get the configuration for keybinding
+ * @brief get the configuration for keybinding
  */
 const struct tw_binding *
 tw_config_get_builtin_binding(struct tw_config *, enum tw_builtin_binding_t);
@@ -163,15 +163,12 @@ tw_config_destroy(struct tw_config *);
 const char *
 tw_config_retrieve_error(struct tw_config *);
 
-bool
-tw_run_default_config(struct tw_config *config);
-
 void
 tw_config_register_object(struct tw_config *config,
                           const char *name, void *obj);
 
 /**
- * /brief load and apply the config file
+ * @brief load and apply the config file
  *
  * to support hot reloading, this function can be called from a keybinding. The
  * check has to be there to be sure nothing is screwed up.
@@ -179,7 +176,12 @@ tw_config_register_object(struct tw_config *config,
  * /param path if not present, use the internal path
  * /return true if config has no problem
  */
-bool tw_config_run(struct tw_config *config, const char *path);
+bool
+tw_run_config(struct tw_config *config);
+
+bool
+tw_run_default_config(struct tw_config *config);
+
 
 
 #ifdef __cplusplus

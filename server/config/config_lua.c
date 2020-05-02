@@ -37,6 +37,8 @@
 
 #include "lua_helper.h"
 #include "config_internal.h"
+#include "server/backend.h"
+#include "server/desktop/desktop.h"
 #include "server/taiwins.h"
 #include "subprojects/twclient/include/theme.h"
 #include "wayland-taiwins-shell-server-protocol.h"
@@ -246,7 +248,7 @@ _lua_bind_tch(lua_State *L)
 /*******************************************************************************
  * config option
  ******************************************************************************/
-
+/*
 static enum tw_option_type
 _lua_type(lua_State *L, int pos)
 {
@@ -298,33 +300,23 @@ _lua_set_bytype(lua_State *L, int pos, enum tw_option_type type,
 	}
 }
 
+
 static int
 _lua_set_value(lua_State *L)
 {
 	//okay?
-	struct tw_config *c = to_user_config(L);
 	enum tw_option_type type = _lua_type(L, 3);
 
 	if (!tw_lua_isstring(L, 2) || type == TW_OPTION_INVALID) {
 		return luaL_error(L, "invalid arguments\n");
 	}
-	struct tw_option *opt = NULL;
-	vector_for_each(opt, &c->option_hooks) {
-		struct tw_option_listener *listener = NULL;
-		if (strncmp(opt->key, lua_tostring(L, 2), 32) == 0)
-			wl_list_for_each(listener, &opt->listener_list, link) {
-				if (listener->type != type)
-					goto err;
-				_lua_set_bytype(L, 3, type, listener);
-				listener->apply(c, listener);
-			}
-	}
 	return 0;
-err:
+
 	return luaL_error(L, "invalid type\n");
 }
+*/
 
-/******************************************************************************
+ /******************************************************************************
  * main config
  *****************************************************************************/
 
@@ -365,41 +357,77 @@ static inline struct tw_backend *
 _lua_to_backend(lua_State *L)
 {
 	struct tw_config *config;
+	struct tw_backend *backend;
 	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
 	config = lua_touserdata(L, -1);
 	lua_pop(L, 1);
-	return tw_config_request_object(config, "backend");
+	backend = tw_config_request_object(config, "backend");
+	if (!backend)
+		luaL_error(L, "taiwins backend not available yet\n");
+
+	return backend;
 }
 
 static inline struct shell *
 _lua_to_shell(lua_State *L)
 {
 	struct tw_config *config;
+	struct shell *shell;
 	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
 	config = lua_touserdata(L, -1);
 	lua_pop(L, 1);
-	return tw_config_request_object(config, "shell");
+	shell = tw_config_request_object(config, "shell");
+	if (!shell)
+		luaL_error(L, "taiwins shell not available yet\n");
+	return shell;
 }
 
 static inline struct desktop*
 _lua_to_desktop(lua_State *L)
 {
+	struct desktop *desktop;
 	struct tw_config *config;
-	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
+
+        lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
 	config = lua_touserdata(L, -1);
 	lua_pop(L, 1);
-	return tw_config_request_object(config, "desktop");
+	desktop = tw_config_request_object(config, "desktop");
+	if (!desktop)
+		luaL_error(L, "taiwins desktop not available yet\n");
+	return desktop;
 }
 
 static inline struct tw_xwayland *
 _lua_to_xwayland(lua_State *L)
 {
+	struct tw_xwayland *xwayland;
 	struct tw_config *config;
+
+        lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
+	config = lua_touserdata(L, -1);
+	lua_pop(L, 1);
+	xwayland = tw_config_request_object(config, "xwayland");
+	if (!xwayland)
+		luaL_error(L, "taiwins xwayland not available yet\n");
+	return xwayland;
+}
+
+static inline struct tw_theme *
+_lua_to_theme(lua_State *L)
+{
+	struct tw_theme *theme;
+	struct tw_config *config;
+
 	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
 	config = lua_touserdata(L, -1);
 	lua_pop(L, 1);
-	return tw_config_request_object(config, "xwayland");
+	theme = tw_config_request_object(config, "theme");
+	if (!theme)
+		luaL_error(L, "taiwins theme not available yet\n");
+
+	return theme;
 }
+
 
 static inline struct tw_config_table *
 _lua_to_config_table(lua_State *L)
@@ -410,17 +438,6 @@ _lua_to_config_table(lua_State *L)
 	table = lua_touserdata(L, -1);
 	lua_pop(L, 1);
 	return table;
-}
-
-static inline struct tw_theme *
-_lua_to_theme(lua_State *L)
-{
-	struct tw_config *config;
-
-	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
-	config = lua_touserdata(L, -1);
-	lua_pop(L, 1);
-	return tw_config_request_object(config, "theme");
 }
 
 extern int tw_theme_read(lua_State *L);
@@ -819,10 +836,10 @@ _lua_set_ws_layout(lua_State *L)
 		                  "workspace.set_layout");
 	if (strcmp(layout, "floating") == 0)
 		SET_PENDING(&table->workspaces[index].layout,
-		            layout, TW_FLOATING_LAYOUT);
+		            layout, LAYOUT_FLOATING);
 	else if (strcmp(layout, "tiling") == 0)
 		SET_PENDING(&table->workspaces[index].layout,
-		            layout, TW_FLOATING_LAYOUT);
+		            layout, LAYOUT_TILING);
 	else
 		return luaL_error(L, "%s: invaild layout\n",
 		                  "workspace.set_layout");
@@ -913,42 +930,65 @@ _lua_enable_xwayland(lua_State *L)
  * global config
  *****************************************************************************/
 
+//TODO: there are possible leaks if you run config multiple times!
+//TODO: its is better to set xkb rules together.
 static int
 _lua_set_keyboard_model(lua_State *L)
 {
-	struct tw_config *c = to_user_config(L);
-	tw_lua_stackcheck(L, 2);
-	c->xkb_rules.model = strdup(luaL_checkstring(L, 2));
+	struct tw_config_table *t = _lua_to_config_table(L);
+
+        tw_lua_stackcheck(L, 2);
+	t->xkb_rules.model = strdup(luaL_checkstring(L, 2));
 	return 0;
 }
 
 static int
 _lua_set_keyboard_layout(lua_State *L)
 {
-	struct tw_config *c = to_user_config(L);
-	tw_lua_stackcheck(L, 2);
-	c->xkb_rules.layout = strdup(luaL_checkstring(L, 2));
+	struct tw_config_table *t = _lua_to_config_table(L);
+
+        tw_lua_stackcheck(L, 2);
+	t->xkb_rules.layout = strdup(luaL_checkstring(L, 2));
+	tw_config_table_dirty(t, true);
 	return 0;
 }
 
 static int
 _lua_set_keyboard_options(lua_State *L)
 {
-	struct tw_config *c = to_user_config(L);
-	tw_lua_stackcheck(L, 2);
-	c->xkb_rules.options = strdup(luaL_checkstring(L, 2));
+	struct tw_config_table *t = _lua_to_config_table(L);
+
+        tw_lua_stackcheck(L, 2);
+	t->xkb_rules.options = strdup(luaL_checkstring(L, 2));
+	tw_config_table_dirty(t, true);
 	return 0;
 }
 
 static int
 _lua_set_repeat_info(lua_State *L)
 {
-	struct tw_config *c = to_user_config(L);
-	tw_lua_stackcheck(L, 3);
-	int32_t rate = luaL_checknumber(L, 2);
-	int32_t delay = luaL_checknumber(L, 3);
-	c->kb_delay = delay;
-	c->kb_repeat = rate;
+	struct tw_config_table *t = _lua_to_config_table(L);
+	int32_t rate;
+	int32_t delay;
+
+        tw_lua_stackcheck(L, 3);
+	rate = luaL_checknumber(L, 2);
+	delay = luaL_checknumber(L, 3);
+	SET_PENDING(&t->kb_delay, val, delay);
+	SET_PENDING(&t->kb_repeat, val, rate);
+	tw_config_table_dirty(t, true);
+	return 0;
+}
+
+static int
+_lua_wake_compositor(lua_State *L)
+{
+	struct tw_config *config;
+	tw_lua_stackcheck(L, 0);
+	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
+	config = lua_touserdata(L, -1);
+	lua_pop(L, 1);
+	tw_config_wake_compositor(config);
 	return 0;
 }
 
@@ -956,6 +996,11 @@ static int
 _lua_read_theme(lua_State *L)
 {
 	struct tw_config_table *table = _lua_to_config_table(L);
+	struct tw_theme *theme;
+	//required for tw_theme_read
+        theme = _lua_to_theme(L);
+	lua_pushlightuserdata(L, theme);
+	lua_setfield(L, LUA_REGISTRYINDEX, "tw_theme");
 
 	tw_theme_read(L);
 	SET_PENDING(&table->theme, read, true);
@@ -1017,7 +1062,8 @@ luaopen_taiwins(lua_State *L)
 	REGISTER_METHOD(L, "keyboard_layout", _lua_set_keyboard_layout);
 	REGISTER_METHOD(L, "keyboard_options", _lua_set_keyboard_options);
 	REGISTER_METHOD(L, "repeat_info", _lua_set_repeat_info);
-	REGISTER_METHOD(L, "option", _lua_set_value);
+	REGISTER_METHOD(L, "wake", _lua_wake_compositor);
+
 	//backend methods
 	REGISTER_METHOD(L, "is_windowed_display", _lua_is_windowed_display);
 	REGISTER_METHOD(L, "is_under_x11", _lua_is_under_x11);
@@ -1038,7 +1084,7 @@ luaopen_taiwins(lua_State *L)
 
 	lua_pop(L, 1); //pop this metatable
 
-	struct luaL_Reg lib[] = {
+	struct luaL_Reg lib[1] = {
 		{"compositor", _lua_get_config},
 	};
 
@@ -1050,7 +1096,6 @@ void
 tw_config_init_luastate(struct tw_config *c)
 {
 	lua_State *L;
-	struct tw_config_table *table;
 
 	if (c->L)
 		lua_close(c->L);
@@ -1067,12 +1112,7 @@ tw_config_init_luastate(struct tw_config *c)
 	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG); //s0
 	lua_pushlightuserdata(L, c->compositor);
 	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_COMPOSITOR); //0
-	lua_pushlightuserdata(L, _lua_to_theme(L));
-	lua_setfield(L, LUA_REGISTRYINDEX, "tw_theme");
-
-        //config table
-	table = lua_newuserdata(L, sizeof(struct tw_config_table));
-	memset(table, 0, sizeof(struct tw_config_table));
+	lua_pushlightuserdata(L, c->config_table);
 	lua_setfield(L, LUA_REGISTRYINDEX, CONFIG_TABLE);
 
 	// preload the taiwins module
