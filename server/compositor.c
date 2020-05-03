@@ -44,26 +44,6 @@
 
 FILE *logfile;
 
-struct tw_compositor {
-	struct weston_compositor *ec;
-	struct tw_config_component_listener config_component;
-};
-
-
-static void
-tw_compositor_init(struct tw_compositor *tc, struct weston_compositor *ec,
-		   struct tw_config *config)
-{
-	tc->ec = ec;
-	struct xkb_rule_names sample_rules =  {
-			.rules = NULL,
-			.model = strdup("pc105"),
-			.layout = strdup("us"),
-			.options = strdup("ctrl:swap_lalt_lctl"),
-		};
-	weston_compositor_set_xkb_rule_names(ec, &sample_rules);
-}
-
 static void
 tw_compositor_get_socket(char *path)
 {
@@ -94,7 +74,6 @@ tw_compositor_set_socket(struct wl_display *display, const char *name)
                         return false;
                 }
         }
-        /* setenv("WAYLAND_DISPLAY", name, 1); */
         return true;
 }
 
@@ -110,7 +89,7 @@ tw_compositor_term_on_signal(int sig_num, void *data)
 }
 
 static int
-tw_compositor_sigchld(int sig_num, void *data)
+tw_compositor_sigchld(UNUSED_ARG(int sig_num), UNUSED_ARG(void *data))
 {
 	struct wl_list *head;
 	struct tw_subprocess *subproc;
@@ -146,9 +125,9 @@ tw_compositor_handle_exit(struct weston_compositor *c)
 }
 
 
-int main(int argc, char *argv[], char *envp[])
+int main(int argc, char *argv[])
 {
-	struct tw_compositor tc;
+
 	struct wl_event_source *signals[4];
 	const char *shellpath = (argc > 1) ? argv[1] : NULL;
 	const char *launcherpath = (argc > 2) ? argv[2] : NULL;
@@ -184,6 +163,7 @@ int main(int argc, char *argv[], char *envp[])
 		goto err_signal;
 
 	context = weston_log_ctx_compositor_create();
+	//leak in here
 	compositor = weston_compositor_create(display, context, NULL);
 	weston_log_set_handler(tw_log, tw_log);
 	compositor->exit = tw_compositor_handle_exit;
@@ -194,7 +174,6 @@ int main(int argc, char *argv[], char *envp[])
 	config = tw_config_create(compositor, tw_log);
 	tw_config_register_object(config, "shell_path", (void *)shellpath);
 	tw_config_register_object(config, "console_path", (void *)launcherpath);
-	tw_compositor_init(&tc, compositor, config);
 
 	if (!tw_run_config(config))
 		tw_run_default_config(config);

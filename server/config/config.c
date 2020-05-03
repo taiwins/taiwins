@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <wayland-util.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-compose.h>
 #include <xkbcommon/xkbcommon-names.h>
@@ -41,6 +42,7 @@
 #include "server/backend.h"
 #include "server/bindings.h"
 #include "server/compositor.h"
+#include "server/config.h"
 #include "server/desktop/desktop.h"
 #include "server/desktop/shell.h"
 #include "server/taiwins.h"
@@ -49,6 +51,25 @@
 /******************************************************************************
  * API
  *****************************************************************************/
+static inline void
+purge_xkb_rules(struct xkb_rule_names *rules)
+{
+	if (rules->rules)
+		free((void *)rules->rules);
+	rules->rules = NULL;
+	if (rules->layout)
+		free((void *)rules->layout);
+	rules->layout = NULL;
+	if (rules->model)
+		free((void *)rules->model);
+	rules->model = NULL;
+	if (rules->options)
+		free((void *)rules->options);
+	rules->options = NULL;
+	if (rules->variant)
+		free((void *)rules->variant);
+	rules->variant = NULL;
+}
 
 struct tw_config*
 tw_config_create(struct weston_compositor *ec, log_func_t log)
@@ -63,8 +84,12 @@ tw_config_create(struct weston_compositor *ec, log_func_t log)
 	config->bindings = tw_bindings_create(ec);
 	config->config_table = tw_config_table_new(config);
 	tw_config_default_bindings(config);
+	vector_init_zero(&config->config_bindings,
+	                 sizeof(struct tw_binding), NULL);
 	vector_init_zero(&config->registry,
 	                 sizeof(struct tw_config_obj), NULL);
+	wl_list_init(&config->output_created_listener.link);
+	wl_list_init(&config->output_destroyed_listner.link);
 
 	return config;
 }
@@ -74,21 +99,18 @@ tw_config_create(struct weston_compositor *ec, log_func_t log)
 static inline void
 _tw_config_release(struct tw_config *config)
 {
-	tw_bindings_destroy(config->bindings);
-	tw_config_table_destroy(config->config_table);
+	if (config->bindings)
+		tw_bindings_destroy(config->bindings);
+	if (config->config_table)
+		tw_config_table_destroy(config->config_table);
 
-	if (config->xkb_rules.layout)
-		free((void *)config->xkb_rules.layout);
-	if (config->xkb_rules.model)
-		free((void *)config->xkb_rules.model);
-	if (config->xkb_rules.options)
-		free((void *)config->xkb_rules.options);
-	if (config->xkb_rules.variant)
-		free((void *)config->xkb_rules.variant);
 	if (config->err_msg)
 		free(config->err_msg);
+	if (config->L)
+		lua_close(config->L);
 
 	vector_destroy(&config->config_bindings);
+	vector_destroy(&config->registry);
 }
 
 void
@@ -132,6 +154,7 @@ tw_config_request_object(struct tw_config *config,
 /**
  * @brief swap all the config from one to another.
  *
+
  * at this point we know for sure we can apply the config. This works even if
  * our dst is a fresh new config. The release function will take care of freeing
  * things.
@@ -146,16 +169,21 @@ tw_swap_config(struct tw_config *dst, struct tw_config *src)
 	dst->config_table->config = dst;
 	dst->bindings = src->bindings;
 	dst->config_bindings = src->config_bindings;
-	dst->xkb_rules = src->xkb_rules;
-	/* swap_listener(&dst->apply_bindings, &src->apply_bindings); */
-	/* swap_listener(&dst->lua_components, &src->lua_components); */
-
-	free(src);
+	dst->registry = src->registry;
+	for (int i = 0; i < TW_BUILTIN_BINDING_SIZE; i++)
+		dst->builtin_bindings[i] = src->builtin_bindings[i];
+	//TODO: we will need to take the src listeners as well.
+	//reset src data
+	src->bindings = NULL;
+	src->config_table = NULL;
+	src->L = NULL;
+	vector_init_zero(&src->registry, sizeof(struct tw_config_obj), NULL);
+	vector_init_zero(&src->config_bindings,
+	                 sizeof(struct tw_binding), NULL);
 }
 
 static bool
-tw_config_try_config(struct tw_config *tmp_config,
-                     struct tw_config *main_config)
+tw_try_config(struct tw_config *tmp_config, struct tw_config *main_config)
 {
 	char path[PATH_MAX];
 	bool safe = true;
@@ -167,7 +195,12 @@ tw_config_try_config(struct tw_config *tmp_config,
 	strcat(path, "/config.lua");
 	if (main_config->err_msg)
 		free(main_config->err_msg);
-
+	tw_config_register_object(tmp_config, "shell_path",
+	                          tw_config_request_object(main_config,
+	                                                   "shell_path"));
+	tw_config_register_object(tmp_config, "console_path",
+	                          tw_config_request_object(main_config,
+	                                                   "console_path"));
 	tw_config_init_luastate(tmp_config);
 
         if (is_file_exist(path)) {
@@ -222,10 +255,7 @@ tw_run_config(struct tw_config *config)
 
 	temp_config = tw_config_create(config->compositor, config->print);
 
-	temp_config->registry = config->registry;
-	safe = tw_config_try_config(temp_config, config);
-	vector_init_zero(&temp_config->registry,
-	                 sizeof(struct tw_config_obj), NULL);
+	safe = tw_try_config(temp_config, config);
 
 	if (safe) {
 		tw_swap_config(config, temp_config);
@@ -241,6 +271,10 @@ tw_run_config(struct tw_config *config)
 bool
 tw_run_default_config(struct tw_config *c)
 {
+	//default config
+	c->compositor->kb_repeat_delay = 500;
+	c->compositor->kb_repeat_rate = 20;
+
 	tw_config_wake_compositor(c);
 	tw_bindings_apply(c->bindings);
 	return true;
@@ -256,25 +290,19 @@ tw_config_wake_compositor(struct tw_config *c)
 	struct tw_theme *theme;
 	struct tw_xwayland *xwayland;
 	struct desktop *desktop;
+	struct tw_config *initialized;
 
 	const char *shell_path;
 	const char *console_path;
-	struct tw_config_table *t = c->config_table;
 	struct weston_compositor *ec = c->compositor;
 
-        tw_config_table_flush(c->config_table);
-	weston_compositor_set_xkb_rule_names(ec, &t->xkb_rules);
-	ec->kb_repeat_rate = t->kb_repeat.val;
-	ec->kb_repeat_delay = t->kb_delay.val;
-
-	if (ec->state == WESTON_COMPOSITOR_ACTIVE)
-		return true;
-	weston_compositor_wake(ec);
-
+	initialized = tw_config_request_object(c, "initialized");
         shell_path =  tw_config_request_object(c, "shell_path");
 	console_path = tw_config_request_object(c, "console_path");
+	if (initialized)
+		return true;
 
-	//install bindings here?
+        tw_config_table_flush(c->config_table);
 	weston_compositor_wake(ec);
 
 	if (!(backend = tw_setup_backend(ec)))
@@ -304,9 +332,10 @@ tw_config_wake_compositor(struct tw_config *c)
 	if (!(xwayland = tw_setup_xwayland(ec)))
 		goto out;
         tw_config_register_object(c, "xwayland", xwayland);
+        tw_config_register_object(c, "initialized", c->config_table);
 
         ec->default_pointer_grab = NULL;
-
+        return true;
 out:
         return false;
 }
@@ -347,16 +376,7 @@ tw_config_table_destroy(struct tw_config_table *table)
 	if (table->menu.valid && table->menu.vec.len)
 		vector_destroy(&table->menu.vec);
 
-        if (table->xkb_rules.layout)
-		free((void *)table->xkb_rules.layout);
-	if (table->xkb_rules.model)
-		free((void *)table->xkb_rules.model);
-	if (table->xkb_rules.options)
-		free((void *)table->xkb_rules.options);
-	if (table->xkb_rules.variant)
-		free((void *)table->xkb_rules.variant);
-
-
+	purge_xkb_rules(&table->xkb_rules);
 	free(table);
 }
 
@@ -467,6 +487,19 @@ tw_config_table_flush(struct tw_config_table *t)
 		tw_theme_notify(theme);
 		t->theme.read = false;
 		t->theme.valid = false;
+	}
+
+	/* if (t->xkb_rules.rules || t->xkb_rules.layout || t->xkb_rules.) */
+	weston_compositor_set_xkb_rule_names(ec, &t->xkb_rules);
+	purge_xkb_rules(&t->xkb_rules);
+
+        if (t->kb_repeat.valid && t->kb_repeat.val > 0) {
+		ec->kb_repeat_rate = t->kb_repeat.val;
+		t->kb_repeat.valid = false;
+	}
+	if (t->kb_delay.valid && t->kb_delay.val > 0) {
+		ec->kb_repeat_delay = t->kb_delay.val;
+		t->kb_delay.valid = false;
 	}
 
 	weston_compositor_schedule_repaint(ec);
