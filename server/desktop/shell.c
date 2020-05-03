@@ -84,6 +84,7 @@ struct shell {
 
 	struct weston_surface *the_widget_surface;
 	enum taiwins_shell_panel_pos panel_pos;
+	vector_t shell_menu;
 
 	struct wl_signal output_area_signal;
 
@@ -776,6 +777,9 @@ static void
 shell_send_default_config(struct shell *shell)
 {
 	struct weston_output *output;
+	struct wl_array menu;
+	enum taiwins_shell_output_msg connected =
+		TAIWINS_SHELL_OUTPUT_MSG_CONNECTED;
 
 	wl_list_for_each(output, &shell->ec->output_list, link) {
 		int ith_output = shell_ith_output(shell, output);
@@ -785,70 +789,79 @@ shell_send_default_config(struct shell *shell)
 		                                    output->height,
 		                                    output->scale,
 		                                    ith_output == 0,
-		                                    TAIWINS_SHELL_OUTPUT_MSG_CONNECTED);
+		                                    connected);
 	}
-	struct wl_array default_menu =
-		taiwins_menu_to_wl_array(shell_default_menu, 3);
-	shell_post_data(shell, TAIWINS_SHELL_MSG_TYPE_MENU,
-	                &default_menu);
+	if (shell->shell_menu.len)
+		menu = taiwins_menu_to_wl_array(shell->shell_menu.elems,
+		                                shell->shell_menu.len);
+	else
+		menu = taiwins_menu_to_wl_array(shell_default_menu, 3);
 
+	shell_post_data(shell, TAIWINS_SHELL_MSG_TYPE_MENU,
+	                &menu);
+	shell_send_panel_pos(shell);
 }
 
-/*******************************************************************
- * shell function
- ******************************************************************/
+/*******************************************************************************
+ * shell functions
+ ******************************************************************************/
 
 static void
 unbind_shell(struct wl_resource *resource)
 {
 	struct weston_view *v, *n;
-
 	struct shell *shell = wl_resource_get_user_data(resource);
+	struct wl_list *locker_layer = &shell->locker_layer.view_list.link;
+	struct wl_list *bg_layer = &shell->background_layer.view_list.link;
+	struct wl_list *ui_layer = &shell->ui_layer.view_list.link;
+
 	weston_layer_unset_position(&shell->background_layer);
 	weston_layer_unset_position(&shell->ui_layer);
 	weston_layer_unset_position(&shell->locker_layer);
 
-	wl_list_for_each_safe(v, n, &shell->locker_layer.view_list.link, layer_link.link)
+	wl_list_for_each_safe(v, n, locker_layer, layer_link.link)
 		weston_view_unmap(v);
-	wl_list_for_each_safe(v, n, &shell->background_layer.view_list.link, layer_link.link)
+	wl_list_for_each_safe(v, n, bg_layer, layer_link.link)
 		weston_view_unmap(v);
-	wl_list_for_each_safe(v, n, &shell->ui_layer.view_list.link, layer_link.link)
+	wl_list_for_each_safe(v, n, ui_layer, layer_link.link)
 		weston_view_unmap(v);
 	tw_logl("shell_unbinded!\n");
 }
 
 static void
-bind_shell(struct wl_client *client, void *data, uint32_t version,
-           uint32_t id)
+bind_shell(struct wl_client *client, void *data,
+           UNUSED_ARG(uint32_t version), uint32_t id)
 {
 	struct shell *shell = data;
 	uid_t uid; gid_t gid; pid_t pid;
-	struct wl_resource *resource = NULL;
+	struct wl_resource *r = NULL;
 	struct weston_layer *layer;
 
-	resource = wl_resource_create(client, &taiwins_shell_interface,
-				      taiwins_shell_interface.version, id);
+	r = wl_resource_create(client, &taiwins_shell_interface,
+	                       taiwins_shell_interface.version, id);
 
 	wl_client_get_credentials(client, &pid, &uid, &gid);
 	if (shell->shell_client &&
 	    (uid != shell->uid || pid != shell->pid || gid != shell->gid)) {
-		wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
-				       "client %d is not un atherized shell", id);
-		wl_resource_destroy(resource);
+		wl_resource_post_error(r, WL_DISPLAY_ERROR_INVALID_OBJECT,
+		                       "%d is not un atherized shell", id);
+		wl_resource_destroy(r);
 	}
 	wl_list_for_each(layer, &shell->ec->layer_list, link) {
 		tw_logl("layer position %x\n", layer->position);
 	}
 	//only add the layers if we have a shell.
 	weston_layer_init(&shell->background_layer, shell->ec);
-	weston_layer_set_position(&shell->background_layer, WESTON_LAYER_POSITION_BACKGROUND);
+	weston_layer_set_position(&shell->background_layer,
+	                          WESTON_LAYER_POSITION_BACKGROUND);
 	weston_layer_init(&shell->ui_layer, shell->ec);
 	weston_layer_set_position(&shell->ui_layer, WESTON_LAYER_POSITION_UI);
 	weston_layer_init(&shell->locker_layer, shell->ec);
-	weston_layer_set_position(&shell->locker_layer, WESTON_LAYER_POSITION_LOCK);
+	weston_layer_set_position(&shell->locker_layer,
+	                          WESTON_LAYER_POSITION_LOCK);
 
-	wl_resource_set_implementation(resource, &shell_impl, shell, unbind_shell);
-	shell->shell_resource = resource;
+	wl_resource_set_implementation(r, &shell_impl, shell, unbind_shell);
+	shell->shell_resource = r;
 	shell->ready = true;
 
 	/// send configurations to clients now
@@ -876,6 +889,8 @@ void
 shell_post_data(struct shell *shell, uint32_t type,
 		struct wl_array *msg)
 {
+	if (!shell->shell_resource)
+		return;
 	taiwins_shell_send_shell_msg(shell->shell_resource,
 				type, msg);
 }
@@ -885,9 +900,12 @@ shell_post_message(struct shell *shell, uint32_t type, const char *msg)
 {
 	struct wl_array arr;
 	size_t len = strlen(msg);
+
 	arr.data = len == 0 ? NULL : (void *)msg;
 	arr.size = len == 0 ? 0 : len+1;
 	arr.alloc = 0;
+	if (!shell->shell_resource)
+		return;
 	taiwins_shell_send_shell_msg(shell->shell_resource, type, &arr);
 }
 
@@ -910,7 +928,8 @@ shell_output_available_space(struct shell *shell, struct weston_output *output)
 }
 
 void
-shell_add_desktop_area_listener(struct shell *shell, struct wl_listener *listener)
+shell_add_desktop_area_listener(struct shell *shell,
+                                struct wl_listener *listener)
 {
 	wl_signal_add(&shell->output_area_signal, listener);
 }
@@ -920,13 +939,14 @@ shell_add_desktop_area_listener(struct shell *shell, struct wl_listener *listene
  ******************************************************************************/
 
 static void
-end_shell(struct wl_listener *listener, void *data)
+end_shell(struct wl_listener *listener, UNUSED_ARG(void *data))
 {
 	struct shell *shell =
 		container_of(listener, struct shell,
 			     compositor_destroy_listener);
 
 	wl_global_destroy(shell->shell_global);
+	vector_destroy(&shell->shell_menu);
 }
 
 static void
@@ -967,24 +987,18 @@ shell_add_listeners(struct shell *shell)
 void
 tw_shell_set_wallpaper(struct shell *shell, const char *wp)
 {
-	if (!shell->shell_resource)
-		return;
 	shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_WALLPAPER, wp);
 }
 
 void
 tw_shell_set_widget_path(struct shell *shell, const char *path)
 {
-	if (!shell->shell_resource)
-		return;
 	shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_WIDGET, path);
 }
 
 void
 tw_shell_set_panel_pos(struct shell *shell, enum taiwins_shell_panel_pos pos)
 {
-	if (!shell->shell_resource)
-		return;
 	if (shell->panel_pos != pos) {
 		shell->panel_pos = pos;
 		shell_send_panel_pos(shell);
@@ -994,21 +1008,25 @@ tw_shell_set_panel_pos(struct shell *shell, enum taiwins_shell_panel_pos pos)
 void
 tw_shell_set_menu(struct shell *shell, vector_t *menu)
 {
-	struct wl_array serialized =
-		taiwins_menu_to_wl_array(menu->elems, menu->len);
-	if (!shell->shell_resource)
-		return;
+	struct wl_array serialized;
+
+        vector_destroy(&shell->shell_menu);
+	shell->shell_menu = *menu;
+	serialized = taiwins_menu_to_wl_array(menu->elems, menu->len);
 	shell_post_data(shell, TAIWINS_SHELL_MSG_TYPE_MENU, &serialized);
 }
 
 struct shell *
 tw_setup_shell(struct weston_compositor *ec, const char *path)
 {
+	struct wl_event_loop *loop;
 	s_shell.ec = ec;
 	s_shell.ready = false;
 	s_shell.the_widget_surface = NULL;
 	s_shell.shell_client = NULL;
 	s_shell.panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
+	vector_init_zero(&s_shell.shell_menu,
+	                 sizeof(struct tw_menu_item), NULL);
 
 	wl_signal_init(&s_shell.output_area_signal);
 
@@ -1023,7 +1041,7 @@ tw_setup_shell(struct weston_compositor *ec, const char *path)
 		                 bind_shell);
 	if (path) {
 		strcpy(s_shell.path, path);
-		struct wl_event_loop *loop = wl_display_get_event_loop(ec->wl_display);
+		loop = wl_display_get_event_loop(ec->wl_display);
 		wl_event_loop_add_idle(loop, launch_shell_client, &s_shell);
 	}
 	shell_add_listeners(&s_shell);
