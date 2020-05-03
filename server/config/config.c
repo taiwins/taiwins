@@ -71,6 +71,13 @@ purge_xkb_rules(struct xkb_rule_names *rules)
 	rules->variant = NULL;
 }
 
+static inline bool
+copy_builtin_bindings(struct tw_binding *dst, const struct tw_binding *src)
+{
+	memcpy(dst, src, sizeof(struct tw_binding) * TW_BUILTIN_BINDING_SIZE);
+	return true;
+}
+
 struct tw_config*
 tw_config_create(struct weston_compositor *ec, log_func_t log)
 {
@@ -150,11 +157,9 @@ tw_config_request_object(struct tw_config *config,
 	return NULL;
 }
 
-
 /**
  * @brief swap all the config from one to another.
  *
-
  * at this point we know for sure we can apply the config. This works even if
  * our dst is a fresh new config. The release function will take care of freeing
  * things.
@@ -170,8 +175,7 @@ tw_swap_config(struct tw_config *dst, struct tw_config *src)
 	dst->bindings = src->bindings;
 	dst->config_bindings = src->config_bindings;
 	dst->registry = src->registry;
-	for (int i = 0; i < TW_BUILTIN_BINDING_SIZE; i++)
-		dst->builtin_bindings[i] = src->builtin_bindings[i];
+	copy_builtin_bindings(dst->builtin_bindings, src->builtin_bindings);
 	//TODO: we will need to take the src listeners as well.
 	//reset src data
 	src->bindings = NULL;
@@ -188,7 +192,7 @@ tw_try_config(struct tw_config *tmp_config, struct tw_config *main_config)
 	char path[PATH_MAX];
 	bool safe = true;
 	struct tw_bindings *bindings;
-	struct weston_compositor *ec = main_config->compositor;
+	struct tw_binding tmp[TW_BUILTIN_BINDING_SIZE];
 
 	tw_create_config_dir();
 	tw_config_dir(path);
@@ -207,37 +211,22 @@ tw_try_config(struct tw_config *tmp_config, struct tw_config *main_config)
 	        tmp_config->_config_time = true;
 		safe = safe && !luaL_loadfile(tmp_config->L, path);
 		safe = safe && !lua_pcall(tmp_config->L, 0, 0, 0);
-		safe = safe && ec->state == WESTON_COMPOSITOR_ACTIVE;
+		safe = safe && tw_config_request_object(tmp_config,
+		                                        "initialized");
 		if (!safe) {
 			main_config->err_msg =
 				strdup(lua_tostring(tmp_config->L, -1));
 		}
 	}
         bindings = tmp_config->bindings;
+        copy_builtin_bindings(tmp, main_config->builtin_bindings);
+        copy_builtin_bindings(main_config->builtin_bindings,
+                              tmp_config->builtin_bindings);
         safe = safe && tw_config_install_bindings(main_config, bindings);
+        copy_builtin_bindings(main_config->builtin_bindings, tmp);
 
 	return safe;
 }
-
-/**
- * @brief apply options we accumulated in the lua run
-static void
-tw_config_apply_cached(struct tw_config *config)
-{
-	if (config->xkb_rules.layout || config->xkb_rules.model ||
-	    config->xkb_rules.options || config->xkb_rules.rules ||
-	    config->xkb_rules.variant) {
-		//this one should have runtime effect if weston finally took my patch
-		weston_compositor_set_xkb_rule_names(config->compositor, &config->xkb_rules);
-		config->xkb_rules = (struct xkb_rule_names){0};
-	}
-	if (config->kb_delay > 0 && config->kb_repeat) {
-		config->compositor->kb_repeat_rate = config->kb_repeat;
-		config->compositor->kb_repeat_delay = config->kb_delay;
-		config->kb_delay = (config->kb_repeat = -1);
-	}
-}
-*/
 
 /**
  * @brief run/rerun the configurations.
@@ -481,6 +470,10 @@ tw_config_table_flush(struct tw_config_table *t)
 	if (shell && t->lock_timer.valid) {
 		ec->idle_time = t->lock_timer.val;
 		t->lock_timer.valid = false;
+	}
+	if (shell && t->panel_pos.valid) {
+		tw_shell_set_panel_pos(shell, t->panel_pos.pos);
+		t->panel_pos.valid = false;
 	}
 
 	if (theme && t->theme.valid) {
