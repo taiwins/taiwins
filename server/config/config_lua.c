@@ -35,9 +35,11 @@
 #include <os/file.h>
 #include <vector.h>
 
+#include "helpers.h"
 #include "lua_helper.h"
 #include "config_internal.h"
 #include "server/backend.h"
+#include "server/bindings.h"
 #include "server/desktop/desktop.h"
 #include "server/taiwins.h"
 #include "subprojects/twclient/include/theme.h"
@@ -70,34 +72,37 @@ _lua_run_binding(void *data)
 {
 	struct tw_binding *b = data;
 	lua_State *L = b->user_data;
+	struct tw_config *config;
+
 	lua_getfield(L, LUA_REGISTRYINDEX, b->name);
 	if (lua_pcall(L, 0, 0, 0)) {
-		struct tw_config *config = to_user_config(L);
+		config = to_user_config(L);
 		_lua_error(config, "error calling lua bindings\n");
 	}
 	lua_settop(L, 0);
 }
 
 static void
-_lua_run_keybinding(struct weston_keyboard *keyboard,
-                    const struct timespec *time, uint32_t key,
-                    uint32_t option, void *data)
+_lua_run_keybinding(UNUSED_ARG(struct weston_keyboard *keyboard),
+                    UNUSED_ARG(const struct timespec *time),
+                    UNUSED_ARG(uint32_t key), UNUSED_ARG(uint32_t option),
+                    void *data)
 {
 	_lua_run_binding(data);
 }
 
 static void
-_lua_run_btnbinding(struct weston_pointer *pointer,
-                    const struct timespec *time, uint32_t btn,
-		    void *data)
+_lua_run_btnbinding(UNUSED_ARG(struct weston_pointer *pointer),
+                    UNUSED_ARG(const struct timespec *time),
+                    UNUSED_ARG(uint32_t btn), void *data)
 {
 	_lua_run_binding(data);
 }
 
 static void
-_lua_run_axisbinding(struct weston_pointer *pointer,
-		     const struct timespec *time,
-		     struct weston_pointer_axis_event *event,
+_lua_run_axisbinding(UNUSED_ARG(struct weston_pointer *pointer),
+                     UNUSED_ARG(const struct timespec *time),
+                     UNUSED_ARG(struct weston_pointer_axis_event *event),
 		     void *data)
 {
 	_lua_run_binding(data);
@@ -127,7 +132,7 @@ _new_lua_binding(struct tw_config *config, enum tw_binding_type type)
 }
 
 static bool
-parse_binding(struct tw_binding *b, const char *seq_string)
+_parse_binding(struct tw_binding *b, const char *seq_string)
 {
 	char seq_copy[128];
 	strop_ncpy(seq_copy, seq_string, 128);
@@ -173,8 +178,7 @@ parse_binding(struct tw_binding *b, const char *seq_string)
 }
 
 static inline struct tw_binding *
-tw_config_find_binding(struct tw_config *config,
-			    const char *name)
+_find_default_binding(struct tw_config *config, const char *name)
 {
 	for (int i = 0; i < TW_BUILTIN_BINDING_SIZE; i++) {
 		if (strcmp(config->builtin_bindings[i].name, name) == 0)
@@ -183,25 +187,43 @@ tw_config_find_binding(struct tw_config *config,
 	return NULL;
 }
 
+static inline const char *
+_binding_type_name(enum tw_binding_type type)
+{
+	static const char *names[] = {"key", "btn", "axis"};
+	switch (type) {
+	case TW_BINDING_key:
+		return names[0];
+	case TW_BINDING_btn:
+		return names[1];
+	case TW_BINDING_axis:
+		return names[2];
+	default:
+		return NULL;
+	};
+}
+
 static inline int
 _lua_bind(lua_State *L, enum tw_binding_type binding_type)
 {
-	//first argument
 	struct tw_config *cd = to_user_config(L);
 	struct tw_binding *binding_to_find = NULL;
 	const char *key = NULL;
-
 	struct tw_binding temp = {0};
 	const char *binding_seq = lua_tostring(L, 3);
+	const char *type_name = _binding_type_name(binding_type);
+
 	temp.type = binding_type;
-	if (!binding_seq || !parse_binding(&temp, binding_seq))
-		goto err_binding;
+	if (!binding_seq || !_parse_binding(&temp, binding_seq))
+		return luaL_error(L, "bind_%s:invalid binding sequence\n",
+		                  type_name);
 	//builtin binding
 	if (tw_lua_isstring(L, 2)) {
 		key = lua_tostring(L, 2);
-		binding_to_find = tw_config_find_binding(cd, key);
+		binding_to_find = _find_default_binding(cd, key);
 		if (!binding_to_find || binding_to_find->type != binding_type)
-			goto err_binding;
+			return luaL_error(L, "bind_%s:binding %s not found\n",
+			                  type_name, key);
 	}
 	//user binding
 	else if (lua_isfunction(L, 2) && !lua_iscfunction(L, 2)) {
@@ -211,13 +233,12 @@ _lua_bind(lua_State *L, enum tw_binding_type binding_type)
 		lua_setfield(L, LUA_REGISTRYINDEX, binding_to_find->name);
 		//now we need to get the binding
 	} else
-		goto err_binding;
+		return luaL_error(L, "bind_%s: invalid argument\n",
+		                  type_name);
 
 	//now we copy the binding seq to
-	memcpy(binding_to_find->keypress, temp.keypress, sizeof(temp.keypress));
-	return 0;
-err_binding:
-	cd->quit = true;
+	memcpy(binding_to_find->keypress, temp.keypress,
+	       sizeof(temp.keypress));
 	return 0;
 }
 
@@ -368,6 +389,7 @@ _lua_to_backend(lua_State *L)
 	return backend;
 }
 
+/*
 static inline struct shell *
 _lua_to_shell(lua_State *L)
 {
@@ -381,6 +403,7 @@ _lua_to_shell(lua_State *L)
 		luaL_error(L, "taiwins shell not available yet\n");
 	return shell;
 }
+*/
 
 static inline struct desktop*
 _lua_to_desktop(lua_State *L)
@@ -397,6 +420,7 @@ _lua_to_desktop(lua_State *L)
 	return desktop;
 }
 
+/*
 static inline struct tw_xwayland *
 _lua_to_xwayland(lua_State *L)
 {
@@ -411,6 +435,7 @@ _lua_to_xwayland(lua_State *L)
 		luaL_error(L, "taiwins xwayland not available yet\n");
 	return xwayland;
 }
+*/
 
 static inline struct tw_theme *
 _lua_to_theme(lua_State *L)
@@ -663,7 +688,7 @@ _lua_set_wallpaper(lua_State *L)
 	path = luaL_checkstring(L, 2);
 	if (!is_file_exist(path))
 		return luaL_error(L, "wallpaper does not exist!");
-	SET_PENDING(&t->background_path, path, strdup(path));
+	SET_PENDING_STR(&t->background_path, strdup(path));
 	tw_config_table_dirty(t, true);
 	return 0;
 }
@@ -678,7 +703,7 @@ _lua_set_widgets(lua_State *L)
 	path = luaL_checkstring(L, 2);
 	if (!is_file_exist(path))
 		return luaL_error(L, "widget path does not exist!");
-	SET_PENDING(&t->widgets_path, path, strdup(path));
+	SET_PENDING_STR(&t->widgets_path, strdup(path));
 	tw_config_table_dirty(t, true);
 	return 0;
 }
@@ -771,7 +796,7 @@ _lua_set_menus(lua_State *L)
 		vector_destroy(&menu);
 		return luaL_error(L, "error parsing menus.");
 	}
-	SET_PENDING(&t->menu, vec, menu);
+	SET_PENDING_VEC(&t->menu, &menu);
 	tw_config_table_dirty(t, true);
 	return 0;
 }
@@ -984,7 +1009,10 @@ static int
 _lua_wake_compositor(lua_State *L)
 {
 	struct tw_config *config;
-	tw_lua_stackcheck(L, 0);
+	tw_lua_stackcheck(L, 1);
+	if (!tw_lua_istable(L, 1, METATABLE_COMPOSITOR))
+		return luaL_error(L, "%s: expecting compositor object\n",
+		                  "compositor.wake");
 	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
 	config = lua_touserdata(L, -1);
 	lua_pop(L, 1);
@@ -1081,11 +1109,11 @@ luaopen_taiwins(lua_State *L)
 	REGISTER_METHOD(L, "read_theme", _lua_read_theme);
 	//xwayland
 	REGISTER_METHOD(L, "enable_xwayland", _lua_enable_xwayland);
-
 	lua_pop(L, 1); //pop this metatable
 
-	struct luaL_Reg lib[1] = {
+	static const struct luaL_Reg lib[] = {
 		{"compositor", _lua_get_config},
+		{NULL, NULL},
 	};
 
 	luaL_newlib(L, lib);

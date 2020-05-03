@@ -31,6 +31,7 @@
 
 #include "../config.h"
 #include "server/taiwins.h"
+#include "vector.h"
 
 
 #ifdef __cplusplus
@@ -48,21 +49,12 @@ struct tw_config {
 	bool quit;
 	bool _config_time; /**< mark for configuration is running */
 	vector_t registry;
+	vector_t config_bindings;
+	struct tw_binding builtin_bindings[TW_BUILTIN_BINDING_SIZE];
 
 	/**< lua code may use this */
 	struct wl_listener output_created_listener;
 	struct wl_listener output_destroyed_listner;
-
-	/* struct wl_list lua_components; */
-	/* struct wl_list apply_bindings; */
-	/* vector_t option_hooks; */
-
-	/**< compositor option caches, and invalid values */
-	struct {
-		struct xkb_rule_names xkb_rules;
-		int32_t kb_repeat; /**< invalid: -1 */
-		int32_t kb_delay; /**< invalid: -1 */
-	};
 
 	//ideally, we would use function pointers to wrap lua code together
 	void (*initialize)(struct tw_config *);
@@ -70,11 +62,6 @@ struct tw_config {
 	char *(*read_error)(struct tw_config *);
 	void *user_data;
 	char *err_msg;
-
-	/**< user bindings */
-	vector_t config_bindings;
-	/**< builtin bindings */
-	struct tw_binding builtin_bindings[TW_BUILTIN_BINDING_SIZE];
 };
 
 void
@@ -134,6 +121,24 @@ typedef OPTION(bool, read) pending_theme_reading_t;
 		(ptr)->name = value; \
 		(ptr)->valid = true; \
 	})
+
+static inline void
+SET_PENDING_STR(pending_path_t *path, char *value)
+{
+	if (path->path)
+		free(path);
+	path->path = value;
+	path->valid = true;
+}
+
+static inline void
+SET_PENDING_VEC(pending_vec_t *vec, vector_t *copy)
+{
+	if (vec->vec.elems)
+		vector_destroy(&vec->vec);
+	vec->vec = *copy;
+	vec->valid = true;
+}
 
 struct tw_config_table {
 	struct {
