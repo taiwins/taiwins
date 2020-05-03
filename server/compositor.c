@@ -39,7 +39,6 @@
 #include <os/file.h>
 #include <shared_config.h>
 #include "taiwins.h"
-#include "config.h"
 #include "compositor.h"
 
 FILE *logfile;
@@ -175,11 +174,11 @@ int main(int argc, char *argv[])
 	tw_config_register_object(config, "shell_path", (void *)shellpath);
 	tw_config_register_object(config, "console_path", (void *)launcherpath);
 
-	if (!tw_run_config(config))
-		tw_run_default_config(config);
+	if (!tw_run_config(config) && tw_run_default_config(config))
+		goto out;
 
 	wl_display_run(display);
-
+out:
 	tw_config_destroy(config);
 	weston_compositor_tear_down(compositor);
 	weston_log_ctx_compositor_destroy(compositor);

@@ -29,6 +29,12 @@
 #include <libweston/libweston.h>
 
 #include "taiwins.h"
+#include "backend.h"
+#include "bindings.h"
+#include "desktop/desktop.h"
+#include "desktop/shell.h"
+#include "desktop/console.h"
+
 
 #ifdef  __cplusplus
 extern "C" {
@@ -38,6 +44,7 @@ struct tw_bus;
 struct tw_backend;
 struct tw_xwayland;
 struct tw_theme;
+struct tw_config;
 
 struct tw_bus *
 tw_setup_bus(struct weston_compositor *ec);
@@ -54,6 +61,36 @@ tw_setup_theme(struct weston_compositor *ec);
 void
 tw_theme_notify(struct tw_theme *theme);
 
+/******************************************************************************
+ * configuration
+ *****************************************************************************/
+
+struct tw_config *
+tw_config_create(struct weston_compositor *ec, log_func_t messenger);
+
+void
+tw_config_destroy(struct tw_config *);
+
+void
+tw_config_register_object(struct tw_config *config,
+                          const char *name, void *obj);
+void *
+tw_config_request_object(struct tw_config *config, const char *name);
+
+/**
+ * @brief load and apply the config file
+ *
+ * to support hot reloading, this function can be called from a keybinding. The
+ * check has to be there to be sure nothing is screwed up.
+ *
+ * /param path if not present, use the internal path
+ * /return true if config has no problem
+ */
+bool
+tw_run_config(struct tw_config *config);
+
+bool
+tw_run_default_config(struct tw_config *config);
 
 #ifdef  __cplusplus
 }

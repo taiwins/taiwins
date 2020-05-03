@@ -19,6 +19,7 @@
  *
  */
 
+#include <libweston/libweston.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -106,6 +107,14 @@ tw_backend_output_from_weston_output(struct weston_output *o, struct tw_backend 
 }
 
 
+static inline void
+head_enable_default(struct weston_output *output)
+{
+	if (output->scale == 0)
+		weston_output_set_scale(output, 1);
+	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
+}
+
 /******************************************************************
  * head functions
  *****************************************************************/
@@ -128,8 +137,7 @@ drm_head_enable(struct weston_head *head, struct weston_compositor *compositor,
 	api->set_mode(output, WESTON_DRM_BACKEND_OUTPUT_PREFERRED, NULL);
 	api->set_gbm_format(output, NULL);
 	api->set_seat(output, NULL);
-	weston_output_set_scale(output, 1);
-	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
+	head_enable_default(output);
 	weston_output_enable(output);
 	tw_backend_init_output(backend, output);
 
@@ -167,10 +175,10 @@ windowed_head_enable(struct weston_head *head, struct weston_compositor *composi
 
 	struct weston_output *output =
 		weston_compositor_create_output_with_head(compositor, head);
-	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
-	weston_output_set_scale(output, 1);
+	head_enable_default(output);
 	api->output_set_size(output, 1000, 800);
-	if (!output->enabled)
+
+        if (!output->enabled)
 		weston_output_enable(output);
 	tw_backend_init_output(backend, output);
 }
@@ -192,7 +200,7 @@ windowed_head_check(struct weston_compositor *compositor)
 	const struct weston_windowed_output_api *api =
 		weston_windowed_output_get_api(compositor);
 	if (!wl_list_length(&compositor->output_list)) {
-		api->create_head(compositor, "windows");
+		api->create_head(compositor, "windowed");
 	}
 }
 

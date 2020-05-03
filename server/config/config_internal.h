@@ -29,7 +29,7 @@
 #include <wayland-server-protocol.h>
 #include <shared_config.h>
 
-#include "../config.h"
+#include "../compositor.h"
 #include "server/taiwins.h"
 #include "vector.h"
 
@@ -38,13 +38,42 @@
 extern "C" {
 #endif
 
+enum tw_builtin_binding_t {
+	TW_QUIT_BINDING,
+	TW_RELOAD_CONFIG_BINDING,
+	//QUIT taiwins, rerun configuration
+	//console
+	TW_OPEN_CONSOLE_BINDING,
+	//shell
+	TW_ZOOM_AXIS_BINDING,
+	TW_ALPHA_AXIS_BINDING,
+	//views
+	TW_MOVE_PRESS_BINDING,
+	TW_FOCUS_PRESS_BINDING,
+	//workspace
+	TW_SWITCH_WS_LEFT_BINDING,
+	TW_SWITCH_WS_RIGHT_BINDING,
+	TW_SWITCH_WS_RECENT_BINDING,
+	TW_TOGGLE_FLOATING_BINDING,
+	TW_TOGGLE_VERTICAL_BINDING,
+	TW_VSPLIT_WS_BINDING,
+	TW_HSPLIT_WS_BINDING,
+	TW_MERGE_BINDING,
+	//resize
+	TW_RESIZE_ON_LEFT_BINDING,
+	TW_RESIZE_ON_RIGHT_BINDING,
+	//view cycling
+	TW_NEXT_VIEW_BINDING,
+	//sizeof
+	TW_BUILTIN_BINDING_SIZE
+};
+
 struct tw_config_table;
 
 struct tw_config {
 	struct weston_compositor *compositor;
 	struct tw_bindings *bindings;
 	struct tw_config_table *config_table;
-	lua_State *L;
 	log_func_t print;
 	bool quit;
 	bool _config_time; /**< mark for configuration is running */
@@ -54,18 +83,16 @@ struct tw_config {
 
 	/**< lua code may use this */
 	struct wl_listener output_created_listener;
-	struct wl_listener output_destroyed_listner;
+	struct wl_listener output_destroyed_listener;
 
 	//ideally, we would use function pointers to wrap lua code together
-	void (*initialize)(struct tw_config *);
+	void (*init)(struct tw_config *);
+	void (*fini)(struct tw_config *);
 	bool (*read_config)(struct tw_config *, const char *);
 	char *(*read_error)(struct tw_config *);
 	void *user_data;
 	char *err_msg;
 };
-
-void
-tw_config_init_luastate(struct tw_config *c);
 
 void
 tw_config_default_bindings(struct tw_config *c);
@@ -76,6 +103,14 @@ tw_config_install_bindings(struct tw_config *c, struct tw_bindings *root);
 bool
 parse_one_press(const char *str, const enum tw_binding_type type,
                 uint32_t *mod, uint32_t *code);
+const char *
+tw_config_retrieve_error(struct tw_config *);
+
+/**
+ * @brief get the configuration for keybinding
+ */
+const struct tw_binding *
+tw_config_get_builtin_binding(struct tw_config *, enum tw_builtin_binding_t);
 
 /* as for now we will try to make config more of a compositor thing by spliting
  * everything from the config.
@@ -94,6 +129,7 @@ tw_config_wake_compositor(struct tw_config *c);
 /*******************************************************************************
  * private APIs
  ******************************************************************************/
+
 struct tw_config_obj {
 	char name[32];
 	void *data;
@@ -181,10 +217,6 @@ tw_config_table_dirty(struct tw_config_table *table, bool dirty);
 
 void
 tw_config_table_flush(struct tw_config_table *table);
-
-void *
-tw_config_request_object(struct tw_config *config,
-                         const char *name);
 
 
 #ifdef __cplusplus

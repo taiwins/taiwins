@@ -16,7 +16,7 @@
 #include <theme.h>
 
 #include "../server/taiwins.h"
-#include "../server/config.h"
+#include "../server/compositor.h"
 #include "../server/config/lua_helper.h"
 
 int
