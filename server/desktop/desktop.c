@@ -124,8 +124,8 @@ is_desktop_surface(struct weston_surface *surface)
 {
 	struct weston_desktop_surface *ds =
 		weston_surface_get_desktop_surface(surface);
-	struct recent_view *rv =
-		weston_desktop_surface_get_user_data(ds);
+	struct recent_view *rv = ds ?
+		weston_desktop_surface_get_user_data(ds) : NULL;
 	return rv && weston_surface_is_desktop_surface(surface);
 }
 
