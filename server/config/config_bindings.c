@@ -23,10 +23,6 @@
 #include <linux/input.h>
 #include <libweston/libweston.h>
 #include "config_internal.h"
-#include "server/bindings.h"
-#include "server/config.h"
-#include "server/desktop/desktop.h"
-#include "server/taiwins.h"
 
 /* TW_ZOOM_AXIS_BINDING */
 void

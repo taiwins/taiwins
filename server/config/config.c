@@ -24,85 +24,67 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <wayland-server-core.h>
 #include <wayland-util.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-compose.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <linux/input.h>
 #include <ctype.h>
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
 #include <sequential.h>
 #include <os/file.h>
 #include <strops.h>
 #include <libweston/libweston.h>
 
 #include "config_internal.h"
-#include "server/backend.h"
 #include "server/bindings.h"
-#include "server/compositor.h"
-#include "server/config.h"
-#include "server/desktop/desktop.h"
-#include "server/desktop/shell.h"
-#include "server/taiwins.h"
-#include "vector.h"
 
 /******************************************************************************
  * API
  *****************************************************************************/
-static inline void
-purge_xkb_rules(struct xkb_rule_names *rules)
-{
-	if (rules->rules)
-		free((void *)rules->rules);
-	rules->rules = NULL;
-	if (rules->layout)
-		free((void *)rules->layout);
-	rules->layout = NULL;
-	if (rules->model)
-		free((void *)rules->model);
-	rules->model = NULL;
-	if (rules->options)
-		free((void *)rules->options);
-	rules->options = NULL;
-	if (rules->variant)
-		free((void *)rules->variant);
-	rules->variant = NULL;
-}
+extern bool
+tw_luaconfig_read(struct tw_config *c, const char *path);
 
-static inline bool
-copy_builtin_bindings(struct tw_binding *dst, const struct tw_binding *src)
-{
-	memcpy(dst, src, sizeof(struct tw_binding) * TW_BUILTIN_BINDING_SIZE);
-	return true;
-}
+extern char *
+tw_luaconfig_read_error(struct tw_config *c);
+
+void
+tw_luaconfig_fini(struct tw_config *c);
+
+void
+tw_luaconfig_init(struct tw_config *c);
 
 struct tw_config*
 tw_config_create(struct weston_compositor *ec, log_func_t log)
 {
 	struct tw_config *config =
-		zalloc(sizeof(struct tw_config));
+		calloc(1, sizeof(struct tw_config));
 	config->err_msg = NULL;
 	config->compositor = ec;
 	config->print = log;
 	config->quit = false;
+	config->user_data = NULL;
 	config->_config_time = false;
 	config->bindings = tw_bindings_create(ec);
 	config->config_table = tw_config_table_new(config);
-	tw_config_default_bindings(config);
-	vector_init_zero(&config->config_bindings,
+
+        config->init = tw_luaconfig_init;
+	config->fini = tw_luaconfig_fini;
+	config->read_error = tw_luaconfig_read_error;
+	config->read_config = tw_luaconfig_read;
+
+        tw_config_default_bindings(config);
+
+        vector_init_zero(&config->config_bindings,
 	                 sizeof(struct tw_binding), NULL);
 	vector_init_zero(&config->registry,
 	                 sizeof(struct tw_config_obj), NULL);
-	wl_list_init(&config->output_created_listener.link);
-	wl_list_init(&config->output_destroyed_listner.link);
 
+        wl_list_init(&config->output_created_listener.link);
+	wl_list_init(&config->output_destroyed_listener.link);
 	return config;
 }
 
-//release the config to be reused, we don't remove the apply bindings
-//here. Since it maybe called again.
 static inline void
 _tw_config_release(struct tw_config *config)
 {
@@ -110,14 +92,15 @@ _tw_config_release(struct tw_config *config)
 		tw_bindings_destroy(config->bindings);
 	if (config->config_table)
 		tw_config_table_destroy(config->config_table);
-
 	if (config->err_msg)
 		free(config->err_msg);
-	if (config->L)
-		lua_close(config->L);
+	config->fini(config);
 
 	vector_destroy(&config->config_bindings);
 	vector_destroy(&config->registry);
+
+        wl_list_remove(&config->output_created_listener.link);
+	wl_list_remove(&config->output_destroyed_listener.link);
 }
 
 void
@@ -157,6 +140,37 @@ tw_config_request_object(struct tw_config *config,
 	return NULL;
 }
 
+static inline bool
+copy_builtin_bindings(struct tw_binding *dst, const struct tw_binding *src)
+{
+	memcpy(dst, src, sizeof(struct tw_binding) * TW_BUILTIN_BINDING_SIZE);
+	return true;
+}
+
+static inline void
+copy_signals(struct tw_config *dst, const struct tw_config *src)
+{
+	struct weston_compositor *ec = dst->compositor;
+
+	//add signals
+	if (src->output_created_listener.notify) {
+		wl_list_init(&dst->output_created_listener.link);
+
+		dst->output_created_listener.notify =
+			src->output_created_listener.notify;
+		wl_signal_add(&ec->output_created_signal,
+		              &dst->output_created_listener);
+	}
+	if (src->output_destroyed_listener.notify) {
+		wl_list_init(&dst->output_destroyed_listener.link);
+
+		dst->output_destroyed_listener.notify =
+			src->output_destroyed_listener.notify;
+		wl_signal_add(&ec->output_destroyed_signal,
+		              &dst->output_destroyed_listener);
+	}
+}
+
 /**
  * @brief swap all the config from one to another.
  *
@@ -169,18 +183,20 @@ tw_swap_config(struct tw_config *dst, struct tw_config *src)
 {
 	_tw_config_release(dst);
 	//clone everthing.
-	dst->L = src->L;
+	if (dst->user_data)
+		dst->fini(dst);
+	dst->user_data = src->user_data;
 	dst->config_table = src->config_table;
 	dst->config_table->config = dst;
 	dst->bindings = src->bindings;
 	dst->config_bindings = src->config_bindings;
 	dst->registry = src->registry;
 	copy_builtin_bindings(dst->builtin_bindings, src->builtin_bindings);
-	//TODO: we will need to take the src listeners as well.
+	copy_signals(dst, src);
 	//reset src data
 	src->bindings = NULL;
 	src->config_table = NULL;
-	src->L = NULL;
+	src->user_data = NULL;
 	vector_init_zero(&src->registry, sizeof(struct tw_config_obj), NULL);
 	vector_init_zero(&src->config_bindings,
 	                 sizeof(struct tw_binding), NULL);
@@ -205,18 +221,16 @@ tw_try_config(struct tw_config *tmp_config, struct tw_config *main_config)
 	tw_config_register_object(tmp_config, "console_path",
 	                          tw_config_request_object(main_config,
 	                                                   "console_path"));
-	tw_config_init_luastate(tmp_config);
+	tmp_config->init(tmp_config);
 
         if (is_file_exist(path)) {
 	        tmp_config->_config_time = true;
-		safe = safe && !luaL_loadfile(tmp_config->L, path);
-		safe = safe && !lua_pcall(tmp_config->L, 0, 0, 0);
+	        safe = safe && tmp_config->read_config(tmp_config, path);
 		safe = safe && tw_config_request_object(tmp_config,
 		                                        "initialized");
-		if (!safe) {
+		if (!safe)
 			main_config->err_msg =
-				strdup(lua_tostring(tmp_config->L, -1));
-		}
+			       tmp_config->read_error(tmp_config);
 	}
         bindings = tmp_config->bindings;
         copy_builtin_bindings(tmp, main_config->builtin_bindings);
@@ -231,9 +245,9 @@ tw_try_config(struct tw_config *tmp_config, struct tw_config *main_config)
 /**
  * @brief run/rerun the configurations.
  *
- * The configuration runs in protective mode. That is, it will create a
- * temporary configuration and run config script within. If everything is indeed
- * fine. We will migrate to the main config.
+ * The configuration runs in protective mode. We create a temporary
+ * configuration and run config script within. If everything is indeed fine. We
+ * will migrate to the main config.
  */
 
 bool
@@ -331,10 +345,30 @@ out:
 
 const struct tw_binding *
 tw_config_get_builtin_binding(struct tw_config *c,
-				   enum tw_builtin_binding_t type)
+                              enum tw_builtin_binding_t type)
 {
 	assert(type < TW_BUILTIN_BINDING_SIZE);
 	return &c->builtin_bindings[type];
+}
+
+static inline void
+purge_xkb_rules(struct xkb_rule_names *rules)
+{
+	if (rules->rules)
+		free((void *)rules->rules);
+	rules->rules = NULL;
+	if (rules->layout)
+		free((void *)rules->layout);
+	rules->layout = NULL;
+	if (rules->model)
+		free((void *)rules->model);
+	rules->model = NULL;
+	if (rules->options)
+		free((void *)rules->options);
+	rules->options = NULL;
+	if (rules->variant)
+		free((void *)rules->variant);
+	rules->variant = NULL;
 }
 
 static void

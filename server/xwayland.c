@@ -35,7 +35,6 @@
 
 #include "helpers.h"
 #include "taiwins.h"
-#include "config.h"
 
 #define XSERVER_PATH "Xwayland"
 

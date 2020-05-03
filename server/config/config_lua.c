@@ -34,16 +34,10 @@
 #include <strops.h>
 #include <os/file.h>
 #include <vector.h>
+#include <helpers.h>
 
-#include "helpers.h"
 #include "lua_helper.h"
 #include "config_internal.h"
-#include "server/backend.h"
-#include "server/bindings.h"
-#include "server/desktop/desktop.h"
-#include "server/taiwins.h"
-#include "subprojects/twclient/include/theme.h"
-#include "wayland-taiwins-shell-server-protocol.h"
 
 static inline void
 _lua_error(struct tw_config *config, const char *fmt, ...)
@@ -113,7 +107,7 @@ static struct tw_binding *
 _new_lua_binding(struct tw_config *config, enum tw_binding_type type)
 {
 	struct tw_binding *b = vector_newelem(&config->config_bindings);
-	b->user_data = config->L;
+	b->user_data = config->user_data;
 	b->type = type;
 	sprintf(b->name, "luabinding_%x", config->config_bindings.len);
 	switch (type) {
@@ -266,77 +260,6 @@ _lua_bind_tch(lua_State *L)
 	return _lua_bind(L, TW_BINDING_tch);
 }
 
-/*******************************************************************************
- * config option
- ******************************************************************************/
-/*
-static enum tw_option_type
-_lua_type(lua_State *L, int pos)
-{
-	//here you need to check color first,
-	if (tw_lua_is_rgb(L, pos, NULL))
-		return TW_OPTION_RGB;
-	if (tw_lua_isnumber(L, pos) && lua_gettop(L) == 3)
-		return TW_OPTION_INT;
-	if (tw_lua_isstring(L, pos) && lua_gettop(L) == 3)
-		return TW_OPTION_STR;
-	if (lua_isboolean(L, pos) && lua_gettop(L) == 3)
-		return TW_OPTION_BOOL;
-	return TW_OPTION_INVALID;
-}
-
-static inline uint32_t
-_lua_torgb(lua_State *L, int pos)
-{
-	unsigned int r,g,b;
-	if (tw_lua_isstring(L, pos))
-		sscanf(lua_tostring(L, pos), "#%2x%2x%2x", &r,&g,&b);
-	else {
-		r = lua_tonumber(L, pos);
-		g = lua_tonumber(L, pos + 1);
-		b = lua_tonumber(L, pos + 2);
-	}
-	return (r << 16) + (g << 8) + b;
-}
-
-static void
-_lua_set_bytype(lua_State *L, int pos, enum tw_option_type type,
-	      struct tw_option_listener *listener)
-{
-	switch (type) {
-	case TW_OPTION_RGB:
-		listener->arg.u = _lua_torgb(L, pos);
-		break;
-	case TW_OPTION_INT:
-		listener->arg.i = lua_tonumber(L, pos);
-		break;
-	case TW_OPTION_STR:
-		strop_ncpy((char *)listener->arg.s, lua_tostring(L, pos), 128);
-		break;
-	case TW_OPTION_BOOL:
-		listener->arg.u = lua_toboolean(L, pos);
-		break;
-	default:
-		break;
-	}
-}
-
-
-static int
-_lua_set_value(lua_State *L)
-{
-	//okay?
-	enum tw_option_type type = _lua_type(L, 3);
-
-	if (!tw_lua_isstring(L, 2) || type == TW_OPTION_INVALID) {
-		return luaL_error(L, "invalid arguments\n");
-	}
-	return 0;
-
-	return luaL_error(L, "invalid type\n");
-}
-*/
-
  /******************************************************************************
  * main config
  *****************************************************************************/
@@ -355,6 +278,7 @@ static tw_config_transform_t TRANSFORMS[] = {
 #define REGISTRY_COMPOSITOR "__compositor"
 #define REGISTRY_CONFIG "__config"
 #define REGISTRY_WORKSPACES "__workspaces"
+#define REGISTRY_HINT "__hint"
 #define CONFIG_TABLE "__config_table"
 #define CONFIG_WESTON_OUTPUT "_weston_output"
 
@@ -389,22 +313,6 @@ _lua_to_backend(lua_State *L)
 	return backend;
 }
 
-/*
-static inline struct shell *
-_lua_to_shell(lua_State *L)
-{
-	struct tw_config *config;
-	struct shell *shell;
-	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
-	config = lua_touserdata(L, -1);
-	lua_pop(L, 1);
-	shell = tw_config_request_object(config, "shell");
-	if (!shell)
-		luaL_error(L, "taiwins shell not available yet\n");
-	return shell;
-}
-*/
-
 static inline struct desktop*
 _lua_to_desktop(lua_State *L)
 {
@@ -419,23 +327,6 @@ _lua_to_desktop(lua_State *L)
 		luaL_error(L, "taiwins desktop not available yet\n");
 	return desktop;
 }
-
-/*
-static inline struct tw_xwayland *
-_lua_to_xwayland(lua_State *L)
-{
-	struct tw_xwayland *xwayland;
-	struct tw_config *config;
-
-        lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
-	config = lua_touserdata(L, -1);
-	lua_pop(L, 1);
-	xwayland = tw_config_request_object(config, "xwayland");
-	if (!xwayland)
-		luaL_error(L, "taiwins xwayland not available yet\n");
-	return xwayland;
-}
-*/
 
 static inline struct tw_theme *
 _lua_to_theme(lua_State *L)
@@ -526,7 +417,6 @@ _lua_get_windowed_output(lua_State *L)
 	struct weston_compositor *ec;
 	struct weston_output *output;
 	struct tw_backend *backend = _lua_to_backend(L);
-	struct tw_config_table *table = _lua_to_config_table(L);
 	int bkend_type;
 
 	ec = _lua_to_compositor(L);
@@ -542,8 +432,6 @@ _lua_get_windowed_output(lua_State *L)
 			return luaL_error(L, "%s: no window output available",
 			                  "get_window_display");
 	}
-	table->outputs[output->id].output = output;
-
 	lua_newtable(L);
 	lua_pushlightuserdata(L, output);
 	lua_setfield(L, -2, CONFIG_WESTON_OUTPUT);
@@ -1005,6 +893,7 @@ _lua_set_repeat_info(lua_State *L)
 	return 0;
 }
 
+
 static int
 _lua_wake_compositor(lua_State *L)
 {
@@ -1091,7 +980,6 @@ luaopen_taiwins(lua_State *L)
 	REGISTER_METHOD(L, "keyboard_options", _lua_set_keyboard_options);
 	REGISTER_METHOD(L, "repeat_info", _lua_set_repeat_info);
 	REGISTER_METHOD(L, "wake", _lua_wake_compositor);
-
 	//backend methods
 	REGISTER_METHOD(L, "is_windowed_display", _lua_is_windowed_display);
 	REGISTER_METHOD(L, "is_under_x11", _lua_is_under_x11);
@@ -1120,20 +1008,60 @@ luaopen_taiwins(lua_State *L)
 	return 1;
 }
 
+static void
+_lua_output_created_listener(struct wl_listener *listener, void *data)
+{
+	struct weston_output *output = data;
+	struct tw_config *config = container_of(listener, struct tw_config,
+	                                        output_created_listener);
+	(void)output;
+	(void)config;
+}
+
+static void
+_lua_output_destroyed_listener(struct wl_listener *listener, void *data)
+{
+	struct weston_output *output = data;
+	struct tw_config *config = container_of(listener, struct tw_config,
+	                                        output_destroyed_listener);
+	(void)config;
+	(void)output;
+}
+
+bool
+tw_luaconfig_read(struct tw_config *c, const char *path)
+{
+	bool safe = true;
+	lua_State *L = c->user_data;
+	safe = safe && !luaL_loadfile(L, path);
+	safe = safe && !lua_pcall(L, 0, 0, 0);
+	return safe;
+}
+
+char *
+tw_luaconfig_read_error(struct tw_config *c)
+{
+	return strdup(lua_tostring((lua_State *)c->user_data, -1));
+}
+
 void
-tw_config_init_luastate(struct tw_config *c)
+tw_luaconfig_fini(struct tw_config *c)
+{
+	if (c->user_data)
+		lua_close(c->user_data);
+}
+
+void
+tw_luaconfig_init(struct tw_config *c)
 {
 	lua_State *L;
 
-	if (c->L)
-		lua_close(c->L);
+	if (c->user_data)
+		lua_close(c->user_data);
 	if (!(L = luaL_newstate()))
 		return;
 	luaL_openlibs(L);
-	c->L = L;
-	if (c->config_bindings.elems)
-		vector_destroy(&c->config_bindings);
-	vector_init(&c->config_bindings, sizeof(struct tw_binding), NULL);
+	c->user_data = L;
 
         //REGISTRIES
 	lua_pushlightuserdata(L, c); //s1
@@ -1142,6 +1070,18 @@ tw_config_init_luastate(struct tw_config *c)
 	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_COMPOSITOR); //0
 	lua_pushlightuserdata(L, c->config_table);
 	lua_setfield(L, LUA_REGISTRYINDEX, CONFIG_TABLE);
+	lua_newtable(L);
+	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_HINT);
+
+	wl_list_init(&c->output_created_listener.link);
+	c->output_created_listener.notify = _lua_output_created_listener;
+	wl_signal_add(&c->compositor->output_created_signal,
+	              &c->output_created_listener);
+
+        wl_list_init(&c->output_destroyed_listener.link);
+	c->output_destroyed_listener.notify = _lua_output_destroyed_listener;
+	wl_signal_add(&c->compositor->output_destroyed_signal,
+	              &c->output_destroyed_listener);
 
 	// preload the taiwins module
 	luaL_requiref(L, "taiwins", luaopen_taiwins, true);

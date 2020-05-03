@@ -305,15 +305,16 @@ shell_ui_create_simple(struct shell_ui *ui, struct wl_resource *taiwins_ui,
 	return true;
 }
 
-/**********************************************************************************
+/*******************************************************************************
  * tw_output and listeners
- *********************************************************************************/
+ ******************************************************************************/
 
 static void
 shell_output_created(struct wl_listener *listener, void *data)
 {
 	struct weston_output *output = data;
-	struct shell *shell = container_of(listener, struct shell, output_create_listener);
+	struct shell *shell =
+		container_of(listener, struct shell, output_create_listener);
 	size_t ith_output = shell_n_outputs(shell);
 	//so far we have one output, which is good, but I think I shouldn't have
 	//a global here, it doesn't make any
@@ -325,10 +326,13 @@ shell_output_created(struct wl_listener *listener, void *data)
 	shell->tw_outputs[ith_output].panel_height = 0;
 	//defer the tw_output creation if shell is not ready.
 	if (shell->shell_resource)
-		taiwins_shell_send_output_configure(shell->shell_resource, ith_output,
-					       output->width, output->height, output->scale,
-					       ith_output == 0,
-					       TAIWINS_SHELL_OUTPUT_MSG_CONNECTED);
+		taiwins_shell_send_output_configure(shell->shell_resource,
+		                                    ith_output,
+		                                    output->width,
+		                                    output->height,
+		                                    output->scale,
+		                                    ith_output == 0,
+		                                    TAIWINS_SHELL_OUTPUT_MSG_CONNECTED);
 }
 
 static void
@@ -687,81 +691,6 @@ launch_shell_client(void *data)
 	                          &shell->uid,
 	                          &shell->gid);
 }
-
-/*******************************************************************
- * bindings
- ******************************************************************/
-
-/*
-static void
-zoom_axis(struct weston_pointer *pointer, const struct timespec *time,
-	   struct weston_pointer_axis_event *event, void *data)
-{
-	struct weston_compositor *ec = pointer->seat->compositor;
-	double augment;
-	struct weston_output *output;
-	struct weston_seat *seat = pointer->seat;
-
-	wl_list_for_each(output, &ec->output_list, link) {
-		if (pixman_region32_contains_point(&output->region,
-						   wl_fixed_to_int(pointer->x),
-						   wl_fixed_to_int(pointer->y), NULL))
-		{
-			float sign = (event->has_discrete) ? -1.0 : 1.0;
-
-			if (event->axis == WL_POINTER_AXIS_VERTICAL_SCROLL)
-				augment = output->zoom.increment * sign * event->value / 20.0;
-			else
-				augment = 0.0;
-
-			output->zoom.level += augment;
-
-			if (output->zoom.level < 0.0)
-				output->zoom.level = 0.0;
-			else if (output->zoom.level > output->zoom.max_level)
-				output->zoom.level = output->zoom.max_level;
-
-			if (!output->zoom.active) {
-				if (output->zoom.level <= 0.0)
-					continue;
-				weston_output_activate_zoom(output, seat);
-			}
-
-			output->zoom.spring_z.target = output->zoom.level;
-			weston_output_update_zoom(output);
-		}
-	}
-}
-
-
-static void
-shell_reload_config(struct weston_keyboard *keyboard,
-		    const struct timespec *time, uint32_t key,
-		    uint32_t option, void *data)
-{
-	struct shell *shell = data;
-	if (!tw_config_run(shell->config, NULL)) {
-		const char *err_msg = tw_config_retrieve_error(shell->config);
-		shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_CONFIG_ERR, err_msg);
-	}
-}
-
-
-static bool
-shell_add_bindings(struct tw_bindings *bindings, struct tw_config *c,
-		   struct tw_apply_bindings_listener *listener)
-{
-	//be careful, the c here is the temporary config, so as the binding
-	struct shell *shell = container_of(listener, struct shell, add_binding);
-	const struct tw_axis_motion motion =
-		tw_config_get_builtin_binding(c, TW_ZOOM_AXIS_BINDING)->axisaction;
-	const struct tw_key_press *reload_press =
-		tw_config_get_builtin_binding(
-			c, TW_RELOAD_CONFIG_BINDING)->keypress;
-	return tw_bindings_add_axis(bindings, &motion, zoom_axis, shell);
-}
-*/
-
 
 static inline struct wl_array
 taiwins_menu_to_wl_array(const struct tw_menu_item * items, const int len)
