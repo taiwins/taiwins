@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 struct console;
+struct shell;
 
 struct console *
 tw_setup_console(struct weston_compositor *compositor, const char *exec_path,

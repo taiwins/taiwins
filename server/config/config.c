@@ -1,7 +1,7 @@
 /*
  * config.c - taiwins config functions
  *
- * Copyright (c) 2019 Xichen Zhou
+ * Copyright (c) 2019-2020 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -62,25 +62,24 @@ tw_config_create(struct weston_compositor *ec, log_func_t log)
 	config->err_msg = NULL;
 	config->compositor = ec;
 	config->print = log;
-	config->quit = false;
 	config->user_data = NULL;
 	config->_config_time = false;
 	config->bindings = tw_bindings_create(ec);
 	config->config_table = tw_config_table_new(config);
 
-        config->init = tw_luaconfig_init;
+	config->init = tw_luaconfig_init;
 	config->fini = tw_luaconfig_fini;
 	config->read_error = tw_luaconfig_read_error;
 	config->read_config = tw_luaconfig_read;
 
-        tw_config_default_bindings(config);
+	tw_config_default_bindings(config);
 
-        vector_init_zero(&config->config_bindings,
+	vector_init_zero(&config->config_bindings,
 	                 sizeof(struct tw_binding), NULL);
 	vector_init_zero(&config->registry,
 	                 sizeof(struct tw_config_obj), NULL);
 
-        wl_list_init(&config->output_created_listener.link);
+	wl_list_init(&config->output_created_listener.link);
 	wl_list_init(&config->output_destroyed_listener.link);
 	return config;
 }
@@ -99,7 +98,7 @@ _tw_config_release(struct tw_config *config)
 	vector_destroy(&config->config_bindings);
 	vector_destroy(&config->registry);
 
-        wl_list_remove(&config->output_created_listener.link);
+	wl_list_remove(&config->output_created_listener.link);
 	wl_list_remove(&config->output_destroyed_listener.link);
 }
 
@@ -223,21 +222,21 @@ tw_try_config(struct tw_config *tmp_config, struct tw_config *main_config)
 	                                                   "console_path"));
 	tmp_config->init(tmp_config);
 
-        if (is_file_exist(path)) {
-	        tmp_config->_config_time = true;
-	        safe = safe && tmp_config->read_config(tmp_config, path);
+	if (is_file_exist(path)) {
+		tmp_config->_config_time = true;
+		safe = safe && tmp_config->read_config(tmp_config, path);
 		safe = safe && tw_config_request_object(tmp_config,
 		                                        "initialized");
 		if (!safe)
 			main_config->err_msg =
-			       tmp_config->read_error(tmp_config);
+				tmp_config->read_error(tmp_config);
 	}
-        bindings = tmp_config->bindings;
-        copy_builtin_bindings(tmp, main_config->builtin_bindings);
-        copy_builtin_bindings(main_config->builtin_bindings,
-                              tmp_config->builtin_bindings);
-        safe = safe && tw_config_install_bindings(main_config, bindings);
-        copy_builtin_bindings(main_config->builtin_bindings, tmp);
+	bindings = tmp_config->bindings;
+	copy_builtin_bindings(tmp, main_config->builtin_bindings);
+	copy_builtin_bindings(main_config->builtin_bindings,
+	                      tmp_config->builtin_bindings);
+	safe = safe && tw_config_install_bindings(main_config, bindings);
+	copy_builtin_bindings(main_config->builtin_bindings, tmp);
 
 	return safe;
 }
@@ -300,27 +299,27 @@ tw_config_wake_compositor(struct tw_config *c)
 	struct weston_compositor *ec = c->compositor;
 
 	initialized = tw_config_request_object(c, "initialized");
-        shell_path =  tw_config_request_object(c, "shell_path");
+	shell_path =  tw_config_request_object(c, "shell_path");
 	console_path = tw_config_request_object(c, "console_path");
 	if (initialized)
 		return true;
 
-        tw_config_table_flush(c->config_table);
+	tw_config_table_flush(c->config_table);
 	weston_compositor_wake(ec);
 
 	if (!(backend = tw_setup_backend(ec)))
 		goto out;
-        tw_config_register_object(c, "backend", backend);
+	tw_config_register_object(c, "backend", backend);
 
-        if (!(bus = tw_setup_bus(ec)))
+	if (!(bus = tw_setup_bus(ec)))
 		goto out;
-        tw_config_register_object(c, "bus", bus);
+	tw_config_register_object(c, "bus", bus);
 
 	if (!(shell = tw_setup_shell(ec, shell_path)))
 		goto out;
-        tw_config_register_object(c, "shell", shell);
+	tw_config_register_object(c, "shell", shell);
 
-        if (!(console = tw_setup_console(ec, console_path, shell)))
+	if (!(console = tw_setup_console(ec, console_path, shell)))
 		goto out;
 	tw_config_register_object(c, "console", console);
 
@@ -334,13 +333,13 @@ tw_config_wake_compositor(struct tw_config *c)
 
 	if (!(xwayland = tw_setup_xwayland(ec)))
 		goto out;
-        tw_config_register_object(c, "xwayland", xwayland);
-        tw_config_register_object(c, "initialized", c->config_table);
+	tw_config_register_object(c, "xwayland", xwayland);
+	tw_config_register_object(c, "initialized", c->config_table);
 
-        ec->default_pointer_grab = NULL;
-        return true;
+	ec->default_pointer_grab = NULL;
+	return true;
 out:
-        return false;
+	return false;
 }
 
 const struct tw_binding *
@@ -461,14 +460,14 @@ tw_config_table_flush(struct tw_config_table *t)
 		wl_signal_emit(&ec->output_resized_signal, output);
 	}
 
-        for (int i = 0; desktop && i < MAX_WORKSPACE; i++) {
+	for (int i = 0; desktop && i < MAX_WORKSPACE; i++) {
 		layout = t->workspaces[i].layout.layout;
 		if (t->workspaces[i].layout.valid)
 			tw_desktop_set_workspace_layout(desktop, i, layout);
 		t->workspaces[i].layout.valid = false;
 	}
 
-        if (desktop && (t->desktop_igap.valid || t->desktop_ogap.valid)) {
+	if (desktop && (t->desktop_igap.valid || t->desktop_ogap.valid)) {
 		tw_desktop_set_gap(desktop,
 		                   t->desktop_igap.val,
 		                   t->desktop_ogap.val);
@@ -488,7 +487,7 @@ tw_config_table_flush(struct tw_config_table *t)
 		t->background_path.path = NULL;
 	}
 
-        if (shell && t->widgets_path.valid) {
+	if (shell && t->widgets_path.valid) {
 		tw_shell_set_widget_path(shell, t->widgets_path.path);
 		free(t->widgets_path.path);
 		t->widgets_path.valid = false;
@@ -520,7 +519,7 @@ tw_config_table_flush(struct tw_config_table *t)
 	weston_compositor_set_xkb_rule_names(ec, &t->xkb_rules);
 	purge_xkb_rules(&t->xkb_rules);
 
-        if (t->kb_repeat.valid && t->kb_repeat.val > 0) {
+	if (t->kb_repeat.valid && t->kb_repeat.val > 0) {
 		ec->kb_repeat_rate = t->kb_repeat.val;
 		t->kb_repeat.valid = false;
 	}

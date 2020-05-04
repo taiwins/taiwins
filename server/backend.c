@@ -98,7 +98,8 @@ tw_backend_fini_output(struct tw_backend_output *o)
 }
 
 struct tw_backend_output*
-tw_backend_output_from_weston_output(struct weston_output *o, struct tw_backend *b)
+tw_backend_output_from_weston_output(struct weston_output *o,
+                                     struct tw_backend *b)
 {
 	for (int i = 0; i < 32; i++)
 		if (b->outputs[i].output == o)
@@ -167,7 +168,8 @@ drm_head_check(struct weston_compositor *compositor)
 }
 
 static void
-windowed_head_enable(struct weston_head *head, struct weston_compositor *compositor,
+windowed_head_enable(struct weston_head *head,
+                     struct weston_compositor *compositor,
 		     struct tw_backend *backend)
 {
 	const struct weston_windowed_output_api *api =
@@ -178,7 +180,7 @@ windowed_head_enable(struct weston_head *head, struct weston_compositor *composi
 	head_enable_default(output);
 	api->output_set_size(output, 1000, 800);
 
-        if (!output->enabled)
+	if (!output->enabled)
 		weston_output_enable(output);
 	tw_backend_init_output(backend, output);
 }
@@ -187,7 +189,8 @@ static void
 windowed_head_disabled(struct weston_head *head, struct tw_backend *backend)
 {
 	struct weston_output *output = weston_head_get_output(head);
-	struct tw_backend_output *o = tw_backend_output_from_weston_output(output, backend);
+	struct tw_backend_output *o =
+		tw_backend_output_from_weston_output(output, backend);
 	weston_head_detach(head);
 	weston_output_destroy(output);
 	tw_backend_fini_output(o);
@@ -318,12 +321,12 @@ setup_backend_listeners(struct tw_backend *b)
 }
 
 static const char *const backend_map[] = {
-    [WESTON_BACKEND_DRM] = "drm-backend.so",
-    [WESTON_BACKEND_FBDEV] = "fbdev-backend.so",
-    [WESTON_BACKEND_HEADLESS] = "headless-backend.so",
-    [WESTON_BACKEND_RDP] = "rdp-backend.so",
-    [WESTON_BACKEND_WAYLAND] = "wayland-backend.so",
-    [WESTON_BACKEND_X11] = "x11-backend.so",
+	[WESTON_BACKEND_DRM] = "drm-backend.so",
+	[WESTON_BACKEND_FBDEV] = "fbdev-backend.so",
+	[WESTON_BACKEND_HEADLESS] = "headless-backend.so",
+	[WESTON_BACKEND_RDP] = "rdp-backend.so",
+	[WESTON_BACKEND_WAYLAND] = "wayland-backend.so",
+	[WESTON_BACKEND_X11] = "x11-backend.so",
 };
 
 /**

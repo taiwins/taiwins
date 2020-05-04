@@ -91,7 +91,8 @@ unbind_theme(struct wl_resource *resource)
 }
 
 static void
-bind_theme(struct wl_client *client, void *data, uint32_t version, uint32_t id)
+bind_theme(struct wl_client *client, void *data, UNUSED_ARG(uint32_t version),
+           uint32_t id)
 {
 	struct theme *theme = data;
 	struct tw_theme *tw_theme = &theme->global_theme;
@@ -136,9 +137,9 @@ tw_setup_theme(struct weston_compositor *ec)
 	THEME.ec = ec;
 	THEME.global = wl_global_create(ec->wl_display,
 	                                &taiwins_theme_interface,
-					taiwins_theme_interface.version,
+	                                taiwins_theme_interface.version,
 	                                &THEME,
-					bind_theme);
+	                                bind_theme);
 	tw_theme_init_default(&THEME.global_theme);
 
 	wl_list_init(&THEME.clients);

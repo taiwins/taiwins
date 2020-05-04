@@ -105,16 +105,18 @@ static inline struct weston_view *
 workspace_get_top_view(const struct workspace *ws)
 {
 	struct weston_view *view;
-	wl_list_for_each(view,
-			 &ws->floating_layer.view_list.link, layer_link.link)
+	wl_list_for_each(view, &ws->floating_layer.view_list.link,
+	                 layer_link.link)
 		return view;
-	wl_list_for_each(view, &ws->tiling_layer.view_list.link, layer_link.link)
+	wl_list_for_each(view, &ws->tiling_layer.view_list.link,
+	                 layer_link.link)
 		return view;
 	return NULL;
 }
 
 static struct layout *
-workspace_view_get_layout(const struct workspace *ws, const struct weston_view *v)
+workspace_view_get_layout(const struct workspace *ws,
+                          const struct weston_view *v)
 {
 	if (!v || (v->layer_link.layer == &ws->fullscreen_layer) ||
 	    (v->layer_link.layer == &ws->hidden_layer))
@@ -138,7 +140,9 @@ apply_layout_operations(const struct layout_op *ops, const int len)
 					 ops[i].pos.x - rv->visible_geometry.x,
 					 ops[i].pos.y - rv->visible_geometry.y);
 		if (ops[i].size.height && ops[i].size.width) {
-			weston_desktop_surface_set_size(desk_surf, ops[i].size.width, ops[i].size.height);
+			weston_desktop_surface_set_size(desk_surf,
+			                                ops[i].size.width,
+			                                ops[i].size.height);
 			rv->visible_geometry.width = ops[i].size.width;
 			rv->visible_geometry.height = ops[i].size.height;
 		}
@@ -192,9 +196,12 @@ workspace_switch(struct workspace *to, struct workspace *from)
 	weston_layer_unset_position(&from->tiling_layer);
 	weston_layer_unset_position(&from->fullscreen_layer);
 
-	weston_layer_set_position(&to->tiling_layer, WESTON_LAYER_POSITION_NORMAL);
-	weston_layer_set_position(&to->floating_layer , WESTON_LAYER_POSITION_NORMAL+1);
-	weston_layer_set_position(&to->fullscreen_layer, WESTON_LAYER_POSITION_FULLSCREEN);
+	weston_layer_set_position(&to->tiling_layer,
+	                          WESTON_LAYER_POSITION_NORMAL);
+	weston_layer_set_position(&to->floating_layer ,
+	                          WESTON_LAYER_POSITION_NORMAL+1);
+	weston_layer_set_position(&to->fullscreen_layer,
+	                          WESTON_LAYER_POSITION_FULLSCREEN);
 	return workspace_get_top_view(to);
 }
 
@@ -226,7 +233,7 @@ workspace_focus_view(struct workspace *ws, struct weston_view *v)
 					  &v->layer_link);
 		//we should some how ping on it
 	}  else if (l == &ws->tiling_layer) {
-		//right now the implementation is moving all the views to hidden layer
+		//right now moving all the views to hidden layer
 		workspace_clear_floating(ws);
 		weston_layer_entry_remove(&v->layer_link);
 		weston_layer_entry_insert(&ws->tiling_layer.view_list,
@@ -386,7 +393,7 @@ workspace_resize_view(struct workspace *w, struct weston_view *v,
 }
 
 static void
-workspace_fullmax_view(struct workspace *w, struct weston_view *v,
+workspace_fullmax_view(UNUSED_ARG(struct workspace *w), struct weston_view *v,
                        bool max, const struct weston_geometry *geo)
 {
 	struct layout_op ops[2];
@@ -479,7 +486,9 @@ workspace_switch_layout(struct workspace *w, struct weston_view *view)
 	if (layer != &w->floating_layer && layer != &w->tiling_layer)
 		return;
 	workspace_remove_view(w, view);
-	rv->type = (rv->type == LAYOUT_TILING) ? LAYOUT_FLOATING : LAYOUT_TILING;
+	rv->type = (rv->type == LAYOUT_TILING) ?
+		LAYOUT_FLOATING :
+		LAYOUT_TILING;
 	/* rv->tiling = !rv->tiling; */
 	workspace_add_view(w, view);
 }

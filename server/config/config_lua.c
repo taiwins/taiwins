@@ -97,7 +97,7 @@ static void
 _lua_run_axisbinding(UNUSED_ARG(struct weston_pointer *pointer),
                      UNUSED_ARG(const struct timespec *time),
                      UNUSED_ARG(struct weston_pointer_axis_event *event),
-		     void *data)
+                     void *data)
 {
 	_lua_run_binding(data);
 }
@@ -319,7 +319,7 @@ _lua_to_desktop(lua_State *L)
 	struct desktop *desktop;
 	struct tw_config *config;
 
-        lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
+	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
 	config = lua_touserdata(L, -1);
 	lua_pop(L, 1);
 	desktop = tw_config_request_object(config, "desktop");
@@ -796,7 +796,7 @@ _lua_request_workspaces(lua_State *L)
 	if (lua_istable(L, -1))
 		return 1;
 	//create workspaces if not created
-        lua_pop(L, 1);
+	lua_pop(L, 1);
 	lua_newtable(L); //1
 	for (int i = 0; i < tw_desktop_num_workspaces(d) ; i++) {
 
@@ -833,9 +833,9 @@ _lua_enable_xwayland(lua_State *L)
 
 	tw_lua_assert(L, lua_gettop(L) == 2,
 	              "xwayland: invalid number of arguments");
-        val = lua_toboolean(L, 2);
-        SET_PENDING(&t->xwayland, enable, val);
-        tw_config_table_dirty(t, true);
+	val = lua_toboolean(L, 2);
+	SET_PENDING(&t->xwayland, enable, val);
+	tw_config_table_dirty(t, true);
 	return 0;
 }
 
@@ -850,7 +850,7 @@ _lua_set_keyboard_model(lua_State *L)
 {
 	struct tw_config_table *t = _lua_to_config_table(L);
 
-        tw_lua_stackcheck(L, 2);
+	tw_lua_stackcheck(L, 2);
 	t->xkb_rules.model = strdup(luaL_checkstring(L, 2));
 	return 0;
 }
@@ -860,7 +860,7 @@ _lua_set_keyboard_layout(lua_State *L)
 {
 	struct tw_config_table *t = _lua_to_config_table(L);
 
-        tw_lua_stackcheck(L, 2);
+	tw_lua_stackcheck(L, 2);
 	t->xkb_rules.layout = strdup(luaL_checkstring(L, 2));
 	tw_config_table_dirty(t, true);
 	return 0;
@@ -871,7 +871,7 @@ _lua_set_keyboard_options(lua_State *L)
 {
 	struct tw_config_table *t = _lua_to_config_table(L);
 
-        tw_lua_stackcheck(L, 2);
+	tw_lua_stackcheck(L, 2);
 	t->xkb_rules.options = strdup(luaL_checkstring(L, 2));
 	tw_config_table_dirty(t, true);
 	return 0;
@@ -884,7 +884,7 @@ _lua_set_repeat_info(lua_State *L)
 	int32_t rate;
 	int32_t delay;
 
-        tw_lua_stackcheck(L, 3);
+	tw_lua_stackcheck(L, 3);
 	rate = luaL_checknumber(L, 2);
 	delay = luaL_checknumber(L, 3);
 	SET_PENDING(&t->kb_delay, val, delay);
@@ -915,7 +915,7 @@ _lua_read_theme(lua_State *L)
 	struct tw_config_table *table = _lua_to_config_table(L);
 	struct tw_theme *theme;
 	//required for tw_theme_read
-        theme = _lua_to_theme(L);
+	theme = _lua_to_theme(L);
 	lua_pushlightuserdata(L, theme);
 	lua_setfield(L, LUA_REGISTRYINDEX, "tw_theme");
 
@@ -958,7 +958,7 @@ luaopen_taiwins(lua_State *L)
 	REGISTER_METHOD(L, "set_menus", _lua_set_menus);
 	lua_pop(L, 1);
 
-        ////////////////////// desktop //////////////////////////////
+	////////////////////// desktop //////////////////////////////
 	//metatable for workspace
 	luaL_newmetatable(L, METATABLE_WORKSPACE);
 	lua_pushvalue(L, -1);
@@ -1063,7 +1063,7 @@ tw_luaconfig_init(struct tw_config *c)
 	luaL_openlibs(L);
 	c->user_data = L;
 
-        //REGISTRIES
+	//REGISTRIES
 	lua_pushlightuserdata(L, c); //s1
 	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG); //s0
 	lua_pushlightuserdata(L, c->compositor);
@@ -1078,7 +1078,7 @@ tw_luaconfig_init(struct tw_config *c)
 	wl_signal_add(&c->compositor->output_created_signal,
 	              &c->output_created_listener);
 
-        wl_list_init(&c->output_destroyed_listener.link);
+	wl_list_init(&c->output_destroyed_listener.link);
 	c->output_destroyed_listener.notify = _lua_output_destroyed_listener;
 	wl_signal_add(&c->compositor->output_destroyed_signal,
 	              &c->output_destroyed_listener);

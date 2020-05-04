@@ -76,7 +76,7 @@ tw_xwayland_handle_chld(struct tw_subprocess *chld, int status)
 
 
 static void
-tw_xwayland_on_destroy(struct wl_listener *listener, void *data)
+tw_xwayland_on_destroy(struct wl_listener *listener, UNUSED_ARG(void *data))
 {
 	struct tw_xwayland *xwayland =
 		container_of(listener, struct tw_xwayland,
@@ -87,7 +87,7 @@ tw_xwayland_on_destroy(struct wl_listener *listener, void *data)
 }
 
 static int
-tw_xwayland_handle_sigusr1(int signal_number, void *data)
+tw_xwayland_handle_sigusr1(UNUSED_ARG(int signal_number), void *data)
 {
 	//TODO verify if the signal actually came from xserver
 	struct tw_xwayland *xwayland = data;
@@ -106,7 +106,7 @@ tw_xwayland_fork(pid_t pid, struct tw_subprocess *chld)
 	if (pid == 0)
 		signal(SIGUSR1, SIG_IGN);
 	else {
-                close(xwayland->wm[1]);
+		close(xwayland->wm[1]);
 		xwayland->pid = pid;
 	}
 	return 0;

@@ -146,12 +146,6 @@ void tw_bindings_print(struct tw_bindings *root);
 
 void tw_bindings_apply(struct tw_bindings *root);
 
-
-
-/* bool tw_parse_binding(const char *code_str, const enum tw_binding_type type, */
-/*		      struct tw_press *press); */
-
-
 #ifdef  __cplusplus
 }
 #endif

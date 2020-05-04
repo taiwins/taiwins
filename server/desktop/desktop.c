@@ -200,8 +200,8 @@ is_view_on_desktop(const struct weston_view *v, const struct desktop *desk)
 }
 
 static void
-twdesk_ping_timeout(struct weston_desktop_client *client,
-		    void *user_data)
+twdesk_ping_timeout(UNUSED_ARG(struct weston_desktop_client *client),
+                    UNUSED_ARG(void *user_data))
 {
 	//struct desktop *d = user_data;
 	//shell change cursor?
@@ -305,7 +305,8 @@ twdesk_surface_committed(struct weston_desktop_surface *desktop_surface,
 	struct weston_geometry geo =
 		weston_desktop_surface_get_geometry(desktop_surface);
 	//check the current surface geometry
-	if (geo.x != rv->visible_geometry.x || geo.y != rv->visible_geometry.y) {
+	if (geo.x != rv->visible_geometry.x ||
+	    geo.y != rv->visible_geometry.y) {
 		recent_view_get_origin_coord(rv, &x, &y);
 		weston_view_set_position(view, x - geo.x, y - geo.y);
 		weston_view_geometry_dirty(view);
@@ -350,9 +351,9 @@ twdesk_surface_resize(struct weston_desktop_surface *desktop_surface,
 
 static void
 twdesk_fullscreen(struct weston_desktop_surface *surface,
-		  bool fullscreen,
+                  bool fullscreen,
                   UNUSED_ARG(struct weston_output *output),
-		  void *user_data)
+                  void *user_data)
 {
 	struct desktop *d = user_data;
 	struct weston_surface *weston_surface =
@@ -380,7 +381,7 @@ twdesk_maximized(struct weston_desktop_surface *surface,
 
 static void
 twdesk_minimized(struct weston_desktop_surface *surface,
-		 void *user_data)
+                 void *user_data)
 {
 	struct desktop *d = user_data;
 	struct weston_surface *weston_surface =
@@ -553,7 +554,6 @@ pointer_motion_delta(struct weston_pointer *p,
 	//event->[x,y]. If it is relative, it will be pointer->x + event->dx.
 	wl_fixed_t cx, cy;
 	if (e->mask & WESTON_POINTER_MOTION_REL) {
-		//this is a short cut where you can get back as soon as possible.
 		*dx = e->dx;
 		*dy = e->dy;
 	} else {
@@ -595,7 +595,7 @@ static void noop_grab_frame(UNUSED_ARG(struct weston_pointer_grab *grab)) {}
 static void
 move_grab_pointer_motion(struct weston_pointer_grab *grab,
                          UNUSED_ARG(const struct timespec *time),
-			 struct weston_pointer_motion_event *event)
+                         struct weston_pointer_motion_event *event)
 {
 	double dx, dy;
 	struct grab_interface *gi = container_of(grab, struct grab_interface,
@@ -867,7 +867,7 @@ tw_desktop_activate_view(struct desktop *desktop,
 	struct weston_desktop_surface *s =
 		weston_surface_get_desktop_surface(surface);
 
-        if (!is_desktop_surface(surface))
+	if (!is_desktop_surface(surface))
 		return false;
 	if (workspace_focus_view(ws, view)) {
 		weston_desktop_client_ping(
@@ -888,10 +888,10 @@ tw_desktop_switch_workspace(struct desktop *desktop, uint32_t to)
 	desktop->actived_workspace[0] = &desktop->workspaces[to];
 	focused = workspace_switch(&desktop->workspaces[to], ws);
 
-        //send msgs, those type of message
+	//send msgs, those type of message
 	snprintf(msg, 32, "%d", to);
 	shell_post_message(desktop->shell,
-			   TAIWINS_SHELL_MSG_TYPE_SWITCH_WORKSPACE,
+	                   TAIWINS_SHELL_MSG_TYPE_SWITCH_WORKSPACE,
 	                   msg);
 	return focused;
 }
@@ -1092,10 +1092,12 @@ tw_setup_desktop(struct weston_compositor *ec,  struct shell *shell)
 	s_desktop.output_create_listener.notify = desktop_output_created;
 	s_desktop.output_destroy_listener.notify = desktop_output_destroyed;
 	s_desktop.output_resize_listener.notify = desktop_output_resized;
-	s_desktop.surface_transform_listener.notify = desktop_surface_transformed;
+	s_desktop.surface_transform_listener.notify =
+		desktop_surface_transformed;
 
 	//add existing output
-	shell_add_desktop_area_listener(shell, &s_desktop.desktop_area_listener);
+	shell_add_desktop_area_listener(shell,
+	                                &s_desktop.desktop_area_listener);
 	wl_signal_add(&ec->output_created_signal,
 		      &s_desktop.output_create_listener);
 	wl_signal_add(&ec->output_resized_signal,

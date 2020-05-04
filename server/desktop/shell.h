@@ -66,7 +66,8 @@ struct weston_geometry
 shell_output_available_space(struct shell *shell,
                              struct weston_output *weston_output);
 void
-shell_add_desktop_area_listener(struct shell *shell, struct wl_listener *listener);
+shell_add_desktop_area_listener(struct shell *shell,
+                                struct wl_listener *listener);
 
 #ifdef  __cplusplus
 }
