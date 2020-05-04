@@ -54,9 +54,10 @@ struct console {
 static struct console s_console;
 
 static void
-console_surface_destroy_cb(struct wl_listener *listener, void *data)
+console_surface_destroy_cb(struct wl_listener *listener, UNUSED_ARG(void *data))
 {
-	struct console *console = container_of(listener, struct console, close_console_listener);
+	struct console *console =
+		container_of(listener, struct console, close_console_listener);
 	console->surface = NULL;
 }
 
@@ -68,7 +69,8 @@ close_console(struct wl_client *client,
 		       uint32_t exec_id)
 {
 	fprintf(stderr, "the console client is %p\n", client);
-	struct console *lch = (struct console *)wl_resource_get_user_data(resource);
+	struct console *lch =
+		(struct console *)wl_resource_get_user_data(resource);
 	lch->decision_buffer = wl_shm_buffer_get(wl_buffer);
 	taiwins_console_send_exec(resource, exec_id);
 }
@@ -84,7 +86,8 @@ set_console(struct wl_client *client,
 	shell_create_ui_elem(lch->shell, client, ui_elem, wl_surface,
 			     100, 100, TAIWINS_UI_TYPE_WIDGET);
 	lch->surface = tw_surface_from_resource(wl_surface);
-	wl_resource_add_destroy_listener(wl_surface, &lch->close_console_listener);
+	wl_resource_add_destroy_listener(wl_surface,
+	                                 &lch->close_console_listener);
 }
 
 
@@ -107,24 +110,30 @@ unbind_console(struct wl_resource *r)
 
 
 static void
-bind_console(struct wl_client *client, void *data, uint32_t version, uint32_t id)
+bind_console(struct wl_client *client, void *data, UNUSED_ARG(uint32_t version),
+             uint32_t id)
 {
 	struct console *console = data;
-	struct wl_resource *wl_resource = wl_resource_create(client, &taiwins_console_interface,
-							  TWDESKP_VERSION, id);
+	struct wl_resource *wl_resource =
+		wl_resource_create(client, &taiwins_console_interface,
+		                   TWDESKP_VERSION, id);
 
 	uid_t uid; gid_t gid; pid_t pid;
 	wl_client_get_credentials(client, &pid, &uid, &gid);
 	if (console->client &&
-	    (uid != console->uid || pid != console->pid || gid != console->gid)) {
-		wl_resource_post_error(wl_resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
-				       "client %d is not un atherized console", id);
+	    (uid != console->uid || pid != console->pid ||
+	     gid != console->gid)) {
+		wl_resource_post_error(wl_resource,
+		                       WL_DISPLAY_ERROR_INVALID_OBJECT,
+		                       "client %d is not un atherized console",
+		                       id);
 		wl_resource_destroy(wl_resource);
 		return;
 	}
 	console->client = client;
 	console->resource = wl_resource;
-	wl_resource_set_implementation(wl_resource, &console_impl, console, unbind_console);
+	wl_resource_set_implementation(wl_resource, &console_impl,
+	                               console, unbind_console);
 }
 
 

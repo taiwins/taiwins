@@ -61,19 +61,19 @@ tw_compositor_get_socket(char *path)
 static bool
 tw_compositor_set_socket(struct wl_display *display, const char *name)
 {
-        if (name) {
-                if (wl_display_add_socket(display, name)) {
-                        weston_log("failed to add socket %s", name);
-                        return false;
-                }
-        } else {
-                name = wl_display_add_socket_auto(display);
-                if (!name) {
-                        weston_log("failed to add socket %s", name);
-                        return false;
-                }
-        }
-        return true;
+	if (name) {
+		if (wl_display_add_socket(display, name)) {
+			weston_log("failed to add socket %s", name);
+			return false;
+		}
+	} else {
+		name = wl_display_add_socket_auto(display);
+		if (!name) {
+			weston_log("failed to add socket %s", name);
+			return false;
+		}
+	}
+	return true;
 }
 
 

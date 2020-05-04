@@ -43,7 +43,8 @@ get_bus(void)
 }
 
 static int
-tw_dbus_dispatch_watch(int fd, uint32_t mask, void *data)
+tw_dbus_dispatch_watch(UNUSED_ARG(int fd), UNUSED_ARG(uint32_t mask),
+                       UNUSED_ARG(void *data))
 {
 	struct tw_bus *twbus = get_bus();
 	struct tdbus *bus = twbus->dbus;
@@ -56,8 +57,8 @@ tw_dbus_dispatch_watch(int fd, uint32_t mask, void *data)
 
 
 static void
-tw_bus_add_watch(void *user_data, int unix_fd, struct tdbus *bus,
-	uint32_t mask, void *watch_data)
+tw_bus_add_watch(void *user_data, int unix_fd, UNUSED_ARG(struct tdbus *bus),
+                 uint32_t mask, void *watch_data)
 {
 	struct wl_event_loop *loop;
 	struct tw_bus *twbus = user_data;
@@ -79,7 +80,8 @@ tw_bus_add_watch(void *user_data, int unix_fd, struct tdbus *bus,
 }
 
 static void
-tw_bus_ch_watch(void *user_data, int unix_fd, struct tdbus *bus,
+tw_bus_ch_watch(UNUSED_ARG(void *user_data), UNUSED_ARG(int unix_fd),
+                UNUSED_ARG(struct tdbus *bus),
                 uint32_t mask, void *watch_data)
 {
 	struct wl_event_source *s;
@@ -101,8 +103,8 @@ tw_bus_ch_watch(void *user_data, int unix_fd, struct tdbus *bus,
 }
 
 static void
-tw_bus_rm_watch(void *user_data, int unix_fd, struct tdbus *bus,
-                void *watch_data)
+tw_bus_rm_watch(UNUSED_ARG(void *user_data), UNUSED_ARG(int unix_fd),
+                UNUSED_ARG(struct tdbus *bus), void *watch_data)
 {
 	struct wl_event_source *s;
 
@@ -114,7 +116,8 @@ tw_bus_rm_watch(void *user_data, int unix_fd, struct tdbus *bus,
 }
 
 static int
-tw_bus_dispatch(int fd, uint32_t mask, void *data)
+tw_bus_dispatch(UNUSED_ARG(int fd), UNUSED_ARG(uint32_t mask),
+                UNUSED_ARG(void *data))
 {
 	struct tw_bus *bus = data;
 
@@ -124,7 +127,7 @@ tw_bus_dispatch(int fd, uint32_t mask, void *data)
 }
 
 static void
-tw_bus_end(struct wl_listener *listener, void *data)
+tw_bus_end(struct wl_listener *listener, UNUSED_ARG(void *data))
 {
 	struct tw_bus *bus = container_of(listener, struct tw_bus,
 	                                  compositor_distroy_listener);

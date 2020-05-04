@@ -75,10 +75,10 @@ struct layout_op {
 };
 
 struct layout;
-typedef	void (*layout_fun_t)(const enum layout_command command,
-			     const struct layout_op *arg,
-			     struct weston_view *v, struct layout *l,
-			     struct layout_op *ops);
+typedef void (*layout_fun_t)(const enum layout_command command,
+                             const struct layout_op *arg,
+                             struct weston_view *v, struct layout *l,
+                             struct layout_op *ops);
 
 //why I create this link based layout in the first place?
 struct layout {
@@ -89,22 +89,33 @@ struct layout {
 	void *user_data; //this user_dat is useful
 };
 
-void layout_init(struct layout *l, struct weston_layer *layer);
-void layout_release(struct layout *l);
+void
+layout_init(struct layout *l, struct weston_layer *layer);
 
-void layout_add_output(struct layout *l, struct tw_output *o);
-void layout_rm_output(struct layout *l, struct weston_output *o);
-void layout_resize_output(struct layout *l, struct tw_output *o);
+void
+layout_release(struct layout *l);
+
+void
+layout_add_output(struct layout *l, struct tw_output *o);
+
+void
+layout_rm_output(struct layout *l, struct weston_output *o);
+
+void
+layout_resize_output(struct layout *l, struct tw_output *o);
+
+void
+floating_layout_init(struct layout *layout, struct weston_layer *ly);
+
+void
+floating_layout_end(struct layout *l);
 
 
-//the weston_output is not ready when we create it
-void floating_layout_init(struct layout *layout, struct weston_layer *ly);
-void floating_layout_end(struct layout *l);
-
-
-void tiling_layout_init(struct layout *layout, struct weston_layer *ly,
-			struct layout *floating);
-void tiling_layout_end(struct layout *l);
+void
+tiling_layout_init(struct layout *layout, struct weston_layer *ly,
+                   struct layout *floating);
+void
+tiling_layout_end(struct layout *l);
 
 
 #ifdef  __cplusplus

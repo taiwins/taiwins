@@ -104,8 +104,8 @@ void
 tw_desktop_start_resize_grab(struct desktop *desktop, struct weston_view *view,
                              uint32_t option);
 void
-tw_desktop_toggle_view_layout(struct desktop *desktop, struct weston_view *view);
-
+tw_desktop_toggle_view_layout(struct desktop *desktop,
+                              struct weston_view *view);
 void
 tw_desktop_toggle_view_split(struct desktop *desktop, struct weston_view *view);
 

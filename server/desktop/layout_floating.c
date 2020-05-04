@@ -26,14 +26,16 @@
 #include "workspace.h"
 
 static void
-emplace_float(const enum layout_command command, const struct layout_op *arg,
-	       struct weston_view *v, struct layout *l,
-	       struct layout_op *ops);
+emplace_float(UNUSED_ARG(const enum layout_command command),
+              UNUSED_ARG(const struct layout_op *arg),
+              UNUSED_ARG(struct weston_view *v), UNUSED_ARG(struct layout *l),
+              struct layout_op *ops);
 
 static void
-emplace_noop(const enum layout_command command, const struct layout_op *arg,
-	      struct weston_view *v, struct layout *l,
-	      struct layout_op *ops)
+emplace_noop(UNUSED_ARG(const enum layout_command command),
+             UNUSED_ARG(const struct layout_op *arg),
+             UNUSED_ARG(struct weston_view *v), UNUSED_ARG(struct layout *l),
+             struct layout_op *ops)
 {
 	ops[0].end = true;
 }
@@ -59,9 +61,10 @@ void floating_layout_end(struct layout *layout)
 
 
 static void
-floating_add(const enum layout_command command, const struct layout_op *arg,
-	     struct weston_view *v, struct layout *l,
-	     struct layout_op *ops)
+floating_add(UNUSED_ARG(const enum layout_command command),
+             UNUSED_ARG(const struct layout_op *arg),
+             UNUSED_ARG(struct weston_view *v), UNUSED_ARG(struct layout *l),
+             struct layout_op *ops)
 {
 	struct weston_geometry geo = {
 		v->output->x, v->output->y,
@@ -87,9 +90,11 @@ floating_add(const enum layout_command command, const struct layout_op *arg,
 }
 
 static void
-floating_deplace(const enum layout_command command, const struct layout_op *arg,
-		 struct weston_view *v, struct layout *l,
-		 struct layout_op *ops)
+floating_deplace(UNUSED_ARG(const enum layout_command command),
+                 UNUSED_ARG(const struct layout_op *arg),
+                 UNUSED_ARG(struct weston_view *v),
+                 UNUSED_ARG(struct layout *l),
+                 struct layout_op *ops)
 {
 	struct weston_position curr_pos = {
 		v->geometry.x,
@@ -105,9 +110,10 @@ floating_deplace(const enum layout_command command, const struct layout_op *arg,
 }
 
 static void
-floating_resize(const enum layout_command command, const struct layout_op *arg,
-		struct weston_view *v, struct layout *l,
-		struct layout_op *ops)
+floating_resize(UNUSED_ARG(const enum layout_command command),
+                UNUSED_ARG(const struct layout_op *arg),
+                UNUSED_ARG(struct weston_view *v), UNUSED_ARG(struct layout *l),
+                struct layout_op *ops)
 {
 	struct weston_geometry visible = get_recent_view(v)->visible_geometry;
 	struct weston_geometry buttom_right = {
@@ -139,8 +145,8 @@ floating_resize(const enum layout_command command, const struct layout_op *arg,
 
 void
 emplace_float(const enum layout_command command, const struct layout_op *arg,
-	       struct weston_view *v, struct layout *l,
-	       struct layout_op *ops)
+              struct weston_view *v, struct layout *l,
+              struct layout_op *ops)
 {
 	struct placement_node {
 		enum layout_command command;

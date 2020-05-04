@@ -75,7 +75,6 @@ struct tw_config {
 	struct tw_bindings *bindings;
 	struct tw_config_table *config_table;
 	log_func_t print;
-	bool quit;
 	bool _config_time; /**< mark for configuration is running */
 	vector_t registry;
 	vector_t config_bindings;
@@ -138,7 +137,7 @@ struct tw_config_obj {
 typedef struct {
 	int rotate;
 	bool flip;
-        enum wl_output_transform t;
+	enum wl_output_transform t;
 } tw_config_transform_t;
 
 typedef OPTION(enum wl_output_transform, transform) pending_transform_t;
@@ -192,7 +191,7 @@ struct tw_config_table {
 	pending_xwayland_enable_t xwayland;
 	pending_theme_reading_t theme;
 
-        pending_path_t background_path;
+	pending_path_t background_path;
 	pending_path_t widgets_path;
 	pending_panel_pos_t panel_pos;
 	pending_vec_t menu;

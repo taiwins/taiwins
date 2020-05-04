@@ -203,7 +203,7 @@ switch_workspace_last(struct weston_keyboard *keyboard,
 		tw_config_request_object(config, "desktop");
 	int last_ws = tw_desktop_get_last_workspace(desktop);
 
-        view = tw_desktop_switch_workspace(desktop, last_ws);
+	view = tw_desktop_switch_workspace(desktop, last_ws);
 	if (keyboard->focus)
 		if (keyboard->focus)
 			tw_lose_surface_focus(keyboard->focus);
@@ -227,10 +227,10 @@ resize_view(struct weston_keyboard *keyboard,
 	struct weston_view *focused = (surface) ?
 		tw_default_view_from_surface(surface) : NULL;
 
-        if (!focused)
+	if (!focused)
 		return;
 
-        tw_desktop_start_resize_grab(desktop, focused, option);
+	tw_desktop_start_resize_grab(desktop, focused, option);
 
 }
 
@@ -248,7 +248,7 @@ toggle_view_split(struct weston_keyboard *keyboard,
 	if (!keyboard->focus)
 		return;
 	view = tw_default_view_from_surface(keyboard->focus);
-        tw_desktop_toggle_view_split(desktop, view);
+	tw_desktop_toggle_view_split(desktop, view);
 }
 
 void
@@ -424,7 +424,8 @@ tw_config_default_bindings(struct tw_config *c)
 		.name = "TW_VIEW_RESIZE_RIGHT",
 	};
 	c->builtin_bindings[TW_NEXT_VIEW_BINDING] = (struct tw_binding){
-		.keypress = {{KEY_J, MODIFIER_ALT | MODIFIER_SHIFT},{0},{0},{0},{0}},
+		.keypress = {{KEY_J, MODIFIER_ALT | MODIFIER_SHIFT},
+		             {0},{0},{0},{0}},
 		.type = TW_BINDING_key,
 		.name = "TW_NEXT_VIEW",
 	};
@@ -465,17 +466,17 @@ tw_config_install_bindings(struct tw_config *c, struct tw_bindings *root)
 	if (!tw_bindings_add_axis(root, axisaction, alpha_axis, c))
 		return false;
 
-        b = tw_config_get_builtin_binding(c, TW_MOVE_PRESS_BINDING);
+	b = tw_config_get_builtin_binding(c, TW_MOVE_PRESS_BINDING);
 	btnpress = &b->btnpress;
 	if (!tw_bindings_add_btn(root, btnpress, moving_surface_pointer, c))
 		return false;
 
-        b = tw_config_get_builtin_binding(c, TW_FOCUS_PRESS_BINDING);
+	b = tw_config_get_builtin_binding(c, TW_FOCUS_PRESS_BINDING);
 	btnpress = &b->btnpress;
 	if (!tw_bindings_add_btn(root, btnpress, click_activate_surface, c))
 		return false;
 
-        b = tw_config_get_builtin_binding(c, TW_SWITCH_WS_LEFT_BINDING);
+	b = tw_config_get_builtin_binding(c, TW_SWITCH_WS_LEFT_BINDING);
 	keypress = b->keypress;
 	if (!tw_bindings_add_key(root, keypress, switch_workspace, true, c))
 		return false;
@@ -490,7 +491,7 @@ tw_config_install_bindings(struct tw_config *c, struct tw_bindings *root)
 	if (!tw_bindings_add_key(root, keypress, switch_workspace_last, 0, c))
 		return false;
 
-        b = tw_config_get_builtin_binding(c,TW_TOGGLE_FLOATING_BINDING);
+	b = tw_config_get_builtin_binding(c,TW_TOGGLE_FLOATING_BINDING);
 	keypress = b->keypress;
 	if (!tw_bindings_add_key(root, keypress, toggle_view_layout, 0, c))
 		return false;
@@ -505,22 +506,22 @@ tw_config_install_bindings(struct tw_config *c, struct tw_bindings *root)
 	if (!tw_bindings_add_key(root, keypress, split_desktop_view, 0, c))
 		return false;
 
-        b = tw_config_get_builtin_binding(c,TW_HSPLIT_WS_BINDING);
+	b = tw_config_get_builtin_binding(c,TW_HSPLIT_WS_BINDING);
 	keypress = b->keypress;
 	if (!tw_bindings_add_key(root, keypress, split_desktop_view, 1, c))
 		return false;
 
-        b = tw_config_get_builtin_binding(c,TW_MERGE_BINDING);
+	b = tw_config_get_builtin_binding(c,TW_MERGE_BINDING);
 	keypress = b->keypress;
 	if (!tw_bindings_add_key(root, keypress, merge_desktop_view, 0, c))
 		return false;
 
-        b = tw_config_get_builtin_binding(c,TW_RESIZE_ON_LEFT_BINDING);
+	b = tw_config_get_builtin_binding(c,TW_RESIZE_ON_LEFT_BINDING);
 	keypress = b->keypress;
 	if (!tw_bindings_add_key(root, keypress, resize_view, RESIZE_LEFT, c))
 		return false;
 
-        b = tw_config_get_builtin_binding(c,TW_RESIZE_ON_RIGHT_BINDING);
+	b = tw_config_get_builtin_binding(c,TW_RESIZE_ON_RIGHT_BINDING);
 	keypress = b->keypress;
 	if (!tw_bindings_add_key(root, keypress, resize_view, RESIZE_RIGHT, c))
 		return false;
@@ -530,7 +531,7 @@ tw_config_install_bindings(struct tw_config *c, struct tw_bindings *root)
 	if (!tw_bindings_add_key(root, keypress, desktop_recent_view, 0, c))
 		return false;
 
-        vector_for_each(ub, &c->config_bindings) {
+	vector_for_each(ub, &c->config_bindings) {
 		switch (ub->type) {
 		case TW_BINDING_key:
 			safe = safe && tw_bindings_add_key(root, ub->keypress,
@@ -553,5 +554,5 @@ tw_config_install_bindings(struct tw_config *c, struct tw_bindings *root)
 			break;
 	}
 
-        return safe;
+	return safe;
 }
