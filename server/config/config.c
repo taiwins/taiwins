@@ -381,6 +381,22 @@ purge_xkb_rules(struct xkb_rule_names *rules)
 	rules->variant = NULL;
 }
 
+static inline void
+complete_xkb_rules(struct xkb_rule_names *dst,
+                   const struct xkb_rule_names *src)
+{
+	if (!dst->rules)
+		dst->rules = src->rules;
+	if (!dst->layout)
+		dst->layout = src->layout;
+	if (!dst->model)
+		dst->model = src->model;
+	if (!dst->options)
+		dst->options = src->options;
+	if (!dst->variant)
+		dst->variant = src->variant;
+}
+
 static inline bool
 xkb_rules_valid(struct xkb_rule_names *rules)
 {
@@ -534,8 +550,10 @@ tw_config_table_flush(struct tw_config_table *t)
 		t->theme.valid = false;
 	}
 
-	if (xkb_rules_valid(&t->xkb_rules))
+	if (xkb_rules_valid(&t->xkb_rules)) {
+		complete_xkb_rules(&t->xkb_rules, &ec->xkb_names);
 		weston_compositor_set_xkb_rule_names(ec, &t->xkb_rules);
+	}
 	t->xkb_rules = (struct xkb_rule_names){0};
 
 	if (t->kb_repeat.valid && t->kb_repeat.val > 0) {
