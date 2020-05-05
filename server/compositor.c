@@ -43,6 +43,8 @@
 
 FILE *logfile;
 
+static struct xkb_rule_names default_xkb_rules = {0};
+
 static void
 tw_compositor_get_socket(char *path)
 {
@@ -166,6 +168,7 @@ int main(int argc, char *argv[])
 	compositor = weston_compositor_create(display, context, NULL);
 	weston_log_set_handler(tw_log, tw_log);
 	compositor->exit = tw_compositor_handle_exit;
+	weston_compositor_set_xkb_rule_names(compositor, &default_xkb_rules);
 
 	tw_create_config_dir();
 	tw_config_dir(path);
@@ -174,7 +177,7 @@ int main(int argc, char *argv[])
 	tw_config_register_object(config, "shell_path", (void *)shellpath);
 	tw_config_register_object(config, "console_path", (void *)launcherpath);
 
-	if (!tw_run_config(config) && tw_run_default_config(config))
+	if (!tw_run_config(config) && !tw_run_default_config(config))
 		goto out;
 
 	wl_display_run(display);

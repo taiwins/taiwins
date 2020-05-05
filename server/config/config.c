@@ -288,6 +288,7 @@ tw_run_default_config(struct tw_config *c)
 	c->compositor->kb_repeat_rate = 20;
 
 	tw_config_wake_compositor(c);
+	tw_config_install_bindings(c, c->bindings);
 	tw_bindings_apply(c->bindings);
 	return true;
 }
@@ -378,6 +379,14 @@ purge_xkb_rules(struct xkb_rule_names *rules)
 	if (rules->variant)
 		free((void *)rules->variant);
 	rules->variant = NULL;
+}
+
+static inline bool
+xkb_rules_valid(struct xkb_rule_names *rules)
+{
+	return rules->rules || rules->layout ||
+		rules->model || rules->options ||
+		rules->variant;
 }
 
 static void
@@ -525,9 +534,9 @@ tw_config_table_flush(struct tw_config_table *t)
 		t->theme.valid = false;
 	}
 
-	/* if (t->xkb_rules.rules || t->xkb_rules.layout || t->xkb_rules.) */
-	weston_compositor_set_xkb_rule_names(ec, &t->xkb_rules);
-	purge_xkb_rules(&t->xkb_rules);
+	if (xkb_rules_valid(&t->xkb_rules))
+		weston_compositor_set_xkb_rule_names(ec, &t->xkb_rules);
+	t->xkb_rules = (struct xkb_rule_names){0};
 
 	if (t->kb_repeat.valid && t->kb_repeat.val > 0) {
 		ec->kb_repeat_rate = t->kb_repeat.val;
