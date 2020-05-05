@@ -35,16 +35,13 @@
 
 #include "helpers.h"
 #include "taiwins.h"
-#include "config.h"
 
 #define XSERVER_PATH "Xwayland"
 
-typedef OPTION(bool, enable) tw_xwayland_enable_t;
 
 static struct tw_xwayland {
 	struct weston_compositor *compositor;
 	struct wl_listener compositor_destroy_listener;
-	struct tw_config_component_listener config_component;
 	struct tw_subprocess process;
 	const struct weston_xwayland_api *api;
 
@@ -55,9 +52,6 @@ static struct tw_xwayland {
 	pid_t pid;
 	int wm[2], abstract_fd, unix_fd;
 	struct wl_event_source *usr1_source;
-
-	/**< options **/
-	tw_xwayland_enable_t enabled;
 } s_xwayland;
 
 
@@ -82,7 +76,7 @@ tw_xwayland_handle_chld(struct tw_subprocess *chld, int status)
 
 
 static void
-tw_xwayland_on_destroy(struct wl_listener *listener, void *data)
+tw_xwayland_on_destroy(struct wl_listener *listener, UNUSED_ARG(void *data))
 {
 	struct tw_xwayland *xwayland =
 		container_of(listener, struct tw_xwayland,
@@ -93,7 +87,7 @@ tw_xwayland_on_destroy(struct wl_listener *listener, void *data)
 }
 
 static int
-tw_xwayland_handle_sigusr1(int signal_number, void *data)
+tw_xwayland_handle_sigusr1(UNUSED_ARG(int signal_number), void *data)
 {
 	//TODO verify if the signal actually came from xserver
 	struct tw_xwayland *xwayland = data;
@@ -112,7 +106,7 @@ tw_xwayland_fork(pid_t pid, struct tw_subprocess *chld)
 	if (pid == 0)
 		signal(SIGUSR1, SIG_IGN);
 	else {
-                close(xwayland->wm[1]);
+		close(xwayland->wm[1]);
 		xwayland->pid = pid;
 	}
 	return 0;
@@ -186,31 +180,6 @@ tw_spawn_xwayland(void *user_data, const char *display, int abstract_fd,
 	return xwayland->pid;
 }
 
-static void
-tw_xwayland_apply_config(struct tw_config *c, bool cleanup,
-                         struct tw_config_component_listener *listener)
-{
-	struct weston_xwayland *xwayland;
-
-	struct tw_xwayland *tw_xwayland =
-		container_of(listener, struct tw_xwayland, config_component);
-	if (cleanup)
-		return;
-
-	//once xwayland module loaded, you need to check for reloading, since it
-	//is not good intention to load another xwayland wm. exiting xwayland
-	//and reload is not a good idea either, so here we only load xwayland if
-	// 1) it is not loaded already
-	// 2) option tells us to do it.
-	xwayland = tw_xwayland->api->get(tw_xwayland->compositor);
-	if (!tw_xwayland->xwayland &&
-	    tw_xwayland->enabled.enable && tw_xwayland->enabled.valid)
-		tw_xwayland->api->listen(xwayland, tw_xwayland,
-		                         tw_spawn_xwayland);
-	tw_xwayland->xwayland = xwayland;
-	tw_xwayland->enabled.valid = false;
-}
-
 /*******************************************************************************
  * public functions
  ******************************************************************************/
@@ -221,14 +190,24 @@ tw_xwayland_get_global()
 }
 
 void
-tw_xwayland_enable(struct tw_xwayland *xwayland, bool enable)
+tw_xwayland_enable(struct tw_xwayland *tw_xwayland, bool enable)
 {
-	xwayland->enabled.enable = enable;
-	xwayland->enabled.valid = true;
+	struct weston_xwayland *xwayland;
+
+	//once xwayland module loaded, you need to check for reloading, since it
+	//is not good intention to load another xwayland wm. exiting xwayland
+	//and reload is not a good idea either, so here we only load xwayland if
+	// 1) it is not loaded already
+	// 2) option tells us to do it.
+	xwayland = tw_xwayland->api->get(tw_xwayland->compositor);
+	if (!tw_xwayland->xwayland && enable)
+		tw_xwayland->api->listen(xwayland, tw_xwayland,
+		                         tw_spawn_xwayland);
+	tw_xwayland->xwayland = xwayland;
 }
 
-bool
-tw_setup_xwayland(struct weston_compositor *ec, struct tw_config *config)
+struct tw_xwayland *
+tw_setup_xwayland(struct weston_compositor *ec)
 {
 	const struct weston_xwayland_api *api;
 	struct wl_event_loop *loop;
@@ -237,14 +216,14 @@ tw_setup_xwayland(struct weston_compositor *ec, struct tw_config *config)
 
 	if (!(xwayland_init =
 	      tw_load_weston_module("xwayland.so", "weston_module_init")))
-		return false;
+		return NULL;
 	if (xwayland_init(ec) < 0)
-		return false;
+		return NULL;
 
 	api = weston_xwayland_get_api(ec);
 	if (!api) {
 		weston_log("faild to load xwayland API.\n");
-		return false;
+		return NULL;
 	}
 
 	s_xwayland.compositor = ec;
@@ -256,16 +235,10 @@ tw_setup_xwayland(struct weston_compositor *ec, struct tw_config *config)
 	s_xwayland.wm[0] = -1;
 	s_xwayland.wm[1] = -1;
 	//defaulty to true
-	s_xwayland.enabled.enable = true;
-	s_xwayland.enabled.valid = true;
 
 	wl_list_init(&s_xwayland.compositor_destroy_listener.link);
 	wl_signal_add(&ec->destroy_signal,
 	              &s_xwayland.compositor_destroy_listener);
-
-	wl_list_init(&s_xwayland.config_component.link);
-	s_xwayland.config_component.apply = tw_xwayland_apply_config;
-	tw_config_add_component(config, &s_xwayland.config_component);
 
 	loop = wl_display_get_event_loop(ec->wl_display);
 	s_xwayland.usr1_source =
@@ -273,5 +246,5 @@ tw_setup_xwayland(struct weston_compositor *ec, struct tw_config *config)
 		                         tw_xwayland_handle_sigusr1,
 		                         &s_xwayland);
 
-	return true;
+	return &s_xwayland;
 }

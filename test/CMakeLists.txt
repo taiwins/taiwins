@@ -38,7 +38,13 @@ target_link_libraries(test_lua
 ###########################################
 add_executable(test_config
   testconfig.c
+  ../server/bus.c
+  ../server/theme.c
   ../server/config/theme_lua.c
+  ../server/config/config.c
+  ../server/config/config_lua.c
+  ../server/config/config_parser.c
+  ../server/config/config_bindings.c
   )
 
 target_include_directories(test_config PRIVATE
@@ -49,9 +55,8 @@ target_include_directories(test_config PRIVATE
 target_link_libraries(test_config
   ${COMPOSITOR_LIBRARIES}
   twcore
+  tdbus
   twdesktop
-  twtheme
-  twxwayland
   twclient::theme
   )
 
@@ -98,6 +103,7 @@ add_executable(test_theme
 
 target_link_libraries(
   test_theme
+  libweston::libweston
   twclient::theme
   twclient::twclient
   twclient::nkcairo

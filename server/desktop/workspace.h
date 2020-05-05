@@ -23,18 +23,19 @@
 #define TW_WORKSPACE_H
 
 #include <libweston/libweston.h>
+#include <libweston-desktop/libweston-desktop.h>
 #include <stdbool.h>
 #include <unistd.h>
-#define INCLUDE_DESKTOP
 
 #include "../taiwins.h"
 #include "layout.h"
 
+#define FRONT_LAYER_POS WESTON_LAYER_POSITION_NORMAL+1
+#define BACK_LAYER_POS  WESTON_LAYER_POSITION_NORMAL
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
-
-
 
 struct workspace {
 	struct layout floating_layout;
@@ -48,7 +49,7 @@ struct workspace {
 	struct weston_layer fullscreen_layer;
 
 	/** current workspace can be in state like floating, tiling, fullscreen */
-	enum layout_type current_layout;
+	enum tw_layout_type current_layout;
 
 	//this list will be used in creating/deleting views. switch workspace,
 	//switch views by key, click views will be horrible though. You have to
@@ -82,7 +83,7 @@ struct recent_view {
 	struct weston_geometry visible_geometry;
 	struct weston_geometry old_geometry;
 	struct wl_list link;
-	enum layout_type type;
+	enum tw_layout_type type;
 
 	struct {
 		int32_t x;
@@ -94,7 +95,7 @@ struct recent_view {
 /*************************************************************
  * recent views
  ************************************************************/
-struct recent_view *recent_view_create(struct weston_view *view, enum layout_type layout);
+struct recent_view *recent_view_create(struct weston_view *view, enum tw_layout_type layout);
 void recent_view_destroy(struct recent_view *);
 
 static inline struct recent_view *
@@ -124,9 +125,12 @@ workspace_init(struct workspace *wp, struct weston_compositor *compositor);
 void
 workspace_release(struct workspace *);
 
-void
-workspace_switch(struct workspace *to, struct workspace *from,
-		      struct weston_keyboard *keyboard);
+struct weston_view *
+workspace_switch(struct workspace *to, struct workspace *from);
+
+struct weston_view *
+workspace_get_top_view(const struct workspace *ws);
+
 const char *
 workspace_layout_name(struct workspace *ws);
 

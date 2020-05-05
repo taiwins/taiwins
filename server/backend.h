@@ -1,7 +1,7 @@
 /*
- * bus.h - taiwins server bus header
+ * backend.h - taiwins server backend header
  *
- * Copyright (c) 2019 Xichen Zhou
+ * Copyright (c) 2020 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,29 +19,18 @@
  *
  */
 
-#ifndef TW_BUS_H
-#define TW_BUS_H
-
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
+#ifndef TW_BACKEND_H
+#define TW_BACKEND_H
 
 #include <libweston/libweston.h>
-#include <tdbus.h>
 
-#include "taiwins.h"
-#include "config.h"
+struct tw_backend;
 
-#ifdef  __cplusplus
-extern "C" {
-#endif
+struct tw_backend *
+tw_setup_backend(struct weston_compositor *ec);
 
-bool tw_setup_bus(struct weston_compositor *ec, struct tw_config *config);
-
-#ifdef  __cplusplus
-}
-#endif
-
+enum weston_compositor_backend
+tw_backend_get_type(struct tw_backend *be);
 
 
 #endif /* EOF */

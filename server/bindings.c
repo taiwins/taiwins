@@ -30,6 +30,7 @@
 
 #include <tree.h>
 #include "bindings.h"
+#include "helpers.h"
 
 
 static inline xkb_keycode_t
@@ -122,7 +123,8 @@ tw_keybinding_key(struct weston_keyboard_grab *grab,
 			if (vtree_len(&node->node) == 0) {
 				grab->interface->cancel(grab);
 				node->key_binding(keyboard, time, key,
-						  node->option, node->user_data);
+				                  node->option,
+				                  node->user_data);
 			}
 			break;
 		}
@@ -132,10 +134,12 @@ tw_keybinding_key(struct weston_keyboard_grab *grab,
 }
 
 static void
-tw_keybinding_modifiers(struct weston_keyboard_grab *grab,
-			uint32_t serial, uint32_t mods_depressed,
-			uint32_t mods_latched,
-			uint32_t mods_locked, uint32_t group)
+tw_keybinding_modifiers(UNUSED_ARG(struct weston_keyboard_grab *grab),
+                        UNUSED_ARG(uint32_t serial),
+                        UNUSED_ARG(uint32_t mods_depressed),
+                        UNUSED_ARG(uint32_t mods_latched),
+                        UNUSED_ARG(uint32_t mods_locked),
+                        UNUSED_ARG(uint32_t group))
 {
 	//Do nothing here, the weston_keyboard is already updated
 }
@@ -157,9 +161,8 @@ static struct weston_keyboard_grab_interface tw_keybinding_grab = {
 
 static void
 tw_start_keybinding(struct weston_keyboard *keyboard,
-		    const struct timespec *time,
-		    uint32_t key,
-		    void *data)
+                    UNUSED_ARG(const struct timespec *time),
+                    UNUSED_ARG(uint32_t key), UNUSED_ARG(void *data))
 {
 	//if you read the code of libweston, in the function
 	//weston_compositor_run_key_binding it does a little trick. Because the
@@ -194,8 +197,10 @@ tw_bindings_create(struct weston_compositor *ec)
 		vtree_node_init(&root->root_node.node,
 				offsetof(struct tw_binding_node, node));
 	}
-	vector_init_zero(&root->apply_list, sizeof(struct tw_binding), NULL);
-	vector_init_zero(&root->weston_bindings, sizeof(struct weston_binding *), NULL);
+	vector_init_zero(&root->apply_list,
+	                 sizeof(struct tw_binding), NULL);
+	vector_init_zero(&root->weston_bindings,
+	                 sizeof(struct weston_binding *), NULL);
 	return root;
 }
 
@@ -287,7 +292,7 @@ tw_bindings_add_touch(struct tw_bindings *root,
 }
 
 /**
- * /brief add_key_bindings
+ * @brief add_key_bindings
  *
  * going through the tree structure to add leaves. We are taking the
  * considerration of collisions, this is IMPORTANT because we can only activate
@@ -307,14 +312,15 @@ tw_bindings_add_key(struct tw_bindings *root,
 		uint32_t linux_code = presses[i].keycode;
 		xkb_keycode_t code = kc_linux2xkb(linux_code);
 		int hit = -1;
+		struct tw_binding_node *binding;
 
 		if (linux_code == KEY_RESERVED)
 			break;
 
 		for (unsigned j = 0; j < vtree_len(&subtree->node); j++) {
 			//find the collisions
-			struct tw_binding_node *binding =
-				vtree_container(vtree_ith_child(&subtree->node, j));
+			 binding =
+				 vtree_container(vtree_ith_child(&subtree->node, j));
 			if (mod == binding->modifier &&
 			    code == binding->keycode) {
 				hit = j;
