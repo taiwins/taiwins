@@ -779,6 +779,7 @@ static struct weston_pointer_grab_interface desktop_alpha_grab = {
 	.focus = noop_grab_focus,
 	.motion = noop_grab_pointer_motion,
 	.button = noop_grab_pointer_btn,
+	.frame = noop_grab_frame,
 	.axis = alpha_grab_pointer_axis,
 	.cancel = pointer_grab_cancel,
 	.axis_source = noop_grab_axis_source,
