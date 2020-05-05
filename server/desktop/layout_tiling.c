@@ -42,9 +42,9 @@ emplace_tiling(const enum layout_command command, const struct layout_op *arg,
 	       struct layout_op *ops);
 
 
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////// tining layout ///////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
+/*******************************************************************************
+ * tiling lyaout
+ ******************************************************************************/
 
 struct tiling_output;
 struct tiling_view {
@@ -578,8 +578,9 @@ tiling_del(UNUSED_ARG(const enum layout_command command),
 	   struct layout_op *ops)
 {
 	struct tiling_output *tiling_output = tiling_output_find(l, v->output);
-	struct tiling_view *view = tiling_view_find(tiling_output->root, v);
-	struct tiling_view *parent = tiling_view_erase(view);
+	struct tiling_view *view = tiling_output ?
+		tiling_view_find(tiling_output->root, v) : NULL;
+	struct tiling_view *parent = view ? tiling_view_erase(view) : NULL;
 	if (parent) {
 		struct weston_geometry space =
 			tiling_subtree_space(parent, tiling_output->root,

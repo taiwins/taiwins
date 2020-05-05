@@ -389,7 +389,8 @@ twdesk_minimized(struct weston_desktop_surface *surface,
 	struct workspace *ws = d->actived_workspace[0];
 	struct weston_view *view =
 		tw_default_view_from_surface(weston_surface);
-		workspace_minimize_view(ws, view);
+	workspace_minimize_view(ws, view);
+	tw_focus_surface(workspace_get_top_view(ws)->surface);
 }
 
 static void
