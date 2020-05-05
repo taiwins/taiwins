@@ -33,7 +33,6 @@
 #include <wayland-util.h>
 
 #include "taiwins.h"
-#include "config.h"
 
 struct shell;
 
@@ -44,7 +43,6 @@ struct theme {
 	struct tw_config *config;
 	//it can apply to many clients
 	struct wl_list clients; //why do we need clients?
-	struct tw_config_component_listener config_component;
 
 	struct tw_theme global_theme;
 	int fd;
@@ -58,17 +56,14 @@ tw_theme_get_global(void)
 }
 
 
-static void
-apply_theme_lua(struct tw_config *c, bool cleanup,
-                struct tw_config_component_listener *listener)
+void
+tw_theme_notify(struct tw_theme *global_theme)
 {
 	struct wl_resource *client;
 	struct theme *theme =
-		container_of(listener, struct theme, config_component);
+		container_of(global_theme, struct theme, global_theme);
 	struct tw_theme *tw_theme = &theme->global_theme;
 
-	if (cleanup)
-		return;
 	if (theme->fd > 0)
 		close(theme->fd);
 
@@ -96,7 +91,8 @@ unbind_theme(struct wl_resource *resource)
 }
 
 static void
-bind_theme(struct wl_client *client, void *data, uint32_t version, uint32_t id)
+bind_theme(struct wl_client *client, void *data, UNUSED_ARG(uint32_t version),
+           uint32_t id)
 {
 	struct theme *theme = data;
 	struct tw_theme *tw_theme = &theme->global_theme;
@@ -136,21 +132,14 @@ end_theme(struct wl_listener *listener, void *data)
  ******************************************************************************/
 
 struct tw_theme *
-tw_theme_access_theme(struct theme *theme)
-{
-	return &theme->global_theme;
-}
-
-
-bool
-tw_setup_theme(struct weston_compositor *ec, struct tw_config *config)
+tw_setup_theme(struct weston_compositor *ec)
 {
 	THEME.ec = ec;
 	THEME.global = wl_global_create(ec->wl_display,
 	                                &taiwins_theme_interface,
-					taiwins_theme_interface.version,
+	                                taiwins_theme_interface.version,
 	                                &THEME,
-					bind_theme);
+	                                bind_theme);
 	tw_theme_init_default(&THEME.global_theme);
 
 	wl_list_init(&THEME.clients);
@@ -159,9 +148,5 @@ tw_setup_theme(struct weston_compositor *ec, struct tw_config *config)
 	THEME.compositor_destroy_listener.notify = end_theme;
 	wl_signal_add(&ec->destroy_signal, &THEME.compositor_destroy_listener);
 
-	wl_list_init(&THEME.config_component.link);
-	THEME.config_component.apply = apply_theme_lua;
-	tw_config_add_component(config, &THEME.config_component);
-
-	return true;
+	return &THEME.global_theme;
 }
