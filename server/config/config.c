@@ -37,7 +37,6 @@
 #include <libweston/libweston.h>
 
 #include "config_internal.h"
-#include "server/bindings.h"
 
 /******************************************************************************
  * API
@@ -120,6 +119,14 @@ tw_config_register_object(struct tw_config *config,
                           const char *name, void *obj)
 {
 	struct tw_config_obj object;
+	struct tw_config_obj *find;
+
+	vector_for_each(find, &config->registry) {
+		if (!strcmp(find->name, name)) {
+			find->data = obj;
+			return;
+		}
+	}
 
 	strop_ncpy((char *)object.name, name, 32);
 	object.data = obj;
@@ -220,6 +227,9 @@ tw_try_config(struct tw_config *tmp_config, struct tw_config *main_config)
 	tw_config_register_object(tmp_config, "console_path",
 	                          tw_config_request_object(main_config,
 	                                                   "console_path"));
+	tw_config_register_object(tmp_config, "initialized",
+	                          tw_config_request_object(main_config,
+	                                                   "initialized"));
 	tmp_config->init(tmp_config);
 
 	if (is_file_exist(path)) {

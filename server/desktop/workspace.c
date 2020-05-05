@@ -79,6 +79,8 @@ void
 workspace_release(struct workspace *ws)
 {
 	struct weston_view *view, *next;
+	struct weston_surface *surf;
+
 	struct weston_layer *layers[4]  = {
 		&ws->floating_layer,
 		&ws->tiling_layer,
@@ -92,19 +94,21 @@ workspace_release(struct workspace *ws)
 		wl_list_for_each_safe(view, next,
 				      &layers[i]->view_list.link,
 				      layer_link.link) {
-			struct weston_surface *surface =
-				weston_surface_get_main_surface(view->surface);
-			weston_surface_destroy(surface);
+			surf = weston_surface_get_main_surface(view->surface);
+			wl_resource_destroy(surf->resource);
 		}
 	}
 	floating_layout_end(&ws->floating_layout);
 	tiling_layout_end(&ws->tiling_layout);
 }
 
-static inline struct weston_view *
+struct weston_view *
 workspace_get_top_view(const struct workspace *ws)
 {
 	struct weston_view *view;
+	wl_list_for_each(view, &ws->fullscreen_layer.view_list.link,
+	                 layer_link.link)
+		return view;
 	wl_list_for_each(view, &ws->floating_layer.view_list.link,
 	                 layer_link.link)
 		return view;
@@ -196,61 +200,40 @@ workspace_switch(struct workspace *to, struct workspace *from)
 	weston_layer_unset_position(&from->tiling_layer);
 	weston_layer_unset_position(&from->fullscreen_layer);
 
-	weston_layer_set_position(&to->tiling_layer,
-	                          WESTON_LAYER_POSITION_NORMAL);
-	weston_layer_set_position(&to->floating_layer ,
-	                          WESTON_LAYER_POSITION_NORMAL+1);
+	weston_layer_set_position(&to->tiling_layer, BACK_LAYER_POS);
+	weston_layer_set_position(&to->floating_layer ,FRONT_LAYER_POS);
 	weston_layer_set_position(&to->fullscreen_layer,
 	                          WESTON_LAYER_POSITION_FULLSCREEN);
 	return workspace_get_top_view(to);
 }
 
-
-static void
-workspace_clear_floating(struct workspace *ws)
-{
-	struct weston_view *view, *next;
-	if (wl_list_length(&ws->floating_layer.view_list.link))
-		wl_list_for_each_safe(view, next,
-				      &ws->floating_layer.view_list.link,
-				      layer_link.link) {
-			weston_layer_entry_remove(&view->layer_link);
-			weston_layer_entry_insert(&ws->hidden_layer.view_list,
-						  &view->layer_link);
-		}
-}
-
 bool
 workspace_focus_view(struct workspace *ws, struct weston_view *v)
 {
-	struct weston_layer *l = (v) ? v->layer_link.layer : NULL;
+	struct recent_view *rv;
+	struct weston_layer *front;
+	struct weston_layer *back;
+
 	if (!is_view_on_workspace(v, ws))
-		return NULL;
-	//view on floating layer, it is the easiest
-	if (l == &ws->floating_layer) {
-		weston_layer_entry_remove(&v->layer_link);
-		weston_layer_entry_insert(&ws->floating_layer.view_list,
-					  &v->layer_link);
-		//we should some how ping on it
-	}  else if (l == &ws->tiling_layer) {
-		//right now moving all the views to hidden layer
-		workspace_clear_floating(ws);
-		weston_layer_entry_remove(&v->layer_link);
-		weston_layer_entry_insert(&ws->tiling_layer.view_list,
-					  &v->layer_link);
+		return false;
+	//this front back layer is optional. view could be on hidden layer or
+	//fullscreen layer. Then front and back layers do not apply
+	front = (v) ? v->layer_link.layer : NULL;
+	back = (front == &ws->floating_layer) ?
+		&ws->tiling_layer : &ws->floating_layer;
+
+	//we would have to switch the floating
+	weston_layer_entry_remove(&v->layer_link);
+	weston_layer_entry_insert(&front->view_list, &v->layer_link);
+
+	if (v->layer_link.layer == &ws->floating_layer ||
+	    v->layer_link.layer == &ws->tiling_layer) {
+		weston_layer_set_position(front, FRONT_LAYER_POS);
+		weston_layer_set_position(back, BACK_LAYER_POS);
 	}
-	else if (l == &ws->hidden_layer) {
-		weston_layer_entry_remove(&v->layer_link);
-		weston_layer_entry_insert(&ws->floating_layer.view_list,
-					  &v->layer_link);
-	}
-	else if (l == &ws->fullscreen_layer) {
-		weston_layer_entry_remove(&v->layer_link);
-		weston_layer_entry_insert(&ws->fullscreen_layer.view_list,
-					  &v->layer_link);
-	}
+
 	//manage the recent views
-	struct recent_view *rv = get_recent_view(v);
+	rv = get_recent_view(v);
 	wl_list_remove(&rv->link);
 	wl_list_init(&rv->link);
 	wl_list_insert(&ws->recent_views, &rv->link);
@@ -263,8 +246,7 @@ workspace_focus_view(struct workspace *ws, struct weston_view *v)
 void
 workspace_add_output(struct workspace *wp, struct tw_output *output)
 {
-	//for floating layout, we do need to do anything
-	//TODO create the tiling_layout as well.
+	//for floating layout, we not do need to do anything
 	layout_add_output(&wp->tiling_layout, output);
 }
 
@@ -312,7 +294,6 @@ workspace_add_view(struct workspace *w, struct weston_view *view)
 	};
 	struct recent_view *rv = get_recent_view(view);
 	weston_layer_entry_remove(&view->layer_link);
-	//TODO have switch case here to be able to add to different layer
 	if (rv->type == LAYOUT_TILING)
 		weston_layer_entry_insert(&w->tiling_layer.view_list,
 					  &view->layer_link);
@@ -465,7 +446,6 @@ workspace_minimize_view(struct workspace *w, struct weston_view *v)
 	weston_layer_entry_remove(&v->layer_link);
 	weston_layer_entry_insert(&w->hidden_layer.view_list,
 				  &v->layer_link);
-	//TODO: maybe focus on a view afterwards
 }
 
 void

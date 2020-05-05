@@ -30,6 +30,9 @@
 #include "../taiwins.h"
 #include "layout.h"
 
+#define FRONT_LAYER_POS WESTON_LAYER_POSITION_NORMAL+1
+#define BACK_LAYER_POS  WESTON_LAYER_POSITION_NORMAL
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -124,6 +127,9 @@ workspace_release(struct workspace *);
 
 struct weston_view *
 workspace_switch(struct workspace *to, struct workspace *from);
+
+struct weston_view *
+workspace_get_top_view(const struct workspace *ws);
 
 const char *
 workspace_layout_name(struct workspace *ws);
