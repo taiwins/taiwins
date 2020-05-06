@@ -487,6 +487,7 @@ luaopen_nkwidget(lua_State *L)
 	static const luaL_Reg lib[] = {
 		{"new_widget", _lua_register_widget},
 		{"add_builtin", _lua_register_builtin},
+		{NULL, NULL}
 	};
 	luaL_newlib(L, lib);
 	return 1;

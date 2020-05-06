@@ -68,12 +68,13 @@ desktop_console_load_icons(struct desktop_console *console,
 void
 desktop_console_append_module(struct desktop_console *console,
                               struct console_module *module);
-bool
+void *
 desktop_console_run_config_lua(struct desktop_console *console,
                                const char *path);
 
 void
-desktop_console_release_lua_config(struct desktop_console *console);
+desktop_console_release_lua_config(struct desktop_console *console,
+                                   void *config_data);
 
 /* critical race condition code is wrapped here, so it would be transparent
  * to console itself */
