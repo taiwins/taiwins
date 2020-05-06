@@ -21,11 +21,9 @@
 #define EMPTY_IMAGE "_module_empty_img"
 #define MODULE_TABLE_FORMAT "_lua_table%s"
 #define MODULE_UDATA_FORMAT "_lua_udata%s"
+#define SEARCH_LOCK "_search_lock"
+#define EXEC_LOCK "_exec_lock"
 #define CONSOLE "_console"
-
-static lua_State *s_L = NULL;
-static pthread_mutex_t s_lua_search_lock = {0};
-static pthread_mutex_t s_lua_exec_lock = {0};
 
 /*******************************************************************************
  * lua helpers
@@ -102,6 +100,16 @@ _lua_add_console_module(lua_State *L)
 	lua_setfield(L, LUA_REGISTRYINDEX, MODULES_COUNT);
 }
 
+static inline pthread_mutex_t *
+_lua_get_lock(lua_State *L, const char *type)
+{
+	pthread_mutex_t *lock;
+	lua_getfield(L, LUA_REGISTRYINDEX, type);
+	lock = lua_touserdata(L, -1);
+	lua_pop(L, 1);
+	return lock;
+}
+
 /*******************************************************************************
  * lua module API
  ******************************************************************************/
@@ -122,11 +130,12 @@ console_lua_module_search(struct console_module *module,
 	const char *err_msg;
 	lua_State *L = module->user_data;
 	console_search_entry_t *entry, tmp;
+	pthread_mutex_t *search_lock = _lua_get_lock(L, SEARCH_LOCK);
 
 	vector_init_zero(result, sizeof(console_search_entry_t),
 			 search_entry_free);
 
-	pthread_mutex_lock(&s_lua_search_lock);
+        pthread_mutex_lock(search_lock);
 	//calling
 	console_lua_module_get_table(L, module); //+1
 	lua_getfield(L, -1, "search"); //+2
@@ -179,20 +188,21 @@ console_lua_module_search(struct console_module *module,
 		}
 		lua_pop(L, 3);
 	}
-	pthread_mutex_unlock(&s_lua_search_lock);
+	pthread_mutex_unlock(search_lock);
 
 	return result->len;
 }
 
 static int
 console_lua_module_exec(struct console_module *module,
-                        const char *entry, char **result)
+                        const char *entry, UNUSED_ARG(char **result))
 {
 	int err;
 	const char *err_msg;
 	lua_State *L = module->user_data;
+	pthread_mutex_t *exec_lock = _lua_get_lock(L, EXEC_LOCK);
 
-	pthread_mutex_lock(&s_lua_exec_lock);
+	pthread_mutex_lock(exec_lock);
 
 	console_lua_module_get_table(L, module); //+1
 	lua_getfield(L, -1, "exec"); //+2
@@ -208,7 +218,7 @@ console_lua_module_exec(struct console_module *module,
 	}
 	lua_pop(L, 1);
 
-	pthread_mutex_unlock(&s_lua_exec_lock);
+	pthread_mutex_unlock(exec_lock);
 
 	return 0;
 }
@@ -245,11 +255,11 @@ console_module_valid_lua_search(lua_State *L, int pos)
 	if (!lua_isfunction(L, -1))
 		ret = false;
 	//now we do a test
-	lua_pushvalue(L, pos);
-	lua_pushstring(L, "");
-	//2 argument, 1 result, 0 error handling
-	if (lua_pcall(L, 2, 1, 0) != LUA_OK)
-		ret = false;
+	/* lua_pushvalue(L, pos); */
+	/* lua_pushstring(L, ""); */
+	/* //2 argument, 1 result, 0 error handling */
+	/* if (lua_pcall(L, 2, 1, 0) != LUA_OK) */
+	/*	ret = false; */
 	lua_pop(L, lua_gettop(L) - curr_top);
 	return ret;
 }
@@ -626,6 +636,15 @@ static void
 _lua_register_metatables(lua_State *L, struct desktop_console *console)
 {
 	struct nk_image *empty_img;
+	pthread_mutex_t *search_lock;
+	pthread_mutex_t *exec_lock;
+
+	search_lock = lua_newuserdata(L, sizeof(pthread_mutex_t));
+	pthread_mutex_init(search_lock, NULL);
+	lua_setfield(L, LUA_REGISTRYINDEX, SEARCH_LOCK);
+	exec_lock = lua_newuserdata(L, sizeof(pthread_mutex_t));
+	pthread_mutex_init(exec_lock, NULL);
+	lua_setfield(L, LUA_REGISTRYINDEX, EXEC_LOCK);
 
 	lua_pushlightuserdata(L, console);
 	lua_setfield(L, LUA_REGISTRYINDEX, CONSOLE);
@@ -656,7 +675,7 @@ _lua_register_metatables(lua_State *L, struct desktop_console *console)
 	lua_setfield(L, LUA_REGISTRYINDEX, EMPTY_IMAGE);
 }
 
-bool
+void *
 desktop_console_run_config_lua(struct desktop_console *console,
                                const char *path)
 {
@@ -665,14 +684,10 @@ desktop_console_run_config_lua(struct desktop_console *console,
 	int n;
 	struct console_module *module;
 
-	if (s_L)
-		desktop_console_release_lua_config(console);
-	//for all the modules inside the folder. lets create module from that
-	pthread_mutex_init(&s_lua_search_lock, NULL);
-	pthread_mutex_init(&s_lua_exec_lock, NULL);
-	s_L = luaL_newstate();
-	luaL_openlibs(s_L);
-	L = s_L;
+	L = luaL_newstate();
+	if (!L)
+		return NULL;
+	luaL_openlibs(L);
 
 	_lua_register_metatables(L, console);
 	luaL_requiref(L, "taiwins_console",
@@ -697,17 +712,26 @@ desktop_console_run_config_lua(struct desktop_console *console,
 		}
 		lua_pop(L, 1);
 	}
-	return true;
+	return L;
 }
 
 void
-desktop_console_release_lua_config(struct desktop_console *console)
+desktop_console_release_lua_config(struct desktop_console *console,
+                                   void *config_data)
 {
-	if (s_L) {
-		pthread_mutex_destroy(&s_lua_search_lock);
-		pthread_mutex_destroy(&s_lua_exec_lock);
+	pthread_mutex_t *search_lock, *exec_lock;
+	lua_State *L = config_data;
+	if (L) {
+		search_lock = _lua_get_lock(L, SEARCH_LOCK);
+		exec_lock = _lua_get_lock(L, EXEC_LOCK);
 
-		lua_close(s_L);
+		pthread_mutex_lock(search_lock);
+		pthread_mutex_unlock(search_lock);
+		pthread_mutex_lock(exec_lock);
+		pthread_mutex_unlock(exec_lock);
+		pthread_mutex_destroy(search_lock);
+		pthread_mutex_destroy(exec_lock);
+
+		lua_close(L);
 	}
-	s_L = NULL;
 }

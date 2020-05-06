@@ -70,6 +70,7 @@ struct desktop_console {
 	struct tw_globals globals;
 	struct tw_appsurf surface;
 	struct tw_shm_pool pool;
+	void *config_data;
 
         /**< shared data */
 	struct nk_wl_backend *bkend;
@@ -817,7 +818,7 @@ release_console_modules(struct desktop_console *console)
 	if (console->search_results.len)
 		vector_destroy(&console->search_results);
 	console->selected = (struct selected_search_entry){0};
-	desktop_console_release_lua_config(console);
+	desktop_console_release_lua_config(console, console->config_data);
 }
 
 static void
@@ -833,7 +834,8 @@ reload_console_modules(struct desktop_console *console)
 
 	release_console_modules(console);
 	//load default modules
-	if (!desktop_console_run_config_lua(console, configpath)) {
+	if (!(console->config_data =
+	      desktop_console_run_config_lua(console, configpath))) {
 		//load default modules
 		vector_append(&console->modules, &app_module);
 		vector_append(&console->modules, &cmd_module);
