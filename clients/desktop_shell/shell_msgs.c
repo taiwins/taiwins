@@ -23,7 +23,6 @@
 #include <string.h>
 
 #include <strops.h>
-#include <wayland-server-core.h>
 #include <wayland-util.h>
 #include "client.h"
 #include "shell.h"
