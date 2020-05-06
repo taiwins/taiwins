@@ -89,7 +89,8 @@ struct desktop_shell {
 	enum taiwins_shell_panel_pos panel_pos;
 	struct tdbus *system_bus;
 	struct tdbus *session_bus;
-	/**< widget configurations */
+	void *config_data;
+	/**< panel bg configurations */
 	struct {
 		struct nk_wl_backend *panel_backend;
 		struct nk_style_button label_style;
