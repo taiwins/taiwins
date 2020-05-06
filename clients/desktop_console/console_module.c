@@ -24,12 +24,8 @@
 #include <pthread.h>
 #include <semaphore.h>
 
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-
 #include <vector.h>
-#include "console_module.h"
+#include "console.h"
 
 /******************************************************************************/
 void
@@ -178,8 +174,6 @@ thread_run_module(void *arg)
 	struct module_search_cache cache;
 
 	cache_init(&cache);
-	if (!module->quit && module->thread_init)
-		module->thread_init(module);
 
 	while (!module->quit) {
 		//exec, enter critial
@@ -257,11 +251,9 @@ console_module_filter_test(const char *cmd, const char *entry)
 
 void
 console_module_init(struct console_module *module,
-                    struct desktop_console *console,
-                    struct nk_wl_backend *bkend)
+                    struct desktop_console *console)
 {
 	module->console = console;
-	module->bkend = bkend;
 	pthread_mutex_init(&module->command_mutex, NULL);
 	pthread_mutex_init(&module->results_mutex, NULL);
 	sem_init(&module->semaphore, 0, 0);
@@ -271,6 +263,15 @@ console_module_init(struct console_module *module,
 		module->init_hook(module);
 	if (!module->filter_test)
 		module->filter_test = console_module_filter_test;
+
+	//cleanup the module data
+	module->exec_command = NULL;
+	module->search_command = NULL;
+	module->search_ret = 0;
+	module->exec_ret = 0;
+	vector_init_zero(&module->search_results,
+	                 sizeof(console_search_entry_t), search_entry_free);
+	module->exec_res = NULL;
 	module->quit = false;
 }
 
@@ -334,7 +335,7 @@ console_module_command(struct console_module *module,
 }
 
 int
-console_module_take_search_result(struct console_module *module,
+desktop_console_take_search_result(struct console_module *module,
 				  vector_t *ret)
 {
 	int retcode = 0;
@@ -356,7 +357,7 @@ console_module_take_search_result(struct console_module *module,
 }
 
 int
-console_module_take_exec_result(struct console_module *module,
+desktop_console_take_exec_result(struct console_module *module,
 				char **result)
 {
 	int retcode = 0;
@@ -373,37 +374,4 @@ console_module_take_exec_result(struct console_module *module,
 	pthread_mutex_unlock(&module->results_mutex);
 
 	return retcode;
-}
-
-
-/******************************************************************************/
-static int
-console_lua_module_search(struct console_module *module,
-			  const char *search,
-			  vector_t *res)
-{
-	return 0;
-}
-
-static int
-console_lua_module_exec(struct console_module *module, const char *entry,
-			char **out)
-{
-	return 0;
-}
-
-void
-console_lua_module_init(struct console_module *module)
-{
-	lua_State *L = luaL_newstate();
-	module->search = console_lua_module_search;
-	module->exec = console_lua_module_exec;
-	module->user_data = L;
-}
-
-void
-console_lua_module_deinit(struct console_module *module)
-{
-	lua_State *L = module->user_data;
-	lua_close(L);
 }
