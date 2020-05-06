@@ -9,9 +9,9 @@
 #include <strings.h>
 #include <wayland-util.h>
 
+#include <shared_config.h>
+#include <helpers.h>
 #include "console.h"
-#include "helpers.h"
-#include "os/file.h"
 
 /* static data used only in this function */
 #define MODULES_COUNT "_module_count"
@@ -19,8 +19,8 @@
 #define MODULE_METATABLE "_module_metatable"
 #define MODULE_IMG_METABLE "_module_img"
 #define EMPTY_IMAGE "_module_empty_img"
-#define MODULE_TABLE_FORMAT "_lua_table%s"
-#define MODULE_UDATA_FORMAT "_lua_udata%s"
+#define MODULE_TABLE_FORMAT "_lua_table_%s"
+#define MODULE_UDATA_FORMAT "_lua_udata_%s"
 #define SEARCH_LOCK "_search_lock"
 #define EXEC_LOCK "_exec_lock"
 #define CONSOLE "_console"
@@ -122,27 +122,73 @@ console_lua_module_get_table(lua_State *L, struct console_module *module)
 	return 1;
 }
 
+static void
+collect_search_entries(lua_State *L, int pos, vector_t *results)
+{
+	int nresults;
+	console_search_entry_t *entry, tmp;
+
+	if (pos < 0)
+		pos = lua_gettop(L) + pos + 1;
+
+	nresults = lua_rawlen(L, pos);
+	for (int i = 0; i < nresults; i++) {
+		struct nk_image *img;
+		const char *string;
+
+		lua_rawgeti(L, pos, i+1);
+		if (!lua_istable(L, -1)) {
+			lua_pop(L, 1);
+			continue;
+		}
+		//clean up first
+		tmp.pstr = NULL;
+		tmp.sstr[0] = '\0';
+
+		lua_getfield(L, -1, "entry");
+		lua_getfield(L, -2, "image");
+		//convert result
+		string = lua_tostring(L, -2);
+		img = _lua_isudata(L, -1, MODULE_IMG_METABLE);
+		if (string && strlen(string) < 32)
+			strcpy(tmp.sstr, string);
+		else if (string)
+			tmp.pstr = strdup(string);
+		if (img)
+			tmp.img = *img;
+		else
+			tmp.img = (struct nk_image){0};
+		//pop the results + the current elem
+		lua_pop(L, 3);
+
+		if (!search_entry_empty(&tmp)) {
+			entry = vector_newelem(results);
+			*entry = tmp;
+		}
+	}
+}
+
 static int
 console_lua_module_search(struct console_module *module,
                           const char *keyword, vector_t *result)
 {
-	int nresult, err;
+	int err;
 	const char *err_msg;
 	lua_State *L = module->user_data;
-	console_search_entry_t *entry, tmp;
 	pthread_mutex_t *search_lock = _lua_get_lock(L, SEARCH_LOCK);
 
 	vector_init_zero(result, sizeof(console_search_entry_t),
 			 search_entry_free);
-
         pthread_mutex_lock(search_lock);
-	//calling
+
+        //we are in unprotective mode, have to be really careful.
+
 	console_lua_module_get_table(L, module); //+1
 	lua_getfield(L, -1, "search"); //+2
 
 	lua_pushvalue(L, -2); //+3: first argument, the table itself
 	lua_pushstring(L, keyword); //+4: second argument, the search string
-	err = lua_pcall(L, 2, 1, 0); //+1:  2 argument, 1 result, no stacktrace
+	err = lua_pcall(L, 2, 1, 0); //-3|+1:  2 argument, 1 result, no stacktrace
 
 	if (err != LUA_OK) {
 		err_msg = lua_tostring(L, -1);
@@ -151,43 +197,11 @@ console_lua_module_search(struct console_module *module,
 		lua_pop(L, 1);
 	} else {
 		//collect results as: { .entry = "foo", image = udata}
-		nresult = lua_rawlen(L, -1);
-		for (int i = 0; i < nresult; i++) {
-			struct nk_image *img;
-			const char *string;
-
-			lua_rawgeti(L, -1, i+1);
-			if (!lua_istable(L, -1)) {
-				lua_pop(L, 1);
-				continue;
-			}
-			//clean up first
-			tmp.pstr = NULL;
-			tmp.sstr[0] = '\0';
-
-			lua_getfield(L, -1, "entry");
-			lua_getfield(L, -2, "image");
-			//convert result
-			string = lua_tostring(L, -2);
-			img = _lua_isudata(L, -1, MODULE_IMG_METABLE);
-			if (string && strlen(string) < 32)
-				strcpy(tmp.sstr, string);
-			else if (string)
-				tmp.pstr = strdup(string);
-			if (img)
-				tmp.img = *img;
-			else
-				tmp.img = (struct nk_image){0};
-			//pop the results + the current elem
-			lua_pop(L, 3);
-
-			if (!search_entry_empty(&tmp)) {
-				entry = vector_newelem(result);
-				*entry = tmp;
-			}
-		}
-		lua_pop(L, 3);
+		collect_search_entries(L, -1, result);
+		lua_pop(L, 1);
 	}
+	lua_pop(L, 1);
+
 	pthread_mutex_unlock(search_lock);
 
 	return result->len;
@@ -209,7 +223,7 @@ console_lua_module_exec(struct console_module *module,
 
 	lua_pushvalue(L, -2); //+3
 	lua_pushstring(L, entry); //+4: second argument, the search string
-	err = lua_pcall(L, 2, 1, 0); //+1:  2 argument, 1 result
+	err = lua_pcall(L, 2, 1, 0); //-3|+1:  2 argument, 1 result
 
 	if (err != LUA_OK) {
 		err_msg = lua_tostring(L, -1);
@@ -224,13 +238,13 @@ console_lua_module_exec(struct console_module *module,
 }
 
 static void
-console_lua_module_init(struct console_module *module)
+console_lua_module_init(UNUSED_ARG(struct console_module *module))
 {
 
 }
 
 static void
-console_lua_module_destroy(struct console_module *module)
+console_lua_module_destroy(UNUSED_ARG(struct console_module *module))
 {
 
 }
@@ -255,11 +269,11 @@ console_module_valid_lua_search(lua_State *L, int pos)
 	if (!lua_isfunction(L, -1))
 		ret = false;
 	//now we do a test
-	/* lua_pushvalue(L, pos); */
-	/* lua_pushstring(L, ""); */
-	/* //2 argument, 1 result, 0 error handling */
-	/* if (lua_pcall(L, 2, 1, 0) != LUA_OK) */
-	/*	ret = false; */
+	lua_pushvalue(L, pos);
+	lua_pushstring(L, "");
+	//2 argument, 1 result, 0 error handling
+	if (lua_pcall(L, 2, 1, 0) != LUA_OK)
+		ret = false;
 	lua_pop(L, lua_gettop(L) - curr_top);
 	return ret;
 }
@@ -385,6 +399,7 @@ _lua_collect_module(lua_State *L, struct console_module *module)
 	lua_getfield(L, LUA_REGISTRYINDEX, MODULES_COLLECTION);
 	lua_pushstring(L, module->name);
 	lua_rawseti(L, -2, i+1);
+	lua_pop(L, 1);
 	_lua_add_console_module(L);
 }
 
@@ -618,6 +633,15 @@ _lua_console_load_images(lua_State *L)
 }
 
 static int
+_lua_console_config_path(lua_State *L)
+{
+	char path[PATH_MAX];
+	tw_config_dir(path);
+	lua_pushstring(L, path);
+	return 1;
+}
+
+static int
 luaopen_taiwins_console(lua_State *L)
 {
 	static const luaL_Reg lib[] = {
@@ -626,6 +650,7 @@ luaopen_taiwins_console(lua_State *L)
 		{"load_builtin_module", _lua_load_builtin_module},
 		{"module_base", _lua_request_module_metatable},
 		{"load_images", _lua_console_load_images},
+		{"config_path", _lua_console_config_path},
 		{NULL, NULL},
 	};
 	luaL_newlib(L, lib);
@@ -683,6 +708,7 @@ desktop_console_run_config_lua(struct desktop_console *console,
 	lua_State *L;
 	int n;
 	struct console_module *module;
+	bool safe = true;
 
 	L = luaL_newstate();
 	if (!L)
@@ -693,10 +719,13 @@ desktop_console_run_config_lua(struct desktop_console *console,
 	luaL_requiref(L, "taiwins_console",
 	              luaopen_taiwins_console, true);
 
-	if (luaL_dofile(L, path)) {
+        safe = safe && !luaL_loadfile(L, path);
+	safe = safe && !lua_pcall(L, 0, 0, 0);
+	if (!safe) {
 		n = _lua_n_console_modules(L);
 		err_msg = lua_tostring(L, -1);
 		fprintf(stderr,"ERROR occured: %s\n", err_msg);
+		lua_pop(L, 1);
 		//clean up the modules
 		for (int i = 0; i < n; i++)
 			_lua_clear_module_in_collection(L, i);
@@ -708,7 +737,6 @@ desktop_console_run_config_lua(struct desktop_console *console,
 		for (int i = 0; i < n; i++) {
 			module = _lua_module_from_collection(L, i);
 			desktop_console_append_module(console, module);
-			lua_pop(L, 1);
 		}
 		lua_pop(L, 1);
 	}
@@ -716,7 +744,7 @@ desktop_console_run_config_lua(struct desktop_console *console,
 }
 
 void
-desktop_console_release_lua_config(struct desktop_console *console,
+desktop_console_release_lua_config(UNUSED_ARG(struct desktop_console *console),
                                    void *config_data)
 {
 	pthread_mutex_t *search_lock, *exec_lock;
@@ -725,10 +753,6 @@ desktop_console_release_lua_config(struct desktop_console *console,
 		search_lock = _lua_get_lock(L, SEARCH_LOCK);
 		exec_lock = _lua_get_lock(L, EXEC_LOCK);
 
-		pthread_mutex_lock(search_lock);
-		pthread_mutex_unlock(search_lock);
-		pthread_mutex_lock(exec_lock);
-		pthread_mutex_unlock(exec_lock);
 		pthread_mutex_destroy(search_lock);
 		pthread_mutex_destroy(exec_lock);
 
