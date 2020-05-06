@@ -31,7 +31,8 @@
 #include <rax.h>
 #include <vector.h>
 #include <helpers.h>
-#include "console_module.h"
+#include <os/file.h>
+#include "console.h"
 
 
 static int

@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <signal.h>
 #include <unistd.h>
@@ -40,14 +41,17 @@
 #include <ui.h>
 #include <nk_backends.h>
 #include <theme.h>
+#include <image_cache.h>
 #include <shmpool.h>
 #include <helpers.h>
 #include <strops.h>
 #include <sequential.h>
+#include <hash.h>
 #include <shared_config.h>
 
-#include "console_module.h"
-
+#include "console.h"
+#include "os/file.h"
+#include "vector.h"
 
 #define CON_EDIT_H 30
 #define CON_ENTY_H 24
@@ -58,6 +62,7 @@ struct selected_search_entry {
 	struct console_module *module;
 };
 
+
 struct desktop_console {
 	struct taiwins_console *interface;
 	struct taiwins_theme *theme_interface;
@@ -65,8 +70,16 @@ struct desktop_console {
 	struct tw_globals globals;
 	struct tw_appsurf surface;
 	struct tw_shm_pool pool;
-	struct wl_buffer *decision_buffer;
+	void *config_data;
+
+        /**< shared data */
 	struct nk_wl_backend *bkend;
+	struct dhash_table icons_table;
+	struct wl_array icon_keys;
+	uint32_t requested_icons;
+
+        /**< exec data */
+	struct wl_buffer *decision_buffer;
 	struct wl_callback *exec_cb;
 	uint32_t exec_id;
 
@@ -84,6 +97,61 @@ struct desktop_console {
 	struct tw_bbox collapsed_bounds;
 	struct tw_bbox bounds;
 };
+
+/*******************************************************************************
+ * icon search
+ ******************************************************************************/
+
+struct console_icon_key {
+	struct wl_array *arr;
+	union {
+		off_t offset;
+		const char *str;
+	} data;
+};
+
+static hash_cmp_val
+icon_key_cmp(const void *sa, const void *sb)
+{
+	const char *str_a, *str_b;
+	const struct console_icon_key *ka = sa;
+	const struct console_icon_key *kb = sb;
+
+	str_a = (ka->arr) ?
+		(char *)ka->arr->data + ka->data.offset :
+		ka->data.str;
+	str_b = (kb->arr) ?
+		(char *)kb->arr->data + kb->data.offset :
+		kb->data.str;
+
+	return hash_cmp_str(&str_a, &str_b);
+}
+
+static uint64_t
+hash_icon_key1(const void *sa)
+{
+	const char *str_a;
+	const struct console_icon_key *ka = sa;
+	str_a = (ka->arr) ?
+		(char *)ka->arr->data + ka->data.offset :
+		ka->data.str;
+	return hash_djb2(&str_a);
+}
+
+static uint64_t
+hash_icon_key2(const void *sa)
+{
+	const char *str_a;
+	const struct console_icon_key *ka = sa;
+	str_a = (ka->arr) ?
+		(char *)ka->arr->data + ka->data.offset :
+		ka->data.str;
+	return hash_sdbm(&str_a);
+}
+
+/*******************************************************************************
+ * console helpers
+ ******************************************************************************/
 
 static int
 console_do_submit(struct tw_event *e, int fd)
@@ -168,7 +236,7 @@ console_update_search_results(struct desktop_console *console)
 		if (clean_results)
 			vector_destroy(results);
 		else
-			console_module_take_search_result(module, results);
+			desktop_console_take_search_result(module, results);
 		if (results->len > 0)
 			has_results = true;
 	}
@@ -664,6 +732,127 @@ free_defunct_app(int signum)
 }
 
 static void
+update_console_icon_search(struct desktop_console *console,
+                           struct image_cache *cache)
+{
+	struct nk_image atlas;
+	struct nk_image subimg;
+	struct tw_bbox *box;
+	off_t offset, base_offset;
+	const char *key;
+
+	struct console_icon_key ik;
+	struct dhash_table *icons = &console->icons_table;
+	struct wl_array *icon_keys = &console->icon_keys;
+
+	//load images
+	atlas = nk_wl_image_from_buffer(cache->atlas, console->bkend,
+	                              cache->dimension.w, cache->dimension.h,
+	                              cache->dimension.w * 4, true);
+	nk_wl_add_image(atlas, console->bkend);
+	cache->atlas = NULL;
+
+	//copy the strings into icon_keys
+	base_offset = icon_keys->size;
+	memcpy(wl_array_add(icon_keys, cache->strings.size),
+	       cache->strings.data, cache->strings.size);
+
+	//generate hashing cache for images
+	for (unsigned i = 0; i < cache->handles.size / sizeof(off_t); i++) {
+		offset = *((off_t *)cache->handles.data + i);
+		key = (char *)cache->strings.data + offset;
+		(void)key;
+		box = (struct tw_bbox *)cache->image_boxes.data + i;
+		subimg = nk_subimage_handle(atlas.handle, atlas.w, atlas.h,
+		                         nk_rect(box->x, box->y,
+		                                 box->w, box->h));
+
+		ik.arr = icon_keys;
+		ik.data.offset = base_offset + offset;
+		dhash_insert(icons, &ik, &subimg);
+	}
+}
+
+static void
+load_console_icons(struct desktop_console *console, uint32_t icons)
+{
+	int fd, flags;
+	char iconfile[128];
+	char iconpath[PATH_MAX];
+	struct image_cache cache;
+	const char *cache_types[] = {
+		"apps", "mimes", "places", "status", "devices"
+	};
+
+	for (uint32_t i = 0; i < 32; i++) {
+		if (!((1 << i) & icons) || //does not need
+		    ((i << i) & console->requested_icons)) //loaded
+			continue;
+		sprintf(iconfile, "%s.%s.icon.cache",
+		        "Adwaita", cache_types[i]);
+
+		tw_cache_dir(iconpath);
+		path_concat(iconpath, PATH_MAX, 1, iconfile);
+		if (!is_file_exist(iconpath))
+			continue;
+		flags = O_RDONLY;
+		fd = open(iconpath, flags, S_IRUSR | S_IRGRP);
+		if (fd < 0)
+			continue;
+		cache = image_cache_from_fd(fd);
+		close(fd);
+		if (!cache.atlas || !cache.dimension.w || !cache.dimension.h)
+			continue;
+		update_console_icon_search(console, &cache);
+		image_cache_release(&cache);
+
+		console->requested_icons |= 1 << i;
+	}
+}
+
+static void
+release_console_modules(struct desktop_console *console)
+{
+	if (console->modules.len)
+		vector_destroy(&console->modules);
+	if (console->search_results.len)
+		vector_destroy(&console->search_results);
+	console->selected = (struct selected_search_entry){0};
+	desktop_console_release_lua_config(console, console->config_data);
+}
+
+static void
+reload_console_modules(struct desktop_console *console)
+{
+	char configpath[PATH_MAX];
+	struct console_module *module;
+	vector_t empty_res = {0};
+	uint32_t requested_icons = 0;
+
+	tw_config_dir(configpath);
+	path_concat(configpath, PATH_MAX, 1, "console.lua");
+
+	release_console_modules(console);
+	//load default modules
+	if (!(console->config_data =
+	      desktop_console_run_config_lua(console, configpath))) {
+		//load default modules
+		vector_append(&console->modules, &app_module);
+		vector_append(&console->modules, &cmd_module);
+	}
+	vector_for_each(module, &console->modules) {
+		requested_icons = (requested_icons | module->supported_icons);
+	}
+	load_console_icons(console, requested_icons);
+
+	vector_for_each(module, &console->modules)
+		console_module_init(module, console);
+
+	vector_for_each(module, &console->modules)
+		vector_append(&console->search_results, &empty_res);
+}
+
+static void
 post_init_console(struct desktop_console *console)
 {
 	tw_shm_pool_init(&console->pool, console->globals.shm,
@@ -674,27 +863,24 @@ post_init_console(struct desktop_console *console)
 		tw_shm_pool_alloc_buffer(&console->pool,
 		                         sizeof(struct tw_decision_key),
 		                         TAIWINS_CONSOLE_CONF_NUM_DECISIONS);
-	//prepare backend
-	console->bkend = nk_cairo_create_backend();
 	console_clear_edit(console);
 
+        //prepare shared data
+	console->bkend = nk_cairo_create_backend();
+	console->requested_icons = 0;
+	dhash_init(&console->icons_table, hash_icon_key1, hash_icon_key2,
+	           icon_key_cmp,
+	           sizeof(struct console_icon_key), sizeof(struct nk_image),
+	           NULL, NULL);
+	wl_array_init(&console->icon_keys);
+
 	//loading modules
-	struct console_module *module;
-	vector_t empty_res = {0};
-	// init modules
 	vector_init(&console->modules, sizeof(struct console_module),
 		    console_release_module);
-	// TODO: repleacing modules
-	vector_append(&console->modules, &app_module);
-	vector_append(&console->modules, &cmd_module);
-	vector_for_each(module, &console->modules)
-		console_module_init(module, console, console->bkend);
-
-	vector_init(&console->search_results, sizeof(vector_t),
-		    console_free_search_results);
-	vector_for_each(module, &console->modules)
-		vector_append(&console->search_results, &empty_res);
-	console->selected = (struct selected_search_entry){0};
+	vector_init_zero(&console->search_results, sizeof(vector_t),
+	                 console_free_search_results);
+	//loading modules
+	reload_console_modules(console);
 }
 
 static void
@@ -709,15 +895,17 @@ init_console(struct desktop_console *console)
 static void
 end_console(struct desktop_console *console)
 {
+	release_console_modules(console);
+
 	nk_textedit_free(&console->text_edit);
 	nk_cairo_destroy_backend(console->bkend);
 	tw_shm_pool_release(&console->pool);
+	dhash_destroy(&console->icons_table);
+	wl_array_release(&console->icon_keys);
 
 	taiwins_console_destroy(console->interface);
 	tw_globals_release(&console->globals);
 
-	vector_destroy(&console->modules);
-	vector_destroy(&console->search_results);
 }
 
 /*******************************************************************************
@@ -763,6 +951,56 @@ static struct wl_registry_listener registry_listener = {
 	.global = announce_globals,
 	.global_remove = announce_global_remove
 };
+
+/*******************************************************************************
+ * public APIs
+ ******************************************************************************/
+struct nk_wl_backend *
+desktop_console_aquire_nk_backend(struct desktop_console *console)
+{
+	return console->bkend;
+}
+
+const struct nk_image*
+desktop_console_request_image(struct desktop_console *console,
+                              const char *name, const char *fallback)
+{
+	const struct nk_image *img = NULL;
+	struct console_icon_key key = {
+		.arr = NULL,
+		.data.str = name,
+	};
+	if (!name)
+		return img;
+
+	img = dhash_search(&console->icons_table, &key);
+	if (!img && fallback) {
+		key.data.str = fallback;
+		img = dhash_search(&console->icons_table, &key);
+	}
+	return img;
+}
+
+void
+desktop_console_append_module(struct desktop_console *console,
+                              struct console_module *module)
+{
+	vector_append(&console->modules, module);
+}
+
+void
+desktop_console_load_icons(struct desktop_console *console,
+                            const struct wl_array *handle_list,
+                            const struct wl_array *string_list)
+{
+	struct image_cache cache;
+
+	cache = image_cache_from_arrays(handle_list, string_list, NULL);
+	if (!cache.atlas || !cache.dimension.w || !cache.dimension.h)
+		return;
+	update_console_icon_search(console, &cache);
+	image_cache_release(&cache);
+}
 
 int
 main(int argc, char *argv[])

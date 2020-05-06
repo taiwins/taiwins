@@ -96,24 +96,24 @@ struct tw_window_brief {
 /*                           config                              */
 /*****************************************************************/
 static inline void
-tw_config_dir(char cache_home[PATH_MAX])
+tw_config_dir(char config_home[PATH_MAX])
 {
 	char *xdg_cache = getenv("XDG_CONFIG_HOME");
 	if (xdg_cache)
-		sprintf(cache_home, "%s/taiwins", xdg_cache);
+		sprintf(config_home, "%s/taiwins", xdg_cache);
 	else
-		sprintf(cache_home, "%s/.config/taiwins", getenv("HOME"));
+		sprintf(config_home, "%s/.config/taiwins", getenv("HOME"));
 
 }
 
 static inline bool
 tw_create_config_dir(void)
 {
-	char cache_home[PATH_MAX];
-	mode_t cache_mode = S_IRWXU | S_IRGRP | S_IXGRP |
+	char config_home[PATH_MAX];
+	mode_t config_mode = S_IRWXU | S_IRGRP | S_IXGRP |
 		S_IROTH | S_IXOTH;
-	tw_config_dir(cache_home);
-	if (mkdir_p(cache_home, cache_mode))
+	tw_config_dir(config_home);
+	if (mkdir_p(config_home, config_mode))
 		return false;
 	return true;
 }
