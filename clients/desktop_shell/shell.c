@@ -183,7 +183,7 @@ desktop_shell_apply_theme(void *data,
 
 static void
 desktop_shell_apply_cursor(void *data,
-                           struct taiwins_theme *taiwins_theme,
+                           UNUSED_ARG(struct taiwins_theme *taiwins_theme),
                            const char *name,
                            uint32_t size)
 {
@@ -207,7 +207,7 @@ static const struct taiwins_theme_listener tw_theme_impl = {
 static void
 desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 {
-	struct nk_style_button *style = &shell->label_style;
+	struct shell_widget *widget;
 
 	tw_globals_init(&shell->globals, display);
 	shell_tdbus_init(shell);
@@ -221,33 +221,16 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 
 	shell->widget_backend = nk_cairo_create_backend();
 	shell->panel_backend = nk_cairo_create_backend();
-	shell->icon_font = nk_wl_new_font(icon_config, shell->panel_backend);
-	{
-		const struct nk_style *theme =
-			nk_wl_get_curr_style(shell->panel_backend);
-		memcpy(style, &theme->button, sizeof(struct nk_style_button));
-		struct nk_color text_normal = theme->button.text_normal;
-		style->normal = nk_style_item_color(theme->window.background);
-		style->hover = nk_style_item_color(theme->window.background);
-		style->active = nk_style_item_color(theme->window.background);
-		style->border_color = theme->window.background;
-		style->text_background = theme->window.background;
-		style->text_normal = text_normal;
-		style->text_hover = nk_rgba(text_normal.r + 20,
-		                            text_normal.g + 20,
-					    text_normal.b + 20,
-		                            text_normal.a);
-		style->text_active = nk_rgba(text_normal.r + 40,
-		                             text_normal.g + 40,
-					     text_normal.b + 40,
-		                             text_normal.a);
-	}
-
+	shell->icon_font = nk_wl_new_font(icon_config,
+	                                  shell->panel_backend);
 	//widgets
+	shell->widget_launch = (struct widget_launch_info){0};
 	wl_list_init(&shell->shell_widgets);
 	shell_widgets_load_default(&shell->shell_widgets);
-
-	shell->widget_launch = (struct widget_launch_info){0};
+	wl_list_for_each(widget, &shell->shell_widgets, link) {
+		shell_widget_activate(widget,
+		                      &shell->globals.event_queue);
+	}
 
 	//notifications
 	wl_list_init(&shell->notifs.msgs);
@@ -263,10 +246,10 @@ desktop_shell_release(struct desktop_shell *shell)
 {
 	taiwins_shell_destroy(shell->interface);
 
-	struct shell_widget *widget, *tmp;
-	wl_list_for_each_safe(widget, tmp, &shell->shell_widgets, link) {
-		wl_list_remove(&widget->link);
-		shell_widget_disactivate(widget, &shell->globals.event_queue);
+	struct shell_widget *widget;
+	wl_list_for_each(widget, &shell->shell_widgets, link) {
+		shell_widget_disactivate(widget,
+		                         &shell->globals.event_queue);
 	}
 
 	for (int i = 0; i < desktop_shell_n_outputs(shell); i++)
@@ -330,7 +313,7 @@ static struct wl_registry_listener registry_listener = {
 };
 
 int
-main(int argc, char **argv)
+main(UNUSED_ARG(int argc), UNUSED_ARG(char *argv[]))
 {
 	struct desktop_shell oneshell; //singleton
 	//shell-taiwins size is 112 it is not that
