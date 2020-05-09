@@ -102,36 +102,6 @@ desktop_shell_setup_menu(struct desktop_shell *shell,
 	shell->menu = new_menu;
 }
 
-static void
-desktop_shell_setup_wallpaper(struct desktop_shell *shell, const char *path)
-{
-	if (is_file_exist(path))
-		strop_ncpy(shell->wallpaper_path, path, 128);
-	for (int i = 0; i < desktop_shell_n_outputs(shell); i++) {
-		struct tw_appsurf *bg =
-			&shell->shell_outputs[i].background;
-		if (bg->wl_surface)
-			tw_appsurf_frame(bg, false);
-	}
-}
-
-static void
-desktop_shell_setup_widgets(struct desktop_shell *shell, const char *path)
-{
-	if (is_file_exist(path)) {
-		shell_widgets_load_script(&shell->shell_widgets,
-					  &shell->globals.event_queue,
-					  path);
-	}
-	if (shell->main_output) {
-		struct shell_widget *widget;
-		struct tw_appsurf *panel = &shell->main_output->panel;
-		wl_list_for_each(widget, &shell->shell_widgets, link) {
-			shell_widget_hook_panel(widget, panel);
-			shell_widget_activate(widget, &shell->globals.event_queue);
-		}
-	}
-}
 
 static void
 desktop_shell_setup_locker(struct desktop_shell *shell)
@@ -170,12 +140,6 @@ shell_process_msg(struct desktop_shell *shell,
 		break;
 	case TAIWINS_SHELL_MSG_TYPE_MENU:
 		desktop_shell_setup_menu(shell, data);
-		break;
-	case TAIWINS_SHELL_MSG_TYPE_WALLPAPER:
-		desktop_shell_setup_wallpaper(shell, (const char *)data->data);
-		break;
-	case TAIWINS_SHELL_MSG_TYPE_WIDGET:
-		desktop_shell_setup_widgets(shell, (const char *)data->data);
 		break;
 	case TAIWINS_SHELL_MSG_TYPE_LOCK:
 		desktop_shell_setup_locker(shell);

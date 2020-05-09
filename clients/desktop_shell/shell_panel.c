@@ -99,9 +99,10 @@ shell_panel_frame(struct nk_context *ctx, float width, float height,
 	struct shell_widget_label widget_label;
 	nk_text_width_f text_width = ctx->style.font->width;
 	//drawing labels
-	size_t n_widgets =  wl_list_length(&shell->shell_widgets);
+	size_t n_widgets = wl_list_length(&shell->shell_widgets);
 	struct shell_widget *widget = NULL, *clicked = NULL;
 	struct nk_vec2 label_span = nk_vec2(0, 0);
+	struct nk_style_button *style = &ctx->style.contextual_button;
 
 	int h = panel_surf->allocation.h;
 	int w = panel_surf->allocation.w;
@@ -127,8 +128,7 @@ shell_panel_frame(struct nk_context *ctx, float width, float height,
 			label_span.x = bound.x;
 			label_span.y = bound.x+bound.w;
 		}
-		nk_button_text_styled(ctx, &shell_output->shell->label_style,
-				      widget_label.label, len);
+		nk_button_text_styled(ctx, style, widget_label.label, len);
 	}
 	nk_layout_row_end(ctx);
 	nk_style_pop_font(ctx);
@@ -153,7 +153,6 @@ shell_panel_frame(struct nk_context *ctx, float width, float height,
 	info->y = (int)p.y;
 
 	tw_event_queue_add_idle(&shell->globals.event_queue, &launch_widget);
-
 }
 
 void
