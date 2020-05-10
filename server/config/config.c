@@ -114,6 +114,27 @@ tw_config_retrieve_error(struct tw_config *config)
 	return config->err_msg;
 }
 
+static void
+tw_config_copy_waken(struct tw_config *dst, struct tw_config *src)
+{
+	tw_config_register_object(dst, "backend",
+		tw_config_request_object(src, "backend"));
+	tw_config_register_object(dst, "bus",
+		tw_config_request_object(src, "bus"));
+	tw_config_register_object(dst, "shell",
+		tw_config_request_object(src, "shell"));
+	tw_config_register_object(dst, "console",
+		tw_config_request_object(src, "console"));
+	tw_config_register_object(dst, "desktop",
+		tw_config_request_object(src, "desktop"));
+	tw_config_register_object(dst, "theme",
+		tw_config_request_object(src, "theme"));
+	tw_config_register_object(dst, "xwayland",
+		tw_config_request_object(src, "xwayland"));
+	tw_config_register_object(dst, "initialized",
+		tw_config_request_object(src, "initialized"));
+}
+
 void
 tw_config_register_object(struct tw_config *config,
                           const char *name, void *obj)
@@ -237,6 +258,9 @@ tw_try_config(struct tw_config *tmp_config, struct tw_config *main_config)
 		safe = safe && tmp_config->read_config(tmp_config, path);
 		safe = safe && tw_config_request_object(tmp_config,
 		                                        "initialized");
+		//compositor could be waken by now, even if we had error in
+		//configs.
+		tw_config_copy_waken(main_config, tmp_config);
 		if (!safe)
 			main_config->err_msg =
 				tmp_config->read_error(tmp_config);
