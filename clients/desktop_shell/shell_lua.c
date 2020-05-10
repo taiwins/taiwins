@@ -161,24 +161,6 @@ _lua_set_wallpaper(lua_State *L)
 	return 0;
 }
 
-static int
-_lua_set_panel_position(lua_State *L)
-{
-	struct desktop_shell *shell = _lua_to_shell(L);
-	const char *pos;
-
-	//ensentially you need to tell the server about the location
-        luaL_checktype(L, 2, LUA_TSTRING);
-	pos = lua_tostring(L, 2);
-	if (strcmp(pos, "bottom") == 0) {
-		shell->panel_pos = TAIWINS_SHELL_PANEL_POS_BOTTOM;
-	} else if (strcmp(pos, "top") == 0) {
-		shell->panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
-	} else
-		luaL_error(L, "invalid panel position %s", pos);
-	return 0;
-}
-
 static bool
 _lua_is_menu_item(struct lua_State *L, int idx)
 {
@@ -693,7 +675,6 @@ luaopen_taiwins_shell(lua_State *L)
 	{
 		//TODO: allow set wallpaper function
 		{"set_wallpaper", _lua_set_wallpaper},
-		{"panel_pos", _lua_set_panel_position},
 		{"set_menu", _lua_set_menu},
 		{"new_widget", _lua_register_widget},
 		{"add_builtin_widget", _lua_register_builtin_widget},
