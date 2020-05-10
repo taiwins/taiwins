@@ -42,8 +42,6 @@
 #include <widget/widget.h>
 #include "shell.h"
 
-
-
 /*******************************************************************************
  * shell_output apis
  ******************************************************************************/
@@ -116,7 +114,7 @@ shell_output_resize(struct shell_output *w, const struct tw_bbox geo)
 
 static void
 desktop_shell_recv_msg(void *data,
-		       struct taiwins_shell *tw_shell,
+                       UNUSED_ARG(struct taiwins_shell *tw_shell),
 		       uint32_t type,
 		       struct wl_array *arr)
 {
@@ -153,7 +151,7 @@ desktop_shell_output_configure(void *data, struct taiwins_shell *tw_shell,
 
 static struct taiwins_shell_listener tw_shell_impl = {
 	.output_configure = desktop_shell_output_configure,
-	.shell_msg = desktop_shell_recv_msg,
+	.client_msg = desktop_shell_recv_msg,
 };
 
 static const struct nk_wl_font_config icon_config = {
@@ -215,6 +213,7 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 
 	shell->globals.theme = &shell->theme;
 	shell->interface = NULL;
+	shell->panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
 	shell->panel_height = 32;
 	shell->main_output = NULL;
 	shell->config.run_config = shell_config_run_lua;

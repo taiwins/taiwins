@@ -450,13 +450,6 @@ tw_config_table_new(struct tw_config *c)
 void
 tw_config_table_destroy(struct tw_config_table *table)
 {
-	if (table->background_path.valid && table->background_path.path)
-		free(table->background_path.path);
-	if (table->widgets_path.valid && table->widgets_path.path)
-		free(table->widgets_path.path);
-	if (table->menu.valid && table->menu.vec.len)
-		vector_destroy(&table->menu.vec);
-
 	purge_xkb_rules(&table->xkb_rules);
 	free(table);
 }
@@ -493,10 +486,10 @@ tw_config_table_flush(struct tw_config_table *t)
 	enum tw_layout_type layout;
 
 	desktop = tw_config_request_object(c, "desktop");
-	shell  = tw_config_request_object(c, "shell");
 	xwayland = tw_config_request_object(c, "xwayland");
 	theme = tw_config_request_object(c, "theme");
 	backend = tw_config_request_object(c, "backend");
+	shell = tw_config_request_object(c, "shell");
 
 	for (int i = 0; backend && i < 32 ; i++) {
 		struct weston_output *output =
@@ -539,27 +532,7 @@ tw_config_table_flush(struct tw_config_table *t)
 		t->xwayland.valid = false;
 	}
 
-	if (shell && t->background_path.valid) {
-		tw_shell_set_wallpaper(shell, t->background_path.path);
-		free(t->background_path.path);
-		t->background_path.valid = false;
-		t->background_path.path = NULL;
-	}
-
-	if (shell && t->widgets_path.valid) {
-		tw_shell_set_widget_path(shell, t->widgets_path.path);
-		free(t->widgets_path.path);
-		t->widgets_path.valid = false;
-		t->widgets_path.path = NULL;
-	}
-
-	if (shell && t->menu.valid) {
-		tw_shell_set_menu(shell, &t->menu.vec);
-		vector_init_zero(&t->menu.vec, 1, NULL);
-		t->menu.valid = false;
-	}
-
-	if (shell && t->lock_timer.valid) {
+	if (t->lock_timer.valid) {
 		ec->idle_time = t->lock_timer.val;
 		t->lock_timer.valid = false;
 	}

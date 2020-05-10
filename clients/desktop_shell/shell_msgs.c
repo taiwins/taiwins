@@ -78,31 +78,6 @@ shell_cleanup_notifications(struct desktop_shell *shell)
 		shell_destroy_notify(shell, pos);
 }
 
-static vector_t
-taiwins_menu_from_wl_array(const struct wl_array *serialized)
-{
-	vector_t dst;
-	vector_t src;
-	vector_init_zero(&dst, sizeof(struct tw_menu_item), NULL);
-	src = dst;
-	src.alloc_len = serialized->size / (sizeof(struct tw_menu_item));
-	src.len = src.alloc_len;
-	src.elems = serialized->data;
-	vector_copy(&dst, &src);
-	return dst;
-}
-
-static void
-desktop_shell_setup_menu(struct desktop_shell *shell,
-			 const struct wl_array *serialized)
-{
-	vector_t new_menu = taiwins_menu_from_wl_array(serialized);
-
-	vector_destroy(&shell->menu);
-	shell->menu = new_menu;
-}
-
-
 static void
 desktop_shell_setup_locker(struct desktop_shell *shell)
 {
@@ -133,13 +108,10 @@ shell_process_msg(struct desktop_shell *shell,
 		shell_add_notif(shell, notification);
 		break;
 	case TAIWINS_SHELL_MSG_TYPE_PANEL_POS:
-		arg.u = atoi((const char*)data->data);
-		shell->panel_pos = arg.u == TAIWINS_SHELL_PANEL_POS_TOP ?
+		arg.u = atoi((char *)data->data);
+		shell->panel_pos = (arg.u == TAIWINS_SHELL_PANEL_POS_TOP) ?
 			TAIWINS_SHELL_PANEL_POS_TOP :
 			TAIWINS_SHELL_PANEL_POS_BOTTOM;
-		break;
-	case TAIWINS_SHELL_MSG_TYPE_MENU:
-		desktop_shell_setup_menu(shell, data);
 		break;
 	case TAIWINS_SHELL_MSG_TYPE_LOCK:
 		desktop_shell_setup_locker(shell);
