@@ -824,18 +824,14 @@ release_console_modules(struct desktop_console *console)
 static void
 reload_console_modules(struct desktop_console *console)
 {
-	char configpath[PATH_MAX];
 	struct console_module *module;
 	vector_t empty_res = {0};
 	uint32_t requested_icons = 0;
 
-	tw_config_dir(configpath);
-	path_concat(configpath, PATH_MAX, 1, "console.lua");
-
 	release_console_modules(console);
 	//load default modules
 	if (!(console->config_data =
-	      desktop_console_run_config_lua(console, configpath))) {
+	      desktop_console_run_config_lua(console, NULL))) {
 		//load default modules
 		vector_append(&console->modules, &app_module);
 		vector_append(&console->modules, &cmd_module);
