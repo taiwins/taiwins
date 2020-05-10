@@ -448,9 +448,6 @@ _lua_new_widget_from_table(lua_State *L)
 	runtime = lua_newuserdata(L, sizeof(struct shell_widget_runtime));
 	if (!runtime)
 		return luaL_error(L, "uneable to create the widget.");
-	//set the metatable for here
-	luaL_getmetatable(L, METATABLE_WIDGET);
-	lua_setmetatable(L, -2);
 
 	_lua_init_widget_runtime(runtime, L, (int)n_widgets);
 	_lua_add_widget_data(L, runtime);
@@ -497,6 +494,12 @@ _lua_widget_set_draw_func(lua_State *L)
 static int
 _lua_widget_set_width(lua_State *L)
 {
+	struct shell_widget *w;
+	if (lua_gettop(L) == 1 && _lua_isudata(L, 1, METATABLE_WIDGET)) {
+		w = lua_touserdata(L, 1);
+		lua_pushinteger(L, w->w);
+		return 1;
+	}
 	if (lua_gettop(L) != 2 || !lua_isinteger(L, 2))
 		return luaL_error(L, "invalid argument");
 	if ( !_lua_istable(L, 1, METATABLE_WIDGET))
@@ -511,6 +514,12 @@ _lua_widget_set_width(lua_State *L)
 static int
 _lua_widget_set_height(lua_State *L)
 {
+	struct shell_widget *w;
+	if (lua_gettop(L) == 1 && _lua_isudata(L, 1, METATABLE_WIDGET)) {
+		w = lua_touserdata(L, 1);
+		lua_pushinteger(L, w->h);
+		return 1;
+	}
 	if (lua_gettop(L) != 2 || !lua_isinteger(L, 2))
 		return luaL_error(L, "invalid argument");
 	if ( !_lua_istable(L, 1, METATABLE_WIDGET))
@@ -673,7 +682,8 @@ luaopen_taiwins_shell(lua_State *L)
 
 	static const luaL_Reg lib[] =
 	{
-		//TODO: allow set wallpaper function
+		//TODO: allow set wallpaper function: dbus functions callbacks
+		//in lua
 		{"set_wallpaper", _lua_set_wallpaper},
 		{"set_menu", _lua_set_menu},
 		{"new_widget", _lua_register_widget},
