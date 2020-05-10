@@ -33,6 +33,7 @@
 #include <nk_backends.h>
 #include <vector.h>
 #include <ui.h>
+#include <shared_config.h>
 
 #include <nuklear_love.h>
 #include <widget/widget.h>
@@ -324,6 +325,7 @@ _lua_widget_anchor(struct shell_widget *widget, struct shell_widget_label *label
 		container_of(widget, struct shell_widget_runtime, widget);
 	const char *encoded;
 	lua_State *L = lua_runtime->L;
+
 	_lua_get_widget_func(L, lua_runtime->anchorcb);
 	_lua_get_widget_userdata(L, lua_runtime);
 	//setup context
@@ -335,7 +337,7 @@ _lua_widget_anchor(struct shell_widget *widget, struct shell_widget_label *label
 }
 
 static void
-_lua_widget_cb(struct nk_context *ctx,
+_lua_widget_draw(struct nk_context *ctx,
                UNUSED_ARG(float width), UNUSED_ARG(float height),
 	       struct tw_appsurf *app)
 {
@@ -354,12 +356,10 @@ _lua_widget_cb(struct nk_context *ctx,
 	_lua_get_widget_userdata(L, lua_runtime); //2nd arg: widget
 
 	if (lua_pcall(L, 2, 0, 0)) {
-		//if errors occured, we draw this instead
-		const char *error = lua_tostring(L, -1);
+		 //this is not ideal. But in the event where people going crazy
+		 //on drawing stuff and causing ctx to fail, this shall be able
+		 //to reset it. So we will not crush the shell.
 		nk_clear(ctx);
-		nk_layout_row_dynamic(ctx, 20, 1);
-		nk_text_colored(ctx, error, strlen(error), NK_TEXT_CENTERED,
-				nk_rgb(255, 0, 0));
 		lua_pop(L, 1);
 	}
 }
@@ -374,7 +374,7 @@ _lua_init_widget_runtime(struct shell_widget_runtime *runtime,
 	lua_setmetatable(L, -2);
 	//initialize widget
 	widget->ancre_cb = _lua_widget_anchor;
-	widget->draw_cb = _lua_widget_cb;
+	widget->draw_cb = _lua_widget_draw;
 	widget->file_path = NULL;
 	widget->subsystem = NULL;
 	widget->devname = NULL;
@@ -460,7 +460,7 @@ _lua_new_widget_from_table(lua_State *L)
 	struct shell_widget_runtime *runtime;
 	int n_widgets = _lua_n_widgets(L);
 
-	if (lua_gettop(L) != 1 || !_lua_istable(L, 1, METATABLE_WIDGET))
+	if (lua_gettop(L) != 1 || !lua_istable(L, 1))
 		return luaL_error(L, "shell.new_widget:invalid arguments\n");
 	//init runtime
 	runtime = lua_newuserdata(L, sizeof(struct shell_widget_runtime));
@@ -757,12 +757,17 @@ shell_config_request_lua_wallpaper(struct shell_config *config)
 void *
 shell_config_run_lua(struct shell_config *config, const char *path)
 {
+	char default_path[PATH_MAX];
 	bool safe = true;
 	lua_State *L;
 	int n_widgets = 0;
 	struct shell_widget *wig;
 	struct desktop_shell *shell =
 		container_of(config, struct desktop_shell, config);
+	tw_config_dir(default_path);
+	path_concat(default_path, PATH_MAX, 1, "shell.lua");
+	path = (path) ? path : default_path;
+
 	if (!(L = luaL_newstate()))
 		return NULL;
 	luaL_openlibs(L);
