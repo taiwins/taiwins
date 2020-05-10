@@ -214,6 +214,9 @@ shell_launch_widget(struct desktop_shell *shell);
 void
 shell_close_widget(struct desktop_shell *shell);
 
+void *
+shell_config_run_lua(struct shell_config *config, const char *path);
+
 #ifdef __cplusplus
 }
 #endif

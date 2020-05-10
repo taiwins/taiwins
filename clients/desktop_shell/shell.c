@@ -217,47 +217,57 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	shell->interface = NULL;
 	shell->panel_height = 32;
 	shell->main_output = NULL;
+	shell->config.run_config = shell_config_run_lua;
 	shell->wallpaper_path[0] = '\0';
 
 	shell->widget_backend = nk_cairo_create_backend();
 	shell->panel_backend = nk_cairo_create_backend();
 	shell->icon_font = nk_wl_new_font(icon_config,
 	                                  shell->panel_backend);
-	//widgets
-	shell->widget_launch = (struct widget_launch_info){0};
-	wl_list_init(&shell->shell_widgets);
-	shell_widgets_load_default(&shell->shell_widgets);
-	wl_list_for_each(widget, &shell->shell_widgets, link) {
-		shell_widget_activate(widget,
-		                      &shell->globals.event_queue);
-	}
-
 	//notifications
 	wl_list_init(&shell->notifs.msgs);
 	tw_signal_init(&shell->notifs.msg_recv_signal);
 	tw_signal_init(&shell->notifs.msg_del_signal);
 
-	//menu
+        //menu
 	vector_init_zero(&shell->menu, sizeof(struct tw_menu_item), NULL);
+
+        //widgets
+	shell->widget_launch = (struct widget_launch_info){0};
+	wl_list_init(&shell->shell_widgets);
+	// Now it is a good time to run lua config.
+	shell->config.config_data =
+		shell->config.run_config(&shell->config, NULL);
+	if (!shell->config.config_data)
+		shell_widgets_load_default(&shell->shell_widgets);
+
+	/* shell_widgets_load_default(&shell->shell_widgets); */
+	wl_list_for_each(widget, &shell->shell_widgets, link) {
+		shell_widget_activate(widget,
+		                      &shell->globals.event_queue);
+	}
+
 }
 
 static void
 desktop_shell_release(struct desktop_shell *shell)
 {
-	taiwins_shell_destroy(shell->interface);
-
 	struct shell_widget *widget;
+
+	//purge widgets
+	taiwins_shell_destroy(shell->interface);
 	wl_list_for_each(widget, &shell->shell_widgets, link) {
 		shell_widget_disactivate(widget,
 		                         &shell->globals.event_queue);
 	}
+	if (shell->config.fini_config)
+		shell->config.fini_config(&shell->config);
 
 	for (int i = 0; i < desktop_shell_n_outputs(shell); i++)
 		shell_output_release(&shell->shell_outputs[i]);
 
+        tw_globals_release(&shell->globals);
 	shell_tdbus_end(shell);
-	tw_globals_release(&shell->globals);
-	//destroy the backends
 	nk_cairo_destroy_backend(shell->widget_backend);
 	nk_cairo_destroy_backend(shell->panel_backend);
 	tw_theme_fini(&shell->theme);

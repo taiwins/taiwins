@@ -43,17 +43,18 @@ shell_background_frame(struct tw_appsurf *surf, struct wl_buffer *buffer,
 	//as for tw_appsurf_frame later
 	struct shell_output *output = container_of(surf, struct shell_output, background);
 	struct desktop_shell *shell = output->shell;
-	*geo = surf->allocation;
 	void *buffer_data = tw_shm_pool_buffer_access(buffer);
-	if (!strlen(shell->wallpaper_path))
-		sprintf(shell->wallpaper_path,
-			"%s/.wallpaper/wallpaper.png", getenv("HOME"));
-	if (!image_load_for_buffer(shell->wallpaper_path, surf->pool->format,
+	char *wallpaper_path = (shell->config.request_wallpaper) ?
+		shell->config.request_wallpaper(&shell->config) : NULL;
+	*geo = surf->allocation;
+	if (!image_load_for_buffer(wallpaper_path, surf->pool->format,
 		       surf->allocation.w*surf->allocation.s,
 		       surf->allocation.h*surf->allocation.s,
 		       (unsigned char *)buffer_data)) {
-		fprintf(stderr, "failed to load image somehow\n");
+		/* shell_notif_msg(shell, 128, "failed to load image %s\n", */
+		/*                 wallpaper_path); */
 	}
+	if (wallpaper_path) free(wallpaper_path);
 }
 
 static void
