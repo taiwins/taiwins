@@ -51,6 +51,22 @@
 extern "C" {
 #endif
 
+#define TAIWINS_MAX_MENU_CMD_LEN 15
+#define TAIWINS_MAX_MENU_ITEM_NAME 15
+#define TAIWINS_MAX_MENU_LEN 16
+
+struct tw_menu_item {
+
+	struct {
+		char title[TAIWINS_MAX_MENU_ITEM_NAME+1];
+		/* short commands. long commands please use console */
+		char cmd[TAIWINS_MAX_MENU_CMD_LEN+1];
+	} endnode;
+	/* submenu settings */
+	bool has_submenu; /* has submenu */
+	size_t len; /* submenu size */
+};
+
 struct shell_notif {
 	char *msg;
 	struct wl_list link;

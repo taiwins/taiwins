@@ -85,7 +85,6 @@ struct shell {
 
 	struct weston_surface *the_widget_surface;
 	enum taiwins_shell_panel_pos panel_pos;
-	vector_t shell_menu;
 
 	struct wl_signal output_area_signal;
 
@@ -863,7 +862,7 @@ end_shell(struct wl_listener *listener, UNUSED_ARG(void *data))
 			     compositor_destroy_listener);
 
 	wl_global_destroy(shell->shell_global);
-	vector_destroy(&shell->shell_menu);
+
 }
 
 static void
@@ -923,8 +922,6 @@ tw_setup_shell(struct weston_compositor *ec, const char *path)
 	s_shell.the_widget_surface = NULL;
 	s_shell.shell_client = NULL;
 	s_shell.panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
-	vector_init_zero(&s_shell.shell_menu,
-	                 sizeof(struct tw_menu_item), NULL);
 
 	wl_signal_init(&s_shell.output_area_signal);
 

@@ -68,24 +68,6 @@ struct tw_decision_key {
 /*****************************************************************/
 /*                            shell                              */
 /*****************************************************************/
-#define TAIWINS_MAX_MENU_CMD_LEN 15
-#define TAIWINS_MAX_MENU_ITEM_NAME 15
-#define TAIWINS_MAX_MENU_LEN 16
-
-struct tw_menu_item {
-
-	struct {
-		char title[TAIWINS_MAX_MENU_ITEM_NAME+1];
-		/* short commands. long commands please use console */
-		char cmd[TAIWINS_MAX_MENU_CMD_LEN+1];
-	} endnode;
-	/* submenu settings */
-	bool has_submenu; /* has submenu */
-	size_t len; /* submenu size */
-};
-
-/* additional, we would have taiwins_menu_to_wl_array and
-   taiwins_menu_from_wl_array */
 
 struct tw_window_brief {
 	float x,y,w,h;
