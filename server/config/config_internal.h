@@ -28,10 +28,10 @@
 #include <libweston/libweston.h>
 #include <wayland-server-protocol.h>
 #include <shared_config.h>
+#include <ctypes/vector.h>
 
 #include "../compositor.h"
 #include "server/taiwins.h"
-#include "vector.h"
 
 
 #ifdef __cplusplus

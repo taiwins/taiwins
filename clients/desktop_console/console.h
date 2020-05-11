@@ -28,18 +28,16 @@
 #include <string.h>
 #include <pthread.h>
 #include <semaphore.h>
-
 #include <wayland-client.h>
-#include <os/file.h>
-#include <os/exec.h>
 
-#include <client.h>
-#include <ui.h>
+#include <ctypes/os/file.h>
+#include <ctypes/os/exec.h>
+#include <twclient/client.h>
+#include <twclient/ui.h>
 #include <rax.h>
-#include <nk_backends.h>
+#include <twclient/nk_backends.h>
 
 #include <shared_config.h>
-#include <wayland-util.h>
 
 #ifdef __cplusplus
 extern "C" {

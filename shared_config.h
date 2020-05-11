@@ -29,8 +29,8 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <wayland-util.h>
-#include <sequential.h>
-#include <os/file.h>
+#include <ctypes/sequential.h>
+#include <ctypes/os/file.h>
 
 #ifdef __cplusplus
 extern "C" {

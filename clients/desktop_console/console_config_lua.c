@@ -9,8 +9,8 @@
 #include <strings.h>
 #include <wayland-util.h>
 
+#include <ctypes/helpers.h>
 #include <shared_config.h>
-#include <helpers.h>
 #include "console.h"
 
 /* static data used only in this function */

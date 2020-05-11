@@ -26,10 +26,10 @@
 #include <sys/mman.h>
 #include <wayland-util.h>
 
-#include <os/file.h>
-#include <os/os-compatibility.h>
-#include <helpers.h>
-#include <theme.h>
+#include <ctypes/os/file.h>
+#include <ctypes/os/os-compatibility.h>
+#include <ctypes/helpers.h>
+#include <twclient/theme.h>
 
 #include "lua_helper.h"
 
