@@ -21,9 +21,9 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include <helpers.h>
-#include <sequential.h>
-#include <tree.h>
+#include <ctypes/helpers.h>
+#include <ctypes/sequential.h>
+#include <ctypes/tree.h>
 #include "workspace.h"
 #include "layout.h"
 

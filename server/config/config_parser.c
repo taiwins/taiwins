@@ -21,14 +21,15 @@
 
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <linux/input-event-codes.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
-#include <sequential.h>
-#include <tree.h>
-#include <unistd.h>
-#include <strops.h>
+#include <ctypes/sequential.h>
+#include <ctypes/tree.h>
+#include <ctypes/strops.h>
+
 #include "config_internal.h"
 
 struct event_map {

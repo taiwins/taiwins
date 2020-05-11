@@ -11,9 +11,9 @@
 
 #include <wayland-server.h>
 #include <wayland-util.h>
-#include <strops.h>
-#include <sequential.h>
-#include <theme.h>
+#include <ctypes/strops.h>
+#include <ctypes/sequential.h>
+#include <twclient/theme.h>
 
 #include "../server/taiwins.h"
 #include "../server/compositor.h"

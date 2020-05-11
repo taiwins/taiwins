@@ -33,7 +33,7 @@
 #include <libweston/xwayland-api.h>
 #include <wayland-util.h>
 
-#include "helpers.h"
+#include <ctypes/helpers.h>
 #include "taiwins.h"
 
 #define XSERVER_PATH "Xwayland"

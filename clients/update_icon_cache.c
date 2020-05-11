@@ -35,12 +35,12 @@
 #include <fcntl.h>
 #include <cairo.h>
 
-#include <strops.h>
-#include <os/file.h>
-#include <sequential.h>
-#include <image_cache.h>
-#include <hash.h>
-#include <desktop_entry.h>
+#include <ctypes/strops.h>
+#include <ctypes/os/file.h>
+#include <ctypes/sequential.h>
+#include <ctypes/hash.h>
+#include <twclient/image_cache.h>
+#include <twclient/desktop_entry.h>
 
 #include <shared_config.h>
 

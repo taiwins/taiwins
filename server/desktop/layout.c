@@ -20,9 +20,9 @@
  */
 
 #include <stdlib.h>
-#include <helpers.h>
-#include <sequential.h>
-#include <tree.h>
+#include <ctypes/helpers.h>
+#include <ctypes/sequential.h>
+#include <ctypes/tree.h>
 #include "layout.h"
 
 //it will look like a long function, the easiest way is make an array which does

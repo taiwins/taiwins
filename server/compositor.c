@@ -36,7 +36,7 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
-#include <os/file.h>
+#include <ctypes/os/file.h>
 #include <shared_config.h>
 #include "taiwins.h"
 #include "compositor.h"

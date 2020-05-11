@@ -27,9 +27,9 @@
 #include <unistd.h>
 #include <pwd.h>
 
-#include <ui.h>
-#include <client.h>
-#include <nk_backends.h>
+#include <twclient/ui.h>
+#include <twclient/client.h>
+#include <twclient/nk_backends.h>
 #include "shell.h"
 
 

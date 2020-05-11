@@ -24,8 +24,9 @@
 #include <string.h>
 #include <dirent.h>
 #include <unistd.h>
-#include <strops.h>
-#include <os/file.h>
+#include <ctypes/strops.h>
+#include <ctypes/os/file.h>
+
 #include "widget.h"
 
 

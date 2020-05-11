@@ -26,11 +26,10 @@
 #include <wayland-server.h>
 
 #include <wayland-taiwins-theme-server-protocol.h>
-#include <os/file.h>
-#include <os/os-compatibility.h>
-#include <helpers.h>
-#include <theme.h>
-#include <wayland-util.h>
+#include <ctypes/os/file.h>
+#include <ctypes/helpers.h>
+#include <ctypes/os/os-compatibility.h>
+#include <twclient/theme.h>
 
 #include "taiwins.h"
 

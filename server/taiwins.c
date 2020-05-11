@@ -29,8 +29,8 @@
 #include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <libweston/libweston.h>
-#include <os/os-compatibility.h>
 #include <wayland-util.h>
+#include <ctypes/os/os-compatibility.h>
 
 #include "taiwins.h"
 

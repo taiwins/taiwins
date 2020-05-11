@@ -21,11 +21,13 @@
 
 #include <sys/epoll.h>
 
-#include "event_queue.h"
+#include <twclient/event_queue.h>
+#include <ctypes/helpers.h>
 #include "shell.h"
 #include "tdbus.h"
 
-static int dispatch_watch(struct tw_event *event, int fd)
+static int
+dispatch_watch(struct tw_event *event, UNUSED_ARG(int fd))
 {
 	tdbus_handle_watch((struct tdbus *)event->arg.o, event->data);
 	return TW_EVENT_NOOP;

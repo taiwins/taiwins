@@ -28,9 +28,9 @@
 #include <wayland-server-core.h>
 #include <wayland-util.h>
 #include <wayland-server.h>
-#include <strops.h>
-#include <helpers.h>
-#include <sequential.h>
+#include <ctypes/strops.h>
+#include <ctypes/helpers.h>
+#include <ctypes/sequential.h>
 #include <wayland-taiwins-shell-server-protocol.h>
 #include <libweston-desktop/libweston-desktop.h>
 #include <libweston/xwayland-api.h>

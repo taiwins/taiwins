@@ -31,9 +31,9 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <linux/input.h>
 #include <ctype.h>
-#include <sequential.h>
-#include <os/file.h>
-#include <strops.h>
+#include <ctypes/sequential.h>
+#include <ctypes/os/file.h>
+#include <ctypes/strops.h>
 #include <libweston/libweston.h>
 
 #include "config_internal.h"

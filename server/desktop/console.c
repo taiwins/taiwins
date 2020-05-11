@@ -23,9 +23,9 @@
 #include <unistd.h>
 #include <linux/input.h>
 #include <unistd.h>
-#include <sequential.h>
 #include <wayland-server.h>
 #include <wayland-taiwins-console-server-protocol.h>
+#include <ctypes/sequential.h>
 
 #include "../taiwins.h"
 #include "shell.h"
