@@ -31,10 +31,10 @@
 #include <wayland-util.h>
 #include <libweston/libweston.h>
 
-#include <strops.h>
-#include <os/file.h>
-#include <vector.h>
-#include <helpers.h>
+#include <ctypes/strops.h>
+#include <ctypes/os/file.h>
+#include <ctypes/vector.h>
+#include <ctypes/helpers.h>
 
 #include "lua_helper.h"
 #include "config_internal.h"

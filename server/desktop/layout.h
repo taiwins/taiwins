@@ -23,8 +23,8 @@
 #define LAYOUT_H
 
 #include <stdbool.h>
-#include <helpers.h>
 #include <wayland-server.h>
+#include <ctypes/helpers.h>
 #include "desktop.h"
 
 #ifdef  __cplusplus

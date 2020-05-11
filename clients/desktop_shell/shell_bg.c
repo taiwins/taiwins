@@ -19,8 +19,8 @@
  *
  */
 
-#include <image_cache.h>
-#include <strops.h>
+#include <twclient/image_cache.h>
+#include <ctypes/strops.h>
 #include "shell.h"
 
 static bool

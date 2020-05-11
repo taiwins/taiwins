@@ -29,9 +29,9 @@
 #include <GL/gl.h>
 #include <wayland-client.h>
 #include <libudev.h>
-#include <ui.h>
-#include <client.h>
-#include <nk_backends.h>
+#include <twclient/ui.h>
+#include <twclient/client.h>
+#include <twclient/nk_backends.h>
 
 #ifdef __cplusplus
 extern "C" {

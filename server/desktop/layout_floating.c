@@ -20,8 +20,8 @@
  */
 
 #include <stdlib.h>
-#include <helpers.h>
-#include <sequential.h>
+#include <ctypes/helpers.h>
+#include <ctypes/sequential.h>
 #include "layout.h"
 #include "workspace.h"
 

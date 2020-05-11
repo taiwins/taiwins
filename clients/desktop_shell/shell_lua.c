@@ -27,17 +27,16 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
-#include <os/file.h>
-#include <strops.h>
-#include <client.h>
-#include <nk_backends.h>
-#include <vector.h>
-#include <ui.h>
+#include <ctypes/os/file.h>
+#include <ctypes/strops.h>
+#include <twclient/client.h>
+#include <twclient/nk_backends.h>
+#include <ctypes/vector.h>
+#include <twclient/ui.h>
 #include <shared_config.h>
 
 #include <nuklear_love.h>
 #include <widget/widget.h>
-#include "helpers.h"
 #include "shell.h"
 
 /*******************************************************************************

@@ -30,7 +30,7 @@
 #include <linux/input.h>
 #include <pixman.h>
 #include <wayland-server.h>
-#include <helpers.h>
+#include <ctypes/helpers.h>
 
 #include <libweston/backend-drm.h>
 #include <libweston/backend-wayland.h>

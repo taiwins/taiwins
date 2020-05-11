@@ -26,10 +26,10 @@
 #include <wayland-taiwins-shell-server-protocol.h>
 #include <time.h>
 #include <linux/input.h>
-#include <helpers.h>
-#include <strops.h>
-#include <os/file.h>
-#include <vector.h>
+#include <ctypes/helpers.h>
+#include <ctypes/strops.h>
+#include <ctypes/os/file.h>
+#include <ctypes/vector.h>
 #include <shared_config.h>
 
 #include "../taiwins.h"

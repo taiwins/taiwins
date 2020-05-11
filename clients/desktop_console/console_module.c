@@ -24,7 +24,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 
-#include <vector.h>
+#include <ctypes/vector.h>
 #include "console.h"
 
 /******************************************************************************/

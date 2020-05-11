@@ -35,13 +35,12 @@
 #include <sys/wait.h>
 #include <signal.h>
 
-#include <rax.h>
-#include <desktop_entry.h>
-#include <image_cache.h>
-#include <os/exec.h>
-#include <strops.h>
-#include <vector.h>
-#include <hash.h>
+#include <twclient/desktop_entry.h>
+#include <twclient/image_cache.h>
+#include <ctypes/os/exec.h>
+#include <ctypes/strops.h>
+#include <ctypes/vector.h>
+#include <ctypes/hash.h>
 
 #include "console.h"
 

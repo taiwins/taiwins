@@ -28,9 +28,9 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <wayland-server.h>
 
-#include <tree.h>
+#include <ctypes/tree.h>
+#include <ctypes/helpers.h>
 #include "bindings.h"
-#include "helpers.h"
 
 
 static inline xkb_keycode_t

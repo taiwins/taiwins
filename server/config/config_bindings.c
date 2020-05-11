@@ -19,7 +19,7 @@
  *
  */
 
-#include <helpers.h>
+#include <ctypes/helpers.h>
 #include <linux/input.h>
 #include <libweston/libweston.h>
 #include "config_internal.h"

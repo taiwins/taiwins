@@ -19,13 +19,13 @@
  *
  */
 
-#include "event_queue.h"
-#include "helpers.h"
+#include <twclient/event_queue.h>
+#include <ctypes/helpers.h>
 #include "shell.h"
 
 
 static int
-panel_launch_widget(struct tw_event *event, int fd)
+panel_launch_widget(struct tw_event *event, UNUSED_ARG(int fd))
 {
 	shell_launch_widget(event->data);
 	return  TW_EVENT_DEL;
