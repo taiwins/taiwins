@@ -70,24 +70,6 @@ target_link_libraries(test_cairo_transform
   Cairo::Cairo
   ${CLIENT_LIBRARIES})
 
-
-add_executable(test_widget_lua
-  test_widget_lua.c
-  ../clients/widget/widget.c
-  ../clients/widget/widget_lua.c
-  ../clients/widget/clock.c
-  ../clients/widget/battery.c
-  )
-
-target_link_libraries(test_widget_lua
-  twclient::twclient
-  twclient::nkcairo
-  protos-client
-  nuklear::love
-  ctypes
-  m
-  )
-
 add_executable(test_raxinsert
   test_raxinsert.c
   )

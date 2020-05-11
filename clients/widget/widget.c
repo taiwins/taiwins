@@ -131,7 +131,7 @@ shell_widget_event_from_device(struct shell_widget *widget, const char *subsyste
 	                                       dev, &redraw_widget);
 }
 
-static bool
+bool
 shell_widget_builtin(struct shell_widget *widget)
 {
 	return widget == &clock_widget ||
@@ -195,13 +195,12 @@ shell_widget_disactivate(struct shell_widget *widget, struct tw_event_queue *que
 		free(widget->devname);
 		widget->devname = NULL;
 	}
-	//now you need to deference the luaState
-	shell_widget_release_with_runtime(widget);
 }
 
 void
 shell_widgets_load_default(struct wl_list *head)
 {
+	wl_list_init(head);
 	wl_list_insert(head, &clock_widget.link);
 	wl_list_insert(head, &what_up_widget.link);
 	//wl_list_insert(head, &battery_widget.link);//due to errors

@@ -285,7 +285,6 @@ static tw_config_transform_t TRANSFORMS[] = {
 #define METATABLE_COMPOSITOR "metatable_compositor"
 #define METATABLE_OUTPUT "metatable_output"
 #define METATABLE_WORKSPACE "metatable_workspace"
-#define METATABLE_SHELL "metatable_shell"
 
 static struct weston_compositor *
 _lua_to_compositor(lua_State *L)
@@ -562,133 +561,6 @@ _lua_output_position(lua_State *L)
 	}
 }
 
-/******************************************************************************
- * shell config
- *****************************************************************************/
-
-static int
-_lua_set_wallpaper(lua_State *L)
-{
-	struct tw_config_table *t = _lua_to_config_table(L);
-	const char *path;
-
-	tw_lua_stackcheck(L, 2);
-	path = luaL_checkstring(L, 2);
-	if (!is_file_exist(path))
-		return luaL_error(L, "wallpaper does not exist!");
-	SET_PENDING_STR(&t->background_path, strdup(path));
-	tw_config_table_dirty(t, true);
-	return 0;
-}
-
-static int
-_lua_set_widgets(lua_State *L)
-{
-	struct tw_config_table *t = _lua_to_config_table(L);
-	const char *path;
-
-	tw_lua_stackcheck(L, 2);
-	path = luaL_checkstring(L, 2);
-	if (!is_file_exist(path))
-		return luaL_error(L, "widget path does not exist!");
-	SET_PENDING_STR(&t->widgets_path, strdup(path));
-	tw_config_table_dirty(t, true);
-	return 0;
-}
-
-static int
-_lua_set_panel_position(lua_State *L)
-{
-	struct tw_config_table *t = _lua_to_config_table(L);
-	const char *pos;
-
-        luaL_checktype(L, 2, LUA_TSTRING);
-	pos = lua_tostring(L, 2);
-	if (strcmp(pos, "bottom") == 0) {
-		SET_PENDING(&t->panel_pos, pos,
-		            TAIWINS_SHELL_PANEL_POS_BOTTOM);
-		tw_config_table_dirty(t, true);
-	} else if (strcmp(pos, "top") == 0) {
-		SET_PENDING(&t->panel_pos, pos,
-		            TAIWINS_SHELL_PANEL_POS_TOP);
-		tw_config_table_dirty(t, true);
-	} else
-		luaL_error(L, "invalid panel position %s", pos);
-	return 0;
-}
-
-static bool
-_lua_is_menu_item(struct lua_State *L, int idx)
-{
-	if (lua_rawlen(L, idx) != 2)
-		return false;
-	size_t len[2] = {TAIWINS_MAX_MENU_ITEM_NAME,
-	                 TAIWINS_MAX_MENU_CMD_LEN};
-	for (int i = 0; i < 2; ++i) {
-		lua_rawgeti(L, idx, i+1);
-		const char *value = (lua_type(L, -1) == LUA_TSTRING) ?
-			lua_tostring(L, -1) : NULL;
-		if (value == NULL || strlen(value) >= (len[i]-1)) {
-			lua_pop(L, 1);
-			return false;
-		}
-		lua_pop(L, 1);
-	}
-	return true;
-}
-
-static bool
-_lua_parse_menu(struct lua_State *L, vector_t *menus)
-{
-	bool parsed = true;
-	struct tw_menu_item menu_item = {
-		.has_submenu = false,
-		.len = 0};
-	if (_lua_is_menu_item(L, -1)) {
-		lua_rawgeti(L, -1, 1);
-		lua_rawgeti(L, -2, 2);
-		strop_ncpy(menu_item.endnode.title, lua_tostring(L, -2),
-			TAIWINS_MAX_MENU_ITEM_NAME);
-		strop_ncpy(menu_item.endnode.cmd, lua_tostring(L, -1),
-			TAIWINS_MAX_MENU_CMD_LEN);
-		lua_pop(L, 2);
-		vector_append(menus, &menu_item);
-	} else if (lua_istable(L, -1)) {
-		int n = lua_rawlen(L, -1);
-		int currlen = menus->len;
-		for (int i = 1; i <= n && parsed; i++) {
-			lua_rawgeti(L, -1, i);
-			parsed = parsed && _lua_parse_menu(L, menus);
-			lua_pop(L, 1);
-		}
-		if (parsed) {
-			menu_item.has_submenu = true;
-			menu_item.len = menus->len - currlen;
-			vector_append(menus, &menu_item);
-		}
-	} else
-		return false;
-	return parsed;
-}
-
-static int
-_lua_set_menus(lua_State *L)
-{
-	vector_t menu;
-	struct tw_config_table *t = _lua_to_config_table(L);
-
-	vector_init_zero(&menu, sizeof(struct tw_menu_item), NULL);
-	tw_lua_stackcheck(L, 2);
-	luaL_checktype(L, 2, LUA_TTABLE);
-	if (!_lua_parse_menu(L, &menu)) {
-		vector_destroy(&menu);
-		return luaL_error(L, "error parsing menus.");
-	}
-	SET_PENDING_VEC(&t->menu, &menu);
-	tw_config_table_dirty(t, true);
-	return 0;
-}
-
 static int
 _lua_set_sleep_timer(lua_State *L)
 {
@@ -711,16 +583,6 @@ _lua_set_lock_timer(lua_State *L)
 	SET_PENDING(&t->lock_timer, val, seconds);
 	tw_config_table_dirty(t, true);
 	return 0;
-}
-
-static int
-_lua_request_shell(lua_State *L)
-{
-	/* this function will be replaced into config */
-	lua_newtable(L);
-	luaL_getmetatable(L, METATABLE_SHELL);
-	lua_setmetatable(L, -2);
-	return 1;
 }
 
 /******************************************************************************
@@ -936,6 +798,28 @@ _lua_get_config(lua_State *L)
 }
 
 static int
+_lua_set_panel_position(lua_State *L)
+{
+	struct tw_config_table *t = _lua_to_config_table(L);
+	const char *pos;
+
+        luaL_checktype(L, 1, LUA_TSTRING);
+	pos = lua_tostring(L, 1);
+	if (strcmp(pos, "bottom") == 0) {
+		SET_PENDING(&t->panel_pos, pos,
+		            TAIWINS_SHELL_PANEL_POS_BOTTOM);
+		tw_config_table_dirty(t, true);
+	} else if (strcmp(pos, "top") == 0) {
+		SET_PENDING(&t->panel_pos, pos,
+		            TAIWINS_SHELL_PANEL_POS_TOP);
+		tw_config_table_dirty(t, true);
+	} else
+		luaL_error(L, "invalid panel position %s", pos);
+	return 0;
+}
+
+
+static int
 luaopen_taiwins(lua_State *L)
 {
 	////////////////////// backend ///////////////////////////////
@@ -946,16 +830,6 @@ luaopen_taiwins(lua_State *L)
 	REGISTER_METHOD(L, "scale", _lua_output_scale);
 	REGISTER_METHOD(L, "resolution", _lua_output_resolution);
 	REGISTER_METHOD(L, "position", _lua_output_position);
-	lua_pop(L, 1);
-
-	////////////////////// shell  ///////////////////////////////
-	luaL_newmetatable(L, METATABLE_SHELL);
-	lua_pushvalue(L, -1);
-	lua_setfield(L, -2, "__index");
-	REGISTER_METHOD(L, "set_wallpaper", _lua_set_wallpaper);
-	REGISTER_METHOD(L, "init_widgets", _lua_set_widgets);
-	REGISTER_METHOD(L, "panel_position", _lua_set_panel_position);
-	REGISTER_METHOD(L, "set_menus", _lua_set_menus);
 	lua_pop(L, 1);
 
 	////////////////////// desktop //////////////////////////////
@@ -987,9 +861,9 @@ luaopen_taiwins(lua_State *L)
 	//TODO: other type output
 	REGISTER_METHOD(L, "get_window_display", _lua_get_windowed_output);
 	//shell methods
-	REGISTER_METHOD(L, "shell", _lua_request_shell);
 	REGISTER_METHOD(L, "lock_in", _lua_set_lock_timer);
 	REGISTER_METHOD(L, "sleep_in", _lua_set_sleep_timer);
+	REGISTER_METHOD(L, "panel_pos", _lua_set_panel_position);
 	//desktop methods
 	REGISTER_METHOD(L, "workspaces", _lua_request_workspaces);
 	REGISTER_METHOD(L, "desktop_gaps", _lua_desktop_gap);

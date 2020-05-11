@@ -143,10 +143,8 @@ typedef struct {
 typedef OPTION(enum wl_output_transform, transform) pending_transform_t;
 typedef OPTION(enum tw_layout_type, layout) pending_layout_t;
 typedef OPTION(bool, enable) pending_xwayland_enable_t;
-typedef OPTION(char *, path) pending_path_t;
-typedef OPTION(enum taiwins_shell_panel_pos, pos) pending_panel_pos_t;
 typedef OPTION(enum taiwins_shell_task_switch_effect, eff) pending_effect_t;
-typedef OPTION(vector_t, vec) pending_vec_t;
+typedef OPTION(enum taiwins_shell_panel_pos, pos) pending_panel_pos_t;
 typedef OPTION(int32_t, val) pending_intval_t;
 typedef OPTION(bool, read) pending_theme_reading_t;
 
@@ -156,24 +154,6 @@ typedef OPTION(bool, read) pending_theme_reading_t;
 		(ptr)->name = value; \
 		(ptr)->valid = true; \
 	})
-
-static inline void
-SET_PENDING_STR(pending_path_t *path, char *value)
-{
-	if (path->path)
-		free(path);
-	path->path = value;
-	path->valid = true;
-}
-
-static inline void
-SET_PENDING_VEC(pending_vec_t *vec, vector_t *copy)
-{
-	if (vec->vec.elems)
-		vector_destroy(&vec->vec);
-	vec->vec = *copy;
-	vec->valid = true;
-}
 
 struct tw_config_table {
 	struct {
@@ -191,10 +171,7 @@ struct tw_config_table {
 	pending_xwayland_enable_t xwayland;
 	pending_theme_reading_t theme;
 
-	pending_path_t background_path;
-	pending_path_t widgets_path;
 	pending_panel_pos_t panel_pos;
-	pending_vec_t menu;
 	pending_intval_t sleep_timer;
 	pending_intval_t lock_timer;
 

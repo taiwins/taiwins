@@ -704,17 +704,21 @@ void *
 desktop_console_run_config_lua(struct desktop_console *console,
                                const char *path)
 {
+	char configpath[PATH_MAX];
 	const char *err_msg;
 	lua_State *L;
 	int n;
 	struct console_module *module;
 	bool safe = true;
 
+	tw_config_dir(configpath);
+	path_concat(configpath, PATH_MAX, 1, "console.lua");
+	path = (path) ? path : configpath;
+
 	L = luaL_newstate();
 	if (!L)
 		return NULL;
 	luaL_openlibs(L);
-
 	_lua_register_metatables(L, console);
 	luaL_requiref(L, "taiwins_console",
 	              luaopen_taiwins_console, true);
