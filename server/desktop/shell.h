@@ -24,7 +24,7 @@
 
 #include <libweston/libweston.h>
 #include <wayland-server.h>
-#include <sequential.h>
+#include <ctypes/sequential.h>
 #include <wayland-taiwins-shell-server-protocol.h>
 
 #define TWSHELL_VERSION 1

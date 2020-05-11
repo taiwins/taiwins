@@ -25,9 +25,9 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <wayland-util.h>
-#include <os/file.h>
+#include <ctypes/os/file.h>
+#include <twclient/ui.h>
 
-#include <ui.h>
 #include "widget.h"
 
 

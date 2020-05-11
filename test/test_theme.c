@@ -6,10 +6,10 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
-#include <client.h>
-#include <ui.h>
-#include <theme.h>
-#include <nk_backends.h>
+#include <twclient/client.h>
+#include <twclient/ui.h>
+#include <twclient/theme.h>
+#include <twclient/nk_backends.h>
 
 
 static struct application {

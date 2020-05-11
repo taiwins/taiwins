@@ -29,9 +29,9 @@
 #include <unistd.h>
 
 #include <rax.h>
-#include <vector.h>
-#include <helpers.h>
-#include <strops.h>
+#include <ctypes/vector.h>
+#include <ctypes/helpers.h>
+#include <ctypes/strops.h>
 #include "console.h"
 
 

@@ -36,14 +36,14 @@
 
 #include <wayland-taiwins-shell-client-protocol.h>
 #include <wayland-taiwins-theme-client-protocol.h>
-#include <sequential.h>
-#include <os/file.h>
-#include <client.h>
-#include <shmpool.h>
-#include <nk_backends.h>
-#include <theme.h>
+#include <ctypes/sequential.h>
+#include <ctypes/os/file.h>
+#include <twclient/client.h>
+#include <twclient/shmpool.h>
+#include <twclient/nk_backends.h>
+#include <twclient/theme.h>
 #include <tdbus.h>
-#include <wayland-util.h>
+
 #include <shared_config.h>
 #include <widget/widget.h>
 

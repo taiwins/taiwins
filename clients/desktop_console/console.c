@@ -37,21 +37,19 @@
 #include <wayland-taiwins-shell-client-protocol.h>
 #include <wayland-taiwins-console-client-protocol.h>
 
-#include <client.h>
-#include <ui.h>
-#include <nk_backends.h>
-#include <theme.h>
-#include <image_cache.h>
-#include <shmpool.h>
-#include <helpers.h>
-#include <strops.h>
-#include <sequential.h>
-#include <hash.h>
+#include <ctypes/helpers.h>
+#include <ctypes/strops.h>
+#include <ctypes/sequential.h>
+#include <ctypes/hash.h>
+#include <twclient/client.h>
+#include <twclient/ui.h>
+#include <twclient/nk_backends.h>
+#include <twclient/theme.h>
+#include <twclient/image_cache.h>
+#include <twclient/shmpool.h>
 #include <shared_config.h>
 
 #include "console.h"
-#include "os/file.h"
-#include "vector.h"
 
 #define CON_EDIT_H 30
 #define CON_ENTY_H 24

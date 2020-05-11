@@ -22,11 +22,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <strops.h>
 #include <wayland-util.h>
-#include "client.h"
+#include <ctypes/strops.h>
+#include <ctypes/vector.h>
+#include <twclient/client.h>
 #include "shell.h"
-#include "vector.h"
 
 static inline struct shell_notif *
 make_shell_notif(const char *msg)
