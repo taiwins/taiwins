@@ -6,11 +6,12 @@ add_executable(taiwins-shell
   desktop_shell/shell_msgs.c
   desktop_shell/shell_bus.c
   desktop_shell/shell_ui.c
+  desktop_shell/shell_lua.c
 
   widget/widget.c
   widget/clock.c
   widget/battery.c
-  widget/widget_lua.c
+  # widget/widget_lua.c
   )
 target_include_directories(taiwins-shell
   PRIVATE ${SHARED_CONFIG_DIR} ${CMAKE_CURRENT_LIST_DIR}

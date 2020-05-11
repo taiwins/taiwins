@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <wayland-taiwins-shell-server-protocol.h>
 #include <time.h>
@@ -84,7 +85,6 @@ struct shell {
 
 	struct weston_surface *the_widget_surface;
 	enum taiwins_shell_panel_pos panel_pos;
-	vector_t shell_menu;
 
 	struct wl_signal output_area_signal;
 
@@ -129,7 +129,8 @@ shell_ith_output(struct shell *shell, struct weston_output *output)
 }
 
 static inline struct shell_output*
-shell_output_from_weston_output(struct shell *shell, struct weston_output *output)
+shell_output_from_weston_output(struct shell *shell,
+                                struct weston_output *output)
 {
 	for (int i = 0; i < 16; i++) {
 		if (shell->tw_outputs[i].output == output)
@@ -147,33 +148,13 @@ shell_output_available_space_changed(void *data)
 }
 
 /*******************************************************************************
- * default taiwins_shell data
- ******************************************************************************/
-
-static struct tw_menu_item shell_default_menu[] = {
-	{
-		.endnode.title = "Application",
-		.has_submenu = true,
-		.len = 0,
-	},
-	{
-		.endnode.title = "System",
-		.has_submenu = true,
-		.len = 1,
-	},
-	{
-		.endnode.title = "Reconfigure",
-		.has_submenu = false,
-	},
-};
-
-/*******************************************************************************
  * taiwins_ui implementation
  ******************************************************************************/
 
 static void
 does_ui_lose_keyboard(struct weston_keyboard *keyboard,
-                      const struct timespec *time, uint32_t key,
+                      UNUSED_ARG(const struct timespec *time),
+                      UNUSED_ARG(uint32_t key),
                       void *data)
 {
 	struct shell_ui *ui_elem = data;
@@ -189,7 +170,8 @@ does_ui_lose_keyboard(struct weston_keyboard *keyboard,
 
 static void
 does_ui_lose_pointer(struct weston_pointer *pointer,
-                     const struct timespec *time, uint32_t button,
+                      UNUSED_ARG(const struct timespec *time),
+                      UNUSED_ARG(uint32_t button),
                      void *data)
 {
 	struct shell_ui *ui_elem = data;
@@ -204,7 +186,7 @@ does_ui_lose_pointer(struct weston_pointer *pointer,
 
 static void
 does_ui_lose_touch(struct weston_touch *touch,
-                   const struct timespec *time, void *data)
+                   UNUSED_ARG(const struct timespec *time), void *data)
 {
 	struct shell_ui *ui_elem = data;
 	struct weston_view *view =
@@ -234,7 +216,8 @@ shell_ui_unbind(struct wl_resource *resource)
 			weston_binding_destroy(bindings[i]);
 
 	//clean up shell_output
-	output = shell_output_from_weston_output(ui_elem->shell, ui_elem->output);
+	output = shell_output_from_weston_output(ui_elem->shell,
+	                                         ui_elem->output);
 	display = ui_elem->shell->ec->wl_display;
 	loop = wl_display_get_event_loop(display);
 	if (output) {
@@ -339,7 +322,8 @@ static void
 shell_output_destroyed(struct wl_listener *listener, void *data)
 {
 	struct weston_output *output = data;
-	struct shell *shell = container_of(listener, struct shell, output_destroy_listener);
+	struct shell *shell =
+		container_of(listener, struct shell, output_destroy_listener);
 	int i = shell_ith_output(shell, output);
 	if (i < 0)
 		return;
@@ -362,12 +346,12 @@ shell_output_resized(struct wl_listener *listener, void *data)
 }
 
 static void
-shell_compositor_idle(struct wl_listener *listener, void *data)
+shell_compositor_idle(struct wl_listener *listener, UNUSED_ARG(void *data))
 {
 
 	struct shell *shell =
 		container_of(listener, struct shell, idle_listener);
-	fprintf(stderr, "oh, I should lock right now %p\n", shell->locker.resource);
+	fprintf(stderr, "I should lock right now %p\n", shell->locker.resource);
 
 	if (shell->locker.resource)
 		return;
@@ -375,9 +359,9 @@ shell_compositor_idle(struct wl_listener *listener, void *data)
 		shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_LOCK, " ");
 }
 
-/********************************************************************************
+/*******************************************************************************
  * shell_view
- *******************************************************************************/
+ ******************************************************************************/
 
 static void
 setup_view(struct weston_view *view, struct weston_layer *layer,
@@ -408,7 +392,8 @@ setup_view(struct weston_view *view, struct weston_layer *layer,
 }
 
 static void
-commit_background(struct weston_surface *surface, int sx, int sy)
+commit_background(struct weston_surface *surface,
+                  UNUSED_ARG(int sx), UNUSED_ARG(int sy))
 {
 	struct shell_ui *ui = surface->committed_private;
 	//get the first view, as ui element has only one view
@@ -421,7 +406,8 @@ commit_background(struct weston_surface *surface, int sx, int sy)
 }
 
 static void
-commit_panel(struct weston_surface *surface, int sx, int sy)
+commit_panel(struct weston_surface *surface,
+             UNUSED_ARG(int sx), UNUSED_ARG(int sy))
 {
 	struct shell_ui *ui = surface->committed_private;
 	struct weston_view *view =
@@ -450,7 +436,8 @@ commit_panel(struct weston_surface *surface, int sx, int sy)
 }
 
 static void
-commit_ui_surface(struct weston_surface *surface, int sx, int sy)
+commit_ui_surface(struct weston_surface *surface,
+                  UNUSED_ARG(int sx), UNUSED_ARG(int sy))
 {
 	//the sx and sy are from attach or attach_buffer attach sets pending
 	//state, when commit request triggered, pending state calls
@@ -468,7 +455,8 @@ commit_ui_surface(struct weston_surface *surface, int sx, int sy)
 }
 
 static void
-commit_lock_surface(struct weston_surface *surface, int sx, int sy)
+commit_lock_surface(struct weston_surface *surface,
+                    UNUSED_ARG(int sx), UNUSED_ARG(int sy))
 {
 	struct weston_view *view;
 	struct shell_ui *ui = surface->committed_private;
@@ -477,17 +465,18 @@ commit_lock_surface(struct weston_surface *surface, int sx, int sy)
 }
 
 static bool
-set_surface(struct shell *shell,
-	    struct weston_surface *surface, struct weston_output *output,
-	    struct wl_resource *wl_resource,
-	    void (*committed)(struct weston_surface *, int32_t, int32_t))
+set_surface(UNUSED_ARG(struct shell *shell),
+            struct weston_surface *surface, struct weston_output *output,
+            struct wl_resource *wl_resource,
+            void (*committed)(struct weston_surface *, int32_t, int32_t))
 {
 	//TODO, use wl_resource_get_user_data for position
 	struct weston_view *view, *next;
 	struct shell_ui *ui = wl_resource_get_user_data(wl_resource);
 	//remember to reset the weston_surface's commit and commit_private
 	if (surface->committed) {
-		wl_resource_post_error(wl_resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
+		wl_resource_post_error(wl_resource,
+		                       WL_DISPLAY_ERROR_INVALID_OBJECT,
 				       "surface already have a role");
 		return false;
 	}
@@ -533,7 +522,7 @@ set_lock_surface(struct shell *shell, struct weston_surface *surface,
  * taiwins_shell
  ******************************************************************/
 static void
-shell_ui_destroy_resource(struct wl_client *client,
+shell_ui_destroy_resource(UNUSED_ARG(struct wl_client *client),
 			  struct wl_resource *resource)
 {
 	wl_resource_destroy(resource);
@@ -543,33 +532,25 @@ static struct taiwins_ui_interface tw_ui_impl = {
 	.destroy = shell_ui_destroy_resource,
 };
 
-static inline void
-shell_send_panel_pos(struct shell *shell)
-{
-	char msg[32];
-	snprintf(msg, 31, "%d", shell->panel_pos == TAIWINS_SHELL_PANEL_POS_TOP ?
-		 TAIWINS_SHELL_PANEL_POS_TOP : TAIWINS_SHELL_PANEL_POS_BOTTOM);
-	shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_PANEL_POS, msg);
-}
-
 /*
  * pass-in empty elem for allocating resources, use the existing memory
  * otherwise
  */
 static void
 create_ui_element(struct wl_client *client,
-		  struct shell *shell,
-		  struct shell_ui *elem, uint32_t tw_ui,
-		  struct wl_resource *wl_surface,
-		  struct weston_output *output,
-		  uint32_t x, uint32_t y,
-		  enum taiwins_ui_type type)
+                  struct shell *shell,
+                  struct shell_ui *elem, uint32_t tw_ui,
+                  struct wl_resource *wl_surface,
+                  struct weston_output *output,
+                  uint32_t x, uint32_t y,
+                  enum taiwins_ui_type type)
 {
 	bool allocated = (elem == NULL);
 	struct weston_seat *seat = tw_get_default_seat(shell->ec);
 	struct weston_surface *surface = tw_surface_from_resource(wl_surface);
 	weston_seat_set_keyboard_focus(seat, surface);
-	struct wl_resource *tw_ui_resource = wl_resource_create(client, &taiwins_ui_interface, 1, tw_ui);
+	struct wl_resource *tw_ui_resource =
+		wl_resource_create(client, &taiwins_ui_interface, 1, tw_ui);
 	if (!tw_ui_resource) {
 		wl_client_post_no_memory(client);
 		return;
@@ -582,9 +563,11 @@ create_ui_element(struct wl_client *client,
 	else
 		shell_ui_create_simple(elem, tw_ui_resource, surface);
 	if (allocated)
-		wl_resource_set_implementation(tw_ui_resource, &tw_ui_impl, elem, shell_ui_unbind_free);
+		wl_resource_set_implementation(tw_ui_resource, &tw_ui_impl,
+		                               elem, shell_ui_unbind_free);
 	else
-		wl_resource_set_implementation(tw_ui_resource, &tw_ui_impl, elem, shell_ui_unbind);
+		wl_resource_set_implementation(tw_ui_resource, &tw_ui_impl,
+		                               elem, shell_ui_unbind);
 
 	elem->shell = shell;
 	elem->x = x;
@@ -595,15 +578,18 @@ create_ui_element(struct wl_client *client,
 	switch (type) {
 	case TAIWINS_UI_TYPE_PANEL:
 		elem->layer = &shell->ui_layer;
-		set_surface(shell, surface, output, tw_ui_resource, commit_panel);
+		set_surface(shell, surface, output, tw_ui_resource,
+		            commit_panel);
 		break;
 	case TAIWINS_UI_TYPE_BACKGROUND:
 		elem->layer = &shell->background_layer;
-		set_surface(shell, surface, output, tw_ui_resource, commit_background);
+		set_surface(shell, surface, output, tw_ui_resource,
+		            commit_background);
 		break;
 	case TAIWINS_UI_TYPE_WIDGET:
 		elem->layer = &shell->ui_layer;
-		set_surface(shell, surface, output, tw_ui_resource, commit_ui_surface);
+		set_surface(shell, surface, output, tw_ui_resource,
+		            commit_ui_surface);
 		break;
 	case TAIWINS_UI_TYPE_LOCKER:
 		elem->layer = &shell->locker_layer;
@@ -614,10 +600,10 @@ create_ui_element(struct wl_client *client,
 
 static void
 create_shell_panel(struct wl_client *client,
-		   struct wl_resource *resource,
-		   uint32_t tw_ui,
-		   struct wl_resource *wl_surface,
-		   int idx)
+                   struct wl_resource *resource,
+                   uint32_t tw_ui,
+                   struct wl_resource *wl_surface,
+                   int idx)
 {
 	//check the id
 	struct shell *shell = wl_resource_get_user_data(resource);
@@ -629,11 +615,11 @@ create_shell_panel(struct wl_client *client,
 
 static void
 launch_shell_widget(struct wl_client *client,
-		    struct wl_resource *resource,
-		    uint32_t tw_ui,
-		    struct wl_resource *wl_surface,
-		    int32_t idx,
-		    uint32_t x, uint32_t y)
+                    struct wl_resource *resource,
+                    uint32_t tw_ui,
+                    struct wl_resource *wl_surface,
+                    int32_t idx,
+                    uint32_t x, uint32_t y)
 {
 	struct shell *shell = wl_resource_get_user_data(resource);
 	struct shell_output *output = &shell->tw_outputs[idx];
@@ -644,10 +630,10 @@ launch_shell_widget(struct wl_client *client,
 
 static void
 create_shell_background(struct wl_client *client,
-			struct wl_resource *resource,
-			uint32_t tw_ui,
-			struct wl_resource *wl_surface,
-			int32_t tw_ouptut)
+                        struct wl_resource *resource,
+                        uint32_t tw_ui,
+                        struct wl_resource *wl_surface,
+                        int32_t tw_ouptut)
 {
 	struct shell *shell = wl_resource_get_user_data(resource);
 	struct shell_output *shell_output = &shell->tw_outputs[tw_ouptut];
@@ -662,7 +648,7 @@ create_shell_locker(struct wl_client *client,
 		    struct wl_resource *resource,
 		    uint32_t tw_ui,
 		    struct wl_resource *wl_surface,
-		    int32_t tw_output)
+                    UNUSED_ARG(int32_t tw_output))
 {
 	struct shell *shell = wl_resource_get_user_data(resource);
 	struct shell_output *shell_output =
@@ -671,11 +657,20 @@ create_shell_locker(struct wl_client *client,
 			  shell_output->output, 0, 0, TAIWINS_UI_TYPE_LOCKER);
 }
 
+static void
+recv_client_msg(UNUSED_ARG(struct wl_client *client),
+                UNUSED_ARG(struct wl_resource *resource),
+                UNUSED_ARG(uint32_t key),
+                UNUSED_ARG(struct wl_array *value))
+{
+}
+
 static struct taiwins_shell_interface shell_impl = {
 	.create_panel = create_shell_panel,
 	.create_background = create_shell_background,
 	.create_locker = create_shell_locker,
 	.launch_widget = launch_shell_widget,
+	.server_msg = recv_client_msg,
 };
 
 static void
@@ -692,21 +687,21 @@ launch_shell_client(void *data)
 	                          &shell->gid);
 }
 
-static inline struct wl_array
-taiwins_menu_to_wl_array(const struct tw_menu_item * items, const int len)
+static inline void
+shell_send_panel_pos(struct shell *shell)
 {
-	struct wl_array serialized;
-	serialized.alloc = 0;
-	serialized.size = sizeof(struct tw_menu_item) * len;
-	serialized.data = (void *)items;
-	return serialized;
+	char msg[32];
+	snprintf(msg, 31, "%d",
+	         shell->panel_pos == TAIWINS_SHELL_PANEL_POS_TOP ?
+	         TAIWINS_SHELL_PANEL_POS_TOP : TAIWINS_SHELL_PANEL_POS_BOTTOM);
+	shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_PANEL_POS, msg);
 }
 
 static void
 shell_send_default_config(struct shell *shell)
 {
 	struct weston_output *output;
-	struct wl_array menu;
+
 	enum taiwins_shell_output_msg connected =
 		TAIWINS_SHELL_OUTPUT_MSG_CONNECTED;
 
@@ -720,14 +715,6 @@ shell_send_default_config(struct shell *shell)
 		                                    ith_output == 0,
 		                                    connected);
 	}
-	if (shell->shell_menu.len)
-		menu = taiwins_menu_to_wl_array(shell->shell_menu.elems,
-		                                shell->shell_menu.len);
-	else
-		menu = taiwins_menu_to_wl_array(shell_default_menu, 3);
-
-	shell_post_data(shell, TAIWINS_SHELL_MSG_TYPE_MENU,
-	                &menu);
 	shell_send_panel_pos(shell);
 }
 
@@ -820,7 +807,7 @@ shell_post_data(struct shell *shell, uint32_t type,
 {
 	if (!shell->shell_resource)
 		return;
-	taiwins_shell_send_shell_msg(shell->shell_resource,
+	taiwins_shell_send_client_msg(shell->shell_resource,
 				type, msg);
 }
 
@@ -835,7 +822,7 @@ shell_post_message(struct shell *shell, uint32_t type, const char *msg)
 	arr.alloc = 0;
 	if (!shell->shell_resource)
 		return;
-	taiwins_shell_send_shell_msg(shell->shell_resource, type, &arr);
+	taiwins_shell_send_client_msg(shell->shell_resource, type, &arr);
 }
 
 struct weston_geometry
@@ -875,7 +862,7 @@ end_shell(struct wl_listener *listener, UNUSED_ARG(void *data))
 			     compositor_destroy_listener);
 
 	wl_global_destroy(shell->shell_global);
-	vector_destroy(&shell->shell_menu);
+
 }
 
 static void
@@ -901,9 +888,12 @@ shell_add_listeners(struct shell *shell)
 	wl_list_init(&shell->output_resize_listener.link);
 	shell->output_resize_listener.notify = shell_output_resized;
 	//singals
-	wl_signal_add(&ec->output_created_signal, &shell->output_create_listener);
-	wl_signal_add(&ec->output_destroyed_signal, &shell->output_destroy_listener);
-	wl_signal_add(&ec->output_resized_signal, &shell->output_resize_listener);
+	wl_signal_add(&ec->output_created_signal,
+	              &shell->output_create_listener);
+	wl_signal_add(&ec->output_destroyed_signal,
+	              &shell->output_destroy_listener);
+	wl_signal_add(&ec->output_resized_signal,
+	              &shell->output_resize_listener);
 	//init current outputs
 	struct weston_output *output;
 	wl_list_for_each(output, &ec->output_list, link)
@@ -913,17 +903,6 @@ shell_add_listeners(struct shell *shell)
 /*******************************************************************************
  * public APIS
  ******************************************************************************/
-void
-tw_shell_set_wallpaper(struct shell *shell, const char *wp)
-{
-	shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_WALLPAPER, wp);
-}
-
-void
-tw_shell_set_widget_path(struct shell *shell, const char *path)
-{
-	shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_WIDGET, path);
-}
 
 void
 tw_shell_set_panel_pos(struct shell *shell, enum taiwins_shell_panel_pos pos)
@@ -932,17 +911,6 @@ tw_shell_set_panel_pos(struct shell *shell, enum taiwins_shell_panel_pos pos)
 		shell->panel_pos = pos;
 		shell_send_panel_pos(shell);
 	}
-}
-
-void
-tw_shell_set_menu(struct shell *shell, vector_t *menu)
-{
-	struct wl_array serialized;
-
-        vector_destroy(&shell->shell_menu);
-	shell->shell_menu = *menu;
-	serialized = taiwins_menu_to_wl_array(menu->elems, menu->len);
-	shell_post_data(shell, TAIWINS_SHELL_MSG_TYPE_MENU, &serialized);
 }
 
 struct shell *
@@ -954,8 +922,6 @@ tw_setup_shell(struct weston_compositor *ec, const char *path)
 	s_shell.the_widget_surface = NULL;
 	s_shell.shell_client = NULL;
 	s_shell.panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
-	vector_init_zero(&s_shell.shell_menu,
-	                 sizeof(struct tw_menu_item), NULL);
 
 	wl_signal_init(&s_shell.output_area_signal);
 

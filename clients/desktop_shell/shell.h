@@ -22,6 +22,7 @@
 #ifndef TW_SHELL_CLIENT_H
 #define TW_SHELL_CLIENT_H
 
+#include <stdarg.h>
 #include <stdint.h>
 #include <unistd.h>
 #include <stdbool.h>
@@ -50,9 +51,32 @@
 extern "C" {
 #endif
 
+#define TAIWINS_MAX_MENU_CMD_LEN 15
+#define TAIWINS_MAX_MENU_ITEM_NAME 15
+#define TAIWINS_MAX_MENU_LEN 16
+
+struct tw_menu_item {
+
+	struct {
+		char title[TAIWINS_MAX_MENU_ITEM_NAME+1];
+		/* short commands. long commands please use console */
+		char cmd[TAIWINS_MAX_MENU_CMD_LEN+1];
+	} endnode;
+	/* submenu settings */
+	bool has_submenu; /* has submenu */
+	size_t len; /* submenu size */
+};
+
 struct shell_notif {
 	char *msg;
 	struct wl_list link;
+};
+
+struct shell_config {
+	void *(*run_config)(struct shell_config *, const char *);
+	void (*fini_config)(struct shell_config *);
+	char *(*request_wallpaper)(struct shell_config *);
+	void *config_data;
 };
 
 struct shell_output {
@@ -89,10 +113,10 @@ struct desktop_shell {
 	enum taiwins_shell_panel_pos panel_pos;
 	struct tdbus *system_bus;
 	struct tdbus *session_bus;
-	/**< widget configurations */
+	struct shell_config config;
+	/**< panel bg configurations */
 	struct {
 		struct nk_wl_backend *panel_backend;
-		struct nk_style_button label_style;
 		struct nk_user_font *icon_font;
 		char wallpaper_path[128];
 		//TODO calculated from font size
@@ -145,6 +169,9 @@ shell_end_transient_surface(struct desktop_shell *shell)
 }
 
 void
+shell_load_wallpaper(struct desktop_shell *shell, const char *path);
+
+void
 shell_init_bg_for_output(struct shell_output *output);
 
 void
@@ -162,6 +189,26 @@ shell_locker_init(struct desktop_shell *shell);
 void
 shell_process_msg(struct desktop_shell *shell, uint32_t type,
                   const struct wl_array *data);
+static inline void
+shell_notif_msg(struct desktop_shell *shell, int maxlen,
+                const char *format, ...)
+{
+	struct wl_array data;
+	char err_msg[maxlen+1];
+	va_list ap;
+
+        data.alloc = 0;
+        data.data = err_msg;
+        data.size = maxlen+1;
+
+        va_start(ap, format);
+        vsnprintf(err_msg, maxlen, format, ap);
+        va_end(ap);
+
+	shell_process_msg(shell, TAIWINS_SHELL_MSG_TYPE_NOTIFICATION,
+	                  &data);
+}
+
 void
 shell_tdbus_init(struct desktop_shell *shell);
 
@@ -182,6 +229,9 @@ shell_launch_widget(struct desktop_shell *shell);
 
 void
 shell_close_widget(struct desktop_shell *shell);
+
+void *
+shell_config_run_lua(struct shell_config *config, const char *path);
 
 #ifdef __cplusplus
 }

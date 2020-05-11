@@ -22,11 +22,10 @@
 #ifndef TW_SHELL_H
 #define TW_SHELL_H
 
+#include <libweston/libweston.h>
 #include <wayland-server.h>
 #include <sequential.h>
 #include <wayland-taiwins-shell-server-protocol.h>
-
-#include "../bindings.h"
 
 #define TWSHELL_VERSION 1
 #define TWDESKP_VERSION 1
@@ -39,18 +38,6 @@ struct shell;
 
 struct shell *
 tw_setup_shell(struct weston_compositor *compositor, const char *path);
-
-void
-tw_shell_set_wallpaper(struct shell *shell, const char *wp);
-
-void
-tw_shell_set_widget_path(struct shell *shell, const char *path);
-
-void
-tw_shell_set_panel_pos(struct shell *shell, enum taiwins_shell_panel_pos pos);
-
-void
-tw_shell_set_menu(struct shell *shell, vector_t *menu);
 
 void
 shell_create_ui_elem(struct shell *shell, struct wl_client *client,
@@ -68,6 +55,9 @@ shell_output_available_space(struct shell *shell,
 void
 shell_add_desktop_area_listener(struct shell *shell,
                                 struct wl_listener *listener);
+
+void
+tw_shell_set_panel_pos(struct shell *shell, enum taiwins_shell_panel_pos pos);
 
 #ifdef  __cplusplus
 }

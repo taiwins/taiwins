@@ -20,6 +20,7 @@
  */
 
 #include <image_cache.h>
+#include <strops.h>
 #include "shell.h"
 
 static bool
@@ -42,17 +43,18 @@ shell_background_frame(struct tw_appsurf *surf, struct wl_buffer *buffer,
 	//as for tw_appsurf_frame later
 	struct shell_output *output = container_of(surf, struct shell_output, background);
 	struct desktop_shell *shell = output->shell;
-	*geo = surf->allocation;
 	void *buffer_data = tw_shm_pool_buffer_access(buffer);
-	if (!strlen(shell->wallpaper_path))
-		sprintf(shell->wallpaper_path,
-			"%s/.wallpaper/wallpaper.png", getenv("HOME"));
-	if (!image_load_for_buffer(shell->wallpaper_path, surf->pool->format,
+	char *wallpaper_path = (shell->config.request_wallpaper) ?
+		shell->config.request_wallpaper(&shell->config) : NULL;
+	*geo = surf->allocation;
+	if (!image_load_for_buffer(wallpaper_path, surf->pool->format,
 		       surf->allocation.w*surf->allocation.s,
 		       surf->allocation.h*surf->allocation.s,
 		       (unsigned char *)buffer_data)) {
-		fprintf(stderr, "failed to load image somehow\n");
+		/* shell_notif_msg(shell, 128, "failed to load image %s\n", */
+		/*                 wallpaper_path); */
 	}
+	if (wallpaper_path) free(wallpaper_path);
 }
 
 static void
@@ -93,4 +95,19 @@ shell_resize_bg_for_output(struct shell_output *w)
 	w->background.flags &= ~TW_APPSURF_NORESIZABLE;
 	tw_appsurf_resize(&w->background, w->bbox.w, w->bbox.h, w->bbox.s);
 	w->background.flags |= TW_APPSURF_NORESIZABLE;
+}
+
+void
+shell_load_wallpaper(struct desktop_shell *shell, const char *path)
+{
+	if (is_file_exist(path))
+		strop_ncpy(shell->wallpaper_path, path, 128);
+	if (desktop_shell_n_outputs(shell) == 0)
+		return;
+	for (int i = 0; i < desktop_shell_n_outputs(shell); i++) {
+		struct tw_appsurf *bg =
+			&shell->shell_outputs[i].background;
+		if (bg->wl_surface)
+			tw_appsurf_frame(bg, false);
+	}
 }
