@@ -238,7 +238,8 @@ workspace_focus_view(struct workspace *ws, struct weston_view *v)
 	wl_list_init(&rv->link);
 	wl_list_insert(&ws->recent_views, &rv->link);
 
-	weston_view_damage_below(v);
+	weston_view_geometry_dirty(v);
+	weston_surface_damage(v->surface);
 	weston_view_schedule_repaint(v);
 	return true;
 }
