@@ -105,16 +105,19 @@ workspace_release(struct workspace *ws)
 struct weston_view *
 workspace_get_top_view(const struct workspace *ws)
 {
+	const struct weston_layer *layers[3];
 	struct weston_view *view;
-	wl_list_for_each(view, &ws->fullscreen_layer.view_list.link,
-	                 layer_link.link)
-		return view;
-	wl_list_for_each(view, &ws->floating_layer.view_list.link,
-	                 layer_link.link)
-		return view;
-	wl_list_for_each(view, &ws->tiling_layer.view_list.link,
-	                 layer_link.link)
-		return view;
+
+	layers[0] = &ws->fullscreen_layer;
+	layers[1] = (ws->floating_layer.position == FRONT_LAYER_POS) ?
+		&ws->floating_layer : &ws->tiling_layer;
+	layers[2] = layers[1] == &ws->tiling_layer ?
+		&ws->floating_layer : &ws->tiling_layer;
+
+	for (int i = 0; i < 3; i++)
+		wl_list_for_each(view, &layers[i]->view_list.link,
+		                 layer_link.link)
+			return view;
 	return NULL;
 }
 

@@ -26,7 +26,6 @@
 #include <linux/input.h>
 #include <unistd.h>
 #include <wayland-server-core.h>
-#include <wayland-util.h>
 #include <wayland-server.h>
 #include <ctypes/strops.h>
 #include <ctypes/helpers.h>
@@ -65,6 +64,7 @@ static struct desktop {
 	struct weston_desktop *api;
 	const struct weston_xwayland_surface_api *xwayland_api;
 
+	struct wl_listener widget_closed_listener;
 	struct wl_listener desktop_area_listener;
 	struct wl_listener compositor_destroy_listener;
 	struct wl_listener output_create_listener;
@@ -88,12 +88,6 @@ tw_desktop_get_global() {return &s_desktop; }
 /*******************************************************************************
  * desktop API
  ******************************************************************************/
-
-static inline off_t
-get_workspace_index(struct workspace *ws, struct desktop *d)
-{
-	return ws - d->workspaces;
-}
 
 static inline struct workspace*
 get_workspace_for_view(struct weston_view *v, struct desktop *d)
@@ -547,6 +541,20 @@ desktop_area_changed(struct wl_listener *listener, void *data)
 }
 
 static void
+desktop_should_focus(struct wl_listener *listener, UNUSED_ARG(void *data))
+{
+	struct desktop *desktop = container_of(listener,
+	                                       struct desktop,
+	                                       widget_closed_listener);
+	struct workspace *ws = desktop->actived_workspace[0];
+	struct weston_view *v = workspace_get_top_view(ws);
+	tw_focus_surface(v->surface);
+}
+
+/*******************************************************************************
+ * GRABS
+ ******************************************************************************/
+static void
 pointer_motion_delta(struct weston_pointer *p,
 		     struct weston_pointer_motion_event *e,
 		     double *dx, double *dy)
@@ -564,9 +572,7 @@ pointer_motion_delta(struct weston_pointer *p,
 	}
 }
 
-/*******************************************************************************
- * GRABS
- ******************************************************************************/
+
 static void noop_grab_focus(UNUSED_ARG(struct weston_pointer_grab *grab)) {}
 
 static void noop_grab_axis(UNUSED_ARG(struct weston_pointer_grab *grab),
@@ -1084,12 +1090,14 @@ tw_setup_desktop(struct weston_compositor *ec,  struct shell *shell)
 	                    &desktop_alpha_grab, NULL, NULL);
 
 	//install signals
+	wl_list_init(&s_desktop.widget_closed_listener.link);
 	wl_list_init(&s_desktop.desktop_area_listener.link);
 	wl_list_init(&s_desktop.output_create_listener.link);
 	wl_list_init(&s_desktop.output_destroy_listener.link);
 	wl_list_init(&s_desktop.output_resize_listener.link);
 	wl_list_init(&s_desktop.surface_transform_listener.link);
 
+	s_desktop.widget_closed_listener.notify = desktop_should_focus;
 	s_desktop.desktop_area_listener.notify = desktop_area_changed;
 	s_desktop.output_create_listener.notify = desktop_output_created;
 	s_desktop.output_destroy_listener.notify = desktop_output_destroyed;
@@ -1100,6 +1108,8 @@ tw_setup_desktop(struct weston_compositor *ec,  struct shell *shell)
 	//add existing output
 	shell_add_desktop_area_listener(shell,
 	                                &s_desktop.desktop_area_listener);
+	shell_add_widget_closed_listener(shell,
+	                                 &s_desktop.widget_closed_listener);
 	wl_signal_add(&ec->output_created_signal,
 		      &s_desktop.output_create_listener);
 	wl_signal_add(&ec->output_resized_signal,
