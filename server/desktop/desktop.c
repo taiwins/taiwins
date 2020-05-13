@@ -548,7 +548,8 @@ desktop_should_focus(struct wl_listener *listener, UNUSED_ARG(void *data))
 	                                       widget_closed_listener);
 	struct workspace *ws = desktop->actived_workspace[0];
 	struct weston_view *v = workspace_get_top_view(ws);
-	tw_focus_surface(v->surface);
+	if (v)
+		tw_focus_surface(v->surface);
 }
 
 /*******************************************************************************
