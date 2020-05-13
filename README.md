@@ -29,7 +29,8 @@ you will need following dependencies
 - freetype2
 - xcursor-themes(required for whiteglass cursor)
 
-build steps:
+## build steps:
+with source code, you can easily compile and try out:
 
 	git clone https://github.com/taiwins/taiwins taiwins && cd taiwins
 	git submodule init
@@ -38,6 +39,9 @@ build steps:
 	cmake ..
 	make -j8
 
+For those who use Archlinux, there is an
+[aur](https://aur.archlinux.org/packages/taiwins-git) package you can simply install.
+
 ## How to run
 
 Here is currently how I run the compositor, lua configuration is supported(in
@@ -45,6 +49,10 @@ progress), see the [sample config](docs/config.lua) for example
 
 	cd build
 	./bin/taiwins ./bin/taiwins-shell ./bin/taiwins-console
+	
+Or if you install systemwisely, you can simply use
+
+	taiwins taiwins-shell taiwins-console
 
 ### key-bindings
 Though it is configurable, by default available bindings are
