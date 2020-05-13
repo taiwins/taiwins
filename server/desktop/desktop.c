@@ -689,17 +689,18 @@ task_switch_grab_key(struct weston_keyboard_grab *grab,
                      UNUSED_ARG(const struct timespec *time),
                      UNUSED_ARG(uint32_t key), UNUSED_ARG(uint32_t state))
 {
-	if (state == WL_KEYBOARD_KEY_STATE_RELEASED) {
-		grab->interface->cancel(grab);
-		return;
-	}
-	struct grab_interface *gi = container_of(grab, struct grab_interface,
-						 keyboard_grab);
+	struct grab_interface *gi =
+		container_of(grab, struct grab_interface, keyboard_grab);
 	struct desktop *d = container_of(gi, struct desktop, task_switch_grab);
 	struct workspace *w = d->actived_workspace[0];
 	struct wl_list *link = w->recent_views.next;
 	struct wl_array tosent;
 	struct tw_window_brief *brief;
+
+        if (state == WL_KEYBOARD_KEY_STATE_RELEASED) {
+		grab->interface->cancel(grab);
+		return;
+	}
 
 	wl_array_init(&tosent);
 	wl_array_add(&tosent, sizeof(struct tw_window_brief) *
@@ -838,9 +839,9 @@ void
 tw_desktop_start_task_switch_grab(struct desktop *desktop,
                                   struct weston_keyboard *keyboard)
 {
-	//you should always be in you active workspace
 	struct workspace *ws = desktop->actived_workspace[0];
 	struct recent_view *rv, *tmp;
+	//this loop just run once, or never runs if no views available
 	wl_list_for_each_safe(rv, tmp, &ws->recent_views, link) {
 		//move view to the back
 		wl_list_remove(&rv->link);
