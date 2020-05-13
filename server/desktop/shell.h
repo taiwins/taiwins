@@ -55,7 +55,12 @@ shell_output_available_space(struct shell *shell,
 void
 shell_add_desktop_area_listener(struct shell *shell,
                                 struct wl_listener *listener);
-
+void
+shell_add_widget_created_listener(struct shell *shell,
+                                  struct wl_listener *listener);
+void
+shell_add_widget_closed_listener(struct shell *shell,
+                                 struct wl_listener *listener);
 void
 tw_shell_set_panel_pos(struct shell *shell, enum taiwins_shell_panel_pos pos);
 

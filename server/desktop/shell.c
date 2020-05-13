@@ -87,6 +87,8 @@ struct shell {
 	enum taiwins_shell_panel_pos panel_pos;
 
 	struct wl_signal output_area_signal;
+	struct wl_signal widget_create_signal;
+	struct wl_signal widget_close_signal;
 
 	struct wl_listener compositor_destroy_listener;
 	struct wl_listener output_create_listener;
@@ -206,6 +208,7 @@ shell_ui_unbind(struct wl_resource *resource)
 	struct shell_output *output;
 
 	struct shell_ui *ui_elem = wl_resource_get_user_data(resource);
+	struct shell *shell = ui_elem->shell;
 	struct weston_binding *bindings[] = {
 		ui_elem->lose_keyboard,
 		ui_elem->lose_pointer,
@@ -230,6 +233,7 @@ shell_ui_unbind(struct wl_resource *resource)
 		} else if (ui_elem == &output->background)
 			output->background = (struct shell_ui){0};
 	}
+	wl_signal_emit(&shell->widget_close_signal, shell);
 
 	ui_elem->binded = NULL;
 	ui_elem->layer = NULL;
@@ -596,6 +600,7 @@ create_ui_element(struct wl_client *client,
 		set_lock_surface(shell, surface, tw_ui_resource);
 		break;
 	}
+	wl_signal_emit(&shell->widget_create_signal, shell);
 }
 
 static void
@@ -850,6 +855,29 @@ shell_add_desktop_area_listener(struct shell *shell,
 	wl_signal_add(&shell->output_area_signal, listener);
 }
 
+void
+shell_add_widget_created_listener(struct shell *shell,
+                                  struct wl_listener *listener)
+{
+	wl_signal_add(&shell->widget_create_signal, listener);
+}
+
+void
+shell_add_widget_closed_listener(struct shell *shell,
+                                 struct wl_listener *listener)
+{
+	wl_signal_add(&shell->widget_close_signal, listener);
+}
+
+void
+tw_shell_set_panel_pos(struct shell *shell, enum taiwins_shell_panel_pos pos)
+{
+	if (shell->panel_pos != pos) {
+		shell->panel_pos = pos;
+		shell_send_panel_pos(shell);
+	}
+}
+
 /*******************************************************************************
  * constructor / destructor
  ******************************************************************************/
@@ -904,15 +932,6 @@ shell_add_listeners(struct shell *shell)
  * public APIS
  ******************************************************************************/
 
-void
-tw_shell_set_panel_pos(struct shell *shell, enum taiwins_shell_panel_pos pos)
-{
-	if (shell->panel_pos != pos) {
-		shell->panel_pos = pos;
-		shell_send_panel_pos(shell);
-	}
-}
-
 struct shell *
 tw_setup_shell(struct weston_compositor *ec, const char *path)
 {
@@ -924,6 +943,8 @@ tw_setup_shell(struct weston_compositor *ec, const char *path)
 	s_shell.panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
 
 	wl_signal_init(&s_shell.output_area_signal);
+	wl_signal_init(&s_shell.widget_create_signal);
+	wl_signal_init(&s_shell.widget_close_signal);
 
 	if (path && (strlen(path) + 1 > NUMOF(s_shell.path)))
 		return false;
