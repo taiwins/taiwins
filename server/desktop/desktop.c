@@ -847,21 +847,20 @@ tw_desktop_start_task_switch_grab(struct desktop *desktop,
 	//you should always be in you active workspace
 	struct workspace *ws = desktop->actived_workspace[0];
 	struct recent_view *rv, *tmp;
+	struct weston_view *view;
+
 	wl_list_for_each_safe(rv, tmp, &ws->recent_views, link) {
-		//move view to the back
-		wl_list_remove(&rv->link);
-		wl_list_insert(ws->recent_views.prev, &rv->link);
-		rv = &tmp->link != &ws->recent_views ? tmp : rv;
-		//start the grab now
+		view = workspace_defocus_view(ws, rv->view);
+
 		grab_interface_start_keyboard(&desktop->task_switch_grab,
-					      rv->view, keyboard->seat);
+					      view, keyboard->seat);
 		//and we need run the key as well.
 		keyboard->grab->interface->key(
 			keyboard->grab, NULL, 0,
 			WL_KEYBOARD_KEY_STATE_PRESSED);
 
-		workspace_focus_view(ws, rv->view);
-		tw_focus_surface(rv->view->surface);
+		workspace_focus_view(ws, view);
+		tw_focus_surface(view->surface);
 		break;
 	}
 }

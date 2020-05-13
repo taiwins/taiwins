@@ -144,6 +144,9 @@ is_workspace_empty(const struct workspace *ws);
 bool
 workspace_focus_view(struct workspace *ws, struct weston_view *v);
 
+struct weston_view *
+workspace_defocus_view(struct workspace *ws, struct weston_view *v);
+
 void
 workspace_add_view(struct workspace *w, struct weston_view *view);
 

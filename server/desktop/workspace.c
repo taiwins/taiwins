@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <libweston/libweston.h>
 #include <libweston-desktop/libweston-desktop.h>
+#include <wayland-util.h>
 
 #include "../taiwins.h"
 #include "shell.h"
@@ -105,20 +106,12 @@ workspace_release(struct workspace *ws)
 struct weston_view *
 workspace_get_top_view(const struct workspace *ws)
 {
-	const struct weston_layer *layers[3];
-	struct weston_view *view;
+	struct recent_view *rv;
 
-	layers[0] = &ws->fullscreen_layer;
-	layers[1] = (ws->floating_layer.position == FRONT_LAYER_POS) ?
-		&ws->floating_layer : &ws->tiling_layer;
-	layers[2] = layers[1] == &ws->tiling_layer ?
-		&ws->floating_layer : &ws->tiling_layer;
+	wl_list_for_each(rv, &ws->recent_views, link)
+		return rv->view;
 
-	for (int i = 0; i < 3; i++)
-		wl_list_for_each(view, &layers[i]->view_list.link,
-		                 layer_link.link)
-			return view;
-	return NULL;
+        return NULL;
 }
 
 static struct layout *
@@ -244,6 +237,22 @@ workspace_focus_view(struct workspace *ws, struct weston_view *v)
 	weston_view_damage_below(v);
 	weston_view_schedule_repaint(v);
 	return true;
+}
+
+struct weston_view *
+workspace_defocus_view(struct workspace *ws, struct weston_view *v)
+{
+	struct recent_view *rv;
+
+	if (!is_view_on_workspace(v, ws))
+		goto get_top;
+	rv = get_recent_view(v);
+	wl_list_remove(&rv->link);
+	wl_list_insert(ws->recent_views.prev, &rv->link);
+get_top:
+	wl_list_for_each(rv, &ws->recent_views, link)
+		return rv->view;
+	return NULL;
 }
 
 void
@@ -445,10 +454,12 @@ workspace_minimize_view(struct workspace *w, struct weston_view *v)
 {
 	if (!is_view_on_workspace(v, w))
 		return;
+
 	workspace_remove_view(w, v);
 	weston_layer_entry_remove(&v->layer_link);
 	weston_layer_entry_insert(&w->hidden_layer.view_list,
 				  &v->layer_link);
+	workspace_defocus_view(w, v);
 }
 
 void
