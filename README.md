@@ -66,7 +66,7 @@ Though it is configurable, by default available bindings are
 - `Alt+Shift+Space` toggle window floating/tiling
 - `Alt+Shift+j` cycle through applications
 - `Super+v` creating vertical sub-layout (only in tiling mode)
-- `Super+h` creating horizental sub-layout (only in tiling mode)
+- `Super+h` creating horizontal sub-layout (only in tiling mode)
 - `Super+m` merge current application to parent layout
 - `Super+p` calling **shell-console** to launch application
 
