@@ -22,6 +22,7 @@
 #ifndef TAIWINS_H
 #define TAIWINS_H
 
+#include <stdio.h>
 #include <stdarg.h>
 #include <ctypes/helpers.h>
 #include <wayland-server.h>
@@ -49,6 +50,8 @@ struct tw_config;
 /*******************************************************************************
  * logging functions
  ******************************************************************************/
+extern FILE *tw_logfile;
+
 int
 tw_log(const char *format, va_list args);
 
