@@ -1,13 +1,13 @@
 # Client data structures
 
--   **tw\_global:** the global structure that fits the need of an wayland
+-   **tw\_globals:** the global structure that fits the need of an wayland
     client.  It contains things like `wl_shm`, `wl_shm_format`, `wl_compositor`,
     `wl_display`.
     
     -   **Inputs:** We only have one input per client, this would be connect to
         one seat, input will handle
 
--   **tw\_event\_loop:** introduced originally for `tw_shell` to handle system
+-   **tw\_event\_queue:** introduced originally for `tw_shell` to handle system
     generated events like time lapse and wayland protocol events. Very much like
     `wl_event_loop`, which is not available in clients.
     
@@ -15,7 +15,7 @@
 		event and watch the event. It didn't go as far as the `wl_protocols`
 		where you create custom protocols and have handlers for them.
 
--   **shm\_pool:** the allocator for shared buffers, binds to `wl_buffer`.
+-   **tw_shm\_pool:** the allocator for shared buffers, binds to `wl_buffer`.
 
 ## UIs
 
@@ -95,7 +95,7 @@ geometry, text and image.
 
 
 # name conversion
-### `create` and  `destroy`
+### **create** and  **destroy**
 when using create destroy, par exemple, `wl_shm_pool_create` and
 `wl_shm_pool_destroy`, we are getting a pointer then free the pointer in the
 end.
@@ -104,16 +104,12 @@ The `struct` is usually not visible, declared in header, defined in source
 code. Good example is `nk_egl_backend`, since there could be only one
 implementation of it.
 
-### `init` and `end`
+### **init** and **end**
 In this case, user has the control over the memory, but the interface controls
 the heap if any, after calling `end`, the struct should returns to the init
 state.
 
-### `init` and `release`
+### **init** and **release**
 Same as above.
 
 
-# Other Notes
-You can take a look at my [lua](lua.md) and [wayland](wayland.md) notes. Also if
-you are intereted in window management, [here](window_management.md) is a
-reference.

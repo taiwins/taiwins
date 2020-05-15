@@ -98,14 +98,17 @@ if (DOXYGEN_FOUND AND BUILD_DOC)
   message("Doxygen started")
   set(DOXYGEN_CALL_GRAPH YES)
   set(DOXYGEN_CALLER_GRAPH YES)
+  set(DOXYGEN_GENERATE_XML YES)
   set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/docs)
   set(DOXYGEN_EXCLUDE_PATTERNS
     "*/cmake/*"
     "*/nuklear/*"
     "*/stb/*"
-    "*/test/*")
+    "*/test/*"
+    "*/twclient/theme.h")
 
   doxygen_add_docs(doxygen
+    ${PROJECT_SOURCE_DIR}/docs
     ${PROJECT_SOURCE_DIR}/server
     ${PROJECT_SOURCE_DIR}/clients
     ${PROJECT_SOURCE_DIR}/subprojects/twclient

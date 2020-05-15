@@ -12,7 +12,7 @@ it kinda like writing assembly, but it is what it is.
 	For c programmer, you have registry `LUA_REGISTRYINDEX` to store your data, 
 	call `lua_setfile(L, LUA_REGISTRYINDEX, pos)` to set the data.
 
-### metatables, `__index` and `__newindex`
+### metatables, *__index* and *__newindex*
 	- `metatable` serves the purpose of operator overrides.
 	- `__index` is for element access.
 	- `__newindex` is for elements assignment. 

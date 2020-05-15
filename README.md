@@ -70,6 +70,10 @@ Though it is configurable, by default available bindings are
 - `Super+m` merge current application to parent layout
 - `Super+p` calling **shell-console** to launch application
 
+### Documentation
+Currently documentation is generated through doxygen. SET `BUILD_DOC=ON` option
+with cmake to enable building documentation.	
+
 ### Screenshots
 - widget example
 ![current progress](imgs/with-nuklear.png)
