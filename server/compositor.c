@@ -41,8 +41,6 @@
 #include "taiwins.h"
 #include "compositor.h"
 
-FILE *logfile;
-
 static struct xkb_rule_names default_xkb_rules = {0};
 
 static void
@@ -139,7 +137,7 @@ int main(int argc, char *argv[])
 	struct tw_config *config;
 	char path[PATH_MAX];
 
-	logfile = fopen("/tmp/taiwins_log", "w");
+	tw_logfile = fopen("/tmp/taiwins_log", "w");
 	weston_log_set_handler(tw_log, tw_log);
 
 	tw_compositor_get_socket(path);

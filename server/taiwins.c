@@ -34,12 +34,14 @@
 
 #include "taiwins.h"
 
-FILE *logfile;
+FILE *tw_logfile = NULL;
 
 int
 tw_log(const char *format, va_list args)
 {
-	return vfprintf(logfile, format, args);
+	if (tw_logfile)
+		return vfprintf(tw_logfile, format, args);
+	return -1;
 }
 
 static int
