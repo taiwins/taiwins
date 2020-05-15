@@ -1,36 +1,21 @@
 # Lua bindings
 
-Now you know you have chosen the lua binding, you know there are basically two
-things in mind. The configure setup and nuklear bindings.
+Taiwins is currently configed through lua language. refer to
+[config](config.lua) as an example.
 
+## here are some knowledge about lua c API.
 
-### configurations
-you can simply set it up like a table, then query the table entries in the c
-code. Another way, you can do a `request(configurator)`, and use a provided lua
-api to work.
+You work with a stack when dealing with lua C code, it is annoying sometimes, as
+it kinda like writing assembly, but it is what it is.
 
-How should I say, if you want to do things like providing lua functions as
-callback to use in the system, then you have to provide api to use in api.
-Then all you have to do in the c side is ~lua_loadfile~ :-p.
-
-For this part we want to have a global function to retrieve all the handles for
-lua.
-
-	local configurator = get_taiwins_configureator()
-
-some code likes this. Afterwards you can simply have
-
-	configurator.bind_close_taiwins("C-xC-c")
-	configurator.bind(lua_function, "C-cC-f")
-	configurator.set_theme("dark")
-
-We can also have `user_data` which binds with it. So we can get the `user_data`
-instead of save it somewhere as global variable.
+### registry
+	For c programmer, you have registry `LUA_REGISTRYINDEX` to store your data, 
+	call `lua_setfile(L, LUA_REGISTRYINDEX, pos)` to set the data.
 
 ### metatables, `__index` and `__newindex`
 	- `metatable` serves the purpose of operator overrides.
 	- `__index` is for element access.
-	- `__newindex` is for elements assigning. 
+	- `__newindex` is for elements assignment. 
 	
 	using metatables provides much more syntax sugar for configurations. If you
     decide to override the `__index` and `__newindex` for metatable, you can't
@@ -40,18 +25,6 @@ instead of save it somewhere as global variable.
 	If you have a global table, placing methods inside the table directly
     instead of inside the metatable would be a good idea. 
 
-### nuklear bindings
-This part you have no choice but to provide functions.
-
-lua script has two functions:
-`run_label` and `run_binding`. The lua functions are called by corresponding c
-functions. They does two things.
-
-- create `user_data` as a opaque data that contains the nk_context. Then use
-  `setmetatable` so later we can use `user_data` in the c functions. You also
-  need to create gc for metatables.
-
-
 ### To call a lua fuction
 - `lua_getglobal` : at 0
 - `lua_pushstring` : at -1. first argument
@@ -60,15 +33,12 @@ functions. They does two things.
 - `lua_call` : clear the stack, call the function then push results onto stack
   for you to retrieve.
 
-
 ### to create a lua global variable
 - `lua_push*` : you have some thing on the stack.
 - `lua_setglobal` : pop that value and sets it as global variable in the lua
   context
 
-
 ### to get something in the table
-
 For example, you can create a new table then set it as global, then to get the
 field.
 
@@ -84,5 +54,3 @@ field.
 - `lua_push*` : push a actual value for that field.
 - `lua_settable` : the index should be -3, points to the table.
 - `lua_setglobal` : set our table name and pop it from the stack.
-
-### so we can create the table as global.

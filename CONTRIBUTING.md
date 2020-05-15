@@ -116,3 +116,9 @@ function_is_very_very_lone(very_complex_type_name_a a,
   under different tab width.
   
 ## Wikis for getting started.
+
+There isn't much documentation for getting started, but I have previous notes
+under `docs/`, you can check out the [API doc](docs/api.md) for start.
+
+The [development](docs/progress.md) was tracked using org mode, if you are a
+emacs user, it would looks way nicer than github's renderer.

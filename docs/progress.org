@@ -37,7 +37,7 @@
 
 *** DONE change the ui element start or close implimentation
 
-* TODO [85%] Stage two: feature completion
+* DONE [100%] Stage two: feature completion
   - supporting multiple monitors/seats.
   - weston view focus defocus
   - a few different extensions.
@@ -230,145 +230,15 @@
 ** DONE [100%] protocols                                              :proto:
 *** DONE `tw_output` protocols to represent logical output
 
-** TODO installing scripts and publish
+** DONE installing scripts and publish
    At this stage taiwins is working and very unusable. Though many future
    developement needs to be done. But we should get voice out now.
 *** DONE chose the corect license(GPL decided)
 *** CANC write github pages (README done for twclient)
 *** DONE add CI
-*** TODO find a way to get the voice out
+*** DONE find a way to get the voice out
 
-* TODO [37%] Stage three: extensions/ post-pub features
-** PEND ADD DAMAGE SUPPORT in drawing!
-   for EGL backend, this would be impossible, but maybe you can do something in
-   the cairo backend
-** TODO [83%] tw_theme protocol
-*** DONE creating the taiwins_theme header
-*** DONE tw_theme protocol
-    Well, I should have documented the tw_theme work done before.
-*** DONE tw_theme to nk_style
-*** DONE lua_theme to tw_theme
-*** TODO test theme with images, not just colors
-*** CANC c files
-** TODO [75%] console improvements
-   Now the launcher, or we called it console is able to start some application,
-   but it is really ugly, does not support any keyboard based navigations. 
-   So there are few things left:
-*** DONE navigation support, tab/enter control
-*** DONE resizing.
-*** DONE better drawing.
-*** DONE loading also the icons(since you had icon caches).
-*** TODO configuration and plugins. Yes, of course you need plugins.
-*** CANC nku_branch (widget helper)
-    I did not need it in the end. Maybe writing a nku branch would be a good
-    idea in the end, but creating it just for one app is not sufficient.
-*** DONE load only necessary icons
-    we load every thing now, it crashes for themes like deepin, which has
-    millions of icons out there. Chances are, you are not needing them.
-*** TODO create file type for taiwins icon cache.
-
-** DONE Add multiple font support
-   now twclient supports multiple fonts
-** CANC patch 3rdparty libraries
-   weston: output configure in the run time.
-** TODO [37%] new features
-*** DOIN add dbus support
-    now we have the dbus code, we can move some of the client requests into
-    dbus. But at the same time, for it to have users, we would need to have lua
-    bindings.
-**** DONE tdbus 3rdparties
-     right now we wrapped dbus with functions like message, signal, method,
-     watcher. I don't think there is more to come
-**** DONE tdbus added in client
-**** DONE tdbus added in server
-**** TODO tdbus lua callback
-     I shall come back later for this.
-
-     The major functions here are just sending and listening on signals. But
-     dbus interface is tricky, leading composary args followed by a variable
-     length of args. so I think the interface would look like this:
-#+BEGIN_SRC lua
-
-busAPI = require('tw-bus')
-session_bus = busAPI:get_bus('session')
-system_bus = busAPI:get_bus('system')
-
--- sample code for method call
-message = session_bus:call( function () return 'aaa' end,  -- the reply method
-{
-.path = '/org/taiwins',
-.interface = 'org.taiwins',
-.method = 'hello',
-.signature = 's',
-}, 'the message to send')
-
-session_bus.send(message)
-
--- sample code for signal
-session_bus:signal_on(function (vol) w:volume = vol end, 
-{
-.path = '/org/taiwins',
-.interface = 'org.taiwins',
-.signal = 'some_signal',
-})
-
--- it is either this API or reversing function and the table
-
-#+END_SRC
-**** TODO tdbus functions in server
-     this would take a list and continuing effort for adding new methods.
-
-*** CANC move workspace_add_view in the commit event.
-    At that time, you would know about view geometry, it would be better for
-    floating layer.
-
-    This cannot be done, as commit can happen multiple times.
-*** TODO set animations?
-    - animation for desktop apps and widgets.
-*** TODO backend configuration
-    libweston haven't properly support multi display yet.
-**** TODO adding/disabling new output
-**** TODO clone mode and set output layout
-**** TODO expose drm output, not just windowed output for configuration
-**** TODO dynamic changing output scale
-
-*** TODO utilise weston-animations
-    fade/zoom/move, it should be relative easy to use.
-
-*** DONE adding support for notification. All those can be implement
-*** DONE adding support for menu(right-click)
-    special case we need to handle for background, which is not ideal for
-    shm_buffer implementation. I think you will have no choice but have a custom
-    grab interface.
-
-    right click and left click provides different functions
-    - preferably right click open an menu and left click opens selection.
-    - for this work you need the support for resizing
-*** TODO better locker/using dot instead of stars
-** TODO possibly remove dynamic allocated objects
-    reduce number of mallocs and memory fragmentation(I just added a lot in console)
-    - recent_view
-    - tiling_view tree
-    - tiling_output_list where it has a root of tiling
-    - tw_ui(for console)
-    - keyboard_container for taiwins_binding
-    - taiwins_config (temporary)
-    - taiwins_binding (temporary)
-    - lua_state
-    - taiwins_config options(a vector)
-** DONE deal with scale in font
-    previously we solved the scale but left the problem with blury text. Need to
-    revisit the nuklear backends for (cairo/egl) to solve it.
-*** TODO ML based layout
-*** TODO rendering/compositing optimization.
-  - screen capture and screen record(audio support?).
-  - westons's zoom support.
-
-*** CANC svg2ttf implementation
-*** TODO client search buffer                                         :proto:
-    for this to work, we probably will need ~radix tree~ or ~trie~ or hash
-    table.
-
+* TODO [37%] Stage three: improvements
 * TODO following up weston development
 ** CANC eglstream patches
    The patch nividia has was really bad, will never get merged.

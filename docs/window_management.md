@@ -1,5 +1,6 @@
-## How to do layout in the workspace
-The first you need to do is the providing interfaces.
+# Taiwins layout engine.
+This is the document discussing about taiwins window managment method. Right now
+we have only floating and tiling method. Here we mostly dicuss the tiling method.
 
 ### tree-based tiling window manager provides following operations:
 
