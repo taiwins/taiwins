@@ -1,21 +1,11 @@
 os = require "os"
-compositor = require_compositor()
+compositor = require "taiwins"
 
 compositor:bind_key("TW_OPEN_CONSOLE", "C-x,C-p")
 compositor:lock_in(5)
+compositor:wake() --this wakes up the compositor
 
-shell = compositor:shell()
-shell:panel_position("bottom")
-shell:set_wallpaper("/tmp/wallpaper.png")
-shell:set_menus({
-      {
-	 {'bbbb','cccc'},
-	 {'dddd','ffff'}
-      },
-      {'aaaa', 'bbbb'},
-      {'aaa2', 'bbbb2'}
-})
--- shell:init_widgets("safjklksajfla")
+compositor:panel_position("bottom")
 
 desktop = compositor:desktop()
 for _,ws in ipairs(desktop:workspaces()) do
