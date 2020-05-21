@@ -35,7 +35,7 @@
 #include <twclient/nk_backends.h>
 #include <twclient/theme.h>
 #include <wayland-taiwins-theme-client-protocol.h>
-#include <wayland-taiwins-theme-server-protocol.h>
+#include <wayland-taiwins-theme-client-protocol.h>
 #include <shared_config.h>
 #include <widget/widget.h>
 #include "shell.h"

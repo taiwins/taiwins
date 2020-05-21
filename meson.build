@@ -8,16 +8,17 @@ project('taiwins', 'c',
 	meson_version: '>= 0.47',
 	license: 'GPLv2+')
 
-### compile flags
+
+###### compile flags
 cc = meson.get_compiler('c')
 
+global_args = []
+global_link_args = []
 global_args_maybe = [
 	'-Wno-unused-parameter',
 	'-Wno-missing-field-initializers',
 	'-Wno-pedantic',
-
 ]
-global_args = []
 
 foreach a : global_args_maybe
   if cc.has_argument(a)
@@ -25,26 +26,39 @@ foreach a : global_args_maybe
   endif
 endforeach
 
-if get_option('buildtype') == 'debug' and cc.has_argument('-fsanitize=address')
-  global_args += '-fsanitize=address' #this options hides most of static functions
-# elif get_option('buildtype') == 'release' and cc.has_argument('-fvisibility')
-#   global_args += '-fvisibility' #this options hides most of static functions
+if get_option('buildtype') == 'debug' and get_option('sanitizer') and cc.has_argument('-fsanitize=address')
+  global_args += '-fsanitize=address'
+  global_link_args += '-fsanitize=address'
 endif
 
+add_project_arguments(global_args, language : 'c')
+add_project_link_arguments(global_link_args, language : 'c')
 
-##### find packages
+
+###### subprojects
+twclient = subproject('twclient')
+nklua = subproject('nklua')
+tdbus = subproject('tdbus')
+
+
+###### dependencies
 dep_pixman = dependency('pixman-1', version: '>= 0.25.2')
 dep_xkbcommon = dependency('xkbcommon', version: '>= 0.3.0')
 dep_wayland_server = dependency('wayland-server', version: '>= 1.12.0')
 dep_wayland_client = dependency('wayland-client', version: '>= 1.12.0')
+dep_lua = dependency('lua', version: '>= 5.3', required: true)
 dep_threads = dependency('threads')
+dep_wlroots = dependency('wlroots')
 dep_pam = cc.find_library('pam')
+dep_twclient = twclient.get_variable('dep_twclient')
+dep_twclient_theme = twclient.get_variable('dep_twclient_theme')
+dep_twclient_icons = twclient.get_variable('dep_twclient_icons')
+dep_twclient_nkcairo = twclient.get_variable('dep_nkcairo')
+dep_nklua = nklua.get_variable('dep_nklua')
+dep_tdbus = tdbus.get_variable('dep_tdbus')
 
-subproject('twclient')
-subproject('nklua')
-subproject('tdbus')
-subproject('libweston',
-	   default_options: [
-	     'backend-rdp=false',
-	     'simple-dmabuf-drm=auto',
-	   ])
+inc_shared_config = include_directories('.')
+dir_tp_base = join_paths(meson.source_root(), 'subprojects', 'taiwins-protocols')
+
+subdir('protocols')
+subdir('clients')

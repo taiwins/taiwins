@@ -43,6 +43,7 @@ console_path_module_exec(struct console_module *module, const char *entry, char 
 		return -1;
 	//go through all the
 	char *ext = strrchr(entry, '.');
+	(void)ext;
 	ext = 0;
 	return 0;
 }
