@@ -1,0 +1,6 @@
+option(
+	'sanitizer',
+	type: 'boolean',
+	value: true,
+	description: 'Enable sanitizer check'
+)

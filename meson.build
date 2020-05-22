@@ -39,6 +39,7 @@ add_project_link_arguments(global_link_args, language : 'c')
 twclient = subproject('twclient')
 nklua = subproject('nklua')
 tdbus = subproject('tdbus')
+ctypes = subproject('ctypes')
 
 
 ###### dependencies
@@ -49,7 +50,10 @@ dep_wayland_client = dependency('wayland-client', version: '>= 1.12.0')
 dep_lua = dependency('lua', version: '>= 5.3', required: true)
 dep_threads = dependency('threads')
 dep_wlroots = dependency('wlroots')
+dep_libweston = dependency('libweston-8') #TODO: finally we would get rid of libweston
+dep_libweston_desktop = dependency('libweston-9') #TODO: finally we would get rid of libweston
 dep_pam = cc.find_library('pam')
+dep_ctypes = ctypes.get_variable('dep_ctypes')
 dep_twclient = twclient.get_variable('dep_twclient')
 dep_twclient_theme = twclient.get_variable('dep_twclient_theme')
 dep_twclient_icons = twclient.get_variable('dep_twclient_icons')
@@ -61,4 +65,5 @@ inc_shared_config = include_directories('.')
 dir_tp_base = join_paths(meson.source_root(), 'subprojects', 'taiwins-protocols')
 
 subdir('protocols')
+subdir('server')
 subdir('clients')
