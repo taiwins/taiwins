@@ -22,11 +22,12 @@ jobs:
       working-directory: './taiwins-ubuntu'
       run: rm -rf build && mkdir -p build
     - name: build
-      working-directory: './taiwins-ubuntu/build'
+      working-directory: './taiwins-ubuntu/'
       run: |
         export PATH=~/.local/bin:$PATH
         export PKG_CONFIG_PATH=/usr/local/lib:${PKG_CONFIG_PATH}
-        cmake -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ .. && make
+        meson build && ninja -C build
+        # cmake -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ .. && make
         
   other-ci:
     runs-on: ubuntu-latest

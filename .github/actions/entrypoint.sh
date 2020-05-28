@@ -5,4 +5,4 @@ pacman -Syu --needed --noconfirm libglvnd vulkan-headers vulkan-icd-loader
 pacman -Syu --needed --noconfirm gstreamer gst-plugins-base gst-plugins-base-libs
 pacman -Syu --needed --noconfirm cmake make gcc clang musl git meson ninja rsync pkgconfig
 # build step
-rm -rf build && mkdir -p build && cd build && cmake .. && make
+rm -rf build && meson build && ninja -C build
