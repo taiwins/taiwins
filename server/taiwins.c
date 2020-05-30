@@ -1,7 +1,7 @@
 /*
  * taiwins.c - taiwins server shared functions
  *
- * Copyright (c) 2019 Xichen Zhou
+ * Copyright (c) 2019-2020 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,10 +19,16 @@
  *
  */
 
-#include <linux/limits.h>
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
+#include <limits.h>
 #include <string.h>
 #include <stdio.h>
 #include <signal.h>
+#include <errno.h>
+#include <sys/wait.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <dlfcn.h>
@@ -165,6 +171,67 @@ tw_end_client(struct wl_client *client)
 	kill(pid, SIGINT);
 }
 
+bool
+tw_set_socket(struct wl_display *display)
+{
+	char path[PATH_MAX];
+	unsigned int socket_num = 0;
+	const char *runtime_dir = getenv("XDG_RUNTIME_DIR");
+	//get socket
+	while(true) {
+		sprintf(path, "%s/wayland-%d", runtime_dir, socket_num);
+		if (access(path, F_OK) != 0) {
+			sprintf(path, "wayland-%d", socket_num);
+			break;
+		}
+		socket_num++;
+	}
+	if (wl_display_add_socket(display, path)) {
+		tw_logl("EE:failed to add socket %s", path);
+		return false;
+	}
+	return true;
+}
+
+int
+tw_term_on_signal(int sig_num, void *data)
+{
+	struct wl_display *display = data;
+
+	tw_logl("Caught signal %d\n", sig_num);
+	wl_display_terminate(display);
+	return 1;
+}
+
+int
+tw_handle_sigchld(UNUSED_ARG(int sig_num), UNUSED_ARG(void *data))
+{
+	struct wl_list *head;
+	struct tw_subprocess *subproc;
+	int status;
+	pid_t pid;
+
+	head = tw_get_clients_head();
+
+	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+		wl_list_for_each(subproc, head, link)
+			if (pid == subproc->pid)
+				break;
+
+		if (&subproc->link == head) {
+			weston_log("unknown process exited\n");
+			continue;
+		}
+
+		wl_list_remove(&subproc->link);
+		if (subproc->chld_handler)
+			subproc->chld_handler(subproc, status);
+	}
+	if (pid < 0 && errno != ECHILD)
+		weston_log("error in waiting child with status %s\n",
+		           strerror(errno));
+	return 1;
+}
 
 void
 tw_lose_surface_focus(struct weston_surface *surface)
@@ -262,4 +329,30 @@ tw_load_weston_module(const char *name, const char *entrypoint)
 	}
 	return init;
 
+}
+
+void
+tw_layer_set_position(struct tw_layer *layer, enum tw_layer_pos pos,
+                      struct wl_list *layers)
+{
+	struct tw_layer *l, *tmp;
+
+	wl_list_remove(&layer->link);
+	layer->position = pos;
+
+	//from bottom to top
+	wl_list_for_each_reverse_safe(l, tmp, layers, link) {
+		if (l->position >= pos) {
+			wl_list_insert(&l->link, &layer->link);
+			return;
+		}
+	}
+	wl_list_insert(layers, &layer->link);
+}
+
+void
+tw_layer_unset_position(struct tw_layer *layer)
+{
+	wl_list_remove(&layer->link);
+	wl_list_init(&layer->link);
 }

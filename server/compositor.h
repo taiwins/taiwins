@@ -1,5 +1,5 @@
 /*
- * bus.h - taiwins server compositor header
+ * compositor.h - taiwins server compositor header
  *
  * Copyright (c) 2020 Xichen Zhou
  *
