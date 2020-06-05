@@ -136,7 +136,6 @@ tw_seat_new_keyboard(struct tw_seat *seat)
 	keyboard->event.notify = tw_keyboard_new_event;
 	seat->keyboard.focused_client = NULL;
 	seat->keyboard.focused_surface = NULL;
-	seat->keyboard.keymap = NULL;
 	seat->keyboard.keymap_size = 0;
 	seat->keyboard.keymap_string = NULL;
 
@@ -163,7 +162,6 @@ tw_seat_remove_keyboard(struct tw_seat *seat)
 		wl_resource_for_each_safe(resource, next, &client->keyboards)
 			wl_resource_destroy(resource);
 
-	xkb_keymap_unref(keyboard->keymap);
 	if (keyboard->keymap_string)
 		free(keyboard->keymap_string);
 	keyboard->keymap_string = NULL;
@@ -198,12 +196,10 @@ tw_keyboard_set_keymap(struct tw_keyboard *keyboard,
 	struct tw_seat *seat =
 		container_of(keyboard, struct tw_seat, keyboard);
 
-	xkb_keymap_unref(keyboard->keymap);
-	keyboard->keymap = xkb_keymap_ref(keymap);
 	if (keyboard->keymap_string)
 		free(keyboard->keymap_string);
 	keyboard->keymap_string =
-		xkb_keymap_get_as_string(keyboard->keymap,
+		xkb_keymap_get_as_string(keymap,
 		                         XKB_KEYMAP_FORMAT_TEXT_V1);
 	keyboard->keymap_size = strlen(keyboard->keymap_string);
 
@@ -220,7 +216,7 @@ tw_keyboard_send_keymap(struct tw_keyboard *keyboard,
 {
 	int keymap_fd;
 	void *ptr;
-	if (!keyboard->keymap)
+	if (!keyboard->keymap_string)
 		return;
 
 	keymap_fd = os_create_anonymous_file(keyboard->keymap_size);

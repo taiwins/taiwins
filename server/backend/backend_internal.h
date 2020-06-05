@@ -33,7 +33,8 @@ extern "C" {
 
 struct tw_backend_seat *
 tw_backend_seat_find_create(struct tw_backend *backend,
-                            struct wlr_input_device *dev);
+                            struct wlr_input_device *dev,
+                            enum tw_input_device_cap cap);
 void
 tw_backend_seat_destroy(struct tw_backend_seat *seat);
 

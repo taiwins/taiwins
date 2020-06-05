@@ -35,7 +35,7 @@
 #include "backend_internal.h"
 
 static void
-notify_keyboard_remove(struct wl_listener *listener, void *data)
+notify_backend_keyboard_remove(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
@@ -55,29 +55,33 @@ notify_keyboard_remove(struct wl_listener *listener, void *data)
 
 	if (seat->capabilities == 0)
 		tw_backend_seat_destroy(seat);
-
 }
 
 static void
-notify_keyboard_modifiers(struct wl_listener *listener, void *data)
+notify_backend_keyboard_modifiers(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
 		             keyboard.modifiers);
 	struct wlr_keyboard *keyboard = data;
 	struct tw_keyboard *seat_keyboard = &seat->tw_seat->keyboard;
+	uint32_t depressed = keyboard->modifiers.depressed;
+	uint32_t latched = keyboard->modifiers.latched;
+	uint32_t locked = keyboard->modifiers.locked;
+	uint32_t group = keyboard->modifiers.group;
 
-	seat_keyboard->grab->impl->modifiers(seat_keyboard->grab,
-	                                     keyboard->modifiers.depressed,
-	                                     keyboard->modifiers.latched,
-	                                     keyboard->modifiers.locked,
-	                                     keyboard->modifiers.group);
+        if (seat_keyboard->grab->impl->modifiers)
+	        seat_keyboard->grab->impl->modifiers(seat_keyboard->grab,
+	                                             depressed,
+	                                             latched,
+	                                             locked,
+	                                             group);
 }
 
 /* the noifiers here are the last to run. there are other notifiers being run
  * before this */
 static void
-notify_keyboard_key(struct wl_listener *listener, void *data)
+notify_backend_keyboard_key(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
@@ -88,14 +92,15 @@ notify_keyboard_key(struct wl_listener *listener, void *data)
 		WL_KEYBOARD_KEY_STATE_PRESSED :
 		WL_KEYBOARD_KEY_STATE_RELEASED;
 
-	seat_keyboard->grab->impl->key(seat_keyboard->grab,
-	                               event->time_msec,
-	                               event->keycode,
-	                               state);
+        if (seat_keyboard->grab->impl->key)
+		seat_keyboard->grab->impl->key(seat_keyboard->grab,
+		                               event->time_msec,
+		                               event->keycode,
+		                               state);
 }
 
 static void
-notify_keyboard_keymap(struct wl_listener *listener, void *data)
+notify_backend_keyboard_keymap(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
@@ -113,7 +118,8 @@ tw_backend_new_keyboard(struct tw_backend *backend,
 	struct xkb_rule_names rules = {0};
 	struct xkb_keymap *keymap;
 	struct tw_backend_seat *seat =
-		tw_backend_seat_find_create(backend, dev);
+		tw_backend_seat_find_create(backend, dev,
+		                            TW_INPUT_CAP_KEYBOARD);
 	if (!seat) return;
 	//xkbcommon settings
 	seat->keyboard.device = dev;
@@ -127,6 +133,7 @@ tw_backend_new_keyboard(struct tw_backend *backend,
 	//update the capabilities
 	seat->capabilities |= TW_INPUT_CAP_KEYBOARD;
 	tw_seat_new_keyboard(seat->tw_seat);
+	tw_keyboard_set_keymap(&seat->tw_seat->keyboard, keymap);
 	//update the signals
 	wl_signal_emit(&seat->backend->seat_ch_signal, seat);
 
@@ -135,18 +142,18 @@ tw_backend_new_keyboard(struct tw_backend *backend,
 
 	//install listeners
 	wl_list_init(&seat->keyboard.destroy.link);
-	seat->keyboard.destroy.notify = notify_keyboard_remove;
+	seat->keyboard.destroy.notify = notify_backend_keyboard_remove;
 	wl_signal_add(&dev->keyboard->events.destroy,
 	              &seat->keyboard.destroy);
 	wl_list_init(&seat->keyboard.modifiers.link);
-	seat->keyboard.modifiers.notify = notify_keyboard_modifiers;
+	seat->keyboard.modifiers.notify = notify_backend_keyboard_modifiers;
 	wl_signal_add(&dev->keyboard->events.modifiers,
 	              &seat->keyboard.modifiers);
 	wl_list_init(&seat->keyboard.key.link);
-	seat->keyboard.key.notify = notify_keyboard_key;
+	seat->keyboard.key.notify = notify_backend_keyboard_key;
 	wl_signal_add(&dev->keyboard->events.key,
 	              &seat->keyboard.key);
 	wl_list_init(&seat->keyboard.keymap.link);
-	seat->keyboard.keymap.notify = notify_keyboard_keymap;
+	seat->keyboard.keymap.notify = notify_backend_keyboard_keymap;
 	wl_signal_add(&dev->keyboard->events.keymap, &seat->keyboard.keymap);
 }

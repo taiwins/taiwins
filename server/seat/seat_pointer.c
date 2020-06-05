@@ -181,3 +181,22 @@ tw_seat_remove_pointer(struct tw_seat *seat)
 	pointer->focused_client = NULL;
 	pointer->focused_surface = NULL;
 }
+
+void
+tw_pointer_start_grab(struct tw_pointer *pointer,
+                      struct tw_seat_pointer_grab *grab)
+{
+	struct tw_seat *seat =
+		container_of(pointer, struct tw_seat, pointer);
+	pointer->grab = grab;
+	grab->seat = seat;
+}
+
+void
+tw_pointer_end_grab(struct tw_pointer *pointer)
+{
+	if (pointer->grab != &pointer->default_grab &&
+	    pointer->grab->impl->cancel)
+		pointer->grab->impl->cancel(pointer->grab);
+	pointer->grab = &pointer->default_grab;
+}

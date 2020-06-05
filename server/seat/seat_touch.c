@@ -159,3 +159,21 @@ tw_seat_remove_touch(struct tw_seat *seat)
 	touch->focused_client = NULL;
 	touch->focused_surface = NULL;
 }
+
+void
+tw_touch_start_grab(struct tw_touch *touch, struct tw_seat_touch_grab *grab)
+{
+	struct tw_seat *seat =
+		container_of(touch, struct tw_seat, touch);
+	touch->grab = grab;
+	grab->seat = seat;
+}
+
+void
+tw_touch_end_grab(struct tw_touch *touch)
+{
+	if (touch->grab != &touch->default_grab &&
+	    touch->grab->impl->cancel)
+		touch->grab->impl->cancel(touch->grab);
+	touch->grab = &touch->default_grab;
+}

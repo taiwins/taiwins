@@ -32,7 +32,7 @@
 #include "backend_internal.h"
 
 static void
-notify_touch_remove(struct wl_listener *listener, void *data)
+notify_backend_touch_remove(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
@@ -48,7 +48,7 @@ notify_touch_remove(struct wl_listener *listener, void *data)
 }
 
 static void
-notify_touch_down(struct wl_listener *listener, void *data)
+notify_backend_touch_down(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
@@ -58,29 +58,27 @@ notify_touch_down(struct wl_listener *listener, void *data)
 }
 
 static void
-notify_touch_up(struct wl_listener *listener, void *data)
+notify_backend_touch_up(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
 		             touch.up);
 	struct wlr_event_touch_up *event = data;
 	(void)seat; (void)event;
-
 }
 
 static void
-notify_touch_motion(struct wl_listener *listener, void *data)
+notify_backend_touch_motion(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
 		             touch.motion);
 	struct wlr_event_touch_motion *event = data;
 	(void)seat; (void)event;
-
 }
 
 static void
-notify_touch_cancel(struct wl_listener *listener, void *data)
+notify_backend_touch_cancel(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
@@ -94,7 +92,8 @@ tw_backend_new_touch(struct tw_backend *backend,
                      struct wlr_input_device *dev)
 {
 	struct tw_backend_seat *seat =
-		tw_backend_seat_find_create(backend, dev);
+		tw_backend_seat_find_create(backend, dev,
+		                            TW_INPUT_CAP_TOUCH);
 	if (!seat) return;
 
 	seat->touch.device = dev;
@@ -105,23 +104,23 @@ tw_backend_new_touch(struct tw_backend *backend,
 
 	//install listeners
 	wl_list_init(&seat->touch.destroy.link);
-	seat->touch.destroy.notify = notify_touch_remove;
+	seat->touch.destroy.notify = notify_backend_touch_remove;
 	wl_signal_add(&dev->events.destroy, &seat->touch.destroy);
 
 	wl_list_init(&seat->touch.down.link);
-	seat->touch.down.notify = notify_touch_down;
+	seat->touch.down.notify = notify_backend_touch_down;
 	wl_signal_add(&dev->touch->events.down, &seat->touch.down);
 
 	wl_list_init(&seat->touch.up.link);
-	seat->touch.up.notify = notify_touch_up;
+	seat->touch.up.notify = notify_backend_touch_up;
 	wl_signal_add(&dev->touch->events.up, &seat->touch.up);
 
 	wl_list_init(&seat->touch.motion.link);
-	seat->touch.motion.notify = notify_touch_motion;
+	seat->touch.motion.notify = notify_backend_touch_motion;
 	wl_signal_add(&dev->touch->events.motion, &seat->touch.motion);
 
 	wl_list_init(&seat->touch.cancel.link);
-	seat->touch.cancel.notify = notify_touch_cancel;
+	seat->touch.cancel.notify = notify_backend_touch_cancel;
 	wl_signal_add(&dev->touch->events.cancel, &seat->touch.cancel);
 
 }

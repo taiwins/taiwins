@@ -33,7 +33,7 @@
 #include "backend_internal.h"
 
 static void
-notify_pointer_button(struct wl_listener *listener, void *data)
+notify_backend_pointer_button(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
@@ -44,14 +44,15 @@ notify_pointer_button(struct wl_listener *listener, void *data)
 		WL_POINTER_BUTTON_STATE_PRESSED :
 		WL_POINTER_BUTTON_STATE_RELEASED;
 
-	seat_pointer->grab->impl->button(seat_pointer->grab,
-	                                 event->time_msec,
-	                                 event->button,
-	                                 state);
-
+	if (seat_pointer->grab->impl->button)
+		seat_pointer->grab->impl->button(seat_pointer->grab,
+		                                 event->time_msec,
+		                                 event->button,
+		                                 state);
 }
+
 static void
-notify_pointer_motion(struct wl_listener *listener, void *data)
+notify_backend_pointer_motion(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
@@ -69,7 +70,7 @@ notify_pointer_motion(struct wl_listener *listener, void *data)
 }
 
 static void
-notify_pointer_axis(struct wl_listener *listener, void *data)
+notify_backend_pointer_axis(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
@@ -83,18 +84,19 @@ notify_pointer_axis(struct wl_listener *listener, void *data)
 }
 
 static void
-notify_pointer_frame(struct wl_listener *listener, void *data)
+notify_backend_pointer_frame(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
-		             pointer.axis);
+		             pointer.frame);
 	struct tw_pointer *seat_pointer = &seat->tw_seat->pointer;
-	seat_pointer->grab->impl->frame(seat_pointer->grab);
+	if (seat_pointer->grab->impl->frame)
+		seat_pointer->grab->impl->frame(seat_pointer->grab);
 }
 
 
 static void
-notify_pointer_remove(struct wl_listener *listener, void *data)
+notify_backend_pointer_remove(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
@@ -116,47 +118,35 @@ tw_backend_new_pointer(struct tw_backend *backend,
 {
 	struct wlr_pointer *pointer = dev->pointer;
 	struct tw_backend_seat *seat =
-		tw_backend_seat_find_create(backend, dev);
+		tw_backend_seat_find_create(backend, dev,
+		                            TW_INPUT_CAP_POINTER);
 	if (!seat) return;
 	seat->pointer.device = dev;
         //update the capabilities
 	seat->capabilities |= TW_INPUT_CAP_POINTER;
 	tw_seat_new_pointer(seat->tw_seat);
-	//update the signals
+	//update the signals earlier than listener to have a
 	wl_signal_emit(&seat->backend->seat_ch_signal, seat);
-
-	/* if you hook up the input device to a cursor, you are basically
-	 * forwarding the events by the pointer to the cursor. On the end, you
-	 * still need to interpret it */
-
-        /* there are multiple things you will need to do
-         *
-         * 1. Whether this is a global binding? Then you probably want to call
-         *   the binding
-         *
-         * 2. Okay, this is not the binding, we can send the events to the
-         * clients using wlr_seat, or our own seat implementation
-         */
 
 	//add listeners
 	wl_list_init(&seat->pointer.destroy.link);
-	seat->pointer.destroy.notify = notify_pointer_remove;
+	seat->pointer.destroy.notify = notify_backend_pointer_remove;
 	wl_signal_add(&dev->events.destroy, &seat->pointer.destroy);
 
 	wl_list_init(&seat->pointer.button.link);
-	seat->pointer.button.notify = notify_pointer_button;
+	seat->pointer.button.notify = notify_backend_pointer_button;
 	wl_signal_add(&pointer->events.button, &seat->pointer.button);
 
 	wl_list_init(&seat->pointer.motion.link);
-	seat->pointer.motion.notify = notify_pointer_motion;
+	seat->pointer.motion.notify = notify_backend_pointer_motion;
 	wl_signal_add(&pointer->events.motion, &seat->pointer.motion);
 
 	wl_list_init(&seat->pointer.axis.link);
-	seat->pointer.axis.notify = notify_pointer_axis;
+	seat->pointer.axis.notify = notify_backend_pointer_axis;
 	wl_signal_add(&pointer->events.axis, &seat->pointer.axis);
 
         wl_list_init(&seat->pointer.frame.link);
-	seat->pointer.frame.notify = notify_pointer_frame;
+	seat->pointer.frame.notify = notify_backend_pointer_frame;
 	wl_signal_add(&pointer->events.frame, &seat->pointer.frame);
 
 }

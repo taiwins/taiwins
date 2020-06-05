@@ -335,16 +335,18 @@ new_seat_for_backend(struct tw_backend *backend,
 
 struct tw_backend_seat *
 tw_backend_seat_find_create(struct tw_backend *backend,
-                            struct wlr_input_device *dev)
+                            struct wlr_input_device *dev,
+                            enum tw_input_device_cap cap)
 {
 	struct tw_backend_seat *seat =
-		find_seat_missing_dev(backend, dev, TW_INPUT_CAP_KEYBOARD);
-	if (!seat)
+		find_seat_missing_dev(backend, dev, cap);
+	if (!seat) {
 		seat = new_seat_for_backend(backend, dev);
+		wl_signal_emit(&backend->seat_add_signal, seat);
+	}
 	if (!seat)
 		return NULL;
 
-	wl_signal_emit(&backend->seat_add_signal, seat);
 	return seat;
 }
 

@@ -116,7 +116,7 @@ struct tw_seat_pointer_grab {
 	void *data;
 };
 
-struct tw_pointer_new_cursor_event {
+struct tw_event_new_cursor {
 	struct wl_resource *surface;
 	uint32_t hotspot_x;
 	uint32_t hotspot_y;
@@ -125,7 +125,6 @@ struct tw_pointer_new_cursor_event {
 struct tw_keyboard {
 	struct tw_seat_client *focused_client;
 	struct wl_resource *focused_surface;
-	struct xkb_keymap *keymap;
 	size_t keymap_size;
 	char *keymap_string;
 
@@ -219,11 +218,23 @@ tw_seat_new_pointer(struct tw_seat *seat);
 void
 tw_seat_remove_pointer(struct tw_seat *seat);
 
+void
+tw_pointer_start_grab(struct tw_pointer *pointer,
+                      struct tw_seat_pointer_grab *grab);
+void
+tw_pointer_end_grab(struct tw_pointer *pointer);
+
 struct tw_touch *
 tw_seat_new_touch(struct tw_seat *seat);
 
 void
 tw_seat_remove_touch(struct tw_seat *seat);
+
+void
+tw_touch_start_grab(struct tw_touch *touch,
+                    struct tw_seat_touch_grab *grab);
+void
+tw_touch_end_grab(struct tw_touch *touch);
 
 struct tw_seat_client *
 tw_seat_client_find(struct tw_seat *seat, struct wl_client *client);

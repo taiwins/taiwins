@@ -114,7 +114,7 @@ set_pointer_cursor(struct wl_client *client,
 		wl_resource_get_user_data(resource);
 	struct tw_seat *seat = seat_client->seat;
 
-	struct tw_pointer_new_cursor_event new_cursor_event = {
+	struct tw_event_new_cursor new_cursor_event = {
 		.surface = surface,
 		.hotspot_x = hotspot_x,
 		.hotspot_y = hotspot_y,
