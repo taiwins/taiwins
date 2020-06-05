@@ -34,12 +34,16 @@
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/types/wlr_output_layout.h>
 
-// TODO remove libweston related stuff.
+#include "binding/bindings.h"
+#include "ctypes/helpers.h"
+#include "seat/seat.h"
 #include "taiwins.h"
+#include "bindings.h"
 #include "backend/backend.h"
-// For this, we would probably start come up with a backend code
+#include "input.h"
 
-struct tw_compositor {
+
+struct tw_server {
 	struct wl_display *display;
 	struct wl_event_loop *loop; /**< main event loop */
 	struct tw_backend *backend;
@@ -49,27 +53,88 @@ struct tw_compositor {
 	struct wlr_renderer *wlr_renderer;
 	struct wlr_compositor *wlr_compositor;
 	struct wlr_data_device_manager *wlr_data_device;
+	struct tw_bindings *binding_state;
 
-	//binding
-	struct wl_listener seat_add_listener;
-	struct wl_listener seat_change_listener;
-	struct {
-		//keyboard
-		struct wl_listener key_listener;
-		struct wl_listener mod_listener;
-		//pointer
-		struct wl_listener btn_listener;
-		//touch
-		struct wl_listener tch_listener;
-	} binding_events;
+	//seats
+	struct tw_seat_events seat_events[8];
+	struct wl_listener seat_add;
+	struct wl_listener seat_remove;
 };
 
+/******************************************************************************
+ * setups
+ *****************************************************************************/
+
+static void
+notify_adding_seat(struct wl_listener *listener, void *data)
+{
+	struct tw_server *server =
+		container_of(listener, struct tw_server, seat_add);
+	struct tw_backend_seat *seat = data;
+	uint32_t i = seat->idx;
+	tw_seat_events_init(&server->seat_events[i], seat,
+	                    server->binding_state);
+}
+
+static void
+notify_removing_seat(struct wl_listener *listener, void *data)
+{
+	struct tw_server *server =
+		container_of(listener, struct tw_server, seat_remove);
+	struct tw_backend_seat *seat = data;
+	uint32_t i = seat->idx;
+	tw_seat_events_fini(&server->seat_events[i]);
+}
+
+static void
+bind_listeners(struct tw_server *server)
+{
+	wl_list_init(&server->seat_add.link);
+	server->seat_add.notify = notify_adding_seat;
+	wl_signal_add(&server->backend->seat_add_signal,
+	              &server->seat_add);
+	wl_list_init(&server->seat_remove.link);
+	server->seat_remove.notify = notify_removing_seat;
+	wl_signal_add(&server->backend->seat_rm_signal,
+	              &server->seat_remove);
+}
+
+static bool
+bind_backend(struct tw_server *server)
+{
+	//handle backend
+	server->backend = tw_backend_create_global(server->display);
+	if (!server->backend) {
+		tw_logl("EE: failed to create backend\n");
+		return false;
+	}
+	tw_backend_defer_outputs(server->backend, true);
+
+	server->wlr_backend = tw_backend_get_backend(server->backend);
+	server->wlr_renderer = wlr_backend_get_renderer(server->wlr_backend);
+	return true;
+}
+
+static void
+bind_globals(struct tw_server *server)
+{
+	//create various globals used in server
+	server->wlr_compositor =
+		wlr_compositor_create(server->display,
+		                      server->wlr_renderer);
+	server->wlr_data_device =
+		wlr_data_device_manager_create(server->display);
+
+	server->binding_state =
+		tw_bindings_create(server->display);
+	tw_bindings_add_dummy(server->binding_state);
+}
 
 int
 main(int argc, char *argv[])
 {
 	int ret = 0;
-	struct tw_compositor ec = {0};
+	struct tw_server ec = {0};
 	struct wl_event_source *signals[4];
 
 	tw_logfile = fopen("/tmp/taiwins-log", "w");
@@ -101,37 +166,19 @@ main(int argc, char *argv[])
 	                                      tw_handle_sigchld, ec.display);
 	if (!signals[0] || !signals[1] || !signals[2] || !signals[3])
 		goto err_signal;
-
-
-	//handle backend
-	ec.backend = tw_backend_create_global(ec.display);
-	if (!ec.backend) {
-		ret = -1;
-		tw_logl("EE: failed to create backend\n");
-		goto err_create_backend;
-	}
-	tw_backend_defer_outputs(ec.backend, true);
-
-	ec.wlr_backend = tw_backend_get_backend(ec.backend);
-	ec.wlr_renderer = wlr_backend_get_renderer(ec.wlr_backend);
-
-	//TODO we do not have input devices
-	//build on top of the binding system
-
-	//create various wl globals
-	ec.wlr_compositor =
-		wlr_compositor_create(ec.display, ec.wlr_renderer);
-	ec.wlr_data_device =
-		wlr_data_device_manager_create(ec.display);
+	if (!bind_backend(&ec))
+		goto err_backend;
+	bind_globals(&ec);
+	bind_listeners(&ec);
 
 	//run the loop
 	tw_backend_flush(ec.backend);
 	wl_display_run(ec.display);
 
+err_backend:
 err_signal:
 	for (int i = 0; i < 4; i++)
 		wl_event_source_remove(signals[i]);
-err_create_backend:
 err_get_loop:
 err_socket:
 	wl_display_destroy(ec.display);

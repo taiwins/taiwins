@@ -46,8 +46,21 @@ extern "C" {
  * compositor.
  */
 
-struct tw_seat; //ALL shall we call it twp_seat
+struct tw_seat;
 struct tw_seat_client;
+
+enum TW_KEYBOARD_MODIFIER {
+	TW_MODIFIER_CTRL = (1 << 0),
+	TW_MODIFIER_ALT = (1 << 1),
+	TW_MODIFIER_SUPER = (1 << 2),
+	TW_MODIFIER_SHIFT = (1 << 3),
+};
+
+enum TW_KEYBOARD_LED {
+	TW_LED_NUM_LOCK = (1 << 0),
+	TW_LED_CAPS_LOCK = (1 << 1),
+	TW_LED_SCROLL_LOCK = (1 << 2),
+};
 
 struct tw_seat_pointer_grab;
 
@@ -127,6 +140,8 @@ struct tw_keyboard {
 	struct wl_resource *focused_surface;
 	size_t keymap_size;
 	char *keymap_string;
+	uint32_t modifiers_state;
+	uint32_t led_state; /**< led state reflects lock state */
 
 	struct wl_listener event;
 	struct tw_seat_keyboard_grab default_grab;
@@ -140,6 +155,7 @@ struct tw_pointer {
 	struct wl_listener event;
 	struct tw_seat_pointer_grab default_grab;
 	struct tw_seat_pointer_grab *grab;
+
 };
 
 struct tw_touch {

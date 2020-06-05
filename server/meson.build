@@ -2,6 +2,7 @@
 taiwins_src = [
   'main.c',
   'taiwins.c',
+  'input.c',
   'backend/backend.c',
   'backend/keyboard.c',
   'backend/pointer.c',
@@ -10,6 +11,7 @@ taiwins_src = [
   'seat/seat_keyboard.c',
   'seat/seat_pointer.c',
   'seat/seat_touch.c',
+  'binding/bindings.c',
 ]
 taiwins = executable(
   'taiwins',
