@@ -1,11 +1,11 @@
 project('taiwins', 'c',
 	version : '0.1.1',
 	default_options: [
-	  'warning_level=3',
+	  'warning_level=2', #warn level has to be 2 to get wlroots compiles
 	  'c_std=gnu11',
-	  'werror=true'
+	  'werror=true',
 	],
-	meson_version: '>= 0.47',
+	meson_version: '>= 0.5',
 	license: 'GPLv2+')
 
 
@@ -34,12 +34,19 @@ endif
 add_project_arguments(global_args, language : 'c')
 add_project_link_arguments(global_link_args, language : 'c')
 
-
 ###### subprojects
+wlroots_options = [
+  'c_std=c11',
+  'warning_level=2',
+  'werror=true',
+  'examples=false',
+]
+
 twclient = subproject('twclient')
 nklua = subproject('nklua')
 tdbus = subproject('tdbus')
 ctypes = subproject('ctypes')
+wlroots = subproject('wlroots', default_options : wlroots_options )
 
 ###### dependencies
 dep_pixman = dependency('pixman-1', version: '>= 0.25.2')
@@ -50,7 +57,7 @@ dep_lua = dependency('lua', version: '>= 5.3', required: true)
 dep_threads = dependency('threads')
 dep_libweston = dependency('libweston-8') #TODO: finally we would get rid of libweston
 dep_libweston_desktop = dependency('libweston-8') #TODO: finally we would get rid of libweston
-dep_wlroots = dependency('wlroots')
+dep_wlroots = wlroots.get_variable('wlroots')
 dep_pam = cc.find_library('pam')
 dep_dl = cc.find_library('dl')
 dep_ctypes = ctypes.get_variable('dep_ctypes')
