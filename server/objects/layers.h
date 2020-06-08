@@ -1,5 +1,5 @@
 /*
- * compositor.h - taiwins server compositor header
+ * layers.h - taiwins server layers manager
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -19,56 +19,33 @@
  *
  */
 
-#ifndef TW_COMPOSITOR_H
-#define TW_COMPOSITOR_H
+#ifndef TW_LAYERS_H
+#define TW_LAYERS_H
 
 #include <wayland-server.h>
+
+#include <taiwins.h>
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-struct tw_compositor {
-	struct wl_global *wl_compositor;
-	struct wl_global *wl_subcompositor;
-	struct wl_list clients;
-	struct wl_list subcomp_clients;
-
-	struct wl_signal surface_create;
-	struct wl_signal region_create;
-	struct wl_signal subsurface_get;
+struct tw_layers_manager {
+	struct wl_display *display;
+	struct wl_list layers;
+	struct wl_list views;
 
 	struct wl_listener destroy_listener;
+	//global layers
+	struct tw_layer cursor_layer;
 };
 
-struct tw_event_new_wl_surface {
-	struct wl_resource *compositor_res;
-	struct wl_client *client;
-	uint32_t version;
-	uint32_t id;
-};
-
-struct tw_event_new_wl_region {
-	struct wl_resource *compositor_res;
-	struct wl_client *client;
-	uint32_t version;
-	uint32_t id;
-};
-
-struct tw_event_get_wl_subsurface {
-	struct wl_resource *surface;
-	struct wl_resource *parent_surface;
-	uint32_t id;
-};
-
-struct tw_compositor *
-tw_compositor_create_global(struct wl_display *display);
+struct tw_layers_manager *
+tw_layers_manager_create_global(struct wl_display *display);
 
 
 #ifdef  __cplusplus
 }
 #endif
-
-
 
 #endif /* EOF */

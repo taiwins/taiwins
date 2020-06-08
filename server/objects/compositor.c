@@ -1,5 +1,5 @@
 /*
- * main.c - taiwins compositor implementation
+ * compositor.c - taiwins compositor implementation
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -24,6 +24,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <wayland-util.h>
 
@@ -32,6 +33,8 @@
 
 #define COMPOSITOR_VERSION 4
 #define SUBCOMPOSITOR_VERSION 1
+#define SURFACE_VERSION 4
+#define SUBSURFACE_VERSION 1
 
 static struct tw_compositor s_tw_compositor = {0};
 
@@ -42,8 +45,9 @@ static const struct wl_subcompositor_interface subcompositor_impl;
 
 static void
 destroy_wl_subcompositor(struct wl_client *wl_client,
-                      struct wl_resource *resource)
+                         struct wl_resource *resource)
 {
+	wl_resource_destroy(resource);
 }
 
 static void
@@ -57,6 +61,7 @@ get_wl_subsurface(struct wl_client *client,
 	struct tw_event_get_wl_subsurface event = {
 		.surface = surface,
 		.parent_surface = parent,
+		.version = SUBSURFACE_VERSION,
 		.id = id,
 	};
 	assert(wl_resource_instance_of(resource, &wl_subcompositor_interface,
@@ -75,6 +80,12 @@ static const struct wl_subcompositor_interface subcompositor_impl = {
 };
 
 static void
+destroy_subcompositor(struct wl_resource *resource)
+{
+	wl_list_remove(wl_resource_get_link(resource));
+}
+
+static void
 bind_subcompositor(struct wl_client *client, void *data,
                    uint32_t version, uint32_t id)
 {
@@ -87,7 +98,7 @@ bind_subcompositor(struct wl_client *client, void *data,
 		return;
 	}
 	wl_resource_set_implementation(res, &subcompositor_impl, compositor,
-	                               NULL);
+	                               destroy_subcompositor);
 
 	wl_list_insert(compositor->subcomp_clients.prev,
 	               wl_resource_get_link(res));
@@ -107,7 +118,7 @@ create_wl_surface(struct wl_client *client,
 	struct tw_compositor *compositor;
 	struct tw_event_new_wl_surface event = {
 		resource, client,
-		wl_resource_get_version(resource),
+		SURFACE_VERSION,
 		id,
 	};
 
@@ -116,7 +127,6 @@ create_wl_surface(struct wl_client *client,
 	compositor = wl_resource_get_user_data(resource);
 	wl_signal_emit(&compositor->surface_create, &event);
 }
-
 
 static void
 create_wl_region(struct wl_client *client,
@@ -139,7 +149,6 @@ create_wl_region(struct wl_client *client,
 static const struct wl_compositor_interface compositor_impl = {
 	.create_surface = create_wl_surface,
 	.create_region = create_wl_region,
-
 };
 
 static void

@@ -7,11 +7,22 @@ taiwins_src = [
   'backend/keyboard.c',
   'backend/pointer.c',
   'backend/touch.c',
+  'backend/render/renderer.c',
+  'backend/render/shaders.c',
   'seat/seat.c',
   'seat/seat_keyboard.c',
   'seat/seat_pointer.c',
   'seat/seat_touch.c',
   'binding/bindings.c',
+
+  'objects/dmabuf.c',
+  'objects/compositor.c',
+  'objects/surface.c',
+  'objects/region.c',
+  'objects/buffer.c',
+
+  wayland_linux_dmabuf_server_protocol_h,
+  wayland_linux_dmabuf_private_code_c,
 ]
 taiwins = executable(
   'taiwins',
@@ -28,6 +39,7 @@ taiwins = executable(
     dep_xkbcommon,
     dep_threads,
     dep_pixman,
+    dep_glesv2,
     dep_dl,
   ],
   include_directories : [
