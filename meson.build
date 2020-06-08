@@ -75,3 +75,4 @@ dir_tp_base = join_paths(meson.source_root(), 'subprojects', 'taiwins-protocols'
 subdir('protocols')
 subdir('server')
 subdir('clients')
+subdir('test')
