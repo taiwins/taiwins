@@ -59,6 +59,7 @@ struct tw_server {
 	struct tw_seat_events seat_events[8];
 	struct wl_listener seat_add;
 	struct wl_listener seat_remove;
+
 };
 
 /******************************************************************************
@@ -118,12 +119,14 @@ bind_backend(struct tw_server *server)
 static void
 bind_globals(struct tw_server *server)
 {
-	//create various globals used in server
+	//declare various globals
 	server->wlr_compositor =
 		wlr_compositor_create(server->display,
 		                      server->wlr_renderer);
 	server->wlr_data_device =
 		wlr_data_device_manager_create(server->display);
+
+	wl_display_init_shm(server->display);
 
 	server->binding_state =
 		tw_bindings_create(server->display);
