@@ -148,6 +148,7 @@ struct tw_backend {
 	struct wl_listener input_add_listener;
 	struct wl_listener compositor_destroy_listener;
 
+	struct wl_signal output_frame_signal;
         struct wl_signal output_plug_signal;
 	struct wl_signal output_unplug_signal;
 	struct wl_signal seat_add_signal;

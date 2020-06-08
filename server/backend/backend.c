@@ -113,8 +113,9 @@ notify_new_output_frame(struct wl_listener *listener, void *data)
 	struct tw_backend_output *output =
 		container_of(listener, struct tw_backend_output,
 		             frame_listener);
-	wl_container_of(output, output, frame_listener);
-	(void)output;
+	struct tw_backend *backend = output->backend;
+
+	wl_signal_emit(&backend->output_frame_signal, output);
 }
 
 static void
@@ -479,7 +480,8 @@ tw_backend_create_global(struct wl_display *display)
 	backend->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	if (!backend->xkb_context)
 		goto err_context;
-	// initialize the global cursor, every seat will register the events on it
+	// initialize the global cursor, every seat will register the events on
+	// it
 	backend->global_cursor = wlr_cursor_create();
 	if (!backend->global_cursor)
 		goto err_cursor;
@@ -489,6 +491,7 @@ tw_backend_create_global(struct wl_display *display)
 	wl_display_add_destroy_listener(display,
 	                                &backend->compositor_destroy_listener);
 
+	wl_signal_init(&backend->output_frame_signal);
 	wl_signal_init(&backend->output_plug_signal);
 	wl_signal_init(&backend->output_unplug_signal);
 	wl_signal_init(&backend->seat_add_signal);

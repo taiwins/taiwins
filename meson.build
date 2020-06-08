@@ -57,6 +57,7 @@ dep_lua = dependency('lua', version: '>= 5.3', required: true)
 dep_threads = dependency('threads')
 dep_libweston = dependency('libweston-8') #TODO: finally we would get rid of libweston
 dep_libweston_desktop = dependency('libweston-8') #TODO: finally we would get rid of libweston
+dep_glesv2 = dependency('glesv2')
 dep_wlroots = wlroots.get_variable('wlroots')
 dep_pam = cc.find_library('pam')
 dep_dl = cc.find_library('dl')
