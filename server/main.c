@@ -43,95 +43,7 @@
 #include "input.h"
 
 
-struct tw_server {
-	struct wl_display *display;
-	struct wl_event_loop *loop; /**< main event loop */
-	struct tw_backend *backend;
 
-        //wlr datas
-	struct wlr_backend *wlr_backend;
-	struct wlr_renderer *wlr_renderer;
-	struct wlr_compositor *wlr_compositor;
-	struct wlr_data_device_manager *wlr_data_device;
-	struct tw_bindings *binding_state;
-
-	//seats
-	struct tw_seat_events seat_events[8];
-	struct wl_listener seat_add;
-	struct wl_listener seat_remove;
-
-};
-
-/******************************************************************************
- * setups
- *****************************************************************************/
-
-static void
-notify_adding_seat(struct wl_listener *listener, void *data)
-{
-	struct tw_server *server =
-		container_of(listener, struct tw_server, seat_add);
-	struct tw_backend_seat *seat = data;
-	uint32_t i = seat->idx;
-	tw_seat_events_init(&server->seat_events[i], seat,
-	                    server->binding_state);
-}
-
-static void
-notify_removing_seat(struct wl_listener *listener, void *data)
-{
-	struct tw_server *server =
-		container_of(listener, struct tw_server, seat_remove);
-	struct tw_backend_seat *seat = data;
-	uint32_t i = seat->idx;
-	tw_seat_events_fini(&server->seat_events[i]);
-}
-
-static void
-bind_listeners(struct tw_server *server)
-{
-	wl_list_init(&server->seat_add.link);
-	server->seat_add.notify = notify_adding_seat;
-	wl_signal_add(&server->backend->seat_add_signal,
-	              &server->seat_add);
-	wl_list_init(&server->seat_remove.link);
-	server->seat_remove.notify = notify_removing_seat;
-	wl_signal_add(&server->backend->seat_rm_signal,
-	              &server->seat_remove);
-}
-
-static bool
-bind_backend(struct tw_server *server)
-{
-	//handle backend
-	server->backend = tw_backend_create_global(server->display);
-	if (!server->backend) {
-		tw_logl("EE: failed to create backend\n");
-		return false;
-	}
-	tw_backend_defer_outputs(server->backend, true);
-
-	server->wlr_backend = tw_backend_get_backend(server->backend);
-	server->wlr_renderer = wlr_backend_get_renderer(server->wlr_backend);
-	return true;
-}
-
-static void
-bind_globals(struct tw_server *server)
-{
-	//declare various globals
-	server->wlr_compositor =
-		wlr_compositor_create(server->display,
-		                      server->wlr_renderer);
-	server->wlr_data_device =
-		wlr_data_device_manager_create(server->display);
-
-	wl_display_init_shm(server->display);
-
-	server->binding_state =
-		tw_bindings_create(server->display);
-	tw_bindings_add_dummy(server->binding_state);
-}
 
 int
 main(int argc, char *argv[])
@@ -139,41 +51,39 @@ main(int argc, char *argv[])
 	int ret = 0;
 	struct tw_server ec = {0};
 	struct wl_event_source *signals[4];
+	struct wl_display *display;
+	struct wl_event_loop *loop;
 
 	tw_logger_open("/tmp/taiwins-log");
 
-	ec.display = wl_display_create();
-	if (!ec.display) {
+	display = wl_display_create();
+	if (!display) {
 		ret = -1;
 		tw_logl("EE: failed to create wayland display\n");
 		goto err_create_display;
 	}
-	ec.loop = wl_display_get_event_loop(ec.display);
-	if (!ec.loop) {
+	loop = wl_display_get_event_loop(display);
+	if (!loop) {
 		ret = -1;
-		tw_logl("EE: failed to get wayland event loop\n");
-		goto err_get_loop;
+		tw_logl("EE: failed to get event_loop from display\n");
+		goto err_event_loop;
 	}
-
-	if (!tw_set_socket(ec.display)) {
+	if (!tw_set_socket(display)) {
 		ret = -1;
 		goto err_socket;
 	}
-	signals[0] = wl_event_loop_add_signal(ec.loop, SIGTERM,
-	                                      tw_term_on_signal, ec.display);
-	signals[1] = wl_event_loop_add_signal(ec.loop, SIGINT,
-	                                      tw_term_on_signal, ec.display);
-	signals[2] = wl_event_loop_add_signal(ec.loop, SIGQUIT,
-	                                      tw_term_on_signal, ec.display);
-	signals[3] = wl_event_loop_add_signal(ec.loop, SIGCHLD,
-	                                      tw_handle_sigchld, ec.display);
+	signals[0] = wl_event_loop_add_signal(loop, SIGTERM,
+	                                      tw_term_on_signal, display);
+	signals[1] = wl_event_loop_add_signal(loop, SIGINT,
+	                                      tw_term_on_signal, display);
+	signals[2] = wl_event_loop_add_signal(loop, SIGQUIT,
+	                                      tw_term_on_signal, display);
+	signals[3] = wl_event_loop_add_signal(loop, SIGCHLD,
+	                                      tw_handle_sigchld, display);
 	if (!signals[0] || !signals[1] || !signals[2] || !signals[3])
 		goto err_signal;
-	if (!bind_backend(&ec))
+	if (!tw_server_init(&ec, display))
 		goto err_backend;
-	bind_globals(&ec);
-	bind_listeners(&ec);
-
 	//run the loop
 	tw_backend_flush(ec.backend);
 	wl_display_run(ec.display);
@@ -182,7 +92,7 @@ err_backend:
 err_signal:
 	for (int i = 0; i < 4; i++)
 		wl_event_source_remove(signals[i]);
-err_get_loop:
+err_event_loop:
 err_socket:
 	wl_display_destroy(ec.display);
 err_create_display:

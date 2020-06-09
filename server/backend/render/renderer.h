@@ -30,6 +30,9 @@
 #include <GLES3/gl3ext.h>
 #include <EGL/egl.h>
 
+#include <objects/surface.h>
+#include <objects/dmabuf.h>
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -51,7 +54,21 @@ struct wlr_renderer *
 tw_renderer_create(struct wlr_egl *egl, EGLenum platform,
                    void *remote_display, EGLint *config_attribs,
                    EGLint visual_id);
-
+void
+tw_renderer_import_buffer(struct tw_event_buffer_uploading *event,
+                          void *data);
+bool
+tw_renderer_test_import_dmabuf(struct tw_dmabuf_attributes *attrs,
+                               void *data);
+void
+tw_renderer_format_request(struct tw_linux_dmabuf *dmabuf,
+                           void *callback, int *formats,
+                           size_t *n_formats);
+void
+tw_renderer_modifiers_request(struct tw_linux_dmabuf *dmabuf,
+                              void *callback, int format,
+                              uint64_t *modifiers,
+                              size_t *n_modifiers);
 
 #ifdef  __cplusplus
 }

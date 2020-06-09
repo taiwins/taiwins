@@ -22,6 +22,7 @@
 #ifndef TW_COMPOSITOR_H
 #define TW_COMPOSITOR_H
 
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 
 #ifdef  __cplusplus
@@ -58,6 +59,7 @@ struct tw_event_new_wl_region {
 struct tw_event_get_wl_subsurface {
 	struct wl_resource *surface;
 	struct wl_resource *parent_surface;
+	struct wl_client *client;
 	uint32_t version;
 	uint32_t id;
 };

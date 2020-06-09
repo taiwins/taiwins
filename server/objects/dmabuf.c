@@ -55,11 +55,26 @@ static const struct  wl_buffer_interface  wl_buffer_impl = {
 static void
 destroy_wl_buffer(struct wl_resource *resource)
 {
+	struct tw_dmabuf_buffer *buffer =
+		tw_dmabuf_buffer_from_resource(resource);
+	tw_dmabuf_buffer_destroy(buffer);
+}
+
+bool
+tw_is_wl_buffer_dmabuf(struct wl_resource *resource)
+{
+	return wl_resource_instance_of(resource, &wl_buffer_interface,
+	                               &wl_buffer_impl) != 0;
+}
+
+struct tw_dmabuf_buffer *
+tw_dmabuf_buffer_from_resource(struct wl_resource *resource)
+{
 	struct tw_dmabuf_buffer *buffer;
 	assert(wl_resource_instance_of(resource, &wl_buffer_interface,
 	                               &wl_buffer_impl));
 	buffer = wl_resource_get_user_data(resource);
-	tw_dmabuf_buffer_destroy(buffer);
+	return buffer;
 }
 
 /******************************************************************************
@@ -175,7 +190,7 @@ out:
 
 static inline bool
 test_import_buffer(struct tw_linux_dmabuf *dma,
-                        struct tw_dmabuf_attributes *attributes)
+                   struct tw_dmabuf_attributes *attributes)
 {
 	if (dma->import_buffer.import_buffer &&
 	    dma->import_buffer.import_buffer(attributes,
@@ -184,7 +199,6 @@ test_import_buffer(struct tw_linux_dmabuf *dma,
 	else
 		return false;
 }
-
 
 static void
 buffer_params_create_common(struct wl_client *client,
@@ -296,7 +310,6 @@ err_failed:
 err_out:
 	tw_dmabuf_buffer_destroy(buffer);
 }
-
 
 static void
 buffer_params_create(struct wl_client *client,

@@ -21,6 +21,10 @@
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#include "ctypes/helpers.h"
+#include "objects/compositor.h"
+#include "objects/dmabuf.h"
+#include <wayland-server-core.h>
 #endif
 
 #include <limits.h>
@@ -32,134 +36,16 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <dlfcn.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <libweston/libweston.h>
 #include <wayland-util.h>
 #include <ctypes/os/os-compatibility.h>
 
+#include <backend/render/renderer.h>
+#include <backend/backend.h>
+#include <objects/surface.h>
+#include <objects/compositor.h>
 #include "taiwins.h"
-
-static int
-tw_launch_default_fork(pid_t pid, struct tw_subprocess *chld)
-{
-	return 0;
-}
-
-static int
-tw_launch_default_exec(const char *path, struct tw_subprocess *chld)
-{
-	if (execlp(path, path, NULL) == -1) {
-		tw_logl("tw_launch_client: "
-		        "failed to exec the client %s\n", path);
-		return -1;
-	}
-	return 0;
-}
-
-struct wl_client *
-tw_launch_client_complex(struct weston_compositor *ec, const char *path,
-                         struct tw_subprocess *chld,
-                         int (*fork_cb)(pid_t, struct tw_subprocess *),
-                         int (*exec_cb)(const char *,struct tw_subprocess *))
-{
-	int sv[2], fd;
-	pid_t pid;
-	struct wl_client *client = NULL;
-	struct wl_list *clients = tw_get_clients_head();
-	char socket_fd_str[12];
-	sigset_t allsignals;
-
-	if (!fork_cb)
-		fork_cb = tw_launch_default_fork;
-	if (!exec_cb)
-		exec_cb = tw_launch_default_exec;
-
-	//always need to create wayland socket
-	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0, sv)) {
-		tw_logl("taiwins client launch: "
-		        "failed to create the socket for client %s\n",
-		        path);
-		return NULL;
-	}
-
-	pid = fork();
-	if (pid == -1) {
-		close(sv[0]);
-		close(sv[1]);
-		tw_logl("taiwins client launch: "
-		        "failed to create new process, %s\n",
-		        path);
-		return NULL;
-	} else if (pid == 0) {
-		//child holds sv[1] and closes sv[0]
-		close(sv[0]);
-
-		if (seteuid(getuid()) == -1)
-			goto fail;
-
-		//unblocking signals
-		sigfillset(&allsignals);
-		sigprocmask(SIG_UNBLOCK, &allsignals, NULL);
-		//duplicate the socket since it is close-on-exec
-		fd = dup(sv[1]);
-		snprintf(socket_fd_str, sizeof(socket_fd_str), "%d", fd);
-		setenv("WAYLAND_SOCKET", socket_fd_str, 1);
-		//do the fork
-		if (fork_cb(pid, chld) ||  exec_cb(path, chld))
-			goto fail;
-	fail:
-		close(sv[1]);
-		_exit(-1);
-	} else {
-		//parent holds sv[0] and closes sv[1]
-		close(sv[1]);
-		if (fork_cb(pid, chld))
-			goto fail_p;
-		client = wl_client_create(ec->wl_display, sv[0]);
-		if (!client) {
-			tw_logl("taiwins_client_launch: "
-			        "failed to create wl_client for %s\n", path);
-			return NULL;
-		}
-		if (chld) {
-			chld->pid = pid;
-			wl_list_init(&chld->link);
-			wl_list_insert(clients, &chld->link);
-		}
-		return client;
-	fail_p:
-		close(sv[0]);
-		return NULL;
-	}
-	return client;
-
-}
-
-struct wl_client *
-tw_launch_client(struct weston_compositor *ec, const char *path,
-                 struct tw_subprocess *chld)
-{
-	return tw_launch_client_complex(ec, path, chld, NULL, NULL);
-}
-
-struct wl_list *tw_get_clients_head()
-{
-	static struct wl_list clients_head = {
-		.prev = &clients_head,
-		.next = &clients_head,
-	};
-
-	return &clients_head;
-}
-
-void
-tw_end_client(struct wl_client *client)
-{
-	pid_t pid; uid_t uid; gid_t gid;
-	wl_client_get_credentials(client, &pid, &uid, &gid);
-	kill(pid, SIGINT);
-}
 
 bool
 tw_set_socket(struct wl_display *display)
@@ -188,13 +74,13 @@ tw_term_on_signal(int sig_num, void *data)
 {
 	struct wl_display *display = data;
 
-	tw_logl("Caught signal %d\n", sig_num);
+	tw_logl("Caught signal %s\n", strsignal(sig_num));
 	wl_display_terminate(display);
 	return 1;
 }
 
 int
-tw_handle_sigchld(UNUSED_ARG(int sig_num), UNUSED_ARG(void *data))
+tw_handle_sigchld(int sig_num, UNUSED_ARG(void *data))
 {
 	struct wl_list *head;
 	struct tw_subprocess *subproc;
@@ -202,6 +88,7 @@ tw_handle_sigchld(UNUSED_ARG(int sig_num), UNUSED_ARG(void *data))
 	pid_t pid;
 
 	head = tw_get_clients_head();
+	tw_logl("Caught signal %s\n", strsignal(sig_num));
 
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		wl_list_for_each(subproc, head, link)
@@ -319,4 +206,157 @@ tw_load_weston_module(const char *name, const char *entrypoint)
 	}
 	return init;
 
+}
+
+/******************************************************************************
+ * tw_server, this is probably a bad place to set it up
+ *****************************************************************************/
+static void
+notify_create_wl_surface(struct wl_listener *listener, void *data)
+{
+	struct tw_server *server =
+		container_of(listener, struct tw_server,
+		             surface_create_listener);
+	struct tw_event_new_wl_surface *event = data;
+	//TODO, maybe additional callbacks
+	tw_surface_create(event->client, event->version, event->id,
+	                  &server->surface_manager);
+}
+
+static void
+notify_create_wl_subsurface(struct wl_listener *listener, void *data)
+{
+	struct tw_event_get_wl_subsurface *event = data;
+	struct tw_surface *surface, *parent;
+	surface = tw_surface_from_resource(event->surface);
+	parent = tw_surface_from_resource(event->parent_surface);
+
+	tw_subsurface_create(event->client, event->version, event->id,
+	                     surface, parent);
+}
+
+static void
+notify_create_wl_region(struct wl_listener *listener, void *data)
+{
+	struct tw_event_new_wl_region *event = data;
+	tw_region_create(event->client, event->version, event->id);
+}
+
+static void
+notify_adding_seat(struct wl_listener *listener, void *data)
+{
+	struct tw_server *server =
+		container_of(listener, struct tw_server, seat_add);
+	struct tw_backend_seat *seat = data;
+	uint32_t i = seat->idx;
+	tw_seat_events_init(&server->seat_events[i], seat,
+	                    server->binding_state);
+}
+
+static void
+notify_removing_seat(struct wl_listener *listener, void *data)
+{
+	struct tw_server *server =
+		container_of(listener, struct tw_server, seat_remove);
+	struct tw_backend_seat *seat = data;
+	uint32_t i = seat->idx;
+	tw_seat_events_fini(&server->seat_events[i]);
+}
+
+static void
+bind_listeners(struct tw_server *server)
+{
+	wl_list_init(&server->seat_add.link);
+	server->seat_add.notify = notify_adding_seat;
+	wl_signal_add(&server->backend->seat_add_signal,
+	              &server->seat_add);
+	wl_list_init(&server->seat_remove.link);
+	server->seat_remove.notify = notify_removing_seat;
+	wl_signal_add(&server->backend->seat_rm_signal,
+	              &server->seat_remove);
+
+	wl_list_init(&server->surface_create_listener.link);
+	server->surface_create_listener.notify = notify_create_wl_surface;
+	wl_signal_add(&server->compositor->surface_create,
+	              &server->surface_create_listener);
+
+	wl_list_init(&server->subsurface_create_listener.link);
+	server->subsurface_create_listener.notify =
+		notify_create_wl_subsurface;
+	wl_signal_add(&server->compositor->subsurface_get,
+	              &server->subsurface_create_listener);
+
+	wl_list_init(&server->region_create_listener.link);
+	server->region_create_listener.notify =
+		notify_create_wl_region;
+	wl_signal_add(&server->compositor->region_create,
+	              &server->region_create_listener);
+}
+
+static bool
+bind_backend(struct tw_server *server)
+{
+	//handle backend
+	server->backend = tw_backend_create_global(server->display);
+	if (!server->backend) {
+		tw_logl("EE: failed to create backend\n");
+		return false;
+	}
+	tw_backend_defer_outputs(server->backend, true);
+
+	server->wlr_backend = tw_backend_get_backend(server->backend);
+	server->wlr_renderer = wlr_backend_get_renderer(server->wlr_backend);
+	return true;
+}
+
+static void
+bind_globals(struct tw_server *server)
+{
+	//declare various globals
+	server->compositor =
+		tw_compositor_create_global(server->display);
+
+	server->wlr_data_device =
+		wlr_data_device_manager_create(server->display);
+
+	wl_display_init_shm(server->display);
+
+	server->dma_engine = tw_dmabuf_create_global(server->display);
+
+	tw_surface_manager_init(&server->surface_manager);
+
+	if (server->wlr_renderer) {
+		server->surface_manager.buffer_import.buffer_import =
+			tw_renderer_import_buffer;
+		server->surface_manager.buffer_import.callback =
+			server->wlr_renderer;
+		//dma engine
+		server->dma_engine->import_buffer.import_buffer =
+			tw_renderer_test_import_dmabuf;
+		server->dma_engine->import_buffer.callback =
+			server->wlr_renderer;
+		server->dma_engine->format_request.format_request =
+			tw_renderer_format_request;
+		server->dma_engine->format_request.modifiers_request =
+			tw_renderer_modifiers_request;
+		server->dma_engine->format_request.callback =
+			server->wlr_renderer;
+	}
+
+	//bindings
+	server->binding_state =
+		tw_bindings_create(server->display);
+	tw_bindings_add_dummy(server->binding_state);
+}
+
+bool
+tw_server_init(struct tw_server *server, struct wl_display *display)
+{
+	server->display = display;
+	server->loop = wl_display_get_event_loop(display);
+	if (!bind_backend(server))
+		return false;
+	bind_globals(server);
+	bind_listeners(server);
+	return true;
 }

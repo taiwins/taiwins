@@ -83,7 +83,10 @@ tw_surface_buffer_new(struct tw_surface_buffer *buffer,
 		user_data = manager->buffer_import.callback;
 		manager->buffer_import.buffer_import(&event, user_data);
 	}
-	buffer->resource = resource;
+	if (!tw_surface_has_texture(surface)) {
+		wl_buffer_send_release(resource);
+	} else
+		buffer->resource = resource;
 }
 
 void

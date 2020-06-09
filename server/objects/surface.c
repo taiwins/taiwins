@@ -154,6 +154,7 @@ update_surface_buffer(struct tw_surface *surface)
 	//so far here is only place we release the buffer, this require users to
 	//have double-buffered surface. Maybe we can early release the buffer.
 	if (surface->previous->buffer_resource) {
+		//TODO here we could have an error
 		assert(surface->buffer.resource ==
 		       surface->previous->buffer_resource);
 		tw_surface_buffer_release(&surface->buffer);
@@ -162,8 +163,7 @@ update_surface_buffer(struct tw_surface *surface)
 	//if there is no buffer for us, we can leave
 	if (!resource)
 		return;
-	//now we upload the buffer, buffer uploading requires updating the
-	//textures, if we already have the texture, updating it would be enough.
+
 	if (tw_surface_has_texture(surface))
 		tw_surface_buffer_update(&surface->buffer, resource,
 		                         damage);
@@ -406,7 +406,10 @@ tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
 		pixman_region32_init(&view->surface_damage);
 		pixman_region32_init(&view->buffer_damage);
 		pixman_region32_init(&view->opaque_region);
-		pixman_region32_init(&view->input_region);
+		//input region is as big as possible
+		pixman_region32_init_rect(&view->input_region,
+		                          INT32_MIN, INT32_MIN,
+		                          UINT32_MAX, UINT32_MAX);
 	}
 
 #ifdef TW_OVERLAY_PLANE
@@ -414,6 +417,7 @@ tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
 		pixman_region32_init(&surface->output_damages[i]);
 #endif
 
+	wl_list_init(&surface->buffer.surface_destroy_listener.link);
 	wl_list_init(&surface->subsurfaces);
 	wl_list_init(&surface->frame_callbacks);
 	if (manager)
@@ -424,6 +428,7 @@ tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
 /******************************************************************************
  * wl_subsurface implementation
  *****************************************************************************/
+
 static const struct wl_subsurface_interface subsurface_impl;
 
 static struct tw_subsurface *

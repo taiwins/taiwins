@@ -23,6 +23,7 @@
 #define TW_SURFACE_H
 
 #include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <pixman.h>
 
@@ -48,24 +49,29 @@ struct tw_surface_manager;
  * @brief tw_surface_buffer represents a buffer texture for the surface.
  *
  * On server side, a surface shall only need one buffer(texture) to present on
- * the output. Buffer uploading happens at commit, server would also release the
+ * the output. Buffer uploading happens at commit, server also releases the
  * previous committed buffer if not released.
+ *
+ * The texture is staying with the surface until
  */
 struct tw_surface_buffer {
-	/* can be a wl_shm_buffer or dma buffer */
+	/* can be a wl_shm_buffer or egl buffer or dma buffer */
 	struct wl_resource *resource;
 	int width, height, stride;
+	enum wl_shm_format format;
 	union {
 		uint32_t id;
 		void *ptr;
 	} handle;
+	/* if there is a texture with the surface, the listener should be
+	 * used at surface destruction. */
+	struct wl_listener surface_destroy_listener;
 };
 
 struct tw_event_buffer_uploading {
 	struct tw_surface_buffer *buffer;
 	pixman_region32_t *damages;
 	struct wl_resource *wl_buffer;
-	// dma buffer?
 };
 
 struct tw_view {
@@ -91,10 +97,10 @@ struct tw_subsurface;
 struct tw_surface {
 	struct wl_resource *resource;
 	struct tw_surface_manager *manager;
-        /** the tw_surface::buffer is used to present; tw_surface::used_buffer
-         * will always point to buffer or it will be none
+        /** the tw_surface::buffer is used to present; should stay available
+         * from imported to destroy of the surface
          */
-	struct tw_surface_buffer buffer, *used_buffer;
+	struct tw_surface_buffer buffer;
 
         /* view is similar t
          * current: commited;
@@ -165,10 +171,7 @@ struct tw_surface_manager {
 	struct wl_signal surface_created_signal;
 	struct wl_signal subsurface_created_signal;
 	struct wl_signal region_created_signal;
-	/* struct wl_signal surface_destroy_signal; */
 
-	/* struct wl_signal commit_signal; */
-	/* struct wl_signal frame_signal; */
 	struct {
 		void (*buffer_import)(struct tw_event_buffer_uploading *event,
 		                      void *);

@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 
 #ifdef  __cplusplus
@@ -94,6 +95,12 @@ struct tw_dmabuf_buffer {
 
 struct tw_linux_dmabuf *
 tw_dmabuf_create_global(struct wl_display *display);
+
+bool
+tw_is_wl_buffer_dmabuf(struct wl_resource *resource);
+
+struct tw_dmabuf_buffer *
+tw_dmabuf_buffer_from_resource(struct wl_resource *resource);
 
 #ifdef  __cplusplus
 }

@@ -61,6 +61,7 @@ get_wl_subsurface(struct wl_client *client,
 	struct tw_event_get_wl_subsurface event = {
 		.surface = surface,
 		.parent_surface = parent,
+		.client = client,
 		.version = SUBSURFACE_VERSION,
 		.id = id,
 	};
