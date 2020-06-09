@@ -1,5 +1,5 @@
 /*
- * layers.c - taiwins server layers manager
+ * logger.h - taiwins logging functions
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -19,41 +19,47 @@
  *
  */
 
-#include <wayland-util.h>
-#include "layers.h"
+#ifndef TW_LOGGER_H
+#define TW_LOGGER_H
 
-static struct tw_layers_manager s_layers_manager = {0};
+#include <stdarg.h>
+#include <stdio.h>
 
-
-struct tw_layers_manager *
-tw_layers_manager_create_global(struct wl_display *display)
-{
-	return &s_layers_manager;
-}
+#ifdef  __cplusplus
+extern "C" {
+#endif
 
 
 void
-tw_layer_set_position(struct tw_layer *layer, enum tw_layer_pos pos,
-                      struct wl_list *layers)
-{
-	struct tw_layer *l, *tmp;
-
-	wl_list_remove(&layer->link);
-	layer->position = pos;
-
-	//from bottom to top
-	wl_list_for_each_reverse_safe(l, tmp, layers, link) {
-		if (l->position >= pos) {
-			wl_list_insert(&l->link, &layer->link);
-			return;
-		}
-	}
-	wl_list_insert(layers, &layer->link);
-}
+tw_logger_open(const char *path);
 
 void
-tw_layer_unset_position(struct tw_layer *layer)
+tw_logger_use_file(FILE *file);
+
+void
+tw_logger_close(void);
+
+/**
+ * @brief logging at info level.
+ */
+int
+tw_log(const char *format, va_list args);
+
+static inline int
+tw_logl(const char *format, ...)
 {
-	wl_list_remove(&layer->link);
-	wl_list_init(&layer->link);
+	int ret;
+	va_list ap;
+	va_start(ap, format);
+	ret = tw_log(format, ap);
+	va_end(ap);
+
+	return ret;
 }
+
+
+#ifdef  __cplusplus
+}
+#endif
+
+#endif /* EOF */

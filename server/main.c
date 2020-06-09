@@ -34,8 +34,8 @@
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/types/wlr_output_layout.h>
 
+#include <ctypes/helpers.h>
 #include "binding/bindings.h"
-#include "ctypes/helpers.h"
 #include "seat/seat.h"
 #include "taiwins.h"
 #include "bindings.h"
@@ -140,7 +140,7 @@ main(int argc, char *argv[])
 	struct tw_server ec = {0};
 	struct wl_event_source *signals[4];
 
-	tw_logfile = fopen("/tmp/taiwins-log", "w");
+	tw_logger_open("/tmp/taiwins-log");
 
 	ec.display = wl_display_create();
 	if (!ec.display) {
@@ -186,6 +186,6 @@ err_get_loop:
 err_socket:
 	wl_display_destroy(ec.display);
 err_create_display:
-	fclose(tw_logfile);
+	tw_logger_close();
 	return ret;
 }

@@ -1,5 +1,5 @@
 /*
- * layers.c - taiwins server layers manager
+ * logger.c - taiwins logging functions
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -19,41 +19,40 @@
  *
  */
 
-#include <wayland-util.h>
-#include "layers.h"
+#include "logger.h"
+#include <stdio.h>
 
-static struct tw_layers_manager s_layers_manager = {0};
+static FILE *tw_logfile = NULL;
 
-
-struct tw_layers_manager *
-tw_layers_manager_create_global(struct wl_display *display)
+int
+tw_log(const char *format, va_list args)
 {
-	return &s_layers_manager;
-}
-
-
-void
-tw_layer_set_position(struct tw_layer *layer, enum tw_layer_pos pos,
-                      struct wl_list *layers)
-{
-	struct tw_layer *l, *tmp;
-
-	wl_list_remove(&layer->link);
-	layer->position = pos;
-
-	//from bottom to top
-	wl_list_for_each_reverse_safe(l, tmp, layers, link) {
-		if (l->position >= pos) {
-			wl_list_insert(&l->link, &layer->link);
-			return;
-		}
-	}
-	wl_list_insert(layers, &layer->link);
+	if (tw_logfile)
+		return vfprintf(tw_logfile, format, args);
+	return -1;
 }
 
 void
-tw_layer_unset_position(struct tw_layer *layer)
+tw_logger_open(const char *path)
 {
-	wl_list_remove(&layer->link);
-	wl_list_init(&layer->link);
+	if (tw_logfile && tw_logfile != stdout && tw_logfile != stderr)
+		fclose(tw_logfile);
+	tw_logfile = fopen(path, "w");
+}
+
+void
+tw_logger_close(void)
+{
+	if (tw_logfile && tw_logfile != stdout && tw_logfile != stderr)
+		fclose(tw_logfile);
+}
+
+void
+tw_logger_use_file(FILE *file)
+{
+	if (!file)
+		return;
+	if (tw_logfile && tw_logfile != stdout && tw_logfile != stderr)
+		fclose(tw_logfile);
+	tw_logfile = file;
 }

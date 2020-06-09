@@ -40,16 +40,6 @@
 
 #include "taiwins.h"
 
-FILE *tw_logfile = NULL;
-
-int
-tw_log(const char *format, va_list args)
-{
-	if (tw_logfile)
-		return vfprintf(tw_logfile, format, args);
-	return -1;
-}
-
 static int
 tw_launch_default_fork(pid_t pid, struct tw_subprocess *chld)
 {
@@ -219,7 +209,7 @@ tw_handle_sigchld(UNUSED_ARG(int sig_num), UNUSED_ARG(void *data))
 				break;
 
 		if (&subproc->link == head) {
-			weston_log("unknown process exited\n");
+			tw_logl("unknown process exited\n");
 			continue;
 		}
 
@@ -228,7 +218,7 @@ tw_handle_sigchld(UNUSED_ARG(int sig_num), UNUSED_ARG(void *data))
 			subproc->chld_handler(subproc, status);
 	}
 	if (pid < 0 && errno != ECHILD)
-		weston_log("error in waiting child with status %s\n",
+		tw_logl("error in waiting child with status %s\n",
 		           strerror(errno));
 	return 1;
 }
@@ -310,49 +300,23 @@ tw_load_weston_module(const char *name, const char *entrypoint)
 	//LIBWESTON_MODULEDIR, so we need to test name and
 	module = dlopen(name, RTLD_NOW | RTLD_NOLOAD);
 	if (module) {
-		weston_log("Module '%s' already loaded\n", name);
+		tw_logl("Module '%s' already loaded\n", name);
 		return NULL;
 	} else {
 		module = dlopen(name, RTLD_NOW);
 		if (!module) {
-			weston_log("Failed to load the module %s\n", name);
+			tw_logl("Failed to load the module %s\n", name);
 			return NULL;
 		}
 	}
 
 	init = dlsym(module, entrypoint);
 	if (!init) {
-		weston_log("Faild to lookup function in module: %s\n",
+		tw_logl("Faild to lookup function in module: %s\n",
 		           dlerror());
 		dlclose(module);
 		return NULL;
 	}
 	return init;
 
-}
-
-void
-tw_layer_set_position(struct tw_layer *layer, enum tw_layer_pos pos,
-                      struct wl_list *layers)
-{
-	struct tw_layer *l, *tmp;
-
-	wl_list_remove(&layer->link);
-	layer->position = pos;
-
-	//from bottom to top
-	wl_list_for_each_reverse_safe(l, tmp, layers, link) {
-		if (l->position >= pos) {
-			wl_list_insert(&l->link, &layer->link);
-			return;
-		}
-	}
-	wl_list_insert(layers, &layer->link);
-}
-
-void
-tw_layer_unset_position(struct tw_layer *layer)
-{
-	wl_list_remove(&layer->link);
-	wl_list_init(&layer->link);
 }
