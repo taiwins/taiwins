@@ -39,7 +39,7 @@
 #include <xkbcommon/xkbcommon.h>
 
 #include <taiwins.h>
-#include <seat/seat.h>
+#include <objects/seat.h>
 
 #include "backend.h"
 #include "backend_internal.h"

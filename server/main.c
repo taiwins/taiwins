@@ -23,11 +23,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <string.h>
 #include <unistd.h>
 #include <assert.h>
-#include <wayland-server-core.h>
+#include <errno.h>
+#include <sys/wait.h>
 #include <wayland-server.h>
-#include <wayland-util.h>
 #include <wlr/backend.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_compositor.h>
@@ -36,14 +37,112 @@
 
 #include <ctypes/helpers.h>
 #include "binding/bindings.h"
-#include "seat/seat.h"
+#include "objects/subprocess.h"
+#include "objects/seat.h"
 #include "taiwins.h"
 #include "bindings.h"
 #include "backend/backend.h"
 #include "input.h"
 
+struct tw_options {
+	const char *test_case;
+	struct tw_subprocess test_client;
+};
+
+static void
+print_option(void)
+{
+
+}
 
 
+static bool
+parse_options(struct tw_options *options, int argc, char **argv)
+{
+	bool ret = true;
+	const char *arg;
+	for (int cursor = 1, advance = 1; cursor < argc; cursor+=advance) {
+		advance = 1;
+		arg = argv[cursor];
+		if (!strcmp(arg, "--help")) {
+			print_option();
+			return false;
+		} else if (!strcmp(arg, "-t") || !strcmp(arg, "--test")) {
+			if (cursor+1 < argc) {
+				options->test_case = argv[cursor+1];
+				advance = 2;
+				continue;
+			} else {
+				ret = false;
+				break;
+			}
+		}
+	}
+	return ret;
+}
+
+static bool
+tw_set_socket(struct wl_display *display)
+{
+	char path[PATH_MAX];
+	unsigned int socket_num = 0;
+	const char *runtime_dir = getenv("XDG_RUNTIME_DIR");
+	//get socket
+	while(true) {
+		sprintf(path, "%s/wayland-%d", runtime_dir, socket_num);
+		if (access(path, F_OK) != 0) {
+			sprintf(path, "wayland-%d", socket_num);
+			break;
+		}
+		socket_num++;
+	}
+	if (wl_display_add_socket(display, path)) {
+		tw_logl("EE:failed to add socket %s", path);
+		return false;
+	}
+	return true;
+}
+
+static int
+tw_term_on_signal(int sig_num, void *data)
+{
+	struct wl_display *display = data;
+
+	tw_logl("Caught signal %s\n", strsignal(sig_num));
+	wl_display_terminate(display);
+	return 1;
+}
+
+static int
+tw_handle_sigchld(int sig_num, void *data)
+{
+	struct wl_list *head;
+	struct tw_subprocess *subproc;
+	int status;
+	pid_t pid;
+
+	head = tw_get_clients_head();
+	tw_logl("Caught signal %s\n", strsignal(sig_num));
+
+	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+		wl_list_for_each(subproc, head, link)
+			if (pid == subproc->pid)
+				break;
+
+		if (&subproc->link == head) {
+			tw_logl("unknown process exited\n");
+			continue;
+		}
+
+		wl_list_remove(&subproc->link);
+		if (subproc->chld_handler)
+			subproc->chld_handler(subproc, status);
+	}
+	if (pid < 0 && errno != ECHILD)
+		tw_logl("error in waiting child with status %s\n",
+		           strerror(errno));
+	return 1;
+}
 
 int
 main(int argc, char *argv[])
@@ -53,6 +152,10 @@ main(int argc, char *argv[])
 	struct wl_event_source *signals[4];
 	struct wl_display *display;
 	struct wl_event_loop *loop;
+	struct tw_options options = {0};
+
+	if (!parse_options(&options, argc, argv))
+		return -1;
 
 	tw_logger_open("/tmp/taiwins-log");
 
@@ -84,6 +187,11 @@ main(int argc, char *argv[])
 		goto err_signal;
 	if (!tw_server_init(&ec, display))
 		goto err_backend;
+
+	if (options.test_case)
+		tw_launch_client(display, options.test_case,
+		                 &options.test_client);
+
 	//run the loop
 	tw_backend_flush(ec.backend);
 	wl_display_run(ec.display);

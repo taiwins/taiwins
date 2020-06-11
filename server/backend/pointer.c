@@ -27,7 +27,7 @@
 #include <wlr/types/wlr_seat.h>
 #include <ctypes/helpers.h>
 
-#include <seat/seat.h>
+#include <objects/seat.h>
 
 #include "backend.h"
 #include "backend_internal.h"

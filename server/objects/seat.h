@@ -1,5 +1,5 @@
 /*
- * input.h - taiwins server backend input header
+ * seat.h - taiwins server wl_seat implementation
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -181,6 +181,7 @@ struct tw_seat {
 	struct tw_touch touch;
 
 	struct wl_signal new_cursor_signal;
+	struct wl_signal focus_signal;
 };
 
 struct tw_seat_client {
@@ -200,6 +201,9 @@ tw_seat_create(struct wl_display *display, const char *name);
 
 void
 tw_seat_destroy(struct tw_seat *seat);
+
+struct tw_seat *
+tw_seat_from_resource(struct wl_resource *resource);
 
 void
 tw_seat_set_name(struct tw_seat *seat, const char *name);

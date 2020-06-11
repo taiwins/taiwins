@@ -47,68 +47,6 @@
 #include <objects/compositor.h>
 #include "taiwins.h"
 
-bool
-tw_set_socket(struct wl_display *display)
-{
-	char path[PATH_MAX];
-	unsigned int socket_num = 0;
-	const char *runtime_dir = getenv("XDG_RUNTIME_DIR");
-	//get socket
-	while(true) {
-		sprintf(path, "%s/wayland-%d", runtime_dir, socket_num);
-		if (access(path, F_OK) != 0) {
-			sprintf(path, "wayland-%d", socket_num);
-			break;
-		}
-		socket_num++;
-	}
-	if (wl_display_add_socket(display, path)) {
-		tw_logl("EE:failed to add socket %s", path);
-		return false;
-	}
-	return true;
-}
-
-int
-tw_term_on_signal(int sig_num, void *data)
-{
-	struct wl_display *display = data;
-
-	tw_logl("Caught signal %s\n", strsignal(sig_num));
-	wl_display_terminate(display);
-	return 1;
-}
-
-int
-tw_handle_sigchld(int sig_num, UNUSED_ARG(void *data))
-{
-	struct wl_list *head;
-	struct tw_subprocess *subproc;
-	int status;
-	pid_t pid;
-
-	head = tw_get_clients_head();
-	tw_logl("Caught signal %s\n", strsignal(sig_num));
-
-	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-		wl_list_for_each(subproc, head, link)
-			if (pid == subproc->pid)
-				break;
-
-		if (&subproc->link == head) {
-			tw_logl("unknown process exited\n");
-			continue;
-		}
-
-		wl_list_remove(&subproc->link);
-		if (subproc->chld_handler)
-			subproc->chld_handler(subproc, status);
-	}
-	if (pid < 0 && errno != ECHILD)
-		tw_logl("error in waiting child with status %s\n",
-		           strerror(errno));
-	return 1;
-}
 
 void
 tw_lose_surface_focus(struct weston_surface *surface)
@@ -212,6 +150,27 @@ tw_load_weston_module(const char *name, const char *entrypoint)
  * tw_server, this is probably a bad place to set it up
  *****************************************************************************/
 static void
+notify_new_output_frame(struct wl_listener *listener, void *data)
+{
+	int width, height;
+	struct tw_server *server =
+		container_of(listener, struct tw_server, output_frame);
+	struct tw_backend_output *output = data;
+	struct wlr_renderer *renderer = server->wlr_renderer;
+
+	if (!wlr_output_attach_render(output->wlr_output, NULL))
+		return;
+	wlr_output_effective_resolution(output->wlr_output, &width, &height);
+	wlr_renderer_begin(renderer, width, height);
+
+        float color[4] = {0.3, 0.3, 0.3, 1.0};
+	wlr_renderer_clear(renderer, color);
+
+	wlr_renderer_end(renderer);
+	wlr_output_commit(output->wlr_output);
+}
+
+static void
 notify_create_wl_surface(struct wl_listener *listener, void *data)
 {
 	struct tw_server *server =
@@ -291,6 +250,14 @@ bind_listeners(struct tw_server *server)
 		notify_create_wl_region;
 	wl_signal_add(&server->compositor->region_create,
 	              &server->region_create_listener);
+
+	//the frame callback, here we could have a choice in the future, if
+	//renderer offers different frame type.
+	wl_list_init(&server->output_frame.link);
+	server->output_frame.notify = notify_new_output_frame;
+	wl_signal_add(&server->backend->output_frame_signal,
+	              &server->output_frame);
+
 }
 
 static bool
@@ -315,10 +282,7 @@ bind_globals(struct tw_server *server)
 	//declare various globals
 	server->compositor =
 		tw_compositor_create_global(server->display);
-
-	server->wlr_data_device =
-		wlr_data_device_manager_create(server->display);
-
+	// cant use it, would need wlr_seat
 	wl_display_init_shm(server->display);
 
 	server->dma_engine = tw_dmabuf_create_global(server->display);

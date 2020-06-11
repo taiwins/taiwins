@@ -19,6 +19,7 @@
  *
  */
 
+#include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <wayland-server-core.h>
@@ -49,6 +50,7 @@ tw_seat_client_new(struct tw_seat *seat, struct wl_client *client,
 	if (!s)
 		return NULL;
 	s->seat = seat;
+	s->client = client;
 	s->resource = resource;
 	wl_list_init(&s->link);
 	wl_list_init(&s->keyboards);
@@ -228,8 +230,8 @@ seat_client_release(struct wl_client *client,
 }
 
 static const struct wl_seat_interface seat_impl = {
-	.get_pointer = seat_get_keyboard,
-	.get_keyboard = seat_get_pointer,
+	.get_pointer = seat_get_pointer,
+	.get_keyboard = seat_get_keyboard,
 	.get_touch = seat_get_touch,
 	.release = seat_client_release,
 };
@@ -267,7 +269,7 @@ bind_seat(struct wl_client *client, void *data,
 	if (!seat_client) {
 		seat_client = tw_seat_client_new(seat, client,
 		                                 wl_resource);
-		if (seat_client) {
+		if (!seat_client) {
 			wl_resource_post_no_memory(wl_resource);
 			return;
 		}
@@ -304,13 +306,24 @@ tw_seat_create(struct wl_display *display, const char *name)
 void
 tw_seat_destroy(struct tw_seat *seat)
 {
-	struct tw_seat_client *client;
+	struct tw_seat_client *client, *next;
 	wl_global_destroy(seat->global);
 
-	wl_list_for_each(client, &seat->clients, link)
+	wl_list_for_each_safe(client, next, &seat->clients, link)
 		wl_resource_destroy(client->resource);
 	free(seat);
 }
+
+struct tw_seat *
+tw_seat_from_resource(struct wl_resource *resource)
+{
+	struct tw_seat_client *seat_client;
+	assert(wl_resource_instance_of(resource, &wl_seat_interface,
+	                               &seat_impl));
+	seat_client = wl_resource_get_user_data(resource);
+	return seat_client->seat;
+}
+
 
 void
 tw_seat_set_name(struct tw_seat *seat, const char *name)

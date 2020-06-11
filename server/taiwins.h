@@ -39,8 +39,8 @@
 #include <objects/compositor.h>
 #include <objects/subprocess.h>
 #include <objects/dmabuf.h>
+#include <objects/seat.h>
 
-#include "seat/seat.h"
 #include "backend/backend.h"
 #include "input.h"
 
@@ -63,13 +63,15 @@ struct tw_server {
 	struct wlr_backend *wlr_backend;
 	struct wlr_renderer *wlr_renderer;
 	struct wlr_compositor *wlr_compositor;
-	struct wlr_data_device_manager *wlr_data_device;
 	struct tw_bindings *binding_state;
 
 	/* seats */
 	struct tw_seat_events seat_events[8];
 	struct wl_listener seat_add;
 	struct wl_listener seat_remove;
+
+	/* render */
+	struct wl_listener output_frame;
 
 	/* compositor/surface/buffer functions */
 	struct tw_compositor *compositor;
@@ -82,16 +84,6 @@ struct tw_server {
 
 bool
 tw_server_init(struct tw_server *server, struct wl_display *display);
-
-
-int
-tw_handle_sigchld(int sig_num, void *data);
-
-int
-tw_term_on_signal(int sig_num, void *data);
-
-bool
-tw_set_socket(struct wl_display *display);
 
 /*******************************************************************************
  * desktop functions

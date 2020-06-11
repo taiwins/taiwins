@@ -29,7 +29,7 @@
 #include <xkbcommon/xkbcommon-compat.h>
 #include <xkbcommon/xkbcommon.h>
 #include <ctypes/helpers.h>
-#include <seat/seat.h>
+#include <objects/seat.h>
 
 #include "backend.h"
 #include "backend_internal.h"
