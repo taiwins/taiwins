@@ -38,7 +38,7 @@ notify_pointer_enter(struct tw_seat_pointer_grab *grab,
 {
 	uint32_t serial;
 	struct wl_resource *resource;
-	struct tw_pointer *pointer = grab->data;
+	struct tw_pointer *pointer = &grab->seat->pointer;
 	struct tw_seat_client *client =
 		tw_seat_client_find(grab->seat,
 		                    wl_resource_get_client(surface));
@@ -66,7 +66,7 @@ notify_pointer_motion(struct tw_seat_pointer_grab *grab,
                       double sx, double sy)
 {
 	struct wl_resource *resource;
-	struct tw_pointer *pointer = grab->data;
+	struct tw_pointer *pointer = &grab->seat->pointer;
 	struct tw_seat_client *client = pointer->focused_client;
 	if (client)
 		wl_resource_for_each(resource, &client->pointers)
@@ -81,7 +81,7 @@ notify_pointer_button(struct tw_seat_pointer_grab *grab,
                       enum wl_pointer_button_state state)
 {
 	struct wl_resource *resource;
-	struct tw_pointer *pointer = grab->data;
+	struct tw_pointer *pointer = &grab->seat->pointer;
 	struct tw_seat_client *client = pointer->focused_client;
 	uint32_t serial = wl_display_next_serial(grab->seat->display);
 	if (client) {
@@ -99,7 +99,7 @@ notify_pointer_axis(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
                    enum wl_pointer_axis_source source)
 {
 	struct wl_resource *resource;
-	struct tw_pointer *pointer = grab->data;
+	struct tw_pointer *pointer = &grab->seat->pointer;
 	struct tw_seat_client *client = pointer->focused_client;
 	if (client) {
 		wl_resource_for_each(resource, &client->pointers) {
@@ -121,7 +121,7 @@ static void
 notify_pointer_frame(struct tw_seat_pointer_grab *grab)
 {
 	struct wl_resource *resource;
-	struct tw_pointer *pointer = grab->data;
+	struct tw_pointer *pointer = &grab->seat->pointer;
 	struct tw_seat_client *client = pointer->focused_client;
 	if (client) {
 		wl_resource_for_each(resource, &client->pointers)
@@ -154,7 +154,7 @@ tw_seat_new_pointer(struct tw_seat *seat)
 
 	pointer->focused_client = NULL;
 	pointer->focused_surface = NULL;
-	pointer->default_grab.data = pointer;
+	pointer->default_grab.data = NULL;
 	pointer->default_grab.seat = seat;
 	pointer->default_grab.impl = &default_grab_impl;
 	pointer->grab = &pointer->default_grab;
@@ -200,3 +200,28 @@ tw_pointer_end_grab(struct tw_pointer *pointer)
 		pointer->grab->impl->cancel(pointer->grab);
 	pointer->grab = &pointer->default_grab;
 }
+
+void
+tw_pointer_noop_enter(struct tw_seat_pointer_grab *grab,
+                      struct wl_resource *surface, double sx, double sy) {}
+void
+tw_pointer_noop_motion(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
+                       double sx, double sy) {}
+uint32_t
+tw_pointer_noop_button(struct tw_seat_pointer_grab *grab,
+                       uint32_t time_msec, uint32_t button,
+                       enum wl_pointer_button_state state)
+{
+	return 0;
+}
+
+void
+tw_pointer_noop_axis(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
+                     enum wl_pointer_axis orientation, double value,
+                     int32_t value_discrete,
+                     enum wl_pointer_axis_source source) {}
+void
+tw_pointer_noop_frame(struct tw_seat_pointer_grab *grab) {}
+
+void
+tw_pointer_noop_cancel(struct tw_seat_pointer_grab *grab) {}

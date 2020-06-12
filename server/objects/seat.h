@@ -80,6 +80,8 @@ struct tw_pointer_grab_interface {
 	void (*cancel)(struct tw_seat_pointer_grab *grab);
 };
 
+
+
 struct tw_seat_keyboard_grab;
 
 struct tw_keyboard_grab_interface {
@@ -258,6 +260,64 @@ tw_touch_end_grab(struct tw_touch *touch);
 
 struct tw_seat_client *
 tw_seat_client_find(struct tw_seat *seat, struct wl_client *client);
+
+/** noops **/
+
+void
+tw_pointer_noop_enter(struct tw_seat_pointer_grab *grab,
+                      struct wl_resource *surface, double sx, double sy);
+void
+tw_pointer_noop_motion(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
+                       double sx, double sy);
+uint32_t
+tw_pointer_noop_button(struct tw_seat_pointer_grab *grab,
+                       uint32_t time_msec, uint32_t button,
+                       enum wl_pointer_button_state state);
+void
+tw_pointer_noop_axis(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
+                     enum wl_pointer_axis orientation, double value,
+                     int32_t value_discrete,
+                     enum wl_pointer_axis_source source);
+void
+tw_pointer_noop_frame(struct tw_seat_pointer_grab *grab);
+
+void
+tw_pointer_noop_cancel(struct tw_seat_pointer_grab *grab);
+
+void
+tw_keyboard_noop_enter(struct tw_seat_keyboard_grab *grab,
+                       struct wl_resource *surface, uint32_t keycodes[],
+                       size_t n_keycodes);
+void
+tw_keyboard_noop_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
+                     uint32_t key, uint32_t state);
+void
+tw_keyboard_noop_modifier(struct tw_seat_keyboard_grab *grab,
+                          //we can do the weston way,
+                          uint32_t mods_depressed, uint32_t mods_latched,
+                          uint32_t mods_locked, uint32_t group);
+void
+tw_keyboard_noop_cancel(struct tw_seat_keyboard_grab *grab);
+
+uint32_t
+tw_touch_noop_down(struct tw_seat_touch_grab *grab, uint32_t time_msec,
+                   uint32_t touch_id, wl_fixed_t sx, wl_fixed_t sy);
+void
+tw_touch_noop_up(struct tw_seat_touch_grab *grab, uint32_t time_msec,
+                 uint32_t touch_id);
+void
+tw_touch_noop_motion(struct tw_seat_touch_grab *grab, uint32_t time_msec,
+                     uint32_t touch_id, wl_fixed_t sx, wl_fixed_t sy);
+void
+tw_touch_noop_enter(struct tw_seat_touch_grab *grab, uint32_t time_msec,
+                    struct wl_resource *surface, uint32_t touch_id,
+                    wl_fixed_t sx, wl_fixed_t sy);
+void
+tw_touch_noop_touch_cancel(struct tw_seat_touch_grab *grab);
+
+void
+tw_touch_noop_cancel(struct tw_seat_touch_grab *grab);
+
 
 #ifdef  __cplusplus
 }
