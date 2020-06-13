@@ -23,6 +23,10 @@ taiwins_src = [
   'objects/layers.c',
   'objects/logger.c',
   'objects/subprocess.c',
+  'objects/data_device.c',
+  'objects/data_source.c',
+  'objects/data_offer.c',
+  'objects/data_dnd.c',
 
   wayland_linux_dmabuf_server_protocol_h,
   wayland_linux_dmabuf_private_code_c,

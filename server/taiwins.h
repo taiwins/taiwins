@@ -40,6 +40,7 @@
 #include <objects/subprocess.h>
 #include <objects/dmabuf.h>
 #include <objects/seat.h>
+#include <objects/data_device.h>
 
 #include "backend/backend.h"
 #include "input.h"
@@ -62,8 +63,11 @@ struct tw_server {
 	/* wlr datas */
 	struct wlr_backend *wlr_backend;
 	struct wlr_renderer *wlr_renderer;
-	struct wlr_compositor *wlr_compositor;
+	/* globals */
 	struct tw_bindings *binding_state;
+	struct tw_data_device_manager *data_device;
+	struct tw_compositor *compositor;
+	struct tw_linux_dmabuf *dma_engine;
 
 	/* seats */
 	struct tw_seat_events seat_events[8];
@@ -74,8 +78,6 @@ struct tw_server {
 	struct wl_listener output_frame;
 
 	/* compositor/surface/buffer functions */
-	struct tw_compositor *compositor;
-	struct tw_linux_dmabuf *dma_engine;
 	struct tw_surface_manager surface_manager;
 	struct wl_listener surface_create_listener;
 	struct wl_listener subsurface_create_listener;

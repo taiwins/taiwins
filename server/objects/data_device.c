@@ -38,126 +38,121 @@ static struct tw_data_device_manager s_tw_data_device_manager;
  * tw_data_source implemenation
  *****************************************************************************/
 
-struct tw_data_source {
-	struct wl_resource *resource;
-	struct wl_array mimes;
-	uint32_t actions;
-};
-
-static const struct wl_data_source_interface data_source_impl;
-
-static struct tw_data_source *
-tw_data_source_from_resource(struct wl_resource *resource)
-{
-	wl_resource_instance_of(resource, &wl_data_source_interface,
-	                        &data_source_impl);
-	return wl_resource_get_user_data(resource);
-}
-
-static struct tw_data_source *
-tw_data_source_create(void)
-{
-	struct tw_data_source *source =
-		calloc(1, sizeof(struct tw_data_source));
-	if (!source)
-		return NULL;
-	wl_array_init(&source->mimes);
-	source->actions = 0;
-	return source;
-}
-
-static void
-tw_data_source_destroy(struct wl_resource *resource)
-{
-	char *mime_type;
-	struct tw_data_source *source = tw_data_source_from_resource(resource);
-	wl_array_for_each(mime_type, &source->mimes)
-		free(mime_type);
-	wl_array_release(&source->mimes);
-	source->actions = -1;
-	free(source);
-}
-
-static void
-data_source_offer(struct wl_client *client,
-                  struct wl_resource *resource,
-                  const char *mime_type)
-{
-	struct tw_data_source *data_source =
-		tw_data_source_from_resource(resource);
-	char **new_mime_type =
-		wl_array_add(&data_source->mimes, sizeof(char *));
-	if (new_mime_type)
-		*new_mime_type = strdup(mime_type);
-}
-
-static void
-data_source_set_actions(struct wl_client *client,
-                        struct wl_resource *resource,
-                        uint32_t dnd_actions)
-{
-	struct tw_data_source *data_source =
-		tw_data_source_from_resource(resource);
-	data_source->actions = dnd_actions;
-}
-
-static void
-data_source_destroy(struct wl_client *client, struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
-static const struct wl_data_source_interface data_source_impl = {
-	.offer = data_source_offer,
-	.destroy = data_source_destroy,
-	.set_actions = data_source_set_actions,
-};
 
 /******************************************************************************
  * wl_data_offer implemenation
  *****************************************************************************/
-struct tw_data_offer {
-	struct tw_data_source *source;
-};
 
 
 /******************************************************************************
  * wl_data_device implemenation
  *****************************************************************************/
 
-struct tw_data_device {
-	struct tw_seat *seat;
-	struct wl_resource *resource;
-	struct tw_data_source *source_set;
-	struct tw_data_offer *offer;
-	/* data_device would create a new data offer for clients */
-	struct wl_listener create_data_offer;
-};
 
 static struct tw_data_device *
 tw_data_device_from_source(struct wl_resource *resource);
 
-static void
-create_data_offer(struct wl_listener *listener, void *data)
+struct tw_data_offer *
+tw_data_device_create_data_offer(struct tw_data_device *device,
+                                 struct wl_resource *surface)
 {
 	struct wl_resource *data_offer_resource;
+	struct tw_data_offer *data_offer;
+
+	struct wl_client *client = wl_resource_get_client(device->resource);
+	uint32_t version = wl_resource_get_version(device->resource);
+
+	if (!device->source_set)
+		return NULL;
+	data_offer_resource = wl_resource_create(client, &wl_data_offer_interface,
+	                                         version, 0);
+	if (!data_offer_resource) {
+		wl_client_post_no_memory(client);
+		return NULL;
+	}
+	if (!(data_offer = tw_data_offer_create(data_offer_resource,
+	                                        device->source_set))) {
+		wl_client_post_no_memory(client);
+		wl_resource_destroy(data_offer_resource);
+		return NULL;
+	}
+	//the data offer is created for this surface. Should be destroyed when
+	//leaving
+	data_offer->current_surface = surface;
+
+	//send data offer
+	const char *p;
+	wl_data_device_send_data_offer(device->resource, data_offer_resource);
+	wl_array_for_each(p, &device->source_set->mimes)
+		wl_data_offer_send_offer(data_offer_resource, p);
+	if (device->source_set->actions &&
+	    version >= WL_DATA_OFFER_SOURCE_ACTIONS_SINCE_VERSION)
+		wl_data_offer_send_source_actions(data_offer_resource,
+		                                  device->source_set->actions);
+	return data_offer;
+}
+
+static void
+data_device_selection_data_offer(struct wl_listener *listener,
+                                 void *data)
+{
+	struct wl_resource *surface = data;
 	struct tw_data_device *device =
 		container_of(listener, struct tw_data_device,
 		             create_data_offer);
-	struct wl_client *client = wl_resource_get_client(device->resource);
-	uint32_t version = wl_resource_get_version(device->resource);
-	data_offer_resource = wl_resource_create(client, &wl_data_offer_interface,
-	                                         version, 0);
+	if (!device->source_set || !device->source_set->selection_source)
+		return;
+	struct tw_data_offer *offer;
+
+	if (device->offer_set &&
+	    (surface == device->offer_set->current_surface) &&
+	    (device->offer_set->source) == device->source_set)
+		return;
+
+	if ((offer = tw_data_device_create_data_offer(device, surface))) {
+		device->offer_set = offer;
+		offer->current_surface = surface;
+		wl_data_device_send_selection(device->resource,
+		                              offer->resource);
+	}
+}
+
+void
+tw_data_device_handle_source_destroy(struct tw_data_device *device,
+                                     struct tw_data_source *source)
+{
+	if (device->source_set == source && source->selection_source) {
+		wl_data_device_send_selection(device->resource,
+		                              NULL);
+		device->source_set = NULL;
+	}
 }
 
 static void
 data_device_start_drag(struct wl_client *client,
                        struct wl_resource *resource,
-                       struct wl_resource *source,
-                       struct wl_resource *origin,
-                       struct wl_resource *icon,
+                       struct wl_resource *source_resource,
+                       struct wl_resource *origin_surface,
+                       struct wl_resource *icon_source,
                        uint32_t serial)
 {
+	struct tw_data_device *device = tw_data_device_from_source(resource);
+	struct tw_data_source *source =
+		tw_data_source_from_resource(source_resource);
+	assert(device);
+
+	device->source_set = source;
+	source->selection_source = false;
+	source->drag_origin_surface = origin_surface;
+	source->device = device;
+
+	//TODO: we do not care about the icon_surface role.
+	//TODO: for drag to work. Now we would need to have the a custom grab.
+	if (!tw_data_source_start_drag(device, device->seat)) {
+		device->source_set = NULL;
+		source->drag_origin_surface = NULL;
+		//creating a data_offer in the entering event.
+	}
 }
 
 static void
@@ -170,6 +165,7 @@ data_device_set_selection(struct wl_client *client,
 		tw_data_source_from_resource(source_resource);
 	struct tw_data_device *device =
 		tw_data_device_from_source(device_resource);
+	struct tw_seat *seat = device->seat;
 
 	if (source->actions) {
 		wl_resource_post_error(source_resource,
@@ -178,13 +174,13 @@ data_device_set_selection(struct wl_client *client,
 		                       "dnd source");
 		return;
 	}
-	//maybe we shall check if source is set?
+
 	device->source_set = source;
-	//remove the previous focus signal for eviting creating duplicate
-	//wl_data_offer
-	wl_list_remove(&device->create_data_offer.link);
-	wl_list_init(&device->create_data_offer.link);
-	wl_signal_add(&device->seat->focus_signal, &device->create_data_offer);
+	source->selection_source = true;
+	source->device = device;
+	if (device->seat->keyboard.focused_surface)
+		data_device_selection_data_offer(&device->create_data_offer,
+		                              seat->keyboard.focused_surface);
 }
 
 static void
@@ -230,7 +226,6 @@ create_data_source(struct wl_client *client,
 	struct wl_resource *data_source_resource;
 	uint32_t version = wl_resource_get_version(manager_resource);
 
-	data_source = tw_data_source_create();
 	data_source_resource =
 		wl_resource_create(client, &wl_data_source_interface,
 		                   version, id);
@@ -238,10 +233,11 @@ create_data_source(struct wl_client *client,
 		wl_resource_post_no_memory(manager_resource);
 		return;
 	}
-	data_source->resource = data_source_resource;
-	wl_resource_set_implementation(data_source_resource,
-	                               &data_source_impl, data_source,
-	                               tw_data_source_destroy);
+	if (!(data_source = tw_data_source_create(data_source_resource))) {
+		wl_resource_post_no_memory(manager_resource);
+		wl_resource_destroy(data_source_resource);
+		return;
+	}
 }
 
 static void
@@ -271,9 +267,11 @@ get_data_device(struct wl_client *client,
 	wl_resource_set_implementation(device_resource, &data_device_impl,
 	                               device, destroy_data_device_resource);
 	device->resource = device_resource;
+	//install hooks for device.
 	device->seat = seat;
 	wl_list_init(&device->create_data_offer.link);
-	device->create_data_offer.notify = create_data_offer;
+	device->create_data_offer.notify = data_device_selection_data_offer;
+	wl_signal_add(&seat->focus_signal, &device->create_data_offer);
 }
 
 static const struct wl_data_device_manager_interface data_device_manager_impl =

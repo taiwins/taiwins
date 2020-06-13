@@ -23,6 +23,7 @@
 #define _GNU_SOURCE
 #include "ctypes/helpers.h"
 #include "objects/compositor.h"
+#include "objects/data_device.h"
 #include "objects/dmabuf.h"
 #include <wayland-server-core.h>
 #endif
@@ -286,6 +287,8 @@ bind_globals(struct tw_server *server)
 	wl_display_init_shm(server->display);
 
 	server->dma_engine = tw_dmabuf_create_global(server->display);
+
+	server->data_device = tw_data_device_create_global(server->display);
 
 	tw_surface_manager_init(&server->surface_manager);
 
