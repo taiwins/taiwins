@@ -152,6 +152,7 @@ tw_seat_new_pointer(struct tw_seat *seat)
 	if (seat->capabilities & WL_SEAT_CAPABILITY_POINTER)
 		return pointer;
 
+	pointer->btn_count = 0;
 	pointer->focused_client = NULL;
 	pointer->focused_surface = NULL;
 	pointer->default_grab.data = NULL;

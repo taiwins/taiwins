@@ -157,7 +157,7 @@ struct tw_pointer {
 	struct wl_listener event;
 	struct tw_seat_pointer_grab default_grab;
 	struct tw_seat_pointer_grab *grab;
-
+	uint32_t btn_count;
 };
 
 struct tw_touch {

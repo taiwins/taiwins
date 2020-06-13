@@ -20,6 +20,7 @@
  */
 
 #include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <wayland-util.h>
 #include <wlr/backend.h>
@@ -43,6 +44,10 @@ notify_backend_pointer_button(struct wl_listener *listener, void *data)
 	uint32_t state = event->state == WLR_BUTTON_PRESSED ?
 		WL_POINTER_BUTTON_STATE_PRESSED :
 		WL_POINTER_BUTTON_STATE_RELEASED;
+	if (state == WL_POINTER_BUTTON_STATE_PRESSED)
+		seat_pointer->btn_count++;
+	else
+		seat_pointer->btn_count--;
 
 	if (seat_pointer->grab->impl->button)
 		seat_pointer->grab->impl->button(seat_pointer->grab,

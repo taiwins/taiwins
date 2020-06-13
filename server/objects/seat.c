@@ -297,6 +297,7 @@ tw_seat_create(struct wl_display *display, const char *name)
 	seat->repeat_rate = 25;
 	seat->display = display;
 
+	wl_signal_init(&seat->focus_signal);
 	wl_signal_init(&seat->new_cursor_signal);
 	seat->global = wl_global_create(display, &wl_seat_interface, 7,
 	                                seat, bind_seat);
