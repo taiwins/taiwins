@@ -19,16 +19,47 @@
  *
  */
 
+#include <wayland-server-core.h>
 #include <wayland-util.h>
 #include "layers.h"
 
 static struct tw_layers_manager s_layers_manager = {0};
 
+static void
+notify_display_destroy(struct wl_listener *listener, void *data)
+{
+	//there is nothing to do right now.
+}
+
+void
+tw_layers_manager_init(struct tw_layers_manager *manager,
+                       struct wl_display *display)
+{
+	wl_list_init(&manager->layers);
+	wl_list_init(&manager->views);
+	wl_list_init(&manager->destroy_listener.link);
+	tw_layer_init(&manager->cursor_layer);
+
+	manager->display = display;
+	manager->destroy_listener.notify = notify_display_destroy;
+	wl_display_add_destroy_listener(display, &manager->destroy_listener);
+	tw_layer_set_position(&manager->cursor_layer, TW_LAYER_POS_CURSOR,
+	                      &manager->layers);
+}
 
 struct tw_layers_manager *
 tw_layers_manager_create_global(struct wl_display *display)
 {
-	return &s_layers_manager;
+	struct tw_layers_manager *manager = &s_layers_manager;
+	tw_layers_manager_init(manager, display);
+	return manager;
+}
+
+void
+tw_layer_init(struct tw_layer *layer)
+{
+	wl_list_init(&layer->link);
+	wl_list_init(&layer->views);
 }
 
 
