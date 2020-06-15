@@ -22,6 +22,8 @@
 #ifndef TW_SURFACE_H
 #define TW_SURFACE_H
 
+#include <stdbool.h>
+#include <stdint.h>
 #include <wayland-server-core.h>
 #include <wayland-server-protocol.h>
 #include <wayland-server.h>
@@ -36,10 +38,14 @@ extern "C" {
 enum tw_surface_state {
 	TW_SURFACE_ATTACHED = (1 << 0),
 	TW_SURFACE_DAMAGED = (1 << 1),
-	TW_SURFACE_BUFFER_DAMAGED = (1 << 2),
-	TW_SURFACE_SCALED = (1 << 3),
-	TW_SURFACE_FRAME_REQUESTED = (1 << 4),
-	TW_SURFACE_COMMITED = (1 << 5),
+	TW_SURFACE_BUFFER_TRANSFORM = (1 << 2),
+	TW_SURFACE_BUFFER_DAMAGED = (1 << 3),
+	TW_SURFACE_BUFFER_SCALED = (1 << 4),
+	TW_SURFACE_OPAQUE_REGION = (1 << 5),
+	TW_SURFACE_INPUT_REGION = (1 << 6),
+	/** frame is released in frame, not in commit. If surface never has any
+	 * thinng to commit, we should not care about frame. */
+	//TW_SURFACE_FRAME_REQUESTED = (1 << 9),
 };
 
 struct tw_surface;
@@ -74,23 +80,28 @@ struct tw_event_buffer_uploading {
 	struct wl_resource *wl_buffer;
 };
 
+struct tw_event_surface_frame {
+	struct tw_surface *surface;
+	uint32_t frame_time;
+};
+
 struct tw_view {
 	struct tw_surface *surface;
-	uint32_t output_mask;
+	uint32_t commit_state;
 	int32_t dx, dy; /**< wl_surface_attach, pending */
 	int32_t buffer_scale;
-	int32_t transform;
+	enum wl_output_transform transform;
+	struct {
+		int32_t x, y, w, h;
+	} crop;
+	struct {
+		uint32_t w, h;
+	} surface_scale;
+
 	struct wl_resource *buffer_resource;
 
 	pixman_region32_t surface_damage, buffer_damage;
 	pixman_region32_t opaque_region, input_region;
-
-        /**
-         * many types may need to use one of the links, eg: backend_ouput,
-         * layer, compositor, input. Plane.
-         */
-	uint32_t link_pool;
-	struct wl_list links[MAX_VIEW_LINKS];
 };
 
 struct tw_subsurface;
@@ -119,17 +130,36 @@ struct tw_surface {
          */
 	pixman_region32_t output_damages[32];
 #endif
+	/** the part is not occluded by any other surface */
+	pixman_region32_t clip;
+
+	int32_t output; /**< the primary output for this surface */
+	uint32_t output_mask; /**< the output it touches */
+
+	/**
+         * many types may need to use one of the links, eg: backend_ouput,
+         * layer, compositor, input. Plane.
+         */
+	struct wl_list links[MAX_VIEW_LINKS];
 
 	struct wl_list frame_callbacks;
 	/* there is also the presentation feedback, later */
 	struct wl_list subsurfaces;
 	/* subsurface changes on commit  */
-	struct wl_list pending_subsurface;
+	struct wl_list subsurfaces_pending;
 	/* wl_surface_attach_buffer(sx, sy) */
 	uint32_t state;
 	int sx, sy;
 	bool is_mapped;
-	struct tw_subsurface *subsurface;
+
+	/** transform of the view */
+	struct {
+		pixman_rectangle32_t xywh;
+		pixman_rectangle32_t prev_xywh;
+		//TODO The size of the surface should include subsurfaces as
+		//well?
+		bool dirty;
+	} geometry;
 
 	struct {
 		const char *name;
@@ -146,19 +176,23 @@ struct tw_surface {
 	void *user_data;
 };
 
+/** a good reference about subsurface is here
+ * :https://ppaalanen.blogspot.com/2013/11/sub-surfaces-now.html
+ */
 struct tw_subsurface {
 	struct wl_resource *resource;
 	struct tw_surface *surface;
 	struct tw_surface *parent;
-	struct wl_list parent_link;
-	struct wl_list parent_pending_link;
+	struct wl_list parent_link; /**< reflects subsurface stacking order */
+	struct wl_list parent_pending_link; /* accummulated stacking order */
 	struct wl_listener surface_destroyed;
-	int32_t sx, sy; //relate to parent
+	int32_t sx, sy;
 	bool sync;
 };
 
 struct tw_region {
 	struct wl_resource *resource;
+	struct tw_surface_manager *manager;
 	pixman_region32_t region;
 };
 
@@ -171,6 +205,10 @@ struct tw_surface_manager {
 	struct wl_signal surface_created_signal;
 	struct wl_signal subsurface_created_signal;
 	struct wl_signal region_created_signal;
+	struct wl_signal surface_destroy_signal;
+	struct wl_signal subsurface_destroy_signal;
+	struct wl_signal region_destroy_signal;
+	struct wl_signal surface_dirty_signal;
 
 	struct {
 		void (*buffer_import)(struct tw_event_buffer_uploading *event,
@@ -185,19 +223,41 @@ tw_surface_manager_init(struct tw_surface_manager *manager);
 struct tw_surface*
 tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
                   struct tw_surface_manager *manager);
-
 struct tw_surface *
 tw_surface_from_resource(struct wl_resource *wl_surface);
 
 bool
 tw_surface_has_texture(struct tw_surface *surface);
 
+/**
+ * @brief dirty the geometry of the surface and subsurfaces.
+ *
+ * Compositor should accumulate all the damage of the surface when geometry is
+ * dirty.
+ */
+void
+tw_surface_set_position(struct tw_surface *surface, int32_t x, int32_t y);
+
+/**
+ * @brief flushing the view state, clean up the damage and also calls frame
+ * signal
+ */
+void
+tw_surface_flush_frame(struct tw_surface *surface, uint32_t time_msec);
+
+bool
+tw_surface_is_subsurface(struct tw_surface *surf);
+
+struct tw_subsurface *
+tw_surface_get_subsurface(struct tw_surface *surf);
+
 struct tw_subsurface *
 tw_subsurface_create(struct wl_client *client, uint32_t version,
                      uint32_t id, struct tw_surface *surface,
                      struct tw_surface *parent);
 struct tw_region *
-tw_region_create(struct wl_client *client, uint32_t version, uint32_t id);
+tw_region_create(struct wl_client *client, uint32_t version, uint32_t id,
+                 struct tw_surface_manager *manager);
 
 struct tw_region *
 tw_region_from_resource(struct wl_resource *wl_region);

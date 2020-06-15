@@ -20,6 +20,7 @@
  */
 
 #include <strings.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <wayland-server-core.h>
@@ -115,7 +116,12 @@ notify_new_output_frame(struct wl_listener *listener, void *data)
 		             frame_listener);
 	struct tw_backend *backend = output->backend;
 
+	if (output->state.repaint_state != TW_REPAINT_DIRTY)
+		return;
+	//TODO< we need to expand this in a different way
 	wl_signal_emit(&backend->output_frame_signal, output);
+	//clean off the repaint state
+	output->state.repaint_state = TW_REPAINT_CLEAN;
 }
 
 static void
@@ -151,6 +157,8 @@ notify_new_output(struct wl_listener *listener, void *data)
 	output->id = id;
 	output->backend = backend;
 	output->wlr_output = wlr_output;
+	output->state.repaint_state = TW_REPAINT_DIRTY;
+	wl_list_init(&output->views);
 	wl_list_init(&output->frame_listener.link);
 	wl_list_init(&output->destroy_listener.link);
 	output->frame_listener.notify = notify_new_output_frame;
@@ -291,6 +299,14 @@ tw_backend_output_set_gamma(struct tw_backend_output *output,
 		output->state.gamma_value = gamma;
 	//TODO: having gamma with effect also
 	//output->state.dirty = true;
+}
+
+void
+tw_backend_output_dirty(struct tw_backend_output *output)
+{
+	if (output->state.repaint_state != TW_REPAINT_CLEAN)
+		return;
+	output->state.repaint_state = TW_REPAINT_DIRTY;
 }
 
 /******************************************************************************

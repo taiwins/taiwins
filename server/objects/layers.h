@@ -100,10 +100,9 @@ tw_layer_init(struct tw_layer *layer);
 
 void
 tw_layer_set_position(struct tw_layer *layer, enum tw_layer_pos pos,
-                      struct wl_list *layers);
+                      struct tw_layers_manager *manager);
 void
 tw_layer_unset_position(struct tw_layer *layer);
-
 
 struct tw_layers_manager *
 tw_layers_manager_create_global(struct wl_display *display);

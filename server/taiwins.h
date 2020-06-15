@@ -1,7 +1,7 @@
 /*
  * taiwins.h - taiwins server shared header
  *
- * Copyright (c) 2019 Xichen Zhou
+ * Copyright (c) 2020 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -55,6 +55,11 @@
 extern "C" {
 #endif
 
+#define TW_VIEW_LAYER_LINK 0
+#define TW_VIEW_SERVER_LINK 1
+#define TW_VIEW_OUTPUT_LINK 2
+#define TW_VIEW_TMP_LINK 3
+
 struct tw_server {
 	struct wl_display *display;
 	struct wl_event_loop *loop; /**< main event loop */
@@ -70,10 +75,9 @@ struct tw_server {
 
 	struct tw_seat_events seat_events[8];
 	struct tw_surface_manager surface_manager;
+	struct tw_layers_manager layers_manager;
 
         /* lists */
-	struct wl_list layer_list;
-
 
 	/* seats */
 	struct wl_listener seat_add;
@@ -84,10 +88,18 @@ struct tw_server {
 	struct wl_listener surface_create_listener;
 	struct wl_listener subsurface_create_listener;
 	struct wl_listener region_create_listener;
+	struct wl_listener surface_destroy_listener;
+	struct wl_listener surface_dirty_listener;
 };
 
 bool
 tw_server_init(struct tw_server *server, struct wl_display *display);
+
+void
+tw_server_build_surface_list(struct tw_server *server);
+
+void
+tw_server_stack_damage(struct tw_server *server);
 
 /******************************************************************************
  * util functions

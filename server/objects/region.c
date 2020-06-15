@@ -21,6 +21,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include "surface.h"
 
@@ -71,6 +72,10 @@ static void
 region_destroy_resource(struct wl_resource *resource)
 {
 	struct tw_region *region = tw_region_from_resource(resource);
+	if (region->manager)
+		wl_signal_emit(&region->manager->region_destroy_signal,
+		               region);
+
 	pixman_region32_fini(&region->region);
 	free(region);
 }
@@ -84,7 +89,8 @@ tw_region_from_resource(struct wl_resource *wl_region)
 }
 
 struct tw_region *
-tw_region_create(struct wl_client *client, uint32_t version, uint32_t id)
+tw_region_create(struct wl_client *client, uint32_t version, uint32_t id,
+                 struct tw_surface_manager *manager)
 {
 	struct wl_resource *resource;
 	struct tw_region *tw_region = calloc(1, sizeof(tw_region));
@@ -100,6 +106,7 @@ tw_region_create(struct wl_client *client, uint32_t version, uint32_t id)
 		free(tw_region);
 		return NULL;
 	}
+	tw_region->manager = manager;
 	wl_resource_set_implementation(resource, &region_impl, tw_region,
 	                               region_destroy_resource);
 	tw_region->resource = resource;

@@ -65,6 +65,9 @@ int main(int argc, char *argv[])
 	shm_buffer_impl_app_surface(&app, dummy_draw,
                             tw_make_bbox_origin(400, 200, 1));
 	wl_display_flush(wl_display);
+
+	tw_appsurf_frame(&app, false);
+
 	tw_globals_dispatch_event_queue(&tw_globals);
 	tw_globals_release(&tw_globals);
 	wl_registry_destroy(registry);

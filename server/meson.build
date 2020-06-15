@@ -3,13 +3,15 @@ taiwins_src = [
   'main.c',
   'taiwins.c',
   'input.c',
+  'layer_render.c',
+  'binding/bindings.c',
   'backend/backend.c',
   'backend/keyboard.c',
   'backend/pointer.c',
   'backend/touch.c',
   'backend/render/renderer.c',
   'backend/render/shaders.c',
-  'binding/bindings.c',
+
 
   'objects/seat.c',
   'objects/seat_keyboard.c',

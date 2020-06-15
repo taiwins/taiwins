@@ -394,6 +394,9 @@ notify_new_output_frame(struct wl_listener *listener, void *data)
 	struct tw_backend_output *output = data;
 	struct wlr_renderer *renderer = server->wlr_renderer;
 
+	tw_server_build_surface_list(server);
+	tw_server_stack_damage(server);
+
 	if (!wlr_output_attach_render(output->wlr_output, NULL))
 		return;
 	wlr_output_effective_resolution(output->wlr_output, &width, &height);
@@ -409,13 +412,45 @@ notify_new_output_frame(struct wl_listener *listener, void *data)
 static void
 notify_create_wl_surface(struct wl_listener *listener, void *data)
 {
+	struct tw_surface *surface;
 	struct tw_server *server =
 		container_of(listener, struct tw_server,
 		             surface_create_listener);
 	struct tw_event_new_wl_surface *event = data;
-	//TODO, maybe additional callbacks
-	tw_surface_create(event->client, event->version, event->id,
-	                  &server->surface_manager);
+
+	surface = tw_surface_create(event->client, event->version, event->id,
+	                            &server->surface_manager);
+	//TODO: remove this: this is temporary code
+	wl_list_insert(server->layers_manager.cursor_layer.views.prev,
+	               &surface->links[TW_VIEW_LAYER_LINK]);
+}
+
+static void
+notify_dirty_wl_surface(struct wl_listener *listener, void *data)
+{
+	struct tw_backend_output *output;
+	struct tw_server *server =
+		container_of(listener, struct tw_server,
+		             surface_dirty_listener);
+	struct tw_surface *surface = data;
+
+	wl_list_for_each(output, &server->backend->heads, link) {
+		if ((1u << output->id) & surface->output_mask)
+			tw_backend_output_dirty(output);
+	}
+}
+
+static void
+notify_destroy_wl_surface(struct wl_listener *listener, void *data)
+{
+	//TODO: when a surface unmaps, its clip region is uncovered, thus the
+	//related output needs to repaint, what we do is totally run here, need
+	//to fix it later
+
+	struct tw_server *server =
+		container_of(listener, struct tw_server,
+		             surface_destroy_listener);
+	notify_dirty_wl_surface(&server->surface_dirty_listener, data);
 }
 
 static void
@@ -433,8 +468,12 @@ notify_create_wl_subsurface(struct wl_listener *listener, void *data)
 static void
 notify_create_wl_region(struct wl_listener *listener, void *data)
 {
+	struct tw_server *server =
+		container_of(listener, struct tw_server,
+		             region_create_listener);
 	struct tw_event_new_wl_region *event = data;
-	tw_region_create(event->client, event->version, event->id);
+	tw_region_create(event->client, event->version, event->id,
+	                 &server->surface_manager);
 }
 
 static void
@@ -461,26 +500,38 @@ notify_removing_seat(struct wl_listener *listener, void *data)
 static void
 bind_listeners(struct tw_server *server)
 {
+	//seat add
 	wl_list_init(&server->seat_add.link);
 	server->seat_add.notify = notify_adding_seat;
 	wl_signal_add(&server->backend->seat_add_signal,
 	              &server->seat_add);
+	//seat remove
 	wl_list_init(&server->seat_remove.link);
 	server->seat_remove.notify = notify_removing_seat;
 	wl_signal_add(&server->backend->seat_rm_signal,
 	              &server->seat_remove);
-
+	//create wl_surface
 	wl_list_init(&server->surface_create_listener.link);
 	server->surface_create_listener.notify = notify_create_wl_surface;
 	wl_signal_add(&server->compositor->surface_create,
 	              &server->surface_create_listener);
-
+	//destroy wl_surface
+	wl_list_init(&server->surface_destroy_listener.link);
+	server->surface_destroy_listener.notify = notify_destroy_wl_surface;
+	wl_signal_add(&server->surface_manager.surface_destroy_signal,
+	              &server->surface_destroy_listener);
+	//dirty wl_surface
+	wl_list_init(&server->surface_dirty_listener.link);
+	server->surface_dirty_listener.notify = notify_dirty_wl_surface;
+	wl_signal_add(&server->surface_manager.surface_dirty_signal,
+	              &server->surface_dirty_listener);
+	//create wl_subsurface
 	wl_list_init(&server->subsurface_create_listener.link);
 	server->subsurface_create_listener.notify =
 		notify_create_wl_subsurface;
 	wl_signal_add(&server->compositor->subsurface_get,
 	              &server->subsurface_create_listener);
-
+	//create wl_region
 	wl_list_init(&server->region_create_listener.link);
 	server->region_create_listener.notify =
 		notify_create_wl_region;
@@ -527,6 +578,7 @@ bind_globals(struct tw_server *server)
 
 	tw_surface_manager_init(&server->surface_manager);
 
+	tw_layers_manager_init(&server->layers_manager, server->display);
 
 	//bindinds for renderer
 	if (server->wlr_renderer) {
@@ -563,5 +615,6 @@ tw_server_init(struct tw_server *server, struct wl_display *display)
 		return false;
 	bind_globals(server);
 	bind_listeners(server);
+
 	return true;
 }

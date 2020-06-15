@@ -44,7 +44,7 @@ tw_layers_manager_init(struct tw_layers_manager *manager,
 	manager->destroy_listener.notify = notify_display_destroy;
 	wl_display_add_destroy_listener(display, &manager->destroy_listener);
 	tw_layer_set_position(&manager->cursor_layer, TW_LAYER_POS_CURSOR,
-	                      &manager->layers);
+	                      manager);
 }
 
 struct tw_layers_manager *
@@ -65,11 +65,12 @@ tw_layer_init(struct tw_layer *layer)
 
 void
 tw_layer_set_position(struct tw_layer *layer, enum tw_layer_pos pos,
-                      struct wl_list *layers)
+                      struct tw_layers_manager *manager)
 {
 	struct tw_layer *l, *tmp;
-
+	struct wl_list *layers = &manager->layers;
 	wl_list_remove(&layer->link);
+	wl_list_init(&layer->link);
 	layer->position = pos;
 
 	//from bottom to top

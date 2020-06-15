@@ -78,6 +78,8 @@ struct tw_backend_output {
 	int32_t id, cloning;
 	struct wl_list link;
 
+	struct wl_list views; /** tw_surface->output_link */
+
 	//we can do this, or we uses current state
 	struct {
 		bool dirty;
@@ -91,6 +93,13 @@ struct tw_backend_output {
 		//different gamma method, we deal with later
 		float gamma_value;
 
+		/** the repaint status, the output repaint is driven by timer,
+		 * in the future we may be able to drive it by idle event */
+		enum {
+			TW_REPAINT_CLEAN = 0, /**< no need to repaint */
+			TW_REPAINT_DIRTY, /**< repaint required */
+			TW_REPAINT_NOT_FINISHED /**< still in repaint */
+		} repaint_state;
 	} state;
 
 	struct wl_listener frame_listener;
@@ -219,6 +228,9 @@ tw_backend_output_enable(struct tw_backend_output *output,
 void
 tw_backend_output_set_gamma(struct tw_backend_output *output,
                             float gamma);
+void
+tw_backend_output_dirty(struct tw_backend_output *output);
+
 void
 tw_backend_seat_set_xkb_rules(struct tw_backend_seat *seat,
                               struct xkb_rule_names *rules);
