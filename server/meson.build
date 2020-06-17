@@ -23,6 +23,12 @@ taiwins_src = [
 
   wayland_linux_dmabuf_server_protocol_h,
   wayland_linux_dmabuf_private_code_c,
+  wayland_viewporter_server_protocol_h,
+  wayland_viewporter_private_code_c,
+  wayland_presentation_time_server_protocol_h,
+  wayland_presentation_time_private_code_c,
+  wayland_xdg_shell_server_protocol_h,
+  wayland_xdg_shell_private_code_c,
 ]
 taiwins = executable(
   'taiwins',

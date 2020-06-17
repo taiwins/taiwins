@@ -5,7 +5,10 @@ dir_wp_base = dep_wp.get_pkgconfig_variable('pkgdatadir')
 protocols = [['taiwins-shell', 'taiwins'],
 	     ['taiwins-console', 'taiwins'],
 	     ['taiwins-theme', 'taiwins'],
-	     ['linux-dmabuf', 'v1']]
+	     ['linux-dmabuf', 'v1'],
+	     ['viewporter', 'stable'],
+	     ['presentation-time', 'stable'],
+	     ['xdg-shell', 'stable']]
 
 foreach proto : protocols
   if proto[1] == 'taiwins'
