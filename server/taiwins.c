@@ -21,12 +21,7 @@
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
-#include "ctypes/helpers.h"
-#include "objects/compositor.h"
-#include "objects/data_device.h"
-#include "objects/dmabuf.h"
-#include "objects/layers.h"
-#include <wayland-server-core.h>
+#include "wlr/types/wlr_matrix.h"
 #endif
 
 #include <limits.h>
@@ -34,13 +29,14 @@
 #include <stdio.h>
 #include <signal.h>
 #include <errno.h>
+#include <time.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <dlfcn.h>
 #include <wayland-server.h>
 #include <libweston/libweston.h>
-#include <wayland-util.h>
+#include <wlr/types/wlr_matrix.h>
 #include <ctypes/os/os-compatibility.h>
 
 #include <backend/render/renderer.h>
@@ -169,11 +165,11 @@ static bool
 shm_buffer_compatible(struct wl_shm_buffer *shmbuf,
                       struct tw_surface_buffer *buffer)
 {
-	return (!shmbuf ||
-		(wl_shm_buffer_get_format(shmbuf) != buffer->format) ||
-		(wl_shm_buffer_get_stride(shmbuf) != buffer->stride) ||
-		(wl_shm_buffer_get_width(shmbuf)  != buffer->width) ||
-	        (wl_shm_buffer_get_height(shmbuf) != buffer->height));
+	return (shmbuf &&
+		(wl_shm_buffer_get_format(shmbuf) == buffer->format) &&
+		(wl_shm_buffer_get_stride(shmbuf) == buffer->stride) &&
+		(wl_shm_buffer_get_width(shmbuf)  == buffer->width) &&
+	        (wl_shm_buffer_get_height(shmbuf) == buffer->height));
 }
 
 static bool
@@ -189,7 +185,7 @@ update_texture(struct tw_event_buffer_uploading *event,
 	int n;
 	pixman_box32_t *rects, *r;
 
-	if (shm_buffer_compatible(shmbuf, buffer))
+	if (!shm_buffer_compatible(shmbuf, buffer))
 		return false;
 
 	//copy data
@@ -202,10 +198,9 @@ update_texture(struct tw_event_buffer_uploading *event,
 	for (int i = 0; i < n; i++) {
 		r = &rects[i];
 		if (!wlr_texture_write_pixels(texture, buffer->stride,
-		                              buffer->width,
-		                              buffer->height,
-		                              r->x2 - r->x1,
-		                              r->y2 - r->y1,
+		                              r->x2-r->x1,
+		                              r->y2-r->y1,
+		                              r->x1, r->y1,
 		                              r->x1, r->y1, data)) {
 			ret = false;
 			goto out;
@@ -261,24 +256,23 @@ new_dma_texture(struct tw_dmabuf_attributes *attributes,
 	return wlr_texture_from_dmabuf(renderer, &attr);
 }
 
-static void
+static bool
 renderer_import_buffer(struct tw_event_buffer_uploading *event,
                        void *data)
 {
 	struct wlr_renderer *renderer = data;
 	struct wl_shm_buffer *shm_buffer =
 		wl_shm_buffer_get(event->wl_buffer);
-	struct wlr_texture *texture = NULL;
 	struct tw_surface *surface =
 		container_of(event->buffer, struct tw_surface, buffer);
+	struct wlr_texture *texture = NULL;
+	struct wlr_texture *old_texture = surface->buffer.handle.ptr;
 	struct tw_surface_buffer *buffer = event->buffer;
 	struct tw_dmabuf_buffer *dmabuf;
 
-	//updating texture
-	if (tw_surface_has_texture(surface)) {
-		update_texture(event, renderer, shm_buffer);
-		return;
-	}
+	//updating could fail due to all kinds of imcompatible issues.
+	if (!event->new_upload)
+		return update_texture(event, renderer, shm_buffer);
 	//new texture
 	if (shm_buffer) {
 		texture = new_shm_texture(shm_buffer, buffer, renderer);
@@ -296,12 +290,13 @@ renderer_import_buffer(struct tw_event_buffer_uploading *event,
 		wl_resource_post_error(event->wl_buffer, 0,
 		                       "unknown buffer type");
 	}
-	// updating the
-	event->buffer->handle.ptr = texture;
 	if (!texture) {
 		tw_logl("EE: failed to update the texture");
-		return;
+		return false;
 	}
+	event->buffer->handle.ptr = texture;
+	if (old_texture)
+		wlr_texture_destroy(old_texture);
 
 	wl_list_remove(&buffer->surface_destroy_listener.link);
 	wl_list_init(&buffer->surface_destroy_listener.link);
@@ -309,6 +304,7 @@ renderer_import_buffer(struct tw_event_buffer_uploading *event,
 		notify_buffer_on_surface_destroy;
 	wl_signal_add(&surface->events.destroy,
 	              &buffer->surface_destroy_listener);
+	return true;
 }
 
 /************************* dma engine bindings *******************************/
@@ -384,6 +380,36 @@ no_modifiers:
 /******************************************************************************
  * tw_server, this is probably a bad place to set it up
  *****************************************************************************/
+static void
+render_surface_texture(struct tw_surface *surface,
+                       struct wlr_renderer *renderer,
+                       struct wlr_output *wlr_output)
+{
+	struct timespec now;
+	clock_gettime(CLOCK_MONOTONIC, &now);
+
+	//TODO, wlr_matrix is row major and the it uses a total different
+	//coordinate system, sadly I cannot take advantage of it.
+
+	float transform[9];
+	struct wlr_texture *texture = surface->buffer.handle.ptr;
+	if (texture) {
+		wlr_matrix_transpose(transform,
+		                     surface->geometry.transform.d);
+		wlr_matrix_multiply(transform,
+		                    wlr_output->transform_matrix,
+		                    transform);
+		/* wlr_render_texture_with_matrix(renderer, texture, */
+		/*                                transform, 1.0); */
+		wlr_render_texture(renderer, texture,
+		                   wlr_output->transform_matrix,
+		                   surface->geometry.xywh.x,
+		                   surface->geometry.xywh.y,
+		                   1.0f);
+	}
+	tw_surface_flush_frame(surface,
+	                       now.tv_sec * 1000 + now.tv_nsec / 1000000);
+}
 
 static void
 notify_new_output_frame(struct wl_listener *listener, void *data)
@@ -393,9 +419,11 @@ notify_new_output_frame(struct wl_listener *listener, void *data)
 		container_of(listener, struct tw_server, output_frame);
 	struct tw_backend_output *output = data;
 	struct wlr_renderer *renderer = server->wlr_renderer;
+	struct wlr_output *wlr_output = output->wlr_output;
+	struct tw_surface *surface;
 
 	tw_server_build_surface_list(server);
-	tw_server_stack_damage(server);
+	/* tw_server_stack_damage(server); */
 
 	if (!wlr_output_attach_render(output->wlr_output, NULL))
 		return;
@@ -404,6 +432,10 @@ notify_new_output_frame(struct wl_listener *listener, void *data)
 
         float color[4] = {0.3, 0.3, 0.3, 1.0};
 	wlr_renderer_clear(renderer, color);
+
+	wl_list_for_each(surface, &server->layers_manager.views,
+	                 links[TW_VIEW_SERVER_LINK])
+		render_surface_texture(surface, renderer, wlr_output);
 
 	wlr_renderer_end(renderer);
 	wlr_output_commit(output->wlr_output);

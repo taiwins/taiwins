@@ -29,6 +29,8 @@
 #include <wayland-server.h>
 #include <pixman.h>
 
+#include "matrix.h"
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -78,6 +80,7 @@ struct tw_event_buffer_uploading {
 	struct tw_surface_buffer *buffer;
 	pixman_region32_t *damages;
 	struct wl_resource *wl_buffer;
+	bool new_upload;
 };
 
 struct tw_event_surface_frame {
@@ -97,6 +100,8 @@ struct tw_view {
 	struct {
 		uint32_t w, h;
 	} surface_scale;
+
+	struct tw_mat3 surface_to_buffer;
 
 	struct wl_resource *buffer_resource;
 
@@ -154,10 +159,17 @@ struct tw_surface {
 
 	/** transform of the view */
 	struct {
+		int32_t x, y;
+                /* xywh and prev_xywh are tbe bbox, in terms of damage
+                 * collection, xywh and prev_xywh are only useful to a 2D damage
+                 * tracker. It would not be very useful in other cases.
+                 */
 		pixman_rectangle32_t xywh;
 		pixman_rectangle32_t prev_xywh;
-		//TODO The size of the surface should include subsurfaces as
-		//well?
+		/* map from (-1,-1,1,1) to global coordinates */
+		struct tw_mat3 transform;
+		struct tw_mat3 inverse_transform;
+
 		bool dirty;
 	} geometry;
 
@@ -211,7 +223,7 @@ struct tw_surface_manager {
 	struct wl_signal surface_dirty_signal;
 
 	struct {
-		void (*buffer_import)(struct tw_event_buffer_uploading *event,
+		bool (*buffer_import)(struct tw_event_buffer_uploading *event,
 		                      void *);
 		void *callback;
 	} buffer_import;
@@ -237,6 +249,13 @@ tw_surface_has_texture(struct tw_surface *surface);
  */
 void
 tw_surface_set_position(struct tw_surface *surface, int32_t x, int32_t y);
+
+/**
+ * @brief force dirting the geometry, it would damages all its clip region for
+ * the outputs.
+ */
+void
+tw_surface_dirty_geometry(struct tw_surface *surface);
 
 /**
  * @brief flushing the view state, clean up the damage and also calls frame
@@ -265,7 +284,7 @@ tw_region_from_resource(struct wl_resource *wl_region);
 void
 tw_surface_buffer_release(struct tw_surface_buffer *buffer);
 
-void
+bool
 tw_surface_buffer_update(struct tw_surface_buffer *buffer,
                          struct wl_resource *resource,
                          pixman_region32_t *damage);

@@ -29,6 +29,7 @@ taiwins_src = [
   'objects/data_source.c',
   'objects/data_offer.c',
   'objects/data_dnd.c',
+  'objects/matrix.c',
 
   wayland_linux_dmabuf_server_protocol_h,
   wayland_linux_dmabuf_private_code_c,

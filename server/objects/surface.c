@@ -19,6 +19,7 @@
  *
  */
 
+#include <limits.h>
 #include <assert.h>
 #include <math.h>
 #include <stdint.h>
@@ -30,6 +31,7 @@
 #include <wayland-util.h>
 
 #include "ctypes/helpers.h"
+#include "objects/matrix.h"
 #include "surface.h"
 
 #define CALLBACK_VERSION 1
@@ -180,7 +182,7 @@ surface_set_buffer_scale(struct wl_client *client,
                          struct wl_resource *resource, int32_t scale)
 {
 	struct tw_surface *surface;
-	if (scale < 0) {
+	if (scale <= 0) {
 		wl_resource_post_error(resource,
 		                       WL_SURFACE_ERROR_INVALID_SCALE,
 		                       "surface buffer scale %d is invalid",
@@ -208,6 +210,310 @@ surface_damage_buffer(struct wl_client *client,
 }
 
 /************************** surface commit ***********************************/
+/* after transform, bbox could be inversed, fliped, in this case, we shall
+ * rectify the box */
+static void
+bbox_rectify(float *x1, float *x2, float *y1, float *y2)
+{
+	float _x1 = *x1, _x2 = *x2, _y1 = *y1, _y2 = *y2;
+	*x1 = (_x1 <= _x2) ? _x1 : _x2;
+	*x2 = (_x1 <= _x2) ? _x2 : _x1;
+	*y1 = (_y1 <= _y2) ? _y1 : _y2;
+	*y2 = (_y1 <= _y2) ? _y2 : _y1;
+}
+
+static inline bool
+surface_has_crop(struct tw_view *current)
+{
+	return (current->crop.x || current->crop.y ||
+	        current->crop.w || current->crop.h);
+}
+
+static inline bool
+surface_has_scale(struct tw_view *current)
+{
+	return (current->surface_scale.w && current->surface_scale.h);
+}
+
+static inline bool
+surface_buffer_has_transform(struct tw_view *current)
+{
+	return (current->transform != WL_OUTPUT_TRANSFORM_NORMAL ||
+		current->buffer_scale != 1 || surface_has_crop(current) ||
+	        surface_has_scale(current));
+}
+
+static void
+surface_to_buffer_damage(struct tw_surface *surface)
+{
+	int n;
+	pixman_box32_t *rects;
+	struct tw_view *view = surface->current;
+	float x1, y1, x2, y2;
+	//creating a copy so we avoid changing surface_damage itself.
+	pixman_region32_t surface_damage;
+
+	if (!pixman_region32_not_empty(&view->surface_damage))
+		return;
+	pixman_region32_init(&surface_damage);
+	pixman_region32_copy(&surface_damage, &view->surface_damage);
+
+	if (!surface_buffer_has_transform(surface->current)) {
+		pixman_region32_translate(&surface_damage,
+		                          surface->current->dx,
+		                          surface->current->dy);
+		pixman_region32_union(&surface->current->buffer_damage,
+		                      &surface->current->buffer_damage,
+		                      &surface_damage);
+	} else {
+		rects = pixman_region32_rectangles(&surface_damage, &n);
+		for (int i = 0; i < n; i++) {
+			tw_mat3_vec_transform(&view->surface_to_buffer,
+			                      rects[i].x1, rects[i].y1,
+			                      &x1, &y1);
+			tw_mat3_vec_transform(&view->surface_to_buffer,
+			                      rects[i].x2, rects[i].y2,
+			                      &x2, &y2);
+			bbox_rectify(&x1, &x2, &y1, &y2);
+			pixman_region32_union_rect(&view->buffer_damage,
+			                           &view->buffer_damage,
+			                           x1, y1, x2 - x1, y2 - y1);
+		}
+	}
+	pixman_region32_fini(&surface_damage);
+}
+
+static void
+surface_build_buffer_matrix(struct tw_surface *surface)
+{
+	struct tw_view *current = surface->current;
+	float src_width, src_height, dst_width, dst_height;
+	struct tw_mat3 tmp, *transform = &current->surface_to_buffer;
+
+	//generate a matrix move surface coordinates to buffer
+	//1. get the surface dimension, make sure surface has a buffer
+	if (!current->crop.w || !current->crop.h) {
+		src_width = surface->buffer.width;
+		src_height = surface->buffer.height;
+	} else {
+		src_width = current->crop.w;
+		src_height = current->crop.h;
+	}
+
+	if (!current->surface_scale.w || !current->surface_scale.h) {
+		dst_width = src_width;
+		dst_height = src_height;
+	} else {
+		dst_width = current->surface_scale.w;
+		dst_height = current->surface_scale.h;
+	}
+	tw_mat3_init(transform);
+	if (src_width != dst_width || src_height != dst_height)
+		tw_mat3_scale(transform, src_width / dst_width,
+		              src_height / dst_height);
+
+	if (current->crop.x || current->crop.y) {
+		tw_mat3_translate(&tmp, current->crop.x, current->crop.y);
+		tw_mat3_multiply(transform, &tmp, transform);
+	}
+	tw_mat3_wl_transform(&tmp, current->transform);
+	tw_mat3_multiply(transform, &tmp, transform);
+	tw_mat3_scale(&tmp, current->buffer_scale, current->buffer_scale);
+	tw_mat3_multiply(transform, &tmp, transform);
+
+	switch (current->transform) {
+	case WL_OUTPUT_TRANSFORM_NORMAL:
+		break;
+	case WL_OUTPUT_TRANSFORM_90:
+		tw_mat3_translate(&tmp, src_height, 0.0);
+		tw_mat3_multiply(transform, &tmp, transform);
+		break;
+	case WL_OUTPUT_TRANSFORM_180:
+		tw_mat3_translate(&tmp, src_width, src_height);
+		tw_mat3_multiply(transform, &tmp, transform);
+		break;
+	case WL_OUTPUT_TRANSFORM_270:
+		tw_mat3_translate(&tmp, 0.0, src_width);
+		tw_mat3_multiply(transform, &tmp, transform);
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED:
+		tw_mat3_translate(&tmp, src_width, 0.0);
+		tw_mat3_multiply(transform, &tmp, transform);
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
+		tw_mat3_translate(&tmp, 0.0, src_height);
+		tw_mat3_multiply(transform, &tmp, transform);
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+		tw_mat3_translate(&tmp, src_height, src_width);
+		tw_mat3_multiply(transform, &tmp, transform);
+		break;
+	}
+}
+
+static void
+surface_update_buffer(struct tw_surface *surface)
+{
+	struct wl_resource *resource = surface->current->buffer_resource;
+	pixman_region32_t *damage = &surface->current->buffer_damage;
+
+	if (surface->previous->buffer_resource) {
+		assert(surface->buffer.resource ==
+		       surface->previous->buffer_resource);
+		tw_surface_buffer_release(&surface->buffer);
+		surface->previous->buffer_resource = NULL;
+	}
+	//if there is no buffer for us, we can leave
+	if (!resource)
+		return;
+
+	//try to update the texture
+	if (tw_surface_has_texture(surface)) {
+		pixman_region32_t buffer_damage;
+		//reserve a copy of buffer damage incase updating failed
+		pixman_region32_init(&buffer_damage);
+		pixman_region32_copy(&buffer_damage, damage);
+
+		surface_build_buffer_matrix(surface);
+		surface_to_buffer_damage(surface);
+		//if updating did not work, we need to re-new the surface
+		if (!tw_surface_buffer_update(&surface->buffer, resource,
+		                              damage)) {
+			//restore the buffer_damage.
+			pixman_region32_copy(damage, &buffer_damage);
+
+			tw_surface_buffer_new(&surface->buffer, resource);
+			surface_build_buffer_matrix(surface);
+			surface_to_buffer_damage(surface);
+		}
+		pixman_region32_fini(&buffer_damage);
+
+	} else {
+		tw_surface_buffer_new(&surface->buffer, resource);
+		surface_build_buffer_matrix(surface);
+		surface_to_buffer_damage(surface);
+	}
+	//release the buffer now.
+	if (surface->buffer.resource) {
+		tw_surface_buffer_release(&surface->buffer);
+		surface->current->buffer_resource = NULL;
+	}
+}
+
+static void
+surface_build_geometry_matrix(struct tw_surface *surface)
+{
+	struct tw_view *current = surface->current;
+	struct tw_mat3 tmp;
+	struct tw_mat3 *transform = &surface->geometry.transform;
+	struct tw_mat3 *inverse = &surface->geometry.inverse_transform;
+	uint32_t buffer_width = surface->buffer.width;
+	uint32_t buffer_height = surface->buffer.height;
+	uint32_t target_width = 0, target_height = 0;
+	float x, y;
+
+	if (surface_has_scale(current)) {
+		target_width = current->surface_scale.w;
+		target_height = current->surface_scale.h;
+	} else if (surface_has_crop(current)) {
+		target_width = current->crop.w;
+		target_height = current->crop.h;
+	} else {
+		target_width = buffer_width;
+		target_height = buffer_height;
+	}
+	//transforming (-1,-1,1,1) into global coordiantes
+	tw_mat3_scale(transform, target_width / 2.0, target_height / 2.0);
+	tw_mat3_wl_transform(&tmp, current->transform);
+	//this could rotate the surface.
+	tw_mat3_multiply(transform, &tmp, transform);
+	//buffer scale
+	if (!surface_has_scale(current) && current->buffer_scale != 1) {
+		tw_mat3_scale(&tmp, 1.0/current->buffer_scale,
+		              1.0/current->buffer_scale);
+		tw_mat3_multiply(transform, &tmp, transform);
+	}
+	//update the coordinates
+
+	tw_mat3_vec_transform(transform, 1.0, 1.0, &x, &y);
+	tw_mat3_translate(&tmp,
+	                  fabs(x) + surface->geometry.x,
+	                  fabs(y) + surface->geometry.y);
+	tw_mat3_multiply(transform, &tmp, transform);
+	tw_mat3_inverse(inverse, transform);
+}
+
+static void
+surface_update_geometry(struct tw_surface *surface)
+{
+	pixman_box32_t box = {INT_MAX, INT_MAX, INT_MIN, INT_MIN};
+	float corners[4][2] = {
+		{-1.0f, -1.0f}, {-1.0f, 1.0f},
+		{1.0f, -1.0f}, {1.0f, 1.0f},
+	};
+
+	//update new geometry
+	surface_build_geometry_matrix(surface);
+	for (int i = 0; i < 4; i++) {
+		tw_mat3_vec_transform(&surface->geometry.transform,
+		                      corners[i][0], corners[i][1],
+		                      &corners[i][0], &corners[i][1]);
+		box.x1 = MIN(box.x1, (int32_t)corners[i][0]);
+		box.y1 = MIN(box.y1, (int32_t)corners[i][1]);
+		box.x2 = MAX(box.x2, (int32_t)corners[i][0]);
+		box.y2 = MAX(box.x2, (int32_t)corners[i][1]);
+	}
+	if (box.x1 != surface->geometry.xywh.x ||
+	    box.y1 != surface->geometry.xywh.y ||
+	    (box.x2-box.x1) != (int)surface->geometry.xywh.width ||
+	    (box.y2-box.y1) != (int)surface->geometry.xywh.height) {
+		surface->geometry.prev_xywh = surface->geometry.xywh;
+		surface->geometry.xywh.x = box.x1;
+		surface->geometry.xywh.y = box.y1;
+		surface->geometry.xywh.width = box.x2-box.x1;
+		surface->geometry.xywh.height = box.y2-box.y1;
+		tw_surface_dirty_geometry(surface);
+	}
+}
+
+/* surface_buffer_to_surface_damage */
+static void
+surface_update_damage(struct tw_surface *surface)
+{
+	int n;
+	pixman_box32_t *rects;
+	struct tw_mat3 inverse;
+	struct tw_view *view = surface->current;
+	float x1, y1, x2, y2;
+
+	if (!pixman_region32_not_empty(&view->buffer_damage))
+		return;
+
+	tw_mat3_inverse(&inverse, &view->surface_to_buffer);
+	pixman_region32_clear(&view->surface_damage);
+	if (!surface_buffer_has_transform(view)) {
+		pixman_region32_translate(&view->buffer_damage,
+		                          -view->dx, -view->dy);
+		pixman_region32_copy(&view->surface_damage,
+		                     &view->buffer_damage);
+	} else {
+		rects = pixman_region32_rectangles(&view->buffer_damage,&n);
+		for (int i = 0; i < n; i++) {
+			tw_mat3_vec_transform(&inverse,
+			                      rects[i].x1, rects[i].y1,
+			                      &x1, &y1);
+			tw_mat3_vec_transform(&inverse,
+			                      rects[i].x2, rects[i].y2,
+			                      &x2, &y2);
+			bbox_rectify(&x1, &x2, &y1, &y2);
+			pixman_region32_union_rect(&view->surface_damage,
+			                           &view->surface_damage,
+			                           x1, y1, x2-x1, y2-y1);
+		}
+	}
+}
 
 static void
 surface_copy_state(struct tw_view *dst, struct tw_view *src)
@@ -222,90 +528,13 @@ surface_copy_state(struct tw_view *dst, struct tw_view *src)
 }
 
 static void
-surface_update_buffer(struct tw_surface *surface)
-{
-	struct wl_resource *resource = surface->current->buffer_resource;
-	pixman_region32_t *damage = &surface->current->buffer_damage;
-
-	//so far here is only place we release the buffer, this require users to
-	//have double-buffered surface. Maybe we can early release the buffer.
-	if (surface->previous->buffer_resource) {
-		//TODO here we could have an error
-		assert(surface->buffer.resource ==
-		       surface->previous->buffer_resource);
-		tw_surface_buffer_release(&surface->buffer);
-		surface->previous->buffer_resource = NULL;
-	}
-	//if there is no buffer for us, we can leave
-	if (!resource)
-		return;
-
-	if (tw_surface_has_texture(surface))
-		tw_surface_buffer_update(&surface->buffer, resource,
-		                         damage);
-	else
-		tw_surface_buffer_new(&surface->buffer, resource);
-}
-
-static void
-surface_update_transform(struct tw_surface *surface)
-{
-	int old_width = surface->geometry.xywh.width;
-	int old_height = surface->geometry.xywh.height;
-
-	//TODO: current width/height is calculated through transfomations, not
-	//simply buffer goemetry.
-
-	if (old_width != surface->buffer.width ||
-	    old_height != surface->buffer.height) {
-		if (!surface->geometry.dirty) {
-			surface->geometry.prev_xywh.width = old_width;
-			surface->geometry.prev_xywh.height = old_height;
-		}
-		surface->geometry.dirty = true;
-		if (surface->manager)
-			wl_signal_emit(&surface->manager->surface_dirty_signal,
-			               surface);
-	}
-
-	// TODO skip this part for now.
-
-	// wl_output_transform will change the uv transform,
-	// buffer_scale would will apply to surface transform.
-	// crop would apply to uv transfrom.
-	// surface_scale will apply to surface transform.
-
-	// In terms of transformation, we will have a transform and an
-	// inverse-transform(if you rotate the geometry by 90 degree, then if
-	// you want to go back to its original sampling point, you will need
-	// inverse).
-}
-
-static inline void
-surface_update_damage(struct tw_surface *surface)
-{
-	//we copy the surface damage to buffer damages first, then we need to
-	//transfer them back
-	pixman_region32_translate(&surface->current->surface_damage,
-	                          surface->current->dx,
-	                          surface->current->dy);
-	pixman_region32_union(&surface->current->buffer_damage,
-	                      &surface->current->buffer_damage,
-	                      &surface->current->surface_damage);
-	//TODO: if surface and buffer are in different transform and scale, this
-	//would not be correct.
-	pixman_region32_copy(&surface->current->surface_damage,
-	                     &surface->current->buffer_damage);
-}
-
-static void
 surface_commit_state(struct tw_surface *surface)
 {
 	struct tw_view *committed = surface->current;
 	struct tw_view *pending = surface->pending;
 	struct tw_view *previous = surface->previous;
 
-	if (surface->pending->commit_state)
+	if (!surface->pending->commit_state)
 		return;
 
         surface->current = pending;
@@ -318,10 +547,8 @@ surface_commit_state(struct tw_surface *surface)
 	surface_copy_state(surface->pending, surface->current);
 
 	surface_update_buffer(surface);
-	surface_update_transform(surface);
+	surface_update_geometry(surface);
 	surface_update_damage(surface);
-	//TODO if the buffer updates is finished, maybe we can actually release
-	//it now
 
 	if (surface->manager &&
 	    pixman_region32_not_empty(&surface->current->buffer_damage))
@@ -405,6 +632,10 @@ surface_commit(struct wl_client *client,
 		subsurface_commit_for_parent(subsurface, committed);
 
 	wl_signal_emit(&surface->events.commit, surface);
+	if (pixman_region32_not_empty(&(surface->current->surface_damage)) &&
+	    surface->manager)
+		wl_signal_emit(&surface->manager->surface_dirty_signal,
+		               &surface);
 }
 
 static const struct wl_surface_interface surface_impl = {
@@ -419,6 +650,8 @@ static const struct wl_surface_interface surface_impl = {
 	.set_buffer_scale = surface_set_buffer_scale,
 	.damage_buffer = surface_damage_buffer,
 };
+
+/*************************** surface API *************************************/
 
 struct tw_surface *
 tw_surface_from_resource(struct wl_resource *wl_surface)
@@ -440,19 +673,33 @@ tw_surface_set_position(struct tw_surface *surface, int32_t x, int32_t y)
 {
 	struct tw_subsurface *sub;
 
+	if (surface->geometry.xywh.x == x && surface->geometry.xywh.y == y)
+		return;
 	if (!surface->geometry.dirty) {
 		surface->geometry.prev_xywh.x = surface->geometry.xywh.x;
 		surface->geometry.prev_xywh.y = surface->geometry.xywh.y;
 	}
-	surface->geometry.dirty = true;
+	surface->geometry.x = x;
+	surface->geometry.y = y;
 	surface->geometry.xywh.x = x;
 	surface->geometry.xywh.y = y;
 
 	wl_list_for_each(sub, &surface->subsurfaces, parent_link)
-		tw_surface_set_position(sub->surface, x+sub->sx, y+sub->sy);
+		tw_surface_set_position(sub->surface,
+		                        x + sub->sx, y + sub->sy);
 
-	if (surface->manager && !tw_surface_is_subsurface(surface))
-		wl_signal_emit(&surface->manager->surface_dirty_signal,
+	tw_surface_dirty_geometry(surface);
+}
+
+void
+tw_surface_dirty_geometry(struct tw_surface *surface)
+{
+	struct tw_subsurface *sub;
+	surface->geometry.dirty = true;
+	wl_list_for_each(sub, &surface->subsurfaces, parent_link)
+		tw_surface_dirty_geometry(sub->surface);
+	if (surface->manager)
+		wl_signal_emit(&surface->manager->surface_created_signal,
 		               surface);
 }
 
@@ -484,6 +731,8 @@ surface_destroy_resource(struct wl_resource *resource)
 	if (surface->manager)
 		wl_signal_emit(&surface->manager->surface_destroy_signal,
 		               surface);
+	for (int i = 0; i < MAX_VIEW_LINKS; i++)
+		wl_list_remove(&surface->links[i]);
 
 	for (int i = 0; i < 3; i++) {
 		view = &surface->surface_states[i];

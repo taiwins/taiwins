@@ -92,7 +92,8 @@ commit_output_state(struct tw_backend_output *o)
 		wlr_output_commit(output);
 		o->state.dirty = false;
 
-		//now here we can decide if we want to implement wlr_output_management protocol
+		//now here we can decide if we want to implement
+		//wlr_output_management protocol
 	}
 }
 
@@ -116,8 +117,8 @@ notify_new_output_frame(struct wl_listener *listener, void *data)
 		             frame_listener);
 	struct tw_backend *backend = output->backend;
 
-	if (output->state.repaint_state != TW_REPAINT_DIRTY)
-		return;
+	/* if (output->state.repaint_state != TW_REPAINT_DIRTY) */
+	/*	return; */
 	//TODO< we need to expand this in a different way
 	wl_signal_emit(&backend->output_frame_signal, output);
 	//clean off the repaint state
