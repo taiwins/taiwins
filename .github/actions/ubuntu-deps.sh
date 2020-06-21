@@ -81,7 +81,7 @@ export CURDIR=$(pwd)
 
 #install meson
 export PATH=~/.local/bin:$PATH
-pip3 install --user git+https://github.com/mesonbuild/meson.git@0.49
+pip3 install --user git+https://github.com/mesonbuild/meson.git@0.54
 
 #install upstream wayland
 git clone --depth=1 https://gitlab.freedesktop.org/wayland/wayland /tmp/wayland
@@ -106,5 +106,11 @@ cd /tmp/pipewire
 mkdir build
 ./autogen.sh
 sudo make install
+
+#instal an upstream libweston
+git clone -b 8.0 https://gitlab.freedesktop.org/wayland/weston /tmp/weston
+cd /tmp/weston
+meson build -Dsimple-dmabuf-drm= -Dbackend-rdp=false
+sudo ninja -C build install
 
 cd $(CURDIR)
