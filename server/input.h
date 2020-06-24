@@ -25,7 +25,7 @@
 #include <wayland-server.h>
 #include <wlr/types/wlr_input_device.h>
 
-#include <seat/seat.h>
+#include <objects/seat.h>
 #include <backend/backend.h>
 #include <binding/bindings.h>
 

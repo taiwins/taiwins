@@ -33,7 +33,7 @@
 
 #include <ctypes/helpers.h>
 
-#include "seat/seat.h"
+#include "objects/seat.h"
 #include "backend/backend.h"
 #include "binding/bindings.h"
 #include "input.h"

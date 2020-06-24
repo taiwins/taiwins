@@ -28,7 +28,7 @@
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
-#include <seat/seat.h>
+#include <objects/seat.h>
 
 #ifdef  __cplusplus
 extern "C" {

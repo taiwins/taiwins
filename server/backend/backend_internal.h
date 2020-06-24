@@ -24,12 +24,25 @@
 
 #include <wlr/types/wlr_seat.h>
 
-#include "seat/seat.h"
+#include <objects/seat.h>
 #include "backend.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
+
+struct tw_backend_impl {
+	struct tw_backend *backend;
+
+	struct wl_listener head_add;
+	struct wl_listener input_add;
+
+	struct wl_listener compositor_create_surface;
+	struct wl_listener compositor_create_subsurface;
+	struct wl_listener compositor_create_region;
+	struct wl_listener surface_dirty_output;
+	struct wl_listener surface_destroy;
+};
 
 struct tw_backend_seat *
 tw_backend_seat_find_create(struct tw_backend *backend,
@@ -37,6 +50,12 @@ tw_backend_seat_find_create(struct tw_backend *backend,
                             enum tw_input_device_cap cap);
 void
 tw_backend_seat_destroy(struct tw_backend_seat *seat);
+
+void
+tw_backend_new_output(struct tw_backend *backend,
+                      struct wlr_output *wlr_output);
+void
+tw_backend_commit_output_state(struct tw_backend_output *o);
 
 void
 tw_backend_new_keyboard(struct tw_backend *backend,
@@ -47,6 +66,12 @@ tw_backend_new_pointer(struct tw_backend *backend,
 void
 tw_backend_new_touch(struct tw_backend *backend,
                      struct wlr_input_device *dev);
+void
+tw_backend_init_impl(struct tw_backend_impl *impl,
+                     struct tw_backend *backend);
+void
+tw_backend_fini_impl(struct tw_backend_impl *impl);
+
 
 #ifdef  __cplusplus
 }

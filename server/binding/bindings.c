@@ -36,7 +36,6 @@
 #include <ctypes/helpers.h>
 #include "bindings.h"
 #include "ctypes/vector.h"
-#include "seat/seat.h"
 
 struct tw_binding_node {
 	uint32_t keycode;

@@ -60,6 +60,7 @@ dep_libweston_desktop = dependency('libweston-8') #TODO: finally we would get ri
 dep_glesv2 = dependency('glesv2')
 dep_wlroots = wlroots.get_variable('wlroots')
 dep_pam = cc.find_library('pam')
+dep_m = cc.find_library('m')
 dep_dl = cc.find_library('dl')
 dep_ctypes = ctypes.get_variable('dep_ctypes')
 dep_twclient = twclient.get_variable('dep_twclient')
@@ -75,3 +76,4 @@ dir_tp_base = join_paths(meson.source_root(), 'subprojects', 'taiwins-protocols'
 subdir('protocols')
 subdir('server')
 subdir('clients')
+subdir('test')

@@ -32,35 +32,31 @@
 #include "surface.h"
 
 
-void
+bool
 tw_surface_buffer_update(struct tw_surface_buffer *buffer,
                          struct wl_resource *resource,
                          pixman_region32_t *damage)
 {
 	struct tw_event_buffer_uploading event;
 	//compare if resource is a wl_buffer
-	struct wl_shm_buffer *shm_buf = wl_shm_buffer_get(resource);
-	int32_t stride = wl_shm_buffer_get_stride(shm_buf);
-	int32_t width = wl_shm_buffer_get_width(shm_buf);
-	int32_t height = wl_shm_buffer_get_height(shm_buf);
 	struct tw_surface *surface =
 		container_of(buffer, struct tw_surface, buffer);
 	struct tw_surface_manager *manager = surface->manager;
 	void *user_data;
-
-	if (buffer->width != width || buffer->height != height ||
-	    buffer->stride != stride)
-		return;
+	bool ret = false;
 
 	if (manager && manager->buffer_import.buffer_import) {
 		event.wl_buffer = resource;
 		event.damages = damage;
 		event.buffer = buffer;
+		event.new_upload = false;
 		user_data = manager->buffer_import.callback;
-		manager->buffer_import.buffer_import(&event, user_data);
+		ret = manager->buffer_import.buffer_import(&event, user_data);
 	}
-	buffer->resource = resource;
-	//maybe I can release the buffer now.
+	//if updating failed, nothing changes.
+	if (ret)
+		buffer->resource = resource;
+	return ret;
 }
 
 void
@@ -73,17 +69,16 @@ tw_surface_buffer_new(struct tw_surface_buffer *buffer,
 	struct tw_surface_manager *manager = surface->manager;
 	void *user_data;
 
-	// trigering the event for uploading buffer to textures, the backend
-	// shall take care of differentiating the wl_shm_buffer, dmabuf or
-	// wl_drm buffer.
 	if (manager && manager->buffer_import.buffer_import) {
+		event.new_upload = true;
 		event.wl_buffer = resource;
 		event.damages = NULL;
 		event.buffer = buffer;
 		user_data = manager->buffer_import.callback;
 		manager->buffer_import.buffer_import(&event, user_data);
 	}
-	buffer->resource = resource;
+	if (tw_surface_has_texture(surface))
+		buffer->resource = resource;
 }
 
 void

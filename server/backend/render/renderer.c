@@ -25,13 +25,20 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 #include <wayland-util.h>
 #include <wlr/backend.h>
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/render/interface.h>
 
+#include "ctypes/helpers.h"
+#include "objects/dmabuf.h"
+#include "objects/logger.h"
+#include "objects/surface.h"
+#include "pixman.h"
 #include "shaders.h"
 #include "renderer.h"
+#include "wlr/render/drm_format_set.h"
 
 static const EGLint gles3_config_attribs[] = {
 	EGL_SURFACE_TYPE, EGL_WINDOW_BIT,

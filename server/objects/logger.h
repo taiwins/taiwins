@@ -1,5 +1,5 @@
 /*
- * renderer.h - taiwins backend renderer header
+ * logger.h - taiwins logging functions
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -19,44 +19,47 @@
  *
  */
 
-#ifndef TW_RENDERER_H
-#define TW_RENDERER_H
+#ifndef TW_LOGGER_H
+#define TW_LOGGER_H
 
-#include <wayland-server-core.h>
-#include <wlr/render/wlr_renderer.h>
-#include <wlr/render/interface.h>
-
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
-#include <EGL/egl.h>
-
-#include <objects/surface.h>
-#include <objects/dmabuf.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-struct gles_procs;
-struct tw_renderer {
-	struct wlr_renderer base;
-	/* additional interfaces */
 
-	struct {
-		struct wl_signal pre_output_render;
-		struct wl_signal post_ouptut_render;
-		struct wl_signal pre_view_render;
-		struct wl_signal post_view_render;
-	} events;
-};
+void
+tw_logger_open(const char *path);
 
-struct wlr_renderer *
-tw_renderer_create(struct wlr_egl *egl, EGLenum platform,
-                   void *remote_display, EGLint *config_attribs,
-                   EGLint visual_id);
+void
+tw_logger_use_file(FILE *file);
+
+void
+tw_logger_close(void);
+
+/**
+ * @brief logging at info level.
+ */
+int
+tw_log(const char *format, va_list args);
+
+static inline int
+tw_logl(const char *format, ...)
+{
+	int ret;
+	va_list ap;
+	va_start(ap, format);
+	ret = tw_log(format, ap);
+	va_end(ap);
+
+	return ret;
+}
+
 
 #ifdef  __cplusplus
 }
 #endif
 
-#endif
+#endif /* EOF */

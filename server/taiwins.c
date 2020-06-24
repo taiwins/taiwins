@@ -21,6 +21,10 @@
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#include "wlr/types/wlr_matrix.h"
+#include "ctypes/helpers.h"
+#include <wayland-server-core.h>
+#include <wayland-util.h>
 #endif
 
 #include <limits.h>
@@ -28,210 +32,21 @@
 #include <stdio.h>
 #include <signal.h>
 #include <errno.h>
+#include <time.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <dlfcn.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <libweston/libweston.h>
-#include <wayland-util.h>
+#include <wlr/types/wlr_matrix.h>
 #include <ctypes/os/os-compatibility.h>
 
+#include <backend/render/renderer.h>
+#include <backend/backend.h>
+#include <objects/surface.h>
+#include <objects/compositor.h>
 #include "taiwins.h"
-
-FILE *tw_logfile = NULL;
-
-int
-tw_log(const char *format, va_list args)
-{
-	if (tw_logfile)
-		return vfprintf(tw_logfile, format, args);
-	return -1;
-}
-
-static int
-tw_launch_default_fork(pid_t pid, struct tw_subprocess *chld)
-{
-	return 0;
-}
-
-static int
-tw_launch_default_exec(const char *path, struct tw_subprocess *chld)
-{
-	if (execlp(path, path, NULL) == -1) {
-		tw_logl("tw_launch_client: "
-		        "failed to exec the client %s\n", path);
-		return -1;
-	}
-	return 0;
-}
-
-struct wl_client *
-tw_launch_client_complex(struct weston_compositor *ec, const char *path,
-                         struct tw_subprocess *chld,
-                         int (*fork_cb)(pid_t, struct tw_subprocess *),
-                         int (*exec_cb)(const char *,struct tw_subprocess *))
-{
-	int sv[2], fd;
-	pid_t pid;
-	struct wl_client *client = NULL;
-	struct wl_list *clients = tw_get_clients_head();
-	char socket_fd_str[12];
-	sigset_t allsignals;
-
-	if (!fork_cb)
-		fork_cb = tw_launch_default_fork;
-	if (!exec_cb)
-		exec_cb = tw_launch_default_exec;
-
-	//always need to create wayland socket
-	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0, sv)) {
-		tw_logl("taiwins client launch: "
-		        "failed to create the socket for client %s\n",
-		        path);
-		return NULL;
-	}
-
-	pid = fork();
-	if (pid == -1) {
-		close(sv[0]);
-		close(sv[1]);
-		tw_logl("taiwins client launch: "
-		        "failed to create new process, %s\n",
-		        path);
-		return NULL;
-	} else if (pid == 0) {
-		//child holds sv[1] and closes sv[0]
-		close(sv[0]);
-
-		if (seteuid(getuid()) == -1)
-			goto fail;
-
-		//unblocking signals
-		sigfillset(&allsignals);
-		sigprocmask(SIG_UNBLOCK, &allsignals, NULL);
-		//duplicate the socket since it is close-on-exec
-		fd = dup(sv[1]);
-		snprintf(socket_fd_str, sizeof(socket_fd_str), "%d", fd);
-		setenv("WAYLAND_SOCKET", socket_fd_str, 1);
-		//do the fork
-		if (fork_cb(pid, chld) ||  exec_cb(path, chld))
-			goto fail;
-	fail:
-		close(sv[1]);
-		_exit(-1);
-	} else {
-		//parent holds sv[0] and closes sv[1]
-		close(sv[1]);
-		if (fork_cb(pid, chld))
-			goto fail_p;
-		client = wl_client_create(ec->wl_display, sv[0]);
-		if (!client) {
-			tw_logl("taiwins_client_launch: "
-			        "failed to create wl_client for %s\n", path);
-			return NULL;
-		}
-		if (chld) {
-			chld->pid = pid;
-			wl_list_init(&chld->link);
-			wl_list_insert(clients, &chld->link);
-		}
-		return client;
-	fail_p:
-		close(sv[0]);
-		return NULL;
-	}
-	return client;
-
-}
-
-struct wl_client *
-tw_launch_client(struct weston_compositor *ec, const char *path,
-                 struct tw_subprocess *chld)
-{
-	return tw_launch_client_complex(ec, path, chld, NULL, NULL);
-}
-
-struct wl_list *tw_get_clients_head()
-{
-	static struct wl_list clients_head = {
-		.prev = &clients_head,
-		.next = &clients_head,
-	};
-
-	return &clients_head;
-}
-
-void
-tw_end_client(struct wl_client *client)
-{
-	pid_t pid; uid_t uid; gid_t gid;
-	wl_client_get_credentials(client, &pid, &uid, &gid);
-	kill(pid, SIGINT);
-}
-
-bool
-tw_set_socket(struct wl_display *display)
-{
-	char path[PATH_MAX];
-	unsigned int socket_num = 0;
-	const char *runtime_dir = getenv("XDG_RUNTIME_DIR");
-	//get socket
-	while(true) {
-		sprintf(path, "%s/wayland-%d", runtime_dir, socket_num);
-		if (access(path, F_OK) != 0) {
-			sprintf(path, "wayland-%d", socket_num);
-			break;
-		}
-		socket_num++;
-	}
-	if (wl_display_add_socket(display, path)) {
-		tw_logl("EE:failed to add socket %s", path);
-		return false;
-	}
-	return true;
-}
-
-int
-tw_term_on_signal(int sig_num, void *data)
-{
-	struct wl_display *display = data;
-
-	tw_logl("Caught signal %d\n", sig_num);
-	wl_display_terminate(display);
-	return 1;
-}
-
-int
-tw_handle_sigchld(UNUSED_ARG(int sig_num), UNUSED_ARG(void *data))
-{
-	struct wl_list *head;
-	struct tw_subprocess *subproc;
-	int status;
-	pid_t pid;
-
-	head = tw_get_clients_head();
-
-	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-		wl_list_for_each(subproc, head, link)
-			if (pid == subproc->pid)
-				break;
-
-		if (&subproc->link == head) {
-			weston_log("unknown process exited\n");
-			continue;
-		}
-
-		wl_list_remove(&subproc->link);
-		if (subproc->chld_handler)
-			subproc->chld_handler(subproc, status);
-	}
-	if (pid < 0 && errno != ECHILD)
-		weston_log("error in waiting child with status %s\n",
-		           strerror(errno));
-	return 1;
-}
 
 void
 tw_lose_surface_focus(struct weston_surface *surface)
@@ -310,19 +125,19 @@ tw_load_weston_module(const char *name, const char *entrypoint)
 	//LIBWESTON_MODULEDIR, so we need to test name and
 	module = dlopen(name, RTLD_NOW | RTLD_NOLOAD);
 	if (module) {
-		weston_log("Module '%s' already loaded\n", name);
+		tw_logl("Module '%s' already loaded\n", name);
 		return NULL;
 	} else {
 		module = dlopen(name, RTLD_NOW);
 		if (!module) {
-			weston_log("Failed to load the module %s\n", name);
+			tw_logl("Failed to load the module %s\n", name);
 			return NULL;
 		}
 	}
 
 	init = dlsym(module, entrypoint);
 	if (!init) {
-		weston_log("Faild to lookup function in module: %s\n",
+		tw_logl("Faild to lookup function in module: %s\n",
 		           dlerror());
 		dlclose(module);
 		return NULL;
@@ -331,28 +146,165 @@ tw_load_weston_module(const char *name, const char *entrypoint)
 
 }
 
-void
-tw_layer_set_position(struct tw_layer *layer, enum tw_layer_pos pos,
-                      struct wl_list *layers)
+
+/******************************************************************************
+ * tw_server, this is probably a bad place to set it up
+ *****************************************************************************/
+static void
+render_surface_texture(struct tw_surface *surface,
+                       struct wlr_renderer *renderer,
+                       struct wlr_output *wlr_output)
 {
-	struct tw_layer *l, *tmp;
+	struct timespec now;
+	clock_gettime(CLOCK_MONOTONIC, &now);
 
-	wl_list_remove(&layer->link);
-	layer->position = pos;
+	//TODO, wlr_matrix is row major and the it uses a total different
+	//coordinate system, sadly I cannot take advantage of it.
 
-	//from bottom to top
-	wl_list_for_each_reverse_safe(l, tmp, layers, link) {
-		if (l->position >= pos) {
-			wl_list_insert(&l->link, &layer->link);
-			return;
-		}
+	float transform[9];
+	struct wlr_texture *texture = surface->buffer.handle.ptr;
+	if (texture) {
+		wlr_matrix_transpose(transform,
+		                     surface->geometry.transform.d);
+		wlr_matrix_multiply(transform,
+		                    wlr_output->transform_matrix,
+		                    transform);
+		/* wlr_render_texture_with_matrix(renderer, texture, */
+		/*                                transform, 1.0); */
+		wlr_render_texture(renderer, texture,
+		                   wlr_output->transform_matrix,
+		                   surface->geometry.xywh.x,
+		                   surface->geometry.xywh.y,
+		                   1.0f);
 	}
-	wl_list_insert(layers, &layer->link);
+	tw_surface_flush_frame(surface,
+	                       now.tv_sec * 1000 + now.tv_nsec / 1000000);
 }
 
-void
-tw_layer_unset_position(struct tw_layer *layer)
+static void
+notify_new_output_frame(struct wl_listener *listener, void *data)
 {
-	wl_list_remove(&layer->link);
-	wl_list_init(&layer->link);
+	int width, height;
+	struct tw_server *server =
+		container_of(listener, struct tw_server, output_frame);
+	struct tw_backend_output *output = data;
+	struct wlr_renderer *renderer = server->wlr_renderer;
+	struct wlr_output *wlr_output = output->wlr_output;
+	struct tw_surface *surface;
+
+	tw_server_build_surface_list(server);
+	/* tw_server_stack_damage(server); */
+
+	if (!wlr_output_attach_render(output->wlr_output, NULL))
+		return;
+	wlr_output_effective_resolution(output->wlr_output, &width, &height);
+	wlr_renderer_begin(renderer, width, height);
+
+        float color[4] = {0.3, 0.3, 0.3, 1.0};
+	wlr_renderer_clear(renderer, color);
+
+	wl_list_for_each(surface, &server->backend->layers_manager.views,
+	                 links[TW_VIEW_SERVER_LINK])
+		render_surface_texture(surface, renderer, wlr_output);
+
+	wlr_renderer_end(renderer);
+	wlr_output_commit(output->wlr_output);
+}
+
+
+static void
+notify_adding_seat(struct wl_listener *listener, void *data)
+{
+	struct tw_server *server =
+		container_of(listener, struct tw_server, seat_add);
+	struct tw_backend_seat *seat = data;
+	uint32_t i = seat->idx;
+	tw_seat_events_init(&server->seat_events[i], seat,
+	                    server->binding_state);
+}
+
+static void
+notify_removing_seat(struct wl_listener *listener, void *data)
+{
+	struct tw_server *server =
+		container_of(listener, struct tw_server, seat_remove);
+	struct tw_backend_seat *seat = data;
+	uint32_t i = seat->idx;
+	tw_seat_events_fini(&server->seat_events[i]);
+}
+
+static void
+notify_surface_created(struct wl_listener *listener, void *data)
+{
+	struct tw_surface *surface = data;
+	struct tw_server *server =
+		container_of(listener, struct tw_server, surface_created);
+
+	wl_list_insert(server->backend->layers_manager.cursor_layer.views.prev,
+               &surface->links[TW_VIEW_LAYER_LINK]);
+}
+
+static void
+bind_listeners(struct tw_server *server)
+{
+	//seat add
+	wl_list_init(&server->seat_add.link);
+	server->seat_add.notify = notify_adding_seat;
+	wl_signal_add(&server->backend->seat_add_signal,
+	              &server->seat_add);
+	//seat remove
+	wl_list_init(&server->seat_remove.link);
+	server->seat_remove.notify = notify_removing_seat;
+	wl_signal_add(&server->backend->seat_rm_signal,
+	              &server->seat_remove);
+
+	//the frame callback, here we could have a choice in the future, if
+	//renderer offers different frame type.
+	wl_list_init(&server->output_frame.link);
+	server->output_frame.notify = notify_new_output_frame;
+	wl_signal_add(&server->backend->output_frame_signal,
+	              &server->output_frame);
+	//surface created
+	wl_list_init(&server->surface_created.link);
+	server->surface_created.notify = notify_surface_created;
+	wl_signal_add(&server->backend->surface_manager.surface_created_signal,
+	              &server->surface_created);
+}
+
+static bool
+bind_backend(struct tw_server *server)
+{
+	//handle backend
+	server->backend = tw_backend_create_global(server->display);
+	if (!server->backend) {
+		tw_logl("EE: failed to create backend\n");
+		return false;
+	}
+	tw_backend_defer_outputs(server->backend, true);
+
+	server->wlr_backend = tw_backend_get_backend(server->backend);
+	server->wlr_renderer = wlr_backend_get_renderer(server->wlr_backend);
+	return true;
+}
+
+static void
+bind_globals(struct tw_server *server)
+{
+	//bindings
+	server->binding_state =
+		tw_bindings_create(server->display);
+	tw_bindings_add_dummy(server->binding_state);
+}
+
+bool
+tw_server_init(struct tw_server *server, struct wl_display *display)
+{
+	server->display = display;
+	server->loop = wl_display_get_event_loop(display);
+	if (!bind_backend(server))
+		return false;
+	bind_globals(server);
+	bind_listeners(server);
+
+	return true;
 }

@@ -61,6 +61,7 @@ get_wl_subsurface(struct wl_client *client,
 	struct tw_event_get_wl_subsurface event = {
 		.surface = surface,
 		.parent_surface = parent,
+		.client = client,
 		.version = SUBSURFACE_VERSION,
 		.id = id,
 	};
@@ -192,21 +193,24 @@ destroy_tw_compositor(struct wl_listener *listener, void *data)
 	wl_global_destroy(compositor->wl_subcompositor);
 }
 
-struct tw_compositor *
-tw_compositor_create_global(struct wl_display *display)
+bool
+tw_compositor_init(struct tw_compositor *compositor,
+                   struct wl_display *display)
 {
-	struct tw_compositor *compositor = &s_tw_compositor;
-	if (compositor->wl_compositor || compositor->wl_subcompositor)
-		return compositor;
-
 	compositor->wl_compositor =
 		wl_global_create(display, &wl_compositor_interface,
 		                 COMPOSITOR_VERSION, compositor, bind_compositor);
+	if (!compositor->wl_compositor)
+		return false;
 	compositor->wl_subcompositor =
 		wl_global_create(display, &wl_subcompositor_interface,
 		                 SUBCOMPOSITOR_VERSION, compositor,
 		                 bind_subcompositor);
-
+	if (!compositor->wl_subcompositor) {
+		wl_global_destroy(compositor->wl_compositor);
+		compositor->wl_compositor = NULL;
+		return false;
+	}
 	wl_list_init(&compositor->destroy_listener.link);
 	compositor->destroy_listener.notify = destroy_tw_compositor;
 
@@ -215,6 +219,18 @@ tw_compositor_create_global(struct wl_display *display)
 	wl_signal_init(&compositor->subsurface_get);
 	wl_list_init(&compositor->clients);
 	wl_list_init(&compositor->subcomp_clients);
+
+	return true;
+}
+
+struct tw_compositor *
+tw_compositor_create_global(struct wl_display *display)
+{
+	struct tw_compositor *compositor = &s_tw_compositor;
+	if (compositor->wl_compositor || compositor->wl_subcompositor)
+		return compositor;
+	if (!tw_compositor_init(compositor, display))
+		return NULL;
 
 	return compositor;
 }
