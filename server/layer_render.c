@@ -54,7 +54,7 @@ surface_add_to_list(struct tw_server *server, struct tw_surface *surface)
 {
 	//we should also add to the output
 	struct tw_subsurface *sub;
-	struct tw_layers_manager *manager = &server->layers_manager;
+	struct tw_layers_manager *manager = &server->backend->layers_manager;
 
 	wl_list_insert(manager->views.prev,
 	               &surface->links[TW_VIEW_SERVER_LINK]);
@@ -73,7 +73,7 @@ tw_server_build_surface_list(struct tw_server *server)
 {
 	struct tw_surface *surface;
 	struct tw_layer *layer;
-	struct tw_layers_manager *manager = &server->layers_manager;
+	struct tw_layers_manager *manager = &server->backend->layers_manager;
 	struct tw_backend_output *output;
 
 	wl_list_init(&manager->views);

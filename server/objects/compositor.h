@@ -67,6 +67,9 @@ struct tw_event_get_wl_subsurface {
 struct tw_compositor *
 tw_compositor_create_global(struct wl_display *display);
 
+bool
+tw_compositor_init(struct tw_compositor *compositor,
+                   struct wl_display *display);
 
 #ifdef  __cplusplus
 }

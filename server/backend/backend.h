@@ -35,6 +35,12 @@
 #include <wlr/render/wlr_renderer.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include <objects/surface.h>
+#include <objects/layers.h>
+#include <objects/data_device.h>
+#include <objects/compositor.h>
+#include <objects/dmabuf.h>
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -143,19 +149,18 @@ struct tw_backend_seat {
 	} touch;
 };
 
+struct tw_backend_impl;
 struct tw_backend {
 	struct wl_display *display;
 	struct wlr_backend *auto_backend;
 	struct wlr_renderer *main_renderer;
+	/** interface for implementation details */
+	struct tw_backend_impl *impl;
 	bool started;
 	/**< options */
 	bool defer_output_creation;
 
-	struct wl_list heads;
-	struct wl_list pending_heads;
-	struct wl_listener head_add_listener;
-	struct wl_listener input_add_listener;
-	struct wl_listener compositor_destroy_listener;
+	struct wl_listener display_destroy_listener;
 
 	struct wl_signal output_frame_signal;
         struct wl_signal output_plug_signal;
@@ -165,22 +170,28 @@ struct tw_backend {
 	struct wl_signal seat_rm_signal;
 
 	/* outputs */
+	struct wl_list heads;
+	struct wl_list pending_heads;
 	uint32_t output_pool;
 	struct tw_backend_output outputs[32];
 
         /* inputs */
-        /**< cursor is global, this is a design choice, you can also implement
-         * per-seat cursor. The benefit of a single cursor is that you would not
-         * be confused when clients attach images to the cursor. The wlr_cursor
-         * is not really useful at the moment, we are not attaching any images
-         * to it. */
-	struct wlr_cursor *global_cursor;
 	struct xkb_context *xkb_context;
 	struct wl_list inputs;
 	uint8_t seat_pool;
 	struct tw_backend_seat seats[8];
-};
+        /** cursor is global, like most desktop experience, the one reason is
+         * that people want to fit cursor in the cursor plane.
+         */
+	struct wlr_cursor *global_cursor;
 
+	/** the basic objects required by a compositor **/
+	struct tw_surface_manager surface_manager;
+	struct tw_layers_manager layers_manager;
+	struct tw_compositor compositor_manager;
+	struct tw_data_device_manager data_device_manager;
+	struct tw_linux_dmabuf dma_engine;
+};
 
 struct tw_backend *
 tw_backend_create_global(struct wl_display *display);

@@ -305,24 +305,32 @@ destroy_data_device_manager(struct wl_listener *listener, void *data)
 	wl_global_destroy(manager->global);
 }
 
-struct tw_data_device_manager *
-tw_data_device_create_global(struct wl_display *display)
+bool
+tw_data_device_manager_init(struct tw_data_device_manager *manager,
+                            struct wl_display *display)
 {
-	struct tw_data_device_manager *manager =
-		&s_tw_data_device_manager;
-
 	manager->global = wl_global_create(display,
 	                                   &wl_data_device_manager_interface,
 	                                   3, manager,
 	                                   bind_data_device_manager);
-	if (!manager)
-		return NULL;
-
+	if (!manager->global)
+		return false;
 	wl_list_init(&manager->clients);
 	wl_list_init(&manager->display_destroy_listener.link);
 	manager->display_destroy_listener.notify =
 		destroy_data_device_manager;
 	wl_display_add_destroy_listener(display,
 	                                &manager->display_destroy_listener);
+	return true;
+}
+
+struct tw_data_device_manager *
+tw_data_device_create_global(struct wl_display *display)
+{
+	struct tw_data_device_manager *manager =
+		&s_tw_data_device_manager;
+	if (!tw_data_device_manager_init(manager, display))
+		return NULL;
+
 	return manager;
 }

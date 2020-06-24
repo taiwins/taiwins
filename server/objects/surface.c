@@ -551,7 +551,7 @@ surface_commit_state(struct tw_surface *surface)
 	surface_update_damage(surface);
 
 	if (surface->manager &&
-	    pixman_region32_not_empty(&surface->current->buffer_damage))
+	    pixman_region32_not_empty(&surface->current->surface_damage))
 		wl_signal_emit(&surface->manager->surface_dirty_signal,
 		               surface);
 	//also commit the subsurface surface and
@@ -632,10 +632,6 @@ surface_commit(struct wl_client *client,
 		subsurface_commit_for_parent(subsurface, committed);
 
 	wl_signal_emit(&surface->events.commit, surface);
-	if (pixman_region32_not_empty(&(surface->current->surface_damage)) &&
-	    surface->manager)
-		wl_signal_emit(&surface->manager->surface_dirty_signal,
-		               &surface);
 }
 
 static const struct wl_surface_interface surface_impl = {
@@ -699,7 +695,7 @@ tw_surface_dirty_geometry(struct tw_surface *surface)
 	wl_list_for_each(sub, &surface->subsurfaces, parent_link)
 		tw_surface_dirty_geometry(sub->surface);
 	if (surface->manager)
-		wl_signal_emit(&surface->manager->surface_created_signal,
+		wl_signal_emit(&surface->manager->surface_dirty_signal,
 		               surface);
 }
 

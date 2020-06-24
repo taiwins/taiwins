@@ -485,18 +485,17 @@ notify_dmabuf_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&dma->destroy_listener.link);
 }
 
-struct tw_linux_dmabuf *
-tw_dmabuf_create_global(struct wl_display *display)
+bool
+tw_linux_dmabuf_init(struct tw_linux_dmabuf *dmabuf,
+                     struct wl_display *display)
 {
-	struct tw_linux_dmabuf *dmabuf = &s_tw_linux_dmabuf;
-
 	dmabuf->global = wl_global_create(display,
 	                                  &zwp_linux_dmabuf_v1_interface,
 	                                  DMA_BUF_VERSION,
 	                                  dmabuf,
 	                                  bind_dmabuf);
 	if (!dmabuf->global)
-		return NULL;
+		return false;
 	dmabuf->display = display;
 	dmabuf->format_request.format_request = NULL;
 	dmabuf->format_request.modifiers_request = NULL;
@@ -506,6 +505,15 @@ tw_dmabuf_create_global(struct wl_display *display)
 	wl_list_init(&dmabuf->destroy_listener.link);
 	dmabuf->destroy_listener.notify = notify_dmabuf_destroy;
 	wl_display_add_destroy_listener(display, &dmabuf->destroy_listener);
+	return true;
+}
 
+struct tw_linux_dmabuf *
+tw_dmabuf_create_global(struct wl_display *display)
+{
+	struct tw_linux_dmabuf *dmabuf = &s_tw_linux_dmabuf;
+
+        if (!tw_linux_dmabuf_init(dmabuf, display))
+		return NULL;
 	return dmabuf;
 }

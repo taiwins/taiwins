@@ -69,27 +69,14 @@ struct tw_server {
 	struct wlr_renderer *wlr_renderer;
 	struct tw_backend *backend;
 	struct tw_bindings *binding_state;
-	struct tw_data_device_manager *data_device;
-	struct tw_compositor *compositor;
-	struct tw_linux_dmabuf *dma_engine;
-
-	struct tw_seat_events seat_events[8];
-	struct tw_surface_manager surface_manager;
-	struct tw_layers_manager layers_manager;
-
-        /* lists */
 
 	/* seats */
+	struct tw_seat_events seat_events[8];
 	struct wl_listener seat_add;
 	struct wl_listener seat_remove;
 	/* render */
 	struct wl_listener output_frame;
-	/* surface/subsurface/region listener */
-	struct wl_listener surface_create_listener;
-	struct wl_listener subsurface_create_listener;
-	struct wl_listener region_create_listener;
-	struct wl_listener surface_destroy_listener;
-	struct wl_listener surface_dirty_listener;
+	struct wl_listener surface_created;
 };
 
 bool
@@ -104,7 +91,6 @@ tw_server_stack_damage(struct tw_server *server);
 /******************************************************************************
  * util functions
  *****************************************************************************/
-
 
 bool
 tw_set_wl_surface(struct wl_client *client,

@@ -97,6 +97,9 @@ struct tw_linux_dmabuf *
 tw_dmabuf_create_global(struct wl_display *display);
 
 bool
+tw_linux_dmabuf_init(struct tw_linux_dmabuf *dma, struct wl_display *display);
+
+bool
 tw_is_wl_buffer_dmabuf(struct wl_resource *resource);
 
 struct tw_dmabuf_buffer *

@@ -87,6 +87,9 @@ struct tw_data_device_manager {
 struct tw_data_device_manager *
 tw_data_device_create_global(struct wl_display *display);
 
+bool
+tw_data_device_manager_init(struct tw_data_device_manager *manager,
+                            struct wl_display *display);
 /* create the data_offer for the current data_source, invoked ether in
  * wl_data_device.set_selection or wl_data_device.enter. */
 struct tw_data_offer *

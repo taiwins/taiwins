@@ -6,9 +6,9 @@ taiwins_src = [
   'layer_render.c',
   'binding/bindings.c',
   'backend/backend.c',
-  'backend/keyboard.c',
-  'backend/pointer.c',
-  'backend/touch.c',
+  'backend/backend_impl.c',
+  'backend/backend_seat.c',
+  'backend/backend_output.c',
   'backend/render/renderer.c',
   'backend/render/shaders.c',
 
