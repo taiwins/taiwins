@@ -55,9 +55,6 @@
 extern "C" {
 #endif
 
-#define TW_VIEW_LAYER_LINK 0
-#define TW_VIEW_SERVER_LINK 1
-#define TW_VIEW_OUTPUT_LINK 2
 #define TW_VIEW_TMP_LINK 3
 
 struct tw_server {

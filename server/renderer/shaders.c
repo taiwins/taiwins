@@ -22,8 +22,8 @@
 #include <assert.h>
 #include <GLES3/gl3.h>
 
+#include <objects/logger.h>
 #include "shaders.h"
-#include "../../taiwins.h"
 
 /******************************************************************************
  * shader collections

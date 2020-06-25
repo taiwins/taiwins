@@ -41,6 +41,10 @@
 #include <objects/compositor.h>
 #include <objects/dmabuf.h>
 
+#define TW_VIEW_LAYER_LINK 0
+#define TW_VIEW_GLOBAL_LINK 1
+#define TW_VIEW_OUTPUT_LINK 2
+
 #ifdef  __cplusplus
 extern "C" {
 #endif

@@ -42,7 +42,7 @@
 #include <wlr/types/wlr_matrix.h>
 #include <ctypes/os/os-compatibility.h>
 
-#include <backend/render/renderer.h>
+#include <renderer/renderer.h>
 #include <backend/backend.h>
 #include <objects/surface.h>
 #include <objects/compositor.h>
@@ -204,7 +204,7 @@ notify_new_output_frame(struct wl_listener *listener, void *data)
 	wlr_renderer_clear(renderer, color);
 
 	wl_list_for_each(surface, &server->backend->layers_manager.views,
-	                 links[TW_VIEW_SERVER_LINK])
+	                 links[TW_VIEW_GLOBAL_LINK])
 		render_surface_texture(surface, renderer, wlr_output);
 
 	wlr_renderer_end(renderer);

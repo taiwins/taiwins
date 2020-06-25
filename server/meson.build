@@ -9,8 +9,8 @@ taiwins_src = [
   'backend/backend_impl.c',
   'backend/backend_seat.c',
   'backend/backend_output.c',
-  'backend/render/renderer.c',
-  'backend/render/shaders.c',
+  'renderer/renderer.c',
+  'renderer/shaders.c',
 
 
   'objects/seat.c',
