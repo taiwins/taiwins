@@ -29,6 +29,12 @@
 extern "C" {
 #endif
 
+enum TW_LOG_LEVEL {
+	TW_LOG_INFO = 0,
+	TW_LOG_DBUG = 1,
+	TW_LOG_WARN = 2,
+	TW_LOG_ERRO = 3,
+};
 
 void
 tw_logger_open(const char *path);
@@ -43,20 +49,15 @@ tw_logger_close(void);
  * @brief logging at info level.
  */
 int
-tw_log(const char *format, va_list args);
+tw_log_level(enum TW_LOG_LEVEL level, const char *format, ...);
 
-static inline int
-tw_logl(const char *format, ...)
-{
-	int ret;
-	va_list ap;
-	va_start(ap, format);
-	ret = tw_log(format, ap);
-	va_end(ap);
+#define tw_logl(format, ...) \
+	tw_log_level(TW_LOG_INFO, "%s:%d " format, __FILE__, __LINE__, ##__VA_ARGS__)
 
-	return ret;
-}
 
+#define tw_logl_level(level, format, ...) \
+	tw_log_level(level, "%s:%d " format, __FILE__, __LINE__, \
+	             ##__VA_ARGS__)
 
 #ifdef  __cplusplus
 }
