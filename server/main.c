@@ -37,6 +37,7 @@
 
 #include <ctypes/helpers.h>
 #include "binding/bindings.h"
+#include "objects/logger.h"
 #include "objects/subprocess.h"
 #include "objects/seat.h"
 #include "taiwins.h"
@@ -157,7 +158,7 @@ main(int argc, char *argv[])
 	if (!parse_options(&options, argc, argv))
 		return -1;
 
-	tw_logger_open("/tmp/taiwins-log");
+	tw_logger_use_file(stderr);
 
 	display = wl_display_create();
 	if (!display) {

@@ -30,6 +30,7 @@
 #include <pixman.h>
 
 #include "matrix.h"
+#include "plane.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -103,6 +104,7 @@ struct tw_view {
 
 	struct tw_mat3 surface_to_buffer;
 
+	struct tw_plane *plane;
 	struct wl_resource *buffer_resource;
 
 	pixman_region32_t surface_damage, buffer_damage;

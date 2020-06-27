@@ -316,41 +316,9 @@ surface_build_buffer_matrix(struct tw_surface *surface)
 		tw_mat3_translate(&tmp, current->crop.x, current->crop.y);
 		tw_mat3_multiply(transform, &tmp, transform);
 	}
-	tw_mat3_wl_transform(&tmp, current->transform);
+	tw_mat3_transform_rect(&tmp, current->transform,
+	                       src_width, src_height, current->buffer_scale);
 	tw_mat3_multiply(transform, &tmp, transform);
-	tw_mat3_scale(&tmp, current->buffer_scale, current->buffer_scale);
-	tw_mat3_multiply(transform, &tmp, transform);
-
-	switch (current->transform) {
-	case WL_OUTPUT_TRANSFORM_NORMAL:
-		break;
-	case WL_OUTPUT_TRANSFORM_90:
-		tw_mat3_translate(&tmp, src_height, 0.0);
-		tw_mat3_multiply(transform, &tmp, transform);
-		break;
-	case WL_OUTPUT_TRANSFORM_180:
-		tw_mat3_translate(&tmp, src_width, src_height);
-		tw_mat3_multiply(transform, &tmp, transform);
-		break;
-	case WL_OUTPUT_TRANSFORM_270:
-		tw_mat3_translate(&tmp, 0.0, src_width);
-		tw_mat3_multiply(transform, &tmp, transform);
-		break;
-	case WL_OUTPUT_TRANSFORM_FLIPPED:
-		tw_mat3_translate(&tmp, src_width, 0.0);
-		tw_mat3_multiply(transform, &tmp, transform);
-		break;
-	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-		break;
-	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
-		tw_mat3_translate(&tmp, 0.0, src_height);
-		tw_mat3_multiply(transform, &tmp, transform);
-		break;
-	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-		tw_mat3_translate(&tmp, src_height, src_width);
-		tw_mat3_multiply(transform, &tmp, transform);
-		break;
-	}
 }
 
 static void
@@ -788,10 +756,12 @@ tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
 	for (int i = 0; i < MAX_VIEW_LINKS; i++)
 		wl_list_init(&surface->links[i]);
 
+	//init view
 	for (int i = 0; i < 3; i++) {
 		view = &surface->surface_states[i];
 		view->transform = WL_OUTPUT_TRANSFORM_NORMAL;
 		view->buffer_scale = 1;
+		view->plane = NULL;
 		pixman_region32_init(&view->surface_damage);
 		pixman_region32_init(&view->buffer_damage);
 		pixman_region32_init(&view->opaque_region);

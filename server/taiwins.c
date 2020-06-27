@@ -181,8 +181,8 @@ render_surface_texture(struct tw_surface *surface,
 	                       now.tv_sec * 1000 + now.tv_nsec / 1000000);
 }
 
-static void
-notify_new_output_frame(struct wl_listener *listener, void *data)
+void
+new_output_frame(struct wl_listener *listener, void *data)
 {
 	int width, height;
 	struct tw_server *server =
@@ -260,10 +260,10 @@ bind_listeners(struct tw_server *server)
 
 	//the frame callback, here we could have a choice in the future, if
 	//renderer offers different frame type.
-	wl_list_init(&server->output_frame.link);
-	server->output_frame.notify = notify_new_output_frame;
-	wl_signal_add(&server->backend->output_frame_signal,
-	              &server->output_frame);
+	/* wl_list_init(&server->output_frame.link); */
+	/* server->output_frame.notify = notify_new_output_frame; */
+	/* wl_signal_add(&server->backend->output_frame_signal, */
+	/*               &server->output_frame); */
 	//surface created
 	wl_list_init(&server->surface_created.link);
 	server->surface_created.notify = notify_surface_created;
@@ -275,7 +275,8 @@ static bool
 bind_backend(struct tw_server *server)
 {
 	//handle backend
-	server->backend = tw_backend_create_global(server->display);
+	server->backend = tw_backend_create_global(server->display,
+	                                           tw_layer_renderer_create);
 	if (!server->backend) {
 		tw_logl("EE: failed to create backend\n");
 		return false;

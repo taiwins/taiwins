@@ -173,6 +173,50 @@ tw_mat3_wl_transform(struct tw_mat3 *dst,
 }
 
 void
+tw_mat3_transform_rect(struct tw_mat3 *dst,
+                       enum wl_output_transform transform,
+                       uint32_t width, uint32_t height, uint32_t scale)
+{
+	struct tw_mat3 tmp;
+
+	tw_mat3_init(dst);
+	tw_mat3_wl_transform(&tmp, transform);
+	tw_mat3_multiply(dst, &tmp, dst);
+	tw_mat3_scale(&tmp, scale, scale);
+
+	switch (transform) {
+	case WL_OUTPUT_TRANSFORM_NORMAL:
+		break;
+	case WL_OUTPUT_TRANSFORM_90:
+		tw_mat3_translate(&tmp, height, 0.0);
+		tw_mat3_multiply(dst, &tmp, dst);
+		break;
+	case WL_OUTPUT_TRANSFORM_180:
+		tw_mat3_translate(&tmp, width, height);
+		tw_mat3_multiply(dst, &tmp, dst);
+		break;
+	case WL_OUTPUT_TRANSFORM_270:
+		tw_mat3_translate(&tmp, 0.0, width);
+		tw_mat3_multiply(dst, &tmp, dst);
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED:
+		tw_mat3_translate(&tmp, width, 0.0);
+		tw_mat3_multiply(dst, &tmp, dst);
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
+		tw_mat3_translate(&tmp, 0.0, height);
+		tw_mat3_multiply(dst, &tmp, dst);
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+		tw_mat3_translate(&tmp, height, width);
+		tw_mat3_multiply(dst, &tmp, dst);
+		break;
+	}
+}
+
+void
 tw_mat3_ortho_proj(struct tw_mat3 *dst, uint32_t width,
                    uint32_t height)
 {
@@ -183,9 +227,9 @@ tw_mat3_ortho_proj(struct tw_mat3 *dst, uint32_t width,
 	//yp = (2 - 2*ye/height) + 1.0
 	tw_mat3_init(dst);
 	dst->d[0] = x;
-	dst->d[4] = -y;
+	dst->d[4] = y;
 	dst->d[6] = -1.0f;
-	dst->d[7] = 1.0f;
+	dst->d[7] = -1.0f;
 	dst->d[8] = 1.0f;
 }
 

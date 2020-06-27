@@ -35,6 +35,7 @@
 #include <wlr/render/wlr_renderer.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include <objects/matrix.h>
 #include <objects/surface.h>
 #include <objects/layers.h>
 #include <objects/data_device.h>
@@ -95,6 +96,7 @@ struct tw_backend_output {
 		bool dirty;
 		bool activate;
 		bool preferred_mode;
+		/* set by user, corrected by backend */
 		int32_t x, y, w, h, refresh;
 		float scale;
 		enum wl_output_transform transform;
@@ -102,6 +104,9 @@ struct tw_backend_output {
 		//used for monitors, 1.0 means linear gamma. wlr uses a
 		//different gamma method, we deal with later
 		float gamma_value;
+
+		/* convert global coordinates to output GL coordinates */
+		struct tw_mat3 view_2d;
 
 		/** the repaint status, the output repaint is driven by timer,
 		 * in the future we may be able to drive it by idle event */
@@ -198,7 +203,8 @@ struct tw_backend {
 };
 
 struct tw_backend *
-tw_backend_create_global(struct wl_display *display);
+tw_backend_create_global(struct wl_display *display,
+                         wlr_renderer_create_func_t render_create);
 
 void
 tw_backend_flush(struct tw_backend *backend);

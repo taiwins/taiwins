@@ -157,8 +157,11 @@ compile_shader(GLenum type, const GLchar *src)
 	return shader;
 }
 
-static GLuint
-create_program(const GLchar *vs_src, const GLchar *fs_src)
+/*****************************************************************************
+ * exposed APIs
+ ****************************************************************************/
+GLuint
+tw_renderer_create_program(const GLchar *vs_src, const GLchar *fs_src)
 {
 	GLuint p;
 	GLuint vs = compile_shader(GL_VERTEX_SHADER, vs_src);
@@ -177,18 +180,14 @@ create_program(const GLchar *vs_src, const GLchar *fs_src)
 	return p;
 }
 
-/*****************************************************************************
- * exposed APIs
- ****************************************************************************/
-
 void
 tw_quad_color_shader_init(struct tw_quad_color_shader *shader)
 {
-	shader->prog = create_program(quad_vs, color_quad_fs);
+	shader->prog = tw_renderer_create_program(quad_vs, color_quad_fs);
 	shader->uniform.proj = glGetUniformLocation(shader->prog, "proj");
 	shader->uniform.color = glGetUniformLocation(shader->prog, "color");
-	assert(shader->uniform.proj);
-	assert(shader->uniform.color);
+	assert(shader->uniform.proj >= 0);
+	assert(shader->uniform.color >= 0);
 }
 
 void
@@ -200,13 +199,13 @@ tw_quad_color_shader_fini(struct tw_quad_color_shader *shader)
 void
 tw_quad_tex_blend_shader_init(struct tw_quad_tex_shader *shader)
 {
-	shader->prog = create_program(quad_vs, tex_quad_fs);
+	shader->prog = tw_renderer_create_program(quad_vs, tex_quad_fs);
 	shader->uniform.proj = glGetUniformLocation(shader->prog, "proj");
 	shader->uniform.texture = glGetUniformLocation(shader->prog, "tex");
 	shader->uniform.alpha = glGetUniformLocation(shader->prog, "alpha");
-	assert(shader->uniform.proj);
-	assert(shader->uniform.texture);
-	assert(shader->uniform.alpha);
+	assert(shader->uniform.proj >= 0);
+	assert(shader->uniform.texture >= 0);
+	assert(shader->uniform.alpha >= 0);
 }
 
 void
@@ -218,13 +217,13 @@ tw_quad_tex_blend_shader_fini(struct tw_quad_tex_shader *shader)
 void
 tw_quad_tex_blur_shader_init(struct tw_quad_tex_shader *shader)
 {
-	shader->prog = create_program(quad_vs, tex_gaussian_fs);
+	shader->prog = tw_renderer_create_program(quad_vs, tex_gaussian_fs);
 	shader->uniform.proj = glGetUniformLocation(shader->prog, "proj");
 	shader->uniform.texture = glGetUniformLocation(shader->prog, "tex");
 	shader->uniform.alpha = glGetUniformLocation(shader->prog, "alpha");
-	assert(shader->uniform.proj);
-	assert(shader->uniform.texture);
-	assert(shader->uniform.alpha);
+	assert(shader->uniform.proj >= 0);
+	assert(shader->uniform.texture >= 0);
+	assert(shader->uniform.alpha >= 0);
 }
 
 void

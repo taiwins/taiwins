@@ -20,9 +20,44 @@
  */
 
 #include <ctypes/helpers.h>
+#include <wayland-server-protocol.h>
 
 #include "backend.h"
 #include "backend_internal.h"
+#include "objects/matrix.h"
+#include "renderer/renderer.h"
+
+static enum wl_output_transform
+inverse_wl_transform(enum wl_output_transform t)
+{
+	if ((t & WL_OUTPUT_TRANSFORM_90) &&
+	    !(t & WL_OUTPUT_TRANSFORM_FLIPPED)) {
+		t ^= WL_OUTPUT_TRANSFORM_180;
+	}
+	return t;
+}
+
+//called when output is dirty
+static void
+build_output_2d_view(struct tw_backend_output *o)
+{
+	struct tw_mat3 glproj, tmp;
+	int width, height;
+
+	//this essentially map-backs a virtual space back to physical space.
+	tw_mat3_init(&glproj);
+	glproj.d[4] = -1;
+	glproj.d[7] = o->state.h;
+	wlr_output_effective_resolution(o->wlr_output, &width, &height);
+
+	//the transform should be
+	// T' = glproj * inv_wl_transform * scale * -translate * T
+	tw_mat3_translate(&o->state.view_2d, -o->state.x, -o->state.y);
+	tw_mat3_transform_rect(&tmp, inverse_wl_transform(o->state.transform),
+	                       width, height, o->state.scale);
+	tw_mat3_multiply(&o->state.view_2d, &tmp, &o->state.view_2d);
+	tw_mat3_multiply(&o->state.view_2d, &glproj, &o->state.view_2d);
+}
 
 static struct wlr_output_mode *
 pick_output_mode(struct tw_backend_output *o, struct wlr_output *output)
@@ -47,6 +82,14 @@ pick_output_mode(struct tw_backend_output *o, struct wlr_output *output)
 		return wlr_output_preferred_mode(output);
 }
 
+static inline void
+correct_output_mode(struct tw_backend_output *o)
+{
+	struct wlr_output *wlr_output = o->wlr_output;
+	o->state.w = wlr_output->width;
+	o->state.h = wlr_output->height;
+	o->state.refresh = wlr_output->refresh;
+}
 void
 tw_backend_commit_output_state(struct tw_backend_output *o)
 {
@@ -62,8 +105,13 @@ tw_backend_commit_output_state(struct tw_backend_output *o)
 			wlr_output_preferred_mode(output) :
 			pick_output_mode(o, output);
 		wlr_output_set_mode(output, mode);
-
+		//wlr_output_commit will call impl->commit which in turns would
+		//update_the_output mode, x11 and wayland backend does not have
+		//commit so output->mode would not change.
 		wlr_output_commit(output);
+		correct_output_mode(o);
+		//build output transformation matrix
+		build_output_2d_view(o);
 		o->state.dirty = false;
 
 		//now here we can decide if we want to implement
@@ -90,11 +138,22 @@ notify_new_output_frame(struct wl_listener *listener, void *data)
 		container_of(listener, struct tw_backend_output,
 		             frame_listener);
 	struct tw_backend *backend = output->backend;
+	struct tw_renderer *renderer =
+		container_of(backend->main_renderer, struct tw_renderer, base);
 
 	/* if (output->state.repaint_state != TW_REPAINT_DIRTY) */
 	/*	return; */
-	//TODO< we need to expand this in a different way
+	//output need to have transform
+
+	if (!wlr_output_attach_render(output->wlr_output, NULL))
+		return;
+
+	renderer->repaint_output(renderer, output);
+	wlr_output_commit(output->wlr_output);
+
+	//sure this is the good place to start?
 	wl_signal_emit(&backend->output_frame_signal, output);
+
 	//clean off the repaint state
 	output->state.repaint_state = TW_REPAINT_CLEAN;
 }

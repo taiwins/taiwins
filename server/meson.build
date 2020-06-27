@@ -11,7 +11,8 @@ taiwins_src = [
   'backend/backend_output.c',
   'renderer/renderer.c',
   'renderer/shaders.c',
-
+  'renderer/texture.c',
+  'renderer/layer_renderer.c',
 
   'objects/seat.c',
   'objects/seat_keyboard.c',
@@ -30,6 +31,7 @@ taiwins_src = [
   'objects/data_offer.c',
   'objects/data_dnd.c',
   'objects/matrix.c',
+  'objects/plane.c',
 
   wayland_linux_dmabuf_server_protocol_h,
   wayland_linux_dmabuf_private_code_c,

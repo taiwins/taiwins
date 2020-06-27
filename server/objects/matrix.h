@@ -63,8 +63,19 @@ tw_mat3_rotate(struct tw_mat3 *mat, float degree);
 
 void
 tw_mat3_wl_transform(struct tw_mat3 *dst,
-                          enum wl_output_transform transform);
+                     enum wl_output_transform transform);
+
 /**
+ * @breif transform a (0, 0, width, height) by its size
+ *
+ * the (width, height) here is needed to move the rect back to origin after
+ * multiplied by rotation and scaling matrix
+ */
+void
+tw_mat3_transform_rect(struct tw_mat3 *dst,
+                       enum wl_output_transform transform,
+                       uint32_t width, uint32_t height, uint32_t scale);
+    /**
  * @brief generating matrix mapping coordinates from image space to clip space.
  *
  * @param width is the width of the transformed output.

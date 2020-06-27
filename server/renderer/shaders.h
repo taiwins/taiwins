@@ -33,8 +33,8 @@ extern "C" {
 struct tw_quad_color_shader {
 	GLuint prog;
 	struct {
-		GLuint proj;
-		GLuint color;
+		GLint proj;
+		GLint color;
 	} uniform;
 };
 
@@ -42,11 +42,14 @@ struct tw_quad_tex_shader {
 	GLuint prog;
 	/* used by normal alpha blending and gaussin blur shader */
 	struct {
-		GLuint proj;
-		GLuint alpha;
-		GLuint texture;
+		GLint proj;
+		GLint alpha;
+		GLint texture;
 	} uniform;
 };
+
+GLuint
+tw_renderer_create_program(const GLchar *vs_src, const GLchar *fs_src);
 
 void
 tw_quad_color_shader_init(struct tw_quad_color_shader *shader);

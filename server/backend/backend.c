@@ -103,9 +103,6 @@ tw_backend_init_globals(struct tw_backend *backend)
 	tw_surface_manager_init(&backend->surface_manager);
 	tw_layers_manager_init(&backend->layers_manager, backend->display);
 
-	wl_display_init_shm(backend->display);
-	wl_display_add_shm_format(backend->display, WL_SHM_FORMAT_ARGB8888);
-
 	return true;
 }
 
@@ -124,7 +121,8 @@ release_backend(struct wl_listener *listener, UNUSED_ARG(void *data))
 }
 
 struct tw_backend *
-tw_backend_create_global(struct wl_display *display)
+tw_backend_create_global(struct wl_display *display,
+                         wlr_renderer_create_func_t render_create)
 {
 	struct tw_backend *backend = &s_tw_backend;
 	struct tw_backend_impl *impl = &s_tw_backend_impl;
@@ -141,12 +139,14 @@ tw_backend_create_global(struct wl_display *display)
 	backend->output_pool = 0;
 	backend->seat_pool = 0;
 
-	backend->auto_backend = wlr_backend_autocreate(display, NULL);
+	backend->auto_backend = wlr_backend_autocreate(display, render_create);
 	if (!backend->auto_backend)
 		goto err;
 
 	backend->main_renderer =
 		wlr_backend_get_renderer(backend->auto_backend);
+	//this would initialize the wl_shm
+	wlr_renderer_init_wl_display(backend->main_renderer, display);
 
 	backend->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	if (!backend->xkb_context)
