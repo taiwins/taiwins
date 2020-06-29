@@ -31,10 +31,10 @@
 
 
 //256 should be more than enough
-struct battery_widget_data {
-	char energy_now[256];
-	char energy_full[256];
-	char charging[256];
+static struct battery_widget_data {
+	char energy_now[400];
+	char energy_full[400];
+	char charging[400];
 } battery_sys_files = {
 	.energy_now = "\0",
 	.energy_full = "\0",
@@ -64,17 +64,17 @@ battery_anchor(struct shell_widget *widget, struct shell_widget_label *label)
 	float percent = (float)en / (float)ef;
 
 	if (ol == 1)
-		strop_ncpy(label->label, u8"\uf5e7", 256); //charging
+		strop_ncpy(label->label, u8"\uf5e7", 31); //charging
 	else if (percent <= 0.1)
-		strop_ncpy(label->label, u8"\uf244", 256); //battery empty
+		strop_ncpy(label->label, u8"\uf244", 31); //battery empty
 	else if (percent > 0.1 && percent <= 0.3)
-		strop_ncpy(label->label, u8"\uf243", 256); //battery quarter
+		strop_ncpy(label->label, u8"\uf243", 31); //battery quarter
 	else if (percent > 0.3 && percent <= 0.6)
-		strop_ncpy(label->label, u8"\uf242", 256); //battery half
+		strop_ncpy(label->label, u8"\uf242", 31); //battery half
 	else if (percent > 0.6 && percent <= 0.8)
-		strop_ncpy(label->label, u8"\uf241", 256); //three quater
+		strop_ncpy(label->label, u8"\uf241", 31); //three quater
 	else
-		strop_ncpy(label->label,  u8"\uf240", 256); //full
+		strop_ncpy(label->label,  u8"\uf240", 31); //full
 	return strlen(label->label);
 }
 
@@ -82,8 +82,8 @@ battery_anchor(struct shell_widget *widget, struct shell_widget_label *label)
 static int
 battery_sysfile_find(struct shell_widget *widget, char *path)
 {
-	char batt_file[128];
-	char adp_file[128];
+	char batt_file[260];
+	char adp_file[260];
 	const char *power_supply = "/sys/class/power_supply";
 	int bat_no = -1; int adp_no = -1;
 	struct dirent *batt;
@@ -95,13 +95,13 @@ battery_sysfile_find(struct shell_widget *widget, char *path)
 	batt = dir_find_pattern(dir, "BAT%d", &bat_no);
 	if (!batt)
 		return 0;
-	strop_ncpy(batt_file, batt->d_name, 128);
+	strop_ncpy(batt_file, batt->d_name, 260);
 	seekdir(dir, 0);
 
 	batt = dir_find_pattern(dir, "ADP%d", &adp_no);
 	if (!batt)
 		return 0;
-	strop_ncpy(adp_file, batt->d_name, 128);
+	strop_ncpy(adp_file, batt->d_name, 260);
 	closedir(dir);
 
 	//we need to have additional checks
