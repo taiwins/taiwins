@@ -10,9 +10,12 @@
 #include <wayland-client.h>
 #include <twclient/client.h>
 #include <twclient/shmpool.h>
-#include <GL/gl.h>
-#include <GL/glext.h>
+#include <wayland-xdg-shell-client-protocol.h>
+
 static struct wl_shell *s_wl_shell = NULL;
+static struct xdg_wm_base *s_xdg_wm_base = NULL;
+static bool s_configured = false;
+
 
 static struct quad_shader {
 	GLuint prog;
@@ -93,7 +96,7 @@ static void
 dummy_prepare()
 {
 	GLfloat verts[] = {
-		1.0, 1.0, 1.0, 0.0, 0.0, 1.0,
+		1.0, 1.0, 1.0, 0.0, 0.0, 1.0, //top-right
 		-1.0, 1.0, 0.0, 1.0, 0.0, 1.0, //top-left
 		1.0, -1.0, 0.0, 0.0, 1.0, 1.0, //bottom-right,
 		-1.0, -1.0, 1.0, 1.0, 0.0, 1.0, //bottom-left
@@ -132,38 +135,8 @@ dummy_release()
 	glDeleteVertexArrays(1, &s_quad_shader.vao);
 	glDeleteBuffers(1, &s_quad_shader.vbo);
 }
-/*************************** initializations  *****************************/
 
-static
-void announce_globals(void *data,
-		       struct wl_registry *wl_registry,
-		       uint32_t name,
-		       const char *interface,
-		       uint32_t version)
-{
-	struct tw_globals *globals = data;
-	if (strcmp(interface, wl_shell_interface.name) == 0) {
-		s_wl_shell = wl_registry_bind(wl_registry, name,
-		                             &wl_shell_interface, version);
-		fprintf(stdout, "wl_shell %d announced\n", name);
-	}
-
-	tw_globals_announce(globals, wl_registry, name, interface, version);
-}
-
-static
-void announce_global_remove(void *data,
-		      struct wl_registry *wl_registry,
-		      uint32_t name)
-{
-	fprintf(stderr, "global %d removed", name);
-}
-
-static struct wl_registry_listener registry_listener = {
-	.global = announce_globals,
-	.global_remove = announce_global_remove
-};
-
+/***************************  wl_shell impls  *****************************/
 static void
 handle_shell_ping(void *data, struct wl_shell_surface *wl_shell_surface,
                   uint32_t serial)
@@ -191,12 +164,112 @@ static struct wl_shell_surface_listener shell_impl = {
 	.popup_done = shell_handle_popup_done,
 };
 
+/***************************  wl_shell impls  *****************************/
+
+
+static void
+handle_toplevel_configure(void *data,
+			 struct xdg_toplevel *xdg_toplevel,
+			 int32_t width,
+			 int32_t height,
+			 struct wl_array *states)
+{
+	struct tw_appsurf *app = data;
+
+	if (!width || !height)
+		return;
+	tw_appsurf_resize(app, width, height, app->allocation.s);
+}
+
+static void
+handle_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
+{
+	struct xdg_surface *xdg_surface = data;
+	struct tw_appsurf *app =
+		xdg_surface_get_user_data(xdg_surface);
+	xdg_toplevel_destroy(xdg_toplevel);
+	xdg_surface_destroy(xdg_surface);
+	tw_appsurf_release(app);
+}
+
+static const struct xdg_toplevel_listener toplevel_impl = {
+	.configure = handle_toplevel_configure,
+	.close = handle_toplevel_close,
+};
+
+static void
+xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
+                      uint32_t serial)
+{
+	struct tw_appsurf *app = data;
+	app->tw_globals->inputs.serial = serial;
+	xdg_surface_ack_configure(xdg_surface, serial);
+	s_configured = true;
+}
+
+static struct xdg_surface_listener xdg_impl = {
+	.configure = xdg_surface_configure,
+};
+
+static void
+xdg_wm_ping(void *data,
+            struct xdg_wm_base *xdg_wm_base,
+            uint32_t serial)
+{
+	xdg_wm_base_pong(xdg_wm_base, serial);
+}
+
+
+static struct xdg_wm_base_listener xdg_wm_impl = {
+	.ping = xdg_wm_ping,
+};
+
+/*************************** initializations  *****************************/
+
+static
+void announce_globals(void *data,
+		       struct wl_registry *wl_registry,
+		       uint32_t name,
+		       const char *interface,
+		       uint32_t version)
+{
+	struct tw_globals *globals = data;
+	if (strcmp(interface, wl_shell_interface.name) == 0) {
+		s_wl_shell = wl_registry_bind(wl_registry, name,
+		                             &wl_shell_interface, version);
+		fprintf(stdout, "wl_shell %d announced\n", name);
+	} else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
+		s_xdg_wm_base = wl_registry_bind(wl_registry, name,
+		                                 &xdg_wm_base_interface,
+		                                 version);
+		xdg_wm_base_add_listener(s_xdg_wm_base, &xdg_wm_impl, globals);
+	}
+
+	tw_globals_announce(globals, wl_registry, name, interface, version);
+}
+
+static
+void announce_global_remove(void *data,
+		      struct wl_registry *wl_registry,
+		      uint32_t name)
+{
+	fprintf(stderr, "global %d removed", name);
+}
+
+static struct wl_registry_listener registry_listener = {
+	.global = announce_globals,
+	.global_remove = announce_global_remove
+};
+
 
 int main(int argc, char *argv[])
 {
 	struct tw_appsurf app;
 	struct tw_globals tw_globals;
 	struct wl_shell_surface *shell_surface;
+	struct xdg_surface *xdg_surface;
+	struct xdg_toplevel *toplevel;
+
 	struct wl_display *wl_display = wl_display_connect(NULL);
 	tw_globals_init(&tw_globals, wl_display);
 	if (!wl_display) {
@@ -228,9 +301,21 @@ int main(int argc, char *argv[])
 		shell_surface = wl_shell_get_shell_surface(s_wl_shell, surface);
 		wl_shell_surface_set_toplevel(shell_surface);
 		wl_shell_surface_add_listener(shell_surface, &shell_impl, &app);
+	} else if (s_xdg_wm_base) {
+		xdg_surface = xdg_wm_base_get_xdg_surface(s_xdg_wm_base,
+		                                          surface);
+		toplevel = xdg_surface_get_toplevel(xdg_surface);
+		xdg_surface_add_listener(xdg_surface, &xdg_impl, &app);
+		xdg_toplevel_add_listener(toplevel, &toplevel_impl, &app);
+
+		wl_surface_commit(surface);
+		wl_display_flush(wl_display);
+
+		while (!s_configured)
+			wl_display_dispatch(wl_display);
 	}
 
-	tw_appsurf_frame(&app, true);
+	tw_appsurf_frame(&app, false);
 
 	tw_globals_dispatch_event_queue(&tw_globals);
 

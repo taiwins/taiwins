@@ -87,7 +87,10 @@ tw_gles_debug_pop(void);
 #define TW_GLES_DEBUG_PUSH() tw_gles_debug_push(__func__)
 #define TW_GLES_DEBUG_POP() tw_gles_debug_pop()
 
-//can we update other type textures as well?
+bool
+tw_renderer_import_dma(struct tw_render_texture *texture,
+                       struct tw_renderer *rdr,
+                       struct tw_dmabuf_attributes *dma_attributes);
 bool
 tw_renderer_texture_update(struct tw_render_texture *texture,
                            struct tw_renderer *rdr,

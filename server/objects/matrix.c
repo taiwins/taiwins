@@ -87,6 +87,23 @@ static const struct tw_mat3 transform_2ds[8] = {
 	},
 };
 
+static const enum wl_output_transform transform_yup_to_ydown[8] = {
+	[WL_OUTPUT_TRANSFORM_NORMAL] = WL_OUTPUT_TRANSFORM_NORMAL,
+	[WL_OUTPUT_TRANSFORM_90] = WL_OUTPUT_TRANSFORM_270,
+	[WL_OUTPUT_TRANSFORM_180] = WL_OUTPUT_TRANSFORM_180,
+	[WL_OUTPUT_TRANSFORM_270] = WL_OUTPUT_TRANSFORM_90,
+	[WL_OUTPUT_TRANSFORM_FLIPPED] = WL_OUTPUT_TRANSFORM_FLIPPED,
+	[WL_OUTPUT_TRANSFORM_FLIPPED_90] = WL_OUTPUT_TRANSFORM_FLIPPED_270,
+	[WL_OUTPUT_TRANSFORM_FLIPPED_180] = WL_OUTPUT_TRANSFORM_FLIPPED_180,
+	[WL_OUTPUT_TRANSFORM_FLIPPED_270] = WL_OUTPUT_TRANSFORM_FLIPPED_90
+};
+
+static inline enum wl_output_transform
+transform_ydown_from_yup(enum wl_output_transform t)
+{
+	return transform_yup_to_ydown[t];
+}
+
 void
 tw_mat3_init(struct tw_mat3 *mat)
 {
@@ -155,32 +172,34 @@ tw_mat3_scale(struct tw_mat3 *dst, float x, float y)
 
 /* rotate ccw */
 void
-tw_mat3_rotate(struct tw_mat3 *mat, float degree)
+tw_mat3_rotate(struct tw_mat3 *mat, float degree, bool yup)
 {
 	float rad = deg2rad(degree);
 	tw_mat3_init(mat);
 	mat->d[0] = cos(rad);
-	mat->d[1] = sin(rad);
-	mat->d[3] = -sin(rad);
+	mat->d[1] = (yup) ? sin(rad) : -sin(rad);
+	mat->d[3] = (yup) ? -sin(rad) : sin(rad);
 	mat->d[4] = cos(rad);
 }
 
 void
 tw_mat3_wl_transform(struct tw_mat3 *dst,
-                          enum wl_output_transform transform)
+                     enum wl_output_transform transform, bool yup)
 {
+	transform = (yup) ? transform : transform_ydown_from_yup(transform);
 	memcpy(dst, &transform_2ds[transform], sizeof(*dst));
 }
 
 void
-tw_mat3_transform_rect(struct tw_mat3 *dst,
+tw_mat3_transform_rect(struct tw_mat3 *dst, bool yup,
                        enum wl_output_transform transform,
                        uint32_t width, uint32_t height, uint32_t scale)
 {
 	struct tw_mat3 tmp;
 
+	transform = (yup) ? transform : transform_ydown_from_yup(transform);
 	tw_mat3_init(dst);
-	tw_mat3_wl_transform(&tmp, transform);
+	tw_mat3_wl_transform(&tmp, transform, true);
 	tw_mat3_multiply(dst, &tmp, dst);
 	tw_mat3_scale(&tmp, scale, scale);
 

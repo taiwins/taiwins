@@ -64,6 +64,12 @@ void
 tw_quad_tex_blend_shader_fini(struct tw_quad_tex_shader *shader);
 
 void
+tw_quad_tex_ext_blend_shader_init(struct tw_quad_tex_shader *shader);
+
+void
+tw_quad_tex_ext_blend_shader_fini(struct tw_quad_tex_shader *shader);
+
+void
 tw_quad_tex_blur_shader_init(struct tw_quad_tex_shader *shader);
 
 void

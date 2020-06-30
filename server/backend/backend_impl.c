@@ -21,6 +21,7 @@
 
 #include <assert.h>
 #include <ctypes/helpers.h>
+#include <fcntl.h>
 #include <wayland-server-core.h>
 #include <wayland-util.h>
 #include <objects/surface.h>
@@ -138,16 +139,14 @@ static bool
 renderer_test_import_dmabuf(struct tw_dmabuf_attributes *attrs,
                             void *data)
 {
-	return false;
-	//TODO well, we could change attrs to buffer and do the test
-	/* struct wlr_renderer *renderer = data; */
-	/* struct wlr_texture *texture = new_dma_texture(attrs, renderer); */
-	/* if (texture) { */
-	/*	wlr_texture_destroy(texture); */
-	/*	return true; */
-	/* } else { */
-	/*	return false; */
-	/* } */
+	struct tw_renderer *rdr = data;
+	struct tw_render_texture texture;
+
+	if (tw_renderer_import_dma(&texture, rdr, attrs))
+		tw_render_texture_destroy(&texture);
+	else
+		return false;
+	return true;
 }
 
 static void

@@ -27,6 +27,7 @@
 
 #include <objects/logger.h>
 #include <objects/dmabuf.h>
+#include <string.h>
 #include <wayland-server-core.h>
 
 #include "renderer.h"
@@ -123,6 +124,7 @@ tw_render_texture_init_pixels(struct tw_render_texture *texture,
 	texture->height = height;
 	texture->wl_format = format;
 	texture->has_alpha = wl_format_has_alpha(format);
+	texture->inverted_y = false;
 
 	TW_GLES_DEBUG_PUSH();
 
@@ -218,6 +220,8 @@ static void
 dma_attributes_translate(struct wlr_dmabuf_attributes *dst,
                          struct tw_dmabuf_attributes *src)
 {
+	memset(dst, 0, sizeof(*dst));
+	memset(dst->fd, -1, sizeof(dst->fd));
 	dst->n_planes = src->n_planes;
 	for (int i = 0; i < dst->n_planes; i++) {
 		dst->fd[i] = src->fds[i];
@@ -266,8 +270,8 @@ tw_render_texture_init_dma(struct tw_render_texture *texture,
 	texture->width = wlr_attrs.width;
 	texture->height = wlr_attrs.height;
 	texture->wl_format = 0xFFFFFFFF;
-	texture->inverted_y =
-		(wlr_attrs.flags & WLR_DMABUF_ATTRIBUTES_FLAGS_Y_INVERT) != 0;
+	texture->inverted_y = (dma_attributes->flags &
+	                       TW_DMABUF_ATTRIBUTES_FLAGS_Y_INVERT) != 0;
 	texture->target = GL_TEXTURE_EXTERNAL_OES;
 	texture->rdr = rdr;
 
@@ -331,12 +335,6 @@ tw_renderer_new_texture(struct tw_renderer *rdr, struct wl_resource *buffer)
 	}
 	texture->destroy = tw_render_texture_free;
 	return texture;
-
-
-
-
-
-
 }
 
 bool
@@ -382,4 +380,12 @@ tw_renderer_texture_update(struct tw_render_texture *texture,
 
 	wlr_egl_unset_current(rdr->egl);
 	return true;
+}
+
+bool
+tw_renderer_import_dma(struct tw_render_texture *texture,
+                       struct tw_renderer *rdr,
+                       struct tw_dmabuf_attributes *dma_attributes)
+{
+	return tw_render_texture_init_dma(texture, rdr, dma_attributes);
 }

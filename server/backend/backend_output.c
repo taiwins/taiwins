@@ -48,12 +48,13 @@ build_output_2d_view(struct tw_backend_output *o)
 	tw_mat3_init(&glproj);
 	glproj.d[4] = -1;
 	glproj.d[7] = o->state.h;
-	wlr_output_effective_resolution(o->wlr_output, &width, &height);
+	wlr_output_transformed_resolution(o->wlr_output, &width, &height);
 
 	//the transform should be
 	// T' = glproj * inv_wl_transform * scale * -translate * T
 	tw_mat3_translate(&o->state.view_2d, -o->state.x, -o->state.y);
-	tw_mat3_transform_rect(&tmp, inverse_wl_transform(o->state.transform),
+	tw_mat3_transform_rect(&tmp, false,
+	                       inverse_wl_transform(o->state.transform),
 	                       width, height, o->state.scale);
 	tw_mat3_multiply(&o->state.view_2d, &tmp, &o->state.view_2d);
 	tw_mat3_multiply(&o->state.view_2d, &glproj, &o->state.view_2d);

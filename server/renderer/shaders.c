@@ -78,6 +78,18 @@ static const GLchar tex_quad_fs[] =
 	"}\n"
 	"\n";
 
+const GLchar tex_quad_ext_fs[] =
+	"#extension GL_OES_EGL_image_external : require\n\n"
+	"precision mediump float;\n"
+	"varying vec4 o_color;\n"
+	"varying vec2 o_texcoord;\n"
+	"uniform samplerExternalOES tex;\n"
+	"uniform float alpha;\n"
+	"\n"
+	"void main() {\n"
+	"	gl_FragColor = texture2D(tex, o_texcoord) * alpha;\n"
+	"}\n";
+
 static const GLchar tex_gaussian_fs[] =
 	"precision mediump float;\n"
 	"uniform float alpha;\n"
@@ -210,6 +222,24 @@ tw_quad_tex_blend_shader_init(struct tw_quad_tex_shader *shader)
 
 void
 tw_quad_tex_blend_shader_fini(struct tw_quad_tex_shader *shader)
+{
+	glDeleteProgram(shader->prog);
+}
+
+void
+tw_quad_tex_ext_blend_shader_init(struct tw_quad_tex_shader *shader)
+{
+	shader->prog = tw_renderer_create_program(quad_vs, tex_quad_ext_fs);
+	shader->uniform.proj = glGetUniformLocation(shader->prog, "proj");
+	shader->uniform.texture = glGetUniformLocation(shader->prog, "tex");
+	shader->uniform.alpha = glGetUniformLocation(shader->prog, "alpha");
+	assert(shader->uniform.proj >= 0);
+	assert(shader->uniform.texture >= 0);
+	assert(shader->uniform.alpha >= 0);
+}
+
+void
+tw_quad_tex_ext_blend_shader_fini(struct tw_quad_tex_shader *shader)
 {
 	glDeleteProgram(shader->prog);
 }

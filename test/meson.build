@@ -11,7 +11,11 @@ dummy_surface_test = executable(
 
 dummy_surface_test_gl = executable(
   'tw-test-dummy-surface-gl',
-  ['dummy-surface-test-gl.c'],
+  [
+    'dummy-surface-test-gl.c',
+    wayland_xdg_shell_client_protocol_h,
+    wayland_xdg_shell_private_code_c,
+  ],
   c_args : ['-D_GNU_SOURCE'],
   dependencies : [
     dep_wayland_client,

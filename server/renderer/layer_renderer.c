@@ -20,6 +20,7 @@
  */
 
 #include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
 #include <GLES3/gl3.h>
 #include <assert.h>
 #include <wayland-server-core.h>
@@ -27,6 +28,7 @@
 #include <ctypes/helpers.h>
 
 #include "objects/layers.h"
+#include "objects/logger.h"
 #include "objects/matrix.h"
 #include "objects/plane.h"
 #include "objects/surface.h"
@@ -38,6 +40,8 @@
 struct tw_layer_renderer {
 	struct tw_renderer base;
 	struct tw_quad_tex_shader quad_shader;
+	/* for external sampler */
+	struct tw_quad_tex_shader ext_quad_shader;
 	struct wl_listener destroy_listener;
 };
 
@@ -175,32 +179,42 @@ tw_layer_renderer_stack_damage(struct tw_backend *backend)
  * even libweston is doing better than this.
  *****************************************************************************/
 static void
-layer_renderer_draw_quad(void)
+layer_renderer_draw_quad(bool y_inverted)
 {
-	/********** the quad  *********
-	 *      1 <-------- 0
-	 *        | \     |
-	 *        |   \   |
-	 *        |    \  |
-	 *        |     \ |
-	 *      3 --------- 2
-	 *
-	 *****************************/
+	////////////////////////////////
+	//
+	//      1 <-------- 0
+	//        | \     |
+	//        |   \   |
+	//        |    \  |
+	//        |     \ |
+	//      3 --------- 2
+	//
+	////////////////////////////////
 	GLfloat verts[] = {
 		1, -1,
 		-1, -1,
 		1, 1,
 		-1, 1,
 	};
-	GLfloat texcoords[] = {
+	// tex coordinates, OpenGL stores texture upside down, y_inverted here
+	// means the texture follows OpenGL
+	GLfloat texcoords_y_inverted[] = {
 		1, 1,
 		0, 1,
 		1, 0,
 		0, 0
 	};
+	GLfloat texcoords[] = {
+		1, 0,
+		0, 0,
+		1, 1,
+		0, 1
+	};
 
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, verts);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, texcoords);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0,
+	                      y_inverted ? texcoords_y_inverted : texcoords);
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 
@@ -219,7 +233,7 @@ layer_renderer_cleanup_buffer(struct tw_renderer *renderer,
 	renderer->viewport_h = output->state.w;
 
 	glClear(GL_COLOR_BUFFER_BIT);
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
 }
 
 static void
@@ -228,11 +242,24 @@ layer_renderer_paint_surface(struct tw_surface *surface,
                              struct tw_backend_output *o)
 {
 	struct tw_mat3 proj, tmp;
-	struct tw_quad_tex_shader *shader = &rdr->quad_shader;
+	struct tw_quad_tex_shader *shader;
 	struct tw_render_texture *texture = surface->buffer.handle.ptr;
+
 
 	if (!texture)
 		return;
+
+	switch (texture->target) {
+	case GL_TEXTURE_2D:
+		shader = &rdr->quad_shader;
+		break;
+	case GL_TEXTURE_EXTERNAL_OES:
+		shader = &rdr->ext_quad_shader;
+		break;
+	default:
+		tw_logl_level(TW_LOG_ERRO, "unknown texture format!");
+		return;
+	}
 
 	tw_mat3_multiply(&tmp,
 	                 &o->state.view_2d,
@@ -243,13 +270,14 @@ layer_renderer_paint_surface(struct tw_surface *surface,
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(texture->target, texture->gltex);
 	glTexParameteri(texture->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(texture->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	glUseProgram(shader->prog);
 	glUniformMatrix3fv(shader->uniform.proj, 1, GL_FALSE, proj.d);
 	glUniform1i(shader->uniform.texture, 0);
 	glUniform1f(shader->uniform.alpha, 1.0f);
 
-	layer_renderer_draw_quad();
+	layer_renderer_draw_quad(texture->inverted_y);
 }
 
 
@@ -296,7 +324,8 @@ tw_layer_renderer_destroy(struct wlr_renderer *wlr_renderer)
 	struct tw_layer_renderer *renderer =
 		container_of(wlr_renderer, struct tw_layer_renderer,
 		             base.base);
-	tw_quad_tex_blur_shader_fini(&renderer->quad_shader);
+	tw_quad_tex_blend_shader_fini(&renderer->quad_shader);
+	tw_quad_tex_ext_blend_shader_fini(&renderer->quad_shader);
 	tw_renderer_base_fini(&renderer->base);
 	free(renderer);
 }
@@ -316,6 +345,7 @@ tw_layer_renderer_create(struct wlr_egl *egl, EGLenum platform,
 		return NULL;
 	}
 	tw_quad_tex_blend_shader_init(&renderer->quad_shader);
+	tw_quad_tex_ext_blend_shader_init(&renderer->ext_quad_shader);
 	renderer->base.wlr_impl.destroy = tw_layer_renderer_destroy;
 	wlr_renderer_init(&renderer->base.base, &renderer->base.wlr_impl);
 

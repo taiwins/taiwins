@@ -316,7 +316,7 @@ surface_build_buffer_matrix(struct tw_surface *surface)
 		tw_mat3_translate(&tmp, current->crop.x, current->crop.y);
 		tw_mat3_multiply(transform, &tmp, transform);
 	}
-	tw_mat3_transform_rect(&tmp, current->transform,
+	tw_mat3_transform_rect(&tmp, current->transform, false, //ydown
 	                       src_width, src_height, current->buffer_scale);
 	tw_mat3_multiply(transform, &tmp, transform);
 }
@@ -392,9 +392,9 @@ surface_build_geometry_matrix(struct tw_surface *surface)
 		target_width = buffer_width;
 		target_height = buffer_height;
 	}
-	//transforming (-1,-1,1,1) into global coordiantes
+	//since (-1, -1) is up-left
 	tw_mat3_scale(transform, target_width / 2.0, target_height / 2.0);
-	tw_mat3_wl_transform(&tmp, current->transform);
+	tw_mat3_wl_transform(&tmp, current->transform, false); //ydown
 	//this could rotate the surface.
 	tw_mat3_multiply(transform, &tmp, transform);
 	//buffer scale

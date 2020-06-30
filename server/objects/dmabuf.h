@@ -35,6 +35,12 @@ extern "C" {
 
 #define TW_DMA_MAX_PLANES 4
 
+enum tw_dmabuf_attributes_flags {
+	TW_DMABUF_ATTRIBUTES_FLAGS_Y_INVERT = 1,
+	TW_DMABUF_ATTRIBUTES_FLAGS_INTERLACED = 2,
+	TW_DMABUF_ATTRIBUTES_FLAGS_BOTTOM_FIRST = 4,
+};
+
 struct tw_dmabuf_attributes {
 	int32_t width, height;
 	uint32_t format, flags;
