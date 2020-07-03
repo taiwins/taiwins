@@ -1,4 +1,4 @@
-## Taiwins, a morden wayland window manager
+## Taiwins, a morden wayland window manager(currently under migration to wlroots backend, stay tuned)
 
 Taiwins is a wayland window manager, supports both tiling and floating
 layout. It is designed to be mordern and modular. It is extensible through lua
