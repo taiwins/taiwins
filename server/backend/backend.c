@@ -54,9 +54,6 @@ static struct tw_backend s_tw_backend = {0};
 static struct tw_backend_impl s_tw_backend_impl;
 
 /******************************************************************************
- * OUTPUT APIs
- *****************************************************************************/
-/******************************************************************************
  * BACKEND APIs
  *****************************************************************************/
 
@@ -87,6 +84,62 @@ void *
 tw_backend_get_backend(struct tw_backend *backend)
 {
 	return backend->auto_backend;
+}
+
+struct tw_backend_output *
+tw_backend_focused_output(struct tw_backend *backend)
+{
+	struct tw_seat *seat;
+	struct wl_resource *wl_surface = NULL;
+	struct tw_surface *tw_surface = NULL;
+	struct tw_backend_seat *backend_seat;
+
+	if (wl_list_length(&backend->heads) == 0)
+		return NULL;
+
+	wl_list_for_each(backend_seat, &backend->inputs, link) {
+		struct tw_pointer *pointer;
+		struct tw_keyboard *keyboard;
+		struct tw_touch *touch;
+
+		seat = backend_seat->tw_seat;
+		if (seat->capabilities & WL_SEAT_CAPABILITY_POINTER) {
+			pointer = &seat->pointer;
+			wl_surface = pointer->focused_surface;
+			tw_surface = (wl_surface) ?
+				tw_surface_from_resource(wl_surface) : NULL;
+			if (tw_surface)
+				return &backend->outputs[tw_surface->output];
+		}
+		else if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD) {
+			keyboard = &seat->keyboard;
+			wl_surface = keyboard->focused_surface;
+			tw_surface = (wl_surface) ?
+				tw_surface_from_resource(wl_surface) : NULL;
+			if (tw_surface)
+				return &backend->outputs[tw_surface->output];
+		} else if (seat->capabilities & WL_SEAT_CAPABILITY_TOUCH) {
+			touch = &seat->touch;
+			wl_surface = touch->focused_surface;
+			tw_surface = (wl_surface) ?
+				tw_surface_from_resource(wl_surface) : NULL;
+			if (tw_surface)
+				return &backend->outputs[tw_surface->output];
+		}
+	}
+
+	struct tw_backend_output *head;
+	wl_list_for_each(head, &backend->heads, link)
+		return head;
+
+	return NULL;
+}
+
+struct tw_backend_output *
+tw_backend_output_from_resource(struct wl_resource *resource)
+{
+	struct wlr_output *wlr_output = wlr_output_from_resource(resource);
+	return wlr_output->data;
 }
 
 static bool

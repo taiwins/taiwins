@@ -203,8 +203,6 @@ static const struct taiwins_theme_listener tw_theme_impl = {
 static void
 desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 {
-	struct shell_widget *widget;
-
 	tw_globals_init(&shell->globals, display);
 	shell_tdbus_init(shell);
 	tw_theme_init_default(&shell->theme);
@@ -235,15 +233,9 @@ desktop_shell_init(struct desktop_shell *shell, struct wl_display *display)
 	// Now it is a good time to run lua config.
 	shell->config.config_data =
 		shell->config.run_config(&shell->config, NULL);
+	//loading the widgets, but not activate them yet
 	if (!shell->config.config_data)
 		shell_widgets_load_default(&shell->shell_widgets);
-
-	/* shell_widgets_load_default(&shell->shell_widgets); */
-	wl_list_for_each(widget, &shell->shell_widgets, link) {
-		shell_widget_activate(widget,
-		                      &shell->globals.event_queue);
-	}
-
 }
 
 static void

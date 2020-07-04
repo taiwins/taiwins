@@ -142,8 +142,8 @@ notify_new_output_frame(struct wl_listener *listener, void *data)
 	struct tw_renderer *renderer =
 		container_of(backend->main_renderer, struct tw_renderer, base);
 
-	/* if (output->state.repaint_state != TW_REPAINT_DIRTY) */
-	/*	return; */
+	if (output->state.repaint_state != TW_REPAINT_DIRTY)
+		return;
 	//output need to have transform
 
 	if (!wlr_output_attach_render(output->wlr_output, NULL))
@@ -188,6 +188,7 @@ tw_backend_new_output(struct tw_backend *backend,
 
 	wlr_output->data = output;
 	output->id = id;
+	output->cloning = -1;
 	output->backend = backend;
 	output->wlr_output = wlr_output;
 	output->state.repaint_state = TW_REPAINT_DIRTY;

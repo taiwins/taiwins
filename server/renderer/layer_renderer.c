@@ -306,8 +306,8 @@ layer_renderer_repaint_output(struct tw_renderer *renderer,
 
 	layer_renderer_cleanup_buffer(renderer, output);
 
-	wl_list_for_each(surface, &manager->views,
-	                 links[TW_VIEW_GLOBAL_LINK]) {
+	wl_list_for_each_reverse(surface, &manager->views,
+	                         links[TW_VIEW_GLOBAL_LINK]) {
 
 		layer_renderer_paint_surface(surface, layer_render, output);
 

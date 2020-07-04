@@ -13,6 +13,7 @@ taiwins_src = [
   'renderer/shaders.c',
   'renderer/texture.c',
   'renderer/layer_renderer.c',
+  'desktop/shell.c',
 
   'objects/seat.c',
   'objects/seat_keyboard.c',
@@ -41,6 +42,13 @@ taiwins_src = [
   wayland_presentation_time_private_code_c,
   wayland_xdg_shell_server_protocol_h,
   wayland_xdg_shell_private_code_c,
+  wayland_xdg_output_server_protocol_h,
+  wayland_xdg_output_private_code_c,
+
+  wayland_taiwins_shell_server_protocol_h,
+  wayland_taiwins_shell_private_code_c,
+  wayland_wlr_layer_shell_server_protocol_h,
+  wayland_wlr_layer_shell_private_code_c,
 ]
 taiwins = executable(
   'taiwins',

@@ -54,6 +54,7 @@ enum tw_surface_state {
 struct tw_surface;
 struct tw_surface_manager;
 
+typedef void (*tw_surface_commit_cb_t)(struct tw_surface *surface);
 /**
  * @brief tw_surface_buffer represents a buffer texture for the surface.
  *
@@ -178,7 +179,7 @@ struct tw_surface {
 	struct {
 		const char *name;
 		void *commit_private;
-		void (*commit)(struct tw_surface *surface);
+		tw_surface_commit_cb_t commit;
 	} role;
 
 	struct {
@@ -242,6 +243,12 @@ tw_surface_from_resource(struct wl_resource *wl_surface);
 
 bool
 tw_surface_has_texture(struct tw_surface *surface);
+
+bool
+tw_surface_has_role(struct tw_surface *surface);
+
+void
+tw_surface_unmap(struct tw_surface *surface);
 
 /**
  * @brief dirty the geometry of the surface and subsurfaces.

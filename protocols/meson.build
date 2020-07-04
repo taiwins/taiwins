@@ -2,13 +2,20 @@ dep_scanner = dependency('wayland-scanner', native: true)
 dep_wp = dependency('wayland-protocols', version: '>= 1.18')
 prog_scanner = find_program(dep_scanner.get_pkgconfig_variable('wayland_scanner'))
 dir_wp_base = dep_wp.get_pkgconfig_variable('pkgdatadir')
+#TODO: protocols shall have versions, that includes taiwins as well, giving a
+#third paramater indicates the basedir. Also, taiwins protocol would need
+#versions as well.
+
 protocols = [['taiwins-shell', 'taiwins'],
 	     ['taiwins-console', 'taiwins'],
 	     ['taiwins-theme', 'taiwins'],
 	     ['linux-dmabuf', 'v1'],
 	     ['viewporter', 'stable'],
 	     ['presentation-time', 'stable'],
-	     ['xdg-shell', 'stable']]
+	     ['xdg-shell', 'stable'],
+	     ['xdg-output', 'v1'],
+	     ['wlr-layer-shell', 'internal']
+	    ]
 
 foreach proto : protocols
   if proto[1] == 'taiwins'
@@ -16,7 +23,7 @@ foreach proto : protocols
     xml_path = '@0@/@1@.xml'.format(dir_tp_base, proto[0])
   elif proto[1] == 'internal'
     base_file = proto[0]
-    xml_path = '@0@/@1@.xml'.format(meson.current_source_dir(), proto[1])
+    xml_path = '@0@/@1@.xml'.format(meson.current_source_dir(), proto[0])
   elif proto[1] == 'stable'
     base_file = proto[0]
     xml_path = '@0@/@1@/@2@/@2@.xml'.format(dir_wp_base, proto[1], proto[0])

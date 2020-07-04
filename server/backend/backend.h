@@ -87,7 +87,7 @@ struct tw_backend_output {
 	struct tw_backend *backend;
 	struct wlr_output *wlr_output;
 	int32_t id, cloning;
-	struct wl_list link;
+	struct wl_list link; /* tw_backend:heads */
 
 	struct wl_list views; /** tw_surface->output_link */
 
@@ -121,9 +121,11 @@ struct tw_backend_output {
 	struct wl_listener destroy_listener;
 };
 
+//TODO: remove the listeners in tw_backend_seat, deligate those listeners to
+//tw_input_events
 struct tw_backend_seat {
 	int idx;
-	struct wl_list link;
+	struct wl_list link; /* tw_backend.inputs */
 	uint32_t capabilities;
 	struct tw_backend *backend;
 
@@ -161,6 +163,9 @@ struct tw_backend_seat {
 struct tw_backend_impl;
 struct tw_backend {
 	struct wl_display *display;
+        /** for now backend is based on wlr_backends. Future when migrate, we
+         * would used api like wayland_impl_tw_backend(struct tw_backend *);
+         */
 	struct wlr_backend *auto_backend;
 	struct wlr_renderer *main_renderer;
 	/** interface for implementation details */
@@ -179,14 +184,14 @@ struct tw_backend {
 	struct wl_signal seat_rm_signal;
 
 	/* outputs */
-	struct wl_list heads;
+	struct wl_list heads; /* tw_backend_output:links */
 	struct wl_list pending_heads;
 	uint32_t output_pool;
 	struct tw_backend_output outputs[32];
 
         /* inputs */
 	struct xkb_context *xkb_context;
-	struct wl_list inputs;
+	struct wl_list inputs; /* tw_backend_seat:links */
 	uint8_t seat_pool;
 	struct tw_backend_seat seats[8];
         /** cursor is global, like most desktop experience, the one reason is
@@ -205,13 +210,18 @@ struct tw_backend {
 struct tw_backend *
 tw_backend_create_global(struct wl_display *display,
                          wlr_renderer_create_func_t render_create);
-
 void
 tw_backend_flush(struct tw_backend *backend);
 
-/* get the wlr_backend or libweston_backend */
+//remove this!
 void *
 tw_backend_get_backend(struct tw_backend *backend);
+
+struct tw_backend_output *
+tw_backend_focused_output(struct tw_backend *backend);
+
+struct tw_backend_output *
+tw_backend_output_from_resource(struct wl_resource *resource);
 
 void
 tw_backend_defer_outputs(struct tw_backend *backend, bool defer);
@@ -220,7 +230,6 @@ void
 tw_backend_add_listener(struct tw_backend *backend,
                         enum tw_backend_event_type event,
                         struct wl_listener *listener);
-
 struct tw_backend_output *
 tw_backend_find_output(struct tw_backend *backend, const char *name);
 

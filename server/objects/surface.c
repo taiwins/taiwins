@@ -431,7 +431,7 @@ surface_update_geometry(struct tw_surface *surface)
 		box.x1 = MIN(box.x1, (int32_t)corners[i][0]);
 		box.y1 = MIN(box.y1, (int32_t)corners[i][1]);
 		box.x2 = MAX(box.x2, (int32_t)corners[i][0]);
-		box.y2 = MAX(box.x2, (int32_t)corners[i][1]);
+		box.y2 = MAX(box.y2, (int32_t)corners[i][1]);
 	}
 	if (box.x1 != surface->geometry.xywh.x ||
 	    box.y1 != surface->geometry.xywh.y ||
@@ -630,6 +630,22 @@ bool
 tw_surface_has_texture(struct tw_surface *surface)
 {
 	return surface->buffer.handle.ptr || surface->buffer.handle.id;
+}
+
+bool
+tw_surface_has_role(struct tw_surface *surface)
+{
+	return surface->role.commit != NULL;
+}
+
+void
+tw_surface_unmap(struct tw_surface *surface)
+{
+	//TODO: do I need a mapped filed?
+	for (int i = 0; i < MAX_VIEW_LINKS; i++) {
+		wl_list_remove(&surface->links[i]);
+		wl_list_init(&surface->links[i]);
+	}
 }
 
 void

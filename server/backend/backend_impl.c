@@ -23,6 +23,7 @@
 #include <ctypes/helpers.h>
 #include <fcntl.h>
 #include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 #include <wayland-util.h>
 #include <objects/surface.h>
 #include <objects/logger.h>
@@ -30,7 +31,6 @@
 #include "backend/backend.h"
 #include "renderer/renderer.h"
 #include "backend_internal.h"
-#include "subprojects/twclient/include/twclient/theme.h"
 
 /******************************************************************************
  * buffer imports
@@ -206,6 +206,75 @@ no_modifiers:
 /******************************************************************************
  * listeners
  *****************************************************************************/
+static void
+update_surface_mask(struct tw_surface *surface,
+                    struct tw_backend_output *major, uint32_t mask)
+{
+	struct tw_backend_output *output;
+	struct wl_resource *res;
+	struct tw_backend *backend = major->backend;
+	uint32_t output_bit;
+	uint32_t different = surface->output_mask ^ mask;
+	uint32_t entered = mask & different;
+	uint32_t left = surface->output_mask & different;
+	struct wl_client *client = wl_resource_get_client(surface->resource);
+
+	//update the surface_mask and
+	surface->output_mask = mask;
+	surface->output = major->id;
+
+	wl_list_for_each(output, &backend->heads, link) {
+		output_bit = 1u << output->id;
+		if (!(output_bit & different))
+			continue;
+		wl_resource_for_each(res, &output->wlr_output->resources) {
+			if (client != wl_resource_get_client(res))
+				continue;
+			if ((output_bit & entered))
+				wl_surface_send_enter(surface->resource, res);
+			if ((output_bit & left))
+				wl_surface_send_leave(surface->resource, res);
+		}
+	}
+}
+
+static void
+reassign_surface_outputs(struct tw_surface *surface,
+                         struct tw_backend *backend)
+{
+	uint32_t area = 0, max = 0, mask = 0;
+	struct tw_backend_output *output, *major;
+	pixman_region32_t surface_region;
+	pixman_box32_t *e;
+	pixman_region32_init_rect(&surface_region,
+	                          surface->geometry.xywh.x,
+	                          surface->geometry.xywh.y,
+	                          surface->geometry.xywh.width,
+	                          surface->geometry.xywh.height);
+	wl_list_for_each(output, &backend->heads, link) {
+		pixman_region32_t clip;
+
+		if (output->cloning >= 0)
+			continue;
+		pixman_region32_init_rect(&clip,
+		                          output->state.x, output->state.y,
+		                          output->state.w, output->state.h);
+		pixman_region32_intersect(&clip, &clip, &surface_region);
+		e = pixman_region32_extents(&clip);
+		area = (e->x2 - e->x1) * (e->y2 - e->y1);
+		if (pixman_region32_not_empty(&clip))
+			mask |= (1u << output->id);
+		if (area >= max) {
+			major = output;
+			max = area;
+		}
+		pixman_region32_fini(&clip);
+	}
+	pixman_region32_fini(&surface_region);
+
+	update_surface_mask(surface, major, mask);
+}
+
 
 static void
 notify_new_output(struct wl_listener *listener, void *data)
@@ -293,6 +362,9 @@ notify_dirty_wl_surface(struct wl_listener *listener, void *data)
 	struct tw_surface *surface = data;
 	struct tw_backend *backend = impl->backend;
 
+	if (surface->geometry.dirty)
+		reassign_surface_outputs(surface, backend);
+
 	wl_list_for_each(output, &backend->heads, link) {
 		if ((1u << output->id) & surface->output_mask)
 			tw_backend_output_dirty(output);
@@ -303,11 +375,17 @@ notify_dirty_wl_surface(struct wl_listener *listener, void *data)
 static void
 notify_rm_wl_surface(struct wl_listener *listener, void *data)
 {
+	struct tw_backend_output *output;
+	struct tw_surface *surface = data;
 	struct tw_backend_impl *impl =
 		container_of(listener, struct tw_backend_impl,
 		             surface_destroy);
+	struct tw_backend *backend = impl->backend;
 
-	notify_dirty_wl_surface(&impl->surface_dirty_output, data);
+	wl_list_for_each(output, &backend->heads, link) {
+		if ((1u << output->id) & surface->output_mask)
+			tw_backend_output_dirty(output);
+	}
 }
 
 void
