@@ -14,6 +14,7 @@ taiwins_src = [
   'renderer/texture.c',
   'renderer/layer_renderer.c',
   'desktop/shell.c',
+  'desktop/shell_layer.c',
 
   'objects/seat.c',
   'objects/seat_keyboard.c',

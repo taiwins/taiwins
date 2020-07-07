@@ -23,16 +23,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <wayland-taiwins-shell-server-protocol.h>
-#include <time.h>
-#include <linux/input.h>
 #include <pixman.h>
 #include <ctypes/helpers.h>
-#include <ctypes/strops.h>
-#include <ctypes/os/file.h>
-#include <ctypes/vector.h>
 #include <shared_config.h>
 
 #include <objects/surface.h>
@@ -40,9 +34,7 @@
 #include <objects/layers.h>
 #include <objects/seat.h>
 #include <objects/logger.h>
-#include <binding/bindings.h>
 #include <backend/backend.h>
-#include <wayland-util.h>
 
 #include "shell.h"
 #include "shell_internal.h"
@@ -96,6 +88,17 @@ shell_ui_unset_role(struct tw_shell_ui *ui)
 		ui->binded->role.commit_private = NULL;
 		ui->binded->role.name = NULL;
 	}
+}
+
+struct tw_shell_output *
+shell_output_from_backend_output(struct tw_shell *shell,
+                                 struct tw_backend_output *output)
+{
+	struct tw_shell_output *shell_output;
+	wl_list_for_each(shell_output, &shell->heads, link)
+		if (shell_output->output == output)
+			return shell_output;
+	return NULL;
 }
 
 /******************************************************************************
@@ -338,16 +341,7 @@ static struct taiwins_shell_interface shell_impl = {
 /******************************************************************************
  * internal APIs
  *****************************************************************************/
-static struct tw_shell_output *
-shell_output_from_backend_output(struct tw_shell *shell,
-                                 struct tw_backend_output *output)
-{
-	struct tw_shell_output *shell_output;
-	wl_list_for_each(shell_output, &shell->heads, link)
-		if (shell_output->output == output)
-			return shell_output;
-	return NULL;
-}
+
 
 static void
 launch_shell_client(void *data)
@@ -700,6 +694,17 @@ tw_shell_create_global(struct wl_display *wl_display,
 	struct tw_layer *layer;
 	struct tw_layers_manager *layers;
 
+	s_shell.shell_global =
+		wl_global_create(wl_display,
+		                 &taiwins_shell_interface,
+		                 taiwins_shell_interface.version,
+		                 &s_shell,
+		                 bind_shell);
+	if (!s_shell.shell_global)
+		return NULL;
+	if (!shell_impl_layer_shell(&s_shell))
+		return NULL;
+
 	s_shell.ready = false;
 	s_shell.the_widget_surface = NULL;
 	s_shell.shell_client = NULL;
@@ -713,8 +718,11 @@ tw_shell_create_global(struct wl_display *wl_display,
         tw_layer_init(&s_shell.background_layer);
 	tw_layer_init(&s_shell.ui_layer);
 	tw_layer_init(&s_shell.locker_layer);
+	tw_layer_init(&s_shell.bottom_ui_layer);
 	tw_layer_set_position(&s_shell.background_layer,
 	                      TW_LAYER_POS_BACKGROUND, layers);
+	tw_layer_set_position(&s_shell.bottom_ui_layer,
+	                      TW_LAYER_POS_DESKTOP_BELOW_UI, layers);
 	tw_layer_set_position(&s_shell.ui_layer,
 	                      TW_LAYER_POS_DESKTOP_UI, layers);
 	tw_layer_set_position(&s_shell.locker_layer,
@@ -729,12 +737,7 @@ tw_shell_create_global(struct wl_display *wl_display,
 	if (path && (strlen(path) + 1 > NUMOF(s_shell.path)))
 		return false;
 
-	s_shell.shell_global =
-		wl_global_create(wl_display,
-		                 &taiwins_shell_interface,
-		                 taiwins_shell_interface.version,
-		                 &s_shell,
-		                 bind_shell);
+
 	if (path) {
 		strcpy(s_shell.path, path);
 		loop = wl_display_get_event_loop(wl_display);

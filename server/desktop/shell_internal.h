@@ -63,9 +63,10 @@ struct tw_shell_ui {
 
 	//I need to translate this into size, positional.
 	struct {
-		uint32_t x, y;
+		uint32_t x, y, w, h;
 		uint32_t anchor, occlusion_zone;
 		pixman_box32_t margin;
+		struct tw_layer *layer;
 	} pending;
 };
 
@@ -96,6 +97,7 @@ struct tw_shell {
 	struct wl_display *display;
 	struct tw_backend *backend;
 	struct tw_layer background_layer;
+	struct tw_layer bottom_ui_layer;
 	struct tw_layer ui_layer;
 	struct tw_layer locker_layer;
 
@@ -138,6 +140,9 @@ shell_ui_set_role(struct tw_shell_ui *ui,
                   void (*commit)(struct tw_surface *surface),
                   struct tw_surface *surface);
 
+struct tw_shell_output *
+shell_output_from_backend_output(struct tw_shell *shell,
+                                 struct tw_backend_output *output);
 #ifdef  __cplusplus
 }
 #endif
