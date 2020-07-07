@@ -655,20 +655,41 @@ tw_surface_set_position(struct tw_surface *surface, int32_t x, int32_t y)
 
 	if (surface->geometry.xywh.x == x && surface->geometry.xywh.y == y)
 		return;
-	if (!surface->geometry.dirty) {
-		surface->geometry.prev_xywh.x = surface->geometry.xywh.x;
-		surface->geometry.prev_xywh.y = surface->geometry.xywh.y;
-	}
 	surface->geometry.x = x;
 	surface->geometry.y = y;
-	surface->geometry.xywh.x = x;
-	surface->geometry.xywh.y = y;
+	surface_update_geometry(surface);
 
 	wl_list_for_each(sub, &surface->subsurfaces, parent_link)
 		tw_surface_set_position(sub->surface,
 		                        x + sub->sx, y + sub->sy);
+}
 
-	tw_surface_dirty_geometry(surface);
+void
+tw_surface_to_local_pos(struct tw_surface *surface, int32_t x, int32_t y,
+                        int32_t *sx, int32_t *sy)
+{
+	*sx = x - surface->geometry.x;
+	*sy = y - surface->geometry.y;
+}
+
+void
+tw_surface_to_global_pos(struct tw_surface *surface, uint32_t sx, uint32_t sy,
+                        int32_t *gx, int32_t *gy)
+{
+	*gx = surface->geometry.x + sx;
+	*gy = surface->geometry.y + sy;
+}
+
+bool
+tw_surface_has_point(struct tw_surface *surface, int32_t x, int32_t y)
+{
+	int32_t x1 = surface->geometry.xywh.x;
+	int32_t x2 = surface->geometry.xywh.x + surface->geometry.xywh.width;
+	int32_t y1 = surface->geometry.xywh.y;
+	int32_t y2 = surface->geometry.xywh.y + surface->geometry.xywh.height;
+
+	return (x >= x1 && x <= x2 && y >= y1 && y <= y2);
+
 }
 
 void

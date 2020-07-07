@@ -33,6 +33,9 @@
 
 #include "backend.h"
 #include "backend_internal.h"
+#include "objects/cursor.h"
+#include "objects/logger.h"
+#include "objects/surface.h"
 
 /******************************************************************************
  * keyboard functions
@@ -165,6 +168,19 @@ tw_backend_new_keyboard(struct tw_backend *backend,
 /******************************************************************************
  * pointer functions
  *****************************************************************************/
+static void
+notify_backend_set_cursor(struct wl_listener *listener, void *data)
+{
+	struct tw_backend_seat *seat =
+		container_of(listener, struct tw_backend_seat, set_cursor);
+	struct tw_backend *backend = seat->backend;
+	struct tw_cursor *cursor = &backend->global_cursor;
+	struct tw_event_new_cursor *event = data;
+
+	tw_cursor_set_surface(cursor, event->surface, event->pointer,
+	                      &backend->layers_manager.cursor_layer,
+	                      event->hotspot_x, event->hotspot_y);
+}
 
 static void
 notify_backend_pointer_button(struct wl_listener *listener, void *data)
@@ -197,28 +213,48 @@ notify_backend_pointer_motion(struct wl_listener *listener, void *data)
 		             pointer.motion);
 	struct wlr_event_pointer_motion *event = data;
 	struct tw_backend *backend = seat->backend;
-	struct wlr_cursor *cursor = backend->global_cursor;
 
-	//we have only relative motion now.
-        cursor->x += event->delta_x;
-        cursor->y += event->delta_y;
+	//TODO: this is probably not right, relative motion only works for
+	//libinput
+	tw_cursor_move(&backend->global_cursor,
+	               event->delta_x, event->delta_y);
+}
 
-        //obviously we do not have any information about surface at this point.
-        wl_signal_emit(&cursor->events.motion, data);
+static void
+notify_backend_pointer_motion_abs(struct wl_listener *listener, void *data)
+{
+	struct tw_surface *focused;
+	struct tw_backend_seat *seat =
+		container_of(listener, struct tw_backend_seat,
+		             pointer.motion_abs);
+	struct wlr_event_pointer_motion_absolute *event = data;
+	struct tw_backend *backend = seat->backend;
+	struct tw_backend_output *output = tw_backend_focused_output(backend);
+	struct tw_pointer *pointer = &seat->tw_seat->pointer;
+	int32_t x = (int)(event->x * output->state.w);
+	int32_t y = (int)(event->y * output->state.h);
+
+	tw_cursor_set_pos(&backend->global_cursor, x, y);
+
+	if (pointer->focused_surface) {
+		focused = tw_surface_from_resource(pointer->focused_surface);
+		if (tw_surface_has_point(focused, x, y)) {
+			tw_surface_to_local_pos(focused, x, y, &x, &y);
+			pointer->grab->impl->motion(pointer->grab,
+			                            event->time_msec, x, y);
+			return;
+		}
+	}
+	focused = tw_backend_pick_surface_from_layers(backend, x, y, &x, &y);
+
+	if (focused && pointer->grab->impl->enter)
+		pointer->grab->impl->enter(pointer->grab, focused->resource,
+		                           x, y);
 }
 
 static void
 notify_backend_pointer_axis(struct wl_listener *listener, void *data)
 {
-	struct tw_backend_seat *seat =
-		container_of(listener, struct tw_backend_seat,
-		             pointer.axis);
-	struct wlr_event_pointer_axis *event = data;
-	struct tw_backend *backend = seat->backend;
-	struct wlr_cursor *cursor = backend->global_cursor;
-
-	//TODO: All we can do is forwarding the event for now.
-	wl_signal_emit(&cursor->events.axis, event);
 }
 
 static void
@@ -277,6 +313,11 @@ tw_backend_new_pointer(struct tw_backend *backend,
 	wl_list_init(&seat->pointer.motion.link);
 	seat->pointer.motion.notify = notify_backend_pointer_motion;
 	wl_signal_add(&pointer->events.motion, &seat->pointer.motion);
+
+	wl_list_init(&seat->pointer.motion_abs.link);
+	seat->pointer.motion_abs.notify = notify_backend_pointer_motion_abs;
+	wl_signal_add(&pointer->events.motion_absolute,
+	              &seat->pointer.motion_abs);
 
 	wl_list_init(&seat->pointer.axis.link);
 	seat->pointer.axis.notify = notify_backend_pointer_axis;
@@ -420,6 +461,12 @@ new_seat_for_backend(struct tw_backend *backend,
 	seat->tw_seat = tw_seat_create(backend->display, dev->name);
 
 	wl_list_init(&seat->link);
+
+	wl_list_init(&seat->set_cursor.link);
+	seat->set_cursor.notify = notify_backend_set_cursor;
+	wl_signal_add(&seat->tw_seat->new_cursor_signal,
+	              &seat->set_cursor);
+
 	// setup the backend side
 	backend->seat_pool |= (1 << new_seat_id);
 	wl_list_insert(backend->inputs.prev, &seat->link);

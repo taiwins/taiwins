@@ -71,10 +71,13 @@ shell_background_impl_filter(struct wl_list *head,
 void
 shell_init_bg_for_output(struct shell_output *w)
 {
+	struct wl_surface *bg_sf;
 	struct desktop_shell *shell = w->shell;
+
+	if (w->bg_ui)
+		return;
 	//background
-	struct wl_surface *bg_sf =
-		wl_compositor_create_surface(shell->globals.compositor);
+	bg_sf = wl_compositor_create_surface(shell->globals.compositor);
 	w->bg_ui =
 		taiwins_shell_create_background(shell->interface, bg_sf, w->index);
 

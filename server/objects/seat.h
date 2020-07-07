@@ -133,6 +133,7 @@ struct tw_seat_pointer_grab {
 
 struct tw_event_new_cursor {
 	struct wl_resource *surface;
+	struct wl_resource *pointer;
 	uint32_t hotspot_x;
 	uint32_t hotspot_y;
 };
