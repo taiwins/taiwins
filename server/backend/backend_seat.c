@@ -169,6 +169,32 @@ tw_backend_new_keyboard(struct tw_backend *backend,
  * pointer functions
  *****************************************************************************/
 static void
+pointer_focus_or_motion(struct tw_backend_seat *seat,
+                               uint32_t timespec)
+{
+	struct tw_surface *focused;
+	struct tw_pointer *pointer = &seat->tw_seat->pointer;
+	int32_t x = seat->backend->global_cursor.x;
+	int32_t y = seat->backend->global_cursor.y;
+
+	if (pointer->focused_surface) {
+		focused = tw_surface_from_resource(pointer->focused_surface);
+		if (tw_surface_has_point(focused, x, y)) {
+			tw_surface_to_local_pos(focused, x, y, &x, &y);
+			pointer->grab->impl->motion(pointer->grab,
+			                            timespec, x, y);
+			return;
+		}
+	}
+	focused = tw_backend_pick_surface_from_layers(seat->backend,
+	                                              x, y, &x, &y);
+
+	if (focused && pointer->grab->impl->enter)
+		pointer->grab->impl->enter(pointer->grab, focused->resource,
+		                           x, y);
+}
+
+static void
 notify_backend_set_cursor(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_seat *seat =
@@ -218,43 +244,44 @@ notify_backend_pointer_motion(struct wl_listener *listener, void *data)
 	//libinput
 	tw_cursor_move(&backend->global_cursor,
 	               event->delta_x, event->delta_y);
+	pointer_focus_or_motion(seat, event->time_msec);
 }
 
 static void
 notify_backend_pointer_motion_abs(struct wl_listener *listener, void *data)
 {
-	struct tw_surface *focused;
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
 		             pointer.motion_abs);
 	struct wlr_event_pointer_motion_absolute *event = data;
 	struct tw_backend *backend = seat->backend;
-	struct tw_backend_output *output = tw_backend_focused_output(backend);
-	struct tw_pointer *pointer = &seat->tw_seat->pointer;
+	struct tw_backend_output *output =
+		tw_backend_output_from_cursor_pos(backend);
 	int32_t x = (int)(event->x * output->state.w);
 	int32_t y = (int)(event->y * output->state.h);
 
 	tw_cursor_set_pos(&backend->global_cursor, x, y);
-
-	if (pointer->focused_surface) {
-		focused = tw_surface_from_resource(pointer->focused_surface);
-		if (tw_surface_has_point(focused, x, y)) {
-			tw_surface_to_local_pos(focused, x, y, &x, &y);
-			pointer->grab->impl->motion(pointer->grab,
-			                            event->time_msec, x, y);
-			return;
-		}
-	}
-	focused = tw_backend_pick_surface_from_layers(backend, x, y, &x, &y);
-
-	if (focused && pointer->grab->impl->enter)
-		pointer->grab->impl->enter(pointer->grab, focused->resource,
-		                           x, y);
+	pointer_focus_or_motion(seat, event->time_msec);
 }
 
 static void
 notify_backend_pointer_axis(struct wl_listener *listener, void *data)
 {
+	struct tw_backend_seat *seat =
+		container_of(listener, struct tw_backend_seat, pointer.axis);
+	struct tw_pointer *pointer = &seat->tw_seat->pointer;
+	struct wlr_event_pointer_axis *event = data;
+	enum wl_pointer_axis axis =
+		event->orientation == WLR_AXIS_ORIENTATION_HORIZONTAL ?
+		WL_POINTER_AXIS_HORIZONTAL_SCROLL :
+		WL_POINTER_AXIS_VERTICAL_SCROLL;
+	enum wl_pointer_axis_source source = (int)event->source;
+
+	if (pointer->grab->impl->axis) {
+		pointer->grab->impl->axis(pointer->grab, event->time_msec,
+		                          axis, event->delta,
+		                          (int)event->delta_discrete, source);
+	}
 }
 
 static void
@@ -354,8 +381,33 @@ notify_backend_touch_down(struct wl_listener *listener, void *data)
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
 		             touch.down);
+	struct tw_surface *focused;
+	struct tw_touch *touch = &seat->tw_seat->touch;
 	struct wlr_event_touch_down *event = data;
-	(void)seat; (void)event;
+	struct tw_backend_output *output =
+		tw_backend_output_from_cursor_pos(seat->backend);
+	int32_t x = (int)(event->x * output->state.x);
+	int32_t y = (int)(event->y * output->state.y);
+	tw_cursor_set_pos(&seat->backend->global_cursor, x, y);
+
+	if (touch->focused_surface) {
+		focused = tw_surface_from_resource(touch->focused_surface);
+		if (tw_surface_has_point(focused, x, y)) {
+			tw_surface_to_local_pos(focused, x, y, &x, &y);
+			touch->grab->impl->down(touch->grab, event->time_msec,
+			                        event->touch_id, x, y);
+			return;
+		}
+	}
+	focused = tw_backend_pick_surface_from_layers(seat->backend,
+	                                              x, y, &x, &y);
+	if (focused) {
+		touch->grab->impl->enter(touch->grab, event->time_msec,
+		                         focused->resource, event->touch_id,
+		                         x, y);
+		touch->grab->impl->down(touch->grab, event->time_msec,
+		                        event->touch_id, x, y);
+	}
 }
 
 static void
@@ -365,7 +417,9 @@ notify_backend_touch_up(struct wl_listener *listener, void *data)
 		container_of(listener, struct tw_backend_seat,
 		             touch.up);
 	struct wlr_event_touch_up *event = data;
-	(void)seat; (void)event;
+	struct tw_touch *touch = &seat->tw_seat->touch;
+
+	touch->grab->impl->up(touch->grab, event->time_msec, event->touch_id);
 }
 
 static void
@@ -375,7 +429,19 @@ notify_backend_touch_motion(struct wl_listener *listener, void *data)
 		container_of(listener, struct tw_backend_seat,
 		             touch.motion);
 	struct wlr_event_touch_motion *event = data;
-	(void)seat; (void)event;
+	struct tw_touch *touch = &seat->tw_seat->touch;
+	struct tw_surface *focused;
+	struct tw_backend_output *output =
+		tw_backend_output_from_cursor_pos(seat->backend);
+	int32_t x = (int)(event->x * output->state.x);
+	int32_t y = (int)(event->y * output->state.y);
+
+	if (touch->focused_surface) {
+		focused = tw_surface_from_resource(touch->focused_surface);
+		tw_surface_to_local_pos(focused, x, y, &x, &y);
+		touch->grab->impl->motion(touch->grab, event->time_msec,
+		                          event->touch_id, x, y);
+	}
 }
 
 static void
@@ -384,8 +450,8 @@ notify_backend_touch_cancel(struct wl_listener *listener, void *data)
 	struct tw_backend_seat *seat =
 		container_of(listener, struct tw_backend_seat,
 		             touch.cancel);
-	struct wlr_event_touch_cancel *event = data;
-	(void)seat; (void)event;
+	struct tw_touch *touch = &seat->tw_seat->touch;
+	touch->grab->impl->touch_cancel(touch->grab);
 }
 
 void

@@ -50,6 +50,7 @@
 #include "objects/dmabuf.h"
 #include "objects/layers.h"
 #include "objects/surface.h"
+#include "pixman.h"
 
 static struct tw_backend s_tw_backend = {0};
 static struct tw_backend_impl s_tw_backend_impl;
@@ -133,6 +134,24 @@ tw_backend_focused_output(struct tw_backend *backend)
 	wl_list_for_each(head, &backend->heads, link)
 		return head;
 
+	return NULL;
+}
+
+struct tw_backend_output *
+tw_backend_output_from_cursor_pos(struct tw_backend *backend)
+{
+	pixman_region32_t *output_region;
+	struct tw_backend_output *output;
+	wl_list_for_each(output, &backend->heads, link) {
+		if (output->cloning >= 0)
+			continue;
+		output_region = &output->state.constrain.region;
+		if (pixman_region32_contains_point(output_region,
+		                                   backend->global_cursor.x,
+		                                   backend->global_cursor.y,
+		                                   NULL))
+			return output;
+	}
 	return NULL;
 }
 

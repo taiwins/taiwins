@@ -36,28 +36,9 @@ notify_pointer_enter(struct tw_seat_pointer_grab *grab,
                      struct wl_resource *surface,
                      double sx, double sy)
 {
-	uint32_t serial;
-	struct wl_resource *resource;
 	struct tw_pointer *pointer = &grab->seat->pointer;
-	struct tw_seat_client *client =
-		tw_seat_client_find(grab->seat,
-		                    wl_resource_get_client(surface));
-	if (!client)
-		return;
-	if (pointer->focused_surface &&
-	    pointer->focused_client) {
-		serial = wl_display_next_serial(grab->seat->display);
-		wl_resource_for_each(resource, &client->pointers)
-			wl_pointer_send_leave(resource, serial,
-			                      pointer->focused_surface);
-	}
-	pointer->focused_client = client;
-	pointer->focused_surface = surface;
-	serial = wl_display_get_serial(grab->seat->display);
-	wl_resource_for_each(resource, &client->pointers)
-		wl_pointer_send_enter(resource, serial, surface,
-		                      wl_fixed_from_double(sx),
-		                      wl_fixed_from_double(sy));
+
+	tw_pointer_set_focus(pointer, surface, sx, sy);
 }
 
 static void
@@ -200,6 +181,48 @@ tw_pointer_end_grab(struct tw_pointer *pointer)
 	    pointer->grab->impl->cancel)
 		pointer->grab->impl->cancel(pointer->grab);
 	pointer->grab = &pointer->default_grab;
+}
+
+void
+tw_pointer_set_focus(struct tw_pointer *pointer,
+                     struct wl_resource *wl_surface,
+                     double sx, double sy)
+{
+	uint32_t serial;
+	struct wl_resource *res;
+	struct tw_seat_client *client;
+	struct tw_seat *seat = container_of(pointer, struct tw_seat, pointer);
+
+	tw_pointer_clear_focus(pointer);
+	client = tw_seat_client_find(seat, wl_resource_get_client(wl_surface));
+	if (client) {
+		serial = wl_display_next_serial(seat->display);
+		wl_resource_for_each(res, &client->pointers)
+			wl_pointer_send_enter(res, serial, wl_surface,
+			                      wl_fixed_from_double(sx),
+			                      wl_fixed_from_double(sy));
+		pointer->focused_client = client;
+		pointer->focused_surface = wl_surface;
+	}
+}
+
+void
+tw_pointer_clear_focus(struct tw_pointer *pointer)
+{
+	struct tw_seat_client *client;
+	struct wl_resource *res;
+	uint32_t serial;
+	struct tw_seat *seat = container_of(pointer, struct tw_seat, pointer);
+
+	if (pointer->focused_surface && pointer->focused_client) {
+		client = pointer->focused_client;
+		serial = wl_display_next_serial(seat->display);
+		wl_resource_for_each(res, &client->pointers)
+			wl_pointer_send_leave(res, serial,
+			                      pointer->focused_surface);
+	}
+	pointer->focused_client = NULL;
+	pointer->focused_surface = NULL;
 }
 
 void

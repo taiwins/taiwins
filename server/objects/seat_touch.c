@@ -22,10 +22,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
-#include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
-#include <wayland-util.h>
-
+#include <wayland-server.h>
 #include <ctypes/helpers.h>
 
 #include "seat.h"
@@ -34,19 +31,16 @@
 static void
 notify_touch_enter(struct tw_seat_touch_grab *grab, uint32_t time_msec,
               struct wl_resource *surface, uint32_t touch_id,
-              wl_fixed_t sx, wl_fixed_t sy)
+              double sx, double sy)
 {
 	struct tw_touch *touch = &grab->seat->touch;
-	struct tw_seat_client *client =
-		tw_seat_client_find(grab->seat,
-		                    wl_resource_get_client(surface));
-	touch->focused_client = client;
-	touch->focused_surface = surface;
+	tw_touch_set_focus(touch, surface, wl_fixed_from_double(sx),
+	                   wl_fixed_from_double(sy));
 }
 
 static uint32_t
 notify_touch_down(struct tw_seat_touch_grab *grab, uint32_t time_msec,
-                  uint32_t touch_id, wl_fixed_t sx, wl_fixed_t sy)
+                  uint32_t touch_id, double sx, double sy)
 {
 	struct wl_resource *touch_res;
 	struct tw_touch *touch = &grab->seat->touch;
@@ -56,7 +50,9 @@ notify_touch_down(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 		                     &touch->focused_client->touches) {
 			wl_touch_send_down(touch_res, serial, time_msec,
 			                   touch->focused_surface,
-			                   touch_id, sx, sy);
+			                   touch_id,
+			                   wl_fixed_from_double(sx),
+			                   wl_fixed_from_double(sy));
 			wl_touch_send_frame(touch_res);
 		}
 	return serial;
@@ -82,7 +78,7 @@ notify_touch_up(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 
 static void
 notify_touch_motion(struct tw_seat_touch_grab *grab, uint32_t time_msec,
-                    uint32_t touch_id, wl_fixed_t sx, wl_fixed_t sy)
+                    uint32_t touch_id, double sx, double sy)
 {
 	struct wl_resource *touch_res;
 	struct tw_touch *touch = &grab->seat->touch;
@@ -91,7 +87,9 @@ notify_touch_motion(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 		wl_resource_for_each(touch_res,
 		                     &touch->focused_client->touches) {
 			wl_touch_send_motion(touch_res, time_msec,
-			                     touch_id, sx, sy);
+			                     touch_id,
+			                     wl_fixed_from_double(sx),
+			                     wl_fixed_from_double(sy));
 			wl_touch_send_frame(touch_res);
 		}
 	}
@@ -177,6 +175,30 @@ tw_touch_end_grab(struct tw_touch *touch)
 		touch->grab->impl->cancel(touch->grab);
 	touch->grab = &touch->default_grab;
 }
+
+void
+tw_touch_set_focus(struct tw_touch *touch,
+                     struct wl_resource *wl_surface,
+                     double sx, double sy)
+{
+	struct tw_seat_client *client;
+	struct tw_seat *seat = container_of(touch, struct tw_seat, touch);
+
+	tw_touch_clear_focus(touch);
+	client = tw_seat_client_find(seat, wl_resource_get_client(wl_surface));
+	if (client) {
+		touch->focused_client = client;
+		touch->focused_surface = wl_surface;
+	}
+}
+
+void
+tw_touch_clear_focus(struct tw_touch *touch)
+{
+	touch->focused_client = NULL;
+	touch->focused_surface = NULL;
+}
+
 
 uint32_t
 tw_touch_noop_down(struct tw_seat_touch_grab *grab, uint32_t time_msec,

@@ -182,7 +182,7 @@ static const struct tw_pointer_grab_interface pointer_impl = {
 
 static uint32_t
 binding_touch(struct tw_seat_touch_grab *grab, uint32_t time,
-              uint32_t touch_id, wl_fixed_t sx, wl_fixed_t sy)
+              uint32_t touch_id, double sx, double sy)
 {
 	struct tw_seat *seat = grab->seat;
 	struct wl_display *display = seat->display;

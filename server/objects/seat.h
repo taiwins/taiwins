@@ -80,8 +80,6 @@ struct tw_pointer_grab_interface {
 	void (*cancel)(struct tw_seat_pointer_grab *grab);
 };
 
-
-
 struct tw_seat_keyboard_grab;
 
 struct tw_keyboard_grab_interface {
@@ -101,14 +99,14 @@ struct tw_seat_touch_grab;
 
 struct tw_touch_grab_interface {
 	uint32_t (*down)(struct tw_seat_touch_grab *grab, uint32_t time_msec,
-	                 uint32_t touch_id, wl_fixed_t sx, wl_fixed_t sy);
+	                 uint32_t touch_id, double sx, double sy);
 	void (*up)(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 	           uint32_t touch_id);
 	void (*motion)(struct tw_seat_touch_grab *grab, uint32_t time_msec,
-	               uint32_t touch_id, wl_fixed_t sx, wl_fixed_t sy);
+	               uint32_t touch_id, double sx, double sy);
 	void (*enter)(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 	              struct wl_resource *surface, uint32_t touch_id,
-	              wl_fixed_t sx, wl_fixed_t sy);
+	              double sx, double sy);
 	void (*touch_cancel)(struct tw_seat_touch_grab *grab);
 	void (*cancel)(struct tw_seat_touch_grab *grab);
 };
@@ -235,6 +233,13 @@ tw_keyboard_set_keymap(struct tw_keyboard *keyboard,
 void
 tw_keyboard_send_keymap(struct tw_keyboard *keyboard,
                         struct wl_resource *keyboard_resource);
+void
+tw_keyboard_set_focus(struct tw_keyboard *keyboard,
+                      struct wl_resource *wl_surface,
+                      struct wl_array *focus_keys);
+void
+tw_keyboard_clear_focus(struct tw_keyboard *keyboard);
+
 struct tw_pointer *
 tw_seat_new_pointer(struct tw_seat *seat);
 
@@ -247,6 +252,13 @@ tw_pointer_start_grab(struct tw_pointer *pointer,
 void
 tw_pointer_end_grab(struct tw_pointer *pointer);
 
+void
+tw_pointer_set_focus(struct tw_pointer *pointer,
+                     struct wl_resource *wl_surface,
+                     double sx, double sy);
+void
+tw_pointer_clear_focus(struct tw_pointer *pointer);
+
 struct tw_touch *
 tw_seat_new_touch(struct tw_seat *seat);
 
@@ -258,6 +270,14 @@ tw_touch_start_grab(struct tw_touch *touch,
                     struct tw_seat_touch_grab *grab);
 void
 tw_touch_end_grab(struct tw_touch *touch);
+
+void
+tw_touch_set_focus(struct tw_touch *touch,
+                     struct wl_resource *wl_surface,
+                     double sx, double sy);
+void
+tw_touch_clear_focus(struct tw_touch *touch);
+
 
 struct tw_seat_client *
 tw_seat_client_find(struct tw_seat *seat, struct wl_client *client);

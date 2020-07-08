@@ -39,31 +39,15 @@ notify_keyboard_enter(struct tw_seat_keyboard_grab *grab,
                       struct wl_resource *surface, uint32_t pressed[],
                       size_t n_pressed)
 {
-	struct tw_seat *seat = grab->seat;
-	struct tw_seat_client *client =
-		tw_seat_client_find(seat, wl_resource_get_client(surface));
-	uint32_t serial = wl_display_next_serial(seat->display);
-	struct wl_resource *keyboard;
+	struct tw_keyboard *keyboard = &grab->seat->keyboard;
 	struct wl_array key_array;
 
-	if (seat->keyboard.focused_client) {
-		wl_resource_for_each(keyboard, &client->keyboards)
-			wl_keyboard_send_leave(keyboard, serial,
-			                       seat->keyboard.focused_surface);
-		serial = wl_display_next_serial(seat->display);
-	}
-
-	seat->keyboard.focused_client = client;
-	seat->keyboard.focused_surface = surface;
 	wl_array_init(&key_array);
 	key_array.data = pressed;
 	key_array.alloc = 0;
 	key_array.size = sizeof(uint32_t) * n_pressed;
 
-	//TODO: this is not going to work, you do need the keystates in the
-	//keyboard
-	wl_resource_for_each(keyboard, &client->keyboards)
-		wl_keyboard_send_enter(keyboard, serial, surface, &key_array);
+	tw_keyboard_set_focus(keyboard, surface, &key_array);
 }
 
 static void
@@ -238,6 +222,52 @@ tw_keyboard_send_keymap(struct tw_keyboard *keyboard,
 	wl_keyboard_send_keymap(resource, WL_KEYBOARD_KEYMAP_FORMAT_NO_KEYMAP,
 	                        keymap_fd, keyboard->keymap_size);
 	close(keymap_fd);
+}
+
+void
+tw_keyboard_set_focus(struct tw_keyboard *keyboard,
+                      struct wl_resource *wl_surface,
+                      struct wl_array *focus_keys)
+{
+	struct wl_array zero_keys = {0};
+	struct tw_seat_client *client;
+	struct wl_resource *res;
+	uint32_t serial;
+	struct tw_seat *seat =
+		container_of(keyboard, struct tw_seat, keyboard);
+
+	tw_keyboard_clear_focus(keyboard);
+
+	focus_keys = focus_keys ? focus_keys : &zero_keys;
+	client = tw_seat_client_find(seat, wl_resource_get_client(wl_surface));
+	if (client) {
+		serial = wl_display_next_serial(seat->display);
+		wl_resource_for_each(res, &client->keyboards)
+			wl_keyboard_send_enter(res, serial, wl_surface,
+			                       focus_keys);
+		keyboard->focused_client = client;
+		keyboard->focused_surface = wl_surface;
+	}
+}
+
+void
+tw_keyboard_clear_focus(struct tw_keyboard *keyboard)
+{
+	struct tw_seat_client *client;
+	struct wl_resource *res;
+	uint32_t serial;
+	struct tw_seat *seat =
+		container_of(keyboard, struct tw_seat, keyboard);
+
+        if (keyboard->focused_surface && keyboard->focused_client) {
+		client = keyboard->focused_client;
+		serial = wl_display_next_serial(seat->display);
+		wl_resource_for_each(res, &client->keyboards)
+			wl_keyboard_send_leave(res, serial,
+			                       keyboard->focused_surface);
+	}
+	keyboard->focused_client = NULL;
+	keyboard->focused_surface = NULL;
 }
 
 void

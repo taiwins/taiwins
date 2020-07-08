@@ -97,6 +97,7 @@ struct tw_backend_output {
 		int32_t x, y, w, h, refresh;
 		float scale;
 		enum wl_output_transform transform;
+		struct tw_cursor_constrain constrain;
 		//TODO set gamma, the gamma value is the typical exp value you
 		//used for monitors, 1.0 means linear gamma. wlr uses a
 		//different gamma method, we deal with later
@@ -218,6 +219,9 @@ tw_backend_get_backend(struct tw_backend *backend);
 
 struct tw_backend_output *
 tw_backend_focused_output(struct tw_backend *backend);
+
+struct tw_backend_output *
+tw_backend_output_from_cursor_pos(struct tw_backend *backend);
 
 struct tw_backend_output *
 tw_backend_output_from_resource(struct wl_resource *resource);
