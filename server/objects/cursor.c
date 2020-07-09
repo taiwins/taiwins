@@ -21,7 +21,10 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
+
+#include <ctypes/helpers.h>
 #include <wayland-util.h>
 
 #include "cursor.h"
@@ -45,6 +48,16 @@ cursor_set_surface_pos(struct tw_cursor *cursor)
 }
 
 static void
+notify_cursor_surface_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_cursor *cursor =
+		container_of(listener, struct tw_cursor, surface_destroy);
+	cursor->curr_surface = NULL;
+	wl_list_remove(&listener->link);
+	wl_list_init(&listener->link);
+}
+
+static void
 commit_cursor_surface(struct tw_surface *surface)
 {
 	struct tw_cursor *cursor = surface->role.commit_private;
@@ -64,6 +77,8 @@ tw_cursor_init(struct tw_cursor *cursor)
 	                          INT32_MIN, INT32_MIN,
 	                          UINT32_MAX, UINT32_MAX);
 	wl_list_init(&cursor->curr_wrap.link);
+	wl_list_init(&cursor->surface_destroy.link);
+	cursor->surface_destroy.notify = notify_cursor_surface_destroy;
 }
 
 void
@@ -89,7 +104,8 @@ tw_cursor_set_surface(struct tw_cursor *cursor,
 		tw_surface_from_resource(surface_resource);
 	struct tw_surface *curr_surface = cursor->curr_surface;
 	uint32_t surface_id = wl_resource_get_id(surface_resource);
-	if (tw_surface_has_role(surface)) {
+	if (surface->role.commit &&
+	    surface->role.commit != commit_cursor_surface) {
 		wl_resource_post_error(pointer_resource, WL_POINTER_ERROR_ROLE,
 		                       "wl_surface@%d already have a role",
 		                       surface_id);
@@ -100,11 +116,14 @@ tw_cursor_set_surface(struct tw_cursor *cursor,
 	if (curr_surface) {
 		wl_list_remove(&curr_surface->links[TW_VIEW_LAYER_LINK]);
 		wl_list_init(&curr_surface->links[TW_VIEW_LAYER_LINK]);
+		wl_list_remove(&cursor->surface_destroy.link);
 	}
 
 	surface->role.commit = commit_cursor_surface;
 	surface->role.commit_private = cursor;
 	surface->role.name = TW_CURSOR_ROLE;
+	wl_signal_add(&surface->events.destroy, &cursor->surface_destroy);
+
 	cursor->hotspot_x = hotspot_x;
 	cursor->hotspot_y = hotspot_y;
 	cursor->curr_surface = surface;

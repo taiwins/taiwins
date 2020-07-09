@@ -144,7 +144,6 @@ struct tw_keyboard {
 	uint32_t modifiers_state;
 	uint32_t led_state; /**< led state reflects lock state */
 
-	struct wl_listener event;
 	struct tw_seat_keyboard_grab default_grab;
 	struct tw_seat_keyboard_grab *grab;
 };
@@ -153,7 +152,6 @@ struct tw_pointer {
 	struct tw_seat_client *focused_client;
 	struct wl_resource *focused_surface;
 
-	struct wl_listener event;
 	struct tw_seat_pointer_grab default_grab;
 	struct tw_seat_pointer_grab *grab;
 	uint32_t btn_count;
@@ -163,7 +161,6 @@ struct tw_touch {
 	struct tw_seat_client *focused_client;
 	struct wl_resource *focused_surface;
 
-	struct wl_listener event;
 	struct tw_seat_touch_grab default_grab;
 	struct tw_seat_touch_grab *grab;
 };

@@ -100,15 +100,6 @@ static const struct tw_keyboard_grab_interface default_grab_impl = {
 	.cancel = notify_keyboard_cancel,
 };
 
-static void
-tw_keyboard_new_event(struct wl_listener *listener, void *data)
-{
-	struct tw_keyboard_event *event = data;
-	struct tw_keyboard *keyboard =
-		wl_container_of(listener, keyboard, event);
-	(void)event;
-}
-
 struct tw_keyboard *
 tw_seat_new_keyboard(struct tw_seat *seat)
 {
@@ -116,8 +107,6 @@ tw_seat_new_keyboard(struct tw_seat *seat)
 	if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
 		return keyboard;
 
-	wl_list_init(&keyboard->event.link);
-	keyboard->event.notify = tw_keyboard_new_event;
 	seat->keyboard.focused_client = NULL;
 	seat->keyboard.focused_surface = NULL;
 	seat->keyboard.keymap_size = 0;

@@ -62,6 +62,7 @@ struct tw_cursor {
 
 	struct wl_list constrains; /* tw_cursor_constrain:link */
 	struct tw_cursor_constrain curr_wrap;
+	struct wl_listener surface_destroy;
 };
 
 void
