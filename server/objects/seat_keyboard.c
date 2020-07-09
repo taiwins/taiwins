@@ -23,9 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
-#include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
-#include <wayland-util.h>
+#include <wayland-server.h>
 #include <xkbcommon/xkbcommon.h>
 
 #include <ctypes/os/os-compatibility.h>
@@ -100,6 +98,18 @@ static const struct tw_keyboard_grab_interface default_grab_impl = {
 	.cancel = notify_keyboard_cancel,
 };
 
+static void
+notify_focused_disappear(struct wl_listener *listener, void *data)
+{
+	struct tw_keyboard *keyboard =
+		container_of(listener, struct tw_keyboard,
+		             focused_destroy);
+	keyboard->focused_surface = NULL;
+	keyboard->focused_client = NULL;
+	wl_list_remove(&listener->link);
+	wl_list_init(&listener->link);
+}
+
 struct tw_keyboard *
 tw_seat_new_keyboard(struct tw_seat *seat)
 {
@@ -116,6 +126,9 @@ tw_seat_new_keyboard(struct tw_seat *seat)
 	seat->keyboard.default_grab.seat = seat;
 	seat->keyboard.default_grab.impl = &default_grab_impl;
 	seat->keyboard.grab = &keyboard->default_grab;
+
+	wl_list_init(&keyboard->focused_destroy.link);
+	keyboard->focused_destroy.notify = notify_focused_disappear;
 
 	seat->capabilities |= WL_SEAT_CAPABILITY_KEYBOARD;
 	tw_seat_send_capabilities(seat);
@@ -236,6 +249,11 @@ tw_keyboard_set_focus(struct tw_keyboard *keyboard,
 			                       focus_keys);
 		keyboard->focused_client = client;
 		keyboard->focused_surface = wl_surface;
+		//set focus
+		wl_list_remove(&keyboard->focused_destroy.link);
+		wl_list_init(&keyboard->focused_destroy.link);
+		wl_resource_add_destroy_listener(wl_surface,
+		                                 &keyboard->focused_destroy);
 	}
 }
 
@@ -260,16 +278,31 @@ tw_keyboard_clear_focus(struct tw_keyboard *keyboard)
 }
 
 void
-tw_keyboard_noop_enter(struct tw_seat_keyboard_grab *grab,
-                       struct wl_resource *surface, uint32_t keycodes[],
-                       size_t n_keycodes) {}
+tw_keyboard_notify_enter(struct tw_keyboard *keyboard,
+                         struct wl_resource *surface, uint32_t *keycodes,
+                         size_t n_keycodes)
+{
+	if (keyboard->grab->impl->enter)
+		keyboard->grab->impl->enter(keyboard->grab,
+		                            surface, keycodes, n_keycodes);
+}
+
 void
-tw_keyboard_noop_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
-                     uint32_t key, uint32_t state) {}
+tw_keyboard_notify_key(struct tw_keyboard *keyboard, uint32_t time_msec,
+                       uint32_t key, uint32_t state)
+{
+	if (keyboard->grab->impl->key)
+		keyboard->grab->impl->key(keyboard->grab, time_msec, key,
+		                          state);
+}
+
 void
-tw_keyboard_noop_modifier(struct tw_seat_keyboard_grab *grab,
-                          //we can do the weston way,
-                          uint32_t mods_depressed, uint32_t mods_latched,
-                          uint32_t mods_locked, uint32_t group) {}
-void
-tw_keyboard_noop_cancel(struct tw_seat_keyboard_grab *grab) {}
+tw_keyboard_notify_modifiers(struct tw_keyboard *keyboard,
+                             uint32_t mods_depressed, uint32_t mods_latched,
+                             uint32_t mods_locked, uint32_t group)
+{
+	if (keyboard->grab->impl->modifiers)
+		keyboard->grab->impl->modifiers(keyboard->grab,
+		                                mods_depressed, mods_latched,
+		                                mods_latched, group);
+}

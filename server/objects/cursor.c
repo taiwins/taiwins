@@ -102,7 +102,6 @@ tw_cursor_set_surface(struct tw_cursor *cursor,
 {
 	struct tw_surface *surface =
 		tw_surface_from_resource(surface_resource);
-	struct tw_surface *curr_surface = cursor->curr_surface;
 	uint32_t surface_id = wl_resource_get_id(surface_resource);
 	if (surface->role.commit &&
 	    surface->role.commit != commit_cursor_surface) {
@@ -111,25 +110,33 @@ tw_cursor_set_surface(struct tw_cursor *cursor,
 		                       surface_id);
 		return;
 	}
-
-	//remove current cursor surface
-	if (curr_surface) {
-		wl_list_remove(&curr_surface->links[TW_VIEW_LAYER_LINK]);
-		wl_list_init(&curr_surface->links[TW_VIEW_LAYER_LINK]);
-		wl_list_remove(&cursor->surface_destroy.link);
-	}
+	tw_cursor_unset_surface(cursor);
 
 	surface->role.commit = commit_cursor_surface;
 	surface->role.commit_private = cursor;
 	surface->role.name = TW_CURSOR_ROLE;
-	wl_signal_add(&surface->events.destroy, &cursor->surface_destroy);
-
+	wl_resource_add_destroy_listener(surface_resource,
+	                                 &cursor->surface_destroy);
 	cursor->hotspot_x = hotspot_x;
 	cursor->hotspot_y = hotspot_y;
 	cursor->curr_surface = surface;
 	if (cursor_layer)
 		wl_list_insert(cursor_layer->views.prev,
 		               &surface->links[TW_VIEW_LAYER_LINK]);
+}
+
+void
+tw_cursor_unset_surface(struct tw_cursor *cursor)
+{
+	struct tw_surface *curr_surface = cursor->curr_surface;
+	//remove current cursor surface
+	if (curr_surface) {
+		wl_list_remove(&curr_surface->links[TW_VIEW_LAYER_LINK]);
+		wl_list_init(&curr_surface->links[TW_VIEW_LAYER_LINK]);
+
+		wl_list_remove(&cursor->surface_destroy.link);
+		wl_list_init(&cursor->surface_destroy.link);
+	}
 }
 
 void

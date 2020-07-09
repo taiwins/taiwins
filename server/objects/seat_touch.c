@@ -122,6 +122,17 @@ static const struct tw_touch_grab_interface default_grab_impl = {
 	.cancel = notify_touch_cancel,
 };
 
+static void
+notify_focused_disappear(struct wl_listener *listener, void *data)
+{
+	struct tw_touch *touch =
+		container_of(listener, struct tw_touch, focused_destroy);
+	touch->focused_surface = NULL;
+	touch->focused_client = NULL;
+	wl_list_remove(&listener->link);
+	wl_list_init(&listener->link);
+}
+
 struct tw_touch *
 tw_seat_new_touch(struct tw_seat *seat)
 {
@@ -134,6 +145,9 @@ tw_seat_new_touch(struct tw_seat *seat)
 	touch->default_grab.impl = &default_grab_impl;
 	touch->default_grab.seat = seat;
 	touch->grab = &touch->default_grab;
+
+	wl_list_init(&touch->focused_destroy.link);
+	touch->focused_destroy.notify = notify_focused_disappear;
 
 	seat->capabilities |= WL_SEAT_CAPABILITY_TOUCH;
 	tw_seat_send_capabilities(seat);
@@ -189,6 +203,11 @@ tw_touch_set_focus(struct tw_touch *touch,
 	if (client) {
 		touch->focused_client = client;
 		touch->focused_surface = wl_surface;
+
+		wl_list_remove(&touch->focused_destroy.link);
+		wl_list_init(&touch->focused_destroy.link);
+		wl_resource_add_destroy_listener(wl_surface,
+		                                 &touch->focused_destroy);
 	}
 }
 
@@ -199,26 +218,46 @@ tw_touch_clear_focus(struct tw_touch *touch)
 	touch->focused_surface = NULL;
 }
 
-
 uint32_t
-tw_touch_noop_down(struct tw_seat_touch_grab *grab, uint32_t time_msec,
-                   uint32_t touch_id, wl_fixed_t sx, wl_fixed_t sy)
+tw_touch_notify_down(struct tw_touch *touch, uint32_t time_msec, uint32_t id,
+                     double sx, double sy)
 {
+	if (touch->grab->impl->down)
+		return touch->grab->impl->down(touch->grab, time_msec, id,
+		                               sx, sy);
 	return 0;
 }
 
 void
-tw_touch_noop_up(struct tw_seat_touch_grab *grab, uint32_t time_msec,
-                 uint32_t touch_id) {}
-void
-tw_touch_noop_motion(struct tw_seat_touch_grab *grab, uint32_t time_msec,
-                     uint32_t touch_id, wl_fixed_t sx, wl_fixed_t sy) {}
-void
-tw_touch_noop_enter(struct tw_seat_touch_grab *grab, uint32_t time_msec,
-                    struct wl_resource *surface, uint32_t touch_id,
-                    wl_fixed_t sx, wl_fixed_t sy) {}
-void
-tw_touch_noop_touch_cancel(struct tw_seat_touch_grab *grab) {}
+tw_touch_notify_up(struct tw_touch *touch, uint32_t time_msec,
+                   uint32_t touch_id)
+{
+	if (touch->grab->impl->up)
+		touch->grab->impl->up(touch->grab, time_msec, touch_id);
+}
 
 void
-tw_touch_noop_cancel(struct tw_seat_touch_grab *grab) {}
+tw_touch_notify_motion(struct tw_touch *touch, uint32_t time_msec,
+                       uint32_t touch_id, double sx, double sy)
+{
+	if (touch->grab->impl->motion)
+		touch->grab->impl->motion(touch->grab, time_msec, touch_id,
+		                          sx, sy);
+}
+
+void
+tw_touch_notify_enter(struct tw_touch *touch, uint32_t time_msec,
+                      struct wl_resource *surface, uint32_t id,
+                      double sx, double sy)
+{
+	if (touch->grab->impl->enter)
+		touch->grab->impl->enter(touch->grab, time_msec, surface, id,
+		                         sx, sy);
+}
+
+void
+tw_touch_notify_cancel(struct tw_touch *touch)
+{
+	if (touch->grab->impl->touch_cancel)
+		touch->grab->impl->touch_cancel(touch->grab);
+}

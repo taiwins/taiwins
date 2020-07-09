@@ -93,6 +93,9 @@ tw_cursor_set_surface(struct tw_cursor *cursor,
                       struct wl_resource *pointer_resource,
                       struct tw_layer *cursor_layer,
                       int32_t hotspot_x, int32_t hotspot_y);
+void
+tw_cursor_unset_surface(struct tw_cursor *cursor);
+
 #ifdef  __cplusplus
 }
 #endif
