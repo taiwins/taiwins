@@ -125,6 +125,17 @@ static const struct tw_pointer_grab_interface default_grab_impl = {
 	.cancel = notify_pointer_cancel,
 };
 
+static void
+notify_focused_disappear(struct wl_listener *listener, void *data)
+{
+	struct tw_pointer *pointer =
+		container_of(listener, struct tw_pointer,
+		             focused_destroy);
+	pointer->focused_surface = NULL;
+	pointer->focused_client = NULL;
+	wl_list_remove(&listener->link);
+	wl_list_init(&listener->link);
+}
 
 struct tw_pointer *
 tw_seat_new_pointer(struct tw_seat *seat)
@@ -140,6 +151,9 @@ tw_seat_new_pointer(struct tw_seat *seat)
 	pointer->default_grab.seat = seat;
 	pointer->default_grab.impl = &default_grab_impl;
 	pointer->grab = &pointer->default_grab;
+
+	wl_list_init(&pointer->focused_destroy.link);
+	pointer->focused_destroy.notify = notify_focused_disappear;
 
 	seat->capabilities |= WL_SEAT_CAPABILITY_POINTER;
 	tw_seat_send_capabilities(seat);
@@ -203,6 +217,11 @@ tw_pointer_set_focus(struct tw_pointer *pointer,
 			                      wl_fixed_from_double(sy));
 		pointer->focused_client = client;
 		pointer->focused_surface = wl_surface;
+
+		wl_list_remove(&pointer->focused_destroy.link);
+		wl_list_init(&pointer->focused_destroy.link);
+		wl_resource_add_destroy_listener(wl_surface,
+		                                 &pointer->focused_destroy);
 	}
 }
 
@@ -226,26 +245,46 @@ tw_pointer_clear_focus(struct tw_pointer *pointer)
 }
 
 void
-tw_pointer_noop_enter(struct tw_seat_pointer_grab *grab,
-                      struct wl_resource *surface, double sx, double sy) {}
-void
-tw_pointer_noop_motion(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
-                       double sx, double sy) {}
-uint32_t
-tw_pointer_noop_button(struct tw_seat_pointer_grab *grab,
-                       uint32_t time_msec, uint32_t button,
-                       enum wl_pointer_button_state state)
+tw_pointer_notify_enter(struct tw_pointer *pointer,
+                        struct wl_resource *wl_surface,
+                        double sx, double sy)
 {
-	return 0;
+	if (pointer->grab->impl->enter)
+		pointer->grab->impl->enter(pointer->grab, wl_surface, sx, sy);
 }
 
 void
-tw_pointer_noop_axis(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
-                     enum wl_pointer_axis orientation, double value,
-                     int32_t value_discrete,
-                     enum wl_pointer_axis_source source) {}
-void
-tw_pointer_noop_frame(struct tw_seat_pointer_grab *grab) {}
+tw_pointer_notify_motion(struct tw_pointer *pointer, uint32_t time_msec,
+                         double sx, double sy)
+{
+	if (pointer->grab->impl->motion)
+		pointer->grab->impl->motion(pointer->grab, time_msec, sx, sy);
+}
+
+uint32_t
+tw_pointer_notify_button(struct tw_pointer *pointer, uint32_t time_msec,
+                         uint32_t button, enum wl_pointer_button_state state)
+{
+	if (pointer->grab->impl->button)
+		return pointer->grab->impl->button(pointer->grab, time_msec,
+		                                   button, state);
+	else
+		return 0;
+}
 
 void
-tw_pointer_noop_cancel(struct tw_seat_pointer_grab *grab) {}
+tw_pointer_notify_axis(struct tw_pointer *pointer, uint32_t time_msec,
+                       enum wl_pointer_axis axis, double val, int val_disc,
+                       enum wl_pointer_axis_source source)
+{
+	if (pointer->grab->impl->axis)
+		pointer->grab->impl->axis(pointer->grab, time_msec, axis,
+		                          val, val_disc, source);
+}
+
+void
+tw_pointer_notify_frame(struct tw_pointer *pointer)
+{
+	if (pointer->grab->impl->frame)
+		pointer->grab->impl->frame(pointer->grab);
+}

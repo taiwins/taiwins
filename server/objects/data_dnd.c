@@ -111,9 +111,6 @@ static const struct tw_pointer_grab_interface dnd_pointer_grab_impl = {
 	.enter = dnd_pointer_enter,
 	.motion = dnd_pointer_motion,
 	.button = dnd_pointer_button,
-	.axis = tw_pointer_noop_axis,
-	.frame = tw_pointer_noop_frame,
-	.cancel = tw_pointer_noop_cancel,
 };
 
 bool
