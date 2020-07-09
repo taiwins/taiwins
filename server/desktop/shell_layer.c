@@ -336,9 +336,9 @@ bind_layer_shell(struct wl_client *client, void *data, uint32_t version,
 }
 
 bool
-shell_impl_layer_shell(struct tw_shell *shell)
+shell_impl_layer_shell(struct tw_shell *shell, struct wl_display *display)
 {
-	shell->layer_shell = wl_global_create(shell->display,
+	shell->layer_shell = wl_global_create(display,
 	                                      &zwlr_layer_shell_v1_interface,
 	                                      LAYER_SHELL_VERSION, shell,
 	                                      bind_layer_shell);

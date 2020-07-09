@@ -37,6 +37,9 @@ extern "C" {
 #endif
 
 #define MAX_VIEW_LINKS 5
+#define TW_VIEW_LAYER_LINK 0
+#define TW_VIEW_GLOBAL_LINK 1
+#define TW_VIEW_OUTPUT_LINK 2
 
 enum tw_surface_state {
 	TW_SURFACE_ATTACHED = (1 << 0),
@@ -259,6 +262,15 @@ tw_surface_unmap(struct tw_surface *surface);
 void
 tw_surface_set_position(struct tw_surface *surface, int32_t x, int32_t y);
 
+void
+tw_surface_to_local_pos(struct tw_surface *surface, int32_t x, int32_t y,
+                        int32_t *sx, int32_t *sy);
+void
+tw_surface_to_global_pos(struct tw_surface *surface, uint32_t sx, uint32_t sy,
+                        int32_t *gx, int32_t *gy);
+bool
+tw_surface_has_point(struct tw_surface *surface, int32_t x, int32_t y);
+
 /**
  * @brief force dirting the geometry, it would damages all its clip region for
  * the outputs.
@@ -286,7 +298,6 @@ tw_subsurface_create(struct wl_client *client, uint32_t version,
 struct tw_region *
 tw_region_create(struct wl_client *client, uint32_t version, uint32_t id,
                  struct tw_surface_manager *manager);
-
 struct tw_region *
 tw_region_from_resource(struct wl_resource *wl_region);
 
@@ -297,7 +308,6 @@ bool
 tw_surface_buffer_update(struct tw_surface_buffer *buffer,
                          struct wl_resource *resource,
                          pixman_region32_t *damage);
-
 void
 tw_surface_buffer_new(struct tw_surface_buffer *buffer,
                       struct wl_resource *resource);

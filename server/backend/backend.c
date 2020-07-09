@@ -45,10 +45,12 @@
 #include "backend.h"
 #include "backend_internal.h"
 #include "objects/compositor.h"
+#include "objects/cursor.h"
 #include "objects/data_device.h"
 #include "objects/dmabuf.h"
 #include "objects/layers.h"
 #include "objects/surface.h"
+#include "pixman.h"
 
 static struct tw_backend s_tw_backend = {0};
 static struct tw_backend_impl s_tw_backend_impl;
@@ -136,10 +138,53 @@ tw_backend_focused_output(struct tw_backend *backend)
 }
 
 struct tw_backend_output *
+tw_backend_output_from_cursor_pos(struct tw_backend *backend)
+{
+	pixman_region32_t *output_region;
+	struct tw_backend_output *output;
+	wl_list_for_each(output, &backend->heads, link) {
+		if (output->cloning >= 0)
+			continue;
+		output_region = &output->state.constrain.region;
+		if (pixman_region32_contains_point(output_region,
+		                                   backend->global_cursor.x,
+		                                   backend->global_cursor.y,
+		                                   NULL))
+			return output;
+	}
+	return NULL;
+}
+
+struct tw_backend_output *
 tw_backend_output_from_resource(struct wl_resource *resource)
 {
 	struct wlr_output *wlr_output = wlr_output_from_resource(resource);
 	return wlr_output->data;
+}
+
+struct tw_surface *
+tw_backend_pick_surface_from_layers(struct tw_backend *backend,
+                                    int32_t x, int32_t y,
+                                    int32_t *sx,  int32_t *sy)
+{
+	struct tw_layer *layer;
+	struct tw_layers_manager *layers = &backend->layers_manager;
+	struct tw_surface *surface;
+
+	wl_list_for_each(layer, &layers->layers, link) {
+		if (layer->position >= TW_LAYER_POS_CURSOR)
+			continue;
+		wl_list_for_each(surface, &layer->views,
+		                 links[TW_VIEW_LAYER_LINK]) {
+			if (tw_surface_has_point(surface, x, y)) {
+				tw_surface_to_local_pos(surface, x, y, sx, sy);
+				return surface;
+			}
+		}
+	}
+	*sx = -1000000;
+	*sy = -1000000;
+	return NULL;
 }
 
 static bool
@@ -166,6 +211,7 @@ release_backend(struct wl_listener *listener, UNUSED_ARG(void *data))
 		container_of(listener, struct tw_backend,
 		             display_destroy_listener);
 
+	tw_cursor_fini(&backend->global_cursor);
 	tw_backend_fini_impl(backend->impl);
 	backend->main_renderer = NULL;
 	backend->auto_backend = NULL;
@@ -204,14 +250,13 @@ tw_backend_create_global(struct wl_display *display,
 	backend->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	if (!backend->xkb_context)
 		goto err_context;
-	// initialize the global cursor, every seat will register the events on
-	// it
-	backend->global_cursor = wlr_cursor_create();
-	if (!backend->global_cursor)
-		goto err_cursor;
 
 	if (!tw_backend_init_globals(backend))
 		goto err_globals;
+
+	// initialize the global cursor, every seat will register the events on
+	// it
+	tw_cursor_init(&backend->global_cursor);
 
 	wl_list_init(&backend->display_destroy_listener.link);
 	backend->display_destroy_listener.notify = release_backend;
@@ -233,8 +278,6 @@ tw_backend_create_global(struct wl_display *display,
         tw_backend_init_impl(impl, backend);
 	return backend;
 err_globals:
-
-err_cursor:
 	xkb_context_unref(backend->xkb_context);
 err_context:
 	wlr_backend_destroy(backend->auto_backend);

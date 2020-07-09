@@ -20,7 +20,7 @@
  */
 
 #include <ctypes/helpers.h>
-#include <wayland-server-protocol.h>
+#include <wayland-server.h>
 
 #include "backend.h"
 #include "backend_internal.h"
@@ -90,6 +90,10 @@ correct_output_mode(struct tw_backend_output *o)
 	o->state.w = wlr_output->width;
 	o->state.h = wlr_output->height;
 	o->state.refresh = wlr_output->refresh;
+	pixman_region32_clear(&o->state.constrain.region);
+	pixman_region32_init_rect(&o->state.constrain.region,
+	                          o->state.x, o->state.y,
+	                          o->state.w, o->state.h);
 }
 void
 tw_backend_commit_output_state(struct tw_backend_output *o)
@@ -130,6 +134,10 @@ init_output_state(struct tw_backend_output *o)
 	o->state.preferred_mode = true;
 	//okay, here is what we will need to fix
 	o->state.x = 0; o->state.y = 0;
+	wl_list_init(&o->state.constrain.link);
+	pixman_region32_init(&o->state.constrain.region);
+	wl_list_insert(o->backend->global_cursor.constrains.prev,
+	               &o->state.constrain.link);
 }
 
 static void
@@ -171,6 +179,8 @@ notify_output_remove(struct wl_listener *listener, UNUSED_ARG(void *data))
 
 	output->id = -1;
 	wl_list_remove(&output->link);
+	wl_list_remove(&output->state.constrain.link);
+	pixman_region32_fini(&output->state.constrain.region);
 
 	backend->output_pool &= unset;
 	wl_signal_emit(&backend->output_unplug_signal, output);

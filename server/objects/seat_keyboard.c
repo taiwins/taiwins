@@ -23,9 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
-#include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
-#include <wayland-util.h>
+#include <wayland-server.h>
 #include <xkbcommon/xkbcommon.h>
 
 #include <ctypes/os/os-compatibility.h>
@@ -39,31 +37,15 @@ notify_keyboard_enter(struct tw_seat_keyboard_grab *grab,
                       struct wl_resource *surface, uint32_t pressed[],
                       size_t n_pressed)
 {
-	struct tw_seat *seat = grab->seat;
-	struct tw_seat_client *client =
-		tw_seat_client_find(seat, wl_resource_get_client(surface));
-	uint32_t serial = wl_display_next_serial(seat->display);
-	struct wl_resource *keyboard;
+	struct tw_keyboard *keyboard = &grab->seat->keyboard;
 	struct wl_array key_array;
 
-	if (seat->keyboard.focused_client) {
-		wl_resource_for_each(keyboard, &client->keyboards)
-			wl_keyboard_send_leave(keyboard, serial,
-			                       seat->keyboard.focused_surface);
-		serial = wl_display_next_serial(seat->display);
-	}
-
-	seat->keyboard.focused_client = client;
-	seat->keyboard.focused_surface = surface;
 	wl_array_init(&key_array);
 	key_array.data = pressed;
 	key_array.alloc = 0;
 	key_array.size = sizeof(uint32_t) * n_pressed;
 
-	//TODO: this is not going to work, you do need the keystates in the
-	//keyboard
-	wl_resource_for_each(keyboard, &client->keyboards)
-		wl_keyboard_send_enter(keyboard, serial, surface, &key_array);
+	tw_keyboard_set_focus(keyboard, surface, &key_array);
 }
 
 static void
@@ -117,12 +99,15 @@ static const struct tw_keyboard_grab_interface default_grab_impl = {
 };
 
 static void
-tw_keyboard_new_event(struct wl_listener *listener, void *data)
+notify_focused_disappear(struct wl_listener *listener, void *data)
 {
-	struct tw_keyboard_event *event = data;
 	struct tw_keyboard *keyboard =
-		wl_container_of(listener, keyboard, event);
-	(void)event;
+		container_of(listener, struct tw_keyboard,
+		             focused_destroy);
+	keyboard->focused_surface = NULL;
+	keyboard->focused_client = NULL;
+	wl_list_remove(&listener->link);
+	wl_list_init(&listener->link);
 }
 
 struct tw_keyboard *
@@ -132,8 +117,6 @@ tw_seat_new_keyboard(struct tw_seat *seat)
 	if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
 		return keyboard;
 
-	wl_list_init(&keyboard->event.link);
-	keyboard->event.notify = tw_keyboard_new_event;
 	seat->keyboard.focused_client = NULL;
 	seat->keyboard.focused_surface = NULL;
 	seat->keyboard.keymap_size = 0;
@@ -143,6 +126,9 @@ tw_seat_new_keyboard(struct tw_seat *seat)
 	seat->keyboard.default_grab.seat = seat;
 	seat->keyboard.default_grab.impl = &default_grab_impl;
 	seat->keyboard.grab = &keyboard->default_grab;
+
+	wl_list_init(&keyboard->focused_destroy.link);
+	keyboard->focused_destroy.notify = notify_focused_disappear;
 
 	seat->capabilities |= WL_SEAT_CAPABILITY_KEYBOARD;
 	tw_seat_send_capabilities(seat);
@@ -241,16 +227,82 @@ tw_keyboard_send_keymap(struct tw_keyboard *keyboard,
 }
 
 void
-tw_keyboard_noop_enter(struct tw_seat_keyboard_grab *grab,
-                       struct wl_resource *surface, uint32_t keycodes[],
-                       size_t n_keycodes) {}
+tw_keyboard_set_focus(struct tw_keyboard *keyboard,
+                      struct wl_resource *wl_surface,
+                      struct wl_array *focus_keys)
+{
+	struct wl_array zero_keys = {0};
+	struct tw_seat_client *client;
+	struct wl_resource *res;
+	uint32_t serial;
+	struct tw_seat *seat =
+		container_of(keyboard, struct tw_seat, keyboard);
+
+	tw_keyboard_clear_focus(keyboard);
+
+	focus_keys = focus_keys ? focus_keys : &zero_keys;
+	client = tw_seat_client_find(seat, wl_resource_get_client(wl_surface));
+	if (client) {
+		serial = wl_display_next_serial(seat->display);
+		wl_resource_for_each(res, &client->keyboards)
+			wl_keyboard_send_enter(res, serial, wl_surface,
+			                       focus_keys);
+		keyboard->focused_client = client;
+		keyboard->focused_surface = wl_surface;
+		//set focus
+		wl_list_remove(&keyboard->focused_destroy.link);
+		wl_list_init(&keyboard->focused_destroy.link);
+		wl_resource_add_destroy_listener(wl_surface,
+		                                 &keyboard->focused_destroy);
+	}
+}
+
 void
-tw_keyboard_noop_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
-                     uint32_t key, uint32_t state) {}
+tw_keyboard_clear_focus(struct tw_keyboard *keyboard)
+{
+	struct tw_seat_client *client;
+	struct wl_resource *res;
+	uint32_t serial;
+	struct tw_seat *seat =
+		container_of(keyboard, struct tw_seat, keyboard);
+
+        if (keyboard->focused_surface && keyboard->focused_client) {
+		client = keyboard->focused_client;
+		serial = wl_display_next_serial(seat->display);
+		wl_resource_for_each(res, &client->keyboards)
+			wl_keyboard_send_leave(res, serial,
+			                       keyboard->focused_surface);
+	}
+	keyboard->focused_client = NULL;
+	keyboard->focused_surface = NULL;
+}
+
 void
-tw_keyboard_noop_modifier(struct tw_seat_keyboard_grab *grab,
-                          //we can do the weston way,
-                          uint32_t mods_depressed, uint32_t mods_latched,
-                          uint32_t mods_locked, uint32_t group) {}
+tw_keyboard_notify_enter(struct tw_keyboard *keyboard,
+                         struct wl_resource *surface, uint32_t *keycodes,
+                         size_t n_keycodes)
+{
+	if (keyboard->grab->impl->enter)
+		keyboard->grab->impl->enter(keyboard->grab,
+		                            surface, keycodes, n_keycodes);
+}
+
 void
-tw_keyboard_noop_cancel(struct tw_seat_keyboard_grab *grab) {}
+tw_keyboard_notify_key(struct tw_keyboard *keyboard, uint32_t time_msec,
+                       uint32_t key, uint32_t state)
+{
+	if (keyboard->grab->impl->key)
+		keyboard->grab->impl->key(keyboard->grab, time_msec, key,
+		                          state);
+}
+
+void
+tw_keyboard_notify_modifiers(struct tw_keyboard *keyboard,
+                             uint32_t mods_depressed, uint32_t mods_latched,
+                             uint32_t mods_locked, uint32_t group)
+{
+	if (keyboard->grab->impl->modifiers)
+		keyboard->grab->impl->modifiers(keyboard->grab,
+		                                mods_depressed, mods_latched,
+		                                mods_latched, group);
+}

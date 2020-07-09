@@ -60,7 +60,7 @@ struct tw_shell_ui {
 	uint32_t x; uint32_t y;
 	struct tw_layer *layer;
 	enum taiwins_ui_type type;
-
+	struct wl_listener surface_destroy;
 	//I need to translate this into size, positional.
 	struct {
 		uint32_t x, y, w, h;
@@ -124,7 +124,7 @@ struct tw_shell {
 };
 
 bool
-shell_impl_layer_shell(struct tw_shell *shell);
+shell_impl_layer_shell(struct tw_shell *shell, struct wl_display *display);
 
 struct tw_shell_ui *
 shell_create_ui_element(struct tw_shell *shell,

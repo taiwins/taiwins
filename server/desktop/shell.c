@@ -42,6 +42,14 @@
 #define TW_SHELL_UI_ROLE "taiwins shell_ui role"
 static struct tw_shell s_shell = {0};
 
+static void
+notify_shell_ui_surface_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_shell_ui *ui =
+		container_of(listener, struct tw_shell_ui, surface_destroy);
+	ui->binded = NULL;
+}
+
 struct tw_shell_ui *
 shell_create_ui_element(struct tw_shell *shell,
                         struct tw_shell_ui *elem,
@@ -67,6 +75,10 @@ shell_create_ui_element(struct tw_shell *shell,
 	wl_list_init(&surface->links[TW_VIEW_LAYER_LINK]);
 	wl_list_insert(layer->views.prev, &surface->links[TW_VIEW_LAYER_LINK]);
 	shell_ui_set_role(elem, commit_cb, surface);
+	wl_list_init(&elem->surface_destroy.link);
+	elem->surface_destroy.notify = notify_shell_ui_surface_destroy;
+	wl_signal_add(&surface->events.destroy, &elem->surface_destroy);
+
 	return elem;
 }
 
@@ -164,6 +176,9 @@ shell_ui_unbind(struct wl_resource *resource)
 	//TODO: deal with all the bindings
 	struct tw_shell_ui *ui  = wl_resource_get_user_data(resource);
 	struct tw_shell_output *output = ui->output;
+
+	if (ui->binded)
+		tw_surface_unmap(ui->binded);
 	if (output && ui == &output->panel) {
 		output->panel = (struct tw_shell_ui){0};
 		output->panel_height = 0;
@@ -172,7 +187,6 @@ shell_ui_unbind(struct wl_resource *resource)
 		output->background = (struct tw_shell_ui){0};
 	}
 
-	tw_surface_unmap(ui->binded);
 	ui->binded = NULL;
 	ui->layer = NULL;
 	ui->resource = NULL;
@@ -428,7 +442,6 @@ bind_shell(struct wl_client *client, void *data,
            UNUSED_ARG(uint32_t version), uint32_t id)
 {
 	struct tw_shell *shell = data;
-	struct tw_shell_output *shell_output;
 	uid_t uid; gid_t gid; pid_t pid;
 	struct wl_resource *r = NULL;
 
@@ -450,16 +463,6 @@ bind_shell(struct wl_client *client, void *data,
 
 	/// send configurations to clients now
 	shell_send_default_config(shell);
-	wl_list_for_each(shell_output, &shell->heads, link) {
-		struct tw_backend_output *output = shell_output->output;
-
-		taiwins_shell_send_output_configure(r, output->id,
-		                                    output->state.w,
-		                                    output->state.h,
-		                                    output->state.scale,
-		                                    output->id == 0,
-		                                    TAIWINS_SHELL_OUTPUT_MSG_CONNECTED);
-	}
 }
 
 /******************************************************************************
@@ -702,7 +705,7 @@ tw_shell_create_global(struct wl_display *wl_display,
 		                 bind_shell);
 	if (!s_shell.shell_global)
 		return NULL;
-	if (!shell_impl_layer_shell(&s_shell))
+	if (!shell_impl_layer_shell(&s_shell, wl_display))
 		return NULL;
 
 	s_shell.ready = false;
