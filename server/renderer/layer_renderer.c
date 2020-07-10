@@ -32,6 +32,7 @@
 #include "objects/matrix.h"
 #include "objects/plane.h"
 #include "objects/surface.h"
+#include "objects/profiler.h"
 #include "pixman.h"
 #include "renderer.h"
 #include "shaders.h"
@@ -94,6 +95,8 @@ tw_layer_renderer_build_surface_list(struct tw_backend *backend)
 	struct tw_backend_output *output;
 	struct tw_layers_manager *manager = &backend->layers_manager;
 
+	SCOPE_PROFILE_BEG();
+
 	wl_list_init(&manager->views);
 	wl_list_for_each(output, &backend->heads, link)
 		wl_list_init(&output->views);
@@ -105,6 +108,8 @@ tw_layer_renderer_build_surface_list(struct tw_backend *backend)
 			surface_add_to_outputs_list(backend, surface);
 		}
 	}
+
+	SCOPE_PROFILE_END();
 }
 
 static void
@@ -159,6 +164,8 @@ tw_layer_renderer_stack_damage(struct tw_backend *backend)
 	//region. Well we only have one plane.
 	pixman_region32_t opaque, clip;
 
+	SCOPE_PROFILE_BEG();
+
 	pixman_region32_init(&clip);
 	wl_list_for_each(output, &backend->heads, link) {
 		pixman_region32_init(&opaque);
@@ -172,6 +179,8 @@ tw_layer_renderer_stack_damage(struct tw_backend *backend)
 		pixman_region32_fini(&opaque);
 	}
 	pixman_region32_fini(&clip);
+
+	SCOPE_PROFILE_END();
 }
 
 /******************************************************************************
@@ -245,6 +254,7 @@ layer_renderer_paint_surface(struct tw_surface *surface,
 	struct tw_quad_tex_shader *shader;
 	struct tw_render_texture *texture = surface->buffer.handle.ptr;
 
+	SCOPE_PROFILE_BEG();
 
 	if (!texture)
 		return;
@@ -278,8 +288,9 @@ layer_renderer_paint_surface(struct tw_surface *surface,
 	glUniform1f(shader->uniform.alpha, 1.0f);
 
 	layer_renderer_draw_quad(texture->inverted_y);
-}
 
+	SCOPE_PROFILE_END();
+}
 
 static void
 layer_renderer_repaint_output(struct tw_renderer *renderer,
@@ -293,6 +304,8 @@ layer_renderer_repaint_output(struct tw_renderer *renderer,
 		container_of(renderer, struct tw_layer_renderer, base);
 	struct timespec now;
 	uint32_t now_int;
+
+	SCOPE_PROFILE_BEG();
 
 	tw_layer_renderer_build_surface_list(backend);
 	tw_plane_init(&main_plane);
@@ -315,6 +328,8 @@ layer_renderer_repaint_output(struct tw_renderer *renderer,
 		now_int = now.tv_sec * 1000 + now.tv_nsec / 1000000;
 		tw_surface_flush_frame(surface, now_int);
 	}
+
+	SCOPE_PROFILE_END();
 }
 
 
