@@ -1,3 +1,11 @@
+taiwins_cargs = [
+  '-D_GNU_SOURCE',
+  '-DWLR_USE_UNSTABLE'
+]
+if get_option('enable-profiler')
+   taiwins_cargs += '-D_TW_ENABLE_PROFILING'
+endif
+
 ####### dummy server
 taiwins_src = [
   'main.c',
@@ -27,6 +35,7 @@ taiwins_src = [
   'objects/buffer.c',
   'objects/layers.c',
   'objects/logger.c',
+  'objects/profiler.c',
   'objects/subprocess.c',
   'objects/data_device.c',
   'objects/data_source.c',
@@ -55,10 +64,7 @@ taiwins_src = [
 taiwins = executable(
   'taiwins',
   taiwins_src,
-  c_args : [
-    '-D_GNU_SOURCE',
-    '-DWLR_USE_UNSTABLE',
-  ],
+  c_args : taiwins_cargs,
   dependencies : [
     dep_wayland_server,
     dep_ctypes,

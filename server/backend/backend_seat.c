@@ -30,6 +30,7 @@
 #include <xkbcommon/xkbcommon.h>
 #include <ctypes/helpers.h>
 #include <objects/seat.h>
+#include <objects/profiler.h>
 
 #include "backend.h"
 #include "backend_internal.h"
@@ -225,11 +226,15 @@ notify_backend_pointer_motion(struct wl_listener *listener, void *data)
 	struct wlr_event_pointer_motion *event = data;
 	struct tw_backend *backend = seat->backend;
 
+	SCOPE_PROFILE_BEG();
+
 	//TODO: this is probably not right, relative motion only works for
 	//libinput
 	tw_cursor_move(&backend->global_cursor,
 	               event->delta_x, event->delta_y);
 	pointer_focus_motion(seat, event->time_msec);
+
+	SCOPE_PROFILE_END();
 }
 
 static void
@@ -245,8 +250,12 @@ notify_backend_pointer_motion_abs(struct wl_listener *listener, void *data)
 	int32_t x = (int)(event->x * output->state.w);
 	int32_t y = (int)(event->y * output->state.h);
 
+	SCOPE_PROFILE_BEG();
+
 	tw_cursor_set_pos(&backend->global_cursor, x, y);
 	pointer_focus_motion(seat, event->time_msec);
+
+	SCOPE_PROFILE_END();
 }
 
 static void
