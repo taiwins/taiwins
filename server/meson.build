@@ -44,6 +44,7 @@ taiwins_src = [
   'objects/matrix.c',
   'objects/plane.c',
   'objects/cursor.c',
+  'objects/desktop.c',
 
   wayland_linux_dmabuf_server_protocol_h,
   wayland_linux_dmabuf_private_code_c,

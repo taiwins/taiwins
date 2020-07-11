@@ -1,0 +1,112 @@
+/*
+ * destkop.h - taiwins wayland destkop protocols
+ *
+ * Copyright (c) 2020 Xichen Zhou
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ */
+
+#ifndef TW_COMPOSITOR_H
+#define TW_COMPOSITOR_H
+
+#include <stdlib.h>
+#include <wayland-server-core.h>
+#include <wayland-server.h>
+
+#ifdef  __cplusplus
+extern "C" {
+#endif
+
+enum tw_desktop_init_option {
+	TW_DESKTOP_INIT_INCLUDE_WL_SHELL = 1 << 0,
+	TW_DESKTOP_INIT_INCLUDE_XDG_SHELL_STABEL = 1 << 1,
+	TW_DESKTOP_INIT_INCLUDE_XDG_SHELL_V6 = 1 << 2,
+};
+
+struct tw_desktop_surface;
+
+struct tw_desktop_surface_api {
+	void (*ping_timeout)(struct tw_desktop_surface *client,
+			     void *user_data);
+	void (*pong)(struct tw_desktop_surface *client,
+		     void *user_data);
+
+	void (*surface_added)(struct tw_desktop_surface *surface,
+			      void *user_data);
+	void (*surface_removed)(struct tw_desktop_surface *surface,
+				void *user_data);
+	void (*committed)(struct tw_desktop_surface *surface,
+			  int32_t sx, int32_t sy, void *user_data);
+	void (*show_window_menu)(struct tw_desktop_surface *surface,
+				 struct wl_resource *seat,
+	                         int32_t x, int32_t y,
+				 void *user_data);
+	void (*set_parent)(struct tw_desktop_surface *surface,
+			   struct tw_desktop_surface *parent,
+			   void *user_data);
+	void (*move)(struct tw_desktop_surface *surface,
+		     struct wl_resource *seat, uint32_t serial,
+	             void *user_data);
+	void (*resize)(struct tw_desktop_surface *surface,
+		       struct wl_resource *seat, uint32_t serial,
+		       enum wl_shell_surface_resize edges, void *user_data);
+	void (*fullscreen_requested)(struct tw_desktop_surface *surface,
+	                             struct wl_resource *output,
+	                             bool fullscreen, void *user_data);
+
+	void (*maximized_requested)(struct tw_desktop_surface *surface,
+	                            struct wl_resource *output,
+				    bool maximized, void *user_data);
+	void (*minimized_requested)(struct tw_desktop_surface *surface,
+				    void *user_data);
+};
+
+
+struct tw_desktop {
+	struct wl_display *display;
+	struct wl_global *wl_shell_global;
+	struct tw_desktop_surface_api api;
+
+	struct wl_listener destroy_listener;
+	void *user_data;
+};
+
+bool
+tw_desktop_init(struct tw_desktop *desktop,
+                struct wl_display *display,
+                const struct tw_desktop_surface_api *api,
+                void *user_data,
+                enum tw_desktop_init_option option);
+
+struct tw_desktop *
+tw_desktop_create_global(struct wl_display *display,
+                         const struct tw_desktop_surface_api *api,
+                         void *user_data,
+                         enum tw_desktop_init_option option);
+
+void
+tw_desktop_surface_set_user_data(struct tw_desktop_surface *dsurf,
+                                 void *user_data);
+void *
+tw_desktop_surface_get_user_data(struct tw_desktop_surface *dsurf);
+
+
+#ifdef  __cplusplus
+}
+#endif
+
+
+#endif /* EOF */
