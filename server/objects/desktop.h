@@ -19,11 +19,12 @@
  *
  */
 
-#ifndef TW_COMPOSITOR_H
-#define TW_COMPOSITOR_H
+#ifndef TW_DESKTOP_H
+#define TW_DESKTOP_H
 
 #include <stdlib.h>
 #include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 
 #ifdef  __cplusplus
@@ -33,8 +34,8 @@ extern "C" {
 enum tw_desktop_init_option {
 	TW_DESKTOP_INIT_INCLUDE_WL_SHELL = 1 << 0,
 	TW_DESKTOP_INIT_INCLUDE_XDG_SHELL_STABEL = 1 << 1,
-	TW_DESKTOP_INIT_INCLUDE_XDG_SHELL_V6 = 1 << 2,
 };
+
 
 struct tw_desktop_surface;
 
@@ -68,16 +69,39 @@ struct tw_desktop_surface_api {
 	                             bool fullscreen, void *user_data);
 
 	void (*maximized_requested)(struct tw_desktop_surface *surface,
-	                            struct wl_resource *output,
 				    bool maximized, void *user_data);
 	void (*minimized_requested)(struct tw_desktop_surface *surface,
 				    void *user_data);
 };
 
 
-struct tw_desktop {
+enum tw_desktop_surface_type {
+	TW_DESKTOP_TOPLEVEL_SURFACE = 1,
+	TW_DESKTOP_TRANSIENT_SURFACE = 2,
+	TW_DESKTOP_POPUP_SURFACE = 4,
+};
+
+struct tw_desktop_surface {
+	struct wl_resource *shell_surface; /**< shared by implementation */
+	struct wl_resource *wl_surface;
+	struct tw_desktop_manager *desktop;
+	enum tw_desktop_surface_type type;
+	bool fullscreened;
+	bool maximized;
+	char *title, *class;
+
+	//API is required to call this function for additional size change. Xdg
+	//API also send configure for popup, which sets the position as well.
+	void (*configure)(struct tw_desktop_surface *surface,
+	                  enum wl_shell_surface_resize edge,
+	                  int32_t x, int32_t y,
+	                  unsigned width, unsigned height);
+};
+
+struct tw_desktop_manager {
 	struct wl_display *display;
 	struct wl_global *wl_shell_global;
+	struct wl_global *xdg_shell_global;
 	struct tw_desktop_surface_api api;
 
 	struct wl_listener destroy_listener;
@@ -85,23 +109,17 @@ struct tw_desktop {
 };
 
 bool
-tw_desktop_init(struct tw_desktop *desktop,
+tw_desktop_init(struct tw_desktop_manager *desktop,
                 struct wl_display *display,
                 const struct tw_desktop_surface_api *api,
                 void *user_data,
                 enum tw_desktop_init_option option);
 
-struct tw_desktop *
+struct tw_desktop_manager *
 tw_desktop_create_global(struct wl_display *display,
                          const struct tw_desktop_surface_api *api,
                          void *user_data,
                          enum tw_desktop_init_option option);
-
-void
-tw_desktop_surface_set_user_data(struct tw_desktop_surface *dsurf,
-                                 void *user_data);
-void *
-tw_desktop_surface_get_user_data(struct tw_desktop_surface *dsurf);
 
 
 #ifdef  __cplusplus

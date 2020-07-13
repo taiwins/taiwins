@@ -19,7 +19,24 @@
  *
  */
 
+#include <assert.h>
+#include <wayland-server.h>
+
 #include "signal.h"
+
+void
+tw_signal_setup_listener(struct wl_signal *signal,
+                         struct wl_listener *listener,
+                         wl_notify_func_t notify)
+{
+	assert(notify);
+	assert(signal);
+	assert(listener);
+
+	wl_list_init(&listener->link);
+	listener->notify = notify;
+	wl_signal_add(signal, listener);
+}
 
 static void
 handle_noop(struct wl_listener *listener, void *data)

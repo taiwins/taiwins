@@ -31,6 +31,11 @@ extern "C" {
 void
 tw_signal_emit_safe(struct wl_signal *signal, void *data);
 
+void
+tw_signal_setup_listener(struct wl_signal *signal,
+                         struct wl_listener *listener,
+                         wl_notify_func_t notify);
+
 #ifdef  __cplusplus
 }
 #endif
