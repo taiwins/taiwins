@@ -89,6 +89,23 @@ tw_desktop_init(struct tw_desktop_manager *desktop,
 	return ret;
 }
 
+struct tw_desktop_manager *
+tw_desktop_create_global(struct wl_display *display,
+                         const struct tw_desktop_surface_api *api,
+                         void *user_data,
+                         enum tw_desktop_init_option option)
+{
+	static struct tw_desktop_manager s_desktop_manager = {0};
+
+	if (s_desktop_manager.display)
+		return &s_desktop_manager;
+
+	if (!tw_desktop_init(&s_desktop_manager, display, api,
+	                     user_data, option))
+		return NULL;
+	return &s_desktop_manager;
+}
+
 void
 tw_desktop_surface_init(struct tw_desktop_surface *surf,
                         struct wl_resource *resource,

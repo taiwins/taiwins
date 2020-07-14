@@ -43,6 +43,7 @@
 
 #include "backend/backend.h"
 #include "desktop/shell_internal.h"
+#include "desktop/xdg.h"
 #include "input.h"
 
 #ifndef _GNU_SOURCE
@@ -67,6 +68,7 @@ struct tw_server {
 	struct tw_backend *backend;
 	struct tw_bindings *binding_state;
 	struct tw_shell *tw_shell;
+	struct tw_xdg *tw_xdg;
 
 	/* seats */
 	struct tw_seat_events seat_events[8];

@@ -1,10 +1,4 @@
 option(
-	'sanitizer',
-	type: 'boolean',
-	value: true,
-	description: 'Enable sanitizer check'
-)
-option(
 	'enable-profiler',
 	type: 'boolean',
 	value: false,

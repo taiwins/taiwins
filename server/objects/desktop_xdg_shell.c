@@ -82,13 +82,13 @@ commit_xdg_toplevel(struct tw_surface *surface)
 	xdg_surf->current.max_size = xdg_surf->pending.max_size;
 	xdg_surf->current.min_size = xdg_surf->pending.min_size;
 
-	desktop->api.committed(dsurf, 0, 0, desktop->user_data);
+	desktop->api.committed(dsurf, desktop->user_data);
 }
 
 static void
 commit_xdg_popup(struct tw_surface *surface)
 {
-
+	//set position!
 }
 
 static bool

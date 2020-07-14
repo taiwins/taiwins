@@ -50,7 +50,7 @@ struct tw_desktop_surface_api {
 	void (*surface_removed)(struct tw_desktop_surface *surface,
 				void *user_data);
 	void (*committed)(struct tw_desktop_surface *surface,
-			  int32_t sx, int32_t sy, void *user_data);
+			  void *user_data);
 	void (*show_window_menu)(struct tw_desktop_surface *surface,
 				 struct wl_resource *seat,
 	                         int32_t x, int32_t y,

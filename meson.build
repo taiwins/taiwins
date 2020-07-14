@@ -26,11 +26,6 @@ foreach a : global_args_maybe
   endif
 endforeach
 
-if get_option('buildtype') == 'debug' and get_option('sanitizer') and cc.has_argument('-fsanitize=address')
-  global_args += '-fsanitize=address'
-  global_link_args += '-fsanitize=address'
-endif
-
 add_project_arguments(global_args, language : 'c')
 add_project_link_arguments(global_link_args, language : 'c')
 

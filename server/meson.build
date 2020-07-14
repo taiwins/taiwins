@@ -23,6 +23,7 @@ taiwins_src = [
   'renderer/layer_renderer.c',
   'desktop/shell.c',
   'desktop/shell_layer.c',
+  'desktop/xdg.c',
 
   'objects/signal.c',
   'objects/seat.c',
