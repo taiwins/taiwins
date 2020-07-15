@@ -22,7 +22,13 @@
 #ifndef TW_SIGNAL_H
 #define TW_SIGNAL_H
 
+#include <stdbool.h>
+#include <stdlib.h>
 #include <wayland-server-core.h>
+
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 
 #ifdef  __cplusplus
 extern "C" {
@@ -35,6 +41,20 @@ void
 tw_signal_setup_listener(struct wl_signal *signal,
                          struct wl_listener *listener,
                          wl_notify_func_t notify);
+
+#define tw_create_wl_resource_for_obj(res, obj, client, id, ver, iface)   \
+	({ \
+		bool ret = true; \
+		obj = calloc(1, sizeof(*obj)); \
+		ret = obj != NULL; \
+		if (ret) { \
+			res = wl_resource_create(client, &iface, ver, id); \
+			ret = ret && res != NULL; \
+		} \
+		if (!ret) \
+			free(obj); \
+		ret; \
+	})
 
 #ifdef  __cplusplus
 }

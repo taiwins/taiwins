@@ -25,7 +25,7 @@ taiwins_src = [
   'desktop/shell_layer.c',
   'desktop/xdg.c',
 
-  'objects/signal.c',
+  'objects/utils.c',
   'objects/seat.c',
   'objects/seat_keyboard.c',
   'objects/seat_pointer.c',
