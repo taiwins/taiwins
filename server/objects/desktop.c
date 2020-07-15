@@ -21,15 +21,12 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
 #include <wayland-server.h>
-#include <wayland-util.h>
-#include <wayland-xdg-shell-server-protocol.h>
+#include <ctypes/helpers.h>
 
-#include "ctypes/helpers.h"
 #include "desktop.h"
 #include "surface.h"
 #include "seat.h"
@@ -70,15 +67,11 @@ tw_desktop_init(struct tw_desktop_manager *desktop,
 
 	desktop->display = display;
 	desktop->user_data = user_data;
-
-	switch (option) {
-	case TW_DESKTOP_INIT_INCLUDE_WL_SHELL:
+	memcpy(&desktop->api, api, sizeof(*api));
+	if (option & TW_DESKTOP_INIT_INCLUDE_WL_SHELL)
 		ret = ret && init_wl_shell(desktop);
-		break;
-	case TW_DESKTOP_INIT_INCLUDE_XDG_SHELL_STABEL:
+	if (option & TW_DESKTOP_INIT_INCLUDE_XDG_SHELL_STABEL)
 		ret = ret && init_xdg_shell(desktop);
-		break;
-	}
 	if (!ret)
 		tw_desktop_fini(desktop);
 
@@ -108,10 +101,12 @@ tw_desktop_create_global(struct wl_display *display,
 
 void
 tw_desktop_surface_init(struct tw_desktop_surface *surf,
+                        struct wl_resource *wl_surface,
                         struct wl_resource *resource,
                         struct tw_desktop_manager *desktop)
 {
 	surf->desktop = desktop;
+	surf->wl_surface = wl_surface;
 	surf->shell_surface = resource;
 	surf->fullscreened = false;
 	surf->maximized = false;

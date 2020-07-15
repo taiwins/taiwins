@@ -22,7 +22,7 @@
 #include <ctypes/helpers.h>
 #include <objects/surface.h>
 #include <objects/logger.h>
-#include <objects/signal.h>
+#include <objects/utils.h>
 #include <objects/layers.h>
 #include <objects/desktop.h>
 #include <objects/seat.h>
@@ -138,8 +138,7 @@ twdesk_surface_removed(struct tw_desktop_surface *dsurf,
 	struct tw_surface *tw_surface =
 		tw_surface_from_resource(dsurf->wl_surface);
 
-	wl_list_remove(&tw_surface->links[TW_VIEW_LAYER_LINK]);
-	wl_list_init(&tw_surface->links[TW_VIEW_LAYER_LINK]);
+	tw_reset_wl_list(&tw_surface->links[TW_VIEW_LAYER_LINK]);
 }
 
 static void

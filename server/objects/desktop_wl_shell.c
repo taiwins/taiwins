@@ -22,11 +22,11 @@
 #include <assert.h>
 #include <string.h>
 #include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
+#include <wayland-server.h>
 #include <ctypes/helpers.h>
 #include <wayland-util.h>
 
-#include "objects/signal.h"
+#include "utils.h"
 #include "surface.h"
 #include "seat.h"
 #include "desktop.h"
@@ -38,6 +38,7 @@ struct tw_wl_shell_surface {
 	struct tw_desktop_surface base;
 	/* used only by popup */
 	struct wl_listener popup_close;
+	struct wl_listener surface_destroy;
 };
 
 
@@ -47,6 +48,7 @@ static const char *TW_DESKTOP_TRANSIENT_WL_SHELL_NAME = "wl_shell_transient";
 
 void
 tw_desktop_surface_init(struct tw_desktop_surface *surf,
+                        struct wl_resource *wl_surface,
                         struct wl_resource *resource,
                         struct tw_desktop_manager *desktop);
 void
@@ -301,14 +303,32 @@ static const struct wl_shell_surface_interface wl_shell_surf_impl = {
 static void
 destroy_wl_shell_surf_resource(struct wl_resource *resource)
 {
-	struct tw_desktop_surface *surf =
+	struct tw_desktop_surface *dsurf =
 		tw_desktop_surface_from_wl_shell_surface(resource);
-	struct tw_desktop_manager *desktop = surf->desktop;
-	desktop->api.surface_removed(surf, desktop->user_data);
+	struct tw_wl_shell_surface *surf =
+		container_of(dsurf, struct tw_wl_shell_surface, base);
+	struct tw_desktop_manager *desktop = dsurf->desktop;
 
-	tw_desktop_surface_fini(surf);
+	//usually
+	if (dsurf->wl_surface) {
+		desktop->api.surface_removed(dsurf, desktop->user_data);
+		wl_list_remove(&surf->surface_destroy.link);
+	}
+	tw_desktop_surface_fini(dsurf);
 
 	free(surf);
+}
+
+static void
+handle_shell_surface_surface_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_wl_shell_surface *surf =
+		container_of(listener, struct tw_wl_shell_surface,
+		             surface_destroy);
+	struct tw_desktop_manager *desktop = surf->base.desktop;
+
+	desktop->api.surface_removed(&surf->base, desktop->user_data);
+	surf->base.wl_surface = NULL;
 }
 
 static void
@@ -329,7 +349,7 @@ handle_get_wl_shell_surface(struct wl_client *client,
 {
 	struct tw_wl_shell_surface *surf;
 	struct tw_desktop_surface *dsurf;
-	struct wl_resource *resource;
+	struct wl_resource *resource = NULL;
 	uint32_t version = wl_resource_get_version(shell);
 	struct tw_desktop_manager *desktop = wl_resource_get_user_data(shell);
 	struct tw_surface *surface = tw_surface_from_resource(wl_surface);
@@ -342,18 +362,9 @@ handle_get_wl_shell_surface(struct wl_client *client,
 		                       "another role", surf_id);
 		return;
 	}
-
-        surf = calloc(1, sizeof(struct tw_wl_shell_surface));
-	if (!surf) {
+	if (!tw_create_wl_resource_for_obj(resource, surf, client, id, version,
+	                                   wl_shell_surface_interface)) {
 		wl_resource_post_no_memory(shell);
-		return;
-	}
-	resource = wl_resource_create(client,
-	                              &wl_shell_surface_interface,
-	                              version, id);
-	if (!resource) {
-		wl_resource_post_no_memory(shell);
-		free(surf);
 		return;
 	}
 
@@ -362,10 +373,11 @@ handle_get_wl_shell_surface(struct wl_client *client,
 
 	wl_resource_set_implementation(resource, &wl_shell_surf_impl,
 	                               dsurf, destroy_wl_shell_surf_resource);
-	tw_desktop_surface_init(dsurf, resource, desktop);
+	tw_desktop_surface_init(dsurf, wl_surface, resource, desktop);
 
-	if (dsurf->desktop->api.surface_added)
-		dsurf->desktop->api.surface_added(dsurf, desktop->user_data);
+	wl_list_init(&surf->surface_destroy.link);
+	surf->surface_destroy.notify = handle_shell_surface_surface_destroy;
+	wl_resource_add_destroy_listener(wl_surface, &surf->surface_destroy);
 }
 
 static const struct wl_shell_interface wl_shell_impl = {

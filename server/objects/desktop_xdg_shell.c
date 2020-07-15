@@ -26,9 +26,10 @@
 #include <wayland-xdg-shell-server-protocol.h>
 #include <ctypes/helpers.h>
 
+#include "utils.h"
 #include "desktop.h"
-#include "objects/logger.h"
-#include "objects/surface.h"
+#include "logger.h"
+#include "surface.h"
 
 #define XDG_SHELL_VERSION 2
 
@@ -56,6 +57,7 @@ static const char *XDG_POPUP_ROLE_NAME = "XDG_POPUP";
 
 void
 tw_desktop_surface_init(struct tw_desktop_surface *surf,
+                        struct wl_resource *wl_surface,
                         struct wl_resource *resource,
                         struct tw_desktop_manager *desktop);
 void
@@ -500,7 +502,7 @@ handle_create_xdg_surface(struct wl_client *client,
 		free(dsurf);
 		return;
 	}
-	tw_desktop_surface_init(&dsurf->base, r, desktop);
+	tw_desktop_surface_init(&dsurf->base, surface, r, desktop);
 
 	dsurf->current.max_size.w = UINT32_MAX;
 	dsurf->current.max_size.h = UINT32_MAX;

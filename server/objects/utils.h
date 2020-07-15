@@ -25,6 +25,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <wayland-server-core.h>
+#include <wayland-util.h>
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -41,6 +42,11 @@ void
 tw_signal_setup_listener(struct wl_signal *signal,
                          struct wl_listener *listener,
                          wl_notify_func_t notify);
+
+#define  tw_reset_wl_list(link) \
+	({ \
+		wl_list_remove(link); \
+		wl_list_init(link); })
 
 #define tw_create_wl_resource_for_obj(res, obj, client, id, ver, iface)   \
 	({ \
