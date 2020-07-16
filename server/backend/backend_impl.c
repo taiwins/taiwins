@@ -29,6 +29,7 @@
 #include <objects/logger.h>
 
 #include "backend/backend.h"
+#include "objects/utils.h"
 #include "renderer/renderer.h"
 #include "backend_internal.h"
 
@@ -124,8 +125,7 @@ renderer_import_buffer(struct tw_event_buffer_uploading *event,
 	if (old_texture)
 		tw_render_texture_destroy(old_texture);
 
-	wl_list_remove(&buffer->surface_destroy_listener.link);
-	wl_list_init(&buffer->surface_destroy_listener.link);
+        tw_reset_wl_list(&buffer->surface_destroy_listener.link);
 	buffer->surface_destroy_listener.notify =
 		notify_buffer_on_surface_destroy;
 	wl_signal_add(&surface->events.destroy,

@@ -88,6 +88,7 @@ struct tw_desktop_surface {
 	enum tw_desktop_surface_type type;
 	bool fullscreened;
 	bool maximized;
+	bool surface_added;
 	char *title, *class;
 
 	//API is required to call this function for additional size change. Xdg

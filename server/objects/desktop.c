@@ -110,6 +110,7 @@ tw_desktop_surface_init(struct tw_desktop_surface *surf,
 	surf->shell_surface = resource;
 	surf->fullscreened = false;
 	surf->maximized = false;
+	surf->surface_added = false;
 	surf->title = NULL;
 	surf->class = NULL;
 }
@@ -121,4 +122,24 @@ tw_desktop_surface_fini(struct tw_desktop_surface *surf)
 		free(surf->title);
 	if (surf->class)
 		free(surf->class);
+}
+
+void
+tw_desktop_surface_add(struct tw_desktop_surface *surf)
+{
+	if (!surf->surface_added) {
+		surf->desktop->api.surface_added(surf,
+		                                 surf->desktop->user_data);
+		surf->surface_added = true;
+	}
+}
+
+void
+tw_desktop_surface_rm(struct tw_desktop_surface *surf)
+{
+	if (surf->surface_added && surf->wl_surface) {
+		surf->desktop->api.surface_removed(surf,
+		                                   surf->desktop->user_data);
+		surf->surface_added = false;
+	}
 }

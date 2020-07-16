@@ -42,6 +42,10 @@ void
 tw_signal_setup_listener(struct wl_signal *signal,
                          struct wl_listener *listener,
                          wl_notify_func_t notify);
+void
+tw_set_resource_destroy_listener(struct wl_resource *resource,
+                                 struct wl_listener *listener,
+                                 wl_notify_func_t notify);
 
 #define  tw_reset_wl_list(link) \
 	({ \

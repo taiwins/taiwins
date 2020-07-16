@@ -39,16 +39,28 @@ struct xdg_size {
 
 struct tw_xdg_surface {
 	struct tw_desktop_surface base;
-	/** used for toplevel.set_parent or popup surface */
-	struct tw_subsurface subsurface;
-	struct wl_resource *fullscreen_output;
-	struct {
-		struct xdg_size min_size, max_size;
-	} pending;
+	struct wl_listener surface_destroy;
+	uint32_t config_serial;
+	bool configured;
 
-	struct {
-		struct xdg_size min_size, max_size;
-	} current;
+	union {
+		struct {
+			struct {
+				struct xdg_size min_size, max_size;
+			} pending, current;
+			struct wl_resource *fullscreen_output;
+			struct wl_resource *resource;
+
+		} toplevel;
+
+		struct {
+			struct tw_subsurface subsurface;
+			struct wl_resource *resource;
+		} popup;
+
+	};
+
+
 };
 
 static const struct xdg_surface_interface xdg_surface_impl;
@@ -63,7 +75,11 @@ tw_desktop_surface_init(struct tw_desktop_surface *surf,
 void
 tw_desktop_surface_fini(struct tw_desktop_surface *surf);
 
+void
+tw_desktop_surface_add(struct tw_desktop_surface *surf);
 
+void
+tw_desktop_surface_rm(struct tw_desktop_surface *surf);
 
 static struct tw_desktop_surface *
 desktop_surface_from_xdg_surface(struct wl_resource *wl_resource)
@@ -80,9 +96,18 @@ commit_xdg_toplevel(struct tw_surface *surface)
 	struct tw_xdg_surface *xdg_surf =
 		container_of(dsurf, struct tw_xdg_surface, base);
 	struct tw_desktop_manager *desktop = dsurf->desktop;
+	uint32_t id = wl_resource_get_id(dsurf->shell_surface);
+	if (!xdg_surf->configured) {
+		wl_resource_post_error(dsurf->shell_surface,
+		                       XDG_SURFACE_ERROR_NOT_CONSTRUCTED,
+		                       "xdg_surface@%d not configured", id);
+		return;
+	}
 
-	xdg_surf->current.max_size = xdg_surf->pending.max_size;
-	xdg_surf->current.min_size = xdg_surf->pending.min_size;
+	xdg_surf->toplevel.current.max_size =
+		xdg_surf->toplevel.pending.max_size;
+	xdg_surf->toplevel.current.min_size =
+		xdg_surf->toplevel.pending.min_size;
 
 	desktop->api.committed(dsurf, desktop->user_data);
 }
@@ -97,8 +122,12 @@ static bool
 xdg_surface_set_role(struct tw_desktop_surface *dsurf,
                      enum tw_desktop_surface_type type)
 {
+	struct wl_display *display = dsurf->desktop->display;
 	struct tw_surface *surface =
 		tw_surface_from_resource(dsurf->wl_surface);
+	struct tw_xdg_surface *xdg_surf =
+		container_of(dsurf, struct tw_xdg_surface, base);
+
 	if (type == TW_DESKTOP_TOPLEVEL_SURFACE) {
 		if (surface->role.commit &&
 		    surface->role.commit != commit_xdg_toplevel)
@@ -114,8 +143,12 @@ xdg_surface_set_role(struct tw_desktop_surface *dsurf,
 	} else {
 		return false;
 	}
+
 	surface->role.commit_private = dsurf;
 	dsurf->type = type;
+	xdg_surf->config_serial = wl_display_next_serial(display);
+	xdg_surface_send_configure(dsurf->shell_surface,
+	                           xdg_surf->config_serial);
 	return true;
 }
 
@@ -243,8 +276,8 @@ handle_toplevel_set_max_size(struct wl_client *client,
 			     int32_t height)
 {
 	struct tw_xdg_surface *xdg_surf = xdg_surface_from_toplevel(resource);
-	xdg_surf->pending.max_size.w = width;
-	xdg_surf->pending.max_size.h = height;
+	xdg_surf->toplevel.pending.max_size.w = width;
+	xdg_surf->toplevel.pending.max_size.h = height;
 }
 
 static void
@@ -254,8 +287,8 @@ handle_toplevel_set_min_size(struct wl_client *client,
 			     int32_t height)
 {
 	struct tw_xdg_surface *xdg_surf = xdg_surface_from_toplevel(resource);
-	xdg_surf->pending.min_size.w = width;
-	xdg_surf->pending.max_size.h = height;
+	xdg_surf->toplevel.pending.min_size.w = width;
+	xdg_surf->toplevel.pending.max_size.h = height;
 }
 
 /* desktop.maximized_requested */
@@ -298,7 +331,7 @@ handle_toplevel_set_fullscreen(struct wl_client *client,
 		return;
 	desktop->api.fullscreen_requested(&xdg_surf->base, output,
 	                                  true, desktop->user_data);
-	xdg_surf->fullscreen_output = output;
+	xdg_surf->toplevel.fullscreen_output = output;
 	xdg_surf->base.fullscreened = true;
 }
 
@@ -312,9 +345,9 @@ handle_toplevel_unset_fullscreen(struct wl_client *client,
 	if (!xdg_surf->base.fullscreened)
 		return;
 	desktop->api.fullscreen_requested(&xdg_surf->base,
-	                                  xdg_surf->fullscreen_output, false,
-	                                  desktop->user_data);
-	xdg_surf->fullscreen_output = NULL;
+	                                  xdg_surf->toplevel.fullscreen_output,
+	                                  false, desktop->user_data);
+	xdg_surf->toplevel.fullscreen_output = NULL;
 	xdg_surf->base.fullscreened = false;
 }
 
@@ -349,10 +382,12 @@ static const struct xdg_toplevel_interface toplevel_impl = {
 static void
 destroy_toplevel_resource(struct wl_resource *resource)
 {
-	struct tw_desktop_surface *surf =
-		desktop_surface_from_xdg_surface(resource);
-	struct tw_desktop_manager *desktop = surf->desktop;
-	desktop->api.surface_removed(surf, desktop->user_data);
+	struct tw_xdg_surface *surf =
+		xdg_surface_from_toplevel(resource);
+	if (!surf)
+		return;
+	tw_desktop_surface_rm(&surf->base);
+	surf->toplevel.resource = NULL;
 }
 
 /* desktop.surface_added */
@@ -361,10 +396,11 @@ handle_get_toplevel(struct wl_client *client,
                     struct wl_resource *resource,
                     uint32_t id)
 {
+	uint32_t version = wl_resource_get_version(resource);
 	struct tw_desktop_surface *surf =
 		desktop_surface_from_xdg_surface(resource);
-	uint32_t version = wl_resource_get_version(resource);
-	struct tw_desktop_manager *desktop = surf->desktop;
+	struct tw_xdg_surface *xdg_surf =
+		container_of(surf, struct tw_xdg_surface, base);
 	struct wl_resource *toplevel_res =
 		wl_resource_create(client, &xdg_toplevel_interface,
 		                   version, id);
@@ -372,11 +408,16 @@ handle_get_toplevel(struct wl_client *client,
 		wl_resource_post_no_memory(resource);
 		return;
 	}
-	wl_resource_set_implementation(toplevel_res, &toplevel_impl, surf,
-	                               destroy_toplevel_resource);
+	wl_resource_set_implementation(toplevel_res, &toplevel_impl,
+	                               xdg_surf, destroy_toplevel_resource);
 
+	xdg_surf->toplevel.resource = toplevel_res;
+	xdg_surf->toplevel.current.max_size.w = UINT32_MAX;
+	xdg_surf->toplevel.current.max_size.h = UINT32_MAX;
+	xdg_surf->toplevel.current.min_size.w = 0;
+	xdg_surf->toplevel.current.min_size.h = 0;
 	xdg_surface_set_role(surf, TW_DESKTOP_TOPLEVEL_SURFACE);
-	desktop->api.surface_added(surf, desktop->user_data);
+	tw_desktop_surface_add(surf);
 }
 
 
@@ -393,9 +434,9 @@ handle_popup_destroy(struct wl_client *client, struct wl_resource *resource)
 
 static void
 handle_popup_grab(struct wl_client *client,
-                 struct wl_resource *resource,
-                 struct wl_resource *seat,
-                 uint32_t serial)
+                  struct wl_resource *resource,
+                  struct wl_resource *seat,
+                  uint32_t serial)
 {
 
 }
@@ -416,9 +457,13 @@ static const struct xdg_popup_interface popup_impl = {
 };
 
 static void
-popup_destroy_resource(struct wl_resource *resource)
+destroy_popup_resource(struct wl_resource *resource)
 {
-
+	struct tw_xdg_surface *surf =
+		wl_resource_get_user_data(resource);
+	if (!surf)
+		return;
+	surf->popup.resource = NULL;
 }
 
 static void
@@ -432,20 +477,58 @@ handle_get_popup(struct wl_client *client,
 	uint32_t version = wl_resource_get_version(resource);
 	struct tw_desktop_surface *dsurf =
 		desktop_surface_from_xdg_surface(resource);
+	struct tw_xdg_surface *xdg_surf =
+		container_of(dsurf, struct tw_xdg_surface, base);
 
 	r = wl_resource_create(client, &xdg_popup_interface, version, id);
 	if (!r) {
 		wl_resource_post_no_memory(resource);
 		return;
 	}
-	wl_resource_set_implementation(resource, &popup_impl, dsurf,
-	                               popup_destroy_resource);
+	wl_resource_set_implementation(resource, &popup_impl, xdg_surf,
+	                               destroy_popup_resource);
+	xdg_surf->popup.resource = r;
+}
+
+static void
+handle_set_window_geometry(struct wl_client *client,
+                           struct wl_resource *resource,
+                           int32_t x, int32_t y, int32_t width, int32_t height)
+{
+	//TODO: just set the geometry guys!
+}
+
+static void
+handle_ack_configure(struct wl_client *client,
+                     struct wl_resource *resource, uint32_t serial)
+{
+	struct tw_xdg_surface *xdg_surf =
+		container_of(desktop_surface_from_xdg_surface(resource),
+		             struct tw_xdg_surface, base);
+	struct tw_surface *surface =
+		tw_surface_from_resource(xdg_surf->base.wl_surface);
+
+	if (!tw_surface_has_role(surface)) {
+		wl_resource_post_error(resource,
+		                       XDG_SURFACE_ERROR_NOT_CONSTRUCTED,
+		                       "xdg_surface does not have a role");
+		return;
+	}
+	if (serial != xdg_surf->config_serial) {
+		wl_resource_post_error(resource,
+		                       XDG_WM_BASE_ERROR_INVALID_SURFACE_STATE,
+		                       "incorrect serial from client");
+		return;
+	}
+	xdg_surf->configured = true;
 }
 
 static const struct xdg_surface_interface xdg_surface_impl = {
 	.destroy = handle_destroy_xdg_surface,
 	.get_toplevel = handle_get_toplevel,
 	.get_popup = handle_get_popup,
+	.set_window_geometry = handle_set_window_geometry,
+	.ack_configure = handle_ack_configure,
 };
 
 static void
@@ -455,7 +538,17 @@ destroy_xdg_surface_resource(struct wl_resource *resource)
 		desktop_surface_from_xdg_surface(resource);
 	struct tw_xdg_surface *xdg_surf =
 		container_of(dsurf, struct tw_xdg_surface, base);
-
+	tw_desktop_surface_rm(dsurf);
+        //handle role
+        if (dsurf->type == TW_DESKTOP_TOPLEVEL_SURFACE &&
+	    xdg_surf->toplevel.resource) {
+		wl_resource_set_user_data(xdg_surf->toplevel.resource, NULL);
+		xdg_surf->toplevel.resource = NULL;
+        } else if (dsurf->type == TW_DESKTOP_POPUP_SURFACE &&
+                   xdg_surf->popup.resource) {
+		wl_resource_set_user_data(xdg_surf->popup.resource, NULL);
+		xdg_surf->popup.resource = NULL;
+        }
 	tw_desktop_surface_fini(dsurf);
 	free(xdg_surf);
 }
@@ -481,36 +574,41 @@ handle_create_positioner(struct wl_client *client,
 }
 
 static void
+handle_xdg_surf_surface_destroy(struct wl_listener *listener, void *userdata)
+{
+	struct tw_xdg_surface *surf =
+		container_of(listener, struct tw_xdg_surface, surface_destroy);
+
+        tw_desktop_surface_rm(&surf->base);
+        tw_reset_wl_list(&surf->surface_destroy.link);
+	surf->base.wl_surface = NULL;
+}
+
+static void
 handle_create_xdg_surface(struct wl_client *client,
                           struct wl_resource *resource, uint32_t id,
                           struct wl_resource *surface)
 {
 	//okay, now xdg_surface is not a role
-	struct wl_resource *r;
+	struct wl_resource *r = NULL;
+	struct tw_xdg_surface *dsurf = NULL;
 	uint32_t version = wl_resource_get_version(resource);
-	struct tw_xdg_surface *dsurf =
-		calloc(1, sizeof(struct tw_xdg_surface));
 	struct tw_desktop_manager *desktop =
 		wl_resource_get_user_data(resource);
-	if (!dsurf) {
-		wl_resource_post_no_memory(resource);
-		return;
-	}
-	r = wl_resource_create(client, &xdg_surface_interface, version, id);
-	if (!r) {
-		wl_resource_post_no_memory(resource);
-		free(dsurf);
-		return;
-	}
-	tw_desktop_surface_init(&dsurf->base, surface, r, desktop);
 
-	dsurf->current.max_size.w = UINT32_MAX;
-	dsurf->current.max_size.h = UINT32_MAX;
-	dsurf->current.min_size.w = 0;
-	dsurf->current.min_size.h = 0;
+	if (!tw_create_wl_resource_for_obj(r, dsurf, client, id, version,
+	                                   xdg_surface_interface)) {
+		wl_resource_post_no_memory(r);
+		return;
+	}
+
+
 	wl_resource_set_implementation(r, &xdg_surface_impl, &dsurf->base,
 	                               destroy_xdg_surface_resource);
+	tw_desktop_surface_init(&dsurf->base, surface, r, desktop);
 
+	tw_set_resource_destroy_listener(surface, &dsurf->surface_destroy,
+	                                 handle_xdg_surf_surface_destroy);
 }
 
 static void

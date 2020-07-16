@@ -21,9 +21,11 @@
 
 #include <assert.h>
 #include <stdlib.h>
-#include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 #include <wayland-server.h>
+
 #include "surface.h"
+#include "utils.h"
 
 static void
 region_destroy(struct wl_client *client,
@@ -92,18 +94,12 @@ struct tw_region *
 tw_region_create(struct wl_client *client, uint32_t version, uint32_t id,
                  struct tw_surface_manager *manager)
 {
-	struct wl_resource *resource;
-	struct tw_region *tw_region = calloc(1, sizeof(tw_region));
-	if (!tw_region) {
-		wl_client_post_no_memory(client);
-		return NULL;
-	}
+	struct wl_resource *resource = NULL;
+	struct tw_region *tw_region = NULL;
 
-	resource = wl_resource_create(client, &wl_region_interface,
-	                              version, id);
-	if (resource) {
+	if (!tw_create_wl_resource_for_obj(resource, tw_region, client, id,
+	                                   version, wl_region_interface)) {
 		wl_client_post_no_memory(client);
-		free(tw_region);
 		return NULL;
 	}
 	tw_region->manager = manager;
