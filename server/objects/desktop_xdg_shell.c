@@ -81,6 +81,31 @@ tw_desktop_surface_add(struct tw_desktop_surface *surf);
 void
 tw_desktop_surface_rm(struct tw_desktop_surface *surf);
 
+void
+tw_desktop_surface_set_fullscreen(struct tw_desktop_surface *surf,
+                                  struct wl_resource *output,
+                                  bool fullscreen);
+void
+tw_desktop_surface_set_maximized(struct tw_desktop_surface *surf,
+                                 bool maximized);
+void
+tw_desktop_surface_set_title(struct tw_desktop_surface *surf,
+                             const char *title);
+void
+tw_desktop_surface_set_class(struct tw_desktop_surface *surf,
+                             const char *class);
+void
+tw_desktop_surface_move(struct tw_desktop_surface *surf,
+                        struct wl_resource *seat, uint32_t serial);
+void
+tw_desktop_surface_resize(struct tw_desktop_surface *surf,
+                          struct wl_resource *seat, uint32_t edge,
+                          uint32_t serial);
+/******************************************************************************
+ * xdg_shell_surface implementation
+ *****************************************************************************/
+
+
 static struct tw_desktop_surface *
 desktop_surface_from_xdg_surface(struct wl_resource *wl_resource)
 {
@@ -201,11 +226,7 @@ handle_toplevel_set_title(struct wl_client *client,
 {
 	struct tw_xdg_surface *xdg_surf =
 		xdg_surface_from_toplevel(resource);
-	char *tmp = strdup(title);
-	if (!tmp)
-		return;
-	free(xdg_surf->base.title);
-	xdg_surf->base.title = tmp;
+	tw_desktop_surface_set_title(&xdg_surf->base, title);
 }
 
 static void
@@ -215,11 +236,7 @@ handle_toplevel_set_app_id(struct wl_client *client,
 {
 	struct tw_xdg_surface *xdg_surf =
 		xdg_surface_from_toplevel(resource);
-	char *tmp = strdup(app_id);
-	if (!tmp)
-		return;
-	free(xdg_surf->base.class);
-	xdg_surf->base.class = tmp;
+	tw_desktop_surface_set_class(&xdg_surf->base, app_id);
 }
 
 /* desktop.show_window_menu */
@@ -246,8 +263,7 @@ handle_toplevel_move(struct wl_client *client,
 		     uint32_t serial)
 {
 	struct tw_xdg_surface *xdg_surf = xdg_surface_from_toplevel(resource);
-	struct tw_desktop_manager *desktop = xdg_surf->base.desktop;
-	desktop->api.move(&xdg_surf->base, seat, serial, desktop->user_data);
+	tw_desktop_surface_move(&xdg_surf->base, seat, serial);
 }
 
 /* desktop.resize */
@@ -259,14 +275,11 @@ handle_toplevel_resize(struct wl_client *client,
 		       uint32_t edges)
 {
 	struct tw_xdg_surface *xdg_surf = xdg_surface_from_toplevel(resource);
-	struct tw_desktop_manager *desktop = xdg_surf->base.desktop;
 	if (edges > XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT) {
 		tw_logl("xdg resize requested on invalid edge");
 		return;
 	}
-	enum wl_shell_surface_resize e = edges;
-	desktop->api.resize(&xdg_surf->base, seat, serial, e,
-	                    desktop->user_data);
+	tw_desktop_surface_resize(&xdg_surf->base, seat, edges, serial);
 }
 
 static void
@@ -297,12 +310,7 @@ handle_toplevel_set_maximized(struct wl_client *client,
 			      struct wl_resource *resource)
 {
 	struct tw_xdg_surface *xdg_surf = xdg_surface_from_toplevel(resource);
-	struct tw_desktop_manager *desktop = xdg_surf->base.desktop;
-	if (xdg_surf->base.maximized)
-		return;
-	desktop->api.maximized_requested(&xdg_surf->base, true,
-	                                 desktop->user_data);
-	xdg_surf->base.maximized = true;
+	tw_desktop_surface_set_maximized(&xdg_surf->base, true);
 }
 
 /* desktop.maximized_requested */
@@ -311,12 +319,7 @@ handle_toplevel_unset_maximized(struct wl_client *client,
                                 struct wl_resource *resource)
 {
 	struct tw_xdg_surface *xdg_surf = xdg_surface_from_toplevel(resource);
-	struct tw_desktop_manager *desktop = xdg_surf->base.desktop;
-	if (!xdg_surf->base.maximized)
-		return;
-	desktop->api.maximized_requested(&xdg_surf->base, false,
-	                                 desktop->user_data);
-	xdg_surf->base.maximized = false;
+	tw_desktop_surface_set_maximized(&xdg_surf->base, false);
 }
 
 /* desktop.fullscreen_request */
@@ -326,13 +329,7 @@ handle_toplevel_set_fullscreen(struct wl_client *client,
 			       struct wl_resource *output)
 {
 	struct tw_xdg_surface *xdg_surf = xdg_surface_from_toplevel(resource);
-	struct tw_desktop_manager *desktop = xdg_surf->base.desktop;
-	if (xdg_surf->base.fullscreened)
-		return;
-	desktop->api.fullscreen_requested(&xdg_surf->base, output,
-	                                  true, desktop->user_data);
-	xdg_surf->toplevel.fullscreen_output = output;
-	xdg_surf->base.fullscreened = true;
+	tw_desktop_surface_set_fullscreen(&xdg_surf->base, output, true);
 }
 
 /* desktop.fullscreen_request */
@@ -341,14 +338,7 @@ handle_toplevel_unset_fullscreen(struct wl_client *client,
                                  struct wl_resource *resource)
 {
 	struct tw_xdg_surface *xdg_surf = xdg_surface_from_toplevel(resource);
-	struct tw_desktop_manager *desktop = xdg_surf->base.desktop;
-	if (!xdg_surf->base.fullscreened)
-		return;
-	desktop->api.fullscreen_requested(&xdg_surf->base,
-	                                  xdg_surf->toplevel.fullscreen_output,
-	                                  false, desktop->user_data);
-	xdg_surf->toplevel.fullscreen_output = NULL;
-	xdg_surf->base.fullscreened = false;
+	tw_desktop_surface_set_fullscreen(&xdg_surf->base, NULL, false);
 }
 
 /* desktop.minimized_request */

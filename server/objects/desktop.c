@@ -27,6 +27,7 @@
 #include <wayland-server.h>
 #include <ctypes/helpers.h>
 
+#include "logger.h"
 #include "desktop.h"
 #include "surface.h"
 #include "seat.h"
@@ -127,9 +128,10 @@ tw_desktop_surface_fini(struct tw_desktop_surface *surf)
 void
 tw_desktop_surface_add(struct tw_desktop_surface *surf)
 {
+	void *user_data = surf->desktop->user_data;
+
 	if (!surf->surface_added) {
-		surf->desktop->api.surface_added(surf,
-		                                 surf->desktop->user_data);
+		surf->desktop->api.surface_added(surf, user_data);
 		surf->surface_added = true;
 	}
 }
@@ -137,9 +139,81 @@ tw_desktop_surface_add(struct tw_desktop_surface *surf)
 void
 tw_desktop_surface_rm(struct tw_desktop_surface *surf)
 {
+	void *user_data = surf->desktop->user_data;
 	if (surf->surface_added && surf->wl_surface) {
-		surf->desktop->api.surface_removed(surf,
-		                                   surf->desktop->user_data);
+		surf->desktop->api.surface_removed(surf, user_data);
 		surf->surface_added = false;
 	}
+}
+
+void
+tw_desktop_surface_set_fullscreen(struct tw_desktop_surface *surf,
+                                  struct wl_resource *output,
+                                  bool fullscreen)
+{
+	void *user_data = surf->desktop->user_data;
+	if (surf->fullscreened != fullscreen)
+		surf->desktop->api.fullscreen_requested(surf, output,
+		                                        fullscreen, user_data);
+}
+
+void
+tw_desktop_surface_set_maximized(struct tw_desktop_surface *surf,
+                                 bool maximized)
+{
+	void *user_data = surf->desktop->user_data;
+	if (surf->maximized != maximized)
+		surf->desktop->api.maximized_requested(surf, maximized,
+		                                       user_data);
+}
+
+void
+tw_desktop_surface_set_title(struct tw_desktop_surface *surf,
+                             const char *title)
+{
+	char *tmp = strdup(title);
+	if (!tmp)
+		return;
+	free(surf->title);
+	surf->title = tmp;
+}
+
+void
+tw_desktop_surface_set_class(struct tw_desktop_surface *surf,
+                             const char *class)
+{
+	char *tmp = strdup(class);
+	if (!tmp)
+		return;
+	free(surf->class);
+	surf->class = tmp;
+}
+
+void
+tw_desktop_surface_move(struct tw_desktop_surface *surf,
+                        struct wl_resource *seat, uint32_t serial)
+{
+	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
+	void *user_data = surf->desktop->user_data;
+
+	if (!tw_seat_valid_serial(tw_seat, serial)) {
+		tw_logl("invalid serial %u", serial);
+		return;
+	}
+	surf->desktop->api.move(surf, seat, serial, user_data);
+}
+
+void
+tw_desktop_surface_resize(struct tw_desktop_surface *surf,
+                          struct wl_resource *seat, uint32_t edge,
+                          uint32_t serial)
+{
+	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
+	void *user_data = surf->desktop->user_data;
+
+	if (!tw_seat_valid_serial(tw_seat, serial)) {
+		tw_logl("invalid serial %u", serial);
+		return;
+	}
+	surf->desktop->api.resize(surf, seat, serial, edge, user_data);
 }

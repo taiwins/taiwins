@@ -62,19 +62,43 @@ tw_desktop_surface_add(struct tw_desktop_surface *surf);
 void
 tw_desktop_surface_rm(struct tw_desktop_surface *surf);
 
+void
+tw_desktop_surface_set_fullscreen(struct tw_desktop_surface *surf,
+                                  struct wl_resource *output,
+                                  bool fullscreen);
+void
+tw_desktop_surface_set_maximized(struct tw_desktop_surface *surf,
+                                 bool maximized);
+void
+tw_desktop_surface_set_title(struct tw_desktop_surface *surf,
+                             const char *title);
+void
+tw_desktop_surface_set_class(struct tw_desktop_surface *surf,
+                             const char *class);
+void
+tw_desktop_surface_move(struct tw_desktop_surface *surf,
+                        struct wl_resource *seat, uint32_t serial);
+void
+tw_desktop_surface_resize(struct tw_desktop_surface *surf,
+                          struct wl_resource *seat, uint32_t edge,
+                          uint32_t serial);
+/******************************************************************************
+ * wl_shell_surface implementation
+ *****************************************************************************/
+
 static void
-tw_desktop_surface_commit(struct tw_surface *surface)
+commit_wl_shell_surface(struct tw_surface *surface)
 {
 	//Opps, nothing
 }
 
 static void
-tw_desktop_surface_set_role(struct tw_desktop_surface *dsurf,
-                            enum tw_desktop_surface_type type)
+wl_shell_surface_set_role(struct tw_desktop_surface *dsurf,
+                          enum tw_desktop_surface_type type)
 {
 	struct tw_surface *tw_surface =
 		tw_surface_from_resource(dsurf->wl_surface);
-	tw_surface->role.commit = tw_desktop_surface_commit;
+	tw_surface->role.commit = commit_wl_shell_surface;
 	tw_surface->role.commit_private = dsurf;
 	dsurf->type = type;
 
@@ -86,7 +110,6 @@ tw_desktop_surface_set_role(struct tw_desktop_surface *dsurf,
 		tw_surface->role.name = TW_DESKTOP_POPUP_WL_SHELL_NAME;
 }
 
-
 static const struct wl_shell_surface_interface wl_shell_surf_impl;
 
 static struct tw_desktop_surface *
@@ -95,7 +118,6 @@ tw_desktop_surface_from_wl_shell_surface(struct wl_resource *resource)
 	assert(wl_resource_instance_of(resource, &wl_shell_surface_interface,
 	                               &wl_shell_surf_impl));
 	return wl_resource_get_user_data(resource);
-
 }
 
 static void
@@ -116,13 +138,7 @@ handle_surface_move(struct wl_client *client,
 {
 	struct tw_desktop_surface *d =
 		tw_desktop_surface_from_wl_shell_surface(resource);
-	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
-
-	if (!tw_seat_valid_serial(tw_seat, serial)) {
-		tw_logl("invalid serial %u", serial);
-		return;
-	}
-	d->desktop->api.move(d, seat, serial, d->desktop->user_data);
+	tw_desktop_surface_move(d, seat, serial);
 }
 
 static void
@@ -134,15 +150,7 @@ handle_surface_resize(struct wl_client *client,
 {
 	struct tw_desktop_surface *d =
 		tw_desktop_surface_from_wl_shell_surface(resource);
-	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
-
-	if (!tw_seat_valid_serial(tw_seat, serial)) {
-		tw_logl("invalid serial %u", serial);
-		return;
-	}
-
-	d->desktop->api.resize(d, seat, serial, edges, d->desktop->user_data);
-
+	tw_desktop_surface_resize(d, seat, edges, serial);
 }
 
 static void
@@ -154,10 +162,7 @@ handle_set_fullscreen(struct wl_client *client,
 {
 	struct tw_desktop_surface *d =
 		tw_desktop_surface_from_wl_shell_surface(resource);
-
-	d->desktop->api.fullscreen_requested(d, output, !d->fullscreened,
-	                                     d->desktop->user_data);
-	d->fullscreened = !d->fullscreened;
+	tw_desktop_surface_set_fullscreen(d, output, !d->fullscreened);
 }
 
 static void
@@ -167,9 +172,7 @@ handle_set_maximized(struct wl_client *client,
 {
 	struct tw_desktop_surface *d =
 		tw_desktop_surface_from_wl_shell_surface(resource);
-	d->desktop->api.maximized_requested(d, !d->maximized,
-	                                    d->desktop->user_data);
-	d->maximized = !d->maximized;
+	tw_desktop_surface_set_maximized(d, !d->maximized);
 }
 
 static void
@@ -179,8 +182,8 @@ handle_set_toplevel(struct wl_client *client,
 	struct tw_desktop_surface *d =
 		tw_desktop_surface_from_wl_shell_surface(resource);
 
-	tw_desktop_surface_set_role(d, TW_DESKTOP_TOPLEVEL_SURFACE);
-	tw_desktop_surface_add(d);
+        wl_shell_surface_set_role(d, TW_DESKTOP_TOPLEVEL_SURFACE);
+        tw_desktop_surface_add(d);
 }
 
 /************************* transient_surface *********************************/
@@ -229,7 +232,7 @@ handle_set_transient(struct wl_client *client,
 		return;
 	}
 	transient_impl_subsurface(subsurface, dsurf, parent, x, y);
-	tw_desktop_surface_set_role(dsurf, TW_DESKTOP_TRANSIENT_SURFACE);
+        wl_shell_surface_set_role(dsurf, TW_DESKTOP_TRANSIENT_SURFACE);
 }
 
 /******************************** popup **************************************/
@@ -277,7 +280,7 @@ handle_set_popup(struct wl_client *client,
 	transient_impl_subsurface(subsurface, popup, parent, x, y);
 	tw_signal_setup_listener(&grab->close, &shell_surf->popup_close,
 	                         close_wl_shell_popup);
-	tw_desktop_surface_set_role(popup, TW_DESKTOP_POPUP_SURFACE);
+        wl_shell_surface_set_role(popup, TW_DESKTOP_POPUP_SURFACE);
 }
 
 static void
@@ -286,11 +289,7 @@ handle_set_title(struct wl_client *client, struct wl_resource *resource,
 {
 	struct tw_desktop_surface *dsurf =
 		tw_desktop_surface_from_wl_shell_surface(resource);
-	char *tmp = strdup(title);
-	if (!tmp)
-		return;
-	free(dsurf->title);
-	dsurf->title = tmp;
+	tw_desktop_surface_set_title(dsurf, title);
 }
 
 static void
@@ -299,11 +298,7 @@ handle_set_class(struct wl_client *client, struct wl_resource *resource,
 {
 	struct tw_desktop_surface *dsurf =
 		tw_desktop_surface_from_wl_shell_surface(resource);
-	char *tmp = strdup(class);
-	if (!tmp)
-		return;
-	free(dsurf->class);
-	dsurf->class = tmp;
+	tw_desktop_surface_set_class(dsurf, class);
 }
 
 static const struct wl_shell_surface_interface wl_shell_surf_impl = {
@@ -370,7 +365,7 @@ handle_get_wl_shell_surface(struct wl_client *client,
 	uint32_t surf_id = wl_resource_get_id(wl_surface);
 
 	if (surface->role.commit &&
-	    surface->role.commit != tw_desktop_surface_commit) {
+	    surface->role.commit != commit_wl_shell_surface) {
 		wl_resource_post_error(wl_surface, WL_SHELL_ERROR_ROLE,
 		                       "wl_surface@%d already has "
 		                       "another role", surf_id);
