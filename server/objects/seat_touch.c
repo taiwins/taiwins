@@ -38,7 +38,7 @@ notify_touch_enter(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 	                   wl_fixed_from_double(sy));
 }
 
-static uint32_t
+static void
 notify_touch_down(struct tw_seat_touch_grab *grab, uint32_t time_msec,
                   uint32_t touch_id, double sx, double sy)
 {
@@ -55,7 +55,7 @@ notify_touch_down(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 			                   wl_fixed_from_double(sy));
 			wl_touch_send_frame(touch_res);
 		}
-	return serial;
+	grab->seat->last_touch_serial = serial;
 }
 
 static void
@@ -218,14 +218,13 @@ tw_touch_clear_focus(struct tw_touch *touch)
 	touch->focused_surface = NULL;
 }
 
-uint32_t
+void
 tw_touch_notify_down(struct tw_touch *touch, uint32_t time_msec, uint32_t id,
                      double sx, double sy)
 {
 	if (touch->grab->impl->down)
-		return touch->grab->impl->down(touch->grab, time_msec, id,
-		                               sx, sy);
-	return 0;
+		touch->grab->impl->down(touch->grab, time_msec, id,
+		                        sx, sy);
 }
 
 void

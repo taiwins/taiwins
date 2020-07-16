@@ -56,7 +56,7 @@ notify_pointer_motion(struct tw_seat_pointer_grab *grab,
 			                       wl_fixed_from_double(sy));
 }
 
-static uint32_t
+static void
 notify_pointer_button(struct tw_seat_pointer_grab *grab,
                       uint32_t time_msec, uint32_t button,
                       enum wl_pointer_button_state state)
@@ -70,7 +70,7 @@ notify_pointer_button(struct tw_seat_pointer_grab *grab,
 			wl_pointer_send_button(resource, serial, time_msec,
 			                       button, state);
 			}
-	return serial;
+	grab->seat->last_pointer_serial = serial;
 }
 
 static void
@@ -261,15 +261,13 @@ tw_pointer_notify_motion(struct tw_pointer *pointer, uint32_t time_msec,
 		pointer->grab->impl->motion(pointer->grab, time_msec, sx, sy);
 }
 
-uint32_t
+void
 tw_pointer_notify_button(struct tw_pointer *pointer, uint32_t time_msec,
                          uint32_t button, enum wl_pointer_button_state state)
 {
 	if (pointer->grab->impl->button)
-		return pointer->grab->impl->button(pointer->grab, time_msec,
+		pointer->grab->impl->button(pointer->grab, time_msec,
 		                                   button, state);
-	else
-		return 0;
 }
 
 void

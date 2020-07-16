@@ -65,7 +65,7 @@ dnd_pointer_enter(struct tw_seat_pointer_grab *grab,
 }
 
 
-static uint32_t
+static void
 dnd_pointer_button(struct tw_seat_pointer_grab *grab,
                    uint32_t time_msec, uint32_t button,
                    enum wl_pointer_button_state state)
@@ -76,7 +76,7 @@ dnd_pointer_button(struct tw_seat_pointer_grab *grab,
 	struct tw_data_source *source;
 
 	if (state != WL_POINTER_BUTTON_STATE_RELEASED)
-		return 0;
+		return;
 
 	if (offer && offer->source->accepted &&
 	    offer->source->selected_dnd_action) {
@@ -92,8 +92,6 @@ dnd_pointer_button(struct tw_seat_pointer_grab *grab,
 	if (pointer->btn_count == 0) {
 		tw_pointer_end_grab(&grab->seat->pointer);
 	}
-
-	return 0;
 }
 
 void

@@ -297,6 +297,8 @@ tw_seat_create(struct wl_display *display, const char *name)
 	seat->repeat_delay = 500;
 	seat->repeat_rate = 25;
 	seat->display = display;
+	seat->last_pointer_serial = 0;
+	seat->last_touch_serial = 0;
 
 	wl_signal_init(&seat->focus_signal);
 	wl_signal_init(&seat->new_cursor_signal);
@@ -361,4 +363,11 @@ tw_seat_send_capabilities(struct tw_seat *seat)
 	wl_list_for_each(client, &seat->clients, link)
 		wl_seat_send_capabilities(client->resource,
 		                          seat->capabilities);
+}
+
+bool
+tw_seat_valid_serial(struct tw_seat *seat, uint32_t serial)
+{
+	return serial == seat->last_pointer_serial ||
+		serial == seat->last_touch_serial;
 }

@@ -41,7 +41,7 @@ static void
 tw_popup_grab_close(struct tw_popup_grab *grab);
 
 
-static uint32_t
+static void
 popup_pointer_grab_button(struct tw_seat_pointer_grab *grab,
                           uint32_t time_msec, uint32_t button,
                           enum wl_pointer_button_state state)
@@ -51,13 +51,10 @@ popup_pointer_grab_button(struct tw_seat_pointer_grab *grab,
 	bool on_popup = (wl_surface == pointer->focused_surface);
 	struct tw_popup_grab *popup_grab =
 		container_of(grab, struct tw_popup_grab, pointer_grab);
-	uint32_t serial =
-		pointer->default_grab.impl->button(&pointer->default_grab,
-		                                   time_msec, button, state);
+	pointer->default_grab.impl->button(&pointer->default_grab,
+	                                   time_msec, button, state);
 	if (!on_popup)
 		tw_popup_grab_close(popup_grab);
-
-	return serial;
 }
 
 static void
@@ -113,24 +110,21 @@ static const struct tw_pointer_grab_interface popup_pointer_grab_impl = {
 };
 
 
-static uint32_t
+static void
 popup_touch_grab_down(struct tw_seat_touch_grab *grab, uint32_t time_msec,
                       uint32_t touch_id, double sx, double sy)
 {
 	struct tw_touch *touch = &grab->seat->touch;
-	uint32_t serial = touch->default_grab.impl->down(&touch->default_grab,
-	                                                 time_msec, touch_id,
-	                                                 sx, sy);
 	struct wl_resource *wl_surface = grab->data;
 	struct tw_popup_grab *popup_grab =
 		container_of(grab, struct tw_popup_grab, touch_grab);
-
 	bool on_popup = (wl_surface == touch->focused_surface);
 
+	touch->default_grab.impl->down(&touch->default_grab,
+	                               time_msec, touch_id,
+	                               sx, sy);
 	if (!on_popup)
 		tw_popup_grab_close(popup_grab);
-
-	return serial;
 }
 
 static void

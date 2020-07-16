@@ -22,10 +22,12 @@
 #include <assert.h>
 #include <string.h>
 #include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <ctypes/helpers.h>
 #include <wayland-util.h>
 
+#include "objects/logger.h"
 #include "utils.h"
 #include "surface.h"
 #include "seat.h"
@@ -114,6 +116,12 @@ handle_surface_move(struct wl_client *client,
 {
 	struct tw_desktop_surface *d =
 		tw_desktop_surface_from_wl_shell_surface(resource);
+	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
+
+	if (!tw_seat_valid_serial(tw_seat, serial)) {
+		tw_logl("invalid serial %u", serial);
+		return;
+	}
 	d->desktop->api.move(d, seat, serial, d->desktop->user_data);
 }
 
@@ -126,6 +134,13 @@ handle_surface_resize(struct wl_client *client,
 {
 	struct tw_desktop_surface *d =
 		tw_desktop_surface_from_wl_shell_surface(resource);
+	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
+
+	if (!tw_seat_valid_serial(tw_seat, serial)) {
+		tw_logl("invalid serial %u", serial);
+		return;
+	}
+
 	d->desktop->api.resize(d, seat, serial, edges, d->desktop->user_data);
 
 }

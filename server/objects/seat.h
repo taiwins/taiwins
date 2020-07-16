@@ -69,7 +69,7 @@ struct tw_pointer_grab_interface {
 	              struct wl_resource *surface, double sx, double sy);
 	void (*motion)(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
 	               double sx, double sy);
-	uint32_t (*button)(struct tw_seat_pointer_grab *grab,
+	void (*button)(struct tw_seat_pointer_grab *grab,
 	                   uint32_t time_msec, uint32_t button,
 	                   enum wl_pointer_button_state state);
 	void (*axis)(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
@@ -98,7 +98,7 @@ struct tw_keyboard_grab_interface {
 struct tw_seat_touch_grab;
 
 struct tw_touch_grab_interface {
-	uint32_t (*down)(struct tw_seat_touch_grab *grab, uint32_t time_msec,
+	void (*down)(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 	                 uint32_t touch_id, double sx, double sy);
 	void (*up)(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 	           uint32_t touch_id);
@@ -178,6 +178,7 @@ struct tw_seat {
 
 	uint32_t capabilities;
 	uint32_t repeat_delay, repeat_rate;
+	uint32_t last_pointer_serial, last_touch_serial;
 	struct tw_keyboard keyboard;
 	struct tw_pointer pointer;
 	struct tw_touch touch;
@@ -218,6 +219,9 @@ tw_seat_send_capabilities(struct tw_seat *seat);
 
 struct tw_seat_client *
 tw_seat_client_find(struct tw_seat *seat, struct wl_client *client);
+
+bool
+tw_seat_valid_serial(struct tw_seat *seat, uint32_t serial);
 
 /******************************** keyboard ***********************************/
 
@@ -286,7 +290,7 @@ tw_pointer_notify_enter(struct tw_pointer *pointer,
 void
 tw_pointer_notify_motion(struct tw_pointer *pointer, uint32_t time_msec,
                          double sx, double sy);
-uint32_t
+void
 tw_pointer_notify_button(struct tw_pointer *pointer, uint32_t time_msec,
                          uint32_t button, enum wl_pointer_button_state state);
 void
@@ -317,7 +321,7 @@ tw_touch_set_focus(struct tw_touch *touch,
 void
 tw_touch_clear_focus(struct tw_touch *touch);
 
-uint32_t
+void
 tw_touch_notify_down(struct tw_touch *touch, uint32_t time_msec, uint32_t id,
                      double sx, double sy);
 void
