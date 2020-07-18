@@ -295,6 +295,9 @@ struct tw_subsurface *
 tw_subsurface_create(struct wl_client *client, uint32_t version,
                      uint32_t id, struct tw_surface *surface,
                      struct tw_surface *parent);
+void
+tw_subsurface_update_pos(struct tw_subsurface *sub,
+                         int32_t sx, int32_t sy);
 struct tw_region *
 tw_region_create(struct wl_client *client, uint32_t version, uint32_t id,
                  struct tw_surface_manager *manager);

@@ -888,8 +888,7 @@ subsurface_set_position(struct wl_client *client,
 {
 	struct tw_subsurface *subsurf =
 		tw_subsurface_from_resource(resource);
-	subsurf->sx = x;
-	subsurf->sy = y;
+	tw_subsurface_update_pos(subsurf, x, y);
 }
 
 static void
@@ -1041,7 +1040,7 @@ tw_subsurface_create(struct wl_client *client, uint32_t version,
 		wl_client_post_no_memory(client);
 		return NULL;
 	}
-	wl_resource_set_implementation(resource, &wl_subsurface_interface,
+	wl_resource_set_implementation(resource, &subsurface_impl,
 	                               subsurface,
 	                               subsurface_destroy_resource);
 	subsurface->resource = resource;
@@ -1065,6 +1064,19 @@ tw_subsurface_create(struct wl_client *client, uint32_t version,
 		               subsurface);
 
 	return subsurface;
+}
+
+void
+tw_subsurface_update_pos(struct tw_subsurface *sub,
+                         int32_t sx, int32_t sy)
+{
+	struct tw_surface *surface = sub->surface;
+	struct tw_surface *parent = sub->parent;
+
+	sub->sx = sx;
+	sub->sy = sy;
+	tw_surface_set_position(surface, parent->geometry.x + sx,
+	                        parent->geometry.y + sy);
 }
 
 void

@@ -96,8 +96,8 @@ static void
 wl_shell_surface_set_role(struct tw_desktop_surface *dsurf,
                           enum tw_desktop_surface_type type)
 {
-	struct tw_surface *tw_surface =
-		tw_surface_from_resource(dsurf->wl_surface);
+	struct tw_surface *tw_surface = dsurf->tw_surface;
+
 	tw_surface->role.commit = commit_wl_shell_surface;
 	tw_surface->role.commit_private = dsurf;
 	dsurf->type = type;
@@ -108,6 +108,49 @@ wl_shell_surface_set_role(struct tw_desktop_surface *dsurf,
 		tw_surface->role.name = TW_DESKTOP_TRANSIENT_WL_SHELL_NAME;
 	else
 		tw_surface->role.name = TW_DESKTOP_POPUP_WL_SHELL_NAME;
+}
+
+static void
+configure_wl_shell_surface(struct tw_desktop_surface *surface,
+                           enum wl_shell_surface_resize edge,
+                           int32_t x, int32_t y,
+                           unsigned width, unsigned height)
+{
+	wl_shell_surface_send_configure(surface->resource, edge,
+	                                width, height);
+}
+
+static void
+close_wl_shell_surface(struct tw_desktop_surface *dsurf)
+{
+	if (dsurf->type == TW_DESKTOP_POPUP_SURFACE)
+		wl_shell_surface_send_popup_done(dsurf->resource);
+	else
+		tw_logl_level(TW_LOG_ERRO, "wl_shell_surface is not a popup");
+}
+
+static void
+handle_shell_surface_surface_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_wl_shell_surface *surf =
+		container_of(listener, struct tw_wl_shell_surface,
+		             surface_destroy);
+
+        tw_desktop_surface_rm(&surf->base);
+	tw_reset_wl_list(&surf->surface_destroy.link);
+	surf->base.tw_surface = NULL;
+}
+
+static void
+init_wl_shell_surface(struct tw_wl_shell_surface *surf,
+                      struct wl_resource *wl_surface, struct wl_resource *r,
+                      struct tw_desktop_manager *desktop)
+{
+	tw_desktop_surface_init(&surf->base, wl_surface, r, desktop);
+	tw_set_resource_destroy_listener(wl_surface, &surf->surface_destroy,
+	                                 handle_shell_surface_surface_destroy);
+	surf->base.configure = configure_wl_shell_surface;
+	surf->base.close = close_wl_shell_surface;
 }
 
 static const struct wl_shell_surface_interface wl_shell_surf_impl;
@@ -204,7 +247,7 @@ transient_impl_subsurface(struct tw_subsurface *subsurface,
                           struct wl_resource *parent, int32_t x, int32_t y)
 {
 	subsurface->parent = tw_surface_from_resource(parent);
-	subsurface->surface = tw_surface_from_resource(dsurf->wl_surface);
+	subsurface->surface = dsurf-> tw_surface;
 	subsurface->sx = x;
 	subsurface->sy = y;
 	subsurface->sync = false;
@@ -212,7 +255,7 @@ transient_impl_subsurface(struct tw_subsurface *subsurface,
 	wl_list_init(&subsurface->parent_link);
 	wl_list_insert(subsurface->parent->subsurfaces.prev,
 	               &subsurface->parent_link);
-	tw_set_resource_destroy_listener(dsurf->wl_surface,
+	tw_set_resource_destroy_listener(dsurf->tw_surface->resource,
 	                                 &subsurface->surface_destroyed,
 	                                 handle_transient_surface_destroy);
 }
@@ -238,12 +281,12 @@ handle_set_transient(struct wl_client *client,
 /******************************** popup **************************************/
 
 static void
-close_wl_shell_popup(struct wl_listener *listener, void *data)
+notify_close_wl_shell_popup(struct wl_listener *listener, void *data)
 {
 	struct tw_wl_shell_surface *surface =
 		container_of(listener, struct tw_wl_shell_surface,
 		             popup_close);
-	wl_shell_surface_send_popup_done(surface->base.shell_surface);
+	wl_shell_surface_send_popup_done(surface->base.resource);
 }
 
 static void
@@ -260,17 +303,17 @@ handle_set_popup(struct wl_client *client,
 		tw_desktop_surface_from_wl_shell_surface(resource);
 	struct tw_wl_shell_surface *shell_surf =
 		container_of(popup, struct tw_wl_shell_surface, base);
-	struct tw_surface *tw_surface =
-		tw_surface_from_resource(popup->wl_surface);
+	struct tw_surface *tw_surface = popup->tw_surface;
 	struct tw_subsurface *subsurface;
 	struct tw_popup_grab *grab;
+	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
 
 	subsurface = calloc(1, sizeof(*subsurface));
 	if (!subsurface) {
 		wl_resource_post_no_memory(resource);
 		return;
 	}
-	grab = tw_popup_grab_create(tw_surface, popup->shell_surface);
+	grab = tw_popup_grab_create(tw_surface, popup->resource, tw_seat);
 	if (!grab) {
 		wl_resource_post_no_memory(resource);
 		free(subsurface);
@@ -279,8 +322,9 @@ handle_set_popup(struct wl_client *client,
 
 	transient_impl_subsurface(subsurface, popup, parent, x, y);
 	tw_signal_setup_listener(&grab->close, &shell_surf->popup_close,
-	                         close_wl_shell_popup);
+	                         notify_close_wl_shell_popup);
         wl_shell_surface_set_role(popup, TW_DESKTOP_POPUP_SURFACE);
+        tw_popup_grab_start(grab);
 }
 
 static void
@@ -330,27 +374,6 @@ destroy_wl_shell_surf_resource(struct wl_resource *resource)
 }
 
 static void
-handle_shell_surface_surface_destroy(struct wl_listener *listener, void *data)
-{
-	struct tw_wl_shell_surface *surf =
-		container_of(listener, struct tw_wl_shell_surface,
-		             surface_destroy);
-
-        tw_desktop_surface_rm(&surf->base);
-	surf->base.wl_surface = NULL;
-}
-
-static void
-handle_shell_surface_configure(struct tw_desktop_surface *surface,
-                               enum wl_shell_surface_resize edge,
-                               int32_t x, int32_t y,
-                               unsigned width, unsigned height)
-{
-	wl_shell_surface_send_configure(surface->shell_surface, edge,
-	                                width, height);
-}
-
-static void
 handle_get_wl_shell_surface(struct wl_client *client,
                             struct wl_resource *shell,
                             uint32_t id,
@@ -376,16 +399,12 @@ handle_get_wl_shell_surface(struct wl_client *client,
 		wl_resource_post_no_memory(shell);
 		return;
 	}
-
 	dsurf = &surf->base;
-	dsurf->configure = handle_shell_surface_configure;
 
 	wl_resource_set_implementation(resource, &wl_shell_surf_impl,
 	                               dsurf, destroy_wl_shell_surf_resource);
-	tw_desktop_surface_init(dsurf, wl_surface, resource, desktop);
+	init_wl_shell_surface(surf, wl_surface, resource, desktop);
 
-	tw_set_resource_destroy_listener(wl_surface, &surf->surface_destroy,
-	                                 handle_shell_surface_surface_destroy);
 }
 
 static const struct wl_shell_interface wl_shell_impl = {

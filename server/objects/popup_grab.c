@@ -21,6 +21,7 @@
 
 #include <stdlib.h>
 #include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 #include <wayland-util.h>
 #include <ctypes/helpers.h>
 
@@ -189,7 +190,7 @@ tw_popup_grab_close(struct tw_popup_grab *grab)
 
 	//also, if there is a parent, we switch to parent
 	if (grab->parent_grab)
-		tw_popup_grab_start(grab->parent_grab, seat);
+		tw_popup_grab_start(grab->parent_grab);
 
 	wl_list_remove(&grab->resource_destroy.link);
 	free(grab);
@@ -204,8 +205,9 @@ handle_resource_destroy(struct wl_listener *listener, void *userdata)
 }
 
 void
-tw_popup_grab_start(struct tw_popup_grab *grab, struct tw_seat *seat)
+tw_popup_grab_start(struct tw_popup_grab *grab)
 {
+	struct tw_seat *seat = grab->seat;
 	if (tw_popup_grab_is_current(seat))
 		grab->parent_grab =
 			container_of(seat->pointer.grab,
@@ -219,7 +221,8 @@ tw_popup_grab_start(struct tw_popup_grab *grab, struct tw_seat *seat)
 }
 
 struct tw_popup_grab *
-tw_popup_grab_create(struct tw_surface *surface, struct wl_resource *obj)
+tw_popup_grab_create(struct tw_surface *surface, struct wl_resource *obj,
+                     struct tw_seat *seat)
 {
 	struct wl_resource *wl_surface = surface->resource;
 	struct tw_popup_grab *grab =
@@ -233,6 +236,7 @@ tw_popup_grab_create(struct tw_surface *surface, struct wl_resource *obj)
 	grab->touch_grab.data = wl_surface;
 	grab->touch_grab.impl = &popup_touch_grab_impl;
 
+	grab->seat = seat;
 	grab->focus = wl_surface;
 	grab->interface = obj;
 	wl_list_init(&grab->resource_destroy.link);

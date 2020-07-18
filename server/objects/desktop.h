@@ -23,8 +23,7 @@
 #define TW_DESKTOP_H
 
 #include <stdlib.h>
-#include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
+#include <pixman.h>
 #include <wayland-server.h>
 
 #ifdef  __cplusplus
@@ -82,14 +81,22 @@ enum tw_desktop_surface_type {
 };
 
 struct tw_desktop_surface {
-	struct wl_resource *shell_surface; /**< shared by implementation */
-	struct wl_resource *wl_surface;
+	struct wl_resource *resource; /**< shared by implementation */
+	struct tw_surface *tw_surface;
 	struct tw_desktop_manager *desktop;
 	enum tw_desktop_surface_type type;
 	bool fullscreened;
 	bool maximized;
 	bool surface_added;
 	char *title, *class;
+        /**
+         * the window geometry for this given desktop surface, always available
+         * after every commit. The value before the initial commit is 0.
+         */
+        struct {
+	        int x, y;
+	        unsigned int w, h;
+	} window_geometry;
 
 	//API is required to call this function for additional size change. Xdg
 	//API also send configure for popup, which sets the position as well.
@@ -97,6 +104,7 @@ struct tw_desktop_surface {
 	                  enum wl_shell_surface_resize edge,
 	                  int32_t x, int32_t y,
 	                  unsigned width, unsigned height);
+	void (*close)(struct tw_desktop_surface *surface);
 };
 
 struct tw_desktop_manager {

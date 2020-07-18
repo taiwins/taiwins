@@ -42,6 +42,7 @@ struct tw_popup_grab {
 	struct tw_seat_pointer_grab pointer_grab;
 	struct tw_seat_touch_grab touch_grab;
 	struct wl_resource *focus, *interface;
+	struct tw_seat *seat;
 	struct wl_listener resource_destroy;
 
         /* popup grab can be nested so that when we jump on another grab we
@@ -56,11 +57,11 @@ bool
 tw_popup_grab_is_current(struct tw_seat *seat);
 
 struct tw_popup_grab *
-tw_popup_grab_create(struct tw_surface *surface, struct wl_resource *obj);
+tw_popup_grab_create(struct tw_surface *surface, struct wl_resource *obj,
+                     struct tw_seat *seat);
 
 void
-tw_popup_grab_start(struct tw_popup_grab *grab, struct tw_seat *seat);
-
+tw_popup_grab_start(struct tw_popup_grab *grab);
 
 #ifdef  __cplusplus
 }

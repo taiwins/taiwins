@@ -108,8 +108,7 @@ static void
 twdesk_surface_added(struct tw_desktop_surface *surface, void *user_data)
 {
 	struct tw_xdg *desktop = user_data;
-	struct tw_surface *tw_surface =
-		tw_surface_from_resource(surface->wl_surface);
+	struct tw_surface *tw_surface = surface->tw_surface;
 
 	wl_list_insert(&desktop->desktop_layer.views,
 	               &tw_surface->links[TW_VIEW_LAYER_LINK]);
@@ -135,8 +134,7 @@ static void
 twdesk_surface_removed(struct tw_desktop_surface *dsurf,
 		       void *user_data)
 {
-	struct tw_surface *tw_surface =
-		tw_surface_from_resource(dsurf->wl_surface);
+	struct tw_surface *tw_surface = dsurf->tw_surface;
 
 	tw_reset_wl_list(&tw_surface->links[TW_VIEW_LAYER_LINK]);
 }
@@ -145,7 +143,9 @@ static void
 twdesk_surface_committed(struct tw_desktop_surface *surface,
                          void *user_data)
 {
-	//TODO: change position
+	tw_surface_set_position(surface->tw_surface,
+	                        -surface->window_geometry.x,
+	                        -surface->window_geometry.y);
 }
 
 static void

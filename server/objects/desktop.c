@@ -107,8 +107,8 @@ tw_desktop_surface_init(struct tw_desktop_surface *surf,
                         struct tw_desktop_manager *desktop)
 {
 	surf->desktop = desktop;
-	surf->wl_surface = wl_surface;
-	surf->shell_surface = resource;
+	surf->tw_surface = tw_surface_from_resource(wl_surface);
+	surf->resource = resource;
 	surf->fullscreened = false;
 	surf->maximized = false;
 	surf->surface_added = false;
@@ -140,7 +140,7 @@ void
 tw_desktop_surface_rm(struct tw_desktop_surface *surf)
 {
 	void *user_data = surf->desktop->user_data;
-	if (surf->surface_added && surf->wl_surface) {
+	if (surf->surface_added && surf->tw_surface) {
 		surf->desktop->api.surface_removed(surf, user_data);
 		surf->surface_added = false;
 	}
@@ -216,4 +216,29 @@ tw_desktop_surface_resize(struct tw_desktop_surface *surf,
 		return;
 	}
 	surf->desktop->api.resize(surf, seat, serial, edge, user_data);
+}
+
+void
+tw_desktop_surface_calc_window_geometry(struct tw_surface *surface,
+                                        pixman_region32_t *geometry)
+{
+	pixman_region32_t region;
+	struct tw_subsurface *sub;
+
+	pixman_region32_init_rect(&region, 0, 0,
+	                          surface->geometry.xywh.width,
+	                          surface->geometry.xywh.height);
+	wl_list_for_each(sub, &surface->subsurfaces, parent_link) {
+		pixman_region32_t subregion;
+
+		pixman_region32_init(&subregion);
+		tw_desktop_surface_calc_window_geometry(sub->surface,
+		                                        &subregion);
+		pixman_region32_translate(&subregion, sub->sx, sub->sy);
+		pixman_region32_union(&region, &region, &subregion);
+		pixman_region32_fini(&subregion);
+	}
+
+	pixman_region32_copy(geometry, &region);
+	pixman_region32_fini(&region);
 }
