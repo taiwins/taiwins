@@ -28,6 +28,7 @@
 #include <wayland-util.h>
 
 #include "objects/logger.h"
+#include "pixman.h"
 #include "utils.h"
 #include "surface.h"
 #include "seat.h"
@@ -82,14 +83,34 @@ void
 tw_desktop_surface_resize(struct tw_desktop_surface *surf,
                           struct wl_resource *seat, uint32_t edge,
                           uint32_t serial);
+void
+tw_desktop_surface_calc_window_geometry(struct tw_surface *surface,
+                                        pixman_region32_t *geometry);
 /******************************************************************************
  * wl_shell_surface implementation
  *****************************************************************************/
 
 static void
+commit_update_window_geometry(struct tw_desktop_surface *dsurf)
+{
+	struct tw_surface *surface = dsurf->tw_surface;
+	pixman_region32_t surf_region;
+	pixman_box32_t *r;
+
+	pixman_region32_init(&surf_region);
+	tw_desktop_surface_calc_window_geometry(surface, &surf_region);
+	r = pixman_region32_extents(&surf_region);
+	dsurf->window_geometry.x = r->x1;
+	dsurf->window_geometry.y = r->y1;
+	dsurf->window_geometry.w = r->x2 - r->x1;
+	dsurf->window_geometry.h = r->y2 - r->y1;
+	pixman_region32_fini(&surf_region);
+}
+
+static void
 commit_wl_shell_surface(struct tw_surface *surface)
 {
-	//Opps, nothing
+	commit_update_window_geometry(surface->role.commit_private);
 }
 
 static void

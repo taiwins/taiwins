@@ -25,13 +25,13 @@
 #include <wayland-server.h>
 #include <ctypes/helpers.h>
 
+#include "objects/utils.h"
 #include "seat.h"
 #include "taiwins.h"
 
 static void
-notify_touch_enter(struct tw_seat_touch_grab *grab, uint32_t time_msec,
-              struct wl_resource *surface, uint32_t touch_id,
-              double sx, double sy)
+notify_touch_enter(struct tw_seat_touch_grab *grab,
+                   struct wl_resource *surface, double sx, double sy)
 {
 	struct tw_touch *touch = &grab->seat->touch;
 	tw_touch_set_focus(touch, surface, wl_fixed_from_double(sx),
@@ -204,8 +204,7 @@ tw_touch_set_focus(struct tw_touch *touch,
 		touch->focused_client = client;
 		touch->focused_surface = wl_surface;
 
-		wl_list_remove(&touch->focused_destroy.link);
-		wl_list_init(&touch->focused_destroy.link);
+		tw_reset_wl_list(&touch->focused_destroy.link);
 		wl_resource_add_destroy_listener(wl_surface,
 		                                 &touch->focused_destroy);
 	}
@@ -245,13 +244,11 @@ tw_touch_notify_motion(struct tw_touch *touch, uint32_t time_msec,
 }
 
 void
-tw_touch_notify_enter(struct tw_touch *touch, uint32_t time_msec,
-                      struct wl_resource *surface, uint32_t id,
-                      double sx, double sy)
+tw_touch_notify_enter(struct tw_touch *touch,
+                      struct wl_resource *surface, double sx, double sy)
 {
 	if (touch->grab->impl->enter)
-		touch->grab->impl->enter(touch->grab, time_msec, surface, id,
-		                         sx, sy);
+		touch->grab->impl->enter(touch->grab, surface, sx, sy);
 }
 
 void

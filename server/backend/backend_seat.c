@@ -388,9 +388,7 @@ notify_backend_touch_down(struct wl_listener *listener, void *data)
 		tw_touch_notify_down(touch, event->time_msec,
 			                        event->touch_id, x, y);
 	else if (focused) {
-		tw_touch_notify_enter(touch, event->time_msec,
-		                      focused->resource, event->touch_id,
-		                      x, y);
+		tw_touch_notify_enter(touch, focused->resource, x, y);
 		tw_touch_notify_down(touch, event->time_msec,
 		                     event->touch_id, x, y);
 	}

@@ -53,9 +53,6 @@ struct tw_popup_grab {
 	struct wl_signal close;
 };
 
-bool
-tw_popup_grab_is_current(struct tw_seat *seat);
-
 struct tw_popup_grab *
 tw_popup_grab_create(struct tw_surface *surface, struct wl_resource *obj,
                      struct tw_seat *seat);

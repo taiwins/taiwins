@@ -29,6 +29,7 @@
 #include <ctypes/os/os-compatibility.h>
 #include <ctypes/helpers.h>
 
+#include "objects/utils.h"
 #include "seat.h"
 #include "taiwins.h"
 
@@ -221,7 +222,7 @@ tw_keyboard_send_keymap(struct tw_keyboard *keyboard,
 	}
 	strcpy(ptr, keyboard->keymap_string);
 	munmap(ptr, keyboard->keymap_size);
-	wl_keyboard_send_keymap(resource, WL_KEYBOARD_KEYMAP_FORMAT_NO_KEYMAP,
+	wl_keyboard_send_keymap(resource, WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1,
 	                        keymap_fd, keyboard->keymap_size);
 	close(keymap_fd);
 }
@@ -250,8 +251,7 @@ tw_keyboard_set_focus(struct tw_keyboard *keyboard,
 		keyboard->focused_client = client;
 		keyboard->focused_surface = wl_surface;
 		//set focus
-		wl_list_remove(&keyboard->focused_destroy.link);
-		wl_list_init(&keyboard->focused_destroy.link);
+		tw_reset_wl_list(&keyboard->focused_destroy.link);
 		wl_resource_add_destroy_listener(wl_surface,
 		                                 &keyboard->focused_destroy);
 	}

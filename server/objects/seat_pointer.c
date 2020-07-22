@@ -28,6 +28,7 @@
 
 #include <ctypes/helpers.h>
 
+#include "objects/utils.h"
 #include "seat.h"
 #include "taiwins.h"
 
@@ -69,7 +70,8 @@ notify_pointer_button(struct tw_seat_pointer_grab *grab,
 		wl_resource_for_each(resource, &client->pointers)
 			wl_pointer_send_button(resource, serial, time_msec,
 			                       button, state);
-			}
+		//XXX forcusing on the clients should be compositor logic
+	}
 	grab->seat->last_pointer_serial = serial;
 }
 
@@ -82,17 +84,22 @@ notify_pointer_axis(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
 	struct wl_resource *resource;
 	struct tw_pointer *pointer = &grab->seat->pointer;
 	struct tw_seat_client *client = pointer->focused_client;
+	uint32_t version;
 	if (client) {
 		wl_resource_for_each(resource, &client->pointers) {
+			version = wl_resource_get_version(resource);
 			if (value)
 				wl_pointer_send_axis(resource, time_msec,
 				                     orientation,
 				                     wl_fixed_from_double(
 					                     value));
-			else if (value_discrete)
+			else if (value_discrete &&
+			         version >= WL_POINTER_AXIS_DISCRETE_SINCE_VERSION)
 				wl_pointer_send_axis_discrete(resource,
 				                              time_msec,
 				                              value_discrete);
+			if (version >= WL_POINTER_AXIS_SOURCE_SINCE_VERSION)
+				wl_pointer_send_axis_source(resource, source);
 		}
 		//TODO, we are not able to send stop event?
 	}
@@ -106,7 +113,9 @@ notify_pointer_frame(struct tw_seat_pointer_grab *grab)
 	struct tw_seat_client *client = pointer->focused_client;
 	if (client) {
 		wl_resource_for_each(resource, &client->pointers)
-			wl_pointer_send_frame(resource);
+			if (wl_resource_get_version(resource) >=
+			    WL_POINTER_FRAME_SINCE_VERSION)
+				wl_pointer_send_frame(resource);
 	}
 }
 
@@ -218,8 +227,7 @@ tw_pointer_set_focus(struct tw_pointer *pointer,
 		pointer->focused_client = client;
 		pointer->focused_surface = wl_surface;
 
-		wl_list_remove(&pointer->focused_destroy.link);
-		wl_list_init(&pointer->focused_destroy.link);
+		tw_reset_wl_list(&pointer->focused_destroy.link);
 		wl_resource_add_destroy_listener(wl_surface,
 		                                 &pointer->focused_destroy);
 	}

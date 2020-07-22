@@ -31,7 +31,7 @@
 static const struct tw_pointer_grab_interface popup_pointer_grab_impl;
 static const struct tw_touch_grab_interface popup_touch_grab_impl;
 
-bool
+static inline bool
 tw_popup_grab_is_current(struct tw_seat *seat)
 {
 	return seat->pointer.grab->impl == &popup_pointer_grab_impl &&
@@ -54,6 +54,8 @@ popup_pointer_grab_button(struct tw_seat_pointer_grab *grab,
 		container_of(grab, struct tw_popup_grab, pointer_grab);
 	pointer->default_grab.impl->button(&pointer->default_grab,
 	                                   time_msec, button, state);
+	//TODO it is either we have pointer to be able to focus on popup before
+	//this or defer the grab after the release button.
 	if (!on_popup)
 		tw_popup_grab_close(popup_grab);
 }
@@ -147,13 +149,11 @@ popup_touch_grab_motion(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 }
 
 static void
-popup_touch_grab_enter(struct tw_seat_touch_grab *grab, uint32_t time_msec,
-                       struct wl_resource *surface, uint32_t touch_id,
-                       double sx, double sy)
+popup_touch_grab_enter(struct tw_seat_touch_grab *grab,
+                       struct wl_resource *surface, double sx, double sy)
 {
 	struct tw_touch *touch = &grab->seat->touch;
-	touch->default_grab.impl->enter(&touch->default_grab, time_msec,
-	                                surface, touch_id, sx, sy);
+	touch->default_grab.impl->enter(&touch->default_grab, surface, sx, sy);
 }
 
 static void
@@ -215,9 +215,11 @@ tw_popup_grab_start(struct tw_popup_grab *grab)
 
 	grab->pointer_grab.seat = seat;
 	grab->touch_grab.seat = seat;
-
 	tw_pointer_start_grab(&seat->pointer, &grab->pointer_grab);
 	tw_touch_start_grab(&seat->touch, &grab->touch_grab);
+	//TODO: this is a hack, should work most of the time
+	tw_pointer_notify_enter(&seat->pointer, grab->focus, 0, 0);
+	tw_touch_notify_enter(&seat->touch, grab->focus, 0, 0);
 }
 
 struct tw_popup_grab *

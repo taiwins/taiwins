@@ -104,9 +104,8 @@ struct tw_touch_grab_interface {
 	           uint32_t touch_id);
 	void (*motion)(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 	               uint32_t touch_id, double sx, double sy);
-	void (*enter)(struct tw_seat_touch_grab *grab, uint32_t time_msec,
-	              struct wl_resource *surface, uint32_t touch_id,
-	              double sx, double sy);
+	void (*enter)(struct tw_seat_touch_grab *grab,
+	              struct wl_resource *surface, double sx, double sy);
 	void (*touch_cancel)(struct tw_seat_touch_grab *grab);
 	void (*cancel)(struct tw_seat_touch_grab *grab);
 };
@@ -189,9 +188,9 @@ struct tw_seat {
 
 struct tw_seat_client {
 	struct tw_seat *seat;
-	struct wl_resource *resource;
 	struct wl_client *client;
 	struct wl_list link;
+	struct wl_list resources;
 
 	struct wl_list keyboards;
 	struct wl_list pointers;
@@ -331,9 +330,8 @@ void
 tw_touch_notify_motion(struct tw_touch *touch, uint32_t time_msec,
                        uint32_t touch_id, double sx, double sy);
 void
-tw_touch_notify_enter(struct tw_touch *touch, uint32_t time_msec,
-                      struct wl_resource *surface, uint32_t touch_id,
-                      double sx, double sy);
+tw_touch_notify_enter(struct tw_touch *touch,
+                      struct wl_resource *surface, double sx, double sy);
 void
 tw_touch_notify_cancel(struct tw_touch *touch);
 

@@ -824,7 +824,7 @@ static const struct wl_subsurface_interface subsurface_impl;
 
 static void subsurface_commit_role(struct tw_surface *surf) {
 	struct tw_subsurface *sub = surf->role.commit_private;
-	struct tw_surface *parent = surf;
+	struct tw_surface *parent = sub->parent;
 	// surface has moved, or parent has moved. We would need to dirty the
 	// geometry now.
 	if (surf->geometry.xywh.x != sub->sx + parent->geometry.xywh.x ||

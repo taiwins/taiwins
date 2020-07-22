@@ -490,6 +490,7 @@ destroy_toplevel_resource(struct wl_resource *resource)
 	if (!surf)
 		return;
 	tw_desktop_surface_rm(&surf->base);
+	wl_resource_set_user_data(resource, NULL);
 	surf->toplevel.resource = NULL;
 }
 
@@ -634,14 +635,6 @@ notify_close_popup(struct wl_listener *listener, void *data)
 }
 
 static void
-start_popup_grab_idle(void *data)
-{
-	struct tw_popup_grab *grab = data;
-
-	tw_popup_grab_start(grab);
-}
-
-static void
 handle_popup_grab(struct wl_client *client,
                   struct wl_resource *resource,
                   struct wl_resource *seat,
@@ -651,8 +644,6 @@ handle_popup_grab(struct wl_client *client,
 		xdg_surface_from_popup(resource);
 
 	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
-	struct wl_event_loop *loop =
-		wl_display_get_event_loop(tw_seat->display);
 	struct tw_popup_grab *grab =
 		tw_popup_grab_create(xdg_surface->base.tw_surface,
 		                     xdg_surface->popup.resource,
@@ -664,7 +655,7 @@ handle_popup_grab(struct wl_client *client,
 	tw_signal_setup_listener(&grab->close,
 	                         &xdg_surface->popup.close_popup_listener,
 	                         notify_close_popup);
-	wl_event_loop_add_idle(loop, start_popup_grab_idle, grab);
+	tw_popup_grab_start(grab);
 }
 
 static void
@@ -676,7 +667,12 @@ handle_popup_reposition(struct wl_client *client,
 	struct tw_xdg_surface *xdg_surf = xdg_surface_from_popup(resource);
 	struct tw_xdg_positioner *positioner =
 		positioner_from_resource(positioner_res);
-	popup_reposition(xdg_surf, positioner);
+
+        popup_reposition(xdg_surf, positioner);
+
+        if (wl_resource_get_version(resource) >=
+	    XDG_POPUP_REPOSITIONED_SINCE_VERSION)
+		xdg_popup_send_repositioned(resource, token);
 }
 
 static const struct xdg_popup_interface popup_impl = {
@@ -693,6 +689,8 @@ destroy_popup_resource(struct wl_resource *resource)
 	if (!surf)
 		return;
 	tw_reset_wl_list(&surf->popup.subsurface.parent_link);
+	wl_resource_set_user_data(resource, NULL);
+	tw_reset_wl_list(&surf->popup.close_popup_listener.link);
 	surf->popup.resource = NULL;
 }
 
@@ -719,6 +717,7 @@ popup_init(struct tw_xdg_surface *popup, struct wl_resource *popup_resource,
 	subsurface->parent = parent->base.tw_surface;
 	subsurface->surface = popup->base.tw_surface;
 	subsurface->sync = false;
+	wl_list_init(&popup->popup.close_popup_listener.link);
 	wl_list_init(&subsurface->parent_link);
 	wl_list_insert(subsurface->parent->subsurfaces.prev,
 	               &subsurface->parent_link);
@@ -817,14 +816,12 @@ destroy_xdg_surface_resource(struct wl_resource *resource)
 		container_of(dsurf, struct tw_xdg_surface, base);
         //handle role
         if (dsurf->type == TW_DESKTOP_TOPLEVEL_SURFACE &&
-	    xdg_surf->toplevel.resource) {
+            xdg_surf->toplevel.resource)
 	        destroy_toplevel_resource(xdg_surf->toplevel.resource);
-		wl_resource_set_user_data(xdg_surf->toplevel.resource, NULL);
-        } else if (dsurf->type == TW_DESKTOP_POPUP_SURFACE &&
-                   xdg_surf->popup.resource) {
+        else if (dsurf->type == TW_DESKTOP_POPUP_SURFACE &&
+                 xdg_surf->popup.resource)
 	        destroy_popup_resource(xdg_surf->popup.resource);
-		wl_resource_set_user_data(xdg_surf->popup.resource, NULL);
-        }
+
         if (dsurf->tw_surface)
 	        tw_reset_wl_list(&xdg_surf->surface_destroy.link);
 	tw_desktop_surface_fini(dsurf);
@@ -927,9 +924,18 @@ handle_positioner_constraint_adjustment(struct wl_client *client,
                                         struct wl_resource *resource,
                                         uint32_t constraint)
 {
+	static const uint32_t possible_constraints =
+		XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_NONE |
+		XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_X |
+		XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_Y |
+		XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_X  |
+		XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y  |
+		XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_RESIZE_X |
+		XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_RESIZE_Y;
+
 	struct tw_xdg_positioner *positioner =
 		positioner_from_resource(resource);
-	if (constraint & (~XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_RESIZE_Y)) {
+	if (!(constraint & possible_constraints)) {
 		wl_resource_post_error(resource,
 		                       XDG_POSITIONER_ERROR_INVALID_INPUT,
 		                       "invalid set_contraint_adjustment %d",
@@ -1058,12 +1064,12 @@ destroy_wm_base(struct wl_resource *r)
 
 }
 
-
 static void
 bind_xdg_wm_base(struct wl_client *wl_client, void *data,
                  uint32_t version, uint32_t id)
 {
 	struct wl_resource *r = NULL;
+	struct wl_display *display = wl_client_get_display(wl_client);
 
 	r = wl_resource_create(wl_client, &xdg_wm_base_interface, version, id);
 	if (!r) {
@@ -1072,6 +1078,7 @@ bind_xdg_wm_base(struct wl_client *wl_client, void *data,
 	}
 	wl_resource_set_implementation(r, &xdg_wm_base_impl, data,
 	                               destroy_wm_base);
+	xdg_wm_base_send_ping(r, wl_display_next_serial(display));
 }
 
 bool
