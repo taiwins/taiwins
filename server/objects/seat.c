@@ -29,7 +29,10 @@
 #include <ctypes/strops.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "utils.h"
 #include "seat.h"
+
+static const struct wl_seat_interface seat_impl;
 
 struct tw_seat_client *
 tw_seat_client_find(struct tw_seat *seat, struct wl_client *client)
@@ -42,17 +45,16 @@ tw_seat_client_find(struct tw_seat *seat, struct wl_client *client)
 	return NULL;
 }
 
-struct tw_seat_client *
-tw_seat_client_new(struct tw_seat *seat, struct wl_client *client,
-                   struct wl_resource *resource)
+static struct tw_seat_client *
+tw_seat_client_new(struct tw_seat *seat, struct wl_client *client)
 {
 	struct tw_seat_client *s = calloc(1, sizeof(*s));
 	if (!s)
 		return NULL;
 	s->seat = seat;
 	s->client = client;
-	s->resource = resource;
 	wl_list_init(&s->link);
+	wl_list_init(&s->resources);
 	wl_list_init(&s->keyboards);
 	wl_list_init(&s->pointers);
 	wl_list_init(&s->touches);
@@ -60,11 +62,18 @@ tw_seat_client_new(struct tw_seat *seat, struct wl_client *client,
 	return s;
 }
 
+static inline struct tw_seat_client *
+tw_seat_client_from_resource(struct wl_resource *resource)
+{
+	assert(wl_resource_instance_of(resource, &wl_seat_interface,
+	                               &seat_impl));
+	return wl_resource_get_user_data(resource);
+}
+
 //// listeners
 static void
 release_device(struct wl_client *client, struct wl_resource *resource)
 {
-	wl_list_remove(wl_resource_get_link(resource));
 	wl_resource_destroy(resource);
 }
 
@@ -76,11 +85,12 @@ static void
 destroy_device(struct wl_resource *wl_resource)
 {
 	//there is nothing to do.
-	wl_list_remove(wl_resource_get_link(wl_resource));
+	tw_reset_wl_list(wl_resource_get_link(wl_resource));
 }
 
 static void
 seat_client_create_keyboard(struct tw_seat_client *client,
+                            struct wl_resource *seat_resource,
                             uint32_t version, uint32_t id)
 {
 	struct wl_resource *resource;
@@ -89,7 +99,7 @@ seat_client_create_keyboard(struct tw_seat_client *client,
 	                              &wl_keyboard_interface,
 	                              version, id);
 	if (!resource) {
-		wl_resource_post_no_memory(client->resource);
+		wl_resource_post_no_memory(seat_resource);
 		return;
 	}
 	wl_resource_set_implementation(resource, &keyboard_impl,
@@ -100,8 +110,11 @@ seat_client_create_keyboard(struct tw_seat_client *client,
 
 	tw_keyboard_send_keymap(&client->seat->keyboard,
 	                        resource);
-	wl_keyboard_send_repeat_info(resource, client->seat->repeat_rate,
-	                             client->seat->repeat_delay);
+	if (wl_resource_get_version(resource) >=
+	    WL_KEYBOARD_REPEAT_INFO_SINCE_VERSION)
+		wl_keyboard_send_repeat_info(resource,
+		                             client->seat->repeat_rate,
+		                             client->seat->repeat_delay);
 }
 
 static void
@@ -133,6 +146,7 @@ static const struct wl_pointer_interface pointer_impl = {
 
 static void
 seat_client_create_pointer(struct tw_seat_client *client,
+                           struct wl_resource *seat_resource,
                            uint32_t version, uint32_t id)
 {
 	struct wl_resource *resource;
@@ -141,7 +155,7 @@ seat_client_create_pointer(struct tw_seat_client *client,
 	                              &wl_pointer_interface,
 	                              version, id);
 	if (!resource) {
-		wl_resource_post_no_memory(client->resource);
+		wl_resource_post_no_memory(seat_resource);
 		return;
 	}
 	wl_resource_set_implementation(resource, &pointer_impl,
@@ -157,6 +171,7 @@ static const struct wl_touch_interface touch_impl = {
 
 static void
 seat_client_create_touch(struct tw_seat_client *client,
+                         struct wl_resource *seat_resource,
                          uint32_t version, uint32_t id)
 {
 	struct wl_resource *resource;
@@ -165,7 +180,7 @@ seat_client_create_touch(struct tw_seat_client *client,
 	                              &wl_touch_interface,
 	                              version, id);
 	if (!resource) {
-		wl_resource_post_no_memory(client->resource);
+		wl_resource_post_no_memory(seat_resource);
 		return;
 	}
 	wl_resource_set_implementation(resource, &touch_impl,
@@ -180,11 +195,12 @@ seat_get_keyboard(struct wl_client *client,
                   struct wl_resource *seat_resource, uint32_t id)
 {
 	struct tw_seat_client *seat_client =
-		wl_resource_get_user_data(seat_resource);
+		tw_seat_client_from_resource(seat_resource);
 	uint32_t version = wl_resource_get_version(seat_resource);
 
 	if (seat_client->seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
-		seat_client_create_keyboard(seat_client, version, id);
+		seat_client_create_keyboard(seat_client, seat_resource,
+		                            version, id);
 	else
 		wl_resource_post_error(seat_resource, 1,
 		                       "seat %u does not have a keyboard",
@@ -196,11 +212,12 @@ seat_get_pointer(struct wl_client *client, struct wl_resource *seat_resource,
                  uint32_t id)
 {
 	struct tw_seat_client *seat_client =
-		wl_resource_get_user_data(seat_resource);
+		tw_seat_client_from_resource(seat_resource);
 	uint32_t version = wl_resource_get_version(seat_resource);
 
 	if (seat_client->seat->capabilities & WL_SEAT_CAPABILITY_POINTER)
-		seat_client_create_pointer(seat_client, version, id);
+		seat_client_create_pointer(seat_client, seat_resource,
+		                           version, id);
 	else
 		wl_resource_post_error(seat_resource, 1,
 		                       "seat %u does not have a keyboard",
@@ -212,11 +229,12 @@ seat_get_touch(struct wl_client *client, struct wl_resource *seat_resource,
                uint32_t id)
 {
 	struct tw_seat_client *seat_client =
-		wl_resource_get_user_data(seat_resource);
+		tw_seat_client_from_resource(seat_resource);
 	uint32_t version = wl_resource_get_version(seat_resource);
 
 	if (seat_client->seat->capabilities & WL_SEAT_CAPABILITY_TOUCH)
-		seat_client_create_touch(seat_client, version, id);
+		seat_client_create_touch(seat_client, seat_resource,
+		                         version, id);
 	else
 		wl_resource_post_error(seat_resource, 1,
 		                       "seat %u does not have a touch",
@@ -238,11 +256,15 @@ static const struct wl_seat_interface seat_impl = {
 };
 
 static void
-destroy_seat_client(struct wl_resource *seat_resource)
+handle_client_resource_destroy(struct wl_resource *seat_resource)
 {
 	struct wl_resource *resource, *tmp;
 	struct tw_seat_client *sc =
-		wl_resource_get_user_data(seat_resource);
+		tw_seat_client_from_resource(seat_resource);
+
+	wl_list_remove(wl_resource_get_link(seat_resource));
+	if (!wl_list_empty(&sc->resources))
+		return;
 
 	wl_list_remove(&sc->link);
 	wl_resource_for_each_safe(resource, tmp, &sc->keyboards)
@@ -268,17 +290,18 @@ bind_seat(struct wl_client *client, void *data,
 	}
 	seat_client = tw_seat_client_find(seat, client);
 	if (!seat_client) {
-		seat_client = tw_seat_client_new(seat, client,
-		                                 wl_resource);
+		seat_client = tw_seat_client_new(seat, client);
 		if (!seat_client) {
 			wl_resource_post_no_memory(wl_resource);
 			return;
 		}
 	}
 	wl_resource_set_implementation(wl_resource, &seat_impl, seat_client,
-	                               destroy_seat_client);
-
-	wl_seat_send_name(wl_resource, seat->name);
+	                               handle_client_resource_destroy);
+	wl_list_insert(seat_client->resources.prev,
+	               wl_resource_get_link(wl_resource));
+	if (version >= WL_SEAT_NAME_SINCE_VERSION)
+		wl_seat_send_name(wl_resource, seat->name);
 	wl_seat_send_capabilities(wl_resource, seat->capabilities);
 }
 
@@ -297,6 +320,8 @@ tw_seat_create(struct wl_display *display, const char *name)
 	seat->repeat_delay = 500;
 	seat->repeat_rate = 25;
 	seat->display = display;
+	seat->last_pointer_serial = 0;
+	seat->last_touch_serial = 0;
 
 	wl_signal_init(&seat->focus_signal);
 	wl_signal_init(&seat->new_cursor_signal);
@@ -309,10 +334,19 @@ void
 tw_seat_destroy(struct tw_seat *seat)
 {
 	struct tw_seat_client *client, *next;
+	struct wl_resource *r, *tmp;
+
 	wl_global_destroy(seat->global);
 
-	wl_list_for_each_safe(client, next, &seat->clients, link)
-		wl_resource_destroy(client->resource);
+	wl_list_for_each_safe(client, next, &seat->clients, link) {
+		wl_resource_for_each_safe(r, tmp, &client->resources) {
+			//the last destroy will free the header as well so we
+			//need to stop before that.
+			wl_resource_destroy(r);
+			if (wl_resource_get_link(tmp) == &client->resources)
+				break;
+		}
+	}
 	free(seat);
 }
 
@@ -331,10 +365,12 @@ void
 tw_seat_set_name(struct tw_seat *seat, const char *name)
 {
 	struct tw_seat_client *client, *next;
+	struct wl_resource *r;
 
 	strop_ncpy(seat->name, name, 32);
 	wl_list_for_each_safe(client, next, &seat->clients, link) {
-		wl_seat_send_name(client->resource, seat->name);
+		wl_resource_for_each(r, &client->resources)
+			wl_seat_send_name(r, seat->name);
 	}
 }
 
@@ -350,7 +386,10 @@ tw_seat_set_key_repeat_rate(struct tw_seat *seat, uint32_t delay,
 
 	wl_list_for_each(client, &seat->clients, link) {
 		wl_resource_for_each(keyboard, &client->keyboards)
-			wl_keyboard_send_repeat_info(keyboard, rate, delay);
+			if (wl_resource_get_version(keyboard) >=
+			    WL_KEYBOARD_REPEAT_INFO_SINCE_VERSION)
+				wl_keyboard_send_repeat_info(keyboard,
+				                             rate, delay);
 	}
 }
 
@@ -358,7 +397,16 @@ void
 tw_seat_send_capabilities(struct tw_seat *seat)
 {
 	struct tw_seat_client *client;
-	wl_list_for_each(client, &seat->clients, link)
-		wl_seat_send_capabilities(client->resource,
-		                          seat->capabilities);
+	struct wl_resource *r;
+	wl_list_for_each(client, &seat->clients, link) {
+		wl_resource_for_each(r, &client->resources)
+			wl_seat_send_capabilities(r, seat->capabilities);
+	}
+}
+
+bool
+tw_seat_valid_serial(struct tw_seat *seat, uint32_t serial)
+{
+	return serial == seat->last_pointer_serial ||
+		serial == seat->last_touch_serial;
 }

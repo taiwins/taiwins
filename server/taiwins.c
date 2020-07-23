@@ -23,6 +23,7 @@
 #define _GNU_SOURCE
 #include "wlr/types/wlr_matrix.h"
 #include "ctypes/helpers.h"
+#include "desktop/xdg.h"
 #include <wayland-server-core.h>
 #include <wayland-util.h>
 #endif
@@ -157,8 +158,15 @@ bind_globals(struct tw_server *server)
 	server->binding_state =
 		tw_bindings_create(server->display);
 	tw_bindings_add_dummy(server->binding_state);
-	server->tw_shell =
+
+        server->tw_shell =
 		tw_shell_create_global(server->display, server->backend, NULL);
+	assert(server->tw_shell);
+
+	server->tw_xdg =
+		tw_xdg_create_global(server->display, server->tw_shell,
+		                     server->backend);
+	assert(server->tw_xdg);
 }
 
 bool

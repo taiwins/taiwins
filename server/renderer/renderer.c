@@ -122,7 +122,7 @@ base_init_wl_display(struct wlr_renderer *wlr_renderer,
 
 	if (base->egl->exts.bind_wayland_display_wl) {
 		if (!wlr_egl_bind_display(base->egl, display)) {
-			tw_log_level(TW_LOG_ERRO, "Failed to bind wl_display");
+			tw_logl_level(TW_LOG_ERRO, "Failed to bind wl_display");
 			return false;
 		}
 	} else {
@@ -239,7 +239,7 @@ static void
 gles2_log(GLenum src, GLenum type, GLuint id, GLenum severity,
 		GLsizei len, const GLchar *msg, const void *user)
 {
-	tw_log_level(gles_get_log_level(type), "[GLES2] %s", msg);
+	tw_logl_level(gles_get_log_level(type), "[GLES2] %s", msg);
 }
 
 void
@@ -291,7 +291,7 @@ get_glproc(const char *name)
 {
 	void *proc = (void *)eglGetProcAddress(name);
 	if (!proc) {
-		tw_log_level(TW_LOG_ERRO, "eglGetProcAdress(%s) failed",
+		tw_logl_level(TW_LOG_ERRO, "eglGetProcAdress(%s) failed",
 		             name);
 	}
 	return proc;

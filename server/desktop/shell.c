@@ -531,25 +531,10 @@ tw_shell_output_available_space(struct tw_shell *shell,
 	return geo;
 }
 
-void
-tw_shell_add_desktop_area_listener(struct tw_shell *shell,
-                                   struct wl_listener *listener)
+struct wl_signal *
+tw_shell_get_desktop_area_signal(struct tw_shell *shell)
 {
-	wl_signal_add(&shell->output_area_signal, listener);
-}
-
-void
-tw_shell_add_widget_created_listener(struct tw_shell *shell,
-                                     struct wl_listener *listener)
-{
-	wl_signal_add(&shell->widget_create_signal, listener);
-}
-
-void
-tw_shell_add_widget_closed_listener(struct tw_shell *shell,
-                                    struct wl_listener *listener)
-{
-	wl_signal_add(&shell->widget_close_signal, listener);
+	return &shell->output_area_signal;
 }
 
 void

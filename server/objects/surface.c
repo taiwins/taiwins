@@ -32,6 +32,7 @@
 
 #include "ctypes/helpers.h"
 #include "objects/matrix.h"
+#include "objects/utils.h"
 #include "surface.h"
 
 #define CALLBACK_VERSION 1
@@ -642,10 +643,8 @@ void
 tw_surface_unmap(struct tw_surface *surface)
 {
 	//TODO: do I need a mapped filed?
-	for (int i = 0; i < MAX_VIEW_LINKS; i++) {
-		wl_list_remove(&surface->links[i]);
-		wl_list_init(&surface->links[i]);
-	}
+	for (int i = 0; i < MAX_VIEW_LINKS; i++)
+		tw_reset_wl_list(&surface->links[i]);
 }
 
 void
@@ -762,17 +761,12 @@ tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
                   struct tw_surface_manager *manager)
 {
 	struct tw_view *view;
-	struct wl_resource *resource;
-	struct tw_surface *surface = calloc(1, sizeof(struct tw_surface));
-	if (!surface) {
+	struct wl_resource *resource = NULL;
+	struct tw_surface *surface = NULL;
+
+	if (!tw_create_wl_resource_for_obj(resource, surface, client, id,
+	                                   version, wl_surface_interface)) {
 		wl_client_post_no_memory(client);
-		return NULL;
-	}
-	resource = wl_resource_create(client, &wl_surface_interface,
-	                              version, id);
-	if (!resource) {
-		wl_client_post_no_memory(client);
-		free(surface);
 		return NULL;
 	}
 	wl_resource_set_implementation(resource, &surface_impl, surface,
@@ -830,7 +824,7 @@ static const struct wl_subsurface_interface subsurface_impl;
 
 static void subsurface_commit_role(struct tw_surface *surf) {
 	struct tw_subsurface *sub = surf->role.commit_private;
-	struct tw_surface *parent = surf;
+	struct tw_surface *parent = sub->parent;
 	// surface has moved, or parent has moved. We would need to dirty the
 	// geometry now.
 	if (surf->geometry.xywh.x != sub->sx + parent->geometry.xywh.x ||
@@ -894,8 +888,7 @@ subsurface_set_position(struct wl_client *client,
 {
 	struct tw_subsurface *subsurf =
 		tw_subsurface_from_resource(resource);
-	subsurf->sx = x;
-	subsurf->sy = y;
+	tw_subsurface_update_pos(subsurf, x, y);
 }
 
 static void
@@ -1039,21 +1032,15 @@ tw_subsurface_create(struct wl_client *client, uint32_t version,
                      uint32_t id, struct tw_surface *surface,
                      struct tw_surface *parent)
 {
-	struct tw_subsurface *subsurface =
-		calloc(1, sizeof(struct tw_subsurface));
-	if (!subsurface) {
+	struct tw_subsurface *subsurface = NULL;
+	struct wl_resource *resource = NULL;
+
+	if (!tw_create_wl_resource_for_obj(resource, subsurface, client, id,
+	                                   version, wl_subsurface_interface)) {
 		wl_client_post_no_memory(client);
 		return NULL;
 	}
-	struct wl_resource *resource =
-		wl_resource_create(client, &wl_subsurface_interface,
-		                   version, id);
-	if (!resource) {
-		wl_client_post_no_memory(client);
-		free(subsurface);
-		return NULL;
-	}
-	wl_resource_set_implementation(resource, &wl_subsurface_interface,
+	wl_resource_set_implementation(resource, &subsurface_impl,
 	                               subsurface,
 	                               subsurface_destroy_resource);
 	subsurface->resource = resource;
@@ -1077,6 +1064,19 @@ tw_subsurface_create(struct wl_client *client, uint32_t version,
 		               subsurface);
 
 	return subsurface;
+}
+
+void
+tw_subsurface_update_pos(struct tw_subsurface *sub,
+                         int32_t sx, int32_t sy)
+{
+	struct tw_surface *surface = sub->surface;
+	struct tw_surface *parent = sub->parent;
+
+	sub->sx = sx;
+	sub->sy = sy;
+	tw_surface_set_position(surface, parent->geometry.x + sx,
+	                        parent->geometry.y + sy);
 }
 
 void

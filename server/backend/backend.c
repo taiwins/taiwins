@@ -162,6 +162,23 @@ tw_backend_output_from_resource(struct wl_resource *resource)
 	return wlr_output->data;
 }
 
+static struct tw_surface *
+try_pick_subsurfaces(struct tw_surface *parent, int32_t x, int32_t y,
+                     int32_t *sx, int32_t *sy)
+{
+	struct tw_surface *surface;
+	struct tw_subsurface *sub;
+	wl_list_for_each(sub, &parent->subsurfaces,
+	                 parent_link) {
+		surface = sub->surface;
+		if (tw_surface_has_point(surface, x, y)) {
+			tw_surface_to_local_pos(surface, x, y, sx, sy);
+			return surface;
+		}
+	}
+	return NULL;
+}
+
 struct tw_surface *
 tw_backend_pick_surface_from_layers(struct tw_backend *backend,
                                     int32_t x, int32_t y,
@@ -169,14 +186,20 @@ tw_backend_pick_surface_from_layers(struct tw_backend *backend,
 {
 	struct tw_layer *layer;
 	struct tw_layers_manager *layers = &backend->layers_manager;
-	struct tw_surface *surface;
+	struct tw_surface *surface, *sub;
 
+	//TODO: for very small amount of views, this works well. But it is a
+	//linear algorithm so when number of windows gets very large, we may
+	//have problems.
 	wl_list_for_each(layer, &layers->layers, link) {
 		if (layer->position >= TW_LAYER_POS_CURSOR)
 			continue;
 		wl_list_for_each(surface, &layer->views,
 		                 links[TW_VIEW_LAYER_LINK]) {
-			if (tw_surface_has_point(surface, x, y)) {
+			if ((sub = try_pick_subsurfaces(surface, x, y,
+			                                sx, sy))) {
+				return sub;
+			} else if (tw_surface_has_point(surface, x, y)) {
 				tw_surface_to_local_pos(surface, x, y, sx, sy);
 				return surface;
 			}

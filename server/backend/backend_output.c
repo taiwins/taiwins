@@ -24,6 +24,7 @@
 
 #include "backend.h"
 #include "backend_internal.h"
+#include "objects/utils.h"
 #include "objects/matrix.h"
 #include "renderer/renderer.h"
 
@@ -185,6 +186,7 @@ notify_output_remove(struct wl_listener *listener, UNUSED_ARG(void *data))
 	backend->output_pool &= unset;
 	wl_signal_emit(&backend->output_unplug_signal, output);
 
+	wlr_output_destroy_global(output->wlr_output);
 	//TODO if is windowed output, we shall just quit, it can be done as a
 	//signal as well.
 }
@@ -202,13 +204,16 @@ tw_backend_new_output(struct tw_backend *backend,
 	output->backend = backend;
 	output->wlr_output = wlr_output;
 	output->state.repaint_state = TW_REPAINT_DIRTY;
+
+
 	wl_list_init(&output->views);
-	wl_list_init(&output->frame_listener.link);
-	wl_list_init(&output->destroy_listener.link);
-	output->frame_listener.notify = notify_new_output_frame;
-	output->destroy_listener.notify = notify_output_remove;
-	wl_signal_add(&wlr_output->events.frame, &output->frame_listener);
-	wl_signal_add(&wlr_output->events.destroy, &output->destroy_listener);
+	tw_signal_setup_listener(&wlr_output->events.frame,
+	                         &output->frame_listener,
+	                         notify_new_output_frame);
+	tw_signal_setup_listener(&wlr_output->events.destroy,
+	                         &output->destroy_listener,
+	                         notify_output_remove);
+	wlr_output_create_global(wlr_output);
 
 	//setup default state
 	init_output_state(output);

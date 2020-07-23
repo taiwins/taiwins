@@ -55,15 +55,9 @@ tw_shell_post_message(struct tw_shell *shell, uint32_t type, const char *msg);
 pixman_rectangle32_t
 tw_shell_output_available_space(struct tw_shell *shell,
                                 struct tw_backend_output *output);
-void
-tw_shell_add_desktop_area_listener(struct tw_shell *shell,
-                                   struct wl_listener *listener);
-void
-tw_shell_add_widget_created_listener(struct tw_shell *shell,
-                                     struct wl_listener *listener);
-void
-tw_shell_add_widget_closed_listener(struct tw_shell *shell,
-                                    struct wl_listener *listener);
+struct wl_signal *
+tw_shell_get_desktop_area_signal(struct tw_shell *shell);
+
 void
 tw_shell_set_panel_pos(struct tw_shell *shell,
                        enum taiwins_shell_panel_pos pos);

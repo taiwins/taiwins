@@ -328,6 +328,7 @@ layer_renderer_repaint_output(struct tw_renderer *renderer,
 		now_int = now.tv_sec * 1000 + now.tv_nsec / 1000000;
 		tw_surface_flush_frame(surface, now_int);
 	}
+	tw_plane_fini(&main_plane);
 
 	SCOPE_PROFILE_END();
 }

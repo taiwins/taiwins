@@ -23,7 +23,9 @@ taiwins_src = [
   'renderer/layer_renderer.c',
   'desktop/shell.c',
   'desktop/shell_layer.c',
+  'desktop/xdg.c',
 
+  'objects/utils.c',
   'objects/seat.c',
   'objects/seat_keyboard.c',
   'objects/seat_pointer.c',
@@ -44,6 +46,10 @@ taiwins_src = [
   'objects/matrix.c',
   'objects/plane.c',
   'objects/cursor.c',
+  'objects/desktop.c',
+  'objects/popup_grab.c',
+  'objects/desktop_wl_shell.c',
+  'objects/desktop_xdg_shell.c',
 
   wayland_linux_dmabuf_server_protocol_h,
   wayland_linux_dmabuf_private_code_c,

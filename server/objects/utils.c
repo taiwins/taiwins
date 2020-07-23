@@ -19,7 +19,38 @@
  *
  */
 
+#include <assert.h>
+#include <wayland-server.h>
+
 #include "signal.h"
+
+void
+tw_signal_setup_listener(struct wl_signal *signal,
+                         struct wl_listener *listener,
+                         wl_notify_func_t notify)
+{
+	assert(notify);
+	assert(signal);
+	assert(listener);
+
+	wl_list_init(&listener->link);
+	listener->notify = notify;
+	wl_signal_add(signal, listener);
+}
+
+void
+tw_set_resource_destroy_listener(struct wl_resource *resource,
+                                 struct wl_listener *listener,
+                                 wl_notify_func_t notify)
+{
+	assert(resource);
+	assert(listener);
+	assert(notify);
+
+	wl_list_init(&listener->link);
+	listener->notify = notify;
+	wl_resource_add_destroy_listener(resource, listener);
+}
 
 static void
 handle_noop(struct wl_listener *listener, void *data)
