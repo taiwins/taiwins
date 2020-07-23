@@ -42,9 +42,16 @@ nklua = subproject('nklua')
 tdbus = subproject('tdbus')
 ctypes = subproject('ctypes')
 wlroots = subproject('wlroots', default_options : wlroots_options )
+pixman = subproject('pixman', default_options: ['gtk=disabled', 'libpng=disabled','werror=false'],
+		    version: '>= 0.25.2', required: false)
 
 ###### dependencies
-dep_pixman = dependency('pixman-1', version: '>= 0.25.2')
+if pixman.found()
+  dep_pixman = pixman.get_variable('idep_pixman')
+else
+  dep_pixman = dependency('pixman-1', version: '>= 0.25.2')
+endif
+
 dep_xkbcommon = dependency('xkbcommon', version: '>= 0.3.0')
 dep_wayland_server = dependency('wayland-server', version: '>= 1.12.0')
 dep_wayland_client = dependency('wayland-client', version: '>= 1.12.0')
