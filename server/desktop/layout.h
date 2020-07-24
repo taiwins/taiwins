@@ -24,8 +24,12 @@
 
 #include <stdbool.h>
 #include <wayland-server.h>
+#include <pixman.h>
 #include <ctypes/helpers.h>
-#include "desktop.h"
+#include <objects/layers.h>
+#include <objects/surface.h>
+
+#include "xdg.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -35,8 +39,15 @@ extern "C" {
 #define _GNU_SOURCE
 #endif
 
+enum tw_layout_type {
+	LAYOUT_FLOATING,
+	LAYOUT_TILING,
+	LAYOUT_MAXMIZED,
+	LAYOUT_FULLSCREEN,
+};
+
 /* the commands pass to layout algorithm */
-enum layout_command {
+enum tw_xdg_layout_command {
 	DPSR_focus, //useful in floating.
 	DPSR_add,
 	DPSR_del,
@@ -49,17 +60,16 @@ enum layout_command {
 	DPSR_output_resize,
 };
 
-/* the operation correspond to the command, I am not sure if it is good to have
- * responce immediately but currently I have no other way and when to apply the
- * operations is not clear either.
- */
-struct layout_op {
-	struct weston_view *v;
+struct tw_xdg_view;
+struct tw_xdg_layout_op {
+	struct tw_xdg_view *v;
 	//output
-	struct weston_position pos;
-	struct weston_size size;
-	float scale;
-	bool end;
+	struct {
+		struct { int32_t x, y; } pos;
+		struct { uint32_t width, height; } size;
+		float scale;
+		bool end;
+	} out;
 	//input
 	union {
 		//resizing/moving parameters,
@@ -69,53 +79,56 @@ struct layout_op {
 			//surface x, surface y
 			wl_fixed_t sx, sy;
 		};
-		struct weston_output *o;
-		struct weston_geometry default_geometry;
-	};
+		struct tw_xdg_output *o;
+		pixman_rectangle32_t default_geometry;
+	} in;
 };
 
-struct layout;
-typedef void (*layout_fun_t)(const enum layout_command command,
-                             const struct layout_op *arg,
-                             struct weston_view *v, struct layout *l,
-                             struct layout_op *ops);
+struct tw_xdg_layout;
+typedef void (*layout_fun_t)(const enum tw_xdg_layout_command command,
+                             const struct tw_xdg_layout_op *arg,
+                             struct tw_xdg_view *v, struct tw_xdg_layout *l,
+                             struct tw_xdg_layout_op *ops);
 
 //why I create this link based layout in the first place?
-struct layout {
+struct tw_xdg_layout {
 	bool clean;
-	struct wl_list link;
-	struct weston_layer *layer;
+	struct wl_list links[MAX_WORKSPACES];
+	struct tw_layer *layer;
+	enum tw_layout_type type;
 	layout_fun_t command;
 	void *user_data; //this user_dat is useful
 };
 
 void
-layout_init(struct layout *l, struct weston_layer *layer);
+tw_xdg_layout_init(struct tw_xdg_layout *l, struct tw_layer *layer);
 
 void
-layout_release(struct layout *l);
+tw_xdg_layout_release(struct tw_xdg_layout *l);
 
 void
-layout_add_output(struct layout *l, struct tw_output *o);
+tw_xdg_layout_add_output(struct tw_xdg_layout *l, struct tw_xdg_output *o);
 
 void
-layout_rm_output(struct layout *l, struct weston_output *o);
+tw_xdg_layout_rm_output(struct tw_xdg_layout *l, struct tw_xdg_output *o);
 
 void
-layout_resize_output(struct layout *l, struct tw_output *o);
+tw_xdg_layout_resize_output(struct tw_xdg_layout *l, struct tw_xdg_output *o);
 
 void
-floating_layout_init(struct layout *layout, struct weston_layer *ly);
+floating_tw_xdg_layout_init(struct tw_xdg_layout *tw_xdg_layout,
+                            struct tw_layer *ly);
 
 void
-floating_layout_end(struct layout *l);
+floating_tw_xdg_layout_end(struct tw_xdg_layout *l);
 
 
 void
-tiling_layout_init(struct layout *layout, struct weston_layer *ly,
-                   struct layout *floating);
+tiling_tw_xdg_layout_init(struct tw_xdg_layout *tw_xdg_layout,
+                          struct tw_layer *ly,
+                   struct tw_xdg_layout *floating);
 void
-tiling_layout_end(struct layout *l);
+tiling_tw_xdg_layout_end(struct tw_xdg_layout *l);
 
 
 #ifdef  __cplusplus

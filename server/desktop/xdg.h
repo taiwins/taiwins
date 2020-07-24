@@ -31,6 +31,8 @@
 #include <objects/seat.h>
 #include <objects/desktop.h>
 
+#define MAX_WORKSPACES 9
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
