@@ -21,7 +21,7 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include <wayland-util.h>
+#include <wayland-server.h>
 #include <pixman.h>
 #include <ctypes/helpers.h>
 #include <objects/utils.h>
@@ -48,12 +48,14 @@ tw_xdg_view_create(struct tw_desktop_surface *dsurf)
 	view->mapped = false;
 	view->xwayland.is_xwayland = false;
 	wl_list_init(&view->link);
+	wl_signal_init(&view->dsurf_umapped_signal);
 	return view;
 }
 
 void
 tw_xdg_view_destroy(struct tw_xdg_view *view)
 {
+	wl_signal_emit(&view->dsurf_umapped_signal, view);
 	tw_reset_wl_list(&view->link);
 	free(view);
 }
@@ -91,12 +93,12 @@ tw_xdg_view_backup_geometry(struct tw_xdg_view *v)
  *****************************************************************************/
 
 void
-tw_workspace_init(struct tw_workspace *wp, struct tw_backend *backend,
+tw_workspace_init(struct tw_workspace *wp, struct tw_layers_manager *layers,
                   uint32_t idx)
 {
 	assert(idx < MAX_WORKSPACES);
 	wp->idx = idx;
-	wp->backend = backend;
+	wp->layers_manager = layers;
 	wl_list_init(&wp->layouts);
 	tw_layer_init(&wp->hidden_layer);
 	tw_layer_init(&wp->fullscreen_back_layer);
@@ -173,6 +175,18 @@ tw_workspace_view_pick_layout(const struct tw_workspace *ws,
 			return layout;
 	}
 	return NULL;
+}
+
+static struct tw_layer *
+tw_workspace_view_pick_layer(struct tw_workspace *ws,
+                             struct tw_xdg_view *v)
+{
+	if (v->type == LAYOUT_FLOATING || v->type == LAYOUT_MAXMIZED)
+		return &ws->front_layer;
+	else if (v->type == LAYOUT_FULLSCREEN)
+		return &ws->fullscreen_layer;
+	else //tiling layout
+		return &ws->mid_layer;
 }
 
 static uint32_t
@@ -257,16 +271,16 @@ tw_workspace_switch(struct tw_workspace *to, struct tw_workspace *from)
 
 	tw_layer_set_position(&to->fullscreen_back_layer,
 	                      TW_LAYER_POS_FULLSCREEN_BACK,
-	                      &to->backend->layers_manager);
+	                      to->layers_manager);
 	tw_layer_set_position(&to->back_layer, TW_LAYER_POS_DESKTOP_BACK,
-	                      &to->backend->layers_manager);
+	                      to->layers_manager);
 	tw_layer_set_position(&to->mid_layer, TW_LAYER_POS_DESKTOP_MID,
-	                      &to->backend->layers_manager);
+	                      to->layers_manager);
 	tw_layer_set_position(&to->front_layer, TW_LAYER_POS_DESKTOP_FRONT,
-	                      &to->backend->layers_manager);
+	                      to->layers_manager);
 	tw_layer_set_position(&to->fullscreen_layer,
 	                      TW_LAYER_POS_FULLSCREEN_FRONT,
-	                      &to->backend->layers_manager);
+	                      to->layers_manager);
 	return tw_workspace_get_top_view(to);
 }
 
@@ -349,6 +363,7 @@ tw_workspace_add_view_with_geometry(struct tw_workspace *w,
 		},
 	};
 	view->layout = tw_workspace_view_pick_layout(w, view);
+	view->layer = tw_workspace_view_pick_layer(w, view);
 	tw_reset_wl_list(&surface->links[TW_VIEW_LAYER_LINK]);
 	arrange_view_for_workspace(w, view, DPSR_add, &arg);
 
@@ -380,25 +395,26 @@ tw_workspace_remove_view(struct tw_workspace *w, struct tw_xdg_view *view)
 
 bool
 tw_workspace_move_view(struct tw_workspace *w, struct tw_xdg_view *view,
-                       int x, int y)
+                       double dx, double dy)
 {
-	if (tw_workspace_has_view(w, view))
+	struct tw_xdg_layout_op arg = {
+		.v = view,
+		.in.dx = dx,
+		.in.dy = dy,
+	};
+	if (!tw_workspace_has_view(w, view))
 		return false;
-	if (view->type == LAYOUT_FLOATING) {
-		tw_xdg_view_set_position(view, x, y);
-		return true;
-	}
+	arrange_view_for_workspace(w, view, DPSR_deplace, &arg);
 	return false;
 }
 
 void
 tw_workspace_resize_view(struct tw_workspace *w, struct tw_xdg_view *v,
-                         int32_t sx, int32_t sy, double dx, double dy)
+                         double dx, double dy)
 {
 	struct tw_xdg_layout_op arg = {
 		.v = v,
 		.in.dx = dx, .in.dy = dy,
-		.in.sx = sx, .in.sy = sy,
 	};
 	arrange_view_for_workspace(w, v, DPSR_resize, &arg);
 }
@@ -455,16 +471,6 @@ tw_workspace_minimize_view(struct tw_workspace *w, struct tw_xdg_view *v)
 	wl_list_insert(&w->hidden_layer.views,
 	               &surface->links[TW_VIEW_LAYER_LINK]);
 	tw_workspace_defocus_view(w, v);
-}
-
-void
-tw_workspace_view_run_command(struct tw_workspace *w, struct tw_xdg_view *v,
-                              enum tw_xdg_layout_command command)
-{
-	struct tw_xdg_layout_op arg = {
-		.v = v,
-	};
-	arrange_view_for_workspace(w, v, command, &arg);
 }
 
 void

@@ -57,6 +57,8 @@ enum tw_xdg_layout_command {
 	DPSR_vsplit,
 	DPSR_hsplit,
 	DPSR_merge,
+	DPSR_output_add,
+	DPSR_output_rm,
 	DPSR_output_resize,
 };
 
@@ -76,6 +78,7 @@ struct tw_xdg_layout_op {
 		struct {
 			//dx,dy, delta
 			float dx, dy;
+			enum wl_shell_surface_resize edge;
 			//surface x, surface y
 			wl_fixed_t sx, sy;
 		};
@@ -85,10 +88,11 @@ struct tw_xdg_layout_op {
 };
 
 struct tw_xdg_layout;
-typedef void (*layout_fun_t)(const enum tw_xdg_layout_command command,
-                             const struct tw_xdg_layout_op *arg,
-                             struct tw_xdg_view *v, struct tw_xdg_layout *l,
-                             struct tw_xdg_layout_op *ops);
+typedef void (*tw_xdg_layout_fun_t)(const enum tw_xdg_layout_command command,
+                                    const struct tw_xdg_layout_op *arg,
+                                    struct tw_xdg_view *v,
+                                    struct tw_xdg_layout *l,
+                                    struct tw_xdg_layout_op *ops);
 
 //why I create this link based layout in the first place?
 struct tw_xdg_layout {
@@ -96,12 +100,12 @@ struct tw_xdg_layout {
 	struct wl_list links[MAX_WORKSPACES];
 	struct tw_layer *layer;
 	enum tw_layout_type type;
-	layout_fun_t command;
+	tw_xdg_layout_fun_t command;
 	void *user_data; //this user_dat is useful
 };
 
 void
-tw_xdg_layout_init(struct tw_xdg_layout *l, struct tw_layer *layer);
+tw_xdg_layout_init(struct tw_xdg_layout *l);
 
 void
 tw_xdg_layout_release(struct tw_xdg_layout *l);
@@ -116,17 +120,14 @@ void
 tw_xdg_layout_resize_output(struct tw_xdg_layout *l, struct tw_xdg_output *o);
 
 void
-floating_tw_xdg_layout_init(struct tw_xdg_layout *tw_xdg_layout,
-                            struct tw_layer *ly);
+tw_xdg_layout_init_floating(struct tw_xdg_layout *tw_xdg_layout);
 
 void
-floating_tw_xdg_layout_end(struct tw_xdg_layout *l);
-
+tw_xdg_layout_end_floating(struct tw_xdg_layout *l);
 
 void
 tiling_tw_xdg_layout_init(struct tw_xdg_layout *tw_xdg_layout,
-                          struct tw_layer *ly,
-                   struct tw_xdg_layout *floating);
+                          struct tw_xdg_layout *floating);
 void
 tiling_tw_xdg_layout_end(struct tw_xdg_layout *l);
 

@@ -30,65 +30,20 @@
 #include <wayland-util.h>
 
 #include "backend/backend.h"
+#include "desktop/xdg.h"
 #include "shell.h"
-#include "xdg.h"
 #include "workspace.h"
+#include "xdg_internal.h"
 
+static struct tw_xdg s_desktop = {0};
 
-
-struct grab_interface {
-	union {
-		struct tw_seat_pointer_grab pointer_grab;
-		struct tw_seat_touch_grab touch_grab;
-		struct tw_seat_keyboard_grab keyboard_grab;
-	};
-	/* need this struct to access the workspace */
-	struct tw_surface *surface;
-};
-
-static struct tw_xdg {
-	struct wl_display *display;
-	struct tw_shell *shell;
-	struct tw_backend *backend;
-
-        struct tw_desktop_manager desktop_manager;
-
-	/* managing current status */
-	struct tw_workspace *actived_workspace[2];
-	struct tw_workspace workspaces[9];
-
-	struct wl_listener desktop_area_listener;
-	struct wl_listener display_destroy_listener;
-	struct wl_listener output_create_listener;
-	struct wl_listener output_destroy_listener;
-	struct wl_listener surface_transform_listener;
-
-	/**< grabs */
-	struct grab_interface moving_grab;
-	struct grab_interface resizing_grab;
-	struct grab_interface task_switch_grab;
-
-        /**< params */
-	int32_t inner_gap, outer_gap;
-} s_desktop = {0};
-
-/******************************************************************************
- * grab interface apis
- *****************************************************************************/
-
-static inline void
-grab_interface_init(struct grab_interface *gi,
-		    const struct tw_pointer_grab_interface *pi,
-		    const struct tw_keyboard_grab_interface *ki,
-		    const struct tw_touch_grab_interface *ti)
+struct tw_xdg_output *
+xdg_output_from_backend_output(struct tw_xdg *xdg,
+                               struct tw_backend_output *output)
 {
-	if (pi)
-		gi->pointer_grab.impl = pi;
-	else if (ki)
-		gi->keyboard_grab.impl = ki;
-	else if (ti)
-		gi->touch_grab.impl = ti;
+	return &xdg->outputs[output->id];
 }
+
 
 /******************************************************************************
  * tw_desktop_surface_api
@@ -140,15 +95,14 @@ twdesk_surface_committed(struct tw_desktop_surface *dsurf,
 	struct tw_xdg *xdg = user_data;
 	struct tw_xdg_view *view = dsurf->user_data;
 	struct tw_workspace *ws = xdg->actived_workspace[0];
+	struct tw_backend_output *output =
+		tw_backend_focused_output(xdg->backend);
 
 	if (!view->mapped) {
 		view->type = LAYOUT_FLOATING;
+		view->output = xdg_output_from_backend_output(xdg, output);
+
 		tw_workspace_add_view(ws, view);
-		/* int32_t x = bo->state.x + bo->state.w/2 - */
-		/*	dsurf->window_geometry.w/2; */
-		/* int32_t y = bo->state.y + bo->state.h/2 - */
-		/*	dsurf->window_geometry.h/2; */
-		/* tw_xdg_view_set_position(view, x, y); */
 		view->mapped = true;
 	}
 }
@@ -158,7 +112,9 @@ twdesk_surface_show_window_menu(struct tw_desktop_surface *surface,
                                 struct wl_resource *seat,
                                 int32_t x, int32_t y,
                                 void *user_data)
-{}
+{
+	//TODO get taiwins shell to draw the menu
+}
 
 static void
 twdesk_set_parent(struct tw_desktop_surface *surface,
@@ -168,15 +124,29 @@ twdesk_set_parent(struct tw_desktop_surface *surface,
 }
 
 static void
-twdesk_surface_move(struct tw_desktop_surface *surface,
-            struct wl_resource *seat, uint32_t serial,
-            void *user_data)
-{}
+twdesk_surface_move(struct tw_desktop_surface *dsurf,
+                    struct wl_resource *seat_resource, uint32_t serial,
+                    void *user_data)
+{
+	struct tw_xdg *xdg = user_data;
+	struct tw_seat *seat = tw_seat_from_resource(seat_resource);
+	struct tw_xdg_view *view = dsurf->user_data;
+
+	assert(view);
+	if (!tw_seat_valid_serial(seat, serial)) {
+		tw_logl("serial not matched for desktop moving grab.");
+		return;
+	}
+	if (!tw_xdg_start_moving_grab(xdg, view, seat)) {
+		tw_logl("failed to start desktop moving grab.");
+		return;
+	}
+}
 
 static void
 twdesk_surface_resize(struct tw_desktop_surface *surface,
               struct wl_resource *seat, uint32_t serial,
-              enum wl_shell_surface_resize edges, void *user_data)
+              enum wl_shell_surface_resize edge, void *user_data)
 {
 }
 
@@ -223,15 +193,15 @@ handle_desktop_output_create(struct wl_listener *listener, void *data)
 	struct tw_xdg *desktop =
 		container_of(listener, struct tw_xdg, output_create_listener);
 
-	struct tw_xdg_output xdg_output = {
-		.output = output,
-		.desktop_area = tw_shell_output_available_space(
-			desktop->shell, output),
-		.inner_gap = desktop->inner_gap,
-		.outer_gap = desktop->outer_gap,
-	};
+	struct tw_xdg_output *xdg_output = &desktop->outputs[output->id];
+	xdg_output->output = output;
+	xdg_output->inner_gap = 10;
+	xdg_output->outer_gap = 10;
+	xdg_output->desktop_area = tw_shell_output_available_space(
+		desktop->shell, output);
+
 	for (int i = 0; i < MAX_WORKSPACES; i++)
-		tw_workspace_add_output(&desktop->workspaces[i], &xdg_output);
+		tw_workspace_add_output(&desktop->workspaces[i], xdg_output);
 }
 
 static void
@@ -240,11 +210,11 @@ handle_desktop_output_destroy(struct wl_listener *listener, void *data)
 	struct tw_backend_output *output = data;
 	struct tw_xdg *desktop =
 		container_of(listener, struct tw_xdg, output_destroy_listener);
+	struct tw_xdg_output *xdg_output = &desktop->outputs[output->id];
+
         for (int i = 0; i < MAX_WORKSPACES; i++) {
 		struct tw_workspace *w = &desktop->workspaces[i];
-		struct tw_xdg_output xdg_output = {.output = output, };
-
-		tw_workspace_remove_output(w, &xdg_output);
+		tw_workspace_remove_output(w, xdg_output);
 	}
 }
 
@@ -254,17 +224,13 @@ handle_desktop_area_change(struct wl_listener *listener, void *data)
 	struct tw_backend_output *output = data;
 	struct tw_xdg *desktop =
 		container_of(listener, struct tw_xdg, desktop_area_listener);
-	struct tw_xdg_output xdg_output = {
-		.output = output,
-		.desktop_area = tw_shell_output_available_space(
-			desktop->shell, output),
-		.inner_gap = desktop->inner_gap,
-		.outer_gap = desktop->outer_gap,
-	};
+	struct tw_xdg_output *xdg_output = &desktop->outputs[output->id];
 
+        xdg_output->desktop_area = tw_shell_output_available_space(
+		desktop->shell, output);
 	for (int i = 0; i < MAX_WORKSPACES; i++)
 		tw_workspace_resize_output(&desktop->workspaces[i],
-		                           &xdg_output);
+		                           xdg_output);
 }
 
 static void
@@ -305,12 +271,23 @@ init_desktop_workspaces(struct tw_xdg *xdg)
 	struct tw_workspace *wss = xdg->workspaces;
 
 	for (int i = 0; i < MAX_WORKSPACES; i++)
-		tw_workspace_init(&wss[i], xdg->backend, i);
+		tw_workspace_init(&wss[i], &xdg->backend->layers_manager, i);
 	xdg->actived_workspace[0] = &wss[0];
 	xdg->actived_workspace[1] = &wss[1];
 	tw_workspace_switch(xdg->actived_workspace[0],
 	                    xdg->actived_workspace[0]);
 }
+
+static void
+init_desktop_layouts(struct tw_xdg *xdg)
+{
+	//does not have layers now
+	tw_xdg_layout_init_floating(&xdg->floating_layout);
+	for (int i = 0; i < MAX_WORKSPACES; i++)
+		wl_list_insert(xdg->workspaces[i].layouts.prev,
+		               &xdg->floating_layout.links[i]);
+}
+
 
 /******************************************************************************
  * APIs
@@ -329,9 +306,7 @@ tw_xdg_create_global(struct wl_display *display, struct tw_shell *shell,
 	desktop->display = display;
 	desktop->shell = shell;
 	desktop->backend = backend;
-	//default params
-	desktop->inner_gap = 10;
-	desktop->outer_gap = 10;
+
 	/* tw_layer_init(&desktop->desktop_layer); */
 	/* wl_list_init(&desktop->recent_views); */
 	/* tw_layer_set_position(&desktop->desktop_layer, */
@@ -346,7 +321,7 @@ tw_xdg_create_global(struct wl_display *display, struct tw_shell *shell,
 
 	init_desktop_listeners(desktop);
 	init_desktop_workspaces(desktop);
-
+	init_desktop_layouts(desktop);
 
 	/* desktop->api = weston_desktop_create(ec, &desktop_impl, &s_desktop); */
 	//install grab

@@ -23,70 +23,80 @@
 #include <ctypes/helpers.h>
 #include <ctypes/sequential.h>
 #include <ctypes/tree.h>
+#include <wayland-util.h>
+#include <pixman.h>
+
+#include "xdg.h"
 #include "layout.h"
+
 
 //it will look like a long function, the easiest way is make an array which does
 //the map, lucky the enum map is linear
 static void
-emplace_noop(UNUSED_ARG(const enum layout_command command),
-             UNUSED_ARG(const struct layout_op *arg),
-             UNUSED_ARG(struct weston_view *v), UNUSED_ARG(struct layout *l),
-             struct layout_op *ops)
+emplace_noop(const enum tw_xdg_layout_command command,
+             const struct tw_xdg_layout_op *arg,
+             struct tw_xdg_view *v, struct tw_xdg_layout *l,
+             struct tw_xdg_layout_op *ops)
 {
-	ops[0].end = true;
+	ops[0].out.end = true;
 }
 
 void
-emplace_tiling(const enum layout_command command, const struct layout_op *arg,
-	       struct weston_view *v, struct layout *l,
-	       struct layout_op *ops);
-
-extern void tiling_add_output(struct layout *l, struct tw_output *o);
-extern void tiling_rm_output(struct layout *l, struct weston_output *o);
-extern void tiling_resize_output(struct layout *l, struct tw_output *o);
+emplace_tiling(const enum tw_xdg_layout_command command,
+               const struct tw_xdg_layout_op *arg, struct tw_xdg_view *v,
+               struct tw_xdg_layout *l, struct tw_xdg_layout_op *ops);
+void
+emplace_float(const enum tw_xdg_layout_command command,
+              const struct tw_xdg_layout_op *arg,  struct tw_xdg_view *v,
+              struct tw_xdg_layout *l, struct tw_xdg_layout_op *ops);
 
 
 void
-emplace_float(const enum layout_command command, const struct layout_op *arg,
-	       struct weston_view *v, struct layout *l,
-	       struct layout_op *ops);
-
-
-void
-layout_init(struct layout *l, struct weston_layer *layer)
+tw_xdg_layout_init(struct tw_xdg_layout *l)
 {
-	*l = (struct layout){0};
-	wl_list_init(&l->link);
+	*l = (struct tw_xdg_layout){0};
+	for (int i = 0; i < MAX_WORKSPACES; i++)
+		wl_list_init(&l->links[i]);
 	l->clean = true;
-	l->layer = layer;
 	l->command = emplace_noop;
 	l->user_data = NULL;
 }
 
 void
-layout_release(struct layout *l)
+tw_xdg_layout_release(struct tw_xdg_layout *l)
 {
-	*l = (struct layout){0};
+	*l = (struct tw_xdg_layout){0};
 }
 
 void
-layout_add_output(struct layout *l, struct tw_output *o)
+tw_xdg_layout_add_output(struct tw_xdg_layout *l, struct tw_xdg_output *o)
 {
-	if (l->command == emplace_tiling)
-		tiling_add_output(l, o);
+	/* if (l->command == emplace_tiling) */
+	/*	tiling_add_output(l, o); */
+	struct tw_xdg_layout_op op = {
+		.in.o = o,
+	};
+	l->command(DPSR_output_add, &op, NULL, l, NULL);
 }
 
 void
-layout_rm_output(struct layout *l, struct weston_output *o)
+tw_xdg_layout_rm_output(struct tw_xdg_layout *l, struct tw_xdg_output *o)
 {
-	if (l->command == emplace_tiling)
-		tiling_rm_output(l, o);
+	/* if (l->command == emplace_tiling) */
+	/*	tiling_rm_output(l, o); */
+	struct tw_xdg_layout_op op = {
+		.in.o = o,
+	};
+	l->command(DPSR_output_rm, &op, NULL, l, NULL);
 }
 
-
 void
-layout_resize_output(struct layout *l, struct tw_output *o)
+tw_xdg_layout_resize_output(struct tw_xdg_layout *l, struct tw_xdg_output *o)
 {
-	if (l->command == emplace_tiling)
-		tiling_resize_output(l, o);
+	struct tw_xdg_layout_op op = {
+		.in.o = o,
+	};
+	l->command(DPSR_output_resize, &op, NULL, l, NULL);
+	/* if (l->command == emplace_tiling) */
+	/*	tiling_resize_output(l, o); */
 }

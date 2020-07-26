@@ -30,7 +30,6 @@
 #include "backend/backend.h"
 #include "layout.h"
 
-
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -38,7 +37,7 @@ extern "C" {
 
 struct tw_xdg_output;
 struct tw_workspace {
-	struct tw_backend *backend;
+	struct tw_layers_manager *layers_manager;
 	// what if we have different layout?
 	//TODO: replace with a list of layouts.
 	/* struct tw_xdg_layout floating_layout; */
@@ -79,6 +78,7 @@ struct tw_workspace {
  */
 struct tw_xdg_view {
 	struct tw_desktop_surface *dsurf;
+	struct wl_signal dsurf_umapped_signal;
 	/*
 	  desktop surface has decorations(invisible portion)
 	  -----------------------
@@ -103,6 +103,7 @@ struct tw_xdg_view {
 	enum tw_layout_type type, prev_type;
 	struct tw_xdg_layout *layout;
 	struct tw_layer *layer;
+	struct tw_xdg_output *output;
 
 	struct {
 		int32_t x;
@@ -127,7 +128,7 @@ tw_xdg_view_configure_size(struct tw_xdg_view *view, uint32_t w, uint32_t h);
  * workspace API
  *****************************************************************************/
 void
-tw_workspace_init(struct tw_workspace *wp, struct tw_backend *backend,
+tw_workspace_init(struct tw_workspace *wp, struct tw_layers_manager *layers,
                   uint32_t idx);
 
 void
@@ -160,13 +161,14 @@ tw_workspace_add_view(struct tw_workspace *w, struct tw_xdg_view *v);
 
 bool
 tw_workspace_move_view(struct tw_workspace *w, struct tw_xdg_view *v,
-                       int x, int y); //or dx,dy?
+                       double dx, double dy);
 void
 tw_workspace_resize_view(struct tw_workspace *w, struct tw_xdg_view *v,
-                         int32_t sx, int32_t sy, double dx, double dy);
+                         double dx, double dy);
 void
-tw_workspace_view_run_command(struct tw_workspace *w, struct tw_xdg_view *v,
-                              enum tw_xdg_layout_command command);
+tw_workspace_run_layout_command(struct tw_workspace *w,
+                                enum tw_xdg_layout_command command,
+                                const struct tw_xdg_layout_op *op);
 
 //resize is done directly inside desktop for now
 bool

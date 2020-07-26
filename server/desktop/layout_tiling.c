@@ -771,7 +771,7 @@ emplace_tiling(const enum layout_command command, const struct layout_op *arg,
 	//make a dummy one now
 	struct placement_node {
 		enum layout_command command;
-		layout_fun_t fun;
+		tw_xdg_layout_fun_t fun;
 	};
 
 	static struct placement_node t_ops[] = {

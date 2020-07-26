@@ -173,6 +173,7 @@ pointer_focus_motion(struct tw_backend_seat *seat,
 
 	focused = tw_backend_pick_surface_from_layers(seat->backend,
 	                                              x, y, &x, &y);
+
 	if (focused && (pointer->focused_surface == focused->resource))
 			tw_pointer_notify_motion(pointer, timespec, x, y);
 	else if (focused)
@@ -249,6 +250,7 @@ notify_backend_pointer_motion_abs(struct wl_listener *listener, void *data)
 		tw_backend_output_from_cursor_pos(backend);
 	int32_t x = (int)(event->x * output->state.w);
 	int32_t y = (int)(event->y * output->state.h);
+	tw_logl("also the current cursor is (%d, %d)", x, y);
 
 	SCOPE_PROFILE_BEG();
 

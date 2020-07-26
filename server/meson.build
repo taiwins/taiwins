@@ -24,7 +24,10 @@ taiwins_src = [
   'desktop/shell.c',
   'desktop/shell_layer.c',
   'desktop/xdg.c',
+  'desktop/xdg_grab.c',
   'desktop/workspace.c',
+  'desktop/layout.c',
+  'desktop/layout_floating.c',
 
   'objects/utils.c',
   'objects/seat.c',

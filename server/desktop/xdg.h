@@ -1,7 +1,7 @@
 /*
  * xdg.h - taiwins desktop shell header
  *
- * Copyright (c)  Xichen Zhou
+ * Copyright (c) 2020 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 #ifndef TW_XDG_H
 #define TW_XDG_H
 
-#include "pixman.h"
+#include <pixman.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <backend/backend.h>
