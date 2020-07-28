@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <objects/layers.h>
+#include <wayland-server-protocol.h>
 
 #include "backend/backend.h"
 #include "layout.h"
@@ -38,16 +39,9 @@ extern "C" {
 struct tw_xdg_output;
 struct tw_workspace {
 	struct tw_layers_manager *layers_manager;
-	// what if we have different layout?
-	//TODO: replace with a list of layouts.
-	/* struct tw_xdg_layout floating_layout; */
-	/* struct tw_xdg_layout tiling_layout; */
 	struct wl_list layouts;
 	uint32_t idx;
 
-	// workspace does not distinguish the outputs.
-	// so when we `switch_workspace, all the output has to update.
-	// The layouting algorithm may have to worry about output
         struct tw_layer hidden_layer;
 	/* the layers reflects the layer positions, fullscreen application has
 	 * to stay on top of UI layer thus requires additional layers */
@@ -67,9 +61,6 @@ struct tw_workspace {
 	// The list will be used in creating/deleting views. switch workspace,
 	// switch views by key, click views
 	struct wl_list recent_views;
-
-	// the only tiling layer here will create the problem when we want to do
-	// the stacking layout, for example. Only show two views.
 };
 
 
@@ -164,7 +155,8 @@ tw_workspace_move_view(struct tw_workspace *w, struct tw_xdg_view *v,
                        double dx, double dy);
 void
 tw_workspace_resize_view(struct tw_workspace *w, struct tw_xdg_view *v,
-                         double dx, double dy);
+                         double dx, double dy,
+                         enum wl_shell_surface_resize edge);
 void
 tw_workspace_run_layout_command(struct tw_workspace *w,
                                 enum tw_xdg_layout_command command,
@@ -179,7 +171,7 @@ tw_workspace_fullscreen_view(struct tw_workspace *w, struct tw_xdg_view *v,
                              struct tw_xdg_output *output, bool fullscreen);
 void
 tw_workspace_maximize_view(struct tw_workspace *w, struct tw_xdg_view *v,
-                           pixman_rectangle32_t *geo, bool maximized);
+                           bool maximized);
 void
 tw_workspace_minimize_view(struct tw_workspace *w, struct tw_xdg_view *v);
 

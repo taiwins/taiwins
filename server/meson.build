@@ -28,6 +28,8 @@ taiwins_src = [
   'desktop/workspace.c',
   'desktop/layout.c',
   'desktop/layout_floating.c',
+  'desktop/layout_maximized.c',
+  'desktop/layout_fullscreen.c',
 
   'objects/utils.c',
   'objects/seat.c',

@@ -248,6 +248,24 @@ handle_xdg_surf_surface_destroy(struct wl_listener *listener, void *userdata)
 }
 
 static void
+compile_toplevel_states(struct tw_desktop_surface *dsurf,
+                            struct wl_array *states, uint32_t w, uint32_t h)
+{
+	enum xdg_toplevel_state *state = NULL;
+	if (dsurf->maximized) {
+		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
+		*state = XDG_TOPLEVEL_STATE_MAXIMIZED;
+	} else if (dsurf->fullscreened) {
+		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
+		*state = XDG_TOPLEVEL_STATE_FULLSCREEN;
+	}
+	if (w != dsurf->window_geometry.w || h != dsurf->window_geometry.h) {
+		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
+		*state = XDG_TOPLEVEL_STATE_RESIZING;
+	}
+}
+
+static void
 configure_xdg_surface(struct tw_desktop_surface *dsurf,
                       enum wl_shell_surface_resize edge,
                       int32_t x, int32_t y,
@@ -256,18 +274,24 @@ configure_xdg_surface(struct tw_desktop_surface *dsurf,
 	struct tw_xdg_surface *xdg_surface =
 		container_of(dsurf, struct tw_xdg_surface, base);
 	struct wl_display *display = dsurf->desktop->display;
+	struct wl_array states;
 
-	if (dsurf->type == TW_DESKTOP_TOPLEVEL_SURFACE)
+	wl_array_init(&states);
+
+	if (dsurf->type == TW_DESKTOP_TOPLEVEL_SURFACE) {
+		compile_toplevel_states(dsurf, &states, width, height);
 		xdg_toplevel_send_configure(xdg_surface->toplevel.resource,
-		                            width, height, NULL);
-	else if (dsurf->type == TW_DESKTOP_POPUP_SURFACE)
+		                            width, height, &states);
+	} else if (dsurf->type == TW_DESKTOP_POPUP_SURFACE) {
 		xdg_popup_send_configure(xdg_surface->popup.resource,
 		                         x, y, width, height);
-	else
+	} else {
 		tw_logl_level(TW_LOG_ERRO, "xdg_surface cant be transient");
+	}
 
 	xdg_surface_send_configure(dsurf->resource,
 	                           wl_display_next_serial(display));
+	wl_array_release(&states);
 }
 
 static void

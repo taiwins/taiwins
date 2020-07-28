@@ -1,7 +1,7 @@
 /*
  * layout_floating.c - taiwins desktop floating layout implementation
  *
- * Copyright (c) 2019 Xichen Zhou
+ * Copyright (c) 2020 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,8 +24,9 @@
 
 #include <ctypes/helpers.h>
 #include <wayland-server-protocol.h>
+#include <objects/surface.h>
+
 #include "layout.h"
-#include "objects/surface.h"
 #include "workspace.h"
 
 static void
@@ -33,16 +34,6 @@ emplace_float(const enum tw_xdg_layout_command command,
               const struct tw_xdg_layout_op *arg,
               struct tw_xdg_view *v, struct tw_xdg_layout *l,
               struct tw_xdg_layout_op *ops);
-
-static void
-emplace_noop(const enum tw_xdg_layout_command command,
-             const struct tw_xdg_layout_op *arg,
-             struct tw_xdg_view *v, struct tw_xdg_layout *l,
-             struct tw_xdg_layout_op *ops)
-{
-	ops[0].out.end = true;
-}
-
 
 /******************************************************************************
  * floating layout
@@ -121,6 +112,10 @@ floating_resize(const enum tw_xdg_layout_command command,
 {
 	//set position unchanged
 	//we are adding visible.xy here because we will subtract
+	ops[0].out.pos.x = v->x;
+	ops[0].out.pos.y = v->y;
+	ops[0].out.size.width = v->dsurf->window_geometry.w;
+	ops[0].out.size.height = v->dsurf->window_geometry.h;
 	if (arg->in.edge & WL_SHELL_SURFACE_RESIZE_TOP) {
 		ops[0].out.size.height -= arg->in.dy;
 		ops[0].out.pos.y += arg->in.dy;
@@ -151,18 +146,18 @@ emplace_float(const enum tw_xdg_layout_command command,
 	};
 
 	static struct placement_node float_ops[] = {
-		{DPSR_focus, emplace_noop},
+		{DPSR_focus, tw_xdg_layout_emplace_noop},
 		{DPSR_add, floating_add},
-		{DPSR_del, emplace_noop},
+		{DPSR_del, tw_xdg_layout_emplace_noop},
 		{DPSR_deplace, floating_deplace},
-		{DPSR_toggle, emplace_noop},
+		{DPSR_toggle, tw_xdg_layout_emplace_noop},
 		{DPSR_resize, floating_resize},
-		{DPSR_vsplit, emplace_noop},
-		{DPSR_hsplit, emplace_noop},
-		{DPSR_merge, emplace_noop},
-		{DPSR_output_add, emplace_noop},
-		{DPSR_output_rm, emplace_noop},
-		{DPSR_output_resize, emplace_noop},
+		{DPSR_vsplit, tw_xdg_layout_emplace_noop},
+		{DPSR_hsplit, tw_xdg_layout_emplace_noop},
+		{DPSR_merge, tw_xdg_layout_emplace_noop},
+		{DPSR_output_add, tw_xdg_layout_emplace_noop},
+		{DPSR_output_rm, tw_xdg_layout_emplace_noop},
+		{DPSR_output_resize, tw_xdg_layout_emplace_noop},
 	};
 	assert(float_ops[command].command == command);
 	float_ops[command].fun(command, arg, v, l, ops);

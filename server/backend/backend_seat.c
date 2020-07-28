@@ -250,7 +250,7 @@ notify_backend_pointer_motion_abs(struct wl_listener *listener, void *data)
 		tw_backend_output_from_cursor_pos(backend);
 	int32_t x = (int)(event->x * output->state.w);
 	int32_t y = (int)(event->y * output->state.h);
-	tw_logl("also the current cursor is (%d, %d)", x, y);
+	/* tw_logl("also the current cursor is (%d, %d)", x, y); */
 
 	SCOPE_PROFILE_BEG();
 
@@ -557,15 +557,32 @@ tw_backend_seat_destroy(struct tw_backend_seat *seat)
 	seat->backend->seat_pool &= unset;
 }
 
-void *
-tw_backend_seat_get_backend(struct tw_backend_seat *seat)
-{
-	return seat->tw_seat;
-}
-
 void
 tw_backend_seat_set_xkb_rules(struct tw_backend_seat *seat,
                               struct xkb_rule_names *rules)
 {
-	//TODO
+	struct tw_backend *backend = seat->backend;
+	struct xkb_keymap *keymap;
+	if (!(seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD))
+		return;
+	keymap = xkb_map_new_from_names(backend->xkb_context, rules,
+	                                XKB_KEYMAP_COMPILE_NO_FLAGS);
+	if (!keymap)
+		return;
+	wlr_keyboard_set_keymap(seat->keyboard.device->keyboard, keymap);
+	xkb_keymap_unref(keymap);
+
+	tw_keyboard_set_keymap(&seat->tw_seat->keyboard, keymap);
+	//TODO: do we emit the signals?
+	//wl_signal_emit(&seat->backend->seat_ch_signal, seat);
+}
+
+struct tw_backend_seat *
+tw_backend_get_focused_seat(struct tw_backend *backend)
+{
+	struct tw_backend_seat *seat;
+	wl_list_for_each(seat, &backend->inputs, link) {
+		return seat;
+	}
+	return NULL;
 }

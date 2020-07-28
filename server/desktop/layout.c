@@ -32,11 +32,11 @@
 
 //it will look like a long function, the easiest way is make an array which does
 //the map, lucky the enum map is linear
-static void
-emplace_noop(const enum tw_xdg_layout_command command,
-             const struct tw_xdg_layout_op *arg,
-             struct tw_xdg_view *v, struct tw_xdg_layout *l,
-             struct tw_xdg_layout_op *ops)
+void
+tw_xdg_layout_emplace_noop(const enum tw_xdg_layout_command command,
+                           const struct tw_xdg_layout_op *arg,
+                           struct tw_xdg_view *v, struct tw_xdg_layout *l,
+                           struct tw_xdg_layout_op *ops)
 {
 	ops[0].out.end = true;
 }
@@ -58,7 +58,7 @@ tw_xdg_layout_init(struct tw_xdg_layout *l)
 	for (int i = 0; i < MAX_WORKSPACES; i++)
 		wl_list_init(&l->links[i]);
 	l->clean = true;
-	l->command = emplace_noop;
+	l->command = tw_xdg_layout_emplace_noop;
 	l->user_data = NULL;
 }
 

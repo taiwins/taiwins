@@ -268,17 +268,15 @@ tw_backend_output_set_gamma(struct tw_backend_output *output,
 void
 tw_backend_output_dirty(struct tw_backend_output *output);
 
+struct tw_backend_seat *
+tw_backend_get_focused_seat(struct tw_backend *backend);
+
 void
 tw_backend_seat_set_xkb_rules(struct tw_backend_seat *seat,
                               struct xkb_rule_names *rules);
 void
 tw_backend_set_repeat_info(struct tw_backend *backend,
                            unsigned int rate, unsigned int delay);
-//give you the wlr_seat.
-void *
-tw_backend_seat_get_backend(struct tw_backend_seat *seat);
-
-
 
 #ifdef  __cplusplus
 }

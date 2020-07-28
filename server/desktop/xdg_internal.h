@@ -49,6 +49,7 @@ struct tw_xdg_grab_interface {
 	struct tw_xdg_view *view;
 	struct tw_xdg *xdg;
 	double sx, sy; /**< surface motion coordinates by events */
+	enum wl_shell_surface_resize edge;
 };
 
 struct tw_xdg {
@@ -71,6 +72,8 @@ struct tw_xdg {
         /**< statics */
 	struct tw_xdg_output outputs[32];
 	struct tw_xdg_layout floating_layout;
+	struct tw_xdg_layout maximized_layout;
+	struct tw_xdg_layout fullscreen_layout;
 };
 
 bool
@@ -79,6 +82,7 @@ tw_xdg_start_moving_grab(struct tw_xdg *xdg, struct tw_xdg_view *view,
 
 bool
 tw_xdg_start_resizing_grab(struct tw_xdg *xdg, struct tw_xdg_view *view,
+                           enum wl_shell_surface_resize edge,
                            struct tw_seat *seat);
 
 bool

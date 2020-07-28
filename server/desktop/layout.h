@@ -42,7 +42,7 @@ extern "C" {
 enum tw_layout_type {
 	LAYOUT_FLOATING,
 	LAYOUT_TILING,
-	LAYOUT_MAXMIZED,
+	LAYOUT_MAXIMIZED,
 	LAYOUT_FULLSCREEN,
 };
 
@@ -126,11 +126,28 @@ void
 tw_xdg_layout_end_floating(struct tw_xdg_layout *l);
 
 void
-tiling_tw_xdg_layout_init(struct tw_xdg_layout *tw_xdg_layout,
-                          struct tw_xdg_layout *floating);
-void
-tiling_tw_xdg_layout_end(struct tw_xdg_layout *l);
+tw_xdg_layout_init_maximized(struct tw_xdg_layout *layout);
 
+void
+tw_xdg_layout_end_maximized(struct tw_xdg_layout *layout);
+
+void
+tw_xdg_layout_init_fullscreen(struct tw_xdg_layout *layout);
+
+void
+tw_xdg_layout_end_fullscreen(struct tw_xdg_layout *layout);
+
+void
+tw_xdg_layout_init_tiling(struct tw_xdg_layout *layout);
+
+void
+tw_xdg_layout_end_tiling(struct tw_xdg_layout *layout);
+
+void
+tw_xdg_layout_emplace_noop(const enum tw_xdg_layout_command command,
+                           const struct tw_xdg_layout_op *arg,
+                           struct tw_xdg_view *v, struct tw_xdg_layout *l,
+                           struct tw_xdg_layout_op *ops);
 
 #ifdef  __cplusplus
 }

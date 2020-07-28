@@ -30,6 +30,7 @@
 #include <wayland-util.h>
 
 #include "backend/backend.h"
+#include "desktop/layout.h"
 #include "desktop/xdg.h"
 #include "shell.h"
 #include "workspace.h"
@@ -49,6 +50,28 @@ xdg_output_from_backend_output(struct tw_xdg *xdg,
  * tw_desktop_surface_api
  *****************************************************************************/
 
+static inline bool
+twdesk_view_should_map_immediately(struct tw_xdg_view *view)
+{
+	return view->type != LAYOUT_FLOATING;
+}
+
+static void
+twdesk_surface_focus(struct tw_xdg *xdg, struct tw_desktop_surface *dsurf)
+{
+	struct tw_seat *tw_seat;
+	struct tw_backend_seat *seat =
+		tw_backend_get_focused_seat(xdg->backend);
+	if (!seat) {
+		tw_logl("no seat available!");
+		return;
+	}
+	tw_seat = seat->tw_seat;
+	if (tw_seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
+		tw_keyboard_set_focus(&tw_seat->keyboard,
+		                      dsurf->tw_surface->resource, NULL);
+}
+
 static void
 twdesk_ping_timeout(struct tw_desktop_surface *client,
                     void *user_data)
@@ -62,13 +85,25 @@ twdesk_pong(struct tw_desktop_surface *client,
 static void
 twdesk_surface_added(struct tw_desktop_surface *dsurf, void *user_data)
 {
+	struct tw_xdg *xdg = user_data;
+	struct tw_workspace *ws = xdg->actived_workspace[0];
 	struct tw_xdg_view *view = tw_xdg_view_create(dsurf);
+	struct tw_backend_output *output =
+		tw_backend_focused_output(xdg->backend);
 	if (!view) {
 		tw_logl("unable to map desktop surface@%s",
 		        dsurf->title);
 		return;
 	}
+	//maybe mapping view now
 	dsurf->user_data = view;
+	view->type = ws->current_layout;
+	if (twdesk_view_should_map_immediately(view)) {
+		view->output = xdg_output_from_backend_output(xdg, output);
+		tw_workspace_add_view(ws, view);
+		view->mapped = true;
+		twdesk_surface_focus(xdg, dsurf);
+	}
 }
 
 static void
@@ -99,11 +134,12 @@ twdesk_surface_committed(struct tw_desktop_surface *dsurf,
 		tw_backend_focused_output(xdg->backend);
 
 	if (!view->mapped) {
-		view->type = LAYOUT_FLOATING;
 		view->output = xdg_output_from_backend_output(xdg, output);
-
 		tw_workspace_add_view(ws, view);
+		twdesk_surface_focus(xdg, dsurf);
 		view->mapped = true;
+	} else {
+		tw_xdg_view_set_position(view, view->x, view->y);
 	}
 }
 
@@ -144,29 +180,77 @@ twdesk_surface_move(struct tw_desktop_surface *dsurf,
 }
 
 static void
-twdesk_surface_resize(struct tw_desktop_surface *surface,
-              struct wl_resource *seat, uint32_t serial,
-              enum wl_shell_surface_resize edge, void *user_data)
+twdesk_surface_resize(struct tw_desktop_surface *dsurf,
+                      struct wl_resource *seat_resource, uint32_t serial,
+                      enum wl_shell_surface_resize edge, void *user_data)
 {
+	struct tw_xdg *xdg = user_data;
+	struct tw_seat *seat = tw_seat_from_resource(seat_resource);
+	struct tw_xdg_view *view = dsurf->user_data;
+
+	assert(view);
+	if (!tw_seat_valid_serial(seat, serial)) {
+		tw_logl("serial not matched for desktop moving grab.");
+		return;
+	}
+	if (!tw_xdg_start_resizing_grab(xdg, view, edge, seat)) {
+		tw_logl("failed to start desktop moving grab.");
+		return;
+	}
 }
 
 static void
-twdesk_fullscreen(struct tw_desktop_surface *surface,
-                            struct wl_resource *output,
-                            bool fullscreen, void *user_data)
+twdesk_fullscreen(struct tw_desktop_surface *dsurf,
+                  struct wl_resource *output_resource, bool fullscreen,
+                  void *user_data)
 {
+	struct tw_xdg *xdg = user_data;
+	struct tw_backend_output *backend_output = output_resource ?
+		tw_backend_output_from_resource(output_resource) : NULL;
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+	struct tw_xdg_view *view = dsurf->user_data;
+	struct tw_xdg_output *xdg_output;
+
+        assert(view);
+	xdg_output = backend_output ?
+		xdg_output_from_backend_output(xdg, backend_output) :
+		view->output;
+	assert(xdg_output);
+
+        if (tw_workspace_has_view(ws, view) &&
+            ws->current_layout != LAYOUT_FULLSCREEN) {
+	        tw_workspace_fullscreen_view(ws, view, xdg_output, fullscreen);
+	        twdesk_surface_focus(xdg, dsurf);
+        }
+}
+
+
+static void
+twdesk_maximized(struct tw_desktop_surface *dsurf, bool maximized,
+                 void *user_data)
+{
+	struct tw_xdg *xdg = user_data;
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+	struct tw_xdg_view *view = dsurf->user_data;
+
+	assert(view);
+	if (tw_workspace_has_view(ws, view) &&
+	    ws->current_layout != LAYOUT_MAXIMIZED) {
+		tw_workspace_maximize_view(ws, view, maximized);
+	        twdesk_surface_focus(xdg, dsurf);
+	}
 }
 
 static void
-twdesk_maximized(struct tw_desktop_surface *surface,
-                           bool maximized, void *user_data)
+twdesk_minimized(struct tw_desktop_surface *dsurf, void *user_data)
 {
+	struct tw_xdg *xdg = user_data;
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+	struct tw_xdg_view *view = dsurf->user_data;
+	if (tw_workspace_has_view(ws, view))
+		return;
+	tw_workspace_minimize_view(ws, view);
 }
-
-static void
-twdesk_minimized(struct tw_desktop_surface *surface,
-                           void *user_data)
-{}
 
 static const struct tw_desktop_surface_api desktop_impl =  {
 	.ping_timeout = twdesk_ping_timeout,
@@ -245,6 +329,10 @@ end_desktop(struct wl_listener *listener, UNUSED_ARG(void *data))
 
 	for (int i = 0; i < MAX_WORKSPACES; i++)
 		tw_workspace_release(&d->workspaces[i]);
+
+        tw_xdg_layout_end_floating(&d->floating_layout);
+	tw_xdg_layout_end_maximized(&d->floating_layout);
+	tw_xdg_layout_init_fullscreen(&d->fullscreen_layout);
 }
 
 static void
@@ -283,9 +371,17 @@ init_desktop_layouts(struct tw_xdg *xdg)
 {
 	//does not have layers now
 	tw_xdg_layout_init_floating(&xdg->floating_layout);
-	for (int i = 0; i < MAX_WORKSPACES; i++)
+	tw_xdg_layout_init_maximized(&xdg->maximized_layout);
+	tw_xdg_layout_init_fullscreen(&xdg->fullscreen_layout);
+
+	for (int i = 0; i < MAX_WORKSPACES; i++) {
 		wl_list_insert(xdg->workspaces[i].layouts.prev,
 		               &xdg->floating_layout.links[i]);
+		wl_list_insert(xdg->workspaces[i].layouts.prev,
+		               &xdg->maximized_layout.links[i]);
+		wl_list_insert(xdg->workspaces[i].layouts.prev,
+		               &xdg->fullscreen_layout.links[i]);
+	}
 }
 
 

@@ -107,11 +107,8 @@ tw_workspace_init(struct tw_workspace *wp, struct tw_layers_manager *layers,
 	tw_layer_init(&wp->front_layer);
 	tw_layer_init(&wp->fullscreen_layer);
 	//init layout
-	/* floating_layout_init(&wp->floating_layout, &wp->floating_layer); */
-	/* tiling_layout_init(&wp->tiling_layout, &wp->tiling_layer, */
-	/*		   &wp->floating_layout); */
 	wl_list_init(&wp->recent_views);
-	wp->current_layout = LAYOUT_TILING;
+	wp->current_layout = LAYOUT_FLOATING;
 }
 
 void
@@ -137,9 +134,6 @@ tw_workspace_release(struct tw_workspace *ws)
 	//we have this?
 	wl_list_for_each_safe(view, tmp, &ws->recent_views, link)
 		tw_xdg_view_destroy(view);
-
-	/* floating_layout_end(&ws->floating_layout); */
-	/* tiling_layout_end(&ws->tiling_layout); */
 }
 
 bool
@@ -167,7 +161,6 @@ static struct tw_xdg_layout *
 tw_workspace_view_pick_layout(const struct tw_workspace *ws,
                               const struct tw_xdg_view *v)
 {
-	//I could simply return v->layout
 	struct tw_xdg_layout *layout;
 
 	wl_list_for_each(layout, &ws->layouts, links[ws->idx]) {
@@ -181,12 +174,22 @@ static struct tw_layer *
 tw_workspace_view_pick_layer(struct tw_workspace *ws,
                              struct tw_xdg_view *v)
 {
-	if (v->type == LAYOUT_FLOATING || v->type == LAYOUT_MAXMIZED)
+	if (v->type == LAYOUT_FLOATING || v->type == LAYOUT_MAXIMIZED)
 		return &ws->front_layer;
 	else if (v->type == LAYOUT_FULLSCREEN)
 		return &ws->fullscreen_layer;
 	else //tiling layout
 		return &ws->mid_layer;
+}
+
+static void
+tw_workspace_view_pick_settings(struct tw_workspace *ws,
+                                struct tw_xdg_view *v)
+{
+	v->layout = tw_workspace_view_pick_layout(ws, v);
+	v->layer = tw_workspace_view_pick_layer(ws, v);
+	v->dsurf->fullscreened = (v->type == LAYOUT_FULLSCREEN);
+	v->dsurf->maximized = (v->type == LAYOUT_MAXIMIZED);
 }
 
 static uint32_t
@@ -318,7 +321,7 @@ tw_workspace_focus_view(struct tw_workspace *ws, struct tw_xdg_view *v)
 		}
 		wl_list_insert(&ws->fullscreen_layer.views,
 		               &surface->links[TW_VIEW_LAYER_LINK]);
-	} else if (v->type == LAYOUT_FLOATING || v->type == LAYOUT_MAXMIZED) {
+	} else if (v->type == LAYOUT_FLOATING || v->type == LAYOUT_MAXIMIZED) {
 	        wl_list_insert(&ws->front_layer.views,
 	                       &surface->links[TW_VIEW_LAYER_LINK]);
 	} else if (v->type == LAYOUT_TILING) {
@@ -362,8 +365,7 @@ tw_workspace_add_view_with_geometry(struct tw_workspace *w,
 			geo->x, geo->y, geo->width, geo->height
 		},
 	};
-	view->layout = tw_workspace_view_pick_layout(w, view);
-	view->layer = tw_workspace_view_pick_layer(w, view);
+	tw_workspace_view_pick_settings(w, view);
 	tw_reset_wl_list(&surface->links[TW_VIEW_LAYER_LINK]);
 	arrange_view_for_workspace(w, view, DPSR_add, &arg);
 
@@ -373,8 +375,22 @@ tw_workspace_add_view_with_geometry(struct tw_workspace *w,
 void
 tw_workspace_add_view(struct tw_workspace *w, struct tw_xdg_view *view)
 {
-	pixman_rectangle32_t dummy_geo = {-1, -1, 0, 0};
-	tw_workspace_add_view_with_geometry(w, view, &dummy_geo);
+	pixman_rectangle32_t default_geo = {-1, -1, 0, 0};
+	switch (view->type) {
+	case LAYOUT_FLOATING:
+	case LAYOUT_TILING:
+		break;
+	case LAYOUT_MAXIMIZED:
+		default_geo = view->output->desktop_area;
+		break;
+	case LAYOUT_FULLSCREEN:
+		default_geo.x = view->output->output->state.x;
+		default_geo.y = view->output->output->state.y;
+		default_geo.width = view->output->output->state.w;
+		default_geo.height = view->output->output->state.h;
+		break;
+	}
+	tw_workspace_add_view_with_geometry(w, view, &default_geo);
 }
 
 bool
@@ -410,15 +426,16 @@ tw_workspace_move_view(struct tw_workspace *w, struct tw_xdg_view *view,
 
 void
 tw_workspace_resize_view(struct tw_workspace *w, struct tw_xdg_view *v,
-                         double dx, double dy)
+                         double dx, double dy,
+                         enum wl_shell_surface_resize edge)
 {
 	struct tw_xdg_layout_op arg = {
 		.v = v,
 		.in.dx = dx, .in.dy = dy,
+		.in.edge = edge,
 	};
 	arrange_view_for_workspace(w, v, DPSR_resize, &arg);
 }
-
 
 void
 tw_workspace_fullscreen_view(struct tw_workspace *w, struct tw_xdg_view *v,
@@ -436,21 +453,19 @@ tw_workspace_fullscreen_view(struct tw_workspace *w, struct tw_xdg_view *v,
 		geo = v->old_geometry;
 		v->type = v->prev_type;
 	}
-
         tw_workspace_remove_view(w, v);
         tw_workspace_add_view_with_geometry(w, v, &geo);
 }
 
 void
 tw_workspace_maximize_view(struct tw_workspace *w, struct tw_xdg_view *v,
-                           pixman_rectangle32_t *maximized_geo,
                            bool maximized)
 {
-	pixman_rectangle32_t geo = *maximized_geo;
+	pixman_rectangle32_t geo = v->output->desktop_area;
 	if (maximized) {
 		tw_xdg_view_backup_geometry(v);
 		v->prev_type = v->type;
-		v->type = LAYOUT_MAXMIZED;
+		v->type = LAYOUT_MAXIMIZED;
 	} else {
 		geo = v->old_geometry;
 		v->type = v->prev_type;
@@ -459,14 +474,12 @@ tw_workspace_maximize_view(struct tw_workspace *w, struct tw_xdg_view *v,
 	tw_workspace_add_view_with_geometry(w, v, &geo);
 }
 
-//TODO: this can go as the same like fullscreen and maximized
 void
 tw_workspace_minimize_view(struct tw_workspace *w, struct tw_xdg_view *v)
 {
 	struct tw_surface *surface;
-	if (!tw_workspace_has_view(w, v))
-		return;
 	surface = v->dsurf->tw_surface;
+	tw_xdg_view_backup_geometry(v);
 	tw_workspace_remove_view(w, v);
 	wl_list_insert(&w->hidden_layer.views,
 	               &surface->links[TW_VIEW_LAYER_LINK]);
@@ -494,7 +507,7 @@ tw_workspace_layout_name(struct tw_workspace *ws)
 		return "floating";
 	case LAYOUT_TILING:
 		return "tiling";
-	case LAYOUT_MAXMIZED:
+	case LAYOUT_MAXIMIZED:
 		return "maximized";
 	case LAYOUT_FULLSCREEN:
 		return "fullscreened";

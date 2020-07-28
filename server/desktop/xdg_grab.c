@@ -21,6 +21,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <math.h>
 #include <wayland-server.h>
 #include <ctypes/helpers.h>
 #include <objects/seat.h>
@@ -77,8 +78,8 @@ tw_xdg_grab_interface_create(struct tw_xdg_view *view, struct tw_xdg *xdg,
 		gi->touch_grab.impl = ti;
 		gi->touch_grab.data = gi;
 	}
-	gi->sx = -1.0;
-	gi->sy = -1.0;
+	gi->sx = nanf("");
+	gi->sy = nanf("");
 	gi->view = view;
 	gi->xdg = xdg;
 	tw_signal_setup_listener(&view->dsurf_umapped_signal,
@@ -99,12 +100,12 @@ handle_move_pointer_grab_motion(struct tw_seat_pointer_grab *grab,
 		container_of(grab, struct tw_xdg_grab_interface, pointer_grab);
 	struct tw_xdg *xdg = gi->xdg;
 	struct tw_workspace *ws = xdg->actived_workspace[0];
-	/* sx -= gi->view->dsurf->window_geometry.x; */
-	/* sy -= gi->view->dsurf->window_geometry.y; */
-	if (gi->sx > 0.0 && gi->sy > 0.0)
+	//TODO: when we set position for the view, here we immedidately changed
+	//its position. flickering may caused from that. The cursor is fine.
+	if (!isnan(gi->sx) && !isnan(gi->sy))
 		tw_workspace_move_view(ws, gi->view, sx-gi->sx, sy-gi->sy);
 	/* tw_logl("moving grab motion is (%lf, %lf)", sx-gi->sx, sy-gi->sy); */
-	tw_logl("grab motion the current cursor is (%lf, %lf)", sx, sy);
+	/* tw_logl("grab motion the current cursor is (%lf, %lf)", sx, sy); */
 	gi->sx = sx;
 	gi->sy = sy;
 }
@@ -134,6 +135,32 @@ static const struct tw_pointer_grab_interface move_pointer_grab_impl = {
 };
 
 /******************************************************************************
+ * pointer moving grab
+ *****************************************************************************/
+
+static void
+handle_resize_pointer_grab_motion(struct tw_seat_pointer_grab *grab,
+                                uint32_t time_msec, double sx, double sy)
+{
+	struct tw_xdg_grab_interface *gi =
+		container_of(grab, struct tw_xdg_grab_interface, pointer_grab);
+	struct tw_xdg *xdg = gi->xdg;
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+	if (!isnan(gi->sx) && !isnan(gi->sy))
+		tw_workspace_resize_view(ws, gi->view, sx-gi->sx, sy-gi->sy,
+		                         gi->edge);
+	gi->sx = sx;
+	gi->sy = sy;
+}
+
+static const struct tw_pointer_grab_interface resize_pointer_grab_impl = {
+	.motion = handle_resize_pointer_grab_motion,
+	.button = handle_move_pointer_grab_button, //same as move grab
+	.cancel = handle_move_pointer_grab_cancel, //same as move grab
+};
+
+
+/******************************************************************************
  * exposed API
  *****************************************************************************/
 
@@ -145,11 +172,31 @@ tw_xdg_start_moving_grab(struct tw_xdg *xdg, struct tw_xdg_view *view,
 	if (seat->pointer.grab != &seat->pointer.default_grab) {
 		goto err;
 	}
-
 	gi = tw_xdg_grab_interface_create(view, xdg, &move_pointer_grab_impl,
 	                                  NULL, NULL);
 	if (!gi)
 		goto err;
+	tw_pointer_start_grab(&seat->pointer, &gi->pointer_grab);
+	return true;
+err:
+	return false;
+}
+
+
+bool
+tw_xdg_start_resizing_grab(struct tw_xdg *xdg, struct tw_xdg_view *view,
+                           enum wl_shell_surface_resize edge,
+                           struct tw_seat *seat)
+{
+	struct tw_xdg_grab_interface *gi = NULL;
+	if (seat->pointer.grab != &seat->pointer.default_grab) {
+		goto err;
+	}
+	gi = tw_xdg_grab_interface_create(view, xdg, &resize_pointer_grab_impl,
+	                                  NULL, NULL);
+	if (!gi)
+		goto err;
+	gi->edge = edge;
 	tw_pointer_start_grab(&seat->pointer, &gi->pointer_grab);
 	return true;
 err:

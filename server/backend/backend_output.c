@@ -228,8 +228,8 @@ tw_backend_new_output(struct tw_backend *backend,
 
 	//tell the clients
         if (!backend->defer_output_creation) {
-	        wl_signal_emit(&backend->output_plug_signal, output);
 	        tw_backend_commit_output_state(output);
+	        wl_signal_emit(&backend->output_plug_signal, output);
         }
 
 }
