@@ -46,7 +46,7 @@ extern "C" {
 struct tw_xdg_output {
 	struct tw_backend_output *output;
 	pixman_rectangle32_t desktop_area;
-
+	int32_t idx;
 	uint32_t inner_gap;
 	uint32_t outer_gap;
 };

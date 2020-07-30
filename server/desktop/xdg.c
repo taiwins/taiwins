@@ -56,6 +56,18 @@ twdesk_view_should_map_immediately(struct tw_xdg_view *view)
 	return view->type != LAYOUT_FLOATING;
 }
 
+static inline struct tw_workspace *
+twdesk_view_find_workspace(struct tw_xdg *xdg, struct tw_xdg_view *view)
+{
+	struct tw_workspace *ws = NULL;
+	for (unsigned i = 0; i < MAX_WORKSPACES; i++) {
+		ws = &xdg->workspaces[i];
+		if (tw_workspace_has_view(ws, view))
+			return ws;
+	}
+	return NULL;
+}
+
 static void
 twdesk_surface_focus(struct tw_xdg *xdg, struct tw_desktop_surface *dsurf)
 {
@@ -70,6 +82,17 @@ twdesk_surface_focus(struct tw_xdg *xdg, struct tw_desktop_surface *dsurf)
 	if (tw_seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
 		tw_keyboard_set_focus(&tw_seat->keyboard,
 		                      dsurf->tw_surface->resource, NULL);
+}
+
+static void
+twdesk_refocus(void *user_data)
+{
+	struct tw_xdg *xdg = user_data;
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+	struct tw_xdg_view *next = wl_list_empty(&ws->recent_views) ? NULL :
+		container_of(ws->recent_views.next, struct tw_xdg_view, link);
+	if (next)
+		twdesk_surface_focus(xdg, next->dsurf);
 }
 
 static void
@@ -110,17 +133,24 @@ static void
 twdesk_surface_removed(struct tw_desktop_surface *dsurf,
 		       void *user_data)
 {
-	struct tw_surface *tw_surface = dsurf->tw_surface;
+	struct tw_xdg *xdg = user_data;
 	struct tw_xdg_view *view = dsurf->user_data;
+	struct tw_workspace *ws = twdesk_view_find_workspace(xdg, view);
+	struct wl_event_loop *loop = wl_display_get_event_loop(xdg->display);
 
-	tw_reset_wl_list(&tw_surface->links[TW_VIEW_LAYER_LINK]);
 	if (!view) {
 		tw_logl("desktop surface@%s is not a xdg surface",
 			dsurf->title);
 		return;
 	}
+	assert(ws);
+	tw_workspace_remove_view(ws, view);
 	tw_xdg_view_destroy(view);
 	dsurf->user_data = NULL;
+	//This is a HACK, because we are in a wl_resource_destroy_listener,
+	//refocus the keyboard will reference the deleted wl_surface. Here we
+	//have to wait a idle event for keyboard the clear the focus itself.
+	wl_event_loop_add_idle(loop, twdesk_refocus, xdg);
 }
 
 static void
@@ -157,6 +187,7 @@ twdesk_set_parent(struct tw_desktop_surface *surface,
                   struct tw_desktop_surface *parent,
                   void *user_data)
 {
+	//TODO: tw_xdg_view should have a parent?
 }
 
 static void
@@ -279,9 +310,10 @@ handle_desktop_output_create(struct wl_listener *listener, void *data)
 
 	struct tw_xdg_output *xdg_output = &desktop->outputs[output->id];
 	xdg_output->output = output;
+	xdg_output->idx = output->id;
 	xdg_output->inner_gap = 10;
 	xdg_output->outer_gap = 10;
-	xdg_output->desktop_area = tw_shell_output_available_space(
+	xdg_output->desktop_area =  tw_shell_output_available_space(
 		desktop->shell, output);
 
 	for (int i = 0; i < MAX_WORKSPACES; i++)
@@ -327,8 +359,10 @@ end_desktop(struct wl_listener *listener, UNUSED_ARG(void *data))
 	tw_reset_wl_list(&d->output_destroy_listener.link);
 	tw_reset_wl_list(&d->desktop_area_listener.link);
 
-	for (int i = 0; i < MAX_WORKSPACES; i++)
+	for (int i = 0; i < MAX_WORKSPACES; i++) {
 		tw_workspace_release(&d->workspaces[i]);
+		tw_xdg_layout_end_tiling(&d->tiling_layouts[i]);
+	}
 
         tw_xdg_layout_end_floating(&d->floating_layout);
 	tw_xdg_layout_end_maximized(&d->floating_layout);
@@ -381,9 +415,11 @@ init_desktop_layouts(struct tw_xdg *xdg)
 		               &xdg->maximized_layout.links[i]);
 		wl_list_insert(xdg->workspaces[i].layouts.prev,
 		               &xdg->fullscreen_layout.links[i]);
+		tw_xdg_layout_init_tiling(&xdg->tiling_layouts[i]);
+		wl_list_insert(xdg->workspaces[i].layouts.prev,
+		               &xdg->tiling_layouts[i].links[i]);
 	}
 }
-
 
 /******************************************************************************
  * APIs
@@ -403,12 +439,6 @@ tw_xdg_create_global(struct wl_display *display, struct tw_shell *shell,
 	desktop->shell = shell;
 	desktop->backend = backend;
 
-	/* tw_layer_init(&desktop->desktop_layer); */
-	/* wl_list_init(&desktop->recent_views); */
-	/* tw_layer_set_position(&desktop->desktop_layer, */
-	/*                       TW_LAYER_POS_DESKTOP_MID, */
-	/*                       &backend->layers_manager); */
-
 	if (!tw_desktop_init(&desktop->desktop_manager, display,
 	                     &desktop_impl, desktop,
 	                     TW_DESKTOP_INIT_INCLUDE_WL_SHELL |
@@ -418,20 +448,6 @@ tw_xdg_create_global(struct wl_display *display, struct tw_shell *shell,
 	init_desktop_listeners(desktop);
 	init_desktop_workspaces(desktop);
 	init_desktop_layouts(desktop);
-
-	/* desktop->api = weston_desktop_create(ec, &desktop_impl, &s_desktop); */
-	//install grab
-	/* grab_interface_init(&desktop->moving_grab, */
-	/*		    &desktop_moving_grab, NULL, NULL); */
-	/* grab_interface_init(&desktop->resizing_grab, */
-	/*		    &desktop_resizing_grab, NULL, NULL); */
-	/* grab_interface_init(&desktop->task_switch_grab, */
-	/*		    NULL, &desktop_task_switch_grab, NULL); */
-	/* grab_interface_init(&desktop->alpha_grab, */
-	/*                     &desktop_alpha_grab, NULL, NULL); */
-
-	//TODO desktop resize listener, well, we can do this with
-	//desktop_area_changed
 
 	///getting the xwayland API now, xwayland module has to load at this
 	///point, we would need the API here to deal with xwayland surface, it

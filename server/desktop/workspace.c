@@ -26,6 +26,7 @@
 #include <ctypes/helpers.h>
 #include <objects/utils.h>
 #include <objects/surface.h>
+#include <wayland-util.h>
 
 #include "desktop/xdg.h"
 #include "objects/desktop.h"
@@ -250,12 +251,11 @@ arrange_view_for_workspace(struct tw_workspace *ws, struct tw_xdg_view *v,
                            const struct tw_xdg_layout_op *arg)
 {
 	//IF v is NULL, we need to re-arrange the entire output
+	struct tw_xdg_layout *layout;
 	if (!v) {
-		//TODO: we will have a list of layouts that manage themselves.
-		/* arrange_view_for_layout(ws, &ws->floating_layout, NULL, */
-		/*			     command, arg); */
-		/* arrange_view_for_layout(ws, &ws->tiling_layout, NULL, */
-		/*			     command, arg); */
+		wl_list_for_each(layout, &ws->layouts, links[ws->idx])
+			arrange_view_for_layout(ws, layout, NULL,
+			                        command, arg);
 	} else {
 		assert(v->layout);
 		arrange_view_for_layout(ws, v->layout, v, command, arg);
@@ -516,27 +516,30 @@ tw_workspace_layout_name(struct tw_workspace *ws)
 }
 
 void
-tw_workspace_add_output(struct tw_workspace *wp, struct tw_xdg_output *output)
+tw_workspace_add_output(struct tw_workspace *ws, struct tw_xdg_output *output)
 {
-	//TODO
-	/* layout_add_output(&wp->tiling_layout, output); */
-}
-
-void
-tw_workspace_resize_output(struct tw_workspace *wp,
-                           struct tw_xdg_output *output)
-{
-	/* tw_layout_resize_output(&wp->tiling_layout, output); */
 	const struct tw_xdg_layout_op arg = {
 		.in.o = output,
 	};
-	arrange_view_for_workspace(wp, NULL, DPSR_output_resize, &arg);
+	arrange_view_for_workspace(ws, NULL, DPSR_output_add, &arg);
 }
 
 void
-tw_workspace_remove_output(struct tw_workspace *w,
+tw_workspace_resize_output(struct tw_workspace *ws,
                            struct tw_xdg_output *output)
 {
-	//TODO
-	/* layout_rm_output(&w->tiling_layout, output); */
+	const struct tw_xdg_layout_op arg = {
+		.in.o = output,
+	};
+	arrange_view_for_workspace(ws, NULL, DPSR_output_resize, &arg);
+}
+
+void
+tw_workspace_remove_output(struct tw_workspace *ws,
+                           struct tw_xdg_output *output)
+{
+	const struct tw_xdg_layout_op arg = {
+		.in.o = output,
+	};
+	arrange_view_for_workspace(ws, NULL, DPSR_output_rm, &arg);
 }

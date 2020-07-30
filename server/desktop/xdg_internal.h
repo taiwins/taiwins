@@ -31,6 +31,7 @@
 #include <objects/seat.h>
 #include <objects/desktop.h>
 
+#include "desktop/layout.h"
 #include "xdg.h"
 #include "workspace.h"
 
@@ -61,7 +62,7 @@ struct tw_xdg {
 
 	/* managing current status */
 	struct tw_workspace *actived_workspace[2];
-	struct tw_workspace workspaces[9];
+	struct tw_workspace workspaces[MAX_WORKSPACES];
 
 	struct wl_listener desktop_area_listener;
 	struct wl_listener display_destroy_listener;
@@ -74,6 +75,8 @@ struct tw_xdg {
 	struct tw_xdg_layout floating_layout;
 	struct tw_xdg_layout maximized_layout;
 	struct tw_xdg_layout fullscreen_layout;
+	struct tw_xdg_layout tiling_layouts[MAX_WORKSPACES];
+
 };
 
 bool
