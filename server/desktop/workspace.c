@@ -48,6 +48,8 @@ tw_xdg_view_create(struct tw_desktop_surface *dsurf)
 	view->dsurf = dsurf;
 	view->mapped = false;
 	view->xwayland.is_xwayland = false;
+	view->planed_w = 0;
+	view->planed_h = 0;
 	wl_list_init(&view->link);
 	wl_signal_init(&view->dsurf_umapped_signal);
 	return view;
@@ -109,7 +111,7 @@ tw_workspace_init(struct tw_workspace *wp, struct tw_layers_manager *layers,
 	tw_layer_init(&wp->fullscreen_layer);
 	//init layout
 	wl_list_init(&wp->recent_views);
-	wp->current_layout = LAYOUT_FLOATING;
+	wp->current_layout = LAYOUT_TILING;
 }
 
 void
@@ -221,9 +223,12 @@ apply_layout_operations(const struct tw_xdg_layout_op *ops, const int len)
 		tw_xdg_view_set_position(v, ops[i].out.pos.x,
 		                         ops[i].out.pos.y);
 
-		if (ops[i].out.size.height && ops[i].out.size.width)
+		if (ops[i].out.size.height && ops[i].out.size.width) {
 			tw_xdg_view_configure_size(v, ops[i].out.size.width,
 			                           ops[i].out.size.height);
+			v->planed_w = ops[i].out.size.width;
+			v->planed_h = ops[i].out.size.height;
+		}
 	}
 }
 

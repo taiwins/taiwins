@@ -114,8 +114,13 @@ floating_resize(const enum tw_xdg_layout_command command,
 	//we are adding visible.xy here because we will subtract
 	ops[0].out.pos.x = v->x;
 	ops[0].out.pos.y = v->y;
-	ops[0].out.size.width = v->dsurf->window_geometry.w;
-	ops[0].out.size.height = v->dsurf->window_geometry.h;
+	//since the geometry we send to clients may not take effects
+	//immediately, here we will need to work on the "Planed size" to reduce
+	//errors.
+	ops[0].out.size.width = v->planed_w ? v->planed_w :
+		v->dsurf->window_geometry.w;
+	ops[0].out.size.height = v->planed_h ? v->planed_h :
+		v->dsurf->window_geometry.h;
 	if (arg->in.edge & WL_SHELL_SURFACE_RESIZE_TOP) {
 		ops[0].out.size.height -= arg->in.dy;
 		ops[0].out.pos.y += arg->in.dy;

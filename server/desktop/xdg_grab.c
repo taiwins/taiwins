@@ -78,8 +78,8 @@ tw_xdg_grab_interface_create(struct tw_xdg_view *view, struct tw_xdg *xdg,
 		gi->touch_grab.impl = ti;
 		gi->touch_grab.data = gi;
 	}
-	gi->sx = nanf("");
-	gi->sy = nanf("");
+	gi->gx = nanf("");
+	gi->gy = nanf("");
 	gi->view = view;
 	gi->xdg = xdg;
 	tw_signal_setup_listener(&view->dsurf_umapped_signal,
@@ -100,14 +100,17 @@ handle_move_pointer_grab_motion(struct tw_seat_pointer_grab *grab,
 		container_of(grab, struct tw_xdg_grab_interface, pointer_grab);
 	struct tw_xdg *xdg = gi->xdg;
 	struct tw_workspace *ws = xdg->actived_workspace[0];
+	struct tw_surface *surf = gi->view->dsurf->tw_surface;
+	int32_t gx, gy;
+	tw_surface_to_global_pos(surf, sx, sy, &gx, &gy);
+
 	//TODO: when we set position for the view, here we immedidately changed
 	//its position. flickering may caused from that. The cursor is fine.
-	if (!isnan(gi->sx) && !isnan(gi->sy))
-		tw_workspace_move_view(ws, gi->view, sx-gi->sx, sy-gi->sy);
-	/* tw_logl("moving grab motion is (%lf, %lf)", sx-gi->sx, sy-gi->sy); */
-	/* tw_logl("grab motion the current cursor is (%lf, %lf)", sx, sy); */
-	gi->sx = sx;
-	gi->sy = sy;
+	if (!isnan(gi->gx) && !isnan(gi->gy))
+		tw_workspace_move_view(ws, gi->view, gx-gi->gx, gy-gi->gy);
+
+	gi->gx = gx;
+	gi->gy = gy;
 }
 
 static void
@@ -146,11 +149,16 @@ handle_resize_pointer_grab_motion(struct tw_seat_pointer_grab *grab,
 		container_of(grab, struct tw_xdg_grab_interface, pointer_grab);
 	struct tw_xdg *xdg = gi->xdg;
 	struct tw_workspace *ws = xdg->actived_workspace[0];
-	if (!isnan(gi->sx) && !isnan(gi->sy))
-		tw_workspace_resize_view(ws, gi->view, sx-gi->sx, sy-gi->sy,
+	struct tw_surface *surf = gi->view->dsurf->tw_surface;
+	int32_t gx, gy;
+
+	tw_surface_to_global_pos(surf, sx, sy, &gx, &gy);
+
+	if (!isnan(gi->gx) && !isnan(gi->gy))
+		tw_workspace_resize_view(ws, gi->view, gx-gi->gx, gy-gi->gy,
 		                         gi->edge);
-	gi->sx = sx;
-	gi->sy = sy;
+	gi->gx = gx;
+	gi->gy = gy;
 }
 
 static const struct tw_pointer_grab_interface resize_pointer_grab_impl = {

@@ -250,7 +250,6 @@ notify_backend_pointer_motion_abs(struct wl_listener *listener, void *data)
 		tw_backend_output_from_cursor_pos(backend);
 	int32_t x = (int)(event->x * output->state.w);
 	int32_t y = (int)(event->y * output->state.h);
-	/* tw_logl("also the current cursor is (%d, %d)", x, y); */
 
 	SCOPE_PROFILE_BEG();
 

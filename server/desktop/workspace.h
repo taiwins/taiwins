@@ -42,14 +42,14 @@ struct tw_workspace {
 	struct wl_list layouts;
 	uint32_t idx;
 
-        struct tw_layer hidden_layer;
+	struct tw_layer hidden_layer;
 	/* the layers reflects the layer positions, fullscreen application has
 	 * to stay on top of UI layer thus requires additional layers */
 	struct tw_layer fullscreen_back_layer;
 	struct tw_layer back_layer;
-        /* here we have the tiling views, because tiling views have to occupy
-         * the whole output, so it has to have its own layer.
-         */
+	/* here we have the tiling views, because tiling views have to occupy
+	 * the whole output, so it has to have its own layer.
+	 */
 	struct tw_layer mid_layer;
 	struct tw_layer front_layer;
 	struct tw_layer fullscreen_layer;
@@ -87,6 +87,9 @@ struct tw_xdg_view {
 	  y: decoration lenght in y.
 	*/
 	int32_t x, y;
+	/**< "Planed size" are set by us, where clients need to resize to, but
+	 * may not yet */
+	uint32_t planed_w, planed_h;
 	pixman_rectangle32_t old_geometry;
 	bool mapped;
 
