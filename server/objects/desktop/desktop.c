@@ -27,10 +27,10 @@
 #include <wayland-server.h>
 #include <ctypes/helpers.h>
 
-#include "logger.h"
-#include "desktop.h"
-#include "surface.h"
-#include "seat.h"
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/desktop.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/seat.h>
 
 bool
 init_wl_shell(struct tw_desktop_manager *desktop);

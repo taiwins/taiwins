@@ -29,9 +29,9 @@
 #include <ctypes/os/os-compatibility.h>
 #include <ctypes/helpers.h>
 
-#include "objects/utils.h"
-#include "seat.h"
-#include "taiwins.h"
+#include <taiwins/objects/utils.h>
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/seat.h>
 
 static void
 notify_keyboard_enter(struct tw_seat_keyboard_grab *grab,

@@ -22,7 +22,7 @@
 #include <assert.h>
 #include <GLES3/gl3.h>
 
-#include <objects/logger.h>
+#include <taiwins/objects/logger.h>
 #include "shaders.h"
 
 /******************************************************************************

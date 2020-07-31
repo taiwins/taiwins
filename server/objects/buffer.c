@@ -27,8 +27,8 @@
 #include <wayland-server.h>
 #include <pixman.h>
 
-#include "ctypes/helpers.h"
-#include "surface.h"
+#include <ctypes/helpers.h>
+#include <taiwins/objects/surface.h>
 
 
 bool

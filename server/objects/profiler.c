@@ -33,7 +33,7 @@
 #include <pthread.h>
 #include <wayland-server-core.h>
 
-#include "profiler.h"
+#include <taiwins/objects/profiler.h>
 
 #define THREAD_ID() (unsigned int)pthread_self()
 

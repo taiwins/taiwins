@@ -24,8 +24,8 @@
 
 #include "backend.h"
 #include "backend_internal.h"
-#include "objects/utils.h"
-#include "objects/matrix.h"
+#include <taiwins/objects/utils.h>
+#include <taiwins/objects/matrix.h>
 #include "renderer/renderer.h"
 
 static enum wl_output_transform

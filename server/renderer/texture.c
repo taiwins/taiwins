@@ -25,8 +25,8 @@
 #include <GLES2/gl2ext.h>
 #include <drm_fourcc.h>
 
-#include <objects/logger.h>
-#include <objects/dmabuf.h>
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/dmabuf.h>
 #include <string.h>
 #include <wayland-server-core.h>
 

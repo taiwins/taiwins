@@ -26,8 +26,8 @@
 #include <wayland-server.h>
 #include <pixman.h>
 #include <ctypes/helpers.h>
-#include <objects/layers.h>
-#include <objects/surface.h>
+#include <taiwins/objects/layers.h>
+#include <taiwins/objects/surface.h>
 
 #include "xdg.h"
 

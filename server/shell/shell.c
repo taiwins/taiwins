@@ -29,12 +29,12 @@
 #include <ctypes/helpers.h>
 #include <shared_config.h>
 
-#include <objects/surface.h>
-#include <objects/subprocess.h>
-#include <objects/layers.h>
-#include <objects/seat.h>
-#include <objects/logger.h>
-#include <backend/backend.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/subprocess.h>
+#include <taiwins/objects/layers.h>
+#include <taiwins/objects/seat.h>
+#include <taiwins/objects/logger.h>
+#include "backend.h"
 
 #include "shell.h"
 #include "shell_internal.h"

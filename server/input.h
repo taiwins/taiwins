@@ -25,9 +25,9 @@
 #include <wayland-server.h>
 #include <wlr/types/wlr_input_device.h>
 
-#include <objects/seat.h>
-#include <backend/backend.h>
-#include <binding/bindings.h>
+#include <taiwins/objects/seat.h>
+#include <backend.h>
+#include <bindings.h>
 
 #ifdef  __cplusplus
 extern "C" {

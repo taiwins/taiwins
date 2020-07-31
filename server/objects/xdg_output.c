@@ -24,7 +24,7 @@
 #include <wayland-xdg-output-server-protocol.h>
 #include <ctypes/helpers.h>
 
-#include "xdg_output.h"
+#include <taiwins/objects/xdg_output.h>
 
 
 #define XDG_OUTPUT_MAN_VERSION 1

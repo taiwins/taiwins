@@ -26,14 +26,14 @@
 #include <wayland-server.h>
 #include <ctypes/helpers.h>
 #include <wayland-util.h>
+#include <pixman.h>
 
-#include "objects/logger.h"
-#include "pixman.h"
-#include "utils.h"
-#include "surface.h"
-#include "seat.h"
-#include "desktop.h"
-#include "popup_grab.h"
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/desktop.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/seat.h>
+#include <taiwins/objects/utils.h>
+#include <taiwins/objects/popup_grab.h>
 
 #define WL_SHELL_VERSION 1
 

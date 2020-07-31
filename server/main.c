@@ -29,21 +29,16 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <wayland-server.h>
-#include <wlr/backend.h>
-#include <wlr/types/wlr_output.h>
-#include <wlr/types/wlr_compositor.h>
-#include <wlr/types/wlr_data_device.h>
-#include <wlr/types/wlr_output_layout.h>
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/profiler.h>
+#include <taiwins/objects/subprocess.h>
+#include <taiwins/objects/seat.h>
 
 #include <ctypes/helpers.h>
-#include "binding/bindings.h"
-#include "objects/logger.h"
-#include "objects/profiler.h"
-#include "objects/subprocess.h"
-#include "objects/seat.h"
+#include "bindings.h"
 #include "taiwins.h"
 #include "bindings.h"
-#include "backend/backend.h"
+#include "backend.h"
 #include "input.h"
 
 struct tw_options {

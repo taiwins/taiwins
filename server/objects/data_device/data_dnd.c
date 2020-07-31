@@ -20,11 +20,9 @@
  */
 
 
-#include "data_device.h"
-#include "seat.h"
-#include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
-#include <wayland-util.h>
+#include <wayland-server.h>
+#include <taiwins/objects/data_device.h>
+#include <taiwins/objects/seat.h>
 
 // the data device has a few methods you need to call,
 // enter/leave/motion/drop/

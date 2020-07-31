@@ -29,7 +29,7 @@ matrix_test = executable(
   ['matrix-test.c',
    '../server/objects/matrix.c'],
   c_args : ['-D_GNU_SOURCE'],
-  include_directories : [ '../server/objects'],
+  include_directories : [ '../server/objects', '../server/include/'],
   dependencies : [
     dep_m,
   ],

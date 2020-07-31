@@ -25,13 +25,13 @@
 #include <wayland-server-core.h>
 #include <wayland-server-protocol.h>
 #include <wayland-util.h>
-#include <objects/surface.h>
-#include <objects/logger.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/utils.h>
 
-#include "backend/backend.h"
-#include "objects/utils.h"
-#include "renderer/renderer.h"
+#include "backend.h"
 #include "backend_internal.h"
+#include "renderer/renderer.h"
 
 /******************************************************************************
  * buffer imports

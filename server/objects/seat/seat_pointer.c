@@ -28,9 +28,8 @@
 
 #include <ctypes/helpers.h>
 
-#include "objects/utils.h"
-#include "seat.h"
-#include "taiwins.h"
+#include <taiwins/objects/utils.h>
+#include <taiwins/objects/seat.h>
 
 static void
 notify_pointer_enter(struct tw_seat_pointer_grab *grab,

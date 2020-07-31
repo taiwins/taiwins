@@ -25,18 +25,18 @@
 #include <assert.h>
 #include <wayland-server-core.h>
 #include <wayland-util.h>
+#include <pixman.h>
 #include <ctypes/helpers.h>
 
-#include "objects/layers.h"
-#include "objects/logger.h"
-#include "objects/matrix.h"
-#include "objects/plane.h"
-#include "objects/surface.h"
-#include "objects/profiler.h"
-#include "pixman.h"
+#include <taiwins/objects/layers.h>
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/matrix.h>
+#include <taiwins/objects/plane.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/profiler.h>
 #include "renderer.h"
 #include "shaders.h"
-#include "backend/backend.h"
+#include "backend.h"
 
 struct tw_layer_renderer {
 	struct tw_renderer base;

@@ -24,14 +24,11 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <drm_fourcc.h>
-#include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <wayland-linux-dmabuf-server-protocol.h>
-#include <wayland-util.h>
 
-#include "ctypes/helpers.h"
-#include "dmabuf.h"
+#include <ctypes/helpers.h>
+#include <taiwins/objects/dmabuf.h>
 
 #define DMA_BUF_VERSION 3
 

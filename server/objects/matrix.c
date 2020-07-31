@@ -24,7 +24,7 @@
 #include <tgmath.h>
 #include <wayland-server-protocol.h>
 
-#include "matrix.h"
+#include <taiwins/objects/matrix.h>
 
 /******************************************************************************
  * 2D transformations

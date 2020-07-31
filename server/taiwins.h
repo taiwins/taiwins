@@ -32,18 +32,17 @@
 
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/types/wlr_data_device.h>
-#include <objects/logger.h>
-#include <objects/layers.h>
-#include <objects/surface.h>
-#include <objects/compositor.h>
-#include <objects/subprocess.h>
-#include <objects/dmabuf.h>
-#include <objects/seat.h>
-#include <objects/data_device.h>
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/layers.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/compositor.h>
+#include <taiwins/objects/subprocess.h>
+#include <taiwins/objects/dmabuf.h>
+#include <taiwins/objects/seat.h>
+#include <taiwins/objects/data_device.h>
 
-#include "backend/backend.h"
-#include "desktop/shell_internal.h"
-#include "desktop/xdg.h"
+#include "backend.h"
+#include "xdg.h"
 #include "input.h"
 
 #ifndef _GNU_SOURCE

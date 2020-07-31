@@ -24,7 +24,8 @@
 #include <wayland-server-core.h>
 #include <wayland-server-protocol.h>
 #include <wayland-server.h>
-#include "data_device.h"
+#include <taiwins/objects/data_device.h>
+#include <taiwins/objects/seat.h>
 
 
 static const struct wl_data_source_interface data_source_impl;

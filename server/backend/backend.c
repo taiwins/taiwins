@@ -38,19 +38,19 @@
 #include <ctypes/helpers.h>
 #include <xkbcommon/xkbcommon-compat.h>
 #include <xkbcommon/xkbcommon.h>
+#include <pixman.h>
 
-#include <taiwins.h>
-#include <objects/seat.h>
+#include <taiwins/objects/seat.h>
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/compositor.h>
+#include <taiwins/objects/cursor.h>
+#include <taiwins/objects/data_device.h>
+#include <taiwins/objects/dmabuf.h>
+#include <taiwins/objects/layers.h>
+#include <taiwins/objects/surface.h>
 
 #include "backend.h"
 #include "backend_internal.h"
-#include "objects/compositor.h"
-#include "objects/cursor.h"
-#include "objects/data_device.h"
-#include "objects/dmabuf.h"
-#include "objects/layers.h"
-#include "objects/surface.h"
-#include "pixman.h"
 
 static struct tw_backend s_tw_backend = {0};
 static struct tw_backend_impl s_tw_backend_impl;

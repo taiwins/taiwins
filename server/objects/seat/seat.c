@@ -29,8 +29,8 @@
 #include <ctypes/strops.h>
 #include <xkbcommon/xkbcommon.h>
 
-#include "utils.h"
-#include "seat.h"
+#include <taiwins/objects/utils.h>
+#include <taiwins/objects/seat.h>
 
 static const struct wl_seat_interface seat_impl;
 

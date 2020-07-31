@@ -27,7 +27,7 @@
 #include <ctypes/sequential.h>
 #include <wayland-taiwins-shell-server-protocol.h>
 
-#include <backend/backend.h>
+#include "backend.h"
 
 #define TWSHELL_VERSION 1
 #define TWDESKP_VERSION 1

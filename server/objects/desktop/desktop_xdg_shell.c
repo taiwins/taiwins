@@ -21,19 +21,17 @@
 #include <assert.h>
 #include <string.h>
 #include <stdint.h>
-#include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
-#include <wayland-util.h>
+#include <wayland-server.h>
 #include <wayland-xdg-shell-server-protocol.h>
+#include <pixman.h>
 #include <ctypes/helpers.h>
 
-#include "objects/seat.h"
-#include "pixman.h"
-#include "utils.h"
-#include "desktop.h"
-#include "logger.h"
-#include "surface.h"
-#include "popup_grab.h"
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/desktop.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/seat.h>
+#include <taiwins/objects/utils.h>
+#include <taiwins/objects/popup_grab.h>
 
 #define XDG_SHELL_VERSION 2
 
