@@ -75,8 +75,8 @@ tw_backend_flush(struct tw_backend *backend)
 	backend->started = true;
 
 	wl_list_for_each_safe(output, tmp, &backend->pending_heads, link) {
-		wl_signal_emit(&backend->output_plug_signal, output);
 		tw_backend_commit_output_state(output);
+		wl_signal_emit(&backend->output_plug_signal, output);
 		wl_list_remove(&output->link);
 		wl_list_insert(backend->heads.prev, &output->link);
 	}

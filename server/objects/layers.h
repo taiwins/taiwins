@@ -28,13 +28,6 @@
 extern "C" {
 #endif
 
-enum tw_layout_type {
-	LAYOUT_FLOATING,
-	LAYOUT_TILING,
-	LAYOUT_MAXMIZED,
-	LAYOUT_FULLSCREEN,
-};
-
 /**
  * @brief taiwins layer is tailered for desktop arrangement.
  *
@@ -56,15 +49,15 @@ enum tw_layer_pos {
 	TW_LAYER_POS_FULLSCREEN_BACK  = 0x4fffffff,
 	/*
 	 * desktop layers: these (back, mid, front) layers are used by desktop
-	 * applications. They should not interfere with other layers. Workspaces
-	 * shall deal with all three layers at once, generates enough command
-	 * for applying positions.
+	 * applications. They should not interfere with other layers.
+	 * Workspaces shall deal with all three layers at once and generates
+	 * enough command for applying positions.
 	 *
-	 * usually tiling views seat in the mid layer, stacking/maximized view occupy
-	 * the front layer if they are focused. If tiling views are focused, the front
-	 * layer will have no views at all.
+	 * usually tiling views seat in the mid layer, stacking/maximized view
+	 * occupy the front layer if they are focused. If tiling views are
+	 * focused, the front layer will have no views at all.
 	 */
-	TW_LAYRR_POS_DESKTOP_BACK     = 0x50000000,
+	TW_LAYER_POS_DESKTOP_BACK     = 0x50000000,
 	TW_LAYER_POS_DESKTOP_MID      = 0x50000001,
 	TW_LAYER_POS_DESKTOP_FRONT    = 0x50000002,
 

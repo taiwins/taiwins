@@ -1,7 +1,7 @@
 /*
  * xdg.h - taiwins desktop shell header
  *
- * Copyright (c)  Xichen Zhou
+ * Copyright (c) 2020 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 #ifndef TW_XDG_H
 #define TW_XDG_H
 
-#include "pixman.h"
+#include <pixman.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <backend/backend.h>
@@ -30,6 +30,8 @@
 
 #include <objects/seat.h>
 #include <objects/desktop.h>
+
+#define MAX_WORKSPACES 9
 
 #ifdef  __cplusplus
 extern "C" {
@@ -44,7 +46,7 @@ extern "C" {
 struct tw_xdg_output {
 	struct tw_backend_output *output;
 	pixman_rectangle32_t desktop_area;
-
+	int32_t idx;
 	uint32_t inner_gap;
 	uint32_t outer_gap;
 };

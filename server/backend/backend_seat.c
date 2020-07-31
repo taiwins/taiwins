@@ -173,6 +173,7 @@ pointer_focus_motion(struct tw_backend_seat *seat,
 
 	focused = tw_backend_pick_surface_from_layers(seat->backend,
 	                                              x, y, &x, &y);
+
 	if (focused && (pointer->focused_surface == focused->resource))
 			tw_pointer_notify_motion(pointer, timespec, x, y);
 	else if (focused)
@@ -555,15 +556,32 @@ tw_backend_seat_destroy(struct tw_backend_seat *seat)
 	seat->backend->seat_pool &= unset;
 }
 
-void *
-tw_backend_seat_get_backend(struct tw_backend_seat *seat)
-{
-	return seat->tw_seat;
-}
-
 void
 tw_backend_seat_set_xkb_rules(struct tw_backend_seat *seat,
                               struct xkb_rule_names *rules)
 {
-	//TODO
+	struct tw_backend *backend = seat->backend;
+	struct xkb_keymap *keymap;
+	if (!(seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD))
+		return;
+	keymap = xkb_map_new_from_names(backend->xkb_context, rules,
+	                                XKB_KEYMAP_COMPILE_NO_FLAGS);
+	if (!keymap)
+		return;
+	wlr_keyboard_set_keymap(seat->keyboard.device->keyboard, keymap);
+	xkb_keymap_unref(keymap);
+
+	tw_keyboard_set_keymap(&seat->tw_seat->keyboard, keymap);
+	//TODO: do we emit the signals?
+	//wl_signal_emit(&seat->backend->seat_ch_signal, seat);
+}
+
+struct tw_backend_seat *
+tw_backend_get_focused_seat(struct tw_backend *backend)
+{
+	struct tw_backend_seat *seat;
+	wl_list_for_each(seat, &backend->inputs, link) {
+		return seat;
+	}
+	return NULL;
 }

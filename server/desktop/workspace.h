@@ -22,47 +22,54 @@
 #ifndef TW_WORKSPACE_H
 #define TW_WORKSPACE_H
 
-#include <libweston/libweston.h>
-#include <libweston-desktop/libweston-desktop.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <unistd.h>
+#include <objects/layers.h>
+#include <wayland-server-protocol.h>
 
-#include "../taiwins.h"
+#include "backend/backend.h"
 #include "layout.h"
-
-#define FRONT_LAYER_POS WESTON_LAYER_POSITION_NORMAL+1
-#define BACK_LAYER_POS  WESTON_LAYER_POSITION_NORMAL
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-struct workspace {
-	struct layout floating_layout;
-	struct layout tiling_layout;
-	//workspace does not distinguish the outputs.
-	//so when we `switch_workspace, all the output has to update.
-	//The layouting algorithm may have to worry about output
-	struct weston_layer hidden_layer;
-	struct weston_layer tiling_layer;
-	struct weston_layer floating_layer;
-	struct weston_layer fullscreen_layer;
 
-	/** current workspace can be in state like floating, tiling, fullscreen */
+struct tw_xdg_output;
+struct tw_workspace {
+	struct tw_layers_manager *layers_manager;
+	struct wl_list layouts;
+	uint32_t idx;
+
+	struct tw_layer hidden_layer;
+	/* the layers reflects the layer positions, fullscreen application has
+	 * to stay on top of UI layer thus requires additional layers */
+	struct tw_layer fullscreen_back_layer;
+	struct tw_layer back_layer;
+	/* here we have the tiling views, because tiling views have to occupy
+	 * the whole output, so it has to have its own layer.
+	 */
+	struct tw_layer mid_layer;
+	struct tw_layer front_layer;
+	struct tw_layer fullscreen_layer;
+
+	/** current workspace can be in state like floating, tiling,
+	 * fullscreen */
 	enum tw_layout_type current_layout;
 
-	//this list will be used in creating/deleting views. switch workspace,
-	//switch views by key, click views will be horrible though. You have to
-	//go through the list
-	//what about a hashed link-list ? Will it be faster?
+	// The list will be used in creating/deleting views. switch workspace,
+	// switch views by key, click views
 	struct wl_list recent_views;
-
-	//the only tiling layer here will create the problem when we want to do
-	//the stacking layout, for example. Only show two views.
 };
 
-struct recent_view {
-	struct weston_view *view;
+
+/**
+ * @brief xdg_view, represents a mapped desktop surface
+ */
+struct tw_xdg_view {
+	struct tw_desktop_surface *dsurf;
+	struct wl_signal dsurf_umapped_signal;
 	/*
 	  desktop surface has decorations(invisible portion)
 	  -----------------------
@@ -79,11 +86,18 @@ struct recent_view {
 	  x: visible geometry starts at x.
 	  y: decoration lenght in y.
 	*/
+	int32_t x, y;
+	/**< "Planed size" are set by us, where clients need to resize to, but
+	 * may not yet */
+	uint32_t planed_w, planed_h;
+	pixman_rectangle32_t old_geometry;
+	bool mapped;
 
-	struct weston_geometry visible_geometry;
-	struct weston_geometry old_geometry;
 	struct wl_list link;
-	enum tw_layout_type type;
+	enum tw_layout_type type, prev_type;
+	struct tw_xdg_layout *layout;
+	struct tw_layer *layer;
+	struct tw_xdg_output *output;
 
 	struct {
 		int32_t x;
@@ -92,103 +106,90 @@ struct recent_view {
 	} xwayland;
 };
 
-/*************************************************************
- * recent views
- ************************************************************/
-struct recent_view *recent_view_create(struct weston_view *view, enum tw_layout_type layout);
-void recent_view_destroy(struct recent_view *);
+struct tw_xdg_view *
+tw_xdg_view_create(struct tw_desktop_surface *dsurf);
 
-static inline struct recent_view *
-get_recent_view(struct weston_view *v)
-{
-	struct weston_desktop_surface *desk_surf =
-		weston_surface_get_desktop_surface(v->surface);
-	struct recent_view *rv =
-		weston_desktop_surface_get_user_data(desk_surf);
-	return rv;
-}
+void
+tw_xdg_view_destroy(struct tw_xdg_view *view);
 
-static inline void
-recent_view_get_origin_coord(const struct recent_view *v, float *x, float *y)
-{
-	*x = v->view->geometry.x + v->visible_geometry.x;
-	*y = v->view->geometry.y + v->visible_geometry.y;
-}
+void
+tw_xdg_view_set_position(struct tw_xdg_view *view, int x, int y);
 
+void
+tw_xdg_view_configure_size(struct tw_xdg_view *view, uint32_t w, uint32_t h);
 
-/************************************************************
+/******************************************************************************
  * workspace API
- ***********************************************************/
+ *****************************************************************************/
 void
-workspace_init(struct workspace *wp, struct weston_compositor *compositor);
+tw_workspace_init(struct tw_workspace *wp, struct tw_layers_manager *layers,
+                  uint32_t idx);
 
 void
-workspace_release(struct workspace *);
+tw_workspace_release(struct tw_workspace *);
 
-struct weston_view *
-workspace_switch(struct workspace *to, struct workspace *from);
+struct tw_xdg_view *
+tw_workspace_switch(struct tw_workspace *to, struct tw_workspace *from);
 
-struct weston_view *
-workspace_get_top_view(const struct workspace *ws);
+struct tw_xdg_view *
+tw_workspace_get_top_view(const struct tw_workspace *ws);
 
 const char *
-workspace_layout_name(struct workspace *ws);
+tw_workspace_layout_name(struct tw_workspace *ws);
 
 bool
-is_view_on_workspace(const struct weston_view *v, const struct workspace *ws);
-
+tw_workspace_has_view(const struct tw_workspace *ws,
+                      const struct tw_xdg_view *v);
 bool
-is_workspace_empty(const struct workspace *ws);
+tw_workspace_empty(const struct tw_workspace *ws);
 
 //we probably should leave this function to arrange_view_for_workspace
 bool
-workspace_focus_view(struct workspace *ws, struct weston_view *v);
+tw_workspace_focus_view(struct tw_workspace *ws, struct tw_xdg_view *v);
 
-struct weston_view *
-workspace_defocus_view(struct workspace *ws, struct weston_view *v);
-
+struct tw_xdg_view *
+tw_workspace_defocus_view(struct tw_workspace *ws,
+                          struct tw_xdg_view *v);
 void
-workspace_add_view(struct workspace *w, struct weston_view *view);
+tw_workspace_add_view(struct tw_workspace *w, struct tw_xdg_view *v);
 
 bool
-workspace_move_view(struct workspace *w, struct weston_view *v,
-                    const struct weston_position *pos);
+tw_workspace_move_view(struct tw_workspace *w, struct tw_xdg_view *v,
+                       double dx, double dy);
 void
-workspace_resize_view(struct workspace *w, struct weston_view *v,
-                      wl_fixed_t x, wl_fixed_t y,
-                      double dx, double dy);
-
+tw_workspace_resize_view(struct tw_workspace *w, struct tw_xdg_view *v,
+                         double dx, double dy,
+                         enum wl_shell_surface_resize edge);
 void
-workspace_view_run_command(struct workspace *w, struct weston_view *v,
-                           enum layout_command command);
+tw_workspace_run_layout_command(struct tw_workspace *w,
+                                enum tw_xdg_layout_command command,
+                                const struct tw_xdg_layout_op *op);
 
 //resize is done directly inside desktop for now
 bool
-workspace_remove_view(struct workspace *w, struct weston_view *v);
+tw_workspace_remove_view(struct tw_workspace *w, struct tw_xdg_view *v);
 
 void
-workspace_fullscreen_view(struct workspace *w, struct weston_view *v,
-                          bool fullscreen);
+tw_workspace_fullscreen_view(struct tw_workspace *w, struct tw_xdg_view *v,
+                             struct tw_xdg_output *output, bool fullscreen);
+void
+tw_workspace_maximize_view(struct tw_workspace *w, struct tw_xdg_view *v,
+                           bool maximized);
+void
+tw_workspace_minimize_view(struct tw_workspace *w, struct tw_xdg_view *v);
 
 void
-workspace_maximize_view(struct workspace *w, struct weston_view *v,
-                        bool maximized, const struct weston_geometry *geo);
+tw_workspace_switch_layout(struct tw_workspace *w, struct tw_xdg_view *v);
 
 void
-workspace_minimize_view(struct workspace *w, struct weston_view *v);
-
+tw_workspace_add_output(struct tw_workspace *wp,
+                        struct tw_xdg_output *output);
 void
-workspace_switch_layout(struct workspace *w, struct weston_view *v);
-
+tw_workspace_remove_output(struct tw_workspace *w,
+                           struct tw_xdg_output *output);
 void
-workspace_add_output(struct workspace *wp, struct tw_output *output);
-
-void
-workspace_remove_output(struct workspace *w, struct weston_output *output);
-
-void
-workspace_resize_output(struct workspace *wp, struct tw_output *output);
-
+tw_workspace_resize_output(struct tw_workspace *wp,
+                           struct tw_xdg_output *output);
 
 #ifdef  __cplusplus
 }

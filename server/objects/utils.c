@@ -20,6 +20,7 @@
  */
 
 #include <assert.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 
 #include "signal.h"
@@ -50,6 +51,20 @@ tw_set_resource_destroy_listener(struct wl_resource *resource,
 	wl_list_init(&listener->link);
 	listener->notify = notify;
 	wl_resource_add_destroy_listener(resource, listener);
+}
+
+void
+tw_set_display_destroy_listener(struct wl_display *display,
+                                struct wl_listener *listener,
+                                wl_notify_func_t notify)
+{
+	assert(display);
+	assert(listener);
+	assert(notify);
+
+	wl_list_init(&listener->link);
+	listener->notify = notify;
+	wl_display_add_destroy_listener(display, listener);
 }
 
 static void

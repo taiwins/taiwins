@@ -50,13 +50,9 @@
 #define _GNU_SOURCE
 #endif
 
-#define MAX_WORKSPACE 8
-
 #ifdef  __cplusplus
 extern "C" {
 #endif
-
-#define TW_VIEW_TMP_LINK 3
 
 struct tw_server {
 	struct wl_display *display;

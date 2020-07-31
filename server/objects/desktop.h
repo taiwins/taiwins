@@ -105,6 +105,8 @@ struct tw_desktop_surface {
 	                  int32_t x, int32_t y,
 	                  unsigned width, unsigned height);
 	void (*close)(struct tw_desktop_surface *surface);
+
+	void *user_data;
 };
 
 struct tw_desktop_manager {
