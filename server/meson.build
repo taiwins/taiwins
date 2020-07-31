@@ -6,7 +6,89 @@ if get_option('enable-profiler')
    taiwins_cargs += '-D_TW_ENABLE_PROFILING'
 endif
 
-####### dummy server
+pkgconfig = import('pkgconfig')
+
+subdir('include')
+
+####### taiwins objects
+
+taiwins_obj_srcs = [
+  'objects/utils.c',
+  'objects/seat/seat.c',
+  'objects/seat/seat_keyboard.c',
+  'objects/seat/seat_pointer.c',
+  'objects/seat/seat_touch.c',
+  'objects/dmabuf.c',
+  'objects/compositor.c',
+  'objects/surface.c',
+  'objects/region.c',
+  'objects/buffer.c',
+  'objects/layers.c',
+  'objects/logger.c',
+  'objects/profiler.c',
+  'objects/subprocess.c',
+  'objects/data_device/data_device.c',
+  'objects/data_device/data_source.c',
+  'objects/data_device/data_offer.c',
+  'objects/data_device/data_dnd.c',
+  'objects/matrix.c',
+  'objects/plane.c',
+  'objects/cursor.c',
+  'objects/popup_grab.c',
+  'objects/desktop/desktop.c',
+  'objects/desktop/desktop_wl_shell.c',
+  'objects/desktop/desktop_xdg_shell.c',
+
+  wayland_linux_dmabuf_server_protocol_h,
+  wayland_linux_dmabuf_private_code_c,
+  wayland_viewporter_server_protocol_h,
+  wayland_viewporter_private_code_c,
+  wayland_presentation_time_server_protocol_h,
+  wayland_presentation_time_private_code_c,
+  wayland_xdg_shell_server_protocol_h,
+  wayland_xdg_shell_private_code_c,
+  wayland_xdg_output_server_protocol_h,
+  wayland_xdg_output_private_code_c,
+]
+
+taiwins_objects_inc = include_directories('include')
+
+taiwins_objects_deps = [
+    dep_wayland_server,
+    dep_ctypes,
+    dep_pixman,
+    dep_xkbcommon,
+    dep_glesv2,
+    dep_libdrm,
+    dep_dl,
+    dep_m,
+]
+
+lib_taiwins_objects = both_libraries(
+  'taiwins-objects',
+  taiwins_obj_srcs,
+  c_args : taiwins_cargs,
+  dependencies : taiwins_objects_deps,
+  include_directories : taiwins_objects_inc,
+  install : true,
+  )
+
+dep_taiwins_objects = declare_dependency(
+  link_with : lib_taiwins_objects,
+  compile_args : taiwins_cargs,
+  include_directories : taiwins_objects_inc,
+  dependencies : taiwins_objects_deps,
+)
+
+pkgconfig.generate(
+  lib_taiwins_objects,
+  filebase : 'taiwins-objects',
+  name : 'taiwins objects',
+  version: meson.project_version(),
+  description: 'Taiwins wayland objects library',
+)
+
+####### server
 taiwins_src = [
   'main.c',
   'taiwins.c',
@@ -32,54 +114,20 @@ taiwins_src = [
   'desktop/layout_fullscreen.c',
   'desktop/layout_tiling.c',
 
-  'objects/utils.c',
-  'objects/seat.c',
-  'objects/seat_keyboard.c',
-  'objects/seat_pointer.c',
-  'objects/seat_touch.c',
-  'objects/dmabuf.c',
-  'objects/compositor.c',
-  'objects/surface.c',
-  'objects/region.c',
-  'objects/buffer.c',
-  'objects/layers.c',
-  'objects/logger.c',
-  'objects/profiler.c',
-  'objects/subprocess.c',
-  'objects/data_device.c',
-  'objects/data_source.c',
-  'objects/data_offer.c',
-  'objects/data_dnd.c',
-  'objects/matrix.c',
-  'objects/plane.c',
-  'objects/cursor.c',
-  'objects/desktop.c',
-  'objects/popup_grab.c',
-  'objects/desktop_wl_shell.c',
-  'objects/desktop_xdg_shell.c',
-
-  wayland_linux_dmabuf_server_protocol_h,
-  wayland_linux_dmabuf_private_code_c,
-  wayland_viewporter_server_protocol_h,
-  wayland_viewporter_private_code_c,
-  wayland_presentation_time_server_protocol_h,
-  wayland_presentation_time_private_code_c,
-  wayland_xdg_shell_server_protocol_h,
-  wayland_xdg_shell_private_code_c,
-  wayland_xdg_output_server_protocol_h,
-  wayland_xdg_output_private_code_c,
-
   wayland_taiwins_shell_server_protocol_h,
   wayland_taiwins_shell_private_code_c,
   wayland_wlr_layer_shell_server_protocol_h,
   wayland_wlr_layer_shell_private_code_c,
+  wayland_xdg_shell_private_code_c,
 ]
+
 taiwins = executable(
   'taiwins',
   taiwins_src,
   c_args : taiwins_cargs,
   dependencies : [
     dep_wayland_server,
+    dep_taiwins_objects,
     dep_ctypes,
     dep_wlroots,
     dep_libweston, #finally we would get rid of this

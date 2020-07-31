@@ -32,8 +32,8 @@
 #include <wlr/types/wlr_input_device.h>
 
 #include <ctypes/helpers.h>
+#include <taiwins/objects/seat.h>
 
-#include "objects/seat.h"
 #include "backend/backend.h"
 #include "binding/bindings.h"
 #include "input.h"

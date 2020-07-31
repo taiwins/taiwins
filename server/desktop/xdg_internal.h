@@ -28,8 +28,8 @@
 #include <backend/backend.h>
 #include <wayland-server-core.h>
 
-#include <objects/seat.h>
-#include <objects/desktop.h>
+#include <taiwins/objects/seat.h>
+#include <taiwins/objects/desktop.h>
 
 #include "desktop/layout.h"
 #include "xdg.h"

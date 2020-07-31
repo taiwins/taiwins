@@ -20,8 +20,7 @@
  */
 #include <wayland-util.h>
 
-#include <objects/surface.h>
-
+#include <taiwins/objects/surface.h>
 #include <backend/backend.h>
 #include <renderer/renderer.h>
 

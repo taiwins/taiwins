@@ -21,7 +21,7 @@
 
 #include <assert.h>
 #include <stdio.h>
-#include "logger.h"
+#include <taiwins/objects/logger.h>
 
 static FILE *tw_logfile = NULL;
 

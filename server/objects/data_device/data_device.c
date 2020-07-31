@@ -29,8 +29,8 @@
 #include <wayland-util.h>
 #include <ctypes/helpers.h>
 
-#include "data_device.h"
-#include "objects/seat.h"
+#include <taiwins/objects/data_device.h>
+#include <taiwins/objects/seat.h>
 
 static struct tw_data_device_manager s_tw_data_device_manager;
 

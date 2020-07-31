@@ -22,8 +22,7 @@
 #include <assert.h>
 #include <wayland-server-core.h>
 #include <wayland-server.h>
-
-#include "signal.h"
+#include <taiwins/objects/utils.h>
 
 void
 tw_signal_setup_listener(struct wl_signal *signal,

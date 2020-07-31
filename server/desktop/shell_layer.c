@@ -25,10 +25,10 @@
 #include <wayland-util.h>
 #include <wayland-wlr-layer-shell-server-protocol.h>
 
-#include <objects/surface.h>
-#include <objects/layers.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/layers.h>
 
-#include "backend/backend.h"
+#include <backend/backend.h>
 #include "desktop/shell.h"
 #include "shell_internal.h"
 

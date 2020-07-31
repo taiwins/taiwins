@@ -29,7 +29,7 @@
 #include <wayland-util.h>
 
 #include <ctypes/helpers.h>
-#include "compositor.h"
+#include <taiwins/objects/compositor.h>
 
 #define COMPOSITOR_VERSION 4
 #define SUBCOMPOSITOR_VERSION 1

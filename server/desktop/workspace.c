@@ -24,14 +24,13 @@
 #include <wayland-server.h>
 #include <pixman.h>
 #include <ctypes/helpers.h>
-#include <objects/utils.h>
-#include <objects/surface.h>
-#include <wayland-util.h>
+#include <taiwins/objects/utils.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/desktop.h>
+#include <taiwins/objects/layers.h>
+#include <taiwins/objects/logger.h>
 
 #include "desktop/xdg.h"
-#include "objects/desktop.h"
-#include "objects/layers.h"
-#include "objects/logger.h"
 #include "shell.h"
 #include "workspace.h"
 #include "layout.h"

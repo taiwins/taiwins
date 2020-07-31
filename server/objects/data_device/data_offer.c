@@ -26,7 +26,8 @@
 #include <wayland-util.h>
 #include <ctypes/helpers.h>
 
-#include "data_device.h"
+#include <taiwins/objects/data_device.h>
+#include <taiwins/objects/seat.h>
 
 static const struct wl_data_offer_interface data_offer_impl;
 

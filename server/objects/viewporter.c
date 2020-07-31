@@ -25,8 +25,8 @@
 #include <wayland-viewporter-server-protocol.h>
 #include <ctypes/helpers.h>
 
-#include "viewporter.h"
-#include "surface.h"
+#include <taiwins/objects/viewporter.h>
+#include <taiwins/objects/surface.h>
 
 #define VIEWPORTER_VERSION 1
 

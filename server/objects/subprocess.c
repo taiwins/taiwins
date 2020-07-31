@@ -30,8 +30,8 @@
 #include <ctypes/os/os-compatibility.h>
 #include <ctypes/helpers.h>
 
-#include "logger.h"
-#include "subprocess.h"
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/subprocess.h>
 
 
 static int

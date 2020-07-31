@@ -19,9 +19,9 @@
  *
  */
 
-#include "plane.h"
-#include "pixman.h"
+#include <pixman.h>
 #include <wayland-util.h>
+#include <taiwins/objects/plane.h>
 
 void
 tw_plane_init(struct tw_plane *plane)

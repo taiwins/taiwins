@@ -34,13 +34,13 @@
 #include <wlr/render/wlr_renderer.h>
 #include <xkbcommon/xkbcommon.h>
 
-#include <objects/matrix.h>
-#include <objects/surface.h>
-#include <objects/layers.h>
-#include <objects/data_device.h>
-#include <objects/compositor.h>
-#include <objects/dmabuf.h>
-#include <objects/cursor.h>
+#include <taiwins/objects/matrix.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/layers.h>
+#include <taiwins/objects/data_device.h>
+#include <taiwins/objects/compositor.h>
+#include <taiwins/objects/dmabuf.h>
+#include <taiwins/objects/cursor.h>
 
 
 #ifdef  __cplusplus

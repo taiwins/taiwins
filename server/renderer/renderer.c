@@ -35,9 +35,9 @@
 #include <ctypes/helpers.h>
 #include <wayland-util.h>
 
-#include "objects/dmabuf.h"
-#include "objects/logger.h"
-#include "objects/surface.h"
+#include <taiwins/objects/dmabuf.h>
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/surface.h>
 #include "shaders.h"
 #include "renderer.h"
 

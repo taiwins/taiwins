@@ -24,8 +24,8 @@
 #include <wayland-server-protocol.h>
 #include <wayland-server.h>
 
-#include "surface.h"
-#include "utils.h"
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/utils.h>
 
 static void
 region_destroy(struct wl_client *client,

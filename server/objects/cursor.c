@@ -21,17 +21,15 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
+#include <pixman.h>
 
 #include <ctypes/helpers.h>
-#include <wayland-util.h>
 
-#include "cursor.h"
-#include "logger.h"
-#include "pixman.h"
-#include "surface.h"
-#include "layers.h"
+#include <taiwins/objects/cursor.h>
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/layers.h>
 
 #define TW_CURSOR_ROLE "tw_cursor_role"
 

@@ -24,9 +24,9 @@
 #include <math.h>
 #include <wayland-server.h>
 #include <ctypes/helpers.h>
-#include <objects/seat.h>
-#include <objects/logger.h>
-#include <objects/utils.h>
+#include <taiwins/objects/seat.h>
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/utils.h>
 #include <wayland-util.h>
 
 #include "xdg_internal.h"

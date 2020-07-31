@@ -29,11 +29,10 @@
 #include <wayland-server.h>
 #include <pixman.h>
 #include <wayland-util.h>
-
-#include "ctypes/helpers.h"
-#include "objects/matrix.h"
-#include "objects/utils.h"
-#include "surface.h"
+#include <ctypes/helpers.h>
+#include <taiwins/objects/matrix.h>
+#include <taiwins/objects/utils.h>
+#include <taiwins/objects/surface.h>
 
 #define CALLBACK_VERSION 1
 #define SURFACE_VERSION 4

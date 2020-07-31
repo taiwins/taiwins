@@ -31,8 +31,8 @@
 #include <GLES2/gl2ext.h>
 #include <EGL/egl.h>
 
-#include <objects/surface.h>
-#include <objects/dmabuf.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/dmabuf.h>
 
 #ifdef  __cplusplus
 extern "C" {

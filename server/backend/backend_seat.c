@@ -29,14 +29,14 @@
 #include <xkbcommon/xkbcommon-compat.h>
 #include <xkbcommon/xkbcommon.h>
 #include <ctypes/helpers.h>
-#include <objects/seat.h>
-#include <objects/profiler.h>
+#include <taiwins/objects/seat.h>
+#include <taiwins/objects/profiler.h>
+#include <taiwins/objects/cursor.h>
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/surface.h>
 
-#include "backend.h"
+#include "backend/backend.h"
 #include "backend_internal.h"
-#include "objects/cursor.h"
-#include "objects/logger.h"
-#include "objects/surface.h"
 
 /******************************************************************************
  * keyboard functions

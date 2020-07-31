@@ -2,7 +2,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <math.h>
-#include <matrix.h>
+#include <taiwins/objects/matrix.h>
 
 #define EPSILON 1.0e-6
 

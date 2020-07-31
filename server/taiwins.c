@@ -44,8 +44,8 @@
 
 #include <renderer/renderer.h>
 #include <backend/backend.h>
-#include <objects/surface.h>
-#include <objects/compositor.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/compositor.h>
 #include "desktop/shell.h"
 #include "taiwins.h"
 

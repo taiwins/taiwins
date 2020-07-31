@@ -24,7 +24,7 @@
 
 #include <ctypes/helpers.h>
 #include <wayland-server-protocol.h>
-#include <objects/surface.h>
+#include <taiwins/objects/surface.h>
 
 #include "layout.h"
 #include "workspace.h"

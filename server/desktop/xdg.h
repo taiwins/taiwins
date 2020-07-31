@@ -28,8 +28,8 @@
 #include <backend/backend.h>
 #include <wayland-server-core.h>
 
-#include <objects/seat.h>
-#include <objects/desktop.h>
+#include <taiwins/objects/seat.h>
+#include <taiwins/objects/desktop.h>
 
 #define MAX_WORKSPACES 9
 
