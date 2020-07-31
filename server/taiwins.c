@@ -21,11 +21,6 @@
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
-#include "wlr/types/wlr_matrix.h"
-#include "ctypes/helpers.h"
-#include "desktop/xdg.h"
-#include <wayland-server-core.h>
-#include <wayland-util.h>
 #endif
 
 #include <limits.h>
@@ -41,12 +36,14 @@
 #include <wayland-server.h>
 #include <wlr/types/wlr_matrix.h>
 #include <ctypes/os/os-compatibility.h>
+#include <ctypes/helpers.h>
 
 #include <renderer/renderer.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/compositor.h>
 #include "backend.h"
-#include "desktop/shell.h"
+#include "xdg.h"
+#include "shell.h"
 #include "taiwins.h"
 
 void *
