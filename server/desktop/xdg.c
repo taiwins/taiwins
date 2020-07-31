@@ -30,8 +30,8 @@
 #include <wayland-util.h>
 
 #include "backend.h"
-#include "desktop/layout.h"
-#include "desktop/xdg.h"
+#include "layout.h"
+#include "xdg.h"
 #include "shell.h"
 #include "workspace.h"
 #include "xdg_internal.h"

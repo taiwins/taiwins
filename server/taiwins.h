@@ -42,7 +42,7 @@
 #include <taiwins/objects/data_device.h>
 
 #include "backend.h"
-#include "desktop/xdg.h"
+#include "xdg.h"
 #include "input.h"
 
 #ifndef _GNU_SOURCE

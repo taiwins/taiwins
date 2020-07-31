@@ -28,7 +28,7 @@
 #include <wayland-server.h>
 #include <wayland-util.h>
 
-#include "desktop/xdg.h"
+#include "xdg.h"
 #include "workspace.h"
 #include "layout.h"
 

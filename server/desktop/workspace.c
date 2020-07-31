@@ -30,7 +30,7 @@
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/logger.h>
 
-#include "desktop/xdg.h"
+#include "xdg.h"
 #include "shell.h"
 #include "workspace.h"
 #include "layout.h"
