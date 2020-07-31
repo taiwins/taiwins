@@ -29,9 +29,9 @@
 #include <taiwins/objects/surface.h>
 #include <pixman.h>
 #include <binding/bindings.h>
-#include <backend/backend.h>
 #include <wayland-util.h>
 
+#include "backend.h"
 #include "shell.h"
 
 #ifdef  __cplusplus

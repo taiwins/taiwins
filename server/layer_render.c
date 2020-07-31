@@ -21,7 +21,7 @@
 #include <wayland-util.h>
 
 #include <taiwins/objects/surface.h>
-#include <backend/backend.h>
+#include "backend.h"
 #include <renderer/renderer.h>
 
 #include "pixman.h"

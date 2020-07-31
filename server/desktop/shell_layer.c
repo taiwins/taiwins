@@ -28,8 +28,8 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/layers.h>
 
-#include <backend/backend.h>
-#include "desktop/shell.h"
+#include "backend.h"
+#include "shell.h"
 #include "shell_internal.h"
 
 #define LAYER_SHELL_VERSION 1

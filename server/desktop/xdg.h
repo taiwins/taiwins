@@ -25,11 +25,11 @@
 #include <pixman.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <backend/backend.h>
 #include <wayland-server-core.h>
 
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/desktop.h>
+#include "backend.h"
 
 #define MAX_WORKSPACES 9
 

@@ -41,7 +41,7 @@
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/data_device.h>
 
-#include "backend/backend.h"
+#include "backend.h"
 #include "desktop/xdg.h"
 #include "input.h"
 

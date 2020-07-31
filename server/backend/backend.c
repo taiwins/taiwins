@@ -49,8 +49,8 @@
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/surface.h>
 
+#include "backend.h"
 #include "backend_internal.h"
-#include "backend/backend.h"
 
 static struct tw_backend s_tw_backend = {0};
 static struct tw_backend_impl s_tw_backend_impl;

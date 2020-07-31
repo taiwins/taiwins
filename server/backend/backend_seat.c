@@ -35,7 +35,7 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/surface.h>
 
-#include "backend/backend.h"
+#include "backend.h"
 #include "backend_internal.h"
 
 /******************************************************************************

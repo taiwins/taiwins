@@ -28,7 +28,6 @@
 #include <taiwins/objects/layers.h>
 #include <wayland-server-protocol.h>
 
-#include "backend/backend.h"
 #include "layout.h"
 
 #ifdef  __cplusplus

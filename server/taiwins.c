@@ -43,9 +43,9 @@
 #include <ctypes/os/os-compatibility.h>
 
 #include <renderer/renderer.h>
-#include <backend/backend.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/compositor.h>
+#include "backend.h"
 #include "desktop/shell.h"
 #include "taiwins.h"
 

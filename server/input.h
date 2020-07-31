@@ -26,7 +26,7 @@
 #include <wlr/types/wlr_input_device.h>
 
 #include <taiwins/objects/seat.h>
-#include <backend/backend.h>
+#include <backend.h>
 #include <binding/bindings.h>
 
 #ifdef  __cplusplus

@@ -38,7 +38,7 @@
 #include "binding/bindings.h"
 #include "taiwins.h"
 #include "bindings.h"
-#include "backend/backend.h"
+#include "backend.h"
 #include "input.h"
 
 struct tw_options {

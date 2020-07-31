@@ -29,9 +29,9 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
 
-#include "backend/backend.h"
-#include "renderer/renderer.h"
+#include "backend.h"
 #include "backend_internal.h"
+#include "renderer/renderer.h"
 
 /******************************************************************************
  * buffer imports

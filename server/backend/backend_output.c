@@ -22,7 +22,7 @@
 #include <ctypes/helpers.h>
 #include <wayland-server.h>
 
-#include "backend/backend.h"
+#include "backend.h"
 #include "backend_internal.h"
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/matrix.h>

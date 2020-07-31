@@ -25,7 +25,7 @@
 #include <wlr/types/wlr_seat.h>
 
 #include <taiwins/objects/seat.h>
-#include "backend/backend.h"
+#include "backend.h"
 
 #ifdef  __cplusplus
 extern "C" {

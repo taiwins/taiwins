@@ -29,7 +29,7 @@
 #include <taiwins/objects/seat.h>
 #include <wayland-util.h>
 
-#include "backend/backend.h"
+#include "backend.h"
 #include "desktop/layout.h"
 #include "desktop/xdg.h"
 #include "shell.h"

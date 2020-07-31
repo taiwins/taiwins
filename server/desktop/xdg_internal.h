@@ -25,7 +25,7 @@
 #include <pixman.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <backend/backend.h>
+#include <backend.h>
 #include <wayland-server-core.h>
 
 #include <taiwins/objects/seat.h>

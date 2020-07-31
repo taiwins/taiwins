@@ -34,7 +34,7 @@
 #include <ctypes/helpers.h>
 #include <taiwins/objects/seat.h>
 
-#include "backend/backend.h"
+#include "backend.h"
 #include "binding/bindings.h"
 #include "input.h"
 #include "taiwins.h"
