@@ -184,6 +184,7 @@ buffer_params_add(struct wl_client *client,
 	buffer->attributes.offsets[plane_idx] = offset;
 	buffer->attributes.strides[plane_idx] = stride;
 	buffer->attributes.n_planes++;
+	return;
 out:
 	close(fd);
 }
@@ -260,7 +261,7 @@ buffer_params_create_common(struct wl_client *client,
 		if (size == -1)
 			continue;
 		// here we have error on either offsets[i] > size;
-		//offsets[i]+strides[i] > size; offsets[i] + strides[i] * height
+		//offsets[i]+strides[i] > size; offsets[i] + strides[i] * h
 		//> size. the last one the the most strict case.
 		if (buffer->attributes.offsets[i] +
 		    buffer->attributes.strides[i] * height > size) {
@@ -271,12 +272,22 @@ buffer_params_create_common(struct wl_client *client,
 		}
 		// planes > 0 might be subsampled according to fourcc format
 		if (i == 0 && buffer->attributes.offsets[i] +
-				buffer->attributes.strides[i] * height > size) {
+				buffer->attributes.strides[i]*height > size) {
 			wl_resource_post_error(param_resource,
 				ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_OUT_OF_BOUNDS,
-				"invalid buffer stride or height for plane %d", i);
+				"invalid buffer stride or height for plane %d",
+			                       i);
 			goto err_out;
 		}
+	}
+	//TODO: now only y_inverted flags are supported
+	if (buffer->attributes.flags &
+	    ~ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT) {
+		wl_resource_post_error(
+			param_resource,
+			ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_INVALID_FORMAT,
+			"unknown dmabuf flags %d", buffer->attributes.flags);
+		goto err_out;
 	}
 	//now the dma buffer need to
 	if (!test_import_buffer(dma, &buffer->attributes))
@@ -293,6 +304,7 @@ buffer_params_create_common(struct wl_client *client,
 	wl_resource_set_implementation(buffer->buffer_resource,
 	                               &wl_buffer_impl, buffer,
 	                               destroy_wl_buffer);
+	return;
 err_buffer:
 err_failed:
 	if (id == 0)
@@ -337,7 +349,6 @@ buffer_params_destroy(struct wl_resource *resource)
 {
 	struct tw_dmabuf_buffer *buffer =
 		buffer_params_from_resource(resource);
-	wl_list_remove(wl_resource_get_link(resource));
 	free(buffer);
 }
 
@@ -395,8 +406,6 @@ static const struct zwp_linux_dmabuf_v1_interface dmabuf_v1_impl = {
 static void
 dmabuf_destroy_resource(struct wl_resource *resource)
 {
-	/* struct tw_linux_dmabuf *dmabuf = resource; */
-	wl_list_remove(wl_resource_get_link(resource));
 }
 
 static bool

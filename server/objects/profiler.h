@@ -1,5 +1,5 @@
 /*
- * shaders.h - taiwins server shaders
+ * profiler.h - taiwins server profiler handler
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -19,55 +19,42 @@
  *
  */
 
-#ifndef TW_SHADERS_H
-#define TW_SHADERS_H
+#ifndef TW_PROFILER_H
+#define TW_PROFILER_H
 
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
-#include <EGL/egl.h>
+#include <stdbool.h>
+#include <wayland-server-core.h>
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-struct tw_quad_color_shader {
-	GLuint prog;
-	struct {
-		GLuint proj;
-		GLuint color;
-	} uniform;
-};
-
-struct tw_quad_tex_shader {
-	GLuint prog;
-	/* used by normal alpha blending and gaussin blur shader */
-	struct {
-		GLuint proj;
-		GLuint alpha;
-		GLuint texture;
-	} uniform;
-};
+bool
+tw_profiler_open(struct wl_display *display, const char *file);
 
 void
-tw_quad_color_shader_init(struct tw_quad_color_shader *shader);
+tw_profiler_close();
 
 void
-tw_quad_color_shader_fini(struct tw_quad_color_shader *shader);
+tw_profiler_start_timer(const char *name);
 
 void
-tw_quad_tex_blend_shader_init(struct tw_quad_tex_shader *shader);
+tw_profiler_stop_timer(const char *name);
 
-void
-tw_quad_tex_blend_shader_fini(struct tw_quad_tex_shader *shader);
+#ifdef _TW_ENABLE_PROFILING
 
-void
-tw_quad_tex_blur_shader_init(struct tw_quad_tex_shader *shader);
+#define SCOPE_PROFILE_BEG() tw_profiler_start_timer(__func__)
+#define SCOPE_PROFILE_END() tw_profiler_stop_timer(__func__)
 
-void
-tw_quad_tex_blur_shader_fini(struct tw_quad_tex_shader *shader);
+#else
+
+#define SCOPE_PROFILE_BEG()
+#define SCOPE_PROFILE_END()
+
+#endif
 
 #ifdef  __cplusplus
 }
 #endif
 
-#endif
+#endif /* EOF */

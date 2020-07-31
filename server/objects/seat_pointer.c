@@ -28,6 +28,7 @@
 
 #include <ctypes/helpers.h>
 
+#include "objects/utils.h"
 #include "seat.h"
 #include "taiwins.h"
 
@@ -36,28 +37,9 @@ notify_pointer_enter(struct tw_seat_pointer_grab *grab,
                      struct wl_resource *surface,
                      double sx, double sy)
 {
-	uint32_t serial;
-	struct wl_resource *resource;
 	struct tw_pointer *pointer = &grab->seat->pointer;
-	struct tw_seat_client *client =
-		tw_seat_client_find(grab->seat,
-		                    wl_resource_get_client(surface));
-	if (!client)
-		return;
-	if (pointer->focused_surface &&
-	    pointer->focused_client) {
-		serial = wl_display_next_serial(grab->seat->display);
-		wl_resource_for_each(resource, &client->pointers)
-			wl_pointer_send_leave(resource, serial,
-			                      pointer->focused_surface);
-	}
-	pointer->focused_client = client;
-	pointer->focused_surface = surface;
-	serial = wl_display_get_serial(grab->seat->display);
-	wl_resource_for_each(resource, &client->pointers)
-		wl_pointer_send_enter(resource, serial, surface,
-		                      wl_fixed_from_double(sx),
-		                      wl_fixed_from_double(sy));
+
+	tw_pointer_set_focus(pointer, surface, sx, sy);
 }
 
 static void
@@ -75,7 +57,7 @@ notify_pointer_motion(struct tw_seat_pointer_grab *grab,
 			                       wl_fixed_from_double(sy));
 }
 
-static uint32_t
+static void
 notify_pointer_button(struct tw_seat_pointer_grab *grab,
                       uint32_t time_msec, uint32_t button,
                       enum wl_pointer_button_state state)
@@ -88,8 +70,9 @@ notify_pointer_button(struct tw_seat_pointer_grab *grab,
 		wl_resource_for_each(resource, &client->pointers)
 			wl_pointer_send_button(resource, serial, time_msec,
 			                       button, state);
-			}
-	return serial;
+		//XXX forcusing on the clients should be compositor logic
+	}
+	grab->seat->last_pointer_serial = serial;
 }
 
 static void
@@ -101,17 +84,22 @@ notify_pointer_axis(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
 	struct wl_resource *resource;
 	struct tw_pointer *pointer = &grab->seat->pointer;
 	struct tw_seat_client *client = pointer->focused_client;
+	uint32_t version;
 	if (client) {
 		wl_resource_for_each(resource, &client->pointers) {
+			version = wl_resource_get_version(resource);
 			if (value)
 				wl_pointer_send_axis(resource, time_msec,
 				                     orientation,
 				                     wl_fixed_from_double(
 					                     value));
-			else if (value_discrete)
+			else if (value_discrete &&
+			         version >= WL_POINTER_AXIS_DISCRETE_SINCE_VERSION)
 				wl_pointer_send_axis_discrete(resource,
 				                              time_msec,
 				                              value_discrete);
+			if (version >= WL_POINTER_AXIS_SOURCE_SINCE_VERSION)
+				wl_pointer_send_axis_source(resource, source);
 		}
 		//TODO, we are not able to send stop event?
 	}
@@ -125,7 +113,9 @@ notify_pointer_frame(struct tw_seat_pointer_grab *grab)
 	struct tw_seat_client *client = pointer->focused_client;
 	if (client) {
 		wl_resource_for_each(resource, &client->pointers)
-			wl_pointer_send_frame(resource);
+			if (wl_resource_get_version(resource) >=
+			    WL_POINTER_FRAME_SINCE_VERSION)
+				wl_pointer_send_frame(resource);
 	}
 }
 
@@ -144,6 +134,17 @@ static const struct tw_pointer_grab_interface default_grab_impl = {
 	.cancel = notify_pointer_cancel,
 };
 
+static void
+notify_focused_disappear(struct wl_listener *listener, void *data)
+{
+	struct tw_pointer *pointer =
+		container_of(listener, struct tw_pointer,
+		             focused_destroy);
+	pointer->focused_surface = NULL;
+	pointer->focused_client = NULL;
+	wl_list_remove(&listener->link);
+	wl_list_init(&listener->link);
+}
 
 struct tw_pointer *
 tw_seat_new_pointer(struct tw_seat *seat)
@@ -159,6 +160,9 @@ tw_seat_new_pointer(struct tw_seat *seat)
 	pointer->default_grab.seat = seat;
 	pointer->default_grab.impl = &default_grab_impl;
 	pointer->grab = &pointer->default_grab;
+
+	wl_list_init(&pointer->focused_destroy.link);
+	pointer->focused_destroy.notify = notify_focused_disappear;
 
 	seat->capabilities |= WL_SEAT_CAPABILITY_POINTER;
 	tw_seat_send_capabilities(seat);
@@ -203,26 +207,90 @@ tw_pointer_end_grab(struct tw_pointer *pointer)
 }
 
 void
-tw_pointer_noop_enter(struct tw_seat_pointer_grab *grab,
-                      struct wl_resource *surface, double sx, double sy) {}
-void
-tw_pointer_noop_motion(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
-                       double sx, double sy) {}
-uint32_t
-tw_pointer_noop_button(struct tw_seat_pointer_grab *grab,
-                       uint32_t time_msec, uint32_t button,
-                       enum wl_pointer_button_state state)
+tw_pointer_set_focus(struct tw_pointer *pointer,
+                     struct wl_resource *wl_surface,
+                     double sx, double sy)
 {
-	return 0;
+	uint32_t serial;
+	struct wl_resource *res;
+	struct tw_seat_client *client;
+	struct tw_seat *seat = container_of(pointer, struct tw_seat, pointer);
+
+	tw_pointer_clear_focus(pointer);
+	client = tw_seat_client_find(seat, wl_resource_get_client(wl_surface));
+	if (client) {
+		serial = wl_display_next_serial(seat->display);
+		wl_resource_for_each(res, &client->pointers)
+			wl_pointer_send_enter(res, serial, wl_surface,
+			                      wl_fixed_from_double(sx),
+			                      wl_fixed_from_double(sy));
+		pointer->focused_client = client;
+		pointer->focused_surface = wl_surface;
+
+		tw_reset_wl_list(&pointer->focused_destroy.link);
+		wl_resource_add_destroy_listener(wl_surface,
+		                                 &pointer->focused_destroy);
+	}
 }
 
 void
-tw_pointer_noop_axis(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
-                     enum wl_pointer_axis orientation, double value,
-                     int32_t value_discrete,
-                     enum wl_pointer_axis_source source) {}
-void
-tw_pointer_noop_frame(struct tw_seat_pointer_grab *grab) {}
+tw_pointer_clear_focus(struct tw_pointer *pointer)
+{
+	struct tw_seat_client *client;
+	struct wl_resource *res;
+	uint32_t serial;
+	struct tw_seat *seat = container_of(pointer, struct tw_seat, pointer);
+
+	if (pointer->focused_surface && pointer->focused_client) {
+		client = pointer->focused_client;
+		serial = wl_display_next_serial(seat->display);
+		wl_resource_for_each(res, &client->pointers)
+			wl_pointer_send_leave(res, serial,
+			                      pointer->focused_surface);
+	}
+	pointer->focused_client = NULL;
+	pointer->focused_surface = NULL;
+}
 
 void
-tw_pointer_noop_cancel(struct tw_seat_pointer_grab *grab) {}
+tw_pointer_notify_enter(struct tw_pointer *pointer,
+                        struct wl_resource *wl_surface,
+                        double sx, double sy)
+{
+	if (pointer->grab->impl->enter)
+		pointer->grab->impl->enter(pointer->grab, wl_surface, sx, sy);
+}
+
+void
+tw_pointer_notify_motion(struct tw_pointer *pointer, uint32_t time_msec,
+                         double sx, double sy)
+{
+	if (pointer->grab->impl->motion)
+		pointer->grab->impl->motion(pointer->grab, time_msec, sx, sy);
+}
+
+void
+tw_pointer_notify_button(struct tw_pointer *pointer, uint32_t time_msec,
+                         uint32_t button, enum wl_pointer_button_state state)
+{
+	if (pointer->grab->impl->button)
+		pointer->grab->impl->button(pointer->grab, time_msec,
+		                                   button, state);
+}
+
+void
+tw_pointer_notify_axis(struct tw_pointer *pointer, uint32_t time_msec,
+                       enum wl_pointer_axis axis, double val, int val_disc,
+                       enum wl_pointer_axis_source source)
+{
+	if (pointer->grab->impl->axis)
+		pointer->grab->impl->axis(pointer->grab, time_msec, axis,
+		                          val, val_disc, source);
+}
+
+void
+tw_pointer_notify_frame(struct tw_pointer *pointer)
+{
+	if (pointer->grab->impl->frame)
+		pointer->grab->impl->frame(pointer->grab);
+}

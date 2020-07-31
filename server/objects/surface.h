@@ -30,12 +30,16 @@
 #include <pixman.h>
 
 #include "matrix.h"
+#include "plane.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
 #define MAX_VIEW_LINKS 5
+#define TW_VIEW_LAYER_LINK 0
+#define TW_VIEW_GLOBAL_LINK 1
+#define TW_VIEW_OUTPUT_LINK 2
 
 enum tw_surface_state {
 	TW_SURFACE_ATTACHED = (1 << 0),
@@ -53,6 +57,7 @@ enum tw_surface_state {
 struct tw_surface;
 struct tw_surface_manager;
 
+typedef void (*tw_surface_commit_cb_t)(struct tw_surface *surface);
 /**
  * @brief tw_surface_buffer represents a buffer texture for the surface.
  *
@@ -103,6 +108,7 @@ struct tw_view {
 
 	struct tw_mat3 surface_to_buffer;
 
+	struct tw_plane *plane;
 	struct wl_resource *buffer_resource;
 
 	pixman_region32_t surface_damage, buffer_damage;
@@ -176,7 +182,7 @@ struct tw_surface {
 	struct {
 		const char *name;
 		void *commit_private;
-		void (*commit)(struct tw_surface *surface);
+		tw_surface_commit_cb_t commit;
 	} role;
 
 	struct {
@@ -241,6 +247,12 @@ tw_surface_from_resource(struct wl_resource *wl_surface);
 bool
 tw_surface_has_texture(struct tw_surface *surface);
 
+bool
+tw_surface_has_role(struct tw_surface *surface);
+
+void
+tw_surface_unmap(struct tw_surface *surface);
+
 /**
  * @brief dirty the geometry of the surface and subsurfaces.
  *
@@ -249,6 +261,15 @@ tw_surface_has_texture(struct tw_surface *surface);
  */
 void
 tw_surface_set_position(struct tw_surface *surface, int32_t x, int32_t y);
+
+void
+tw_surface_to_local_pos(struct tw_surface *surface, int32_t x, int32_t y,
+                        int32_t *sx, int32_t *sy);
+void
+tw_surface_to_global_pos(struct tw_surface *surface, uint32_t sx, uint32_t sy,
+                        int32_t *gx, int32_t *gy);
+bool
+tw_surface_has_point(struct tw_surface *surface, int32_t x, int32_t y);
 
 /**
  * @brief force dirting the geometry, it would damages all its clip region for
@@ -274,10 +295,12 @@ struct tw_subsurface *
 tw_subsurface_create(struct wl_client *client, uint32_t version,
                      uint32_t id, struct tw_surface *surface,
                      struct tw_surface *parent);
+void
+tw_subsurface_update_pos(struct tw_subsurface *sub,
+                         int32_t sx, int32_t sy);
 struct tw_region *
 tw_region_create(struct wl_client *client, uint32_t version, uint32_t id,
                  struct tw_surface_manager *manager);
-
 struct tw_region *
 tw_region_from_resource(struct wl_resource *wl_region);
 
@@ -288,7 +311,6 @@ bool
 tw_surface_buffer_update(struct tw_surface_buffer *buffer,
                          struct wl_resource *resource,
                          pixman_region32_t *damage);
-
 void
 tw_surface_buffer_new(struct tw_surface_buffer *buffer,
                       struct wl_resource *resource);

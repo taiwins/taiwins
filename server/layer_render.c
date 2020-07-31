@@ -20,9 +20,10 @@
  */
 #include <wayland-util.h>
 
-#include "backend/backend.h"
-#include "backend/render/renderer.h"
-#include "objects/surface.h"
+#include <objects/surface.h>
+
+#include <backend/backend.h>
+#include <renderer/renderer.h>
 
 #include "pixman.h"
 #include "taiwins.h"
@@ -57,14 +58,14 @@ surface_add_to_list(struct tw_server *server, struct tw_surface *surface)
 	struct tw_layers_manager *manager = &server->backend->layers_manager;
 
 	wl_list_insert(manager->views.prev,
-	               &surface->links[TW_VIEW_SERVER_LINK]);
+	               &surface->links[TW_VIEW_GLOBAL_LINK]);
 
 	//subsurface inserts just above its main surface, here we take the
 	//reverse order of the subsurfaces and insert them one by one in front
 	//of the main surface
 	wl_list_for_each_reverse(sub, &surface->subsurfaces, parent_link) {
-		wl_list_insert(surface->links[TW_VIEW_SERVER_LINK].prev,
-		               &sub->surface->links[TW_VIEW_SERVER_LINK]);
+		wl_list_insert(surface->links[TW_VIEW_GLOBAL_LINK].prev,
+		               &sub->surface->links[TW_VIEW_GLOBAL_LINK]);
 	}
 }
 

@@ -28,13 +28,6 @@
 extern "C" {
 #endif
 
-enum tw_layout_type {
-	LAYOUT_FLOATING,
-	LAYOUT_TILING,
-	LAYOUT_MAXMIZED,
-	LAYOUT_FULLSCREEN,
-};
-
 /**
  * @brief taiwins layer is tailered for desktop arrangement.
  *
@@ -44,8 +37,8 @@ enum tw_layout_type {
  * good idea.
  */
 enum tw_layer_pos {
-	TW_LAYER_POS_HIDDEN = 0x00000000,
-	TW_LAYER_POS_BACKGROUND = 0x00000001,
+	TW_LAYER_POS_HIDDEN           = 0x00000000,
+	TW_LAYER_POS_BACKGROUND       = 0x00000001,
 
 	/* some desktop icons can live here */
 	TW_LAYER_POS_DESKTOP_BELOW_UI = 0x30000000,
@@ -53,26 +46,28 @@ enum tw_layer_pos {
 	/* the back fullscreen layer, unfocused fullscreen layer will be in this
 	 * layer. fullscreen front layer will have at most one view.
 	 */
-	TW_LAYER_POS_FULLSCREEN_BACK = 0x4fffffff,
+	TW_LAYER_POS_FULLSCREEN_BACK  = 0x4fffffff,
 	/*
 	 * desktop layers: these (back, mid, front) layers are used by desktop
-	 * applications. They should not interfere with other layers. Workspaces
-	 * shall deal with all three layers at once, generates enough command
-	 * for applying positions.
+	 * applications. They should not interfere with other layers.
+	 * Workspaces shall deal with all three layers at once and generates
+	 * enough command for applying positions.
 	 *
-	 * usually tiling views seat in the mid layer, stacking/maximized view occupy
-	 * the front layer if they are focused. If tiling views are focused, the front
-	 * layer will have no views at all.
+	 * usually tiling views seat in the mid layer, stacking/maximized view
+	 * occupy the front layer if they are focused. If tiling views are
+	 * focused, the front layer will have no views at all.
 	 */
-	TW_LAYRR_POS_DESKTOP_BACK = 0x500000000,
-	TW_LAYER_POS_DESKTOP_MID = 0x50000001,
-	TW_LAYER_POS_DESKTOP_FRONT = 0x500000002,
+	TW_LAYER_POS_DESKTOP_BACK     = 0x50000000,
+	TW_LAYER_POS_DESKTOP_MID      = 0x50000001,
+	TW_LAYER_POS_DESKTOP_FRONT    = 0x50000002,
 
-	TW_LAYER_POS_DESKTOP_UI = 0x800000000,
+	TW_LAYER_POS_DESKTOP_UI       = 0x80000000,
 
 	/* see TW_LAYER_POS_FULLSCREEN_BACK */
 	TW_LAYER_POS_FULLSCREEN_FRONT = 0x90000000,
-	TW_LAYER_POS_CURSOR = 0xffffffff,
+	/* the top layer that covers almost everything */
+	TW_LAYER_POS_LOCKER           = 0xA0000000,
+	TW_LAYER_POS_CURSOR           = 0xffffffff,
 };
 
 /**

@@ -30,16 +30,18 @@
 #include <wayland-util.h>
 #include <wlr/backend.h>
 #include <wlr/types/wlr_output.h>
-#include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/render/wlr_renderer.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include <objects/matrix.h>
 #include <objects/surface.h>
 #include <objects/layers.h>
 #include <objects/data_device.h>
 #include <objects/compositor.h>
 #include <objects/dmabuf.h>
+#include <objects/cursor.h>
+
 
 #ifdef  __cplusplus
 extern "C" {
@@ -82,7 +84,7 @@ struct tw_backend_output {
 	struct tw_backend *backend;
 	struct wlr_output *wlr_output;
 	int32_t id, cloning;
-	struct wl_list link;
+	struct wl_list link; /* tw_backend:heads */
 
 	struct wl_list views; /** tw_surface->output_link */
 
@@ -91,13 +93,18 @@ struct tw_backend_output {
 		bool dirty;
 		bool activate;
 		bool preferred_mode;
+		/* set by user, corrected by backend */
 		int32_t x, y, w, h, refresh;
 		float scale;
 		enum wl_output_transform transform;
+		struct tw_cursor_constrain constrain;
 		//TODO set gamma, the gamma value is the typical exp value you
 		//used for monitors, 1.0 means linear gamma. wlr uses a
 		//different gamma method, we deal with later
 		float gamma_value;
+
+		/* convert global coordinates to output GL coordinates */
+		struct tw_mat3 view_2d;
 
 		/** the repaint status, the output repaint is driven by timer,
 		 * in the future we may be able to drive it by idle event */
@@ -112,11 +119,14 @@ struct tw_backend_output {
 	struct wl_listener destroy_listener;
 };
 
+//TODO: remove the listeners in tw_backend_seat, deligate those listeners to
+//tw_input_events
 struct tw_backend_seat {
 	int idx;
-	struct wl_list link;
+	struct wl_list link; /* tw_backend.inputs */
 	uint32_t capabilities;
 	struct tw_backend *backend;
+	struct wl_listener set_cursor;
 
 	struct tw_seat *tw_seat; /**< tw_seat implments wl_seat protocol */
 	struct {
@@ -135,6 +145,7 @@ struct tw_backend_seat {
 		struct wl_listener destroy;
 		struct wl_listener button;
 		struct wl_listener motion;
+		struct wl_listener motion_abs;
 		struct wl_listener axis;
 		struct wl_listener frame;
 	} pointer;
@@ -152,6 +163,9 @@ struct tw_backend_seat {
 struct tw_backend_impl;
 struct tw_backend {
 	struct wl_display *display;
+        /** for now backend is based on wlr_backends. Future when migrate, we
+         * would used api like wayland_impl_tw_backend(struct tw_backend *);
+         */
 	struct wlr_backend *auto_backend;
 	struct wlr_renderer *main_renderer;
 	/** interface for implementation details */
@@ -170,20 +184,20 @@ struct tw_backend {
 	struct wl_signal seat_rm_signal;
 
 	/* outputs */
-	struct wl_list heads;
+	struct wl_list heads; /* tw_backend_output:links */
 	struct wl_list pending_heads;
 	uint32_t output_pool;
 	struct tw_backend_output outputs[32];
 
         /* inputs */
 	struct xkb_context *xkb_context;
-	struct wl_list inputs;
+	struct wl_list inputs; /* tw_backend_seat:links */
 	uint8_t seat_pool;
 	struct tw_backend_seat seats[8];
         /** cursor is global, like most desktop experience, the one reason is
          * that people want to fit cursor in the cursor plane.
          */
-	struct wlr_cursor *global_cursor;
+	struct tw_cursor global_cursor;
 
 	/** the basic objects required by a compositor **/
 	struct tw_surface_manager surface_manager;
@@ -194,14 +208,23 @@ struct tw_backend {
 };
 
 struct tw_backend *
-tw_backend_create_global(struct wl_display *display);
-
+tw_backend_create_global(struct wl_display *display,
+                         wlr_renderer_create_func_t render_create);
 void
 tw_backend_flush(struct tw_backend *backend);
 
-/* get the wlr_backend or libweston_backend */
+//remove this!
 void *
 tw_backend_get_backend(struct tw_backend *backend);
+
+struct tw_backend_output *
+tw_backend_focused_output(struct tw_backend *backend);
+
+struct tw_backend_output *
+tw_backend_output_from_cursor_pos(struct tw_backend *backend);
+
+struct tw_backend_output *
+tw_backend_output_from_resource(struct wl_resource *resource);
 
 void
 tw_backend_defer_outputs(struct tw_backend *backend, bool defer);
@@ -210,10 +233,13 @@ void
 tw_backend_add_listener(struct tw_backend *backend,
                         enum tw_backend_event_type event,
                         struct wl_listener *listener);
-
 struct tw_backend_output *
 tw_backend_find_output(struct tw_backend *backend, const char *name);
 
+struct tw_surface *
+tw_backend_pick_surface_from_layers(struct tw_backend *backend,
+                                    int32_t x, int32_t y,
+                                    int32_t *sx,  int32_t *sy);
 void
 tw_backend_set_output_scale(struct tw_backend_output *output, float scale);
 
@@ -242,17 +268,15 @@ tw_backend_output_set_gamma(struct tw_backend_output *output,
 void
 tw_backend_output_dirty(struct tw_backend_output *output);
 
+struct tw_backend_seat *
+tw_backend_get_focused_seat(struct tw_backend *backend);
+
 void
 tw_backend_seat_set_xkb_rules(struct tw_backend_seat *seat,
                               struct xkb_rule_names *rules);
 void
 tw_backend_set_repeat_info(struct tw_backend *backend,
                            unsigned int rate, unsigned int delay);
-//give you the wlr_seat.
-void *
-tw_backend_seat_get_backend(struct tw_backend_seat *seat);
-
-
 
 #ifdef  __cplusplus
 }

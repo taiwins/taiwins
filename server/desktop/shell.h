@@ -22,10 +22,12 @@
 #ifndef TW_SHELL_H
 #define TW_SHELL_H
 
-#include <libweston/libweston.h>
+#include <pixman.h>
 #include <wayland-server.h>
 #include <ctypes/sequential.h>
 #include <wayland-taiwins-shell-server-protocol.h>
+
+#include <backend/backend.h>
 
 #define TWSHELL_VERSION 1
 #define TWDESKP_VERSION 1
@@ -34,35 +36,31 @@
 extern "C" {
 #endif
 
-struct shell;
+struct tw_shell;
 
-struct shell *
-tw_setup_shell(struct weston_compositor *compositor, const char *path);
-
-void
-shell_create_ui_elem(struct shell *shell, struct wl_client *client,
-                     uint32_t tw_ui, struct wl_resource *wl_surface,
-                     uint32_t x, uint32_t y, enum taiwins_ui_type type);
-void
-shell_post_data(struct shell *shell, uint32_t type, struct wl_array *msg);
+struct tw_shell *
+tw_shell_create_global(struct wl_display *display, struct tw_backend *backend,
+                       const char *path);
 
 void
-shell_post_message(struct shell *shell, uint32_t type, const char *msg);
+tw_shell_create_ui_elem(struct tw_shell *shell, struct wl_client *client,
+                        uint32_t tw_ui, struct wl_resource *wl_surface,
+                        uint32_t x, uint32_t y, enum taiwins_ui_type type);
+void
+tw_shell_post_data(struct tw_shell *shell, uint32_t type,
+                   struct wl_array *msg);
+void
+tw_shell_post_message(struct tw_shell *shell, uint32_t type, const char *msg);
 
-struct weston_geometry
-shell_output_available_space(struct shell *shell,
-                             struct weston_output *weston_output);
+pixman_rectangle32_t
+tw_shell_output_available_space(struct tw_shell *shell,
+                                struct tw_backend_output *output);
+struct wl_signal *
+tw_shell_get_desktop_area_signal(struct tw_shell *shell);
+
 void
-shell_add_desktop_area_listener(struct shell *shell,
-                                struct wl_listener *listener);
-void
-shell_add_widget_created_listener(struct shell *shell,
-                                  struct wl_listener *listener);
-void
-shell_add_widget_closed_listener(struct shell *shell,
-                                 struct wl_listener *listener);
-void
-tw_shell_set_panel_pos(struct shell *shell, enum taiwins_shell_panel_pos pos);
+tw_shell_set_panel_pos(struct tw_shell *shell,
+                       enum taiwins_shell_panel_pos pos);
 
 #ifdef  __cplusplus
 }

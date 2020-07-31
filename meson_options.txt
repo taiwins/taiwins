@@ -1,6 +1,6 @@
 option(
-	'sanitizer',
+	'enable-profiler',
 	type: 'boolean',
-	value: true,
-	description: 'Enable sanitizer check'
+	value: false,
+	description: 'Enable taiwins profiler'
 )

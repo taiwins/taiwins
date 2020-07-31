@@ -19,18 +19,11 @@
  *
  */
 
-#include "logger.h"
+#include <assert.h>
 #include <stdio.h>
+#include "logger.h"
 
 static FILE *tw_logfile = NULL;
-
-int
-tw_log(const char *format, va_list args)
-{
-	if (tw_logfile)
-		return vfprintf(tw_logfile, format, args);
-	return -1;
-}
 
 void
 tw_logger_open(const char *path)
@@ -55,4 +48,39 @@ tw_logger_use_file(FILE *file)
 	if (tw_logfile && tw_logfile != stdout && tw_logfile != stderr)
 		fclose(tw_logfile);
 	tw_logfile = file;
+}
+
+static const char *
+level_to_string(enum TW_LOG_LEVEL level)
+{
+	switch (level) {
+	case TW_LOG_INFO: return "INFO";
+		break;
+	case TW_LOG_DBUG: return "DBUG";
+		break;
+	case TW_LOG_WARN: return "WARN";
+		break;
+	case TW_LOG_ERRO: return "EE";
+		break;
+	}
+	return "";
+}
+
+//TODO: if we can disable logger at release
+int
+tw_log_level(enum TW_LOG_LEVEL level, const char *format, ...)
+{
+	int ret = -1;
+
+	assert(level < TW_LOG_ERRO);
+	if (tw_logfile) {
+		fprintf(tw_logfile, "%s: ", level_to_string(level));
+
+		va_list ap;
+		va_start(ap, format);
+		ret = vfprintf(tw_logfile, format, ap);
+		fprintf(tw_logfile, "\n");
+		va_end(ap);
+	}
+	return ret;
 }

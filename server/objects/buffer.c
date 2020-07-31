@@ -20,7 +20,6 @@
  */
 
 #include <assert.h>
-#include <pixman-1/pixman.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <wayland-server-core.h>

@@ -1,5 +1,5 @@
 /*
- * renderer.h - taiwins backend renderer header
+ * viewporter.h - taiwins wp_viewporter headers
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -19,44 +19,45 @@
  *
  */
 
-#ifndef TW_RENDERER_H
-#define TW_RENDERER_H
+#ifndef TW_VIEWPORTER_H
+#define TW_VIEWPORTER_H
 
+#include <stdlib.h>
+#include <stdbool.h>
 #include <wayland-server-core.h>
-#include <wlr/render/wlr_renderer.h>
-#include <wlr/render/interface.h>
+#include <wayland-server-protocol.h>
+#include <wayland-server.h>
+#include <pixman.h>
 
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
-#include <EGL/egl.h>
-
-#include <objects/surface.h>
-#include <objects/dmabuf.h>
+#include "surface.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-struct gles_procs;
-struct tw_renderer {
-	struct wlr_renderer base;
-	/* additional interfaces */
+struct tw_viewport {
+	struct wl_resource *resource;
+	struct tw_surface *surface;
 
-	struct {
-		struct wl_signal pre_output_render;
-		struct wl_signal post_ouptut_render;
-		struct wl_signal pre_view_render;
-		struct wl_signal post_view_render;
-	} events;
+	struct wl_listener surface_destroy_listener;
 };
 
-struct wlr_renderer *
-tw_renderer_create(struct wlr_egl *egl, EGLenum platform,
-                   void *remote_display, EGLint *config_attribs,
-                   EGLint visual_id);
+struct tw_viewporter {
+	struct wl_global *globals;
+	struct wl_listener display_destroy_listener;
+};
+
+struct tw_viewporter *
+tw_viewporter_create_global(struct wl_display *display);
+
+bool
+tw_viewporter_init(struct tw_viewporter *viewporter,
+                   struct wl_display *display);
+
 
 #ifdef  __cplusplus
 }
 #endif
 
-#endif
+
+#endif /* EOF */

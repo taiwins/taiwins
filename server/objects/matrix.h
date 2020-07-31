@@ -59,11 +59,29 @@ void
 tw_mat3_translate(struct tw_mat3 *mat, float x, float y);
 /* rotate ccw */
 void
-tw_mat3_rotate(struct tw_mat3 *mat, float degree);
+tw_mat3_rotate(struct tw_mat3 *mat, float degree, bool yup);
 
+/**
+ * @brief rotate by wl_transform
+ *
+ * @param yup is true for x-right, y-up coordinates system, OpenGL uses this
+ * system, where bottom-left is the origin. yup is false for x-right, y-down
+ * coordinates system, wayland coordinates system uses this coordinates, where
+ * top-left is the origin.
+ */
 void
 tw_mat3_wl_transform(struct tw_mat3 *dst,
-                          enum wl_output_transform transform);
+                     enum wl_output_transform transform, bool yup);
+/**
+ * @breif transform a (0, 0, width, height) by its size
+ *
+ * the (width, height) here is needed to move the rect back to origin after
+ * multiplied by rotation and scaling matrix
+ */
+void
+tw_mat3_transform_rect(struct tw_mat3 *dst, bool yup,
+                       enum wl_output_transform transform,
+                       uint32_t width, uint32_t height, uint32_t scale);
 /**
  * @brief generating matrix mapping coordinates from image space to clip space.
  *
@@ -74,7 +92,7 @@ tw_mat3_wl_transform(struct tw_mat3 *dst,
  *
  * (0, 0, width, height) --> (-1, -1, 1, 1)
  * xp = 2*x/width - 1.0
- * yp = (2-2*y/height) + 1.0
+ * yp = 2*y/height - 1.0
  *
  * We take the image space coordiantes(in the wl_transformed output), which the
  * origin is the top-left cornor. We need to map them into clip space, which the

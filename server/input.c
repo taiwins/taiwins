@@ -134,23 +134,21 @@ binding_pointer_cancel(struct tw_seat_pointer_grab *grab)
 }
 
 
-static uint32_t
+static void
 binding_btn(struct tw_seat_pointer_grab *grab, uint32_t time, uint32_t button,
             enum wl_pointer_button_state state)
 {
 	struct tw_binding *binding = grab->data;
 	struct tw_seat *seat = grab->seat;
-	struct wl_display *display = seat->display;
 
 	//binding reset at release event, this is similar to binding_key.
 	if (!binding || binding->type != TW_BINDING_btn ||
 	    state != WL_POINTER_BUTTON_STATE_PRESSED) {
 		tw_pointer_end_grab(&grab->seat->pointer);
-		return 0;
+		return;
 	}
 	binding->btn_func(&seat->pointer, time, button, binding->user_data);
 	grab->data = NULL;
-	return wl_display_next_serial(display);
 }
 
 static void
@@ -180,24 +178,22 @@ static const struct tw_pointer_grab_interface pointer_impl = {
 	.cancel = binding_pointer_cancel,
 };
 
-static uint32_t
+static void
 binding_touch(struct tw_seat_touch_grab *grab, uint32_t time,
-              uint32_t touch_id, wl_fixed_t sx, wl_fixed_t sy)
+              uint32_t touch_id, double sx, double sy)
 {
 	struct tw_seat *seat = grab->seat;
-	struct wl_display *display = seat->display;
 	struct tw_binding *binding = grab->data;
 
 	if (!binding) {
 		tw_touch_end_grab(&grab->seat->touch);
-		return 0;
+		return;
 	}
 	binding = grab->data;
 	binding->touch_func(&seat->touch, time, binding->user_data);
 	grab->data = NULL;
 	if (grab == seat->touch.grab)
 		tw_touch_end_grab(&seat->touch);
-	return wl_display_next_serial(display);
 }
 
 static void

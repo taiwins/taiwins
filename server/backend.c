@@ -37,7 +37,6 @@
 #include <libweston/backend-x11.h>
 #include <libweston/windowed-output-api.h>
 #include "backend.h"
-#include "taiwins.h"
 
 struct tw_backend;
 

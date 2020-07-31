@@ -45,8 +45,8 @@ rotation_test()
 	struct tw_mat3 inv_rot;
 	struct tw_mat3 mul;
 
-	tw_mat3_rotate(&rot, rand_degree);
-	tw_mat3_rotate(&inv_rot, -rand_degree);
+	tw_mat3_rotate(&rot, rand_degree, true);
+	tw_mat3_rotate(&inv_rot, -rand_degree, true);
 	tw_mat3_multiply(&mul, &rot, &inv_rot);
 	return matrix_is_identity(&mul);
 }
@@ -95,8 +95,8 @@ compound_test()
 	struct tw_mat3 rot, inv_rot;
 	struct tw_mat3 mul;
 
-	tw_mat3_rotate(&rot, degree);
-	tw_mat3_rotate(&inv_rot, -degree);
+	tw_mat3_rotate(&rot, degree, false);
+	tw_mat3_rotate(&inv_rot, -degree, false);
 	tw_mat3_translate(&trans, trans_x, trans_y);
 	tw_mat3_translate(&inv_trans, -trans_x, -trans_y);
 	tw_mat3_scale(&scal, scal_x, scal_y);
@@ -136,7 +136,7 @@ transform_inverse_test()
 	struct tw_mat3 trans, scal, rot;
 	struct tw_mat3 mul, inv;
 
-	tw_mat3_rotate(&rot, degree);
+	tw_mat3_rotate(&rot, degree, true);
 	tw_mat3_translate(&trans, trans_x, trans_y);
 	tw_mat3_scale(&scal, scal_x, scal_y);
 

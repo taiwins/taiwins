@@ -32,6 +32,7 @@
 
 #include "ctypes/helpers.h"
 #include "objects/matrix.h"
+#include "objects/utils.h"
 #include "surface.h"
 
 #define CALLBACK_VERSION 1
@@ -316,41 +317,9 @@ surface_build_buffer_matrix(struct tw_surface *surface)
 		tw_mat3_translate(&tmp, current->crop.x, current->crop.y);
 		tw_mat3_multiply(transform, &tmp, transform);
 	}
-	tw_mat3_wl_transform(&tmp, current->transform);
+	tw_mat3_transform_rect(&tmp, current->transform, false, //ydown
+	                       src_width, src_height, current->buffer_scale);
 	tw_mat3_multiply(transform, &tmp, transform);
-	tw_mat3_scale(&tmp, current->buffer_scale, current->buffer_scale);
-	tw_mat3_multiply(transform, &tmp, transform);
-
-	switch (current->transform) {
-	case WL_OUTPUT_TRANSFORM_NORMAL:
-		break;
-	case WL_OUTPUT_TRANSFORM_90:
-		tw_mat3_translate(&tmp, src_height, 0.0);
-		tw_mat3_multiply(transform, &tmp, transform);
-		break;
-	case WL_OUTPUT_TRANSFORM_180:
-		tw_mat3_translate(&tmp, src_width, src_height);
-		tw_mat3_multiply(transform, &tmp, transform);
-		break;
-	case WL_OUTPUT_TRANSFORM_270:
-		tw_mat3_translate(&tmp, 0.0, src_width);
-		tw_mat3_multiply(transform, &tmp, transform);
-		break;
-	case WL_OUTPUT_TRANSFORM_FLIPPED:
-		tw_mat3_translate(&tmp, src_width, 0.0);
-		tw_mat3_multiply(transform, &tmp, transform);
-		break;
-	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-		break;
-	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
-		tw_mat3_translate(&tmp, 0.0, src_height);
-		tw_mat3_multiply(transform, &tmp, transform);
-		break;
-	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-		tw_mat3_translate(&tmp, src_height, src_width);
-		tw_mat3_multiply(transform, &tmp, transform);
-		break;
-	}
 }
 
 static void
@@ -424,9 +393,9 @@ surface_build_geometry_matrix(struct tw_surface *surface)
 		target_width = buffer_width;
 		target_height = buffer_height;
 	}
-	//transforming (-1,-1,1,1) into global coordiantes
+	//since (-1, -1) is up-left
 	tw_mat3_scale(transform, target_width / 2.0, target_height / 2.0);
-	tw_mat3_wl_transform(&tmp, current->transform);
+	tw_mat3_wl_transform(&tmp, current->transform, false); //ydown
 	//this could rotate the surface.
 	tw_mat3_multiply(transform, &tmp, transform);
 	//buffer scale
@@ -463,7 +432,7 @@ surface_update_geometry(struct tw_surface *surface)
 		box.x1 = MIN(box.x1, (int32_t)corners[i][0]);
 		box.y1 = MIN(box.y1, (int32_t)corners[i][1]);
 		box.x2 = MAX(box.x2, (int32_t)corners[i][0]);
-		box.y2 = MAX(box.x2, (int32_t)corners[i][1]);
+		box.y2 = MAX(box.y2, (int32_t)corners[i][1]);
 	}
 	if (box.x1 != surface->geometry.xywh.x ||
 	    box.y1 != surface->geometry.xywh.y ||
@@ -664,6 +633,20 @@ tw_surface_has_texture(struct tw_surface *surface)
 	return surface->buffer.handle.ptr || surface->buffer.handle.id;
 }
 
+bool
+tw_surface_has_role(struct tw_surface *surface)
+{
+	return surface->role.commit != NULL;
+}
+
+void
+tw_surface_unmap(struct tw_surface *surface)
+{
+	//TODO: do I need a mapped filed?
+	for (int i = 0; i < MAX_VIEW_LINKS; i++)
+		tw_reset_wl_list(&surface->links[i]);
+}
+
 void
 tw_surface_set_position(struct tw_surface *surface, int32_t x, int32_t y)
 {
@@ -671,20 +654,41 @@ tw_surface_set_position(struct tw_surface *surface, int32_t x, int32_t y)
 
 	if (surface->geometry.xywh.x == x && surface->geometry.xywh.y == y)
 		return;
-	if (!surface->geometry.dirty) {
-		surface->geometry.prev_xywh.x = surface->geometry.xywh.x;
-		surface->geometry.prev_xywh.y = surface->geometry.xywh.y;
-	}
 	surface->geometry.x = x;
 	surface->geometry.y = y;
-	surface->geometry.xywh.x = x;
-	surface->geometry.xywh.y = y;
+	surface_update_geometry(surface);
 
 	wl_list_for_each(sub, &surface->subsurfaces, parent_link)
 		tw_surface_set_position(sub->surface,
 		                        x + sub->sx, y + sub->sy);
+}
 
-	tw_surface_dirty_geometry(surface);
+void
+tw_surface_to_local_pos(struct tw_surface *surface, int32_t x, int32_t y,
+                        int32_t *sx, int32_t *sy)
+{
+	*sx = x - surface->geometry.x;
+	*sy = y - surface->geometry.y;
+}
+
+void
+tw_surface_to_global_pos(struct tw_surface *surface, uint32_t sx, uint32_t sy,
+                        int32_t *gx, int32_t *gy)
+{
+	*gx = surface->geometry.x + sx;
+	*gy = surface->geometry.y + sy;
+}
+
+bool
+tw_surface_has_point(struct tw_surface *surface, int32_t x, int32_t y)
+{
+	int32_t x1 = surface->geometry.xywh.x;
+	int32_t x2 = surface->geometry.xywh.x + surface->geometry.xywh.width;
+	int32_t y1 = surface->geometry.xywh.y;
+	int32_t y2 = surface->geometry.xywh.y + surface->geometry.xywh.height;
+
+	return (x >= x1 && x <= x2 && y >= y1 && y <= y2);
+
 }
 
 void
@@ -757,17 +761,12 @@ tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
                   struct tw_surface_manager *manager)
 {
 	struct tw_view *view;
-	struct wl_resource *resource;
-	struct tw_surface *surface = calloc(1, sizeof(struct tw_surface));
-	if (!surface) {
+	struct wl_resource *resource = NULL;
+	struct tw_surface *surface = NULL;
+
+	if (!tw_create_wl_resource_for_obj(resource, surface, client, id,
+	                                   version, wl_surface_interface)) {
 		wl_client_post_no_memory(client);
-		return NULL;
-	}
-	resource = wl_resource_create(client, &wl_surface_interface,
-	                              version, id);
-	if (!resource) {
-		wl_client_post_no_memory(client);
-		free(surface);
 		return NULL;
 	}
 	wl_resource_set_implementation(resource, &surface_impl, surface,
@@ -788,10 +787,12 @@ tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
 	for (int i = 0; i < MAX_VIEW_LINKS; i++)
 		wl_list_init(&surface->links[i]);
 
+	//init view
 	for (int i = 0; i < 3; i++) {
 		view = &surface->surface_states[i];
 		view->transform = WL_OUTPUT_TRANSFORM_NORMAL;
 		view->buffer_scale = 1;
+		view->plane = NULL;
 		pixman_region32_init(&view->surface_damage);
 		pixman_region32_init(&view->buffer_damage);
 		pixman_region32_init(&view->opaque_region);
@@ -823,7 +824,7 @@ static const struct wl_subsurface_interface subsurface_impl;
 
 static void subsurface_commit_role(struct tw_surface *surf) {
 	struct tw_subsurface *sub = surf->role.commit_private;
-	struct tw_surface *parent = surf;
+	struct tw_surface *parent = sub->parent;
 	// surface has moved, or parent has moved. We would need to dirty the
 	// geometry now.
 	if (surf->geometry.xywh.x != sub->sx + parent->geometry.xywh.x ||
@@ -887,8 +888,7 @@ subsurface_set_position(struct wl_client *client,
 {
 	struct tw_subsurface *subsurf =
 		tw_subsurface_from_resource(resource);
-	subsurf->sx = x;
-	subsurf->sy = y;
+	tw_subsurface_update_pos(subsurf, x, y);
 }
 
 static void
@@ -1032,21 +1032,15 @@ tw_subsurface_create(struct wl_client *client, uint32_t version,
                      uint32_t id, struct tw_surface *surface,
                      struct tw_surface *parent)
 {
-	struct tw_subsurface *subsurface =
-		calloc(1, sizeof(struct tw_subsurface));
-	if (!subsurface) {
+	struct tw_subsurface *subsurface = NULL;
+	struct wl_resource *resource = NULL;
+
+	if (!tw_create_wl_resource_for_obj(resource, subsurface, client, id,
+	                                   version, wl_subsurface_interface)) {
 		wl_client_post_no_memory(client);
 		return NULL;
 	}
-	struct wl_resource *resource =
-		wl_resource_create(client, &wl_subsurface_interface,
-		                   version, id);
-	if (!resource) {
-		wl_client_post_no_memory(client);
-		free(subsurface);
-		return NULL;
-	}
-	wl_resource_set_implementation(resource, &wl_subsurface_interface,
+	wl_resource_set_implementation(resource, &subsurface_impl,
 	                               subsurface,
 	                               subsurface_destroy_resource);
 	subsurface->resource = resource;
@@ -1070,6 +1064,19 @@ tw_subsurface_create(struct wl_client *client, uint32_t version,
 		               subsurface);
 
 	return subsurface;
+}
+
+void
+tw_subsurface_update_pos(struct tw_subsurface *sub,
+                         int32_t sx, int32_t sy)
+{
+	struct tw_surface *surface = sub->surface;
+	struct tw_surface *parent = sub->parent;
+
+	sub->sx = sx;
+	sub->sy = sy;
+	tw_surface_set_position(surface, parent->geometry.x + sx,
+	                        parent->geometry.y + sy);
 }
 
 void

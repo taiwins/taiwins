@@ -20,9 +20,46 @@
  */
 
 #include <ctypes/helpers.h>
+#include <wayland-server.h>
 
 #include "backend.h"
 #include "backend_internal.h"
+#include "objects/utils.h"
+#include "objects/matrix.h"
+#include "renderer/renderer.h"
+
+static enum wl_output_transform
+inverse_wl_transform(enum wl_output_transform t)
+{
+	if ((t & WL_OUTPUT_TRANSFORM_90) &&
+	    !(t & WL_OUTPUT_TRANSFORM_FLIPPED)) {
+		t ^= WL_OUTPUT_TRANSFORM_180;
+	}
+	return t;
+}
+
+//called when output is dirty
+static void
+build_output_2d_view(struct tw_backend_output *o)
+{
+	struct tw_mat3 glproj, tmp;
+	int width, height;
+
+	//this essentially map-backs a virtual space back to physical space.
+	tw_mat3_init(&glproj);
+	glproj.d[4] = -1;
+	glproj.d[7] = o->state.h;
+	wlr_output_transformed_resolution(o->wlr_output, &width, &height);
+
+	//the transform should be
+	// T' = glproj * inv_wl_transform * scale * -translate * T
+	tw_mat3_translate(&o->state.view_2d, -o->state.x, -o->state.y);
+	tw_mat3_transform_rect(&tmp, false,
+	                       inverse_wl_transform(o->state.transform),
+	                       width, height, o->state.scale);
+	tw_mat3_multiply(&o->state.view_2d, &tmp, &o->state.view_2d);
+	tw_mat3_multiply(&o->state.view_2d, &glproj, &o->state.view_2d);
+}
 
 static struct wlr_output_mode *
 pick_output_mode(struct tw_backend_output *o, struct wlr_output *output)
@@ -47,6 +84,18 @@ pick_output_mode(struct tw_backend_output *o, struct wlr_output *output)
 		return wlr_output_preferred_mode(output);
 }
 
+static inline void
+correct_output_mode(struct tw_backend_output *o)
+{
+	struct wlr_output *wlr_output = o->wlr_output;
+	o->state.w = wlr_output->width;
+	o->state.h = wlr_output->height;
+	o->state.refresh = wlr_output->refresh;
+	pixman_region32_clear(&o->state.constrain.region);
+	pixman_region32_init_rect(&o->state.constrain.region,
+	                          o->state.x, o->state.y,
+	                          o->state.w, o->state.h);
+}
 void
 tw_backend_commit_output_state(struct tw_backend_output *o)
 {
@@ -62,8 +111,13 @@ tw_backend_commit_output_state(struct tw_backend_output *o)
 			wlr_output_preferred_mode(output) :
 			pick_output_mode(o, output);
 		wlr_output_set_mode(output, mode);
-
+		//wlr_output_commit will call impl->commit which in turns would
+		//update_the_output mode, x11 and wayland backend does not have
+		//commit so output->mode would not change.
 		wlr_output_commit(output);
+		correct_output_mode(o);
+		//build output transformation matrix
+		build_output_2d_view(o);
 		o->state.dirty = false;
 
 		//now here we can decide if we want to implement
@@ -81,6 +135,10 @@ init_output_state(struct tw_backend_output *o)
 	o->state.preferred_mode = true;
 	//okay, here is what we will need to fix
 	o->state.x = 0; o->state.y = 0;
+	wl_list_init(&o->state.constrain.link);
+	pixman_region32_init(&o->state.constrain.region);
+	wl_list_insert(o->backend->global_cursor.constrains.prev,
+	               &o->state.constrain.link);
 }
 
 static void
@@ -90,11 +148,22 @@ notify_new_output_frame(struct wl_listener *listener, void *data)
 		container_of(listener, struct tw_backend_output,
 		             frame_listener);
 	struct tw_backend *backend = output->backend;
+	struct tw_renderer *renderer =
+		container_of(backend->main_renderer, struct tw_renderer, base);
 
-	/* if (output->state.repaint_state != TW_REPAINT_DIRTY) */
-	/*	return; */
-	//TODO< we need to expand this in a different way
+	if (output->state.repaint_state != TW_REPAINT_DIRTY)
+		return;
+	//output need to have transform
+
+	if (!wlr_output_attach_render(output->wlr_output, NULL))
+		return;
+
+	renderer->repaint_output(renderer, output);
+	wlr_output_commit(output->wlr_output);
+
+	//sure this is the good place to start?
 	wl_signal_emit(&backend->output_frame_signal, output);
+
 	//clean off the repaint state
 	output->state.repaint_state = TW_REPAINT_CLEAN;
 }
@@ -111,10 +180,13 @@ notify_output_remove(struct wl_listener *listener, UNUSED_ARG(void *data))
 
 	output->id = -1;
 	wl_list_remove(&output->link);
+	wl_list_remove(&output->state.constrain.link);
+	pixman_region32_fini(&output->state.constrain.region);
 
 	backend->output_pool &= unset;
 	wl_signal_emit(&backend->output_unplug_signal, output);
 
+	wlr_output_destroy_global(output->wlr_output);
 	//TODO if is windowed output, we shall just quit, it can be done as a
 	//signal as well.
 }
@@ -128,16 +200,20 @@ tw_backend_new_output(struct tw_backend *backend,
 
 	wlr_output->data = output;
 	output->id = id;
+	output->cloning = -1;
 	output->backend = backend;
 	output->wlr_output = wlr_output;
 	output->state.repaint_state = TW_REPAINT_DIRTY;
+
+
 	wl_list_init(&output->views);
-	wl_list_init(&output->frame_listener.link);
-	wl_list_init(&output->destroy_listener.link);
-	output->frame_listener.notify = notify_new_output_frame;
-	output->destroy_listener.notify = notify_output_remove;
-	wl_signal_add(&wlr_output->events.frame, &output->frame_listener);
-	wl_signal_add(&wlr_output->events.destroy, &output->destroy_listener);
+	tw_signal_setup_listener(&wlr_output->events.frame,
+	                         &output->frame_listener,
+	                         notify_new_output_frame);
+	tw_signal_setup_listener(&wlr_output->events.destroy,
+	                         &output->destroy_listener,
+	                         notify_output_remove);
+	wlr_output_create_global(wlr_output);
 
 	//setup default state
 	init_output_state(output);
@@ -152,8 +228,8 @@ tw_backend_new_output(struct tw_backend *backend,
 
 	//tell the clients
         if (!backend->defer_output_creation) {
-	        wl_signal_emit(&backend->output_plug_signal, output);
 	        tw_backend_commit_output_state(output);
+	        wl_signal_emit(&backend->output_plug_signal, output);
         }
 
 }

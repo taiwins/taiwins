@@ -37,6 +37,8 @@
 
 #include <ctypes/helpers.h>
 #include "binding/bindings.h"
+#include "objects/logger.h"
+#include "objects/profiler.h"
 #include "objects/subprocess.h"
 #include "objects/seat.h"
 #include "taiwins.h"
@@ -156,8 +158,7 @@ main(int argc, char *argv[])
 
 	if (!parse_options(&options, argc, argv))
 		return -1;
-
-	tw_logger_open("/tmp/taiwins-log");
+	tw_logger_use_file(stderr);
 
 	display = wl_display_create();
 	if (!display) {
@@ -175,6 +176,9 @@ main(int argc, char *argv[])
 		ret = -1;
 		goto err_socket;
 	}
+	if (!tw_profiler_open(display, "/tmp/taiwins-profiler.json"))
+		goto err_profiler;
+
 	signals[0] = wl_event_loop_add_signal(loop, SIGTERM,
 	                                      tw_term_on_signal, display);
 	signals[1] = wl_event_loop_add_signal(loop, SIGINT,
@@ -201,6 +205,8 @@ err_signal:
 	for (int i = 0; i < 4; i++)
 		wl_event_source_remove(signals[i]);
 err_event_loop:
+	tw_profiler_close();
+err_profiler:
 err_socket:
 	wl_display_destroy(ec.display);
 err_create_display:
