@@ -94,7 +94,7 @@ taiwins_src = [
   'taiwins.c',
   'input.c',
   'layer_render.c',
-  'binding/bindings.c',
+  'bindings.c',
   'backend/backend.c',
   'backend/backend_impl.c',
   'backend/backend_seat.c',

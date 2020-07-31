@@ -28,7 +28,6 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/surface.h>
 #include <pixman.h>
-#include <binding/bindings.h>
 #include <wayland-util.h>
 
 #include "backend.h"

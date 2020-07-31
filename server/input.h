@@ -27,7 +27,7 @@
 
 #include <taiwins/objects/seat.h>
 #include <backend.h>
-#include <binding/bindings.h>
+#include <bindings.h>
 
 #ifdef  __cplusplus
 extern "C" {

@@ -35,7 +35,7 @@
 #include <taiwins/objects/seat.h>
 
 #include <ctypes/helpers.h>
-#include "binding/bindings.h"
+#include "bindings.h"
 #include "taiwins.h"
 #include "bindings.h"
 #include "backend.h"
