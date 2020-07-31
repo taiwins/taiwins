@@ -93,7 +93,6 @@ taiwins_src = [
   'main.c',
   'taiwins.c',
   'input.c',
-  'layer_render.c',
   'bindings.c',
   'backend/backend.c',
   'backend/backend_impl.c',
@@ -130,7 +129,6 @@ taiwins = executable(
     dep_taiwins_objects,
     dep_ctypes,
     dep_wlroots,
-    dep_libweston, #finally we would get rid of this
     dep_xkbcommon,
     dep_threads,
     dep_pixman,

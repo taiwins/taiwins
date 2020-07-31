@@ -57,8 +57,6 @@ dep_wayland_server = dependency('wayland-server', version: '>= 1.12.0')
 dep_wayland_client = dependency('wayland-client', version: '>= 1.12.0')
 dep_lua = dependency('lua-5.3', version: '>= 5.3', required: true)
 dep_threads = dependency('threads')
-dep_libweston = dependency('libweston-8') #TODO: finally we would get rid of libweston
-dep_libweston_desktop = dependency('libweston-8') #TODO: finally we would get rid of libweston
 dep_glesv2 = dependency('glesv2')
 dep_libdrm = dependency('libdrm', version: '>= 2.4.68')
 dep_wlroots = wlroots.get_variable('wlroots')
