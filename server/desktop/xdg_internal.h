@@ -79,18 +79,7 @@ struct tw_xdg {
 
 };
 
-bool
-tw_xdg_start_moving_grab(struct tw_xdg *xdg, struct tw_xdg_view *view,
-                         struct tw_seat *seat);
 
-bool
-tw_xdg_start_resizing_grab(struct tw_xdg *xdg, struct tw_xdg_view *view,
-                           enum wl_shell_surface_resize edge,
-                           struct tw_seat *seat);
-
-bool
-tw_xdg_start_task_switching_grab(struct tw_xdg *xdg, struct tw_xdg_view *view,
-                                 struct tw_seat *seat);
 
 #ifdef  __cplusplus
 }

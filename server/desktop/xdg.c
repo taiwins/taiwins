@@ -19,6 +19,7 @@
  *
  */
 
+#include <assert.h>
 #include <wayland-server.h>
 #include <ctypes/helpers.h>
 #include <taiwins/objects/surface.h>
@@ -424,6 +425,86 @@ init_desktop_layouts(struct tw_xdg *xdg)
 /******************************************************************************
  * APIs
  *****************************************************************************/
+void
+tw_xdg_view_activate(struct tw_xdg *xdg, struct tw_xdg_view *view)
+{
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+	assert(tw_workspace_has_view(ws, view));
+	tw_workspace_focus_view(ws, view);
+	twdesk_surface_focus(xdg, view->dsurf);
+}
+
+void
+tw_xdg_toggle_view_split(struct tw_xdg *xdg, struct tw_xdg_view *view)
+{
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+
+        assert(tw_workspace_has_view(ws, view));
+        tw_workspace_run_command(ws, DPSR_toggle, view);
+}
+
+void
+tw_xdg_toggle_view_layout(struct tw_xdg *xdg, struct tw_xdg_view *view)
+{
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+
+        assert(tw_workspace_has_view(ws, view));
+	tw_workspace_switch_layout(ws, view);
+}
+
+void
+tw_xdg_split_on_view(struct tw_xdg *xdg, struct tw_xdg_view *view,
+                     bool vsplit)
+{
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+        assert(tw_workspace_has_view(ws, view));
+        tw_workspace_run_command(ws, vsplit ? DPSR_vsplit : DPSR_hsplit,
+                                      view);
+}
+
+void
+tw_xdg_merge_view(struct tw_xdg *xdg, struct tw_xdg_view *view)
+{
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+
+        assert(tw_workspace_has_view(ws, view));
+        tw_workspace_run_command(ws, DPSR_merge, view);
+}
+
+void
+tw_xdg_resize_view(struct tw_xdg *xdg, struct tw_xdg_view *view,
+                   int32_t dx, int32_t dy, enum wl_shell_surface_resize edge)
+{
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+
+        assert(tw_workspace_has_view(ws, view));
+        tw_workspace_resize_view(ws, view, dx, dy, edge);
+}
+
+int
+tw_xdg_current_workspace_idx(struct tw_xdg *xdg)
+{
+	return xdg->actived_workspace[0]->idx;
+}
+
+int
+tw_xdg_last_workspace_idx(struct tw_xdg *xdg)
+{
+	return xdg->actived_workspace[1]->idx;
+}
+
+void
+tw_xdg_switch_workspace(struct tw_xdg *xdg, uint32_t to)
+{
+	struct tw_xdg_view *view;
+	assert(to < MAX_WORKSPACES);
+	xdg->actived_workspace[1] = xdg->actived_workspace[0];
+	xdg->actived_workspace[0] = &xdg->workspaces[to];
+	view = tw_workspace_switch(xdg->actived_workspace[0],
+	                           xdg->actived_workspace[1]);
+	if (view)
+		tw_xdg_view_activate(xdg, view);
+}
 
 struct tw_xdg *
 tw_xdg_create_global(struct wl_display *display, struct tw_shell *shell,

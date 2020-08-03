@@ -39,13 +39,6 @@ extern "C" {
 #define _GNU_SOURCE
 #endif
 
-enum tw_layout_type {
-	LAYOUT_FLOATING,
-	LAYOUT_TILING,
-	LAYOUT_MAXIMIZED,
-	LAYOUT_FULLSCREEN,
-};
-
 /* the commands pass to layout algorithm */
 enum tw_xdg_layout_command {
 	DPSR_focus, //useful in floating.

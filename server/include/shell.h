@@ -40,10 +40,10 @@ struct tw_shell;
 
 struct tw_shell *
 tw_shell_create_global(struct wl_display *display, struct tw_backend *backend,
-                       const char *path);
-
+                       bool enable_layer_shell, const char *path);
 void
 tw_shell_create_ui_elem(struct tw_shell *shell, struct wl_client *client,
+                        struct tw_backend_output *output,
                         uint32_t tw_ui, struct wl_resource *wl_surface,
                         uint32_t x, uint32_t y, enum taiwins_ui_type type);
 void

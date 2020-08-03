@@ -19,6 +19,7 @@
  *
  */
 
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -31,11 +32,12 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <wayland-server.h>
-
 #include <ctypes/tree.h>
+#include <ctypes/vector.h>
 #include <ctypes/helpers.h>
+#include <taiwins/objects/utils.h>
+
 #include "bindings.h"
-#include "ctypes/vector.h"
 
 struct tw_binding_node {
 	uint32_t keycode;
@@ -88,7 +90,6 @@ key_presses_end(const struct tw_key_press presses[MAX_KEY_SEQ_LEN], int i)
 {
 	return (i == MAX_KEY_SEQ_LEN-1 ||
 		presses[i+1].keycode == KEY_RESERVED);
-
 }
 
 static void
@@ -96,12 +97,16 @@ notify_bindings_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_bindings *bindings =
 		container_of(listener, struct tw_bindings, destroy_listener);
+	tw_bindings_destroy(bindings);
+}
 
-	wl_list_remove(&bindings->destroy_listener.link);
+static void
+tw_bindings_release(struct tw_bindings *bindings)
+{
+	tw_reset_wl_list(&bindings->destroy_listener.link);
 	vtree_destroy_children(&bindings->root_node.node, free);
 	if (bindings->apply_list.elems)
 		vector_destroy(&bindings->apply_list);
-	free(bindings);
 }
 
 /******************************************************************************
@@ -119,18 +124,38 @@ tw_bindings_create(struct wl_display *display)
 	}
 	vector_init_zero(&root->apply_list,
 	                 sizeof(struct tw_binding), NULL);
-
-	wl_list_init(&root->destroy_listener.link);
-	root->destroy_listener.notify = notify_bindings_destroy;
-	wl_display_add_destroy_listener(display, &root->destroy_listener);
+	tw_set_display_destroy_listener(display, &root->destroy_listener,
+	                                notify_bindings_destroy);
 	return root;
 }
 
 void
 tw_bindings_destroy(struct tw_bindings *bindings)
 {
-	notify_bindings_destroy(&bindings->destroy_listener,
-	                        bindings->display);
+	tw_bindings_release(bindings);
+	free(bindings);
+}
+
+void
+tw_bindings_move(struct tw_bindings *dst, struct tw_bindings *src)
+{
+	struct vtree_node **pnode;
+
+	tw_bindings_release(dst);
+	vtree_node_init(&dst->root_node.node,
+	                offsetof(struct tw_binding_node, node));
+	//a shallow copy
+	dst->display = src->display;
+	vector_for_each(pnode, &src->root_node.node.children)
+		(*pnode)->parent = &dst->root_node.node;
+	dst->root_node = src->root_node;
+	dst->apply_list = src->apply_list;
+
+	//purge the src list
+	vector_init_zero(&src->apply_list, sizeof(struct tw_binding), NULL);
+	vtree_node_init(&src->root_node.node,
+	                offsetof(struct tw_binding_node, node));
+	tw_reset_wl_list(&src->destroy_listener.link);
 }
 
 void

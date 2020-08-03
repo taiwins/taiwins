@@ -23,6 +23,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <wayland-taiwins-shell-server-protocol.h>
 #include <pixman.h>
@@ -472,14 +473,13 @@ bind_shell(struct wl_client *client, void *data,
 void
 tw_shell_create_ui_elem(struct tw_shell *shell,
                         struct wl_client *client,
+                        struct tw_backend_output *output,
                         uint32_t tw_ui,
                         struct wl_resource *wl_surface,
                         uint32_t x, uint32_t y,
                         enum taiwins_ui_type type)
 {
-	struct tw_backend_output *output;
 	struct tw_shell_output *shell_output;
-	output = tw_backend_focused_output(shell->backend);
 	if (output) {
 		shell_output = &shell->tw_outputs[output->id];
 		create_ui_element(client, shell, NULL, tw_ui,
@@ -675,29 +675,32 @@ shell_add_listeners(struct tw_shell *shell, struct tw_backend *backend)
  *****************************************************************************/
 
 struct tw_shell *
-tw_shell_create_global(struct wl_display *wl_display,
-                       struct tw_backend *backend, const char *path)
+tw_shell_create_global(struct wl_display *display,
+                       struct tw_backend *backend, bool enable_layer_shell,
+                       const char *path)
 {
 	struct wl_event_loop *loop;
 	struct tw_layer *layer;
 	struct tw_layers_manager *layers;
 
 	s_shell.shell_global =
-		wl_global_create(wl_display,
-		                 &taiwins_shell_interface,
+		wl_global_create(display, &taiwins_shell_interface,
 		                 taiwins_shell_interface.version,
 		                 &s_shell,
 		                 bind_shell);
 	if (!s_shell.shell_global)
 		return NULL;
-	if (!shell_impl_layer_shell(&s_shell, wl_display))
+	if (enable_layer_shell && !shell_impl_layer_shell(&s_shell, display)) {
+		wl_global_destroy(s_shell.shell_global);
+		s_shell.shell_global = NULL;
 		return NULL;
+	}
 
 	s_shell.ready = false;
 	s_shell.the_widget_surface = NULL;
 	s_shell.shell_client = NULL;
 	s_shell.panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
-	s_shell.display = wl_display;
+	s_shell.display = display;
 	s_shell.backend = backend;
 	//shell_outputs
 	wl_list_init(&s_shell.heads);
@@ -725,10 +728,9 @@ tw_shell_create_global(struct wl_display *wl_display,
 	if (path && (strlen(path) + 1 > NUMOF(s_shell.path)))
 		return false;
 
-
 	if (path) {
 		strcpy(s_shell.path, path);
-		loop = wl_display_get_event_loop(wl_display);
+		loop = wl_display_get_event_loop(display);
 		wl_event_loop_add_idle(loop, launch_shell_client, &s_shell);
 	}
 	shell_add_listeners(&s_shell, backend);

@@ -157,7 +157,8 @@ bind_globals(struct tw_server *server)
 	tw_bindings_add_dummy(server->binding_state);
 
         server->tw_shell =
-		tw_shell_create_global(server->display, server->backend, NULL);
+		tw_shell_create_global(server->display, server->backend,
+		                       false, NULL);
 	assert(server->tw_shell);
 
 	server->tw_xdg =

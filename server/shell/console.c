@@ -26,38 +26,46 @@
 #include <wayland-server.h>
 #include <wayland-taiwins-console-server-protocol.h>
 #include <ctypes/sequential.h>
+#include <taiwins/objects/subprocess.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/utils.h>
 
-#include "../taiwins.h"
+#include "backend.h"
 #include "shell.h"
+
+#define CONSOLE_WIDTH  600
+#define CONSOLE_HEIGHT 300
 
 /**
  * this struct handles the request and sends the event from
  * tw_console.
  */
-struct console {
+struct tw_console {
 	// client  info
 	char path[256];
 	struct wl_client *client;
 	struct wl_resource *resource;
 	pid_t pid; uid_t uid; gid_t gid;
+	struct tw_shell *shell;
+	struct wl_display *display;
+	struct tw_backend *backend;
 
-	struct weston_compositor *compositor;
-	struct shell *shell;
 	struct wl_shm_buffer *decision_buffer;
-	struct weston_surface *surface;
-	struct wl_listener compositor_destroy_listener;
+	struct tw_surface *surface;
+	struct wl_listener display_destroy_listener;
 	struct wl_listener close_console_listener;
 	struct wl_global *global;
 	struct tw_subprocess process;
 };
 
-static struct console s_console;
+static struct tw_console s_console;
 
 static void
-console_surface_destroy_cb(struct wl_listener *listener, UNUSED_ARG(void *data))
+console_surface_destroy_cb(struct wl_listener *listener, void *data)
 {
-	struct console *console =
-		container_of(listener, struct console, close_console_listener);
+	struct tw_console *console =
+		container_of(listener, struct tw_console,
+		             close_console_listener);
 	console->surface = NULL;
 }
 
@@ -69,8 +77,8 @@ close_console(struct wl_client *client,
 		       uint32_t exec_id)
 {
 	fprintf(stderr, "the console client is %p\n", client);
-	struct console *lch =
-		(struct console *)wl_resource_get_user_data(resource);
+	struct tw_console *lch =
+		(struct tw_console *)wl_resource_get_user_data(resource);
 	lch->decision_buffer = wl_shm_buffer_get(wl_buffer);
 	taiwins_console_send_exec(resource, exec_id);
 }
@@ -82,9 +90,13 @@ set_console(struct wl_client *client,
 	     uint32_t ui_elem,
 	     struct wl_resource *wl_surface)
 {
-	struct console *lch = wl_resource_get_user_data(resource);
-	shell_create_ui_elem(lch->shell, client, ui_elem, wl_surface,
-			     100, 100, TAIWINS_UI_TYPE_WIDGET);
+	struct tw_console *lch = wl_resource_get_user_data(resource);
+	struct tw_backend_output *output =
+		tw_backend_focused_output(lch->backend);
+	int32_t sx = output->state.w/2 - CONSOLE_WIDTH/2;
+
+	tw_shell_create_ui_elem(lch->shell, client, output, ui_elem,
+	                        wl_surface, sx, 100, TAIWINS_UI_TYPE_WIDGET);
 	lch->surface = tw_surface_from_resource(wl_surface);
 	wl_resource_add_destroy_listener(wl_surface,
 	                                 &lch->close_console_listener);
@@ -101,7 +113,7 @@ static void
 unbind_console(struct wl_resource *r)
 {
 	fprintf(stderr, "console closed.\n");
-	struct console *console = wl_resource_get_user_data(r);
+	struct tw_console *console = wl_resource_get_user_data(r);
 	console->client = NULL;
 	console->resource = NULL;
 	console->pid = console->uid = console->gid = -1;
@@ -113,7 +125,7 @@ static void
 bind_console(struct wl_client *client, void *data, UNUSED_ARG(uint32_t version),
              uint32_t id)
 {
-	struct console *console = data;
+	struct tw_console *console = data;
 	struct wl_resource *wl_resource =
 		wl_resource_create(client, &taiwins_console_interface,
 		                   TWDESKP_VERSION, id);
@@ -140,11 +152,11 @@ bind_console(struct wl_client *client, void *data, UNUSED_ARG(uint32_t version),
 static void
 launch_console_client(void *data)
 {
-	struct console *console = data;
+	struct tw_console *console = data;
 
 	console->process.user_data = console;
 	console->process.chld_handler = NULL;
-	console->client = tw_launch_client(console->compositor, console->path,
+	console->client = tw_launch_client(console->display, console->path,
 	                                   &console->process);
 
 	wl_client_get_credentials(console->client, &console->pid,
@@ -153,43 +165,43 @@ launch_console_client(void *data)
 }
 
 void
-tw_console_start_client(struct console *console)
+tw_console_start_client(struct tw_console *console)
 {
 	if (!console || !console->client) //we do not have a console
 		return;
-	if ((console->surface) &&  //or the console is active
-	    wl_list_length(&console->surface->views))
+	if (console->surface) //if already launched.
 		return;
 
 	taiwins_console_send_start(console->resource,
-				    wl_fixed_from_int(600),
-				    wl_fixed_from_int(300),
+				    wl_fixed_from_int(CONSOLE_WIDTH),
+				    wl_fixed_from_int(CONSOLE_HEIGHT),
 				    wl_fixed_from_int(1));
 }
 
 static void
 end_console(struct wl_listener *listener, void *data)
 {
-	struct console *c =
-		container_of(listener, struct console,
-			     compositor_destroy_listener);
+	struct tw_console *c =
+		container_of(listener, struct tw_console,
+			     display_destroy_listener);
 	wl_global_destroy(c->global);
 }
 
 
-struct console *
-tw_setup_console(struct weston_compositor *compositor, const char *path,
-                 struct shell *shell)
+struct tw_console *
+tw_console_create_global(struct wl_display *display, const char *path,
+                         struct tw_backend *backend, struct tw_shell *shell)
 {
-	if(path && (strlen(path) +1 > NUMOF(s_console.path)))
+	if (path && (strlen(path) +1 > NUMOF(s_console.path)))
 		return NULL;
 
 	s_console.surface = NULL;
 	s_console.resource = NULL;
-	s_console.compositor = compositor;
+	s_console.display = display;
+	s_console.backend = backend;
 	s_console.shell = shell;
 	s_console.global =
-		wl_global_create(compositor->wl_display,
+		wl_global_create(display,
 		                 &taiwins_console_interface,
 		                 TWDESKP_VERSION,
 		                 &s_console,
@@ -198,7 +210,7 @@ tw_setup_console(struct weston_compositor *compositor, const char *path,
 	if (path) {
 		strcpy(s_console.path, path);
 		struct wl_event_loop *loop =
-			wl_display_get_event_loop(compositor->wl_display);
+			wl_display_get_event_loop(display);
 		wl_event_loop_add_idle(loop, launch_console_client, &s_console);
 	}
 
@@ -208,10 +220,8 @@ tw_setup_console(struct weston_compositor *compositor, const char *path,
 	//where is the signal for console close???
 
 	//destroy globals
-	wl_list_init(&s_console.compositor_destroy_listener.link);
-	s_console.compositor_destroy_listener.notify = end_console;
-	wl_signal_add(&compositor->destroy_signal,
-		      &s_console.compositor_destroy_listener);
-
+	tw_set_display_destroy_listener(display,
+	                                &s_console.display_destroy_listener,
+	                                end_console);
 	return &s_console;
 }

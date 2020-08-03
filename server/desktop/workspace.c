@@ -90,6 +90,16 @@ tw_xdg_view_backup_geometry(struct tw_xdg_view *v)
 	v->old_geometry.height = v->dsurf->window_geometry.h;
 }
 
+struct tw_xdg_view *
+tw_xdg_view_from_tw_surface(struct tw_surface *surface)
+{
+	struct tw_desktop_surface *dsurf =
+		tw_desktop_surface_from_tw_surface(surface);
+	if (dsurf)
+		return dsurf->user_data;
+	return NULL;
+}
+
 /******************************************************************************
  * workspace implementation
  *****************************************************************************/
@@ -501,6 +511,17 @@ tw_workspace_switch_layout(struct tw_workspace *w, struct tw_xdg_view *view)
 	view->type = (view->type == LAYOUT_TILING) ?
 		LAYOUT_FLOATING : LAYOUT_TILING;
 	tw_workspace_add_view(w, view);
+}
+
+void
+tw_workspace_run_command(struct tw_workspace *w,
+                         enum tw_xdg_layout_command command,
+                         struct tw_xdg_view *view)
+{
+	struct tw_xdg_layout_op arg = {
+		.v = view,
+	};
+	arrange_view_for_workspace(w, view, command, &arg);
 }
 
 const char *

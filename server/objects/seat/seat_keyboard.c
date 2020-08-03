@@ -272,6 +272,7 @@ tw_keyboard_clear_focus(struct tw_keyboard *keyboard)
 		wl_resource_for_each(res, &client->keyboards)
 			wl_keyboard_send_leave(res, serial,
 			                       keyboard->focused_surface);
+		tw_reset_wl_list(&keyboard->focused_destroy.link);
 	}
 	keyboard->focused_client = NULL;
 	keyboard->focused_surface = NULL;

@@ -160,9 +160,9 @@ tw_workspace_resize_view(struct tw_workspace *w, struct tw_xdg_view *v,
                          double dx, double dy,
                          enum wl_shell_surface_resize edge);
 void
-tw_workspace_run_layout_command(struct tw_workspace *w,
-                                enum tw_xdg_layout_command command,
-                                const struct tw_xdg_layout_op *op);
+tw_workspace_run_command(struct tw_workspace *w,
+                         enum tw_xdg_layout_command command,
+                         struct tw_xdg_view *view);
 
 //resize is done directly inside desktop for now
 bool
