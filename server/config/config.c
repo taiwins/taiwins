@@ -20,12 +20,12 @@
  */
 
 #include <fcntl.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <wayland-server-core.h>
-#include <wayland-util.h>
+#include <wayland-server.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-compose.h>
 #include <xkbcommon/xkbcommon-names.h>
@@ -34,36 +34,42 @@
 #include <ctypes/sequential.h>
 #include <ctypes/os/file.h>
 #include <ctypes/strops.h>
-#include <libweston/libweston.h>
 
+#include "backend.h"
+#include "shell.h"
+#include "bindings.h"
 #include "config_internal.h"
+#include "taiwins/objects/utils.h"
+#include "xdg.h"
+
+
+
+static const uint32_t TW_CONFIG_GLOBAL_DEFAULT =
+	TW_CONFIG_GLOBAL_BUS |
+	TW_CONFIG_GLOBAL_TAIWINS_SHELL |
+	TW_CONFIG_GLOBAL_TAIWINS_CONSOLE |
+	TW_CONFIG_GLOBAL_TAIWINS_THEME |
+	TW_CONFIG_GLOBAL_LAYER_SHELL |
+	TW_CONFIG_GLOBAL_XWAYLAND |
+	TW_CONFIG_GLOBAL_DESKTOP;
 
 /******************************************************************************
  * API
  *****************************************************************************/
-extern bool
-tw_luaconfig_read(struct tw_config *c, const char *path);
-
-extern char *
-tw_luaconfig_read_error(struct tw_config *c);
-
-void
-tw_luaconfig_fini(struct tw_config *c);
-
-void
-tw_luaconfig_init(struct tw_config *c);
 
 struct tw_config*
-tw_config_create(struct weston_compositor *ec, log_func_t log)
+tw_config_create(struct tw_backend *backend)
 {
 	struct tw_config *config =
 		calloc(1, sizeof(struct tw_config));
+	if (!config)
+		return NULL;
+
+	config->backend = backend;
 	config->err_msg = NULL;
-	config->compositor = ec;
-	config->print = log;
 	config->user_data = NULL;
 	config->_config_time = false;
-	config->bindings = tw_bindings_create(ec);
+	config->bindings = tw_bindings_create(backend->display);
 	config->config_table = tw_config_table_new(config);
 
 	config->init = tw_luaconfig_init;
@@ -177,24 +183,18 @@ copy_builtin_bindings(struct tw_binding *dst, const struct tw_binding *src)
 static inline void
 copy_signals(struct tw_config *dst, const struct tw_config *src)
 {
-	struct weston_compositor *ec = dst->compositor;
-
+	struct tw_backend *backend = src->backend;
+	dst->backend = src->backend;
 	//add signals
 	if (src->output_created_listener.notify) {
-		wl_list_init(&dst->output_created_listener.link);
-
-		dst->output_created_listener.notify =
-			src->output_created_listener.notify;
-		wl_signal_add(&ec->output_created_signal,
-		              &dst->output_created_listener);
+		tw_signal_setup_listener(&backend->output_plug_signal,
+		                         &dst->output_created_listener,
+		                         src->output_created_listener.notify);
 	}
 	if (src->output_destroyed_listener.notify) {
-		wl_list_init(&dst->output_destroyed_listener.link);
-
-		dst->output_destroyed_listener.notify =
-			src->output_destroyed_listener.notify;
-		wl_signal_add(&ec->output_destroyed_signal,
-		              &dst->output_destroyed_listener);
+		tw_signal_setup_listener(&backend->output_unplug_signal,
+		                         &dst->output_destroyed_listener,
+		                         src->output_destroyed_listener.notify);
 	}
 }
 
@@ -224,7 +224,8 @@ tw_swap_config(struct tw_config *dst, struct tw_config *src)
 	src->bindings = NULL;
 	src->config_table = NULL;
 	src->user_data = NULL;
-	vector_init_zero(&src->registry, sizeof(struct tw_config_obj), NULL);
+	vector_init_zero(&src->registry,
+	                 sizeof(struct tw_config_obj), NULL);
 	vector_init_zero(&src->config_bindings,
 	                 sizeof(struct tw_binding), NULL);
 }
@@ -289,13 +290,12 @@ tw_run_config(struct tw_config *config)
 	bool safe;
 	struct tw_config *temp_config;
 
-	temp_config = tw_config_create(config->compositor, config->print);
+	temp_config = tw_config_create(config->backend);
 
 	safe = tw_try_config(temp_config, config);
 
 	if (safe) {
 		tw_swap_config(config, temp_config);
-		tw_bindings_apply(config->bindings);
 		tw_config_table_flush(config->config_table);
 	}
 	//in either case, we would want to purge the temp config
@@ -307,71 +307,77 @@ tw_run_config(struct tw_config *config)
 bool
 tw_run_default_config(struct tw_config *c)
 {
-	//default config
-	c->compositor->kb_repeat_delay = 500;
-	c->compositor->kb_repeat_rate = 20;
-
+	c->config_table->enable_globals = TW_CONFIG_GLOBAL_DEFAULT;
 	tw_config_wake_compositor(c);
 	tw_config_install_bindings(c, c->bindings);
-	tw_bindings_apply(c->bindings);
 	return true;
 }
 
 bool
 tw_config_wake_compositor(struct tw_config *c)
 {
-	struct shell *shell;
-	struct console *console;
-	struct tw_backend *backend;
+	struct tw_shell *shell = NULL;
+	struct tw_console *console;
 	struct tw_bus *bus;
 	struct tw_theme *theme;
-	struct tw_xwayland *xwayland;
-	struct desktop *desktop;
+	/* struct tw_xwayland *xwayland; */
+	struct tw_xdg *xdg;
 	struct tw_config *initialized;
-
+	struct wl_display *display = c->backend->display;
+	uint32_t enables = c->config_table->enable_globals;
 	const char *shell_path;
 	const char *console_path;
-	struct weston_compositor *ec = c->compositor;
 
 	initialized = tw_config_request_object(c, "initialized");
 	shell_path =  tw_config_request_object(c, "shell_path");
 	console_path = tw_config_request_object(c, "console_path");
 	if (initialized)
-		return true;
+		goto initialized;
 
-	tw_config_table_flush(c->config_table);
-	weston_compositor_wake(ec);
+	tw_config_register_object(c, "backend", c->backend);
 
-	if (!(backend = tw_setup_backend(ec)))
-		goto out;
-	tw_config_register_object(c, "backend", backend);
+	if (enables & TW_CONFIG_GLOBAL_BUS) {
+		if (!(bus = tw_bus_create_global(c->backend->display)))
+			goto out;
+                tw_config_register_object(c, "bus", bus);
+	}
 
-	if (!(bus = tw_setup_bus(ec)))
-		goto out;
-	tw_config_register_object(c, "bus", bus);
+	if (enables & TW_CONFIG_GLOBAL_TAIWINS_SHELL) {
+		bool enable_layer_shell =
+			enables & TW_CONFIG_GLOBAL_LAYER_SHELL;
+		if (!(shell = tw_shell_create_global(display, c->backend,
+		                                     enable_layer_shell,
+		                                     shell_path)))
+			goto out;
+		tw_config_register_object(c, "shell", shell);
+	}
 
-	if (!(shell = tw_setup_shell(ec, shell_path)))
-		goto out;
-	tw_config_register_object(c, "shell", shell);
+	if (shell && (enables & TW_CONFIG_GLOBAL_TAIWINS_CONSOLE)) {
+		if (!(console = tw_console_create_global(display,
+		                                         console_path,
+		                                         c->backend,
+		                                         shell)))
+			goto out;
+		tw_config_register_object(c, "console", console);
+	}
 
-	if (!(console = tw_setup_console(ec, console_path, shell)))
-		goto out;
-	tw_config_register_object(c, "console", console);
-
-	if (!(desktop = tw_setup_desktop(ec, shell)))
-		goto out;
-	tw_config_register_object(c, "desktop", desktop);
-
-	if (!(theme = tw_setup_theme(ec)))
-		goto out;
-	tw_config_register_object(c, "theme", theme);
-
-	if (!(xwayland = tw_setup_xwayland(ec)))
-		goto out;
-	tw_config_register_object(c, "xwayland", xwayland);
+	if (enables & TW_CONFIG_GLOBAL_TAIWINS_THEME) {
+		if (!(theme = tw_theme_create_global(display)))
+			goto out;
+		tw_config_register_object(c, "theme", theme);
+	}
+	/* if (!(xwayland = tw_setup_xwayland(ec))) */
+	/*	goto out; */
+	/* tw_config_register_object(c, "xwayland", xwayland); */
+	if (enables & TW_CONFIG_GLOBAL_DESKTOP) {
+		if (!(xdg = tw_xdg_create_global(display, shell, c->backend)))
+			goto out;
+		tw_config_register_object(c, "desktop", xdg);
+	}
+	//this is probably a bad idea.
 	tw_config_register_object(c, "initialized", c->config_table);
-
-	ec->default_pointer_grab = NULL;
+initialized:
+	tw_config_table_flush(c->config_table);
 	return true;
 out:
 	return false;
@@ -462,7 +468,7 @@ tw_config_table_dirty(struct tw_config_table *t, bool dirty)
 
 	if (t->config->_config_time || !dirty)
 		return;
-	display = t->config->compositor->wl_display;
+	display = t->config->backend->display;
 	loop = wl_display_get_event_loop(display);
 
 	wl_event_loop_add_idle(loop, tw_config_table_apply, t);
@@ -477,13 +483,11 @@ void
 tw_config_table_flush(struct tw_config_table *t)
 {
 	struct tw_config *c = t->config;
-	struct weston_compositor *ec = t->config->compositor;
-	struct desktop *desktop;
-	struct shell *shell;
+	struct tw_xdg *desktop;
+	struct tw_shell *shell;
 	struct tw_xwayland *xwayland;
 	struct tw_theme *theme;
 	struct tw_backend *backend;
-	enum tw_layout_type layout;
 
 	desktop = tw_config_request_object(c, "desktop");
 	xwayland = tw_config_request_object(c, "xwayland");
@@ -492,49 +496,28 @@ tw_config_table_flush(struct tw_config_table *t)
 	shell = tw_config_request_object(c, "shell");
 
 	for (int i = 0; backend && i < 32 ; i++) {
-		struct weston_output *output =
-			 t->outputs[i].output;
-		enum wl_output_transform transform =
-			t->outputs[i].transform.transform;
-		int32_t scale =
-			t->outputs[i].scale.val;
-		//this does not work for output already enabled actually.
-		if (!output)
-			continue;
-		if (t->outputs[i].transform.valid) {
-			weston_output_set_transform(output, transform);
-			t->outputs[i].transform.valid = false;
-		}
-		if (t->outputs[i].scale.valid) {
-			weston_output_set_scale(output, scale);
-			t->outputs[i].scale.valid = false;
-		}
-		wl_signal_emit(&ec->output_resized_signal, output);
 	}
 
-	for (int i = 0; desktop && i < MAX_WORKSPACE; i++) {
-		layout = t->workspaces[i].layout.layout;
-		if (t->workspaces[i].layout.valid)
-			tw_desktop_set_workspace_layout(desktop, i, layout);
-		t->workspaces[i].layout.valid = false;
-	}
-
-	if (desktop && (t->desktop_igap.valid || t->desktop_ogap.valid)) {
-		tw_desktop_set_gap(desktop,
-		                   t->desktop_igap.val,
-		                   t->desktop_ogap.val);
-		t->desktop_igap.valid = false;
-		t->desktop_ogap.valid = false;
+	for (int i = 0; desktop && i < MAX_WORKSPACES; i++) {
+		/* enum tw_layout_type layout = t->workspaces[i].layout.layout; */
+		/* uint32_t igap = t->workspaces[i].desktop_igap.uval; */
+		/* uint32_t ogap = t->workspaces[i].desktop_ogap.uval; */
+		/* if (t->workspaces[i].layout.valid) */
+		/*	tw_desktop_set_workspace_layout(desktop, i, layout); */
+		/* t->workspaces[i].layout.valid = false; */
+		/* if (t->workspaces[i].desktop_igap.valid) */
 	}
 
 	if (xwayland && t->xwayland.valid) {
-		tw_xwayland_enable(xwayland, t->xwayland.enable);
-		t->xwayland.valid = false;
+		/* tw_xwayland_enable(xwayland, t->xwayland.enable); */
+		/* t->xwayland.valid = false; */
 	}
 
+	//this is built on weston_compositor's middle layer approach, we can
+	//create another object, not to cramble everything in the tw_backend.
 	if (t->lock_timer.valid) {
-		ec->idle_time = t->lock_timer.val;
-		t->lock_timer.valid = false;
+		/* ec->idle_time = t->lock_timer.val; */
+		/* t->lock_timer.valid = false; */
 	}
 	if (shell && t->panel_pos.valid) {
 		tw_shell_set_panel_pos(shell, t->panel_pos.pos);
@@ -542,25 +525,20 @@ tw_config_table_flush(struct tw_config_table *t)
 	}
 
 	if (theme && t->theme.valid) {
-		tw_theme_notify(theme);
-		t->theme.read = false;
-		t->theme.valid = false;
+		/* tw_theme_notify(theme); */
+		/* t->theme.read = false; */
+		/* t->theme.valid = false; */
 	}
 
 	if (xkb_rules_valid(&t->xkb_rules)) {
-		complete_xkb_rules(&t->xkb_rules, &ec->xkb_names);
-		weston_compositor_set_xkb_rule_names(ec, &t->xkb_rules);
+		/* complete_xkb_rules(&t->xkb_rules, &ec->xkb_names); */
+		/* weston_compositor_set_xkb_rule_names(ec, &t->xkb_rules); */
 	}
 	t->xkb_rules = (struct xkb_rule_names){0};
 
-	if (t->kb_repeat.valid && t->kb_repeat.val > 0) {
-		ec->kb_repeat_rate = t->kb_repeat.val;
-		t->kb_repeat.valid = false;
+	if (t->kb_repeat.valid && t->kb_repeat.val > 0 &&
+	    t->kb_delay.valid && t->kb_delay.val > 0) {
+		/* tw_backend_set_repeat_info(c->backend, */
+		/*                            t->kb_repeat.val, t->kb_delay.val); */
 	}
-	if (t->kb_delay.valid && t->kb_delay.val > 0) {
-		ec->kb_repeat_delay = t->kb_delay.val;
-		t->kb_delay.valid = false;
-	}
-
-	weston_compositor_schedule_repaint(ec);
 }

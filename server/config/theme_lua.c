@@ -24,7 +24,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/mman.h>
-#include <wayland-util.h>
+#include <wayland-server-core.h>
 
 #include <ctypes/os/file.h>
 #include <ctypes/os/os-compatibility.h>
@@ -823,4 +823,12 @@ tw_theme_read(lua_State *L)
 	TW_THEME_READ_SEC(L, 2, "header", header, &theme->window.header);
 
 	return 0;
+}
+
+
+struct tw_theme *
+tw_theme_create_global(struct wl_display *display)
+{
+	static struct tw_theme s_theme;
+	return &s_theme;
 }
