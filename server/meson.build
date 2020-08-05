@@ -45,6 +45,8 @@ taiwins_obj_srcs = [
   'objects/desktop/desktop.c',
   'objects/desktop/desktop_wl_shell.c',
   'objects/desktop/desktop_xdg_shell.c',
+  'objects/presentation_feedback.c',
+  'objects/viewporter.c',
 
   wayland_linux_dmabuf_server_protocol_h,
   wayland_linux_dmabuf_private_code_c,

@@ -292,12 +292,14 @@ layer_renderer_paint_surface(struct tw_surface *surface,
 	SCOPE_PROFILE_END();
 }
 
+
 static void
 layer_renderer_repaint_output(struct tw_renderer *renderer,
                               struct tw_backend_output *output)
 {
 	struct tw_plane main_plane;
 	struct tw_surface *surface;
+	struct tw_presentation_feedback *feedback, *tmp;
 	struct tw_backend *backend = output->backend;
 	struct tw_layers_manager *manager = &backend->layers_manager;
 	struct tw_layer_renderer *layer_render =
@@ -327,6 +329,14 @@ layer_renderer_repaint_output(struct tw_renderer *renderer,
 		clock_gettime(CLOCK_MONOTONIC, &now);
 		now_int = now.tv_sec * 1000 + now.tv_nsec / 1000000;
 		tw_surface_flush_frame(surface, now_int);
+	}
+
+	wl_list_for_each_safe(feedback, tmp, &backend->presentation.feedbacks,
+	                      link) {
+		struct wl_resource *wl_output =
+			tw_backend_output_get_wl_output(
+				output, feedback->surface->resource);
+		tw_presentation_feeback_sync(feedback, wl_output, &now);
 	}
 	tw_plane_fini(&main_plane);
 
