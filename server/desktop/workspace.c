@@ -505,7 +505,7 @@ tw_workspace_switch_layout(struct tw_workspace *w, struct tw_xdg_view *view)
 {
 	if (view->type != LAYOUT_FLOATING && view->type != LAYOUT_TILING)
 		return;
-	if (tw_workspace_has_view(w, view))
+	if (!tw_workspace_has_view(w, view))
 		return;
 	tw_workspace_remove_view(w, view);
 	view->type = (view->type == LAYOUT_TILING) ?

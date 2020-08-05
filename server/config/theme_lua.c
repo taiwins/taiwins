@@ -824,11 +824,3 @@ tw_theme_read(lua_State *L)
 
 	return 0;
 }
-
-
-struct tw_theme *
-tw_theme_create_global(struct wl_display *display)
-{
-	static struct tw_theme s_theme;
-	return &s_theme;
-}

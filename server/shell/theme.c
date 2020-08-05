@@ -22,21 +22,19 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/mman.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 
 #include <wayland-taiwins-theme-server-protocol.h>
 #include <ctypes/os/file.h>
 #include <ctypes/helpers.h>
 #include <ctypes/os/os-compatibility.h>
+#include <taiwins/objects/utils.h>
 #include <twclient/theme.h>
-
-#include "taiwins.h"
 
 struct shell;
 
 struct theme {
-	struct weston_compositor *ec;
+	struct wl_display *display;
 	struct wl_listener compositor_destroy_listener;
 	struct wl_global *global;
 	struct tw_config *config;
@@ -131,21 +129,19 @@ end_theme(struct wl_listener *listener, void *data)
  ******************************************************************************/
 
 struct tw_theme *
-tw_setup_theme(struct weston_compositor *ec)
+tw_theme_create_global(struct wl_display *display)
 {
-	THEME.ec = ec;
-	THEME.global = wl_global_create(ec->wl_display,
+	THEME.display = display;
+	THEME.global = wl_global_create(display,
 	                                &taiwins_theme_interface,
 	                                taiwins_theme_interface.version,
 	                                &THEME,
 	                                bind_theme);
 	tw_theme_init_default(&THEME.global_theme);
-
 	wl_list_init(&THEME.clients);
-	wl_list_init(&THEME.compositor_destroy_listener.link);
 
-	THEME.compositor_destroy_listener.notify = end_theme;
-	wl_signal_add(&ec->destroy_signal, &THEME.compositor_destroy_listener);
-
+	tw_set_display_destroy_listener(display,
+	                                &THEME.compositor_destroy_listener,
+	                                end_theme);
 	return &THEME.global_theme;
 }

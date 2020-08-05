@@ -36,6 +36,7 @@
 #include <ctypes/strops.h>
 
 #include "backend.h"
+#include "ctypes/vector.h"
 #include "shell.h"
 #include "bindings.h"
 #include "config_internal.h"
@@ -58,7 +59,7 @@ static const uint32_t TW_CONFIG_GLOBAL_DEFAULT =
  *****************************************************************************/
 
 struct tw_config*
-tw_config_create(struct tw_backend *backend)
+tw_config_create(struct tw_backend *backend, struct tw_bindings *bindings)
 {
 	struct tw_config *config =
 		calloc(1, sizeof(struct tw_config));
@@ -69,7 +70,7 @@ tw_config_create(struct tw_backend *backend)
 	config->err_msg = NULL;
 	config->user_data = NULL;
 	config->_config_time = false;
-	config->bindings = tw_bindings_create(backend->display);
+	config->bindings = bindings;
 	config->config_table = tw_config_table_new(config);
 
 	config->init = tw_luaconfig_init;
@@ -92,8 +93,6 @@ tw_config_create(struct tw_backend *backend)
 static inline void
 _tw_config_release(struct tw_config *config)
 {
-	if (config->bindings)
-		tw_bindings_destroy(config->bindings);
 	if (config->config_table)
 		tw_config_table_destroy(config->config_table);
 	if (config->err_msg)
@@ -123,22 +122,7 @@ tw_config_retrieve_error(struct tw_config *config)
 static void
 tw_config_copy_waken(struct tw_config *dst, struct tw_config *src)
 {
-	tw_config_register_object(dst, "backend",
-		tw_config_request_object(src, "backend"));
-	tw_config_register_object(dst, "bus",
-		tw_config_request_object(src, "bus"));
-	tw_config_register_object(dst, "shell",
-		tw_config_request_object(src, "shell"));
-	tw_config_register_object(dst, "console",
-		tw_config_request_object(src, "console"));
-	tw_config_register_object(dst, "desktop",
-		tw_config_request_object(src, "desktop"));
-	tw_config_register_object(dst, "theme",
-		tw_config_request_object(src, "theme"));
-	tw_config_register_object(dst, "xwayland",
-		tw_config_request_object(src, "xwayland"));
-	tw_config_register_object(dst, "initialized",
-		tw_config_request_object(src, "initialized"));
+	vector_copy(&dst->registry, &src->registry);
 }
 
 void
@@ -289,8 +273,10 @@ tw_run_config(struct tw_config *config)
 {
 	bool safe;
 	struct tw_config *temp_config;
+	struct tw_bindings *tmp_bindings =
+		tw_bindings_create(config->backend->display);
 
-	temp_config = tw_config_create(config->backend);
+	temp_config = tw_config_create(config->backend, tmp_bindings);
 
 	safe = tw_try_config(temp_config, config);
 
@@ -300,6 +286,7 @@ tw_run_config(struct tw_config *config)
 	}
 	//in either case, we would want to purge the temp config
 	tw_config_destroy(temp_config);
+	tw_bindings_destroy(tmp_bindings);
 
 	return safe;
 }

@@ -32,7 +32,7 @@
 
 #include "xdg.h"
 #include "backend.h"
-#include "server/taiwins.h"
+#include "config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -154,13 +154,6 @@ tw_config_wake_compositor(struct tw_config *c);
 struct tw_bus *
 tw_bus_create_global(struct wl_display *display);
 
-struct tw_theme *
-tw_theme_create_global(struct wl_display *display);
-
-struct tw_console *
-tw_console_create_global(struct wl_display *display, const char *path,
-                         struct tw_backend *backend, struct tw_shell *shell);
-
 /******************************************************************************
  * private APIs
  *****************************************************************************/
@@ -240,15 +233,6 @@ tw_luaconfig_fini(struct tw_config *c);
 
 void
 tw_luaconfig_init(struct tw_config *c);
-
-void
-tw_config_register_object(struct tw_config *config,
-                          const char *name, void *obj);
-void *
-tw_config_request_object(struct tw_config *config,
-                         const char *name);
-bool
-tw_run_config(struct tw_config *config);
 
 #ifdef __cplusplus
 }

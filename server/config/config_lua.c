@@ -79,25 +79,30 @@ _lua_run_binding(void *data)
 	lua_settop(L, 0);
 }
 
-static void
+static bool
 _lua_run_keybinding(struct tw_keyboard *keyboard,
-                    uint32_t time, uint32_t key, uint32_t option,
-                    void *data)
+                    uint32_t time, uint32_t key, uint32_t mods,
+                    uint32_t option, void *data)
 {
 	_lua_run_binding(data);
+	return true;
 }
 
-static void
+static bool
 _lua_run_btnbinding(struct tw_pointer *pointer,
-                    uint32_t time, uint32_t btn, void *data)
+                    uint32_t time, uint32_t btn, uint32_t mods, void *data)
 {
 	_lua_run_binding(data);
+	return true;
 }
 
-static void
-_lua_run_axisbinding(struct tw_pointer *pointer, uint32_t time, void *data)
+static bool
+_lua_run_axisbinding(struct tw_pointer *pointer, uint32_t time,
+                     double delta, enum wl_pointer_axis direction,
+                     uint32_t mods, void *data)
 {
 	_lua_run_binding(data);
+	return true;
 }
 
 

@@ -33,11 +33,12 @@
 
 #include <ctypes/helpers.h>
 #include <taiwins/objects/seat.h>
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/utils.h>
 
 #include "backend.h"
 #include "bindings.h"
 #include "input.h"
-#include "taiwins.h"
 
 static uint32_t
 curr_modmask(struct tw_seat_events *seat_events)
@@ -96,29 +97,37 @@ binding_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
 		container_of(grab, struct tw_seat_events, binding_key_grab);
 	struct tw_seat *seat = grab->seat;
 	uint32_t mod_mask = curr_modmask(seat_events);
-
-	struct tw_binding_keystate *keystate;
+	bool block = true;
+	struct tw_binding_node *keystate;
 	struct tw_binding *binding = NULL;
 
 	// grab quiting is done at release event, if key binding is executed or
 	// we didn't hit a binding, it is about time to quit this grab. Note
 	// that in we cannot do desc in cancel grab, as we may get into another
 	// grab.
-	if (state != WL_KEYBOARD_KEY_STATE_PRESSED && !grab->data) {
+	if (!grab->data) {
 		tw_keyboard_end_grab(&grab->seat->keyboard);
 		return;
+	} else if (state != WL_KEYBOARD_KEY_STATE_PRESSED) {
+		return;
 	}
-
+	//this looks unintuitive, but we need essentially step first, since we
+	//are in the root node when are first here.
 	keystate = grab->data;
-	if (!tw_binding_keystate_step(keystate, key, mod_mask)) {
-		tw_binding_keystate_destroy(keystate);
-		grab->data = NULL;
-	} else if ( (binding = tw_binding_keystate_get_binding(keystate)) ) {
-		tw_binding_keystate_destroy(keystate);
-		grab->data = NULL;
+	keystate = tw_binding_node_step(keystate, key, mod_mask);
+	binding = tw_binding_node_get_binding(keystate);
+	if (binding) {
+		keystate = NULL;
 		//the key_function may get us into another grab.
-		binding->key_func(&seat->keyboard, time_msec,
-		                  key, binding->option, binding->user_data);
+		block = binding->key_func(&seat->keyboard, time_msec,
+		                          key, mod_mask, binding->option,
+		                          binding->user_data);
+	}
+	grab->data = keystate;
+	//fall through.
+	if (!block) {
+		tw_keyboard_end_grab(&seat->keyboard);
+		tw_keyboard_notify_key(&seat->keyboard, time_msec, key, state);
 	}
 }
 
@@ -140,15 +149,27 @@ binding_btn(struct tw_seat_pointer_grab *grab, uint32_t time, uint32_t button,
 {
 	struct tw_binding *binding = grab->data;
 	struct tw_seat *seat = grab->seat;
+	struct tw_seat_events *seat_events =
+		container_of(grab, struct tw_seat_events,
+		             binding_pointer_grab);
+	uint32_t mod_mask = curr_modmask(seat_events);
+	bool block;
 
-	//binding reset at release event, this is similar to binding_key.
+	//binding button is a little different, since we do not have a state,
+	//thus here we basically call the binding functions then leave at
+	//release (next button). Unless we get into another grab.
 	if (!binding || binding->type != TW_BINDING_btn ||
 	    state != WL_POINTER_BUTTON_STATE_PRESSED) {
 		tw_pointer_end_grab(&grab->seat->pointer);
 		return;
 	}
-	binding->btn_func(&seat->pointer, time, button, binding->user_data);
+	block = binding->btn_func(&seat->pointer, time, button, mod_mask,
+	                          binding->user_data);
 	grab->data = NULL;
+	if (!block) {
+		tw_pointer_end_grab(&seat->pointer);
+		tw_pointer_notify_button(&seat->pointer, time, button, state);
+	}
 }
 
 static void
@@ -157,14 +178,20 @@ binding_axis(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
              int32_t value_discrete,
              enum wl_pointer_axis_source source)
 {
+
 	struct tw_binding *binding = grab->data;
 	struct tw_seat *seat = grab->seat;
+	struct tw_seat_events *seat_events =
+		container_of(grab, struct tw_seat_events,
+		             binding_pointer_grab);
+	uint32_t mod_mask = curr_modmask(seat_events);
 
         if (!binding || binding->type != TW_BINDING_axis) {
 		tw_pointer_end_grab(&grab->seat->pointer);
 		return;
 	}
-	binding->axis_func(&seat->pointer, time_msec, binding->user_data);
+        binding->axis_func(&seat->pointer, time_msec, value, orientation,
+                           mod_mask, binding->user_data);
 	grab->data = NULL;
 	//if the binding does not change the grab, we can actually quit the
 	//binding grab.
@@ -184,13 +211,17 @@ binding_touch(struct tw_seat_touch_grab *grab, uint32_t time,
 {
 	struct tw_seat *seat = grab->seat;
 	struct tw_binding *binding = grab->data;
+	struct tw_seat_events *seat_events =
+		container_of(grab, struct tw_seat_events,
+		             binding_touch_grab);
+	uint32_t mod_mask = curr_modmask(seat_events);
 
 	if (!binding) {
 		tw_touch_end_grab(&grab->seat->touch);
 		return;
 	}
 	binding = grab->data;
-	binding->touch_func(&seat->touch, time, binding->user_data);
+	binding->touch_func(&seat->touch, time, mod_mask, binding->user_data);
 	grab->data = NULL;
 	if (grab == seat->touch.grab)
 		tw_touch_end_grab(&seat->touch);
@@ -225,13 +256,14 @@ static const struct tw_touch_grab_interface touch_impl = {
 static void
 handle_key_input(struct wl_listener *listener, void *data)
 {
-	struct tw_binding_keystate *state;
+	struct tw_binding_node *state;
 	struct tw_seat_events *seat_events =
 		container_of(listener, struct tw_seat_events, key_input);
 	struct wlr_event_keyboard_key *event = data;
 	struct tw_keyboard *seat_keyboard = &seat_events->seat->keyboard;
 
-        if (seat_keyboard->grab != &seat_keyboard->default_grab)
+        if (seat_keyboard->grab != &seat_keyboard->default_grab ||
+            event->state != WLR_KEY_PRESSED)
 		return;
 	state = tw_bindings_find_key(seat_events->bindings,
 	                             event->keycode,
@@ -251,21 +283,10 @@ handle_modifiers_input(struct wl_listener *listener, void *data)
 	struct tw_seat *seat = seat_events->seat;
 	struct tw_keyboard *keyboard = &seat->keyboard;
 
+        //This is where we set the keyboard modifiers and leds.
 	keyboard->modifiers_state = curr_modmask(seat_events);
 	keyboard->led_state = curr_ledmask(seat_events);
-	// we may choose to end the grab on modifier release, this is largely
-	// due to seat keyboard/pointer itself does not have enough information
-	// for deciding the grab, we need to have enough information
 
-	// TODO: possibly remove this.
-        if (keyboard->modifiers_state == 0) {
-	        if (seat->keyboard.grab != &seat_events->binding_key_grab)
-			tw_keyboard_end_grab(&seat->keyboard);
-	        if (seat->pointer.grab != &seat_events->binding_pointer_grab)
-			tw_pointer_end_grab(&seat->pointer);
-	        if (seat->touch.grab != &seat_events->binding_touch_grab)
-			tw_touch_end_grab(&seat->touch);
-	}
 }
 
 static void
@@ -277,7 +298,8 @@ handle_btn_input(struct wl_listener *listener, void *data)
 	struct wlr_event_pointer_button *event = data;
 	struct tw_pointer *seat_pointer = &seat_events->seat->pointer;
 
-        if (seat_pointer->grab != &seat_pointer->default_grab)
+        if (seat_pointer->grab != &seat_pointer->default_grab ||
+            event->state != WLR_BUTTON_PRESSED)
 		return;
 	binding = tw_bindings_find_btn(seat_events->bindings,
 	                               event->button,
@@ -355,10 +377,8 @@ handle_seat_change(struct wl_listener *listener, void *data)
 	} else if (!(seat->capabilities & TW_INPUT_CAP_KEYBOARD) &&
 	           seat_events->keyboard_dev) {
 		seat_events->keyboard_dev = NULL;
-		wl_list_remove(&seat_events->key_input.link);
-		wl_list_init(&seat_events->key_input.link);
-		wl_list_remove(&seat_events->mod_input.link);
-		wl_list_init(&seat_events->mod_input.link);
+		tw_reset_wl_list(&seat_events->key_input.link);
+		tw_reset_wl_list(&seat_events->mod_input.link);
 	}
 
 	if ((seat->capabilities & TW_INPUT_CAP_POINTER) &&
@@ -373,10 +393,8 @@ handle_seat_change(struct wl_listener *listener, void *data)
 	} else if (!(seat->capabilities & TW_INPUT_CAP_POINTER) &&
 	           seat_events->pointer_dev) {
 		seat_events->pointer_dev = NULL;
-		wl_list_remove(&seat_events->btn_input.link);
-		wl_list_init(&seat_events->btn_input.link);
-		wl_list_remove(&seat_events->axis_input.link);
-		wl_list_init(&seat_events->axis_input.link);
+		tw_reset_wl_list(&seat_events->btn_input.link);
+		tw_reset_wl_list(&seat_events->axis_input.link);
 	}
 
 	if ((seat->capabilities & TW_INPUT_CAP_TOUCH) &&
@@ -388,8 +406,7 @@ handle_seat_change(struct wl_listener *listener, void *data)
 	} else if (!(seat->capabilities & TW_INPUT_CAP_TOUCH) &&
 	           seat_events->touch_dev) {
 		seat_events->touch_dev = NULL;
-		wl_list_remove(&seat_events->tch_input.link);
-		wl_list_init(&seat_events->tch_input.link);
+		tw_reset_wl_list(&seat_events->tch_input.link);
 	}
 }
 
@@ -438,48 +455,4 @@ tw_seat_events_fini(struct tw_seat_events *seat_events)
 	wl_list_remove(&seat_events->btn_input.link);
 	wl_list_remove(&seat_events->axis_input.link);
 	wl_list_remove(&seat_events->tch_input.link);
-}
-
-
-
-/******************************************************************************
- * dummy bindings TODO remove this later
- *****************************************************************************/
-
-static void
-dummy_keybinding(struct tw_keyboard *keyboard, uint32_t time, uint32_t key,
-                 uint32_t option, void *data)
-{
-	tw_logl("dummy key binding\n");
-}
-
-static void
-dummy_btnbinding(struct tw_pointer *keyboard, uint32_t time, uint32_t btn,
-                 void *data)
-{
-	tw_logl("dummy btn binding\n");
-}
-
-static void
-dummy_tchbinding(struct tw_touch *touch, uint32_t time, void *data)
-{
-	tw_logl("dummy touch binding\n");
-}
-
-void
-tw_bindings_add_dummy(struct tw_bindings *bindings)
-{
-	struct tw_key_press dummy_key_press[MAX_KEY_SEQ_LEN] = {
-		{KEY_SPACE, TW_MODIFIER_ALT | TW_MODIFIER_SUPER},
-		{0}, {0}, {0}, {0},
-	};
-	struct tw_btn_press dummy_btn_press = {
-		BTN_LEFT, TW_MODIFIER_ALT,
-	};
-	tw_bindings_add_key(bindings, dummy_key_press, dummy_keybinding,
-	                    0, NULL);
-	tw_bindings_add_btn(bindings, &dummy_btn_press, dummy_btnbinding,
-	                    NULL);
-	tw_bindings_add_touch(bindings, TW_MODIFIER_SUPER, dummy_tchbinding,
-	                      NULL);
 }

@@ -37,6 +37,8 @@ extern "C" {
 #endif
 
 struct tw_shell;
+struct tw_console;
+struct tw_theme;
 
 struct tw_shell *
 tw_shell_create_global(struct wl_display *display, struct tw_backend *backend,
@@ -61,6 +63,16 @@ tw_shell_get_desktop_area_signal(struct tw_shell *shell);
 void
 tw_shell_set_panel_pos(struct tw_shell *shell,
                        enum taiwins_shell_panel_pos pos);
+
+struct tw_theme *
+tw_theme_create_global(struct wl_display *display);
+
+struct tw_console *
+tw_console_create_global(struct wl_display *display, const char *path,
+                         struct tw_backend *backend, struct tw_shell *shell);
+void
+tw_console_start_client(struct tw_console *console);
+
 
 #ifdef  __cplusplus
 }

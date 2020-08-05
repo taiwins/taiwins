@@ -91,7 +91,6 @@ pkgconfig.generate(
 ####### server
 taiwins_src = [
   'main.c',
-  'taiwins.c',
   'input.c',
   'bindings.c',
   'backend/backend.c',
@@ -105,6 +104,7 @@ taiwins_src = [
   'shell/shell.c',
   'shell/shell_layer.c',
   'shell/console.c',
+  'shell/theme.c',
   'desktop/xdg.c',
   'desktop/xdg_grab.c',
   'desktop/workspace.c',
@@ -124,6 +124,8 @@ taiwins_src = [
   wayland_taiwins_shell_private_code_c,
   wayland_taiwins_console_server_protocol_h,
   wayland_taiwins_console_private_code_c,
+  wayland_taiwins_theme_server_protocol_h,
+  wayland_taiwins_theme_private_code_c,
   wayland_wlr_layer_shell_server_protocol_h,
   wayland_wlr_layer_shell_private_code_c,
   wayland_xdg_shell_private_code_c,

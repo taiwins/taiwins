@@ -36,22 +36,118 @@
 
 #include <ctypes/helpers.h>
 #include "bindings.h"
-#include "taiwins.h"
-#include "bindings.h"
+#include "renderer/renderer.h"
 #include "backend.h"
 #include "input.h"
+#include "config.h"
+#include "taiwins/objects/utils.h"
+
+struct tw_server {
+	struct wl_display *display;
+	struct wl_event_loop *loop; /**< main event loop */
+
+	/* globals */
+	struct tw_backend *backend;
+	struct tw_bindings *bindings;
+	struct tw_config *config;
+
+	/* seats */
+	struct tw_seat_events seat_events[8];
+	struct wl_listener seat_add;
+	struct wl_listener seat_remove;
+};
 
 struct tw_options {
 	const char *test_case;
 	struct tw_subprocess test_client;
 };
 
-static void
-print_option(void)
+static bool
+bind_backend(struct tw_server *server)
 {
+	//handle backend
+	server->backend = tw_backend_create_global(server->display,
+	                                           tw_layer_renderer_create);
+	if (!server->backend) {
+		tw_logl("EE: failed to create backend\n");
+		return false;
+	}
+	tw_backend_defer_outputs(server->backend, true);
 
+	return true;
 }
 
+static bool
+bind_config(struct tw_server *server)
+{
+	server->bindings = tw_bindings_create(server->display);
+	if (!server->bindings)
+		goto err_binding;
+	server->config = tw_config_create(server->backend, server->bindings);
+	if (!server->config)
+		goto err_config;
+	return true;
+err_config:
+	tw_bindings_destroy(server->bindings);
+err_binding:
+	return false;
+}
+
+static void
+notify_adding_seat(struct wl_listener *listener, void *data)
+{
+	struct tw_server *server =
+		container_of(listener, struct tw_server, seat_add);
+	struct tw_backend_seat *seat = data;
+	uint32_t i = seat->idx;
+	tw_seat_events_init(&server->seat_events[i], seat,
+	                    server->bindings);
+}
+
+static void
+notify_removing_seat(struct wl_listener *listener, void *data)
+{
+	struct tw_server *server =
+		container_of(listener, struct tw_server, seat_remove);
+	struct tw_backend_seat *seat = data;
+	uint32_t i = seat->idx;
+	tw_seat_events_fini(&server->seat_events[i]);
+}
+
+static void
+bind_listeners(struct tw_server *server)
+{
+	tw_signal_setup_listener(&server->backend->seat_add_signal,
+	                         &server->seat_add,
+	                         notify_adding_seat);
+	tw_signal_setup_listener(&server->backend->seat_rm_signal,
+	                         &server->seat_remove,
+	                         notify_removing_seat);
+}
+
+static bool
+tw_server_init(struct tw_server *server, struct wl_display *display)
+{
+	server->display = display;
+	server->loop = wl_display_get_event_loop(display);
+	if (!bind_backend(server))
+		return false;
+	if (!bind_config(server))
+		return false;
+	bind_listeners(server);
+	return true;
+}
+
+static void
+tw_server_fini(struct tw_server *server)
+{
+	tw_config_destroy(server->config);
+	tw_bindings_destroy(server->bindings);
+}
+
+static void
+print_option(void)
+{}
 
 static bool
 parse_options(struct tw_options *options, int argc, char **argv)
@@ -191,9 +287,12 @@ main(int argc, char *argv[])
 		tw_launch_client(display, options.test_case,
 		                 &options.test_client);
 
+	tw_run_default_config(ec.config);
 	//run the loop
 	tw_backend_flush(ec.backend);
 	wl_display_run(ec.display);
+	//end.
+	tw_server_fini(&ec);
 
 err_backend:
 err_signal:

@@ -35,9 +35,11 @@
 
 
 /* TW_ZOOM_AXIS_BINDING */
-static void
-zoom_axis(struct tw_pointer *pointer, uint32_t time, void *data)
+static bool
+zoom_axis(struct tw_pointer *pointer, uint32_t time, double delta,
+          enum wl_pointer_axis direction, uint32_t modifiers, void *data)
 {
+	return true;
 	/* double augment; */
 	/* struct weston_output *output; */
 	/* struct weston_seat *seat = pointer->seat; */
@@ -74,9 +76,9 @@ zoom_axis(struct tw_pointer *pointer, uint32_t time, void *data)
 }
 
 /* TW_RELOAD_CONFIG_BINDING */
-static void
+static bool
 reload_config(struct tw_keyboard *keyboard, uint32_t time,
-              uint32_t key, uint32_t option, void *data)
+              uint32_t key, uint32_t mods, uint32_t option, void *data)
 {
 	struct tw_config *config = data;
 	struct tw_shell *shell = tw_config_request_object(config, "shell");
@@ -86,22 +88,24 @@ reload_config(struct tw_keyboard *keyboard, uint32_t time,
 		tw_shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_CONFIG_ERR,
 		                      err_msg);
 	}
+	return true;
 }
 
 /* TW_OPEN_CONSOLE_BINDING */
-static void
-should_start_console(struct tw_keyboard *keyboard, const uint32_t time,
-                     uint32_t key, uint32_t option, void *data)
+static bool
+should_start_console(struct tw_keyboard *keyboard, uint32_t time,
+                     uint32_t key, uint32_t mods, uint32_t option, void *data)
 {
-	/* struct tw_config *config = data; */
-	/* struct console *console = */
-	/*	tw_config_request_object(config, "console"); */
-
-	/* tw_console_start_client(console); */
+	struct tw_config *config = data;
+	struct tw_console *console =
+		tw_config_request_object(config, "console");
+	tw_console_start_client(console);
+	return true;
 }
 
-static void
-alpha_axis(struct tw_pointer *pointer, uint32_t time, void *data)
+static bool
+alpha_axis(struct tw_pointer *pointer, uint32_t time, double delta,
+           enum wl_pointer_axis direction, uint32_t modifiers, void *data)
 {
 	//TODO: do we operate on tw_surface or a tw_xdg_view?
 	/* struct tw_config *config = data; */
@@ -109,13 +113,14 @@ alpha_axis(struct tw_pointer *pointer, uint32_t time, void *data)
 	/*	tw_config_request_object(config, "desktop"); */
 
 	if (!pointer->focused_surface)
-		return;
+		return false;
+	return true;
 	/* tw_desktop_start_transparency_grab(desktop, pointer); */
 }
 
-static void
+static bool
 moving_surface_pointer(struct tw_pointer *pointer, const uint32_t time,
-                       uint32_t button, void *data)
+                       uint32_t button, uint32_t modifiers, void *data)
 {
 	struct tw_xdg_view *view;
 	struct tw_surface *surface;
@@ -132,11 +137,12 @@ moving_surface_pointer(struct tw_pointer *pointer, const uint32_t time,
 			tw_xdg_start_moving_grab(desktop, view, seat);
 		}
 	}
+	return true;
 }
 
-static void
+static bool
 click_activate_surface(struct tw_pointer *pointer, uint32_t time,
-                       uint32_t button, void *data)
+                       uint32_t button, uint32_t modifiers, void *data)
 {
 	struct tw_surface *surface;
 	struct tw_xdg_view *view;
@@ -150,11 +156,12 @@ click_activate_surface(struct tw_pointer *pointer, uint32_t time,
 		if (pointer->btn_count > 0 && view)
 			tw_xdg_view_activate(desktop, view);
 	}
+	return false;
 }
 
-static void
+static bool
 resize_view(struct tw_keyboard *keyboard, uint32_t time,
-            uint32_t key, uint32_t option, void *data)
+            uint32_t key, uint32_t mods, uint32_t option, void *data)
 {
 	struct tw_surface *surface;
 	struct tw_xdg_view *view;
@@ -174,11 +181,13 @@ resize_view(struct tw_keyboard *keyboard, uint32_t time,
 		if (view)
 			tw_xdg_resize_view(desktop, view, dx, dy, edge);
 	}
+	return true;
 }
 
-static void
+static bool
 switch_workspace(struct tw_keyboard *keyboard,
-                 uint32_t time, uint32_t key, uint32_t switch_left, //option
+                 uint32_t time, uint32_t key, uint32_t modifiers,
+                 uint32_t switch_left, //option
                  void *data)
 {
 	int idx, curr_idx;
@@ -186,7 +195,7 @@ switch_workspace(struct tw_keyboard *keyboard,
 	struct tw_xdg *desktop =
 		tw_config_request_object(config, "desktop");
 	if (!desktop)
-		return;
+		return false;
 	tw_keyboard_clear_focus(keyboard);
 
         curr_idx = tw_xdg_current_workspace_idx(desktop);
@@ -197,27 +206,29 @@ switch_workspace(struct tw_keyboard *keyboard,
         tw_xdg_switch_workspace(desktop, idx);
 
 	//TODO:damage all the outputs
+        return true;
 }
 
-static void
+static bool
 switch_workspace_last(struct tw_keyboard *keyboard, uint32_t time,
-                      uint32_t key, uint32_t option, void *data)
+                      uint32_t key, uint32_t mods, uint32_t option, void *data)
 {
 	int prev_idx;
 	struct tw_config *config = data;
 	struct tw_xdg *desktop =
 		tw_config_request_object(config, "desktop");
 	if (!desktop)
-		return;
+		return false;
 	tw_keyboard_clear_focus(keyboard);
 
 	prev_idx = tw_xdg_last_workspace_idx(desktop);
 	tw_xdg_switch_workspace(desktop, prev_idx);
+	return true;
 }
 
-static void
+static bool
 toggle_view_vertical(struct tw_keyboard *keyboard, uint32_t time,
-                     uint32_t key, uint32_t option, void *data)
+                     uint32_t key, uint32_t mods, uint32_t option, void *data)
 {
 	struct tw_surface *surface;
 	struct tw_xdg_view *view;
@@ -231,11 +242,12 @@ toggle_view_vertical(struct tw_keyboard *keyboard, uint32_t time,
 		if (view)
 			tw_xdg_toggle_view_split(desktop, view);
 	}
+	return true;
 }
 
-static void
+static bool
 toggle_view_layout(struct tw_keyboard *keyboard, uint32_t time,
-                   uint32_t key, uint32_t option, void *data)
+                   uint32_t key, uint32_t mods, uint32_t option, void *data)
 {
 	struct tw_surface *surface;
 	struct tw_xdg_view *view;
@@ -249,11 +261,12 @@ toggle_view_layout(struct tw_keyboard *keyboard, uint32_t time,
 		if (view)
 			tw_xdg_toggle_view_layout(desktop, view);
 	}
+	return true;
 }
 
-static void
+static bool
 split_desktop_view(struct tw_keyboard *keyboard, uint32_t time,
-                   uint32_t key, uint32_t vsplit, void *data)
+                   uint32_t key, uint32_t mods, uint32_t vsplit, void *data)
 {
 	struct tw_surface *surface;
 	struct tw_xdg_view *view;
@@ -267,11 +280,12 @@ split_desktop_view(struct tw_keyboard *keyboard, uint32_t time,
 		if (view)
 			tw_xdg_split_on_view(desktop, view, vsplit);
 	}
+	return true;
 }
 
-static void
+static bool
 merge_desktop_view(struct tw_keyboard *keyboard, uint32_t time,
-                   uint32_t key, uint32_t option, void *data)
+                   uint32_t key, uint32_t mods, uint32_t option, void *data)
 {
 	struct tw_surface *surface;
 	struct tw_xdg_view *view;
@@ -285,11 +299,12 @@ merge_desktop_view(struct tw_keyboard *keyboard, uint32_t time,
 		if (view)
 			tw_xdg_merge_view(desktop, view);
 	}
+	return true;
 }
 
-static void
+static bool
 desktop_recent_view(struct tw_keyboard *keyboard, uint32_t time,
-                    uint32_t key, uint32_t option, void *data)
+                    uint32_t key, uint32_t mods, uint32_t option, void *data)
 {
 	struct tw_config *config = data;
 	struct tw_xdg *desktop =
@@ -297,20 +312,22 @@ desktop_recent_view(struct tw_keyboard *keyboard, uint32_t time,
 	struct tw_seat *seat =
 		container_of(keyboard, struct tw_seat, keyboard);
 	if (!desktop)
-		return;
+		return false;
 	tw_keyboard_end_grab(keyboard);
 	tw_xdg_start_task_switching_grab(desktop, seat);
+	return true;
 }
 
-static void
+static bool
 quit_compositor(struct tw_keyboard *keyboard, uint32_t time,
-                uint32_t key, uint32_t option, void *data)
+                uint32_t key, uint32_t modifiers, uint32_t option, void *data)
 {
 	struct tw_config *config = data;
 	struct wl_display *wl_display = config->backend->display;
 
 	tw_logl("%s: quit taiwins", "taiwins");
 	wl_display_terminate(wl_display);
+	return true;
 }
 
 void
