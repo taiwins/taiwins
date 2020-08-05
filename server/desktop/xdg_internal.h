@@ -51,6 +51,7 @@ struct tw_xdg_grab_interface {
 	struct tw_xdg *xdg;
 	double gx, gy; /**< surface motion coordinates by events */
 	enum wl_shell_surface_resize edge;
+	uint32_t mod_mask;
 };
 
 struct tw_xdg {

@@ -314,7 +314,7 @@ desktop_recent_view(struct tw_keyboard *keyboard, uint32_t time,
 	if (!desktop)
 		return false;
 	tw_keyboard_end_grab(keyboard);
-	tw_xdg_start_task_switching_grab(desktop, seat);
+	tw_xdg_start_task_switching_grab(desktop, time, key, mods, seat);
 	return true;
 }
 

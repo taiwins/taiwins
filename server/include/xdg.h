@@ -115,7 +115,9 @@ tw_xdg_start_resizing_grab(struct tw_xdg *xdg, struct tw_xdg_view *view,
                            enum wl_shell_surface_resize edge,
                            struct tw_seat *seat);
 bool
-tw_xdg_start_task_switching_grab(struct tw_xdg *xdg, struct tw_seat *seat);
+tw_xdg_start_task_switching_grab(struct tw_xdg *xdg, uint32_t time,
+                                 uint32_t key,  uint32_t modifiers_state,
+                                 struct tw_seat *seat);
 
 #ifdef  __cplusplus
 }
