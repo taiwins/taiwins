@@ -39,6 +39,7 @@ extern "C" {
 struct tw_shell;
 struct tw_console;
 struct tw_theme;
+struct tw_theme_global;
 
 struct tw_shell *
 tw_shell_create_global(struct wl_display *display, struct tw_backend *backend,
@@ -64,8 +65,11 @@ void
 tw_shell_set_panel_pos(struct tw_shell *shell,
                        enum taiwins_shell_panel_pos pos);
 
-struct tw_theme *
+struct tw_theme_global *
 tw_theme_create_global(struct wl_display *display);
+
+void
+tw_theme_notify(struct tw_theme_global *global, struct tw_theme *new_theme);
 
 struct tw_console *
 tw_console_create_global(struct wl_display *display, const char *path,

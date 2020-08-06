@@ -85,8 +85,8 @@ struct tw_backend_output {
 	struct wlr_output *wlr_output;
 	int32_t id, cloning;
 	struct wl_list link; /* tw_backend:heads */
-
 	struct wl_list views; /** tw_surface->output_link */
+	char name[24];
 
 	//we can do this, or we uses current state
 	struct {
@@ -134,7 +134,6 @@ struct tw_backend_seat {
 		struct wl_listener destroy;
 		struct wl_listener modifiers;
 		struct wl_listener key;
-		struct wl_listener keymap;
 		/** xkb info */
 		struct xkb_rule_names rules;
 

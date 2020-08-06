@@ -29,6 +29,7 @@
 #include <wayland-server-protocol.h>
 
 #include "layout.h"
+#include "xdg.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -133,9 +134,6 @@ tw_workspace_switch(struct tw_workspace *to, struct tw_workspace *from);
 struct tw_xdg_view *
 tw_workspace_get_top_view(const struct tw_workspace *ws);
 
-const char *
-tw_workspace_layout_name(struct tw_workspace *ws);
-
 bool
 tw_workspace_has_view(const struct tw_workspace *ws,
                       const struct tw_xdg_view *v);
@@ -178,7 +176,7 @@ void
 tw_workspace_minimize_view(struct tw_workspace *w, struct tw_xdg_view *v);
 
 void
-tw_workspace_switch_layout(struct tw_workspace *w, struct tw_xdg_view *v);
+tw_workspace_switch_layout(struct tw_workspace *w, enum tw_layout_type type);
 
 void
 tw_workspace_add_output(struct tw_workspace *wp,

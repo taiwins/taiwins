@@ -287,12 +287,17 @@ main(int argc, char *argv[])
 		tw_launch_client(display, options.test_case,
 		                 &options.test_client);
 
-	tw_run_default_config(ec.config);
+	if (!tw_run_config(ec.config)) {
+		tw_logl_level(TW_LOG_WARN, "config error!");
+		if (!tw_run_default_config(ec.config))
+			goto err_config;
+	}
 	//run the loop
 	tw_backend_flush(ec.backend);
 	wl_display_run(ec.display);
 	//end.
-	tw_server_fini(&ec);
+err_config:
+        tw_server_fini(&ec);
 
 err_backend:
 err_signal:

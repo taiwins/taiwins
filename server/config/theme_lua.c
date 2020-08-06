@@ -780,18 +780,14 @@ tw_theme_read_defaults(lua_State *L, struct tw_theme_default *colors)
  * expecting calling from lua in the form: read_taiwins_theme(style)
  */
 int
-tw_theme_read(lua_State *L)
+tw_theme_read(lua_State *L, struct tw_theme *theme)
 {
-	struct tw_theme *theme = tw_theme_from_lua_state(L);
 	struct tw_theme_default defaults;
 
 	tw_lua_stackcheck(L, 2);
 	tw_lua_assert(L, lua_istable(L, 2), "expecting a style table");
-
-	if (theme->handle_pool.data)
-		wl_array_release(&theme->handle_pool);
-	if (theme->string_pool.data)
-		wl_array_release(&theme->string_pool);
+	lua_pushlightuserdata(L, theme);
+	lua_setfield(L, LUA_REGISTRYINDEX, "tw_theme");
 	tw_theme_init_default(theme);
 
 	tw_theme_read_defaults(L, &defaults);

@@ -20,6 +20,8 @@
  */
 
 #include <assert.h>
+#include <stdint.h>
+#include <string.h>
 #include <wayland-server.h>
 #include <ctypes/helpers.h>
 #include <taiwins/objects/surface.h>
@@ -39,7 +41,7 @@
 
 static struct tw_xdg s_desktop = {0};
 
-struct tw_xdg_output *
+static struct tw_xdg_output *
 xdg_output_from_backend_output(struct tw_xdg *xdg,
                                struct tw_backend_output *output)
 {
@@ -312,10 +314,10 @@ handle_desktop_output_create(struct wl_listener *listener, void *data)
 	struct tw_xdg_output *xdg_output = &desktop->outputs[output->id];
 	xdg_output->output = output;
 	xdg_output->idx = output->id;
-	xdg_output->inner_gap = 10;
-	xdg_output->outer_gap = 10;
-	xdg_output->desktop_area =  tw_shell_output_available_space(
-		desktop->shell, output);
+	xdg_output->desktop_area = (desktop->shell) ?
+		tw_shell_output_available_space(desktop->shell, output) :
+		(pixman_rectangle32_t){output->state.x, output->state.y,
+		                       output->state.w, output->state.h};
 
 	for (int i = 0; i < MAX_WORKSPACES; i++)
 		tw_workspace_add_output(&desktop->workspaces[i], xdg_output);
@@ -373,6 +375,11 @@ end_desktop(struct wl_listener *listener, UNUSED_ARG(void *data))
 static void
 init_desktop_listeners(struct tw_xdg *xdg)
 {
+	wl_list_init(&xdg->display_destroy_listener.link);
+	wl_list_init(&xdg->desktop_area_listener.link);
+	wl_list_init(&xdg->output_create_listener.link);
+	wl_list_init(&xdg->output_destroy_listener.link);
+
 	//install signals
 	tw_set_display_destroy_listener(xdg->display,
 	                                &xdg->display_destroy_listener,
@@ -383,9 +390,11 @@ init_desktop_listeners(struct tw_xdg *xdg)
 	tw_signal_setup_listener(&xdg->backend->output_unplug_signal,
 	                         &xdg->output_destroy_listener,
 	                         handle_desktop_output_destroy);
-	tw_signal_setup_listener(tw_shell_get_desktop_area_signal(xdg->shell),
-	                         &xdg->desktop_area_listener,
-	                         handle_desktop_area_change);
+	if (xdg->shell)
+		tw_signal_setup_listener(
+			tw_shell_get_desktop_area_signal(xdg->shell),
+			&xdg->desktop_area_listener,
+			handle_desktop_area_change);
 }
 
 static void
@@ -449,7 +458,20 @@ tw_xdg_toggle_view_layout(struct tw_xdg *xdg, struct tw_xdg_view *view)
 	struct tw_workspace *ws = xdg->actived_workspace[0];
 
         assert(tw_workspace_has_view(ws, view));
-	tw_workspace_switch_layout(ws, view);
+	tw_workspace_remove_view(ws, view);
+	//toggle tiling
+	if (view->type == LAYOUT_TILING) {
+		if (view->prev_type != LAYOUT_TILING)
+			view->type = view->prev_type;
+		else
+			view->type = LAYOUT_FLOATING;
+		view->prev_type = LAYOUT_TILING;
+	} else {
+		view->prev_type = view->type;
+		view->type = LAYOUT_TILING;
+	}
+
+	tw_workspace_add_view(ws, view);
 }
 
 void
@@ -494,16 +516,90 @@ tw_xdg_last_workspace_idx(struct tw_xdg *xdg)
 }
 
 void
+tw_xdg_set_workspace_layout(struct tw_xdg *xdg, int32_t idx,
+                            enum tw_layout_type layout)
+{
+	if (idx < MAX_WORKSPACES)
+		tw_workspace_switch_layout(&xdg->workspaces[idx], layout);
+}
+
+void
 tw_xdg_switch_workspace(struct tw_xdg *xdg, uint32_t to)
 {
 	struct tw_xdg_view *view;
+	struct tw_backend_output *bo;
+	struct tw_xdg_output *xo;
+
 	assert(to < MAX_WORKSPACES);
 	xdg->actived_workspace[1] = xdg->actived_workspace[0];
 	xdg->actived_workspace[0] = &xdg->workspaces[to];
 	view = tw_workspace_switch(xdg->actived_workspace[0],
 	                           xdg->actived_workspace[1]);
-	if (view)
+	if (view) {
+		//enforcing a output-resizing event here to enforce the changed
+		//xdg options like gaps.
+		wl_list_for_each(bo, &xdg->backend->heads, link) {
+			xo = xdg_output_from_backend_output(xdg, bo);
+			tw_workspace_resize_output(xdg->actived_workspace[0],
+			                           xo);
+		}
+
 		tw_xdg_view_activate(xdg, view);
+	}
+}
+
+const char *
+tw_xdg_workspace_layout_name(struct tw_xdg *xdg, uint32_t i)
+{
+	struct tw_workspace *ws;
+	if (i >= MAX_WORKSPACES)
+		return NULL;
+	ws = &xdg->workspaces[i];
+
+	switch (ws->current_layout) {
+	case LAYOUT_FLOATING:
+		return "floating";
+	case LAYOUT_TILING:
+		return "tiling";
+	case LAYOUT_MAXIMIZED:
+		return "maximized";
+	case LAYOUT_FULLSCREEN:
+		return "fullscreened";
+	}
+	return NULL;
+}
+
+int
+tw_xdg_layout_type_from_name(const char *name)
+{
+	if (name && strcmp(name, "floating"))
+		return LAYOUT_FLOATING;
+	else if (name && strcmp(name, "tiling"))
+		return LAYOUT_TILING;
+	else if (name && strcmp(name, "maximized"))
+		return LAYOUT_MAXIMIZED;
+	else if (name && strcmp(name, "fullscreened"))
+		return LAYOUT_FULLSCREEN;
+	return -1;
+}
+
+void
+tw_xdg_set_desktop_gap(struct tw_xdg *xdg, uint32_t igap, uint32_t ogap)
+{
+	struct tw_backend_output *bo;
+	struct tw_xdg_output *xo;
+
+	for (int i = 0; i < 32; i++) {
+		xdg->outputs[i].inner_gap = igap;
+		xdg->outputs[i].outer_gap = ogap;
+	}
+	//here we only chage the apply to the current workspace, the rest
+	//workspaces applied at `tw_xdg_switch_workspace`.
+	wl_list_for_each(bo, &xdg->backend->heads, link) {
+		xo = xdg_output_from_backend_output(xdg, bo);
+		tw_workspace_resize_output(xdg->actived_workspace[0], xo);
+	}
+
 }
 
 struct tw_xdg *
@@ -519,6 +615,10 @@ tw_xdg_create_global(struct wl_display *display, struct tw_shell *shell,
 	desktop->display = display;
 	desktop->shell = shell;
 	desktop->backend = backend;
+	for (int i = 0; i < 32; i++) {
+		desktop->outputs[i].inner_gap = 10;
+		desktop->outputs[i].outer_gap = 10;
+	}
 
 	if (!tw_desktop_init(&desktop->desktop_manager, display,
 	                     &desktop_impl, desktop,

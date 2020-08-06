@@ -83,6 +83,18 @@ tw_xdg_last_workspace_idx(struct tw_xdg *xdg);
 void
 tw_xdg_switch_workspace(struct tw_xdg *xdg, uint32_t to);
 
+const char *
+tw_xdg_workspace_layout_name(struct tw_xdg *xdg, uint32_t i);
+
+void
+tw_xdg_set_workspace_layout(struct tw_xdg *xdg, int32_t idx,
+                            enum tw_layout_type layout);
+int
+tw_xdg_layout_type_from_name(const char *name);
+
+void
+tw_xdg_set_desktop_gap(struct tw_xdg *xdg, uint32_t igap, uint32_t ogap);
+
 /**
  * @brief getting a xdg surface from tw_surface
  */

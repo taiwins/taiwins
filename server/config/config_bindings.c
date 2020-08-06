@@ -40,39 +40,6 @@ zoom_axis(struct tw_pointer *pointer, uint32_t time, double delta,
           enum wl_pointer_axis direction, uint32_t modifiers, void *data)
 {
 	return true;
-	/* double augment; */
-	/* struct weston_output *output; */
-	/* struct weston_seat *seat = pointer->seat; */
-
-	/* wl_list_for_each(output, &ec->output_list, link) { */
-	/*	if (pixman_region32_contains_point(&output->region, */
-	/*					   wl_fixed_to_int(pointer->x), */
-	/*					   wl_fixed_to_int(pointer->y), NULL)) */
-	/*	{ */
-	/*		float sign = (event->has_discrete) ? -1.0 : 1.0; */
-
-	/*		if (event->axis == WL_POINTER_AXIS_VERTICAL_SCROLL) */
-	/*			augment = output->zoom.increment * sign * event->value / 20.0; */
-	/*		else */
-	/*			augment = 0.0; */
-
-	/*		output->zoom.level += augment; */
-
-	/*		if (output->zoom.level < 0.0) */
-	/*			output->zoom.level = 0.0; */
-	/*		else if (output->zoom.level > output->zoom.max_level) */
-	/*			output->zoom.level = output->zoom.max_level; */
-
-	/*		if (!output->zoom.active) { */
-	/*			if (output->zoom.level <= 0.0) */
-	/*				continue; */
-	/*			weston_output_activate_zoom(output, seat); */
-	/*		} */
-
-	/*		output->zoom.spring_z.target = output->zoom.level; */
-	/*		weston_output_update_zoom(output); */
-	/*	} */
-	/* } */
 }
 
 /* TW_RELOAD_CONFIG_BINDING */
@@ -82,12 +49,13 @@ reload_config(struct tw_keyboard *keyboard, uint32_t time,
 {
 	struct tw_config *config = data;
 	struct tw_shell *shell = tw_config_request_object(config, "shell");
+	const char *err_msg = NULL;
 
-	if (!tw_run_config(config)) {
-		const char *err_msg = tw_config_retrieve_error(config);
+	if (!tw_run_config(config))
+		err_msg = tw_config_retrieve_error(config);
+	if (err_msg)
 		tw_shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_CONFIG_ERR,
 		                      err_msg);
-	}
 	return true;
 }
 
