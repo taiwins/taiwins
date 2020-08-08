@@ -286,7 +286,6 @@ handle_modifiers_input(struct wl_listener *listener, void *data)
         //This is where we set the keyboard modifiers and leds.
 	keyboard->modifiers_state = curr_modmask(seat_events);
 	keyboard->led_state = curr_ledmask(seat_events);
-
 }
 
 static void

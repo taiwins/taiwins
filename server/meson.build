@@ -96,6 +96,7 @@ taiwins_src = [
   'backend/backend.c',
   'backend/backend_impl.c',
   'backend/backend_seat.c',
+  'backend/backend_libinput.c',
   'backend/backend_output.c',
   'renderer/renderer.c',
   'renderer/shaders.c',

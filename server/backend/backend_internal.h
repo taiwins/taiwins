@@ -22,6 +22,7 @@
 #ifndef TW_BACKEND_INTERNAL_H
 #define TW_BACKEND_INTERNAL_H
 
+#include <libinput.h>
 #include <wlr/types/wlr_seat.h>
 
 #include <taiwins/objects/seat.h>
@@ -72,6 +73,8 @@ tw_backend_init_impl(struct tw_backend_impl *impl,
 void
 tw_backend_fini_impl(struct tw_backend_impl *impl);
 
+bool
+tw_backend_valid_libinput_device(struct libinput_device *device);
 
 #ifdef  __cplusplus
 }
