@@ -125,6 +125,8 @@ tw_backend_commit_output_state(struct tw_backend_output *o)
 		//now here we can decide if we want to implement
 		//wlr_output_management protocol
 	}
+	if (o->state.activate)
+		tw_backend_output_dirty(o);
 }
 
 static void
