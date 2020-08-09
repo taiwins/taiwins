@@ -22,33 +22,31 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/mman.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 
 #include <wayland-taiwins-theme-server-protocol.h>
 #include <ctypes/os/file.h>
 #include <ctypes/helpers.h>
 #include <ctypes/os/os-compatibility.h>
+#include <taiwins/objects/utils.h>
 #include <twclient/theme.h>
-
-#include "taiwins.h"
 
 struct shell;
 
-struct theme {
-	struct weston_compositor *ec;
+struct tw_theme_global {
+	struct wl_display *display;
 	struct wl_listener compositor_destroy_listener;
 	struct wl_global *global;
 	struct tw_config *config;
 	//it can apply to many clients
 	struct wl_list clients; //why do we need clients?
 
-	struct tw_theme global_theme;
 	int fd;
+	size_t theme_size;
 
 } THEME;
 
-struct theme *
+struct tw_theme_global *
 tw_theme_get_global(void)
 {
 	return &THEME;
@@ -56,27 +54,30 @@ tw_theme_get_global(void)
 
 
 void
-tw_theme_notify(struct tw_theme *global_theme)
+tw_theme_notify(struct tw_theme_global *theme, struct tw_theme *new_theme)
 {
 	struct wl_resource *client;
-	struct theme *theme =
-		container_of(global_theme, struct theme, global_theme);
-	struct tw_theme *tw_theme = &theme->global_theme;
+	if (!new_theme)
+		return;
 
 	if (theme->fd > 0)
 		close(theme->fd);
-
-	theme->fd = tw_theme_to_fd(&theme->global_theme);
+	theme->fd = tw_theme_to_fd(new_theme);
 	if (theme->fd <= 0)
-		return;
-	if (wl_list_length(&theme->clients) == 0)
-		return;
+		goto end;
 
+	theme->theme_size = sizeof(struct tw_theme) +
+		new_theme->handle_pool.size +
+		new_theme->string_pool.size;
+
+	if (wl_list_length(&theme->clients) == 0)
+		goto end;
 	wl_list_for_each(client, &theme->clients, link)
 		taiwins_theme_send_theme(client, "new theme", theme->fd,
-		                         sizeof(struct tw_theme) +
-		                         tw_theme->handle_pool.size +
-		                         tw_theme->string_pool.size);
+		                         theme->theme_size);
+end:
+	tw_theme_fini(new_theme);
+	free(new_theme);
 }
 
 /*******************************************************************************
@@ -93,8 +94,7 @@ static void
 bind_theme(struct wl_client *client, void *data, UNUSED_ARG(uint32_t version),
            uint32_t id)
 {
-	struct theme *theme = data;
-	struct tw_theme *tw_theme = &theme->global_theme;
+	struct tw_theme_global *theme = data;
 	struct wl_resource *resource =
 		wl_resource_create(client, &taiwins_theme_interface,
 				   taiwins_theme_interface.version, id);
@@ -108,44 +108,39 @@ bind_theme(struct wl_client *client, void *data, UNUSED_ARG(uint32_t version),
 
 	if (theme->fd > 0)
 		taiwins_theme_send_theme(resource, "new_theme", theme->fd,
-		                         sizeof(struct tw_theme) +
-		                         tw_theme->handle_pool.size +
-		                         tw_theme->string_pool.size);
+		                         theme->theme_size);
 	/* taiwins_theme_send_cursor(resource, "whiteglass", 24); */
 }
 
 static void
 end_theme(struct wl_listener *listener, void *data)
 {
-	struct theme *theme = container_of(listener, struct theme,
-					   compositor_destroy_listener);
+	struct tw_theme_global *theme =
+		container_of(listener, struct tw_theme_global,
+		             compositor_destroy_listener);
 	wl_global_destroy(theme->global);
 
 	if (theme->fd > 0)
 		close(theme->fd);
-	tw_theme_fini(&theme->global_theme);
 }
 
 /*******************************************************************************
  * public APIs
  ******************************************************************************/
 
-struct tw_theme *
-tw_setup_theme(struct weston_compositor *ec)
+struct tw_theme_global *
+tw_theme_create_global(struct wl_display *display)
 {
-	THEME.ec = ec;
-	THEME.global = wl_global_create(ec->wl_display,
+	THEME.display = display;
+	THEME.global = wl_global_create(display,
 	                                &taiwins_theme_interface,
 	                                taiwins_theme_interface.version,
 	                                &THEME,
 	                                bind_theme);
-	tw_theme_init_default(&THEME.global_theme);
-
 	wl_list_init(&THEME.clients);
-	wl_list_init(&THEME.compositor_destroy_listener.link);
 
-	THEME.compositor_destroy_listener.notify = end_theme;
-	wl_signal_add(&ec->destroy_signal, &THEME.compositor_destroy_listener);
-
-	return &THEME.global_theme;
+	tw_set_display_destroy_listener(display,
+	                                &THEME.compositor_destroy_listener,
+	                                end_theme);
+	return &THEME;
 }

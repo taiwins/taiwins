@@ -197,8 +197,8 @@ commit_xdg_popup(struct tw_surface *surface)
 	commit_update_window_geometry(xdg_surf);
 }
 
-static bool
-is_tw_surface_xdg_surface(struct tw_surface *surface)
+bool
+tw_surface_is_xdg_surface(struct tw_surface *surface)
 {
 	return surface->role.commit == commit_xdg_toplevel ||
 		surface->role.commit == commit_xdg_popup;
@@ -785,7 +785,7 @@ handle_set_window_geometry(struct wl_client *client,
 		desktop_surface_from_xdg_surface(resource);
 	struct tw_xdg_surface *surf =
 		container_of(dsurf, struct tw_xdg_surface, base);
-	if (!is_tw_surface_xdg_surface(dsurf->tw_surface)) {
+	if (!tw_surface_is_xdg_surface(dsurf->tw_surface)) {
 		wl_resource_post_error(resource,
 		                       XDG_SURFACE_ERROR_NOT_CONSTRUCTED,
 		                       "xdg_surface must have a role");

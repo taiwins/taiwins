@@ -19,6 +19,7 @@
  *
  */
 
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -31,21 +32,20 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <wayland-server.h>
-
 #include <ctypes/tree.h>
+#include <ctypes/vector.h>
 #include <ctypes/helpers.h>
+#include <taiwins/objects/utils.h>
+
 #include "bindings.h"
-#include "ctypes/vector.h"
 
 struct tw_binding_node {
+	struct vtree_node node;
 	uint32_t keycode;
 	uint32_t modifier;
 	//this is a private option you need to have for
-	uint32_t option;
-	struct vtree_node node;
-
-	void *user_data;
-	struct tw_binding *binding;
+	bool end;
+	struct tw_binding binding;
 };
 
 struct tw_bindings {
@@ -56,29 +56,28 @@ struct tw_bindings {
 	vector_t apply_list;
 };
 
-struct tw_binding_keystate {
-	struct tw_binding_node *node;
-};
 
 static struct tw_binding_node *
 make_binding_node(uint32_t code, uint32_t mod, uint32_t option,
-		  struct tw_binding *binding, const void *data, bool end)
+                  const tw_key_binding func, const void *data, bool end)
 {
 	//allocate a new node
 	struct tw_binding_node *node = calloc(1, sizeof(*node));
 	vtree_node_init(&node->node, offsetof(struct tw_binding_node, node));
 	node->keycode = code;
 	node->modifier = mod;
+	node->end = end;
 	if (end) {
-		node->binding = binding;
-		node->option = option;
-		node->user_data = (void *)data;
+		node->binding.type = TW_BINDING_key;
+		node->binding.key_func = func;
+		node->binding.option = option;
+		node->binding.user_data = (void *)data;
 	}
 	else {
 		//internal node
-		node->binding = NULL;
-		node->user_data = NULL;
-		node->option = 0;
+		node->binding = (struct tw_binding){0};
+		node->binding.key_func = NULL;
+
 	}
 	return node;
 }
@@ -88,7 +87,6 @@ key_presses_end(const struct tw_key_press presses[MAX_KEY_SEQ_LEN], int i)
 {
 	return (i == MAX_KEY_SEQ_LEN-1 ||
 		presses[i+1].keycode == KEY_RESERVED);
-
 }
 
 static void
@@ -96,12 +94,16 @@ notify_bindings_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_bindings *bindings =
 		container_of(listener, struct tw_bindings, destroy_listener);
+	tw_bindings_destroy(bindings);
+}
 
-	wl_list_remove(&bindings->destroy_listener.link);
+static void
+tw_bindings_release(struct tw_bindings *bindings)
+{
+	tw_reset_wl_list(&bindings->destroy_listener.link);
 	vtree_destroy_children(&bindings->root_node.node, free);
 	if (bindings->apply_list.elems)
 		vector_destroy(&bindings->apply_list);
-	free(bindings);
 }
 
 /******************************************************************************
@@ -119,74 +121,72 @@ tw_bindings_create(struct wl_display *display)
 	}
 	vector_init_zero(&root->apply_list,
 	                 sizeof(struct tw_binding), NULL);
-
-	wl_list_init(&root->destroy_listener.link);
-	root->destroy_listener.notify = notify_bindings_destroy;
-	wl_display_add_destroy_listener(display, &root->destroy_listener);
+	tw_set_display_destroy_listener(display, &root->destroy_listener,
+	                                notify_bindings_destroy);
 	return root;
 }
 
 void
 tw_bindings_destroy(struct tw_bindings *bindings)
 {
-	notify_bindings_destroy(&bindings->destroy_listener,
-	                        bindings->display);
+	tw_bindings_release(bindings);
+	free(bindings);
 }
 
 void
-tw_binding_keystate_destroy(struct tw_binding_keystate *keystate)
+tw_bindings_move(struct tw_bindings *dst, struct tw_bindings *src)
 {
-	free(keystate);
+	struct vtree_node **pnode;
+
+	tw_bindings_release(dst);
+	vtree_node_init(&dst->root_node.node,
+	                offsetof(struct tw_binding_node, node));
+	//a shallow copy
+	dst->display = src->display;
+	vector_for_each(pnode, &src->root_node.node.children)
+		(*pnode)->parent = &dst->root_node.node;
+	dst->root_node = src->root_node;
+	dst->apply_list = src->apply_list;
+
+	//purge the src list
+	vector_init_zero(&src->apply_list, sizeof(struct tw_binding), NULL);
+	vtree_node_init(&src->root_node.node,
+	                offsetof(struct tw_binding_node, node));
+	tw_reset_wl_list(&src->destroy_listener.link);
 }
 
-bool
-tw_binding_keystate_step(struct tw_binding_keystate *keystate,
+struct tw_binding_node *
+tw_binding_node_step(struct tw_binding_node *tree,
                          uint32_t keycode, uint32_t mod_mask)
 {
-	bool hit = false;
 	struct tw_binding_node *node = NULL;
-	struct tw_binding_node *tree = keystate->node;
 
 	for (unsigned i = 0; i < vtree_len(&tree->node); i++) {
 		node = vtree_container(vtree_ith_child(&tree->node, i));
 		if (node->keycode == keycode &&
-		    node->modifier == mod_mask) {
-			keystate->node = node;
-			hit = true;
-		}
+		    node->modifier == mod_mask)
+			return node;
 	}
-	if (!hit) {
-		keystate->node = NULL;
-	}
-
-	return hit;
+	return NULL;
 }
 
 struct tw_binding *
-tw_binding_keystate_get_binding(struct tw_binding_keystate *state)
+tw_binding_node_get_binding(struct tw_binding_node *state)
 {
-	if (state->node)
-		return state->node->binding;
-	else
-		return NULL;
+	return (state && state->end) ? &state->binding : NULL;
 }
 
-struct tw_binding_keystate *
+struct tw_binding_node *
 tw_bindings_find_key(struct tw_bindings *bindings,
                      uint32_t key, uint32_t mod_mask)
 {
-	struct tw_binding_keystate *state = NULL;
 	struct tw_binding_node *root = &bindings->root_node;
 	struct tw_binding_node *node = NULL;
 
 	for (unsigned i = 0; i < vtree_len(&root->node); i++) {
 		node = vtree_container(vtree_ith_child(&root->node, i));
 		if (node->keycode == key && node->modifier == mod_mask) {
-			state = malloc(sizeof(struct tw_binding_keystate *));
-			if (!state)
-				return NULL;
-			state->node = root;
-			return state;
+			return root;
 		}
 	}
 	return NULL;
@@ -292,14 +292,12 @@ tw_bindings_add_key(struct tw_bindings *root,
 		    const tw_key_binding func, uint32_t option,
 		    void *data)
 {
-	size_t press_size = sizeof(struct tw_key_press[5]);
 	struct tw_binding_node *subtree = &root->root_node;
 	for (int i = 0; i < MAX_KEY_SEQ_LEN; i++) {
 		uint32_t mod = presses[i].modifier;
 		uint32_t code = presses[i].keycode;
 		int hit = -1;
 		struct tw_binding_node *binding;
-		struct tw_binding *new_binding = NULL;
 
 		if (code == KEY_RESERVED)
 			break;
@@ -314,19 +312,11 @@ tw_bindings_add_key(struct tw_bindings *root,
 				break;
 			}
 		}
-		if (hit == -1 && i == 0) {
-			new_binding = vector_newelem(&root->apply_list);
-			new_binding->type = TW_BINDING_key;
-			new_binding->key_func = func;
-			memcpy(new_binding->keypress, presses, press_size);
-			//new_binding->keypress[0] = presses[0];
-			new_binding->option = option;
-		}
 		if (hit == -1) {
 			//add node to the system
 			struct tw_binding_node *binding =
 				make_binding_node(code, mod, option,
-				                  new_binding, data,
+				                  func, data,
 				                  key_presses_end(presses, i));
 			vtree_node_add_child(&subtree->node, &binding->node);
 			subtree = binding;
@@ -336,8 +326,7 @@ tw_bindings_add_key(struct tw_bindings *root,
 			struct tw_binding_node *similar = vtree_container(
 				vtree_ith_child(&subtree->node, hit));
 			//case 0: both internal node, we continue
-			if (!key_presses_end(presses, i) &&
-			    similar->binding == NULL) {
+			if (!key_presses_end(presses, i) && !similar->end) {
 				subtree = similar;
 				continue;
 			}

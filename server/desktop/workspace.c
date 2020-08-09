@@ -29,6 +29,7 @@
 #include <taiwins/objects/desktop.h>
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/logger.h>
+#include <wayland-util.h>
 
 #include "xdg.h"
 #include "shell.h"
@@ -88,6 +89,16 @@ tw_xdg_view_backup_geometry(struct tw_xdg_view *v)
 	v->old_geometry.y = v->y;
 	v->old_geometry.width = v->dsurf->window_geometry.w;
 	v->old_geometry.height = v->dsurf->window_geometry.h;
+}
+
+struct tw_xdg_view *
+tw_xdg_view_from_tw_surface(struct tw_surface *surface)
+{
+	struct tw_desktop_surface *dsurf =
+		tw_desktop_surface_from_tw_surface(surface);
+	if (dsurf)
+		return dsurf->user_data;
+	return NULL;
 }
 
 /******************************************************************************
@@ -491,33 +502,23 @@ tw_workspace_minimize_view(struct tw_workspace *w, struct tw_xdg_view *v)
 }
 
 void
-tw_workspace_switch_layout(struct tw_workspace *w, struct tw_xdg_view *view)
+tw_workspace_switch_layout(struct tw_workspace *w, enum tw_layout_type type)
 {
-	if (view->type != LAYOUT_FLOATING && view->type != LAYOUT_TILING)
-		return;
-	if (tw_workspace_has_view(w, view))
-		return;
-	tw_workspace_remove_view(w, view);
-	view->type = (view->type == LAYOUT_TILING) ?
-		LAYOUT_FLOATING : LAYOUT_TILING;
-	tw_workspace_add_view(w, view);
+	w->current_layout = type;
 }
 
-const char *
-tw_workspace_layout_name(struct tw_workspace *ws)
+void
+tw_workspace_run_command(struct tw_workspace *w,
+                         enum tw_xdg_layout_command command,
+                         struct tw_xdg_view *view)
 {
-	switch (ws->current_layout) {
-	case LAYOUT_FLOATING:
-		return "floating";
-	case LAYOUT_TILING:
-		return "tiling";
-	case LAYOUT_MAXIMIZED:
-		return "maximized";
-	case LAYOUT_FULLSCREEN:
-		return "fullscreened";
-	}
-	return NULL;
+	struct tw_xdg_layout_op arg = {
+		.v = view,
+	};
+	arrange_view_for_workspace(w, view, command, &arg);
 }
+
+
 
 void
 tw_workspace_add_output(struct tw_workspace *ws, struct tw_xdg_output *output)

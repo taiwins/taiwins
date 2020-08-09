@@ -19,6 +19,7 @@
  *
  */
 
+#include <string.h>
 #include <ctypes/helpers.h>
 #include <wayland-server.h>
 
@@ -204,7 +205,7 @@ tw_backend_new_output(struct tw_backend *backend,
 	output->backend = backend;
 	output->wlr_output = wlr_output;
 	output->state.repaint_state = TW_REPAINT_DIRTY;
-
+	memcpy(output->name, wlr_output->name, sizeof(wlr_output->name));
 
 	wl_list_init(&output->views);
 	tw_signal_setup_listener(&wlr_output->events.frame,

@@ -113,6 +113,12 @@ commit_wl_shell_surface(struct tw_surface *surface)
 	commit_update_window_geometry(surface->role.commit_private);
 }
 
+bool
+tw_surface_is_wl_shell_surface(struct tw_surface *surface)
+{
+	return surface->role.commit == commit_wl_shell_surface;
+}
+
 static void
 wl_shell_surface_set_role(struct tw_desktop_surface *dsurf,
                           enum tw_desktop_surface_type type)

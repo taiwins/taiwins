@@ -40,6 +40,7 @@ extern "C" {
 
 struct tw_bindings;
 struct tw_binding_keystate;
+struct tw_binding_node;
 
 enum tw_binding_type {
 	TW_BINDING_INVALID,
@@ -70,15 +71,20 @@ struct tw_touch_action {
 	uint32_t modifier;
 };
 
-typedef void (*tw_key_binding)(struct tw_keyboard *keyboard,
-			       uint32_t time, uint32_t key, uint32_t option,
+/*
+ * return true in for the signals we want to block. Maybe in the future we
+ * would have a chain of grab.
+ */
+typedef bool (*tw_key_binding)(struct tw_keyboard *keyboard, uint32_t time,
+                               uint32_t key, uint32_t mods, uint32_t option,
                                void *data);
-typedef void (*tw_btn_binding)(struct tw_pointer *pointer,
-                               uint32_t time_msec, uint32_t btn, void *data);
-typedef void (*tw_axis_binding)(struct tw_pointer *pointer,
-                                uint32_t time_msec, void *data);
-typedef void (*tw_touch_binding)(struct tw_touch *touch, uint32_t time,
-                                 void *data);
+typedef bool (*tw_btn_binding)(struct tw_pointer *pointer, uint32_t time_msec,
+                               uint32_t btn, uint32_t mods, void *data);
+typedef bool (*tw_axis_binding)(struct tw_pointer *pointer, uint32_t time,
+                                double delta, enum wl_pointer_axis direction,
+                                uint32_t mods, void *data);
+typedef bool (*tw_touch_binding)(struct tw_touch *touch, uint32_t time,
+                                 uint32_t mods, void *data);
 
 struct tw_binding {
 	char name[32];
@@ -108,6 +114,13 @@ struct tw_binding {
 struct tw_bindings *
 tw_bindings_create(struct wl_display *);
 
+/**
+ * @brief ability to move assign src bindings to dst, so we can avoid deleting
+ * all the bindings.
+ */
+void
+tw_bindings_move(struct tw_bindings *dst, struct tw_bindings *src);
+
 void
 tw_bindings_destroy(struct tw_bindings *);
 
@@ -130,7 +143,7 @@ bool
 tw_bindings_add_touch(struct tw_bindings *root,
                       uint32_t modifier, const tw_touch_binding binding,
                       void *data);
-struct tw_binding_keystate *
+struct tw_binding_node *
 tw_bindings_find_key(struct tw_bindings *bindings,
                      uint32_t key, uint32_t mod_mask);
 struct tw_binding *
@@ -144,16 +157,14 @@ struct tw_binding *
 tw_bindings_find_touch(struct tw_bindings *bindings, uint32_t mod_mask);
 
 struct tw_binding *
-tw_binding_keystate_get_binding(struct tw_binding_keystate *state);
+tw_binding_node_get_binding(struct tw_binding_node *state);
 
 /**
  * @brief search sub keystate in the keystate
  */
-bool
-tw_binding_keystate_step(struct tw_binding_keystate *keystate,
-                         uint32_t keycode, uint32_t mod_mask);
-void
-tw_binding_keystate_destroy(struct tw_binding_keystate *keystate);
+struct tw_binding_node *
+tw_binding_node_step(struct tw_binding_node *keystate,
+                     uint32_t keycode, uint32_t mod_mask);
 
 void
 tw_bindings_print(struct tw_bindings *root);

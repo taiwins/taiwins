@@ -37,6 +37,7 @@
 
 #include "backend.h"
 #include "backend_internal.h"
+#include "taiwins/objects/utils.h"
 
 /******************************************************************************
  * keyboard functions
@@ -52,7 +53,6 @@ notify_backend_keyboard_remove(struct wl_listener *listener, void *data)
 	//uninstall the listeners
 	wl_list_remove(&seat->keyboard.destroy.link);
 	wl_list_remove(&seat->keyboard.key.link);
-	//wl_list_remove(&seat->keyboard.keymap.link);
 	wl_list_remove(&seat->keyboard.modifiers.link);
 
 	//update the capabilities
@@ -100,63 +100,41 @@ notify_backend_keyboard_key(struct wl_listener *listener, void *data)
 	                       state);
 }
 
-static void
-notify_backend_keyboard_keymap(struct wl_listener *listener, void *data)
-{
-	struct tw_backend_seat *seat =
-		container_of(listener, struct tw_backend_seat,
-		             keyboard.keymap);
-	struct tw_keyboard *seat_keyboard = &seat->tw_seat->keyboard;
-	struct wlr_keyboard *wlr_keyboard = data;
-
-	tw_keyboard_set_keymap(seat_keyboard, wlr_keyboard->keymap);
-}
-
 void
 tw_backend_new_keyboard(struct tw_backend *backend,
                         struct wlr_input_device *dev)
 {
-	struct xkb_rule_names rules = {0};
 	struct xkb_keymap *keymap;
 	struct tw_backend_seat *seat =
 		tw_backend_seat_find_create(backend, dev,
 		                            TW_INPUT_CAP_KEYBOARD);
 	if (!seat) return;
-	//xkbcommon settings
+	seat->capabilities |= TW_INPUT_CAP_KEYBOARD;
 	seat->keyboard.device = dev;
+	tw_seat_new_keyboard(seat->tw_seat);
+	//update the signals
+	wl_signal_emit(&seat->backend->seat_ch_signal, seat);
+	//xkbcommon settings
 	keymap = xkb_map_new_from_names(backend->xkb_context,
-	                                &rules,
+	                                &seat->keyboard.rules,
 	                                XKB_KEYMAP_COMPILE_NO_FLAGS);
 	wlr_keyboard_set_keymap(dev->keyboard, keymap);
 	wlr_keyboard_set_repeat_info(dev->keyboard, 25, 600);
 	xkb_keymap_unref(keymap);
-
 	//update the capabilities
-	seat->capabilities |= TW_INPUT_CAP_KEYBOARD;
-	tw_seat_new_keyboard(seat->tw_seat);
 	tw_keyboard_set_keymap(&seat->tw_seat->keyboard, keymap);
-	//update the signals
-	wl_signal_emit(&seat->backend->seat_ch_signal, seat);
 
-	//TODO listeners are installed at last here to give any user who listen
+	//listeners are installed at last here to give any user who listen
 	//to the seat_ch_signal
-
-	//install listeners
-	wl_list_init(&seat->keyboard.destroy.link);
-	seat->keyboard.destroy.notify = notify_backend_keyboard_remove;
-	wl_signal_add(&dev->keyboard->events.destroy,
-	              &seat->keyboard.destroy);
-	wl_list_init(&seat->keyboard.modifiers.link);
-	seat->keyboard.modifiers.notify = notify_backend_keyboard_modifiers;
-	wl_signal_add(&dev->keyboard->events.modifiers,
-	              &seat->keyboard.modifiers);
-	wl_list_init(&seat->keyboard.key.link);
-	seat->keyboard.key.notify = notify_backend_keyboard_key;
-	wl_signal_add(&dev->keyboard->events.key,
-	              &seat->keyboard.key);
-	wl_list_init(&seat->keyboard.keymap.link);
-	seat->keyboard.keymap.notify = notify_backend_keyboard_keymap;
-	wl_signal_add(&dev->keyboard->events.keymap, &seat->keyboard.keymap);
+	tw_signal_setup_listener(&dev->keyboard->events.destroy,
+	                         &seat->keyboard.destroy,
+	                         notify_backend_keyboard_remove);
+	tw_signal_setup_listener(&dev->keyboard->events.modifiers,
+	                         &seat->keyboard.modifiers,
+	                         notify_backend_keyboard_modifiers);
+	tw_signal_setup_listener(&dev->keyboard->events.key,
+	                         &seat->keyboard.key,
+	                         notify_backend_keyboard_key);
 }
 
 /******************************************************************************
@@ -248,8 +226,8 @@ notify_backend_pointer_motion_abs(struct wl_listener *listener, void *data)
 	struct tw_backend *backend = seat->backend;
 	struct tw_backend_output *output =
 		tw_backend_output_from_cursor_pos(backend);
-	int32_t x = (int)(event->x * output->state.w);
-	int32_t y = (int)(event->y * output->state.h);
+	int32_t x = output->state.x + (int)(event->x * output->state.w);
+	int32_t y = output->state.y + (int)(event->y * output->state.h);
 
 	SCOPE_PROFILE_BEG();
 
@@ -296,6 +274,12 @@ notify_backend_pointer_remove(struct wl_listener *listener, void *data)
 		             pointer.destroy);
 
 	wl_list_remove(&seat->pointer.destroy.link);
+	wl_list_remove(&seat->pointer.button.link);
+	wl_list_remove(&seat->pointer.motion.link);
+	wl_list_remove(&seat->pointer.motion_abs.link);
+	wl_list_remove(&seat->pointer.axis.link);
+	wl_list_remove(&seat->pointer.frame.link);
+
 	//update the capabilities
 	seat->capabilities &= ~TW_INPUT_CAP_POINTER;
 	tw_seat_remove_pointer(seat->tw_seat);
@@ -322,30 +306,24 @@ tw_backend_new_pointer(struct tw_backend *backend,
 	wl_signal_emit(&seat->backend->seat_ch_signal, seat);
 
 	//add listeners
-	wl_list_init(&seat->pointer.destroy.link);
-	seat->pointer.destroy.notify = notify_backend_pointer_remove;
-	wl_signal_add(&dev->events.destroy, &seat->pointer.destroy);
-
-	wl_list_init(&seat->pointer.button.link);
-	seat->pointer.button.notify = notify_backend_pointer_button;
-	wl_signal_add(&pointer->events.button, &seat->pointer.button);
-
-	wl_list_init(&seat->pointer.motion.link);
-	seat->pointer.motion.notify = notify_backend_pointer_motion;
-	wl_signal_add(&pointer->events.motion, &seat->pointer.motion);
-
-	wl_list_init(&seat->pointer.motion_abs.link);
-	seat->pointer.motion_abs.notify = notify_backend_pointer_motion_abs;
-	wl_signal_add(&pointer->events.motion_absolute,
-	              &seat->pointer.motion_abs);
-
-	wl_list_init(&seat->pointer.axis.link);
-	seat->pointer.axis.notify = notify_backend_pointer_axis;
-	wl_signal_add(&pointer->events.axis, &seat->pointer.axis);
-
-        wl_list_init(&seat->pointer.frame.link);
-	seat->pointer.frame.notify = notify_backend_pointer_frame;
-	wl_signal_add(&pointer->events.frame, &seat->pointer.frame);
+	tw_signal_setup_listener(&dev->events.destroy,
+	                         &seat->pointer.destroy,
+	                         notify_backend_pointer_remove);
+	tw_signal_setup_listener(&pointer->events.button,
+	                         &seat->pointer.button,
+	                         notify_backend_pointer_button);
+	tw_signal_setup_listener(&pointer->events.motion,
+	                         &seat->pointer.motion,
+	                         notify_backend_pointer_motion);
+	tw_signal_setup_listener(&pointer->events.motion_absolute,
+	                         &seat->pointer.motion_abs,
+	                         notify_backend_pointer_motion_abs);
+	tw_signal_setup_listener(&pointer->events.axis,
+	                         &seat->pointer.axis,
+	                         notify_backend_pointer_axis);
+	tw_signal_setup_listener(&pointer->events.frame,
+	                         &seat->pointer.frame,
+	                         notify_backend_pointer_frame);
 }
 
 /******************************************************************************
@@ -359,6 +337,11 @@ notify_backend_touch_remove(struct wl_listener *listener, void *data)
 		container_of(listener, struct tw_backend_seat,
 		             touch.destroy);
 	wl_list_remove(&seat->touch.destroy.link);
+	wl_list_remove(&seat->touch.cancel.link);
+	wl_list_remove(&seat->touch.down.link);
+	wl_list_remove(&seat->touch.motion.link);
+	wl_list_remove(&seat->touch.up.link);
+
 	//update the capabilities
 	seat->capabilities &= ~TW_INPUT_CAP_TOUCH;
 	tw_seat_remove_touch(seat->tw_seat);
@@ -379,8 +362,8 @@ notify_backend_touch_down(struct wl_listener *listener, void *data)
 	struct wlr_event_touch_down *event = data;
 	struct tw_backend_output *output =
 		tw_backend_output_from_cursor_pos(seat->backend);
-	int32_t x = (int)(event->x * output->state.x);
-	int32_t y = (int)(event->y * output->state.y);
+	int32_t x = output->state.x + (int)(event->x * output->state.x);
+	int32_t y = output->state.y + (int)(event->y * output->state.y);
 	tw_cursor_set_pos(&seat->backend->global_cursor, x, y);
 
 	focused = tw_backend_pick_surface_from_layers(seat->backend,
@@ -455,25 +438,21 @@ tw_backend_new_touch(struct tw_backend *backend,
 	wl_signal_emit(&seat->backend->seat_ch_signal, seat);
 
 	//install listeners
-	wl_list_init(&seat->touch.destroy.link);
-	seat->touch.destroy.notify = notify_backend_touch_remove;
-	wl_signal_add(&dev->events.destroy, &seat->touch.destroy);
-
-	wl_list_init(&seat->touch.down.link);
-	seat->touch.down.notify = notify_backend_touch_down;
-	wl_signal_add(&dev->touch->events.down, &seat->touch.down);
-
-	wl_list_init(&seat->touch.up.link);
-	seat->touch.up.notify = notify_backend_touch_up;
-	wl_signal_add(&dev->touch->events.up, &seat->touch.up);
-
-	wl_list_init(&seat->touch.motion.link);
-	seat->touch.motion.notify = notify_backend_touch_motion;
-	wl_signal_add(&dev->touch->events.motion, &seat->touch.motion);
-
-	wl_list_init(&seat->touch.cancel.link);
-	seat->touch.cancel.notify = notify_backend_touch_cancel;
-	wl_signal_add(&dev->touch->events.cancel, &seat->touch.cancel);
+	tw_signal_setup_listener(&dev->events.destroy,
+	                         &seat->touch.destroy,
+	                         notify_backend_touch_remove);
+	tw_signal_setup_listener(&dev->touch->events.down,
+	                         &seat->touch.down,
+	                         notify_backend_touch_down);
+	tw_signal_setup_listener(&dev->touch->events.up,
+	                         &seat->touch.up,
+	                         notify_backend_touch_up);
+	tw_signal_setup_listener(&dev->touch->events.motion,
+	                         &seat->touch.motion,
+	                         notify_backend_touch_motion);
+	tw_signal_setup_listener(&dev->touch->events.cancel,
+	                         &seat->touch.cancel,
+	                         notify_backend_touch_cancel);
 }
 
 /******************************************************************************
@@ -562,8 +541,20 @@ tw_backend_seat_set_xkb_rules(struct tw_backend_seat *seat,
 {
 	struct tw_backend *backend = seat->backend;
 	struct xkb_keymap *keymap;
-	if (!(seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD))
+	if (!(seat->capabilities & TW_INPUT_CAP_KEYBOARD))
 		return;
+	seat->keyboard.rules = *rules;
+	if (!seat->keyboard.rules.rules)
+		seat->keyboard.rules.rules = "evdev";
+	if (!seat->keyboard.rules.model)
+		seat->keyboard.rules.model = "pc105";
+	if (!seat->keyboard.rules.layout)
+		seat->keyboard.rules.layout = "us";
+	//if the keyboard has no keymap yet, means they keyboard has not
+	//initialized, it is safe to return.
+	if (seat->keyboard.device->keyboard->keymap == NULL)
+		return;
+
 	keymap = xkb_map_new_from_names(backend->xkb_context, rules,
 	                                XKB_KEYMAP_COMPILE_NO_FLAGS);
 	if (!keymap)
@@ -572,16 +563,29 @@ tw_backend_seat_set_xkb_rules(struct tw_backend_seat *seat,
 	xkb_keymap_unref(keymap);
 
 	tw_keyboard_set_keymap(&seat->tw_seat->keyboard, keymap);
-	//TODO: do we emit the signals?
-	//wl_signal_emit(&seat->backend->seat_ch_signal, seat);
 }
 
 struct tw_backend_seat *
 tw_backend_get_focused_seat(struct tw_backend *backend)
 {
-	struct tw_backend_seat *seat;
+	//compare the last serial, the biggest win.
+	struct tw_backend_seat *seat = NULL, *selected = NULL;
+	uint32_t serial = 0;
+
 	wl_list_for_each(seat, &backend->inputs, link) {
-		return seat;
+		if (seat->tw_seat->last_pointer_serial > serial) {
+			selected = seat;
+			serial = seat->tw_seat->last_pointer_serial;
+		}
+		if (seat->tw_seat->last_touch_serial > serial) {
+			selected = seat;
+			serial = seat->tw_seat->last_touch_serial;
+		}
 	}
-	return NULL;
+	if (!selected)
+		wl_list_for_each(seat, &backend->inputs, link) {
+			selected = seat;
+			break;
+		}
+	return selected;
 }

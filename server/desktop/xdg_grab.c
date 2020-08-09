@@ -29,6 +29,7 @@
 #include <taiwins/objects/utils.h>
 #include <wayland-util.h>
 
+#include "xdg.h"
 #include "xdg_internal.h"
 #include "workspace.h"
 
@@ -167,6 +168,73 @@ static const struct tw_pointer_grab_interface resize_pointer_grab_impl = {
 	.cancel = handle_move_pointer_grab_cancel, //same as move grab
 };
 
+/******************************************************************************
+ * task switching grab
+ *****************************************************************************/
+static inline bool
+find_task_view(struct tw_workspace *ws, struct tw_xdg_view *view)
+{
+	struct tw_xdg_view *pos;
+	wl_list_for_each(pos, &ws->recent_views, link)
+		if (pos == view)
+			return true;
+	return false;
+}
+
+static void
+handle_task_switching_key(struct tw_seat_keyboard_grab *grab,
+                          uint32_t time_msec, uint32_t key, uint32_t state)
+{
+	struct tw_xdg_grab_interface *gi = grab->data;
+	struct tw_xdg *xdg = gi->xdg;
+	//it is likely to be the
+	struct tw_xdg_view *view = gi->view;
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+	if (state != WL_KEYBOARD_KEY_STATE_PRESSED ||
+	    wl_list_empty(&ws->recent_views))
+		return;
+	if (!find_task_view(ws, view))
+		view = container_of(ws->recent_views.next, struct tw_xdg_view,
+		                    link);
+	//find next view (skip the head).
+	gi->view = (view->link.next != &ws->recent_views) ?
+		container_of(view->link.next, struct tw_xdg_view, link) :
+		container_of(view->link.next->next, struct tw_xdg_view, link);
+	//TODO: send clients the current tasks(exposay)
+}
+
+static void
+handle_task_switching_modifiers(struct tw_seat_keyboard_grab *grab,
+                                uint32_t mods_depressed, uint32_t mods_latched,
+                                uint32_t mods_locked, uint32_t group)
+{
+	struct tw_xdg_grab_interface *gi = grab->data;
+	struct tw_keyboard *keyboard = &grab->seat->keyboard;
+	struct tw_xdg *xdg = gi->xdg;
+	struct tw_xdg_view *view = gi->view;
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+
+	//modifiers changed, end grab now
+	if (keyboard->modifiers_state != gi->mod_mask) {
+		if (find_task_view(ws, view))
+			tw_xdg_view_activate(xdg, view);
+		tw_keyboard_end_grab(keyboard);
+	}
+}
+
+static void
+handle_task_switching_cancel(struct tw_seat_keyboard_grab *grab)
+{
+	struct tw_xdg_grab_interface *gi = grab->data;
+	tw_xdg_grab_interface_destroy(gi);
+}
+
+static const struct tw_keyboard_grab_interface task_switching_impl = {
+	.key = handle_task_switching_key,
+	.modifiers = handle_task_switching_modifiers,
+	.cancel = handle_task_switching_cancel,
+};
+
 
 /******************************************************************************
  * exposed API
@@ -190,7 +258,6 @@ err:
 	return false;
 }
 
-
 bool
 tw_xdg_start_resizing_grab(struct tw_xdg *xdg, struct tw_xdg_view *view,
                            enum wl_shell_surface_resize edge,
@@ -206,6 +273,32 @@ tw_xdg_start_resizing_grab(struct tw_xdg *xdg, struct tw_xdg_view *view,
 		goto err;
 	gi->edge = edge;
 	tw_pointer_start_grab(&seat->pointer, &gi->pointer_grab);
+	return true;
+err:
+	return false;
+}
+
+bool
+tw_xdg_start_task_switching_grab(struct tw_xdg *xdg, uint32_t time,
+                                 uint32_t key, uint32_t modifiers_state,
+                                 struct tw_seat *seat)
+{
+	struct tw_xdg_view *view;
+	struct tw_xdg_grab_interface *gi = NULL;
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+	if (seat->keyboard.grab != &seat->keyboard.default_grab ||
+	    wl_list_empty(&ws->recent_views))
+		goto err;
+	view = container_of(ws->recent_views.next, struct tw_xdg_view, link);
+	gi = tw_xdg_grab_interface_create(view, xdg, NULL,
+	                                  &task_switching_impl, NULL);
+	if (!gi)
+		goto err;
+	gi->mod_mask = modifiers_state;
+	tw_keyboard_start_grab(&seat->keyboard, &gi->keyboard_grab);
+	//immediately jump in next view since, we are missing one key event.
+	tw_keyboard_notify_key(&seat->keyboard, time, key,
+	                       WL_KEYBOARD_KEY_STATE_PRESSED);
 	return true;
 err:
 	return false;

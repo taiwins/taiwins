@@ -27,26 +27,21 @@
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
-#include <wayland-server-core.h>
+#include <wayland-server.h>
 #include <wayland-util.h>
-#include <libweston/libweston.h>
 
 #include <ctypes/strops.h>
 #include <ctypes/os/file.h>
 #include <ctypes/vector.h>
 #include <ctypes/helpers.h>
+#include <taiwins/objects/seat.h>
+#include <taiwins/objects/logger.h>
+#include <twclient/theme.h>
 
+#include "bindings.h"
 #include "lua_helper.h"
 #include "config_internal.h"
-
-static inline void
-_lua_error(struct tw_config *config, const char *fmt, ...)
-{
-	va_list argp;
-	va_start(argp, fmt);
-	config->print(fmt, argp);
-	va_end(argp);
-}
+#include "xdg.h"
 
 static inline struct tw_config *
 to_user_config(lua_State *L)
@@ -57,49 +52,47 @@ to_user_config(lua_State *L)
 	return c;
 }
 
-/*******************************************************************************
+/******************************************************************************
  * binding functions
- ******************************************************************************/
+ *****************************************************************************/
 
 static inline void
 _lua_run_binding(void *data)
 {
 	struct tw_binding *b = data;
 	lua_State *L = b->user_data;
-	struct tw_config *config;
 
 	lua_getfield(L, LUA_REGISTRYINDEX, b->name);
 	if (lua_pcall(L, 0, 0, 0)) {
-		config = to_user_config(L);
-		_lua_error(config, "error calling lua bindings\n");
+		tw_logl("error calling lua bindings\n");
 	}
 	lua_settop(L, 0);
 }
 
-static void
-_lua_run_keybinding(UNUSED_ARG(struct weston_keyboard *keyboard),
-                    UNUSED_ARG(const struct timespec *time),
-                    UNUSED_ARG(uint32_t key), UNUSED_ARG(uint32_t option),
-                    void *data)
+static bool
+_lua_run_keybinding(struct tw_keyboard *keyboard,
+                    uint32_t time, uint32_t key, uint32_t mods,
+                    uint32_t option, void *data)
 {
 	_lua_run_binding(data);
+	return true;
 }
 
-static void
-_lua_run_btnbinding(UNUSED_ARG(struct weston_pointer *pointer),
-                    UNUSED_ARG(const struct timespec *time),
-                    UNUSED_ARG(uint32_t btn), void *data)
+static bool
+_lua_run_btnbinding(struct tw_pointer *pointer,
+                    uint32_t time, uint32_t btn, uint32_t mods, void *data)
 {
 	_lua_run_binding(data);
+	return true;
 }
 
-static void
-_lua_run_axisbinding(UNUSED_ARG(struct weston_pointer *pointer),
-                     UNUSED_ARG(const struct timespec *time),
-                     UNUSED_ARG(struct weston_pointer_axis_event *event),
-                     void *data)
+static bool
+_lua_run_axisbinding(struct tw_pointer *pointer, uint32_t time,
+                     double delta, enum wl_pointer_axis direction,
+                     uint32_t mods, void *data)
 {
 	_lua_run_binding(data);
+	return true;
 }
 
 
@@ -260,7 +253,7 @@ _lua_bind_tch(lua_State *L)
 	return _lua_bind(L, TW_BINDING_tch);
 }
 
- /******************************************************************************
+ /*****************************************************************************
  * main config
  *****************************************************************************/
 
@@ -275,7 +268,6 @@ static tw_config_transform_t TRANSFORMS[] = {
 	{270, true, WL_OUTPUT_TRANSFORM_FLIPPED_270},
 };
 
-#define REGISTRY_COMPOSITOR "__compositor"
 #define REGISTRY_CONFIG "__config"
 #define REGISTRY_WORKSPACES "__workspaces"
 #define REGISTRY_HINT "__hint"
@@ -283,66 +275,7 @@ static tw_config_transform_t TRANSFORMS[] = {
 #define CONFIG_WESTON_OUTPUT "_weston_output"
 
 #define METATABLE_COMPOSITOR "metatable_compositor"
-#define METATABLE_OUTPUT "metatable_output"
 #define METATABLE_WORKSPACE "metatable_workspace"
-
-static struct weston_compositor *
-_lua_to_compositor(lua_State *L)
-{
-	struct weston_compositor *ec;
-
-	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_COMPOSITOR);
-	ec = lua_touserdata(L, -1);
-	lua_pop(L, 1);
-	return ec;
-}
-
-static inline struct tw_backend *
-_lua_to_backend(lua_State *L)
-{
-	struct tw_config *config;
-	struct tw_backend *backend;
-	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
-	config = lua_touserdata(L, -1);
-	lua_pop(L, 1);
-	backend = tw_config_request_object(config, "backend");
-	if (!backend)
-		luaL_error(L, "taiwins backend not available yet\n");
-
-	return backend;
-}
-
-static inline struct desktop*
-_lua_to_desktop(lua_State *L)
-{
-	struct desktop *desktop;
-	struct tw_config *config;
-
-	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
-	config = lua_touserdata(L, -1);
-	lua_pop(L, 1);
-	desktop = tw_config_request_object(config, "desktop");
-	if (!desktop)
-		luaL_error(L, "taiwins desktop not available yet\n");
-	return desktop;
-}
-
-static inline struct tw_theme *
-_lua_to_theme(lua_State *L)
-{
-	struct tw_theme *theme;
-	struct tw_config *config;
-
-	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
-	config = lua_touserdata(L, -1);
-	lua_pop(L, 1);
-	theme = tw_config_request_object(config, "theme");
-	if (!theme)
-		luaL_error(L, "taiwins theme not available yet\n");
-
-	return theme;
-}
-
 
 static inline struct tw_config_table *
 _lua_to_config_table(lua_State *L)
@@ -355,10 +288,10 @@ _lua_to_config_table(lua_State *L)
 	return table;
 }
 
-extern int tw_theme_read(lua_State *L);
+extern int tw_theme_read(lua_State *L, struct tw_theme *theme);
 
 /******************************************************************************
- * backend configs
+ * output configs
  *****************************************************************************/
 
 /**
@@ -368,76 +301,6 @@ extern int tw_theme_read(lua_State *L);
  * TODO : I do not know what is use of this
  * [-0, +(1|0), -]
  */
-static struct weston_output *
-_lua_get_output(lua_State *L, int pos)
-{
-	struct weston_output *weston_output;
-
-	if (!tw_lua_istable(L, pos, METATABLE_OUTPUT))
-		return NULL;
-	lua_getfield(L, pos, CONFIG_WESTON_OUTPUT);
-	weston_output = lua_touserdata(L, -1);
-	lua_pop(L, 1);
-
-	return weston_output;
-}
-
-static int
-_lua_is_under_x11(lua_State *L)
-{
-	struct tw_backend *b = _lua_to_backend(L);
-	lua_pushboolean(L, (tw_backend_get_type(b) == WESTON_BACKEND_X11));
-	return 1;
-}
-
-static int
-_lua_is_under_wayland(lua_State *L)
-{
-	struct tw_backend *b = _lua_to_backend(L);
-	lua_pushboolean(L, (tw_backend_get_type(b) == WESTON_BACKEND_WAYLAND));
-	return 1;
-}
-
-static int
-_lua_is_windowed_display(lua_State *L)
-{
-	struct tw_backend *b = _lua_to_backend(L);
-	int type = tw_backend_get_type(b);
-	lua_pushboolean(L, (type == WESTON_BACKEND_X11 ||
-			    type == WESTON_BACKEND_WAYLAND ||
-			    type == WESTON_BACKEND_RDP ||
-			    type == WESTON_BACKEND_HEADLESS));
-	return 1;
-}
-
-static int
-_lua_get_windowed_output(lua_State *L)
-{
-	struct weston_compositor *ec;
-	struct weston_output *output;
-	struct tw_backend *backend = _lua_to_backend(L);
-	int bkend_type;
-
-	ec = _lua_to_compositor(L);
-	bkend_type = tw_backend_get_type(backend);
-	if (bkend_type != WESTON_BACKEND_X11 &&
-	    bkend_type != WESTON_BACKEND_WAYLAND &&
-	    bkend_type != WESTON_BACKEND_RDP &&
-	    bkend_type != WESTON_BACKEND_HEADLESS) {
-		return luaL_error(L, "no windowed output available");
-	} else {
-		output = tw_get_default_output(ec);
-		if (!output)
-			return luaL_error(L, "%s: no window output available",
-			                  "get_window_display");
-	}
-	lua_newtable(L);
-	lua_pushlightuserdata(L, output);
-	lua_setfield(L, -2, CONFIG_WESTON_OUTPUT);
-	luaL_getmetatable(L, METATABLE_OUTPUT);
-	lua_setmetatable(L, -2);
-	return 1;
-}
 
 static inline enum wl_output_transform
 _lua_output_transfrom_from_value(lua_State *L, int rotate, bool flip)
@@ -455,41 +318,35 @@ _lua_output_transfrom_from_value(lua_State *L, int rotate, bool flip)
  * does not change on config run
  */
 static int
-_lua_output_rotate_flip(lua_State *L)
+_lua_read_display_rotate_flip(lua_State *L, struct tw_config_table *t, int idx)
 {
-	bool dirty = false;
-	int rotate;
-	bool flip;
+	int rotate = 0;
+	bool dirty, flip = false;
 	tw_config_transform_t transform;
-	struct weston_output *output;
-	struct tw_config_table *t = _lua_to_config_table(L);
 
-	if (!tw_lua_istable(L, 1, METATABLE_OUTPUT))
-		return luaL_error(L, "%s: invaild output\n",
-		                  "output.rotate_flip");
-	output = _lua_get_output(L, 1);
-
-	if (lua_gettop(L) == 1) {
-		transform = TRANSFORMS[output->transform];
-		lua_pushinteger(L, transform.rotate);
-		lua_pushboolean(L, transform.flip);
-		return 2;
-	} else if(lua_gettop(L) == 2) {
-		rotate = luaL_checkinteger(L, 2);
-		flip = false;
+	lua_getfield(L, 3, "rotation");
+	if (tw_lua_isnumber(L, -1)) {
+		rotate = lua_tonumber(L, -1);
 		dirty = true;
-	} else if (lua_gettop(L) == 3) {
-		luaL_checktype(L, 3, LUA_TBOOLEAN);
-		rotate = luaL_checkinteger(L, 2);
-		flip = lua_toboolean(L, 3);
-		dirty = true;
+		lua_pop(L, 1);
+	} else if (lua_isnil(L, -1)) {
+		lua_pop(L, 1);
 	} else
-		return luaL_error(L, "%s.%s: invalid number of arguments",
-		                  output->name, "rotate_flip");
+		return luaL_error(L, "config_display, invalid rotation");
+
+	lua_getfield(L, 3, "flip");
+	if (lua_isboolean(L, -1)) {
+		flip = lua_toboolean(L, -1);
+		dirty = true;
+		lua_pop(L, 1);
+	} else if (lua_isnil(L, -1)) {
+		lua_pop(L, 1);
+	} else
+		return luaL_error(L, "config_display, invalid flip");
 
 	if (dirty) {
 		transform.t = _lua_output_transfrom_from_value(L, rotate, flip);
-		SET_PENDING(&t->outputs[output->id].transform,
+		SET_PENDING(&t->outputs[idx].transform,
 		            transform, transform.t);
 		tw_config_table_dirty(t, dirty);
 	}
@@ -497,106 +354,139 @@ _lua_output_rotate_flip(lua_State *L)
 }
 
 static int
-_lua_output_scale(lua_State *L)
+_lua_read_display_scale(lua_State *L, struct tw_config_table *t, int idx)
 {
-	bool dirty = false;
-	unsigned int scale;
-	struct weston_output *output = _lua_get_output(L, 1);
-	struct tw_config_table *t = _lua_to_config_table(L);
+	unsigned int scale = 1;
 
-	if (!output)
-		return luaL_error(L, "outut.scale: invalid output\n");
-	if (lua_gettop(L) == 1) {
-		lua_pushinteger(L, output->scale);
-		return 1;
-	} else if (lua_gettop(L) == 2) {
-		tw_lua_stackcheck(L, 2);
-		scale = luaL_checkinteger(L, 2);
-		if (scale <= 0 || scale > 4)
-			return luaL_error(L, "%s.scale(): invalid display scale",
-			                  output->name);
-		dirty = true;
+	lua_getfield(L, 3, "scale");
+	if (tw_lua_isnumber(L, -1)) {
+		scale = lua_tonumber(L, -1);
+		lua_pop(L, 1);
+	} else if (lua_isnil(L, -1)) {
+		lua_pop(L, 1);
+		return 0;
 	} else
-		return luaL_error(L, "%s.scale: invalid num arguments\n",
-			output->name);
-	if (dirty) {
-		SET_PENDING(&(t->outputs[output->id].scale), val, scale);
-		tw_config_table_dirty(t, dirty);
-	}
+		return luaL_error(L, "config_display: scale error");
+	if (scale >= 4)
+		return luaL_error(L, "config_display: invalid scale %d for "
+		                  "display %s", scale, t->outputs[idx].name);
+
+        SET_PENDING(&(t->outputs[idx].scale), val, scale);
+	tw_config_table_dirty(t, true);
+
 	return 0;
 }
 
 static int
-_lua_output_resolution(lua_State *L)
+_lua_read_display_mode(lua_State *L, struct tw_config_table *t, int idx)
 {
-	struct weston_output *output =
-		_lua_get_output(L, 1);
-	if (!output)
-		return luaL_error(L, "output.resolution: invalid output\n");
-	if (lua_gettop(L) == 1) {
-		lua_pushinteger(L, output->width);
-		lua_pushinteger(L, output->height);
-		return 2;
-	} else {
-		return luaL_error(L, "output.resolution: not implemented\n");
-	}
+	int w, h;
+	lua_getfield(L, 3, "mode");
+	if (tw_lua_is_tuple2(L, -1, &w, &h) ||
+	    tw_lua_is_int2str(L, -1, &w, &h)) {
+		lua_pop(L, 1);
+	} else if (lua_isnil(L, -1)) {
+		lua_pop(L, 1);
+		return 0;
+	} else
+		return luaL_error(L, "config_display: mode error");
+	if (w <= 0 || h <= 0 || w > 10000 || h > 10000)
+		return luaL_error(L, "config_display: invalid mode (%d,%d)",
+		                  w, h);
+	SET_PENDING(&t->outputs[idx].width, uval, w);
+	SET_PENDING(&t->outputs[idx].height, uval, h);
+	tw_config_table_dirty(t, true);
+
+	return 0;
 }
 
 static int
-_lua_output_position(lua_State *L)
+_lua_read_display_position(lua_State *L, struct tw_config_table *t, int idx)
 {
-	struct weston_output *output =
-		_lua_get_output(L, 1);
-	if (!output)
-		return luaL_error(L, "output.position: invalid output\n");
-
-	if (lua_gettop(L) == 1) {
-		lua_pushinteger(L, output->x);
-		lua_pushinteger(L, output->y);
-		return 2;
-	} else {
-		//TODO we deal with this later.
-		tw_lua_stackcheck(L, 2);
+	int x, y;
+	lua_getfield(L, 3, "position");
+	if (tw_lua_is_tuple2(L, -1, &x, &y) ||
+	    tw_lua_is_int2str(L, -1, &x, &y)) {
+		lua_pop(L, 1);
+	} else if (lua_isnil(L, -1)) {
+		lua_pop(L, 1);
 		return 0;
 	}
-}
+	if (x > 10000 || y > 10000 || x < -10000 || y < -10000)
+		return luaL_error(L, "config_display: invalid display ",
+		                  "position (%d,%d)", x, y);
+	SET_PENDING(&t->outputs[idx].posx, val, x);
+	SET_PENDING(&t->outputs[idx].posy, val, y);
+	tw_config_table_dirty(t, true);
 
-static int
-_lua_set_sleep_timer(lua_State *L)
-{
-	(void)L;
 	return 0;
 }
 
 static int
-_lua_set_lock_timer(lua_State *L)
+_lua_read_display_enable(lua_State *L, struct tw_config_table *t, int idx)
 {
-	int32_t seconds;
-	struct tw_config_table *t =
-		_lua_to_config_table(L);
-	tw_lua_stackcheck(L, 2);
-	seconds = luaL_checknumber(L, 2);
-	if (seconds < 0)
-		return luaL_error(L, "%s:idle time is negative.",
-		                  "shell.sleep_in");
-
-	SET_PENDING(&t->lock_timer, val, seconds);
+	bool enabled = true;
+	lua_getfield(L, 3, "enable");
+	if (lua_isboolean(L, -1)) {
+		enabled = lua_toboolean(L, -1);
+		lua_pop(L, 1);
+	} else if (lua_isnil(L, -1)) {
+		lua_pop(L, 1);
+		return 0;
+	}
+	SET_PENDING(&t->outputs[idx].enabled, enable, enabled);
 	tw_config_table_dirty(t, true);
 	return 0;
 }
 
+static int
+_lua_read_display(lua_State *L, struct tw_config_table *t, uint32_t idx)
+{
+	_lua_read_display_enable(L, t, idx);
+	_lua_read_display_scale(L, t, idx);
+	_lua_read_display_position(L, t, idx);
+	_lua_read_display_mode(L, t, idx);
+	_lua_read_display_rotate_flip(L, t, idx);
+	return 0;
+}
+
+static int
+_lua_config_display(lua_State *L)
+{
+	struct tw_config_table *t = _lua_to_config_table(L);
+	const char *name;
+
+	if (lua_gettop(L) != 3)
+		return luaL_error(L, "config_display: invalid number of args");
+	if (!tw_lua_isstring(L, 2))
+		return luaL_error(L, "config_display: expecting a string");
+	if (!lua_istable(L, 3))
+		return luaL_error(L, "config_display: expecting a table");
+
+        name = lua_tostring(L, 2);
+	for (unsigned i = 0; i < NUMOF(t->outputs); i++) {
+		if (!strcmp(name, t->outputs[i].name)) {
+			//an old output.
+			return _lua_read_display(L, t, i);
+		} else if (strlen(t->outputs[i].name) == 0) {
+			//or a new one.
+			strncpy(t->outputs[i].name, name, 31);
+			return _lua_read_display(L, t, i);
+		}
+	}
+	return luaL_error(L, "config_display: too many output configs");
+}
+
 /******************************************************************************
- * desktop config
+ * workspaces config.
  *****************************************************************************/
 
 static int
 _lua_set_ws_layout(lua_State *L)
 {
-	int index;
+	int index, layout_type;
 	const char *layout;
-	struct desktop *d = _lua_to_desktop(L);
-	struct tw_config_table *table =
-		_lua_to_config_table(L);
+	struct tw_config_table *table = _lua_to_config_table(L);
 
 	if (!tw_lua_istable(L, 1, METATABLE_WORKSPACE))
 		return luaL_error(L, "%s: invalid workspace\n",
@@ -606,15 +496,14 @@ _lua_set_ws_layout(lua_State *L)
 	lua_pop(L, 1);
 	luaL_checktype(L, 2, LUA_TSTRING);
 	layout = lua_tostring(L, 2);
-	if (index < 0 || index >= tw_desktop_num_workspaces(d))
+	if (index < 0 || index >= MAX_WORKSPACES)
 		return luaL_error(L, "%s: invaild workpsace\n",
 		                  "workspace.set_layout");
-	if (strcmp(layout, "floating") == 0)
+
+	layout_type = tw_xdg_layout_type_from_name(layout);
+	if (layout_type >= LAYOUT_FLOATING && layout_type <= LAYOUT_FULLSCREEN)
 		SET_PENDING(&table->workspaces[index].layout,
-		            layout, LAYOUT_FLOATING);
-	else if (strcmp(layout, "tiling") == 0)
-		SET_PENDING(&table->workspaces[index].layout,
-		            layout, LAYOUT_TILING);
+		            layout, layout_type);
 	else
 		return luaL_error(L, "%s: invaild layout\n",
 		                  "workspace.set_layout");
@@ -623,52 +512,19 @@ _lua_set_ws_layout(lua_State *L)
 }
 
 static int
-_lua_desktop_gap(lua_State *L)
-{
-	int inner, outer;
-	struct desktop *d = _lua_to_desktop(L);
-	struct tw_config_table * t =
-		_lua_to_config_table(L);
-
-	if (lua_gettop(L) == 1) {
-		tw_desktop_get_gap(d, &inner, &outer);
-		lua_pushinteger(L, inner);
-		lua_pushinteger(L, outer);
-		return 2;
-	} else if (lua_gettop(L) == 3) {
-		inner = luaL_checkinteger(L, 2);
-		outer = luaL_checkinteger(L, 3);
-		if (inner < 0 || inner > 100 ||
-		    outer < 0 || outer > 100)
-			return luaL_error(L, "invalid size of gaps.");
-		SET_PENDING(&t->desktop_igap, val, inner);
-		SET_PENDING(&t->desktop_ogap, val, outer);
-		tw_config_table_dirty(t, true);
-		return 0;
-	}
-	return luaL_error(L, "invalid size of params for gap.");
-}
-
-static int
 _lua_request_workspaces(lua_State *L)
 {
-	struct desktop *d = _lua_to_desktop(L);
-
 	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_WORKSPACES);
 	if (lua_istable(L, -1))
 		return 1;
 	//create workspaces if not created
 	lua_pop(L, 1);
 	lua_newtable(L); //1
-	for (int i = 0; i < tw_desktop_num_workspaces(d) ; i++) {
+	for (int i = 0; i < MAX_WORKSPACES ; i++) {
 
 		lua_newtable(L); //2
 		luaL_getmetatable(L, METATABLE_WORKSPACE); //3
 		lua_setmetatable(L, -2); //2
-
-		lua_pushstring(L, "layout"); //3
-		lua_pushstring(L, tw_desktop_get_workspace_layout(d, i)); //4
-		lua_settable(L, -3); //2
 
 		lua_pushstring(L, "index"); //3
 		lua_pushnumber(L, i); //4
@@ -683,37 +539,85 @@ _lua_request_workspaces(lua_State *L)
 }
 
 /******************************************************************************
- * tw_xwayland
+ * enables
  *****************************************************************************/
 
 static int
-_lua_enable_xwayland(lua_State *L)
+_lua_enable_object(lua_State *L, char *name,
+                   enum tw_config_enable_global global)
 {
 	bool val;
 	struct tw_config_table *t =
 		_lua_to_config_table(L);
 
 	tw_lua_assert(L, lua_gettop(L) == 2,
-	              "xwayland: invalid number of arguments");
+	              "%s: invalid number of arguments", name);
 	val = lua_toboolean(L, 2);
-	SET_PENDING(&t->xwayland, enable, val);
+	if (val)
+		t->enable_globals |= global;
+	else
+		t->enable_globals &= ~global;
 	tw_config_table_dirty(t, true);
 	return 0;
+}
+
+static int
+_lua_enable_xwayland(lua_State *L)
+{
+	return _lua_enable_object(L, "xwayland", TW_CONFIG_GLOBAL_XWAYLAND);
+}
+
+static int
+_lua_enable_desktop(lua_State *L)
+{
+	return _lua_enable_object(L, "desktop", TW_CONFIG_GLOBAL_DESKTOP);
+}
+
+static int
+_lua_enable_bus(lua_State *L)
+{
+	return _lua_enable_object(L, "dbus", TW_CONFIG_GLOBAL_BUS);
+}
+
+static int
+_lua_enable_taiwins_shell(lua_State *L)
+{
+	return _lua_enable_object(L, "taiwins_shell",
+	                          TW_CONFIG_GLOBAL_TAIWINS_SHELL);
+}
+
+static int
+_lua_enable_layer_shell(lua_State *L)
+{
+	return _lua_enable_object(L, "layer_shell",
+	                          TW_CONFIG_GLOBAL_LAYER_SHELL);
+}
+
+static int
+_lua_enable_taiwins_console(lua_State *L)
+{
+	return _lua_enable_object(L, "taiwins_console",
+	                          TW_CONFIG_GLOBAL_TAIWINS_CONSOLE);
+}
+
+static int
+_lua_enable_taiwins_theme(lua_State *L)
+{
+	return _lua_enable_object(L, "taiwins_theme",
+	                          TW_CONFIG_GLOBAL_TAIWINS_THEME);
 }
 
 /******************************************************************************
  * global config
  *****************************************************************************/
 
-//TODO: there are possible leaks if you run config multiple times!
-//TODO: its is better to set xkb rules together.
 static int
 _lua_set_keyboard_model(lua_State *L)
 {
 	struct tw_config_table *t = _lua_to_config_table(L);
 
 	tw_lua_stackcheck(L, 2);
-	t->xkb_rules.model = strdup(luaL_checkstring(L, 2));
+	t->xkb_rules->model = strdup(luaL_checkstring(L, 2));
 	return 0;
 }
 
@@ -723,7 +627,7 @@ _lua_set_keyboard_layout(lua_State *L)
 	struct tw_config_table *t = _lua_to_config_table(L);
 
 	tw_lua_stackcheck(L, 2);
-	t->xkb_rules.layout = strdup(luaL_checkstring(L, 2));
+	t->xkb_rules->layout = strdup(luaL_checkstring(L, 2));
 	tw_config_table_dirty(t, true);
 	return 0;
 }
@@ -734,7 +638,7 @@ _lua_set_keyboard_options(lua_State *L)
 	struct tw_config_table *t = _lua_to_config_table(L);
 
 	tw_lua_stackcheck(L, 2);
-	t->xkb_rules.options = strdup(luaL_checkstring(L, 2));
+	t->xkb_rules->options = strdup(luaL_checkstring(L, 2));
 	tw_config_table_dirty(t, true);
 	return 0;
 }
@@ -755,34 +659,21 @@ _lua_set_repeat_info(lua_State *L)
 	return 0;
 }
 
-
-static int
-_lua_wake_compositor(lua_State *L)
-{
-	struct tw_config *config;
-	tw_lua_stackcheck(L, 1);
-	if (!tw_lua_istable(L, 1, METATABLE_COMPOSITOR))
-		return luaL_error(L, "%s: expecting compositor object\n",
-		                  "compositor.wake");
-	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG);
-	config = lua_touserdata(L, -1);
-	lua_pop(L, 1);
-	tw_config_wake_compositor(config);
-	return 0;
-}
-
 static int
 _lua_read_theme(lua_State *L)
 {
 	struct tw_config_table *table = _lua_to_config_table(L);
 	struct tw_theme *theme;
-	//required for tw_theme_read
-	theme = _lua_to_theme(L);
-	lua_pushlightuserdata(L, theme);
-	lua_setfield(L, LUA_REGISTRYINDEX, "tw_theme");
 
-	tw_theme_read(L);
-	SET_PENDING(&table->theme, read, true);
+	if (!(table->enable_globals & TW_CONFIG_GLOBAL_TAIWINS_THEME))
+		return luaL_error(L, "read_theme: theme option not enabled");
+	//required for tw_theme_read
+	theme = calloc(1, sizeof(struct tw_theme));
+	if (!theme)
+		return luaL_error(L, "read_theme: failed allocation");
+
+	tw_theme_read(L, theme);
+	SET_PENDING(&table->theme, theme, theme);
 	tw_config_table_dirty(table, true);
 
 	return 0;
@@ -818,20 +709,53 @@ _lua_set_panel_position(lua_State *L)
 	return 0;
 }
 
+static int
+_lua_set_sleep_timer(lua_State *L)
+{
+	(void)L;
+	return 0;
+}
+
+static int
+_lua_set_lock_timer(lua_State *L)
+{
+	int32_t seconds;
+	struct tw_config_table *t =
+		_lua_to_config_table(L);
+	tw_lua_stackcheck(L, 2);
+	seconds = luaL_checknumber(L, 2);
+	if (seconds < 0)
+		return luaL_error(L, "%s:idle time is negative.",
+		                  "shell.sleep_in");
+
+	SET_PENDING(&t->lock_timer, val, seconds);
+	tw_config_table_dirty(t, true);
+	return 0;
+}
+
+static int
+_lua_desktop_gap(lua_State *L)
+{
+	int inner, outer;
+	struct tw_config_table *t = _lua_to_config_table(L);
+	if (lua_gettop(L) == 3) {
+		inner = luaL_checkinteger(L, 2);
+		outer = luaL_checkinteger(L, 3);
+		if (inner < 0 || inner > 100 ||
+		    outer < 0 || outer > 100)
+			return luaL_error(L, "invalid size of gaps.");
+		SET_PENDING(&t->desktop_igap, uval, inner);
+		SET_PENDING(&t->desktop_ogap, uval, outer);
+		tw_config_table_dirty(t, true);
+		return 0;
+	}
+	return luaL_error(L, "invalid size of params for gap.");
+}
+
 
 static int
 luaopen_taiwins(lua_State *L)
 {
-	////////////////////// backend ///////////////////////////////
-	luaL_newmetatable(L, METATABLE_OUTPUT);
-	lua_pushvalue(L, -1);
-	lua_setfield(L, -2, "__index");
-	REGISTER_METHOD(L, "rotate_flip", _lua_output_rotate_flip);
-	REGISTER_METHOD(L, "scale", _lua_output_scale);
-	REGISTER_METHOD(L, "resolution", _lua_output_resolution);
-	REGISTER_METHOD(L, "position", _lua_output_position);
-	lua_pop(L, 1);
-
 	////////////////////// desktop //////////////////////////////
 	//metatable for workspace
 	luaL_newmetatable(L, METATABLE_WORKSPACE);
@@ -853,24 +777,25 @@ luaopen_taiwins(lua_State *L)
 	REGISTER_METHOD(L, "keyboard_layout", _lua_set_keyboard_layout);
 	REGISTER_METHOD(L, "keyboard_options", _lua_set_keyboard_options);
 	REGISTER_METHOD(L, "repeat_info", _lua_set_repeat_info);
-	REGISTER_METHOD(L, "wake", _lua_wake_compositor);
-	//backend methods
-	REGISTER_METHOD(L, "is_windowed_display", _lua_is_windowed_display);
-	REGISTER_METHOD(L, "is_under_x11", _lua_is_under_x11);
-	REGISTER_METHOD(L, "is_under_wayland", _lua_is_under_wayland);
-	//TODO: other type output
-	REGISTER_METHOD(L, "get_window_display", _lua_get_windowed_output);
+	//objects
+	REGISTER_METHOD(L, "enable_xwayland", _lua_enable_xwayland);
+	REGISTER_METHOD(L, "enable_bus", _lua_enable_bus);
+	REGISTER_METHOD(L, "enable_shell", _lua_enable_taiwins_shell);
+	REGISTER_METHOD(L, "enable_console", _lua_enable_taiwins_console);
+	REGISTER_METHOD(L, "enable_theme", _lua_enable_taiwins_theme);
+	REGISTER_METHOD(L, "enable_layer_shell", _lua_enable_layer_shell);
+	REGISTER_METHOD(L, "enable_desktop", _lua_enable_desktop);
 	//shell methods
 	REGISTER_METHOD(L, "lock_in", _lua_set_lock_timer);
 	REGISTER_METHOD(L, "sleep_in", _lua_set_sleep_timer);
 	REGISTER_METHOD(L, "panel_pos", _lua_set_panel_position);
-	//desktop methods
+	REGISTER_METHOD(L, "set_gaps", _lua_desktop_gap);
 	REGISTER_METHOD(L, "workspaces", _lua_request_workspaces);
-	REGISTER_METHOD(L, "desktop_gaps", _lua_desktop_gap);
 	//theme method
 	REGISTER_METHOD(L, "read_theme", _lua_read_theme);
-	//xwayland
-	REGISTER_METHOD(L, "enable_xwayland", _lua_enable_xwayland);
+	REGISTER_METHOD(L, "config_display", _lua_config_display);
+	//TODO: config_seat?
+
 	lua_pop(L, 1); //pop this metatable
 
 	static const struct luaL_Reg lib[] = {
@@ -880,26 +805,6 @@ luaopen_taiwins(lua_State *L)
 
 	luaL_newlib(L, lib);
 	return 1;
-}
-
-static void
-_lua_output_created_listener(struct wl_listener *listener, void *data)
-{
-	struct weston_output *output = data;
-	struct tw_config *config = container_of(listener, struct tw_config,
-	                                        output_created_listener);
-	(void)output;
-	(void)config;
-}
-
-static void
-_lua_output_destroyed_listener(struct wl_listener *listener, void *data)
-{
-	struct weston_output *output = data;
-	struct tw_config *config = container_of(listener, struct tw_config,
-	                                        output_destroyed_listener);
-	(void)config;
-	(void)output;
 }
 
 bool
@@ -940,23 +845,10 @@ tw_luaconfig_init(struct tw_config *c)
 	//REGISTRIES
 	lua_pushlightuserdata(L, c); //s1
 	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG); //s0
-	lua_pushlightuserdata(L, c->compositor);
-	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_COMPOSITOR); //0
-	lua_pushlightuserdata(L, c->config_table);
+	lua_pushlightuserdata(L, &c->config_table);
 	lua_setfield(L, LUA_REGISTRYINDEX, CONFIG_TABLE);
 	lua_newtable(L);
 	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_HINT);
-
-	wl_list_init(&c->output_created_listener.link);
-	c->output_created_listener.notify = _lua_output_created_listener;
-	wl_signal_add(&c->compositor->output_created_signal,
-	              &c->output_created_listener);
-
-	wl_list_init(&c->output_destroyed_listener.link);
-	c->output_destroyed_listener.notify = _lua_output_destroyed_listener;
-	wl_signal_add(&c->compositor->output_destroyed_signal,
-	              &c->output_destroyed_listener);
-
 	// preload the taiwins module
 	luaL_requiref(L, "taiwins", luaopen_taiwins, true);
 }

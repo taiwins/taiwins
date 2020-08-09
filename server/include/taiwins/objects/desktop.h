@@ -131,7 +131,15 @@ tw_desktop_create_global(struct wl_display *display,
                          const struct tw_desktop_surface_api *api,
                          void *user_data,
                          enum tw_desktop_init_option option);
-
+/**
+ * @brief getting the desktop surface from tw_surface
+ *
+ * This function checks if tw_surface is a wl_shell_surface or xdg_surface,
+ * returned surface could be a toplevel, transient or a popup, additional check
+ * needs to be done.
+ */
+struct tw_desktop_surface *
+tw_desktop_surface_from_tw_surface(struct tw_surface *surface);
 
 #ifdef  __cplusplus
 }

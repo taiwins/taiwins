@@ -23,17 +23,17 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/eventfd.h>
-#include <libweston/libweston.h>
 #include <tdbus.h>
+#include <ctypes/helpers.h>
 
-#include "compositor.h"
+#include <taiwins/objects/utils.h>
 
 static struct tw_bus {
-	struct weston_compositor *compositor;
+	struct wl_display *display;
 	struct tdbus *dbus;
 	struct wl_event_source *source;
 
-	struct wl_listener compositor_distroy_listener;
+	struct wl_listener display_distroy_listener;
 } s_bus;
 
 static inline struct tw_bus *
@@ -43,8 +43,7 @@ get_bus(void)
 }
 
 static int
-tw_dbus_dispatch_watch(UNUSED_ARG(int fd), UNUSED_ARG(uint32_t mask),
-                       UNUSED_ARG(void *data))
+tw_dbus_dispatch_watch(int fd, uint32_t mask, void *data)
 {
 	struct tw_bus *twbus = get_bus();
 	struct tdbus *bus = twbus->dbus;
@@ -57,7 +56,7 @@ tw_dbus_dispatch_watch(UNUSED_ARG(int fd), UNUSED_ARG(uint32_t mask),
 
 
 static void
-tw_bus_add_watch(void *user_data, int unix_fd, UNUSED_ARG(struct tdbus *bus),
+tw_bus_add_watch(void *user_data, int unix_fd, struct tdbus *bus,
                  uint32_t mask, void *watch_data)
 {
 	struct wl_event_loop *loop;
@@ -65,7 +64,7 @@ tw_bus_add_watch(void *user_data, int unix_fd, UNUSED_ARG(struct tdbus *bus),
 	uint32_t flags = 0;
 	struct wl_event_source *s;
 
-	loop = wl_display_get_event_loop(twbus->compositor->wl_display);
+	loop = wl_display_get_event_loop(twbus->display);
 	if (mask & TDBUS_ENABLED) {
 		if (mask & TDBUS_READABLE)
 			flags |= WL_EVENT_READABLE;
@@ -80,9 +79,8 @@ tw_bus_add_watch(void *user_data, int unix_fd, UNUSED_ARG(struct tdbus *bus),
 }
 
 static void
-tw_bus_ch_watch(UNUSED_ARG(void *user_data), UNUSED_ARG(int unix_fd),
-                UNUSED_ARG(struct tdbus *bus),
-                uint32_t mask, void *watch_data)
+tw_bus_ch_watch(void *user_data,int unix_fd, struct tdbus *bus, uint32_t mask,
+                void *watch_data)
 {
 	struct wl_event_source *s;
 	uint32_t flags = 0;
@@ -98,13 +96,11 @@ tw_bus_ch_watch(UNUSED_ARG(void *user_data), UNUSED_ARG(int unix_fd),
 			flags |= WL_EVENT_WRITABLE;
 	}
 	wl_event_source_fd_update(s, flags);
-
-
 }
 
 static void
-tw_bus_rm_watch(UNUSED_ARG(void *user_data), UNUSED_ARG(int unix_fd),
-                UNUSED_ARG(struct tdbus *bus), void *watch_data)
+tw_bus_rm_watch(void *user_data, int unix_fd, struct tdbus *bus,
+                void *watch_data)
 {
 	struct wl_event_source *s;
 
@@ -116,8 +112,7 @@ tw_bus_rm_watch(UNUSED_ARG(void *user_data), UNUSED_ARG(int unix_fd),
 }
 
 static int
-tw_bus_dispatch(UNUSED_ARG(int fd), UNUSED_ARG(uint32_t mask),
-                UNUSED_ARG(void *data))
+tw_bus_dispatch(int fd, uint32_t mask, void *data)
 {
 	struct tw_bus *bus = data;
 
@@ -127,10 +122,10 @@ tw_bus_dispatch(UNUSED_ARG(int fd), UNUSED_ARG(uint32_t mask),
 }
 
 static void
-tw_bus_end(struct wl_listener *listener, UNUSED_ARG(void *data))
+tw_bus_end(struct wl_listener *listener, void *data)
 {
 	struct tw_bus *bus = container_of(listener, struct tw_bus,
-	                                  compositor_distroy_listener);
+	                                  display_distroy_listener);
 	struct tdbus *dbus = bus->dbus;
 
 	if (bus->source)
@@ -177,32 +172,29 @@ static struct tdbus_call_answer tw_bus_answer = {
 };
 
 struct tw_bus *
-tw_setup_bus(struct weston_compositor *ec)
+tw_bus_create_global(struct wl_display *display)
 {
 	int fd;
 	struct tw_bus *bus = get_bus();
-	struct wl_display *display;
 	struct wl_event_loop *loop;
 
-	display = ec->wl_display;
 	loop = wl_display_get_event_loop(display);
-	bus->compositor = ec;
 	bus->dbus = tdbus_new_server(SESSION_BUS, "org.taiwins");
-
-	wl_list_init(&bus->compositor_distroy_listener.link);
-	bus->compositor_distroy_listener.notify = tw_bus_end;
-	wl_signal_add(&ec->destroy_signal, &bus->compositor_distroy_listener);
+	bus->display = display;
 
 	if (!bus->dbus)
 		return NULL;
 
+	tw_set_display_destroy_listener(display,
+	                                &bus->display_distroy_listener,
+	                                tw_bus_end);
 	/* idle events cannot reschedule themselves */
 	fd = eventfd(0, EFD_CLOEXEC);
 	if (fd < 0)
 		return NULL;
 	bus->source = wl_event_loop_add_fd(loop, fd, 0, tw_bus_dispatch, bus);
 	if (!bus->source) {
-		tw_bus_end(&bus->compositor_distroy_listener, bus);
+		tw_bus_end(&bus->display_distroy_listener, bus);
 		return NULL;
 	}
 	wl_event_source_check(bus->source);

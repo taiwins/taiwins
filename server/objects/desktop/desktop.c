@@ -242,3 +242,19 @@ tw_desktop_surface_calc_window_geometry(struct tw_surface *surface,
 	pixman_region32_copy(geometry, &region);
 	pixman_region32_fini(&region);
 }
+
+bool
+tw_surface_is_wl_shell_surface(struct tw_surface *surface);
+
+bool
+tw_surface_is_xdg_surface(struct tw_surface *surface);
+
+struct tw_desktop_surface *
+tw_desktop_surface_from_tw_surface(struct tw_surface *surface)
+{
+	if (tw_surface_is_wl_shell_surface(surface) ||
+	    tw_surface_is_xdg_surface(surface))
+		return surface->role.commit_private;
+	else
+		return NULL;
+}
