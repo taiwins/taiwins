@@ -62,7 +62,11 @@ validate_pointer(struct libinput_device *dev)
 static bool
 validate_touch(struct libinput_device *dev)
 {
+#if defined(_TW_HAS_LIBINPUT_GET_TOUCH_COUNT)
 	return libinput_device_touch_get_touch_count(dev) > 0;
+#else
+	return false;
+#endif
 }
 
 bool
