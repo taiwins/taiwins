@@ -62,6 +62,7 @@ endif
 dep_threads = dependency('threads')
 dep_glesv2 = dependency('glesv2')
 dep_libdrm = dependency('libdrm', version: '>= 2.4.68')
+dep_libinput = dependency('libinput', version: '>=1.9.0')
 dep_wlroots = wlroots.get_variable('wlroots')
 dep_pam = cc.find_library('pam')
 dep_m = cc.find_library('m')

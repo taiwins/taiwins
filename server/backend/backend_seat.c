@@ -479,9 +479,8 @@ new_seat_for_backend(struct tw_backend *backend,
                      struct wlr_input_device *dev)
 {
 	struct tw_backend_seat *seat;
-	int new_seat_id = ffs(backend->seat_pool);
-	if (new_seat_id >= 8)
-		return NULL;
+	int new_seat_id = ffs(~backend->seat_pool)-1;
+	assert(new_seat_id >= 0 && new_seat_id < 8);
 
 	// init the seat
 	seat = &backend->seats[new_seat_id];

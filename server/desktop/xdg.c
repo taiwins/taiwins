@@ -535,17 +535,16 @@ tw_xdg_switch_workspace(struct tw_xdg *xdg, uint32_t to)
 	xdg->actived_workspace[0] = &xdg->workspaces[to];
 	view = tw_workspace_switch(xdg->actived_workspace[0],
 	                           xdg->actived_workspace[1]);
-	if (view) {
-		//enforcing a output-resizing event here to enforce the changed
-		//xdg options like gaps.
-		wl_list_for_each(bo, &xdg->backend->heads, link) {
-			xo = xdg_output_from_backend_output(xdg, bo);
-			tw_workspace_resize_output(xdg->actived_workspace[0],
-			                           xo);
-		}
-
-		tw_xdg_view_activate(xdg, view);
+	//enforcing a output-resizing event here to enforce the changed
+	//xdg options like gaps.
+	wl_list_for_each(bo, &xdg->backend->heads, link) {
+		xo = xdg_output_from_backend_output(xdg, bo);
+		tw_workspace_resize_output(xdg->actived_workspace[0],
+		                           xo);
+		tw_backend_output_dirty(bo);
 	}
+	if (view)
+		tw_xdg_view_activate(xdg, view);
 }
 
 const char *

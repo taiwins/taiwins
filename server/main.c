@@ -145,9 +145,27 @@ tw_server_fini(struct tw_server *server)
 	tw_bindings_destroy(server->bindings);
 }
 
+
 static void
 print_option(void)
 {}
+
+static bool
+drop_permissions(void) {
+	if (getuid() != geteuid() || getgid() != getegid()) {
+		// Set the gid and uid in the correct order.
+		if (setgid(getgid()) != 0) {
+			return false;
+		}
+		if (setuid(getuid()) != 0) {
+			return false;
+		}
+	}
+	if (setgid(0) != -1 || setuid(0) != -1) {
+		return false;
+	}
+	return true;
+}
 
 static bool
 parse_options(struct tw_options *options, int argc, char **argv)
@@ -282,6 +300,8 @@ main(int argc, char *argv[])
 		goto err_signal;
 	if (!tw_server_init(&ec, display))
 		goto err_backend;
+	if (!drop_permissions())
+		goto err_permission;
 
 	if (options.test_case)
 		tw_launch_client(display, options.test_case,
@@ -295,10 +315,11 @@ main(int argc, char *argv[])
 	//run the loop
 	tw_backend_flush(ec.backend);
 	wl_display_run(ec.display);
+
 	//end.
+err_permission:
 err_config:
         tw_server_fini(&ec);
-
 err_backend:
 err_signal:
 	for (int i = 0; i < 4; i++)

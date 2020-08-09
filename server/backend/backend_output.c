@@ -27,6 +27,7 @@
 #include "backend_internal.h"
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/matrix.h>
+#include <wayland-util.h>
 #include "renderer/renderer.h"
 
 static enum wl_output_transform
@@ -124,6 +125,8 @@ tw_backend_commit_output_state(struct tw_backend_output *o)
 		//now here we can decide if we want to implement
 		//wlr_output_management protocol
 	}
+	if (o->state.activate)
+		tw_backend_output_dirty(o);
 }
 
 static void
@@ -182,6 +185,8 @@ notify_output_remove(struct wl_listener *listener, UNUSED_ARG(void *data))
 	output->id = -1;
 	wl_list_remove(&output->link);
 	wl_list_remove(&output->state.constrain.link);
+	wl_list_remove(&output->frame_listener.link);
+	wl_list_remove(&output->destroy_listener.link);
 	pixman_region32_fini(&output->state.constrain.region);
 
 	backend->output_pool &= unset;
@@ -196,9 +201,10 @@ void
 tw_backend_new_output(struct tw_backend *backend,
                       struct wlr_output *wlr_output)
 {
-	uint32_t id = ffs(backend->output_pool);
+	uint32_t id = ffs(~backend->output_pool)-1;
 	struct tw_backend_output *output = &backend->outputs[id];
 
+	assert(ffs(~backend->output_pool) > 0);
 	wlr_output->data = output;
 	output->id = id;
 	output->cloning = -1;
@@ -358,4 +364,5 @@ tw_backend_output_dirty(struct tw_backend_output *output)
 	if (output->state.repaint_state != TW_REPAINT_CLEAN)
 		return;
 	output->state.repaint_state = TW_REPAINT_DIRTY;
+	wlr_output_schedule_frame(output->wlr_output);
 }

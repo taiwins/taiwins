@@ -2,8 +2,15 @@ taiwins_cargs = [
   '-D_GNU_SOURCE',
   '-DWLR_USE_UNSTABLE'
 ]
+
 if get_option('enable-profiler')
    taiwins_cargs += '-D_TW_ENABLE_PROFILING'
+endif
+
+if cc.has_function('libinput_device_touch_get_touch_count',
+		   prefix: '#include <libinput.h>',
+		  dependencies: [dep_libinput])
+  taiwins_cargs += '-D_TW_HAS_LIBINPUT_GET_TOUCH_COUNT'
 endif
 
 pkgconfig = import('pkgconfig')
@@ -96,6 +103,7 @@ taiwins_src = [
   'backend/backend.c',
   'backend/backend_impl.c',
   'backend/backend_seat.c',
+  'backend/backend_libinput.c',
   'backend/backend_output.c',
   'renderer/renderer.c',
   'renderer/shaders.c',

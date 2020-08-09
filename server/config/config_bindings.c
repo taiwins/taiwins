@@ -170,7 +170,7 @@ switch_workspace(struct tw_keyboard *keyboard,
 	if (switch_left == true)
 		idx = MAX(0, curr_idx-1);
 	else
-		idx = MIN(MAX_WORKSPACES, curr_idx+1);
+		idx = MIN(MAX_WORKSPACES-1, curr_idx+1);
         tw_xdg_switch_workspace(desktop, idx);
 
 	//TODO:damage all the outputs

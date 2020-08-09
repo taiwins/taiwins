@@ -28,6 +28,7 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
+#include <wlr/backend/libinput.h>
 
 #include "backend.h"
 #include "backend_internal.h"
@@ -292,6 +293,12 @@ notify_new_input(struct wl_listener *listener, void *data)
 		container_of(listener, struct tw_backend_impl, input_add);
 	struct tw_backend *backend = impl->backend;
 	struct wlr_input_device *dev = data;
+
+	//filter the unwanted libinput device
+	if (wlr_input_device_is_libinput(dev) &&
+	    !tw_backend_valid_libinput_device(
+		    wlr_libinput_get_device_handle(dev)))
+		return;
 
 	switch (dev->type) {
 	case WLR_INPUT_DEVICE_KEYBOARD:

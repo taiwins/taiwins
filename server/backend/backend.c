@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <unistd.h>
 #include <wayland-server-core.h>
 #include <wayland-server-protocol.h>
 #include <wayland-server.h>
