@@ -1,6 +1,13 @@
 option(
-	'enable-profiler',
-	type: 'boolean',
-	value: false,
-	description: 'Enable taiwins profiler'
+  'enable-profiler',
+  type: 'boolean',
+  value: false,
+  description: 'Enable taiwins profiler'
+)
+
+option(
+  'build-doc',
+  type: 'boolean',
+  value: false,
+  description: 'Enable doxygen build'
 )
