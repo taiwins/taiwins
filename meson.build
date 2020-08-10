@@ -82,3 +82,18 @@ subdir('protocols')
 subdir('server')
 subdir('clients')
 subdir('test')
+
+
+#docs
+if get_option('build-doc')
+  doxygen = find_program('doxygen', required: true)
+  docdata = configuration_data()
+  docdata.set('VERSION', meson.project_version())
+
+  if find_program('dot', required : false).found()
+    docdata.set('HAVE_DOT', 'YES')
+  else
+    docdata.set('HAVE_DOT', 'NO')
+  endif
+  subdir('docs')
+endif
