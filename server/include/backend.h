@@ -41,6 +41,8 @@
 #include <taiwins/objects/compositor.h>
 #include <taiwins/objects/dmabuf.h>
 #include <taiwins/objects/cursor.h>
+#include <taiwins/objects/presentation_feedback.h>
+#include <taiwins/objects/viewporter.h>
 
 
 #ifdef  __cplusplus
@@ -204,6 +206,8 @@ struct tw_backend {
 	struct tw_compositor compositor_manager;
 	struct tw_data_device_manager data_device_manager;
 	struct tw_linux_dmabuf dma_engine;
+	struct tw_presentation presentation;
+	struct tw_viewporter viewporter;
 };
 
 struct tw_backend *
@@ -267,6 +271,9 @@ tw_backend_output_set_gamma(struct tw_backend_output *output,
 void
 tw_backend_output_dirty(struct tw_backend_output *output);
 
+struct wl_resource *
+tw_backend_output_get_wl_output(struct tw_backend_output *output,
+                                struct wl_resource *reference);
 struct tw_backend_seat *
 tw_backend_get_focused_seat(struct tw_backend *backend);
 

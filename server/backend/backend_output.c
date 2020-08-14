@@ -366,3 +366,16 @@ tw_backend_output_dirty(struct tw_backend_output *output)
 	output->state.repaint_state = TW_REPAINT_DIRTY;
 	wlr_output_schedule_frame(output->wlr_output);
 }
+
+struct wl_resource *
+tw_backend_output_get_wl_output(struct tw_backend_output *output,
+                                struct wl_resource *reference)
+{
+	struct wl_resource *wl_output;
+	wl_resource_for_each(wl_output, &output->wlr_output->resources) {
+		if (wl_resource_get_client(wl_output) ==
+		    wl_resource_get_client(reference))
+			return wl_output;
+	}
+	return NULL;
+}

@@ -222,6 +222,11 @@ tw_backend_init_globals(struct tw_backend *backend)
 		return false;
 	if (!tw_linux_dmabuf_init(&backend->dma_engine, backend->display))
 		return false;
+	if (!tw_presentation_init(&backend->presentation, backend->display))
+		return false;
+	if (!tw_viewporter_init(&backend->viewporter, backend->display))
+		return false;
+
 	tw_surface_manager_init(&backend->surface_manager);
 	tw_layers_manager_init(&backend->layers_manager, backend->display);
 
