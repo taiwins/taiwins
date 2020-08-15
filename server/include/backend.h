@@ -243,6 +243,12 @@ struct tw_surface *
 tw_backend_pick_surface_from_layers(struct tw_backend *backend,
                                     float x, float y,
                                     float *sx,  float *sy);
+/**
+ * @brief build the surface list, top down fashion based on layers
+ */
+void
+tw_backend_build_surface_list(struct tw_backend *backend);
+
 void
 tw_backend_set_output_scale(struct tw_backend_output *output, float scale);
 

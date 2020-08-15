@@ -392,6 +392,7 @@ surface_build_geometry_matrix(struct tw_surface *surface)
 		target_width = buffer_width;
 		target_height = buffer_height;
 	}
+	//working in the center origin cooridnate system
 	//since (-1, -1) is up-left
 	tw_mat3_scale(transform, target_width / 2.0, target_height / 2.0);
 	tw_mat3_wl_transform(&tmp, current->transform, false); //ydown
@@ -403,9 +404,11 @@ surface_build_geometry_matrix(struct tw_surface *surface)
 		              1.0/current->buffer_scale);
 		tw_mat3_multiply(transform, &tmp, transform);
 	}
-	//update the coordinates
 
+	//move the origin back to top-left cornor.
+	//1st: we need to shift the surfaceby half or its length.
 	tw_mat3_vec_transform(transform, 1.0, 1.0, &x, &y);
+	//2nd: then move the origin to the origin geometry
 	tw_mat3_translate(&tmp,
 	                  fabs(x) + surface->geometry.x,
 	                  fabs(y) + surface->geometry.y);
@@ -416,23 +419,11 @@ surface_build_geometry_matrix(struct tw_surface *surface)
 static void
 surface_update_geometry(struct tw_surface *surface)
 {
-	pixman_box32_t box = {INT_MAX, INT_MAX, INT_MIN, INT_MIN};
-	float corners[4][2] = {
-		{-1.0f, -1.0f}, {-1.0f, 1.0f},
-		{1.0f, -1.0f}, {1.0f, 1.0f},
-	};
-
+	pixman_box32_t box = {-1, -1, 1, 1};
 	//update new geometry
 	surface_build_geometry_matrix(surface);
-	for (int i = 0; i < 4; i++) {
-		tw_mat3_vec_transform(&surface->geometry.transform,
-		                      corners[i][0], corners[i][1],
-		                      &corners[i][0], &corners[i][1]);
-		box.x1 = MIN(box.x1, (int32_t)corners[i][0]);
-		box.y1 = MIN(box.y1, (int32_t)corners[i][1]);
-		box.x2 = MAX(box.x2, (int32_t)corners[i][0]);
-		box.y2 = MAX(box.y2, (int32_t)corners[i][1]);
-	}
+	tw_mat3_box_transform(&surface->geometry.transform, &box, &box);
+
 	if (box.x1 != surface->geometry.xywh.x ||
 	    box.y1 != surface->geometry.xywh.y ||
 	    (box.x2-box.x1) != (int)surface->geometry.xywh.width ||
@@ -789,7 +780,6 @@ tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
 	//initializers
 	surface->manager = manager;
 	surface->resource = resource;
-	surface->state = 0;
 	surface->is_mapped = false;
 	surface->pending = &surface->surface_states[0];
 	surface->current = &surface->surface_states[1];

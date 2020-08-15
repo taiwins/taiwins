@@ -48,87 +48,10 @@ struct tw_layer_renderer {
 
 
 static void
-surface_add_to_outputs_list(struct tw_backend *backend,
-                           struct tw_surface *surface)
-{
-	struct tw_backend_output *output;
-	struct tw_subsurface *sub;
-
-	assert(surface->output >= 0 && surface->output <= 31);
-	output = &backend->outputs[surface->output];
-
-	wl_list_insert(output->views.prev,
-	               &surface->links[TW_VIEW_OUTPUT_LINK]);
-
-	wl_list_for_each(sub, &surface->subsurfaces, parent_link)
-		surface_add_to_outputs_list(backend, sub->surface);
-}
-
-/* subsurface is not intented for widget, tooltip and all that. It is for gluing
- * multiple videos together to a bigger window, if this is the case, the
- * tw_surface would have to a bit different. */
-
-static void
-subsurface_add_to_list(struct wl_list *parent_head, struct tw_surface *surface)
-{
-	struct tw_subsurface *sub;
-
-	wl_list_insert(parent_head->prev,
-	               &surface->links[TW_VIEW_GLOBAL_LINK]);
-	wl_list_for_each_reverse(sub, &surface->subsurfaces, parent_link) {
-		subsurface_add_to_list(&surface->links[TW_VIEW_GLOBAL_LINK],
-		                       sub->surface);
-	}
-}
-
-static void
-surface_add_to_list(struct tw_backend *backend, struct tw_surface *surface)
-{
-	//we should also add to the output
-	struct tw_subsurface *sub;
-	struct tw_layers_manager *manager = &backend->layers_manager;
-
-	wl_list_insert(manager->views.prev,
-	               &surface->links[TW_VIEW_GLOBAL_LINK]);
-
-	//subsurface inserts just above its main surface, here we take the
-	//reverse order of the subsurfaces and insert them one by one in front
-	//of the main surface
-	wl_list_for_each_reverse(sub, &surface->subsurfaces, parent_link)
-		subsurface_add_to_list(&surface->links[TW_VIEW_GLOBAL_LINK],
-		                       sub->surface);
-}
-
-static void
-tw_layer_renderer_build_surface_list(struct tw_backend *backend)
-{
-	struct tw_surface *surface;
-	struct tw_layer *layer;
-	struct tw_backend_output *output;
-	struct tw_layers_manager *manager = &backend->layers_manager;
-
-	SCOPE_PROFILE_BEG();
-
-	wl_list_init(&manager->views);
-	wl_list_for_each(output, &backend->heads, link)
-		wl_list_init(&output->views);
-
-	wl_list_for_each(layer, &manager->layers, link) {
-		wl_list_for_each(surface, &layer->views,
-		                 links[TW_VIEW_LAYER_LINK]) {
-			surface_add_to_list(backend, surface);
-			surface_add_to_outputs_list(backend, surface);
-		}
-	}
-
-	SCOPE_PROFILE_END();
-}
-
-static void
 surface_accumulate_damage(struct tw_surface *surface,
                           pixman_region32_t *clipped)
 {
-	pixman_region32_t damage, bbox, old_bbox;
+	pixman_region32_t damage, bbox, old_bbox, opaque;
 	struct tw_view *current = surface->current;
 
 	pixman_region32_init(&damage);
@@ -142,6 +65,7 @@ surface_accumulate_damage(struct tw_surface *surface,
 	                          surface->geometry.prev_xywh.y,
 	                          surface->geometry.prev_xywh.width,
 	                          surface->geometry.prev_xywh.height);
+	pixman_region32_init(&opaque);
 
 	if (surface->geometry.dirty) {
 		pixman_region32_union(&damage, &bbox, &old_bbox);
@@ -149,48 +73,62 @@ surface_accumulate_damage(struct tw_surface *surface,
 		pixman_region32_copy(&damage, &current->surface_damage);
 		pixman_region32_translate(&damage, surface->geometry.xywh.x,
 		                          surface->geometry.xywh.y);
+		pixman_region32_intersect(&damage, &damage, &bbox);
 	}
-	pixman_region32_intersect(&damage, &damage, &bbox);
 	pixman_region32_subtract(&damage, &damage, clipped);
-	/* pixman_region32_union(&current->plane->damage, */
-	/*                       &current->plane->damage, &damage); */
-
+	pixman_region32_union(&current->plane->damage,
+	                      &current->plane->damage, &damage);
 	//update the clip region here. but yeah, our surface region is not
 	//correct at all.
-	pixman_region32_copy(&surface->clip, clipped);
-	pixman_region32_union(clipped, clipped,
-	                      &current->opaque_region);
+	pixman_region32_subtract(&surface->clip, &bbox, clipped);
+	pixman_region32_copy(&opaque, &current->opaque_region);
+	pixman_region32_translate(&opaque, surface->geometry.x,
+	                          surface->geometry.y);
+	pixman_region32_intersect(&opaque, &opaque, &bbox);
+	pixman_region32_union(clipped, clipped, &opaque);
 
 	pixman_region32_fini(&damage);
 	pixman_region32_fini(&bbox);
 	pixman_region32_fini(&old_bbox);
+	pixman_region32_fini(&opaque);
 }
 
 static void
-tw_layer_renderer_stack_damage(struct tw_backend *backend)
+tw_layer_renderer_stack_damage(struct tw_backend *backend,
+                               struct tw_plane *plane)
 {
 	struct tw_surface *surface;
 	struct tw_backend_output *output;
+	struct tw_layers_manager *layers = &backend->layers_manager;
 
 	//the clip the total coverred region, opaque is the per-plane covered
-	//region. Well we only have one plane.
-	pixman_region32_t opaque, clip;
+	//region. For now we have only one plane
+	pixman_region32_t opaque;
 
 	SCOPE_PROFILE_BEG();
+	pixman_region32_init(&opaque);
+	wl_list_for_each(surface, &layers->views,
+	                 links[TW_VIEW_GLOBAL_LINK]) {
 
-	pixman_region32_init(&clip);
-	wl_list_for_each(output, &backend->heads, link) {
-		pixman_region32_init(&opaque);
-
-		wl_list_for_each(surface, &output->views,
-		                 links[TW_VIEW_OUTPUT_LINK]) {
-			surface_accumulate_damage(surface, &opaque);
-		}
-		pixman_region32_union(&clip, &clip, &opaque);
-
-		pixman_region32_fini(&opaque);
+		surface_accumulate_damage(surface, &opaque);
 	}
-	pixman_region32_fini(&clip);
+
+	pixman_region32_fini(&opaque);
+
+	wl_list_for_each(output, &backend->heads, link) {
+		pixman_region32_t output_damage;
+		pixman_region32_init(&output_damage);
+		pixman_region32_copy(&output_damage, &plane->damage);
+		pixman_region32_intersect_rect(&output_damage, &output_damage,
+		                               output->state.x,
+		                               output->state.y,
+		                               output->state.w,
+		                               output->state.h);
+		pixman_region32_translate(&output_damage, -output->state.x,
+		                          -output->state.y);
+		/* wlr_output_set_damage(output->wlr_output, &output_damage); */
+		pixman_region32_fini(&output_damage);
+	}
 
 	SCOPE_PROFILE_END();
 }
@@ -199,6 +137,29 @@ tw_layer_renderer_stack_damage(struct tw_backend *backend)
  * actual painting
  * even libweston is doing better than this.
  *****************************************************************************/
+
+static void
+layer_renderer_scissor_surface(struct tw_renderer *renderer,
+                               struct tw_backend_output *output,
+                               pixman_box32_t *box)
+{
+	//the box are in global space, we would need to convert them into
+	//output_space
+	pixman_box32_t scr_box;
+
+	if (box != NULL) {
+		glEnable(GL_SCISSOR_TEST);
+		//since the surface is y-down
+		tw_mat3_box_transform(&output->state.view_2d,
+		                      &scr_box, box);
+
+		glScissor(scr_box.x1, scr_box.y1,
+		          scr_box.x2-scr_box.x1, scr_box.y2-scr_box.y1);
+	} else {
+		glDisable(GL_SCISSOR_TEST);
+	}
+}
+
 static void
 layer_renderer_draw_quad(bool y_inverted)
 {
@@ -251,7 +212,7 @@ layer_renderer_cleanup_buffer(struct tw_renderer *renderer,
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	renderer->viewport_h = output->state.h;
-	renderer->viewport_h = output->state.w;
+	renderer->viewport_w = output->state.w;
 
 	glClear(GL_COLOR_BUFFER_BIT);
 	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
@@ -262,6 +223,8 @@ layer_renderer_paint_surface(struct tw_surface *surface,
                              struct tw_layer_renderer *rdr,
                              struct tw_backend_output *o)
 {
+	int nrects;
+	pixman_box32_t *boxes;
 	struct tw_mat3 proj, tmp;
 	struct tw_quad_tex_shader *shader;
 	struct tw_render_texture *texture = surface->buffer.handle.ptr;
@@ -299,11 +262,14 @@ layer_renderer_paint_surface(struct tw_surface *surface,
 	glUniform1i(shader->uniform.texture, 0);
 	glUniform1f(shader->uniform.alpha, 1.0f);
 
-	layer_renderer_draw_quad(texture->inverted_y);
-	//scope end
-        SCOPE_PROFILE_END();
-}
+	boxes = pixman_region32_rectangles(&surface->clip, &nrects);
+	for (int i = 0; i < nrects; i++) {
+		layer_renderer_scissor_surface(&rdr->base, o, &boxes[i]);
+		layer_renderer_draw_quad(texture->inverted_y);
+	}
 
+	SCOPE_PROFILE_END();
+}
 
 static void
 layer_renderer_repaint_output(struct tw_renderer *renderer,
@@ -321,7 +287,7 @@ layer_renderer_repaint_output(struct tw_renderer *renderer,
 
 	SCOPE_PROFILE_BEG();
 
-	tw_layer_renderer_build_surface_list(backend);
+	tw_backend_build_surface_list(backend);
 	tw_plane_init(&main_plane);
 
 	//move to plane
@@ -329,10 +295,12 @@ layer_renderer_repaint_output(struct tw_renderer *renderer,
 	                 links[TW_VIEW_GLOBAL_LINK]) {
 		surface->current->plane = &main_plane;
 	}
-	tw_layer_renderer_stack_damage(backend);
+	tw_layer_renderer_stack_damage(backend, &main_plane);
 
 	layer_renderer_cleanup_buffer(renderer, output);
 
+	//for non-opaque surface to work, you really have to draw in reverse
+	//order
 	wl_list_for_each_reverse(surface, &manager->views,
 	                         links[TW_VIEW_GLOBAL_LINK]) {
 

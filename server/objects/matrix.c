@@ -22,7 +22,10 @@
 #define _USE_MATH_DEFINES
 #include <string.h>
 #include <tgmath.h>
+#include <limits.h>
 #include <wayland-server-protocol.h>
+#include <pixman.h>
+#include <ctypes/helpers.h>
 
 #include <taiwins/objects/matrix.h>
 
@@ -152,6 +155,27 @@ tw_mat3_vec_transform(const struct tw_mat3 *mat, float x, float y,
 {
 	*rx = mat->d[0] * x + mat->d[3] * y + mat->d[6];
 	*ry = mat->d[1] * x + mat->d[4] * y + mat->d[7];
+}
+
+void
+tw_mat3_box_transform(const struct tw_mat3 *mat,
+                      pixman_box32_t *dst, const pixman_box32_t *src)
+{
+	float corners[4][2] = {
+		{src->x1, src->y1}, {src->x1, src->y2},
+		{src->x2, src->y1}, {src->x2, src->y2},
+	};
+	pixman_box32_t box = {INT_MAX, INT_MAX, INT_MIN, INT_MIN};
+
+	for (int i = 0; i < 4; i++) {
+		tw_mat3_vec_transform(mat, corners[i][0], corners[i][1],
+		                      &corners[i][0], &corners[i][1]);
+		box.x1 = MIN(box.x1, (int32_t)corners[i][0]);
+		box.y1 = MIN(box.y1, (int32_t)corners[i][1]);
+		box.x2 = MAX(box.x2, (int32_t)corners[i][0]);
+		box.y2 = MAX(box.y2, (int32_t)corners[i][1]);
+	}
+	*dst = box;
 }
 
 void
@@ -289,6 +313,7 @@ tw_mat3_inverse(struct tw_mat3 *dst, const struct tw_mat3 *src)
 	}
 	return true;
 }
+
 
 /******************************************************************************
  * vec3 implementation

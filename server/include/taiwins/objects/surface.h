@@ -158,9 +158,7 @@ struct tw_surface {
 	struct wl_list subsurfaces;
 	/* subsurface changes on commit  */
 	struct wl_list subsurfaces_pending;
-	/* wl_surface_attach_buffer(sx, sy) */
-	uint32_t state;
-	int sx, sy;
+
 	bool is_mapped;
 
 	/** transform of the view */
@@ -172,7 +170,10 @@ struct tw_surface {
                  */
 		pixman_rectangle32_t xywh;
 		pixman_rectangle32_t prev_xywh;
-		/* map from (-1,-1,1,1) to global coordinates */
+                /**
+                 * map from (-1,-1,1,1) to global coordinates in a Y-down
+                 * coordinate system
+                 */
 		struct tw_mat3 transform;
 		struct tw_mat3 inverse_transform;
 

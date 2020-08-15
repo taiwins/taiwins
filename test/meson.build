@@ -26,12 +26,12 @@ dummy_surface_test_gl = executable(
 
 matrix_test = executable(
   'tw-test-matrix',
-  ['matrix-test.c',
-   '../server/objects/matrix.c'],
+  ['matrix-test.c'],
   c_args : ['-D_GNU_SOURCE'],
   include_directories : [ '../server/objects', '../server/include/'],
   dependencies : [
     dep_m,
+    dep_taiwins_objects,
   ],
 )
 test('test_matrix_test', matrix_test)
