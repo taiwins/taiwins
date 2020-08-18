@@ -647,11 +647,12 @@ tw_surface_unmap(struct tw_surface *surface)
 }
 
 void
-tw_surface_set_position(struct tw_surface *surface, int32_t x, int32_t y)
+tw_surface_set_position(struct tw_surface *surface, float x, float y)
 {
 	struct tw_subsurface *sub;
 
-	if (surface->geometry.xywh.x == x && surface->geometry.xywh.y == y)
+	if ((float)surface->geometry.xywh.x == x &&
+	    (float)surface->geometry.xywh.y == y)
 		return;
 	surface->geometry.x = x;
 	surface->geometry.y = y;
@@ -663,23 +664,23 @@ tw_surface_set_position(struct tw_surface *surface, int32_t x, int32_t y)
 }
 
 void
-tw_surface_to_local_pos(struct tw_surface *surface, int32_t x, int32_t y,
-                        int32_t *sx, int32_t *sy)
+tw_surface_to_local_pos(struct tw_surface *surface, float x, float y,
+                        float *sx, float *sy)
 {
 	*sx = x - surface->geometry.x;
 	*sy = y - surface->geometry.y;
 }
 
 void
-tw_surface_to_global_pos(struct tw_surface *surface, uint32_t sx, uint32_t sy,
-                        int32_t *gx, int32_t *gy)
+tw_surface_to_global_pos(struct tw_surface *surface, float sx, float sy,
+                        float *gx, float *gy)
 {
 	*gx = surface->geometry.x + sx;
 	*gy = surface->geometry.y + sy;
 }
 
 bool
-tw_surface_has_point(struct tw_surface *surface, int32_t x, int32_t y)
+tw_surface_has_point(struct tw_surface *surface, float x, float y)
 {
 	int32_t x1 = surface->geometry.xywh.x;
 	int32_t x2 = surface->geometry.xywh.x + surface->geometry.xywh.width;
@@ -689,6 +690,17 @@ tw_surface_has_point(struct tw_surface *surface, int32_t x, int32_t y)
 	return (x >= x1 && x <= x2 && y >= y1 && y <= y2);
 
 }
+
+bool
+tw_surface_has_input_point(struct tw_surface *surface, float x, float y)
+{
+	tw_surface_to_local_pos(surface, x, y, &x, &y);
+	tw_mat3_vec_transform(&surface->current->surface_to_buffer,
+	                      x, y, &x, &y);
+	return pixman_region32_contains_point(&surface->current->input_region,
+	                                      x, y, NULL);
+}
+
 
 void
 tw_surface_dirty_geometry(struct tw_surface *surface)

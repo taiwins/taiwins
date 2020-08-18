@@ -164,15 +164,15 @@ tw_backend_output_from_resource(struct wl_resource *resource)
 }
 
 static struct tw_surface *
-try_pick_subsurfaces(struct tw_surface *parent, int32_t x, int32_t y,
-                     int32_t *sx, int32_t *sy)
+try_pick_subsurfaces(struct tw_surface *parent, float x, float y,
+                     float *sx, float *sy)
 {
 	struct tw_surface *surface;
 	struct tw_subsurface *sub;
 	wl_list_for_each(sub, &parent->subsurfaces,
 	                 parent_link) {
 		surface = sub->surface;
-		if (tw_surface_has_point(surface, x, y)) {
+		if (tw_surface_has_input_point(surface, x, y)) {
 			tw_surface_to_local_pos(surface, x, y, sx, sy);
 			return surface;
 		}
@@ -182,8 +182,8 @@ try_pick_subsurfaces(struct tw_surface *parent, int32_t x, int32_t y,
 
 struct tw_surface *
 tw_backend_pick_surface_from_layers(struct tw_backend *backend,
-                                    int32_t x, int32_t y,
-                                    int32_t *sx,  int32_t *sy)
+                                    float x, float y,
+                                    float *sx,  float *sy)
 {
 	struct tw_layer *layer;
 	struct tw_layers_manager *layers = &backend->layers_manager;
@@ -200,7 +200,7 @@ tw_backend_pick_surface_from_layers(struct tw_backend *backend,
 			if ((sub = try_pick_subsurfaces(surface, x, y,
 			                                sx, sy))) {
 				return sub;
-			} else if (tw_surface_has_point(surface, x, y)) {
+			} else if (tw_surface_has_input_point(surface, x, y)) {
 				tw_surface_to_local_pos(surface, x, y, sx, sy);
 				return surface;
 			}

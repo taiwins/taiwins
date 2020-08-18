@@ -146,8 +146,8 @@ pointer_focus_motion(struct tw_backend_seat *seat,
 {
 	struct tw_surface *focused;
 	struct tw_pointer *pointer = &seat->tw_seat->pointer;
-	int32_t x = seat->backend->global_cursor.x;
-	int32_t y = seat->backend->global_cursor.y;
+	float x = seat->backend->global_cursor.x;
+	float y = seat->backend->global_cursor.y;
 
 	focused = tw_backend_pick_surface_from_layers(seat->backend,
 	                                              x, y, &x, &y);
@@ -226,8 +226,8 @@ notify_backend_pointer_motion_abs(struct wl_listener *listener, void *data)
 	struct tw_backend *backend = seat->backend;
 	struct tw_backend_output *output =
 		tw_backend_output_from_cursor_pos(backend);
-	int32_t x = output->state.x + (int)(event->x * output->state.w);
-	int32_t y = output->state.y + (int)(event->y * output->state.h);
+	float x = output->state.x + (event->x * output->state.w);
+	float y = output->state.y + (event->y * output->state.h);
 
 	SCOPE_PROFILE_BEG();
 
@@ -362,8 +362,8 @@ notify_backend_touch_down(struct wl_listener *listener, void *data)
 	struct wlr_event_touch_down *event = data;
 	struct tw_backend_output *output =
 		tw_backend_output_from_cursor_pos(seat->backend);
-	int32_t x = output->state.x + (int)(event->x * output->state.x);
-	int32_t y = output->state.y + (int)(event->y * output->state.y);
+	float x = output->state.x + (event->x * output->state.x);
+	float y = output->state.y + (event->y * output->state.y);
 	tw_cursor_set_pos(&seat->backend->global_cursor, x, y);
 
 	focused = tw_backend_pick_surface_from_layers(seat->backend,
@@ -401,8 +401,8 @@ notify_backend_touch_motion(struct wl_listener *listener, void *data)
 	struct tw_surface *focused;
 	struct tw_backend_output *output =
 		tw_backend_output_from_cursor_pos(seat->backend);
-	int32_t x = (int)(event->x * output->state.x);
-	int32_t y = (int)(event->y * output->state.y);
+	float x = (event->x * output->state.x);
+	float y = (event->y * output->state.y);
 
 	if (touch->focused_surface) {
 		focused = tw_surface_from_resource(touch->focused_surface);

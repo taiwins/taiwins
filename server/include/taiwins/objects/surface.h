@@ -165,7 +165,7 @@ struct tw_surface {
 
 	/** transform of the view */
 	struct {
-		int32_t x, y;
+		float x, y;
                 /* xywh and prev_xywh are tbe bbox, in terms of damage
                  * collection, xywh and prev_xywh are only useful to a 2D damage
                  * tracker. It would not be very useful in other cases.
@@ -260,16 +260,19 @@ tw_surface_unmap(struct tw_surface *surface);
  * dirty.
  */
 void
-tw_surface_set_position(struct tw_surface *surface, int32_t x, int32_t y);
+tw_surface_set_position(struct tw_surface *surface, float x, float y);
 
 void
-tw_surface_to_local_pos(struct tw_surface *surface, int32_t x, int32_t y,
-                        int32_t *sx, int32_t *sy);
+tw_surface_to_local_pos(struct tw_surface *surface, float x, float y,
+                        float *sx, float *sy);
 void
-tw_surface_to_global_pos(struct tw_surface *surface, uint32_t sx, uint32_t sy,
-                        int32_t *gx, int32_t *gy);
+tw_surface_to_global_pos(struct tw_surface *surface, float sx, float sy,
+                        float *gx, float *gy);
 bool
-tw_surface_has_point(struct tw_surface *surface, int32_t x, int32_t y);
+tw_surface_has_point(struct tw_surface *surface, float x, float y);
+
+bool
+tw_surface_has_input_point(struct tw_surface *surface, float x, float y);
 
 /**
  * @brief force dirting the geometry, it would damages all its clip region for
