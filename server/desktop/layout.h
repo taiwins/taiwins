@@ -57,7 +57,7 @@ enum tw_xdg_layout_command {
 
 struct tw_xdg_view;
 struct tw_xdg_layout_op {
-	struct tw_xdg_view *v;
+	struct tw_xdg_view *v, *focused;
 	//output
 	struct {
 		struct { int32_t x, y; } pos;
@@ -91,7 +91,6 @@ typedef void (*tw_xdg_layout_fun_t)(const enum tw_xdg_layout_command command,
 struct tw_xdg_layout {
 	bool clean;
 	struct wl_list links[MAX_WORKSPACES];
-	struct tw_layer *layer;
 	enum tw_layout_type type;
 	tw_xdg_layout_fun_t command;
 	void *user_data; //this user_dat is useful

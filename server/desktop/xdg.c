@@ -425,6 +425,7 @@ init_desktop_layouts(struct tw_xdg *xdg)
 		               &xdg->maximized_layout.links[i]);
 		wl_list_insert(xdg->workspaces[i].layouts.prev,
 		               &xdg->fullscreen_layout.links[i]);
+		//tiling
 		tw_xdg_layout_init_tiling(&xdg->tiling_layouts[i]);
 		wl_list_insert(xdg->workspaces[i].layouts.prev,
 		               &xdg->tiling_layouts[i].links[i]);

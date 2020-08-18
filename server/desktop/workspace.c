@@ -376,6 +376,7 @@ tw_workspace_add_view_with_geometry(struct tw_workspace *w,
 	struct tw_surface *surface = view->dsurf->tw_surface;
 	struct tw_xdg_layout_op arg = {
 		.v = view,
+		.focused = tw_workspace_get_top_view(w),
 		.in.default_geometry = {
 			geo->x, geo->y, geo->width, geo->height
 		},
