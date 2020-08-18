@@ -172,7 +172,7 @@ try_pick_subsurfaces(struct tw_surface *parent, int32_t x, int32_t y,
 	wl_list_for_each(sub, &parent->subsurfaces,
 	                 parent_link) {
 		surface = sub->surface;
-		if (tw_surface_has_point(surface, x, y)) {
+		if (tw_surface_has_input_point(surface, x, y)) {
 			tw_surface_to_local_pos(surface, x, y, sx, sy);
 			return surface;
 		}
@@ -200,7 +200,7 @@ tw_backend_pick_surface_from_layers(struct tw_backend *backend,
 			if ((sub = try_pick_subsurfaces(surface, x, y,
 			                                sx, sy))) {
 				return sub;
-			} else if (tw_surface_has_point(surface, x, y)) {
+			} else if (tw_surface_has_input_point(surface, x, y)) {
 				tw_surface_to_local_pos(surface, x, y, sx, sy);
 				return surface;
 			}

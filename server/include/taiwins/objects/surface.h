@@ -271,6 +271,9 @@ tw_surface_to_global_pos(struct tw_surface *surface, uint32_t sx, uint32_t sy,
 bool
 tw_surface_has_point(struct tw_surface *surface, int32_t x, int32_t y);
 
+bool
+tw_surface_has_input_point(struct tw_surface *surface, int32_t x, int32_t y);
+
 /**
  * @brief force dirting the geometry, it would damages all its clip region for
  * the outputs.
