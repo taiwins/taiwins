@@ -147,9 +147,9 @@ cmp_views(const void *v, const struct vtree_node *n)
 static struct tiling_view *
 tiling_view_find(struct tiling_view *root, struct tw_xdg_view *v)
 {
-	struct vtree_node *tnode = vtree_search(&root->node, v,
-						cmp_views);
-	return container_of(tnode, struct tiling_view, node);
+	struct vtree_node *tnode =
+		vtree_search(&root->node, v, cmp_views);
+	return (tnode) ? container_of(tnode, struct tiling_view, node) : NULL;
 }
 
 //update based on portion
@@ -424,8 +424,26 @@ tiling_arrange_subtree(struct tiling_view *subtree, pixman_rectangle32_t *geo,
 	return count;
 }
 
+/* the launch point is based on last focused view */
+static struct tiling_view*
+tiling_find_launch_point(struct tw_xdg_layout *l, struct tiling_output *to,
+                         struct tw_xdg_view *focused)
+{
+	//parent view, focused view
+	struct tiling_view *pv, *fv = (focused) ?
+		tiling_view_find(to->root, focused) : NULL;
+	if (!fv) return to->root;
+	//test if fv is root node
+	pv = (fv->node.parent) ?
+		container_of(fv->node.parent, struct tiling_view, node) : fv;
+	//test if tv is too deep.
+	pv = (pv->level >= 31) ?
+		container_of(pv->node.parent, struct tiling_view, node) : pv;
+	return pv;
+}
+
 /******************************************************************************
- * tiling apis
+ * tiling APIs
  *****************************************************************************/
 static void
 tiling_add(const enum tw_xdg_layout_command command,
@@ -435,8 +453,8 @@ tiling_add(const enum tw_xdg_layout_command command,
 {
 	//insert view based on lasted focused view
 	struct tiling_output *to = tiling_output_find(l, v->output);
-	//without layer, it is hard to find a parent view
-	struct tiling_view *pv = to->root;
+	//find a parent view for current layout
+	struct tiling_view *pv = tiling_find_launch_point(l, to, arg->focused);
 	struct tiling_output *tiling_output = pv->output;
 	struct tiling_view *root = tiling_output->root;
 	pixman_rectangle32_t space =
