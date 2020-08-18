@@ -56,7 +56,7 @@ struct tw_cursor_constrain {
  */
 struct tw_cursor {
 	int32_t hotspot_x, hotspot_y;
-	int32_t x, y;
+	float x, y;
 
 	struct tw_surface *curr_surface;
 
@@ -72,10 +72,10 @@ void
 tw_cursor_fini(struct tw_cursor *cursor);
 
 void
-tw_cursor_move(struct tw_cursor *cursor, int32_t dx, int32_t dy);
+tw_cursor_move(struct tw_cursor *cursor, float dx, float dy);
 
 void
-tw_cursor_set_pos(struct tw_cursor *cursor, int32_t nx, int32_t ny);
+tw_cursor_set_pos(struct tw_cursor *cursor, float nx, float ny);
 
 void
 tw_cursor_set_wrap(struct tw_cursor *cursor, int32_t x, int32_t y,
@@ -84,7 +84,7 @@ void
 tw_cursor_unset_wrap(struct tw_cursor *cursor);
 
 void
-tw_cursor_move_with_wrap(struct tw_cursor *cursor, int32_t dx, int32_t dy,
+tw_cursor_move_with_wrap(struct tw_cursor *cursor, float dx, float dy,
                          int32_t x, int32_t y, uint32_t width,
                          uint32_t height);
 void

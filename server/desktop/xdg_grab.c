@@ -102,7 +102,7 @@ handle_move_pointer_grab_motion(struct tw_seat_pointer_grab *grab,
 	struct tw_xdg *xdg = gi->xdg;
 	struct tw_workspace *ws = xdg->actived_workspace[0];
 	struct tw_surface *surf = gi->view->dsurf->tw_surface;
-	int32_t gx, gy;
+	float gx, gy;
 	tw_surface_to_global_pos(surf, sx, sy, &gx, &gy);
 
 	//TODO: when we set position for the view, here we immedidately changed
@@ -151,7 +151,7 @@ handle_resize_pointer_grab_motion(struct tw_seat_pointer_grab *grab,
 	struct tw_xdg *xdg = gi->xdg;
 	struct tw_workspace *ws = xdg->actived_workspace[0];
 	struct tw_surface *surf = gi->view->dsurf->tw_surface;
-	int32_t gx, gy;
+	float gx, gy;
 
 	tw_surface_to_global_pos(surf, sx, sy, &gx, &gy);
 

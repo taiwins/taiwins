@@ -164,8 +164,8 @@ tw_backend_output_from_resource(struct wl_resource *resource)
 }
 
 static struct tw_surface *
-try_pick_subsurfaces(struct tw_surface *parent, int32_t x, int32_t y,
-                     int32_t *sx, int32_t *sy)
+try_pick_subsurfaces(struct tw_surface *parent, float x, float y,
+                     float *sx, float *sy)
 {
 	struct tw_surface *surface;
 	struct tw_subsurface *sub;
@@ -182,8 +182,8 @@ try_pick_subsurfaces(struct tw_surface *parent, int32_t x, int32_t y,
 
 struct tw_surface *
 tw_backend_pick_surface_from_layers(struct tw_backend *backend,
-                                    int32_t x, int32_t y,
-                                    int32_t *sx,  int32_t *sy)
+                                    float x, float y,
+                                    float *sx,  float *sy)
 {
 	struct tw_layer *layer;
 	struct tw_layers_manager *layers = &backend->layers_manager;

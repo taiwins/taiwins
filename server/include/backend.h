@@ -241,8 +241,8 @@ tw_backend_find_output(struct tw_backend *backend, const char *name);
 
 struct tw_surface *
 tw_backend_pick_surface_from_layers(struct tw_backend *backend,
-                                    int32_t x, int32_t y,
-                                    int32_t *sx,  int32_t *sy);
+                                    float x, float y,
+                                    float *sx,  float *sy);
 void
 tw_backend_set_output_scale(struct tw_backend_output *output, float scale);
 
