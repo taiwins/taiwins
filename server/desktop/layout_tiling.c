@@ -25,6 +25,7 @@
 #include <ctypes/helpers.h>
 #include <ctypes/sequential.h>
 #include <ctypes/tree.h>
+#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <wayland-util.h>
 
@@ -495,12 +496,20 @@ tiling_del(const enum tw_xdg_layout_command command,
 
 }
 
+static inline enum wl_shell_surface_resize
+_tiling_resize_correct_edge(struct tiling_view *view)
+{
+	bool last = view->interval[1] >= 0.999;
+	return (last) ? WL_SHELL_SURFACE_RESIZE_TOP_LEFT :
+		WL_SHELL_SURFACE_RESIZE_BOTTOM_RIGHT;
+}
+
 static void
 _tiling_resize(const struct tw_xdg_layout_op *arg, struct tiling_view *view,
 	       struct tw_xdg_layout *l, struct tw_xdg_layout_op *ops,
                bool force_update)
 {
-	enum wl_shell_surface_resize edge = arg->in.edge;
+	enum wl_shell_surface_resize edge = _tiling_resize_correct_edge(view);
 	struct tiling_output *tiling_output = view->output;
 	struct tiling_view *parent = container_of(view->node.parent,
 						  struct tiling_view, node);
@@ -512,7 +521,7 @@ _tiling_resize(const struct tw_xdg_layout_op *arg, struct tiling_view *view,
 	if (parent->vertical) {
 		ph = (edge & WL_SHELL_SURFACE_RESIZE_TOP) ?
 			arg->in.dy / space.height : 0.0;
-		ph = (edge & WL_SHELL_SURFACE_RESIZE_BOTTOM) ?
+		pt = (edge & WL_SHELL_SURFACE_RESIZE_BOTTOM) ?
 			arg->in.dy / space.height : 0.0;
 	} else {
 		ph = (edge & WL_SHELL_SURFACE_RESIZE_LEFT) ?
