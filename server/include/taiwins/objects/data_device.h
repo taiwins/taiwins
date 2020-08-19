@@ -42,22 +42,34 @@ extern "C" {
 
 struct tw_data_device;
 struct tw_data_source;
+struct tw_data_offer;
 
+/**
+ * @brief tw_data_source represents a wl_data_source for the client
+ *
+ * the source tracks current offer, but the offer is responsible for setting and
+ * resetting source->offer
+ */
 struct tw_data_source {
 	struct wl_resource *resource;
 	struct wl_resource *drag_origin_surface;
-	struct tw_data_offer *current_offer;
+	struct tw_data_offer *offer;
 	/** set at set_selection or start_drag */
-	struct tw_data_device *device;
 	struct wl_array mimes;
 	uint32_t actions;
 	uint32_t selected_dnd_action;
 	bool selection_source;
 	bool accepted;
 
+	struct wl_listener device_destroy_listener;
 	struct wl_signal destroy_signal;
 };
 
+/**
+ * @brief tw_data_offer represents a wl_data_offer at the client
+ *
+ * the offer tracks its source, will get notified when source is gone.
+ */
 struct tw_data_offer {
 	struct tw_data_source *source;
 	struct wl_resource *resource;
@@ -67,18 +79,25 @@ struct tw_data_offer {
 	bool finished;
 };
 
+/**
+ * @brief tw_data_device represents a seat
+ *
+ * the data_device tracks current data source, will be notified if source is
+ * gone.
+ */
 struct tw_data_device {
+	struct wl_list link;
 	struct tw_seat *seat;
-	struct wl_resource *resource;
+	struct wl_list clients;
 	struct tw_data_source *source_set;
-	struct tw_data_offer *offer_set;
-	/* data_device would create a new data offer for clients */
+
+	struct wl_listener source_destroy;
 	struct wl_listener create_data_offer;
+	struct wl_listener seat_destroy;
 };
 
 struct tw_data_device_manager {
 	struct wl_global *global;
-	struct wl_list clients;
 	struct wl_list devices;
 
 	struct wl_listener display_destroy_listener;
@@ -90,17 +109,20 @@ tw_data_device_create_global(struct wl_display *display);
 bool
 tw_data_device_manager_init(struct tw_data_device_manager *manager,
                             struct wl_display *display);
-/* create the data_offer for the current data_source, invoked ether in
- * wl_data_device.set_selection or wl_data_device.enter. */
+
+/**
+ * @brief create a data_offer for this surface.
+ */
 struct tw_data_offer *
-tw_data_device_create_data_offer(struct tw_data_device *device,
+tw_data_device_create_data_offer(struct wl_resource *device,
                                  struct wl_resource *surface);
+struct wl_resource *
+tw_data_device_find_client(struct tw_data_device *device,
+                           struct wl_resource *r);
 void
-tw_data_device_handle_source_destroy(struct tw_data_device *device,
-                                     struct tw_data_source *source);
-struct tw_data_offer *
-tw_data_offer_create(struct wl_resource *resource,
-                     struct tw_data_source *source);
+tw_data_offer_init(struct tw_data_offer *offer,
+                   struct wl_resource *resource,
+                   struct tw_data_source *source);
 struct tw_data_source *
 tw_data_source_create(struct wl_resource *resource);
 

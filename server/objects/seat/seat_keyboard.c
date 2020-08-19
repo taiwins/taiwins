@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <xkbcommon/xkbcommon.h>
 
@@ -239,6 +240,8 @@ tw_keyboard_set_focus(struct tw_keyboard *keyboard,
 	struct tw_seat *seat =
 		container_of(keyboard, struct tw_seat, keyboard);
 
+        if (wl_surface == keyboard->focused_surface)
+		return;
 	tw_keyboard_clear_focus(keyboard);
 
 	focus_keys = focus_keys ? focus_keys : &zero_keys;
@@ -254,6 +257,7 @@ tw_keyboard_set_focus(struct tw_keyboard *keyboard,
 		tw_reset_wl_list(&keyboard->focused_destroy.link);
 		wl_resource_add_destroy_listener(wl_surface,
 		                                 &keyboard->focused_destroy);
+		wl_signal_emit(&seat->focus_signal, keyboard->focused_surface);
 	}
 }
 

@@ -19,6 +19,7 @@
  *
  */
 
+#include <unistd.h>
 #include <string.h>
 #include <assert.h>
 #include <wayland-server-core.h>
@@ -54,10 +55,13 @@ data_offer_accept(struct wl_client *client,
                   const char *mime_type)
 {
 	struct tw_data_offer *offer = tw_data_offer_from_resource(resource);
-	const char *p;
+	const char **p;
+
+	if (!offer->source || offer->source->offer != offer)
+		return;
 
 	wl_array_for_each(p, &offer->source->mimes) {
-		if (!strcmp(p, mime_type)) {
+		if (!strcmp(*p, mime_type)) {
 			wl_data_source_send_target(offer->source->resource,
 			                           mime_type);
 			offer->source->accepted = true;
@@ -76,9 +80,13 @@ data_offer_receive(struct wl_client *client,
 {
 	struct tw_data_offer *offer = tw_data_offer_from_resource(resource);
 
+        if (!offer->source || offer->source->offer != offer)
+		return;
+
 	//it is either we do not check at all or we verify if offer source is
 	//linked
 	wl_data_source_send_send(offer->source->resource, mime_type, fd);
+	close(fd);
 }
 
 static void
@@ -93,6 +101,9 @@ data_offer_finish(struct wl_client *client, struct wl_resource *resource)
 {
 	struct tw_data_offer *offer = tw_data_offer_from_resource(resource);
 	struct tw_data_source *source = offer->source;
+
+	if (!offer->source || offer->source->offer != offer)
+		return;
 
 	if (source->selection_source) {
 		wl_resource_post_error(offer->resource,
@@ -115,6 +126,7 @@ data_offer_finish(struct wl_client *client, struct wl_resource *resource)
 	}
 	//different versions have different handling though.
 	offer->finished = true;
+	source->offer = NULL;
 
 	wl_data_source_send_dnd_finished(offer->source->resource);
 }
@@ -127,6 +139,10 @@ data_offer_set_actions(struct wl_client *client,
 {
 	uint32_t determined_action;
 	struct tw_data_offer *offer = tw_data_offer_from_resource(resource);
+
+	if (!offer->source || offer->source->offer != offer)
+		return;
+
 	if (!(dnd_actions & preferred_action) ||
 	    !(dnd_actions & (TW_DATA_DEVICE_ACCEPT_ACTIONS)) ||
 	    !(supported_prefer_action(preferred_action))) {
@@ -175,9 +191,8 @@ notify_offer_source_destroy(struct wl_listener *listener, void *data)
 	struct tw_data_offer *offer =
 		container_of(listener, struct tw_data_offer,
 		             source_destroy_listener);
-	wl_list_remove(&offer->source_destroy_listener.link);
-	//TODO: source does not exist, we shall be gone as well?
-	wl_resource_destroy(offer->resource);
+	offer->source->offer = NULL;
+	offer->source = NULL;
 }
 
 static void
@@ -185,25 +200,23 @@ destroy_data_offer_resource(struct wl_resource *resource)
 {
 	struct tw_data_offer *offer = wl_resource_get_user_data(resource);
 	wl_list_remove(&offer->source_destroy_listener.link);
+	if (offer->source)
+		offer->source->offer = NULL;
 	free(offer);
 }
 
-struct tw_data_offer *
-tw_data_offer_create(struct wl_resource *resource,
-                     struct tw_data_source *source)
+void
+tw_data_offer_init(struct tw_data_offer *offer, struct wl_resource *resource,
+                   struct tw_data_source *source)
 {
-	struct tw_data_offer *offer = calloc(1, sizeof(struct tw_data_offer));
-	if (offer)
-		return NULL;
 	wl_resource_set_implementation(resource, &data_offer_impl, offer,
 	                               destroy_data_offer_resource);
 	offer->resource = resource;
 	wl_list_init(&offer->source_destroy_listener.link);
 	offer->source_destroy_listener.notify = notify_offer_source_destroy;
-	if (source) {
-		offer->source = source;
-		wl_signal_add(&offer->source->destroy_signal,
-		              &offer->source_destroy_listener);
-	}
-	return offer;
+
+	offer->source = source;
+	wl_signal_add(&offer->source->destroy_signal,
+	              &offer->source_destroy_listener);
+
 }

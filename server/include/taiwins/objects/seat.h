@@ -183,6 +183,7 @@ struct tw_seat {
 
 	struct wl_signal new_cursor_signal;
 	struct wl_signal focus_signal;
+	struct wl_signal destroy_signal;
 };
 
 struct tw_seat_client {

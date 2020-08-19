@@ -20,6 +20,7 @@
  */
 
 
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/data_device.h>
 #include <taiwins/objects/seat.h>
@@ -38,28 +39,28 @@ dnd_pointer_enter(struct tw_seat_pointer_grab *grab,
 	uint32_t serial;
 	struct tw_seat *seat = grab->seat;
 	struct tw_data_device *device = grab->data;
-	// TODO maybe execute normal enter?
+	struct wl_resource *device_resource =
+		tw_data_device_find_client(device, surface);
+	struct tw_data_source *source = device->source_set;
 
-	if (!device->source_set ||
-	    surface == device->source_set->drag_origin_surface)
+        tw_pointer_set_focus(&seat->pointer, surface, sx, sy);
+	if (!source || surface == device->source_set->drag_origin_surface)
 		return;
-	if (device->offer_set) {
-		if (device->offer_set->current_surface == surface)
+	if (source->offer) {
+		if (source->offer->current_surface == surface)
 			return;
 		else
-			wl_data_device_send_leave(device->resource);
+			wl_data_device_send_leave(device_resource);
 	} else {
-		device->offer_set =
-			tw_data_device_create_data_offer(device, surface);
+		source->offer =
+			tw_data_device_create_data_offer(device_resource,
+			                                 surface);
 	}
 	serial = wl_display_next_serial(seat->display);
-	wl_data_device_send_enter(device->resource, serial, surface,
+	wl_data_device_send_enter(device_resource, serial, surface,
 	                          wl_fixed_from_double(sx),
 	                          wl_fixed_from_double(sy),
-	                          device->offer_set->resource);
-
-	//TODO I am not destroying the data_offer though,
-	// it would be destroyed on client destroyed.
+	                          source->offer->resource);
 }
 
 
@@ -69,16 +70,20 @@ dnd_pointer_button(struct tw_seat_pointer_grab *grab,
                    enum wl_pointer_button_state state)
 {
 	struct tw_data_device *device = grab->data;
-	struct tw_data_offer *offer = device->offer_set;
+	struct tw_data_offer *offer = device->source_set->offer;
 	struct tw_pointer *pointer = &grab->seat->pointer;
 	struct tw_data_source *source;
+	struct wl_resource *device_resource;
 
 	if (state != WL_POINTER_BUTTON_STATE_RELEASED)
 		return;
 
 	if (offer && offer->source->accepted &&
 	    offer->source->selected_dnd_action) {
-		wl_data_device_send_drop(device->resource);
+		device_resource =
+			tw_data_device_find_client(device,
+			                           offer->current_surface);
+		wl_data_device_send_drop(device_resource);
 		source = offer->source;
 
 		if (wl_resource_get_version(offer->source->resource) >=
@@ -94,11 +99,14 @@ dnd_pointer_button(struct tw_seat_pointer_grab *grab,
 
 void
 dnd_pointer_motion(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
-                       double sx, double sy)
+                   double sx, double sy)
 {
 	struct tw_data_device *device = grab->data;
+	struct wl_resource *surface = grab->seat->pointer.focused_surface;
+	struct wl_resource *device_resource =
+		tw_data_device_find_client(device, surface);
 
-	wl_data_device_send_motion(device->resource, time_msec,
+	wl_data_device_send_motion(device_resource, time_msec,
 	                           wl_fixed_from_double(sx),
 	                           wl_fixed_from_double(sy));
 }

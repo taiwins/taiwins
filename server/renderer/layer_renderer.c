@@ -140,8 +140,8 @@ surface_accumulate_damage(struct tw_surface *surface,
 	}
 	pixman_region32_intersect(&damage, &damage, &bbox);
 	pixman_region32_subtract(&damage, &damage, clipped);
-	pixman_region32_union(&current->plane->damage,
-	                      &current->plane->damage, &damage);
+	/* pixman_region32_union(&current->plane->damage, */
+	/*                       &current->plane->damage, &damage); */
 
 	//update the clip region here. but yeah, our surface region is not
 	//correct at all.

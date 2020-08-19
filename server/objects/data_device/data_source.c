@@ -19,14 +19,12 @@
  *
  */
 
+
 #include <string.h>
 #include <stdlib.h>
-#include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <taiwins/objects/data_device.h>
 #include <taiwins/objects/seat.h>
-
 
 static const struct wl_data_source_interface data_source_impl;
 
@@ -86,14 +84,11 @@ static const struct wl_data_source_interface data_source_impl = {
 static void
 destroy_data_source(struct wl_resource *resource)
 {
-	char *mime_type;
+	char **mime_type;
 	struct tw_data_source *source = tw_data_source_from_resource(resource);
 
-	if (source->device)
-		tw_data_device_handle_source_destroy(source->device, source);
-
 	wl_array_for_each(mime_type, &source->mimes)
-		free(mime_type);
+		free(*mime_type);
 	wl_array_release(&source->mimes);
 	wl_signal_emit(&source->destroy_signal, source);
 	source->actions = 0;
