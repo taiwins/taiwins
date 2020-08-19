@@ -47,6 +47,7 @@ tw_xdg_view_create(struct tw_desktop_surface *dsurf)
 		return NULL;
 	view->dsurf = dsurf;
 	view->mapped = false;
+	view->added = false;
 	view->xwayland.is_xwayland = false;
 	view->planed_w = 0;
 	view->planed_h = 0;
@@ -72,12 +73,11 @@ tw_xdg_view_set_position(struct tw_xdg_view *view, int x, int y)
 
         view->x = x;
 	view->y = y;
-	view->mapped = true;
 	tw_surface_set_position(surface, x-gx, y-gy);
 }
 
 void
-tw_xdg_view_configure_size(struct tw_xdg_view *view, uint32_t w, uint32_t h)
+tw_xdg_view_configure(struct tw_xdg_view *view, uint32_t w, uint32_t h)
 {
 	view->dsurf->configure(view->dsurf, 0, 0, 0, w, h);
 }
@@ -203,6 +203,7 @@ tw_workspace_view_pick_settings(struct tw_workspace *ws,
 	v->layer = tw_workspace_view_pick_layer(ws, v);
 	v->dsurf->fullscreened = (v->type == LAYOUT_FULLSCREEN);
 	v->dsurf->maximized = (v->type == LAYOUT_MAXIMIZED);
+	v->dsurf->minimized = false;
 }
 
 static uint32_t
@@ -234,8 +235,8 @@ apply_layout_operations(const struct tw_xdg_layout_op *ops, const int len)
 		                         ops[i].out.pos.y);
 
 		if (ops[i].out.size.height && ops[i].out.size.width) {
-			tw_xdg_view_configure_size(v, ops[i].out.size.width,
-			                           ops[i].out.size.height);
+			tw_xdg_view_configure(v, ops[i].out.size.width,
+			                      ops[i].out.size.height);
 			v->planed_w = ops[i].out.size.width;
 			v->planed_h = ops[i].out.size.height;
 		}
@@ -315,6 +316,7 @@ tw_workspace_move_front_views(struct tw_workspace *ws)
 	}
 }
 
+//move view to the first on the list
 bool
 tw_workspace_focus_view(struct tw_workspace *ws, struct tw_xdg_view *v)
 {
@@ -386,6 +388,7 @@ tw_workspace_add_view_with_geometry(struct tw_workspace *w,
 	arrange_view_for_workspace(w, view, DPSR_add, &arg);
 
 	tw_workspace_focus_view(w, view);
+	view->added = true;
 }
 
 void
@@ -422,6 +425,7 @@ tw_workspace_remove_view(struct tw_workspace *w, struct tw_xdg_view *view)
 
 	arrange_view_for_workspace(w, view, DPSR_del, &arg);
 	tw_reset_wl_list(&surface->links[TW_VIEW_LAYER_LINK]);
+	view->added = false;
 	return true;
 }
 
@@ -500,6 +504,7 @@ tw_workspace_minimize_view(struct tw_workspace *w, struct tw_xdg_view *v)
 	wl_list_insert(&w->hidden_layer.views,
 	               &surface->links[TW_VIEW_LAYER_LINK]);
 	tw_workspace_defocus_view(w, v);
+	v->dsurf->minimized = true;
 }
 
 void
