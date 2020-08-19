@@ -55,8 +55,7 @@ validate_keyboard(struct libinput_device *dev)
 static bool
 validate_pointer(struct libinput_device *dev)
 {
-	return libinput_device_pointer_has_button(dev, BTN_LEFT) &&
-		libinput_device_pointer_has_button(dev, BTN_RIGHT);
+	return libinput_device_pointer_has_button(dev, BTN_LEFT);
 }
 
 static bool
