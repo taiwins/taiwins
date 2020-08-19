@@ -22,10 +22,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
-#include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
-#include <wayland-util.h>
-
+#include <wayland-server.h>
 #include <ctypes/helpers.h>
 
 #include <taiwins/objects/utils.h>
@@ -215,9 +212,10 @@ tw_pointer_set_focus(struct tw_pointer *pointer,
 	struct tw_seat_client *client;
 	struct tw_seat *seat = container_of(pointer, struct tw_seat, pointer);
 
-	tw_pointer_clear_focus(pointer);
 	client = tw_seat_client_find(seat, wl_resource_get_client(wl_surface));
-	if (client) {
+	if (client && !wl_list_empty(&client->pointers) ) {
+		tw_pointer_clear_focus(pointer);
+
 		serial = wl_display_next_serial(seat->display);
 		wl_resource_for_each(res, &client->pointers)
 			wl_pointer_send_enter(res, serial, wl_surface,

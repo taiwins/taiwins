@@ -23,7 +23,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <xkbcommon/xkbcommon.h>
 
@@ -242,11 +241,12 @@ tw_keyboard_set_focus(struct tw_keyboard *keyboard,
 
         if (wl_surface == keyboard->focused_surface)
 		return;
-	tw_keyboard_clear_focus(keyboard);
 
 	focus_keys = focus_keys ? focus_keys : &zero_keys;
 	client = tw_seat_client_find(seat, wl_resource_get_client(wl_surface));
-	if (client) {
+	if (client && !wl_list_empty(&client->keyboards)) {
+		tw_keyboard_clear_focus(keyboard);
+
 		serial = wl_display_next_serial(seat->display);
 		wl_resource_for_each(res, &client->keyboards)
 			wl_keyboard_send_enter(res, serial, wl_surface,

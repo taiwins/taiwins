@@ -197,9 +197,10 @@ tw_touch_set_focus(struct tw_touch *touch,
 	struct tw_seat_client *client;
 	struct tw_seat *seat = container_of(touch, struct tw_seat, touch);
 
-	tw_touch_clear_focus(touch);
 	client = tw_seat_client_find(seat, wl_resource_get_client(wl_surface));
-	if (client) {
+	if (client && !wl_list_empty(&client->touches)) {
+		tw_touch_clear_focus(touch);
+
 		touch->focused_client = client;
 		touch->focused_surface = wl_surface;
 
