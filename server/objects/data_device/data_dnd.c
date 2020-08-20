@@ -36,15 +36,12 @@ static void
 dnd_pointer_enter(struct tw_seat_pointer_grab *grab,
                   struct wl_resource *surface, double sx, double sy)
 {
-	uint32_t serial;
 	struct tw_seat *seat = grab->seat;
 	struct tw_pointer *pointer = &seat->pointer;
 	struct tw_data_drag *drag =
 		container_of(grab, struct tw_data_drag, pointer_grab);
 	struct tw_data_device *data_device =
 		container_of(drag, struct tw_data_device, drag);
-	struct tw_data_source *source = drag->source;
-	struct tw_data_offer *offer;
 	struct wl_resource *resource =
 		tw_data_device_find_client(data_device, surface);
 	struct wl_resource *prev_resource =
@@ -53,24 +50,25 @@ dnd_pointer_enter(struct tw_seat_pointer_grab *grab,
 	pointer->focused_client =
 		tw_seat_client_find(seat, wl_resource_get_client(surface));
 	pointer->focused_surface = surface;
+	drag->dest_device_resource = resource;
 
 	//we should have
 	if (drag->source != NULL) {
+		uint32_t serial;
+		struct wl_resource *offer;
+
 		//creating data_offers
 		drag->source->accepted = false;
 		//TODO: idealy create data offer for all the surface that
-		offer = tw_data_device_create_data_offer(resource, surface,
+		offer = tw_data_device_create_data_offer(resource,
 		                                         drag->source);
-		drag->source->offer = offer;
-		offer->current_surface = surface;
-	}
-
-	serial = wl_display_next_serial(seat->display);
-	wl_data_device_send_leave(prev_resource);
+		serial = wl_display_next_serial(seat->display);
+		wl_data_device_send_leave(prev_resource);
 		wl_data_device_send_enter(resource, serial, surface,
 		                          wl_fixed_from_double(sx),
 		                          wl_fixed_from_double(sy),
-		                          source->offer->resource);
+		                          offer);
+	}
 }
 
 static void
@@ -79,18 +77,18 @@ dnd_pointer_button(struct tw_seat_pointer_grab *grab,
                    enum wl_pointer_button_state state)
 {
 	struct tw_pointer *pointer = &grab->seat->pointer;
-	struct wl_resource *device_resource = grab->data;
 	struct tw_data_drag *drag =
 		container_of(grab, struct tw_data_drag, pointer_grab);
 	struct tw_data_source *source = drag->source;
-	struct tw_data_offer *offer = source ? source->offer : NULL;
+	struct tw_data_offer *offer = source ? &source->offer : NULL;
 
 	if (state != WL_POINTER_BUTTON_STATE_RELEASED)
 		return;
 
 	if (offer && offer->source->accepted &&
 	    offer->source->selected_dnd_action) {
-		wl_data_device_send_drop(device_resource);
+		//drop send to the one with the offer
+		wl_data_device_send_drop(drag->dest_device_resource);
 		source = offer->source;
 
 		if (wl_resource_get_version(offer->source->resource) >=
@@ -187,6 +185,7 @@ tw_data_source_start_drag(struct tw_data_drag *drag,
 	drag->keyboard_grab.data = device_resource;
 	drag->keyboard_grab.impl = &dnd_keyboard_grab_impl;
 	drag->source = source;
+	drag->dest_device_resource = device_resource;
 
 	tw_signal_setup_listener(&drag->source->destroy_signal,
 	                         &drag->source_destroy_listener,

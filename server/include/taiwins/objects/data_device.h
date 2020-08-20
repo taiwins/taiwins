@@ -34,10 +34,10 @@ extern "C" {
 #endif
 
 #define TW_DATA_DEVICE_ACCEPT_ACTIONS \
-	WL_DATA_DEVICE_MANAGER_DND_ACTION_NONE | \
-	WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY | \
-	WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE | \
-	WL_DATA_DEVICE_MANAGER_DND_ACTION_ASK
+	(WL_DATA_DEVICE_MANAGER_DND_ACTION_NONE | \
+	 WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY | \
+	 WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE | \
+	 WL_DATA_DEVICE_MANAGER_DND_ACTION_ASK )
 
 struct tw_data_device;
 struct tw_data_source;
@@ -45,14 +45,25 @@ struct tw_data_offer;
 struct tw_data_drag;
 
 /**
+ * @brief tw_data_offer represents multiple wl_data_offers in the clients.
+ *
+ * the offer tracks its source, will get notified when source is gone.
+ */
+struct tw_data_offer {
+	struct tw_data_source *source;
+	struct wl_resource *current_surface;
+	struct wl_listener source_destroy_listener;
+	struct wl_list resources;
+	bool finished;
+};
+
+/**
  * @brief tw_data_source represents a wl_data_source for the client
  *
- * the source tracks current offer, but the offer is responsible for setting and
- * resetting source->offer
+ * the source tracks current offer
  */
 struct tw_data_source {
 	struct wl_resource *resource;
-	struct tw_data_offer *offer;
 	/** set at set_selection or start_drag */
 	struct wl_array mimes;
 	uint32_t actions;
@@ -60,29 +71,20 @@ struct tw_data_source {
 	bool selection_source;
 	bool accepted;
 
+	/**< data offer is embedded in the source available at source
+	 * creation */
+	struct tw_data_offer offer;
+
 	struct wl_listener device_destroy_listener;
 	struct wl_signal destroy_signal;
 };
 
 struct tw_data_drag {
 	struct tw_data_source *source;
+	struct wl_resource *dest_device_resource;
 	struct tw_seat_pointer_grab pointer_grab;
 	struct tw_seat_keyboard_grab keyboard_grab;
 	struct wl_listener source_destroy_listener;
-};
-
-/**
- * @brief tw_data_offer represents a wl_data_offer at the client
- *
- * the offer tracks its source, will get notified when source is gone.
- */
-struct tw_data_offer {
-	struct tw_data_source *source;
-	struct wl_resource *resource;
-	struct wl_resource *current_surface;
-	struct wl_listener source_destroy_listener;
-	struct wl_list link;
-	bool finished;
 };
 
 /**
@@ -121,19 +123,25 @@ tw_data_device_manager_init(struct tw_data_device_manager *manager,
 /**
  * @brief create a data_offer for this surface.
  */
-struct tw_data_offer *
+struct wl_resource *
 tw_data_device_create_data_offer(struct wl_resource *device_resource,
-                                 struct wl_resource *surface,
                                  struct tw_data_source *source);
 struct wl_resource *
 tw_data_device_find_client(struct tw_data_device *device,
                            struct wl_resource *r);
 void
 tw_data_offer_init(struct tw_data_offer *offer,
-                   struct wl_resource *resource,
                    struct tw_data_source *source);
+void
+tw_data_offer_add_resource(struct tw_data_offer *offer,
+                           struct wl_resource *offer_resource,
+                           struct wl_resource *device_resource);
+void
+tw_data_offer_set_source_actions(struct tw_data_offer *offer,
+                                 uint32_t dnd_actions);
 struct tw_data_source *
-tw_data_source_create(struct wl_resource *resource);
+tw_data_source_create(struct wl_client *client, uint32_t id,
+                      uint32_t version);
 
 struct tw_data_source *
 tw_data_source_from_resource(struct wl_resource *resource);

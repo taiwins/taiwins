@@ -52,48 +52,32 @@ tw_data_device_find_client(struct tw_data_device *device,
 	return NULL;
 }
 
-struct tw_data_offer *
+struct wl_resource *
 tw_data_device_create_data_offer(struct wl_resource *device_resource,
-                                 struct wl_resource *surface,
                                  struct tw_data_source *source)
 {
-	struct wl_resource *data_offer_resource;
-	struct tw_data_offer *data_offer;
+	struct wl_resource *offer_resource;
 	struct wl_client *client;
-	struct tw_data_device *device =
-		tw_data_device_from_source(device_resource);
 	uint32_t version;
 
-	device_resource = tw_data_device_find_client(device, surface);
-	client = wl_resource_get_client(surface);
+	client = wl_resource_get_client(device_resource);
 	version = wl_resource_get_version(device_resource);
 
-	if (!tw_create_wl_resource_for_obj(data_offer_resource, data_offer,
-	                                   client, 0, version,
-	                                   wl_data_offer_interface)) {
+	if (!(offer_resource = wl_resource_create(client,
+	                                          &wl_data_offer_interface,
+	                                          version, 0))) {
 		wl_client_post_no_memory(client);
 		return NULL;
 	}
-	tw_data_offer_init(data_offer, data_offer_resource, source);
-	//the data offer is created for this surface. Should be destroyed when
-	//leaving
-	data_offer->current_surface = surface;
-
-	const char **p;
-	wl_data_device_send_data_offer(device_resource, data_offer_resource);
-	wl_array_for_each(p, &source->mimes)
-		wl_data_offer_send_offer(data_offer_resource, *p);
-	if (source->actions &&
-	    version >= WL_DATA_OFFER_SOURCE_ACTIONS_SINCE_VERSION)
-		wl_data_offer_send_source_actions(data_offer_resource,
-		                                  source->actions);
-	return data_offer;
+	tw_data_offer_add_resource(&source->offer,
+	                           offer_resource, device_resource);
+	return offer_resource;
 }
 
 static void
 notify_device_selection_data_offer(struct wl_listener *listener, void *data)
 {
-	struct tw_data_offer *offer; //to create
+	struct wl_resource *offer;
 	struct wl_resource *surface = data;
 	struct tw_data_device *device =
 		container_of(listener, struct tw_data_device,
@@ -103,19 +87,14 @@ notify_device_selection_data_offer(struct wl_listener *listener, void *data)
 
 	if (!device->source_set || !device->source_set->selection_source)
 		return;
-	if (device->source_set->offer &&
-	    device->source_set->offer->current_surface == surface &&
-	    device->source_set->offer->source == device->source_set)
-		return;
-
-	if ((offer = tw_data_device_create_data_offer(resource, surface,
-		     device->source_set))) {
-		device->source_set->offer = offer;
-		offer->current_surface = surface;
-		wl_data_device_send_selection(resource,
-		                              offer->resource);
-	} else
-		wl_data_device_send_selection(resource, NULL);
+	//send the data offers
+	wl_resource_for_each(resource, &device->clients) {
+		if (!tw_match_wl_resource_client(surface, resource))
+			continue;
+		offer = tw_data_device_create_data_offer(resource,
+		                                         device->source_set);
+		wl_data_device_send_selection(resource, offer);
+	}
 }
 
 static void
@@ -282,19 +261,10 @@ create_data_source(struct wl_client *client,
                    uint32_t id)
 {
 	struct tw_data_source *data_source;
-	struct wl_resource *data_source_resource;
 	uint32_t version = wl_resource_get_version(manager_resource);
 
-	data_source_resource =
-		wl_resource_create(client, &wl_data_source_interface,
-		                   version, id);
-	if (!data_source_resource) {
+	if (!(data_source = tw_data_source_create(client, id, version))) {
 		wl_resource_post_no_memory(manager_resource);
-		return;
-	}
-	if (!(data_source = tw_data_source_create(data_source_resource))) {
-		wl_resource_post_no_memory(manager_resource);
-		wl_resource_destroy(data_source_resource);
 		return;
 	}
 }
