@@ -487,7 +487,9 @@ new_seat_for_backend(struct tw_backend *backend,
 	seat->backend = backend;
 	seat->idx = new_seat_id;
 	seat->capabilities = 0;
-	seat->tw_seat = tw_seat_create(backend->display, dev->name);
+	seat->tw_seat = tw_seat_create(backend->display,
+	                               &backend->global_cursor,
+	                               dev->name);
 
 	wl_list_init(&seat->link);
 
