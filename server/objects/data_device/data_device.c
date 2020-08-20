@@ -92,7 +92,7 @@ tw_data_device_create_data_offer(struct wl_resource *device_resource,
 }
 
 static void
-data_device_selection_data_offer(struct wl_listener *listener, void *data)
+notify_device_selection_data_offer(struct wl_listener *listener, void *data)
 {
 	struct tw_data_offer *offer; //to create
 	struct wl_resource *surface = data;
@@ -145,7 +145,7 @@ data_device_start_drag(struct wl_client *client,
 }
 
 static void
-handle_device_source_destroy(struct wl_listener *listener, void *data)
+notify_device_source_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_data_device *device =
 		container_of(listener, struct tw_data_device, source_destroy);
@@ -187,10 +187,10 @@ data_device_set_selection(struct wl_client *client,
 	source->selection_source = true;
 	tw_signal_setup_listener(&source->destroy_signal,
 	                         &device->source_destroy,
-	                         handle_device_source_destroy);
+	                         notify_device_source_destroy);
 
 	if (device->seat->keyboard.focused_surface)
-		data_device_selection_data_offer(&device->create_data_offer,
+		notify_device_selection_data_offer(&device->create_data_offer,
 		                              seat->keyboard.focused_surface);
 }
 
@@ -237,7 +237,7 @@ tw_data_device_destroy(struct tw_data_device *device)
 }
 
 static void
-handle_data_device_seat_destroy(struct wl_listener *listener, void *data)
+notify_data_device_seat_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_data_device *device =
 		container_of(listener, struct tw_data_device, seat_destroy);
@@ -263,10 +263,10 @@ tw_data_device_find_create(struct tw_data_device_manager *manager,
 	wl_list_insert(manager->devices.prev, &device->link);
 	tw_signal_setup_listener(&seat->focus_signal,
 	                         &device->create_data_offer,
-	                         data_device_selection_data_offer);
+	                         notify_device_selection_data_offer);
 	tw_signal_setup_listener(&seat->destroy_signal,
 	                         &device->seat_destroy,
-	                         handle_data_device_seat_destroy);
+	                         notify_data_device_seat_destroy);
 	return device;
 }
 
@@ -349,7 +349,8 @@ bind_data_device_manager(struct wl_client *client,
 }
 
 static void
-destroy_data_device_manager(struct wl_listener *listener, void *data)
+notify_data_device_manager_display_destroy(struct wl_listener *listener,
+                                           void *data)
 {
 	struct tw_data_device_manager *manager =
 		container_of(listener, struct tw_data_device_manager,
@@ -374,7 +375,7 @@ tw_data_device_manager_init(struct tw_data_device_manager *manager,
 	wl_list_init(&manager->devices);
 	wl_list_init(&manager->display_destroy_listener.link);
 	manager->display_destroy_listener.notify =
-		destroy_data_device_manager;
+		notify_data_device_manager_display_destroy;
 	wl_display_add_destroy_listener(display,
 	                                &manager->display_destroy_listener);
 	return true;
