@@ -59,13 +59,16 @@ data_offer_accept(struct wl_client *client,
 
 	if (!offer->source || offer->source->offer != offer)
 		return;
+	if (!mime_type) {
+		offer->source->accepted = false;
+		return;
+	}
 
 	wl_array_for_each(p, &offer->source->mimes) {
-		if (!strcmp(*p, mime_type)) {
+		if (mime_type && !strcmp(*p, mime_type)) {
 			wl_data_source_send_target(offer->source->resource,
 			                           mime_type);
 			offer->source->accepted = true;
-			//TODO: setting the accepted in source
 			return;
 		}
 	}

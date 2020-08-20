@@ -23,7 +23,6 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdlib.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <wayland-util.h>
 #include <ctypes/helpers.h>
@@ -32,6 +31,8 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/data_device.h>
 #include <taiwins/objects/seat.h>
+#include <taiwins/objects/cursor.h>
+#include <taiwins/objects/surface.h>
 
 static struct tw_data_device_manager s_tw_data_device_manager;
 
@@ -53,7 +54,8 @@ tw_data_device_find_client(struct tw_data_device *device,
 
 struct tw_data_offer *
 tw_data_device_create_data_offer(struct wl_resource *device_resource,
-                                 struct wl_resource *surface)
+                                 struct wl_resource *surface,
+                                 struct tw_data_source *source)
 {
 	struct wl_resource *data_offer_resource;
 	struct tw_data_offer *data_offer;
@@ -66,28 +68,25 @@ tw_data_device_create_data_offer(struct wl_resource *device_resource,
 	client = wl_resource_get_client(surface);
 	version = wl_resource_get_version(device_resource);
 
-	if (!device->source_set)
-		return NULL;
 	if (!tw_create_wl_resource_for_obj(data_offer_resource, data_offer,
 	                                   client, 0, version,
 	                                   wl_data_offer_interface)) {
 		wl_client_post_no_memory(client);
 		return NULL;
 	}
-	tw_data_offer_init(data_offer, data_offer_resource,
-	                   device->source_set);
+	tw_data_offer_init(data_offer, data_offer_resource, source);
 	//the data offer is created for this surface. Should be destroyed when
 	//leaving
 	data_offer->current_surface = surface;
 
 	const char **p;
 	wl_data_device_send_data_offer(device_resource, data_offer_resource);
-	wl_array_for_each(p, &device->source_set->mimes)
+	wl_array_for_each(p, &source->mimes)
 		wl_data_offer_send_offer(data_offer_resource, *p);
-	if (device->source_set->actions &&
+	if (source->actions &&
 	    version >= WL_DATA_OFFER_SOURCE_ACTIONS_SINCE_VERSION)
 		wl_data_offer_send_source_actions(data_offer_resource,
-		                                  device->source_set->actions);
+		                                  source->actions);
 	return data_offer;
 }
 
@@ -109,7 +108,8 @@ notify_device_selection_data_offer(struct wl_listener *listener, void *data)
 	    device->source_set->offer->source == device->source_set)
 		return;
 
-	if ((offer = tw_data_device_create_data_offer(resource, surface))) {
+	if ((offer = tw_data_device_create_data_offer(resource, surface,
+		     device->source_set))) {
 		device->source_set->offer = offer;
 		offer->current_surface = surface;
 		wl_data_device_send_selection(resource,
@@ -122,25 +122,27 @@ static void
 data_device_start_drag(struct wl_client *client,
                        struct wl_resource *resource,
                        struct wl_resource *source_resource,
-                       struct wl_resource *origin_surface,
+                       struct wl_resource *surface_resource,
                        struct wl_resource *icon_source,
                        uint32_t serial)
 {
+	float sx, sy;
 	struct tw_data_device *device = tw_data_device_from_source(resource);
+	struct tw_cursor *cursor = device->seat->cursor;
 	struct tw_data_source *source =
 		tw_data_source_from_resource(source_resource);
-	assert(device);
+	struct tw_surface *surface =
+		tw_surface_from_resource(surface_resource);
 
-	device->source_set = source;
 	source->selection_source = false;
-	source->drag_origin_surface = origin_surface;
 
-	//TODO: we do not care about the icon_surface role.
-	//TODO: for drag to work. Now we would need to have the a custom grab.
-	if (!tw_data_source_start_drag(device, device->seat)) {
-		device->source_set = NULL;
-		source->drag_origin_surface = NULL;
-		//creating a data_offer in the entering event.
+	if (tw_data_source_start_drag(&device->drag, resource, source,
+	                              device->seat)) {
+		//we need to trigger a enter event
+		tw_surface_to_local_pos(surface, cursor->x, cursor->y,
+		                        &sx, &sy);
+		tw_pointer_notify_enter(&device->seat->pointer,
+		                        surface_resource, sx, sy);
 	}
 }
 

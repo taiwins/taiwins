@@ -156,8 +156,6 @@ pointer_focus_motion(struct tw_backend_seat *seat,
 			tw_pointer_notify_motion(pointer, timespec, x, y);
 	else if (focused)
 		tw_pointer_notify_enter(pointer, focused->resource, x, y);
-	else
-		tw_pointer_clear_focus(pointer);
 }
 
 static void

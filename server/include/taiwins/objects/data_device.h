@@ -25,7 +25,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 
 #include "seat.h"
@@ -43,6 +42,7 @@ extern "C" {
 struct tw_data_device;
 struct tw_data_source;
 struct tw_data_offer;
+struct tw_data_drag;
 
 /**
  * @brief tw_data_source represents a wl_data_source for the client
@@ -52,7 +52,6 @@ struct tw_data_offer;
  */
 struct tw_data_source {
 	struct wl_resource *resource;
-	struct wl_resource *drag_origin_surface;
 	struct tw_data_offer *offer;
 	/** set at set_selection or start_drag */
 	struct wl_array mimes;
@@ -63,6 +62,13 @@ struct tw_data_source {
 
 	struct wl_listener device_destroy_listener;
 	struct wl_signal destroy_signal;
+};
+
+struct tw_data_drag {
+	struct tw_data_source *source;
+	struct tw_seat_pointer_grab pointer_grab;
+	struct tw_seat_keyboard_grab keyboard_grab;
+	struct wl_listener source_destroy_listener;
 };
 
 /**
@@ -90,6 +96,8 @@ struct tw_data_device {
 	struct tw_seat *seat;
 	struct wl_list clients;
 	struct tw_data_source *source_set;
+	/**< the drag for this device, since a seat has one drag at a time  */
+	struct tw_data_drag drag;
 
 	struct wl_listener source_destroy;
 	struct wl_listener create_data_offer;
@@ -114,8 +122,9 @@ tw_data_device_manager_init(struct tw_data_device_manager *manager,
  * @brief create a data_offer for this surface.
  */
 struct tw_data_offer *
-tw_data_device_create_data_offer(struct wl_resource *device,
-                                 struct wl_resource *surface);
+tw_data_device_create_data_offer(struct wl_resource *device_resource,
+                                 struct wl_resource *surface,
+                                 struct tw_data_source *source);
 struct wl_resource *
 tw_data_device_find_client(struct tw_data_device *device,
                            struct wl_resource *r);
@@ -130,8 +139,9 @@ struct tw_data_source *
 tw_data_source_from_resource(struct wl_resource *resource);
 
 bool
-tw_data_source_start_drag(struct tw_data_device *device,
-                          struct tw_seat *seat);
+tw_data_source_start_drag(struct tw_data_drag *drag,
+                          struct wl_resource *device_resource,
+                          struct tw_data_source *source, struct tw_seat *seat);
 
 #ifdef  __cplusplus
 }
