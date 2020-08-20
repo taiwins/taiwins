@@ -44,6 +44,7 @@ struct tw_popup_grab {
 	struct wl_resource *focus, *interface;
 	struct tw_seat *seat;
 	struct wl_listener resource_destroy;
+	struct wl_listener parent_destroy;
 
         /* popup grab can be nested so that when we jump on another grab we
          * should see if there was nested grab created
