@@ -19,8 +19,10 @@
  *
  */
 #include <assert.h>
+#include <stddef.h>
 #include <string.h>
 #include <stdint.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <wayland-xdg-shell-server-protocol.h>
 #include <pixman.h>
@@ -57,6 +59,7 @@ struct tw_xdg_surface {
 		} toplevel;
 
 		struct {
+			struct tw_popup_grab grab;
 			struct tw_subsurface subsurface;
 			struct tw_xdg_surface *parent;
 			struct wl_resource *resource;
@@ -682,18 +685,14 @@ handle_popup_grab(struct wl_client *client,
 		xdg_surface_from_popup(resource);
 
 	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
-	struct tw_popup_grab *grab =
-		tw_popup_grab_create(xdg_surface->base.tw_surface,
-		                     xdg_surface->popup.resource,
-		                     tw_seat);
-	if (!grab) {
-		wl_resource_post_no_memory(xdg_surface->popup.resource);
-		return;
-	}
-	tw_signal_setup_listener(&grab->close,
+	tw_popup_grab_init(&xdg_surface->popup.grab,
+	                   xdg_surface->base.tw_surface,
+	                   xdg_surface->popup.resource);
+
+	tw_signal_setup_listener(&xdg_surface->popup.grab.close,
 	                         &xdg_surface->popup.close_popup_listener,
 	                         notify_close_popup);
-	tw_popup_grab_start(grab);
+	tw_popup_grab_start(&xdg_surface->popup.grab, tw_seat);
 }
 
 static void
@@ -852,13 +851,14 @@ destroy_xdg_surface_resource(struct wl_resource *resource)
 		desktop_surface_from_xdg_surface(resource);
 	struct tw_xdg_surface *xdg_surf =
 		container_of(dsurf, struct tw_xdg_surface, base);
+
         //handle role
         if (dsurf->type == TW_DESKTOP_TOPLEVEL_SURFACE &&
             xdg_surf->toplevel.resource)
-	        destroy_toplevel_resource(xdg_surf->toplevel.resource);
+	        wl_resource_destroy(xdg_surf->toplevel.resource);
         else if (dsurf->type == TW_DESKTOP_POPUP_SURFACE &&
                  xdg_surf->popup.resource)
-	        destroy_popup_resource(xdg_surf->popup.resource);
+	        wl_resource_destroy(xdg_surf->popup.resource);
 
         if (dsurf->tw_surface)
 	        tw_reset_wl_list(&xdg_surf->surface_destroy.link);
@@ -1086,7 +1086,7 @@ static void
 handle_pong(struct wl_client *client, struct wl_resource *resource,
             uint32_t serial)
 {
-	//TODO how to I handle pong, I dont even send out ping.
+	//TODO check for timeout.
 }
 
 static struct xdg_wm_base_interface xdg_wm_base_impl = {
