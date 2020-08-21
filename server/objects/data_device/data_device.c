@@ -114,7 +114,7 @@ data_device_start_drag(struct wl_client *client,
 		tw_surface_from_resource(surface_resource);
 
 	source->selection_source = false;
-
+	//TODO: match the serial against pointer or touch for the grab.
 	if (tw_data_source_start_drag(&device->drag, resource, source,
 	                              device->seat)) {
 		//we need to trigger a enter event

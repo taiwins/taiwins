@@ -183,7 +183,7 @@ tw_touch_start_grab(struct tw_touch *touch, struct tw_seat_touch_grab *grab)
 void
 tw_touch_end_grab(struct tw_touch *touch)
 {
-	if (touch->grab != &touch->default_grab &&
+	if (touch->grab && touch->grab != &touch->default_grab &&
 	    touch->grab->impl->cancel)
 		touch->grab->impl->cancel(touch->grab);
 	touch->grab = &touch->default_grab;
@@ -221,7 +221,7 @@ void
 tw_touch_notify_down(struct tw_touch *touch, uint32_t time_msec, uint32_t id,
                      double sx, double sy)
 {
-	if (touch->grab->impl->down)
+	if (touch->grab && touch->grab->impl->down)
 		touch->grab->impl->down(touch->grab, time_msec, id,
 		                        sx, sy);
 }
@@ -230,7 +230,7 @@ void
 tw_touch_notify_up(struct tw_touch *touch, uint32_t time_msec,
                    uint32_t touch_id)
 {
-	if (touch->grab->impl->up)
+	if (touch->grab && touch->grab->impl->up)
 		touch->grab->impl->up(touch->grab, time_msec, touch_id);
 }
 
@@ -238,7 +238,7 @@ void
 tw_touch_notify_motion(struct tw_touch *touch, uint32_t time_msec,
                        uint32_t touch_id, double sx, double sy)
 {
-	if (touch->grab->impl->motion)
+	if (touch->grab && touch->grab->impl->motion)
 		touch->grab->impl->motion(touch->grab, time_msec, touch_id,
 		                          sx, sy);
 }
@@ -247,13 +247,13 @@ void
 tw_touch_notify_enter(struct tw_touch *touch,
                       struct wl_resource *surface, double sx, double sy)
 {
-	if (touch->grab->impl->enter)
+	if (touch->grab && touch->grab->impl->enter)
 		touch->grab->impl->enter(touch->grab, surface, sx, sy);
 }
 
 void
 tw_touch_notify_cancel(struct tw_touch *touch)
 {
-	if (touch->grab->impl->touch_cancel)
+	if (touch->grab && touch->grab->impl->touch_cancel)
 		touch->grab->impl->touch_cancel(touch->grab);
 }

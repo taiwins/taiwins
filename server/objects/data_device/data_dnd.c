@@ -126,8 +126,11 @@ dnd_pointer_cancel(struct tw_seat_pointer_grab *grab)
 	struct wl_resource *surface_resource = pointer->focused_surface;
 	struct tw_surface *surface = (surface_resource) ?
 		tw_surface_from_resource(surface_resource) : NULL;
-
-        tw_keyboard_end_grab(&seat->keyboard);
+	struct tw_data_drag *drag =
+		container_of(grab, struct tw_data_drag, pointer_grab);
+	//remove grabs.
+	if (seat->keyboard.grab == &drag->keyboard_grab)
+		tw_keyboard_end_grab(&seat->keyboard);
 	if (surface) {
 		float sx, sy;
 		struct tw_cursor *cursor = grab->seat->cursor;
