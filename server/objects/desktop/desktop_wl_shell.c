@@ -157,6 +157,14 @@ close_wl_shell_surface(struct tw_desktop_surface *dsurf)
 }
 
 static void
+ping_wl_shell_surface(struct tw_desktop_surface *dsurf, uint32_t serial)
+{
+	struct tw_wl_shell_surface *surf =
+		container_of(dsurf, struct tw_wl_shell_surface, base);
+	wl_shell_surface_send_ping(surf->base.resource, serial);
+}
+
+static void
 handle_shell_surface_surface_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_wl_shell_surface *surf =
@@ -178,6 +186,7 @@ init_wl_shell_surface(struct tw_wl_shell_surface *surf,
 	                                 handle_shell_surface_surface_destroy);
 	surf->base.configure = configure_wl_shell_surface;
 	surf->base.close = close_wl_shell_surface;
+	surf->base.ping = ping_wl_shell_surface;
 }
 
 static const struct wl_shell_surface_interface wl_shell_surf_impl;
@@ -259,7 +268,7 @@ handle_set_toplevel(struct wl_client *client,
 /************************* transient_surface *********************************/
 
 static void
-handle_transient_surface_destroy(struct wl_listener *listener, void *data)
+notify_transient_surface_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_subsurface *subsurface =
 		container_of(listener, struct tw_subsurface,
@@ -284,7 +293,7 @@ transient_impl_subsurface(struct tw_subsurface *subsurface,
 	               &subsurface->parent_link);
 	tw_set_resource_destroy_listener(dsurf->tw_surface->resource,
 	                                 &subsurface->surface_destroyed,
-	                                 handle_transient_surface_destroy);
+	                                 notify_transient_surface_destroy);
 }
 
 static void

@@ -46,6 +46,7 @@ extern "C" {
  * compositor.
  */
 
+struct tw_cursor;
 struct tw_seat;
 struct tw_seat_client;
 
@@ -180,9 +181,11 @@ struct tw_seat {
 	struct tw_keyboard keyboard;
 	struct tw_pointer pointer;
 	struct tw_touch touch;
+	struct tw_cursor *cursor;
 
 	struct wl_signal new_cursor_signal;
 	struct wl_signal focus_signal;
+	struct wl_signal destroy_signal;
 };
 
 struct tw_seat_client {
@@ -198,8 +201,8 @@ struct tw_seat_client {
 
 //seat API, implement wl_seat on the server side.
 struct tw_seat *
-tw_seat_create(struct wl_display *display, const char *name);
-
+tw_seat_create(struct wl_display *display, struct tw_cursor *cursor,
+               const char *name);
 void
 tw_seat_destroy(struct tw_seat *seat);
 

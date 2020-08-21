@@ -168,7 +168,7 @@ tw_keyboard_start_grab(struct tw_keyboard *keyboard,
 void
 tw_keyboard_end_grab(struct tw_keyboard *keyboard)
 {
-	if (keyboard->grab != &keyboard->default_grab &&
+	if (keyboard->grab && keyboard->grab != &keyboard->default_grab &&
 	    keyboard->grab->impl->cancel)
 		keyboard->grab->impl->cancel(keyboard->grab);
 	keyboard->grab = &keyboard->default_grab;
@@ -239,11 +239,14 @@ tw_keyboard_set_focus(struct tw_keyboard *keyboard,
 	struct tw_seat *seat =
 		container_of(keyboard, struct tw_seat, keyboard);
 
-	tw_keyboard_clear_focus(keyboard);
+        if (wl_surface == keyboard->focused_surface)
+		return;
 
 	focus_keys = focus_keys ? focus_keys : &zero_keys;
 	client = tw_seat_client_find(seat, wl_resource_get_client(wl_surface));
-	if (client) {
+	if (client && !wl_list_empty(&client->keyboards)) {
+		tw_keyboard_clear_focus(keyboard);
+
 		serial = wl_display_next_serial(seat->display);
 		wl_resource_for_each(res, &client->keyboards)
 			wl_keyboard_send_enter(res, serial, wl_surface,
@@ -254,6 +257,7 @@ tw_keyboard_set_focus(struct tw_keyboard *keyboard,
 		tw_reset_wl_list(&keyboard->focused_destroy.link);
 		wl_resource_add_destroy_listener(wl_surface,
 		                                 &keyboard->focused_destroy);
+		wl_signal_emit(&seat->focus_signal, keyboard->focused_surface);
 	}
 }
 
@@ -283,7 +287,7 @@ tw_keyboard_notify_enter(struct tw_keyboard *keyboard,
                          struct wl_resource *surface, uint32_t *keycodes,
                          size_t n_keycodes)
 {
-	if (keyboard->grab->impl->enter)
+	if (keyboard->grab && keyboard->grab->impl->enter)
 		keyboard->grab->impl->enter(keyboard->grab,
 		                            surface, keycodes, n_keycodes);
 }
@@ -292,7 +296,7 @@ void
 tw_keyboard_notify_key(struct tw_keyboard *keyboard, uint32_t time_msec,
                        uint32_t key, uint32_t state)
 {
-	if (keyboard->grab->impl->key)
+	if (keyboard->grab && keyboard->grab->impl->key)
 		keyboard->grab->impl->key(keyboard->grab, time_msec, key,
 		                          state);
 }
@@ -302,7 +306,7 @@ tw_keyboard_notify_modifiers(struct tw_keyboard *keyboard,
                              uint32_t mods_depressed, uint32_t mods_latched,
                              uint32_t mods_locked, uint32_t group)
 {
-	if (keyboard->grab->impl->modifiers)
+	if (keyboard->grab && keyboard->grab->impl->modifiers)
 		keyboard->grab->impl->modifiers(keyboard->grab,
 		                                mods_depressed, mods_latched,
 		                                mods_latched, group);

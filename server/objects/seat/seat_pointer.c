@@ -22,10 +22,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
-#include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
-#include <wayland-util.h>
-
+#include <wayland-server.h>
 #include <ctypes/helpers.h>
 
 #include <taiwins/objects/utils.h>
@@ -199,7 +196,7 @@ tw_pointer_start_grab(struct tw_pointer *pointer,
 void
 tw_pointer_end_grab(struct tw_pointer *pointer)
 {
-	if (pointer->grab != &pointer->default_grab &&
+	if (pointer->grab && pointer->grab != &pointer->default_grab &&
 	    pointer->grab->impl->cancel)
 		pointer->grab->impl->cancel(pointer->grab);
 	pointer->grab = &pointer->default_grab;
@@ -215,9 +212,10 @@ tw_pointer_set_focus(struct tw_pointer *pointer,
 	struct tw_seat_client *client;
 	struct tw_seat *seat = container_of(pointer, struct tw_seat, pointer);
 
-	tw_pointer_clear_focus(pointer);
 	client = tw_seat_client_find(seat, wl_resource_get_client(wl_surface));
-	if (client) {
+	if (client && !wl_list_empty(&client->pointers) ) {
+		tw_pointer_clear_focus(pointer);
+
 		serial = wl_display_next_serial(seat->display);
 		wl_resource_for_each(res, &client->pointers)
 			wl_pointer_send_enter(res, serial, wl_surface,
@@ -256,7 +254,7 @@ tw_pointer_notify_enter(struct tw_pointer *pointer,
                         struct wl_resource *wl_surface,
                         double sx, double sy)
 {
-	if (pointer->grab->impl->enter)
+	if (pointer->grab && pointer->grab->impl->enter)
 		pointer->grab->impl->enter(pointer->grab, wl_surface, sx, sy);
 }
 
@@ -264,7 +262,7 @@ void
 tw_pointer_notify_motion(struct tw_pointer *pointer, uint32_t time_msec,
                          double sx, double sy)
 {
-	if (pointer->grab->impl->motion)
+	if (pointer->grab && pointer->grab->impl->motion)
 		pointer->grab->impl->motion(pointer->grab, time_msec, sx, sy);
 }
 
@@ -272,7 +270,7 @@ void
 tw_pointer_notify_button(struct tw_pointer *pointer, uint32_t time_msec,
                          uint32_t button, enum wl_pointer_button_state state)
 {
-	if (pointer->grab->impl->button)
+	if (pointer->grab && pointer->grab->impl->button)
 		pointer->grab->impl->button(pointer->grab, time_msec,
 		                                   button, state);
 }
@@ -282,7 +280,7 @@ tw_pointer_notify_axis(struct tw_pointer *pointer, uint32_t time_msec,
                        enum wl_pointer_axis axis, double val, int val_disc,
                        enum wl_pointer_axis_source source)
 {
-	if (pointer->grab->impl->axis)
+	if (pointer->grab && pointer->grab->impl->axis)
 		pointer->grab->impl->axis(pointer->grab, time_msec, axis,
 		                          val, val_disc, source);
 }
@@ -290,6 +288,6 @@ tw_pointer_notify_axis(struct tw_pointer *pointer, uint32_t time_msec,
 void
 tw_pointer_notify_frame(struct tw_pointer *pointer)
 {
-	if (pointer->grab->impl->frame)
+	if (pointer->grab && pointer->grab->impl->frame)
 		pointer->grab->impl->frame(pointer->grab);
 }

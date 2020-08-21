@@ -91,7 +91,9 @@ struct tw_xdg_view {
 	 * may not yet */
 	uint32_t planed_w, planed_h;
 	pixman_rectangle32_t old_geometry;
-	bool mapped;
+	/** added is set on view added to workspace, mapped is set on the first
+	 * commit */
+	bool mapped, added;
 
 	struct wl_list link;
 	enum tw_layout_type type, prev_type;
@@ -115,8 +117,10 @@ tw_xdg_view_destroy(struct tw_xdg_view *view);
 void
 tw_xdg_view_set_position(struct tw_xdg_view *view, int x, int y);
 
+/* configure the size and state, if w and h are zero only configures the
+ * state */
 void
-tw_xdg_view_configure_size(struct tw_xdg_view *view, uint32_t w, uint32_t h);
+tw_xdg_view_configure(struct tw_xdg_view *view, uint32_t w, uint32_t h);
 
 /******************************************************************************
  * workspace API
@@ -140,7 +144,6 @@ tw_workspace_has_view(const struct tw_workspace *ws,
 bool
 tw_workspace_empty(const struct tw_workspace *ws);
 
-//we probably should leave this function to arrange_view_for_workspace
 bool
 tw_workspace_focus_view(struct tw_workspace *ws, struct tw_xdg_view *v);
 

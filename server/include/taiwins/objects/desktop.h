@@ -85,9 +85,8 @@ struct tw_desktop_surface {
 	struct tw_surface *tw_surface;
 	struct tw_desktop_manager *desktop;
 	enum tw_desktop_surface_type type;
-	bool fullscreened;
-	bool maximized;
-	bool surface_added;
+	bool fullscreened,  maximized, minimized;
+	bool focused, surface_added;
 	char *title, *class;
         /**
          * the window geometry for this given desktop surface, always available
@@ -105,6 +104,7 @@ struct tw_desktop_surface {
 	                  int32_t x, int32_t y,
 	                  unsigned width, unsigned height);
 	void (*close)(struct tw_desktop_surface *surface);
+	void (*ping)(struct tw_desktop_surface *surface, uint32_t serial);
 
 	void *user_data;
 };

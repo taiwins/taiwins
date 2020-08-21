@@ -19,6 +19,7 @@
  *
  */
 
+#include <unistd.h>
 #include <string.h>
 #include <assert.h>
 #include <wayland-server-core.h>
@@ -28,6 +29,7 @@
 
 #include <taiwins/objects/data_device.h>
 #include <taiwins/objects/seat.h>
+#include <taiwins/objects/utils.h>
 
 static const struct wl_data_offer_interface data_offer_impl;
 
@@ -54,14 +56,20 @@ data_offer_accept(struct wl_client *client,
                   const char *mime_type)
 {
 	struct tw_data_offer *offer = tw_data_offer_from_resource(resource);
-	const char *p;
+	const char **p;
+
+	if (!offer || !offer->source)
+		return;
+	if (!mime_type) {
+		offer->source->accepted = false;
+		return;
+	}
 
 	wl_array_for_each(p, &offer->source->mimes) {
-		if (!strcmp(p, mime_type)) {
+		if (mime_type && !strcmp(*p, mime_type)) {
 			wl_data_source_send_target(offer->source->resource,
 			                           mime_type);
 			offer->source->accepted = true;
-			//TODO: setting the accepted in source
 			return;
 		}
 	}
@@ -76,9 +84,13 @@ data_offer_receive(struct wl_client *client,
 {
 	struct tw_data_offer *offer = tw_data_offer_from_resource(resource);
 
+        if (!offer || !offer->source)
+		return;
+
 	//it is either we do not check at all or we verify if offer source is
 	//linked
 	wl_data_source_send_send(offer->source->resource, mime_type, fd);
+	close(fd);
 }
 
 static void
@@ -94,21 +106,24 @@ data_offer_finish(struct wl_client *client, struct wl_resource *resource)
 	struct tw_data_offer *offer = tw_data_offer_from_resource(resource);
 	struct tw_data_source *source = offer->source;
 
+	if (!offer || !offer->source)
+		return;
+
 	if (source->selection_source) {
-		wl_resource_post_error(offer->resource,
+		wl_resource_post_error(resource,
 		                       WL_DATA_OFFER_ERROR_INVALID_FINISH,
 		                       "finish only works for drag n drop");
 		return;
 	}
 	if (!source->accepted) {
-		wl_resource_post_error(offer->resource,
+		wl_resource_post_error(resource,
 		                       WL_DATA_OFFER_ERROR_INVALID_FINISH,
 		                       "permature finish request");
 		return;
 	}
 	if (source->selected_dnd_action ==
 	    WL_DATA_DEVICE_MANAGER_DND_ACTION_ASK) {
-		wl_resource_post_error(offer->resource,
+		wl_resource_post_error(resource,
 		                       WL_DATA_OFFER_ERROR_INVALID_FINISH,
 		                       "offer finished with invalid action");
 		return;
@@ -127,9 +142,19 @@ data_offer_set_actions(struct wl_client *client,
 {
 	uint32_t determined_action;
 	struct tw_data_offer *offer = tw_data_offer_from_resource(resource);
-	if (!(dnd_actions & preferred_action) ||
-	    !(dnd_actions & (TW_DATA_DEVICE_ACCEPT_ACTIONS)) ||
-	    !(supported_prefer_action(preferred_action))) {
+
+	if (!offer || !offer->source)
+		return;
+
+	if (dnd_actions && !(dnd_actions & TW_DATA_DEVICE_ACCEPT_ACTIONS)) {
+		wl_resource_post_error(resource,
+		                       WL_DATA_OFFER_ERROR_INVALID_ACTION_MASK,
+		                       "action mask %d invalid", dnd_actions);
+		return;
+	}
+	if (preferred_action &&
+	    (!(preferred_action && dnd_actions) &&
+	     !(supported_prefer_action(preferred_action)))) {
 		wl_resource_post_error(resource,
 		                       WL_DATA_OFFER_ERROR_INVALID_ACTION,
 		                       "requested dnd actions not supported.");
@@ -154,9 +179,9 @@ data_offer_set_actions(struct wl_client *client,
 		WL_DATA_SOURCE_ACTION_SINCE_VERSION)
 		wl_data_source_send_action(offer->source->resource,
 		                           determined_action);
-	if (wl_resource_get_version(offer->resource) >=
+	if (wl_resource_get_version(resource) >=
 		WL_DATA_OFFER_ACTION_SINCE_VERSION)
-		wl_data_offer_send_action(offer->resource,
+		wl_data_offer_send_action(resource,
 		                          determined_action);
 	offer->source->selected_dnd_action = determined_action;
 }
@@ -170,40 +195,66 @@ static const struct wl_data_offer_interface data_offer_impl = {
 };
 
 static void
+destroy_data_offer_resource(struct wl_resource *resource)
+{
+	tw_reset_wl_list(wl_resource_get_link(resource));
+	wl_resource_set_user_data(resource, NULL);
+}
+
+
+static void
 notify_offer_source_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_data_offer *offer =
 		container_of(listener, struct tw_data_offer,
 		             source_destroy_listener);
-	wl_list_remove(&offer->source_destroy_listener.link);
-	//TODO: source does not exist, we shall be gone as well?
-	wl_resource_destroy(offer->resource);
+	struct wl_resource *r, *tmp;
+	wl_resource_for_each_safe(r, tmp, &offer->resources)
+		destroy_data_offer_resource(r);
 }
 
-static void
-destroy_data_offer_resource(struct wl_resource *resource)
+void
+tw_data_offer_init(struct tw_data_offer *offer,
+                   struct tw_data_source *source)
 {
-	struct tw_data_offer *offer = wl_resource_get_user_data(resource);
-	wl_list_remove(&offer->source_destroy_listener.link);
-	free(offer);
+	wl_list_init(&offer->resources);
+	offer->source = source;
+	tw_signal_setup_listener(&source->destroy_signal,
+	                         &offer->source_destroy_listener,
+	                         notify_offer_source_destroy);
 }
 
-struct tw_data_offer *
-tw_data_offer_create(struct wl_resource *resource,
-                     struct tw_data_source *source)
+void
+tw_data_offer_add_resource(struct tw_data_offer *offer,
+                           struct wl_resource *resource,
+                           struct wl_resource *device_resource)
 {
-	struct tw_data_offer *offer = calloc(1, sizeof(struct tw_data_offer));
-	if (offer)
-		return NULL;
-	wl_resource_set_implementation(resource, &data_offer_impl, offer,
-	                               destroy_data_offer_resource);
-	offer->resource = resource;
-	wl_list_init(&offer->source_destroy_listener.link);
-	offer->source_destroy_listener.notify = notify_offer_source_destroy;
-	if (source) {
-		offer->source = source;
-		wl_signal_add(&offer->source->destroy_signal,
-		              &offer->source_destroy_listener);
+	const char **p;
+	uint32_t version = wl_resource_get_version(resource);
+
+	wl_list_insert(offer->resources.prev,
+	               wl_resource_get_link(resource));
+	wl_resource_set_implementation(resource, &data_offer_impl,
+	                               offer, destroy_data_offer_resource);
+
+	//offer is added, advertise the possible mimetypes and actions.
+	wl_data_device_send_data_offer(device_resource, resource);
+	wl_array_for_each(p, &offer->source->mimes)
+		wl_data_offer_send_offer(resource, *p);
+	if (offer->source->actions &&
+	    version >= WL_DATA_OFFER_SOURCE_ACTIONS_SINCE_VERSION)
+		wl_data_offer_send_source_actions(resource,
+		                                  offer->source->actions);
+}
+
+void
+tw_data_offer_set_source_actions(struct tw_data_offer *offer,
+                                 uint32_t dnd_actions)
+{
+	struct wl_resource *r;
+	wl_resource_for_each(r, &offer->resources) {
+		if (wl_resource_get_version(r) >=
+		    WL_DATA_OFFER_SOURCE_ACTIONS_SINCE_VERSION)
+			wl_data_offer_send_source_actions(r, dnd_actions);
 	}
-	return offer;
 }

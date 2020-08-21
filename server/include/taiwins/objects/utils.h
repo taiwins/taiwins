@@ -50,6 +50,8 @@ void
 tw_set_display_destroy_listener(struct wl_display *display,
                                 struct wl_listener *listener,
                                 wl_notify_func_t notify);
+bool
+tw_match_wl_resource_client(struct wl_resource *a, struct wl_resource *b);
 
 #define  tw_reset_wl_list(link) \
 	({ \

@@ -77,6 +77,9 @@ twdesk_surface_focus(struct tw_xdg *xdg, struct tw_desktop_surface *dsurf)
 	struct tw_seat *tw_seat;
 	struct tw_backend_seat *seat =
 		tw_backend_get_focused_seat(xdg->backend);
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+	struct tw_xdg_view *view;
+
 	if (!seat) {
 		tw_logl("no seat available!");
 		return;
@@ -85,6 +88,12 @@ twdesk_surface_focus(struct tw_xdg *xdg, struct tw_desktop_surface *dsurf)
 	if (tw_seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
 		tw_keyboard_set_focus(&tw_seat->keyboard,
 		                      dsurf->tw_surface->resource, NULL);
+	dsurf->ping(dsurf, wl_display_next_serial(tw_seat->display));
+	wl_list_for_each(view, &ws->recent_views, link) {
+		dsurf->focused = (view->dsurf == dsurf);
+		tw_xdg_view_configure(view, view->planed_w, view->planed_h);
+	}
+
 }
 
 static void
@@ -127,8 +136,6 @@ twdesk_surface_added(struct tw_desktop_surface *dsurf, void *user_data)
 	if (twdesk_view_should_map_immediately(view)) {
 		view->output = xdg_output_from_backend_output(xdg, output);
 		tw_workspace_add_view(ws, view);
-		view->mapped = true;
-		twdesk_surface_focus(xdg, dsurf);
 	}
 }
 
@@ -146,8 +153,10 @@ twdesk_surface_removed(struct tw_desktop_surface *dsurf,
 			dsurf->title);
 		return;
 	}
-	assert(ws);
-	tw_workspace_remove_view(ws, view);
+	if (view->added) {
+		assert(ws);
+		tw_workspace_remove_view(ws, view);
+	}
 	tw_xdg_view_destroy(view);
 	dsurf->user_data = NULL;
 	//This is a HACK, because we are in a wl_resource_destroy_listener,
@@ -166,13 +175,16 @@ twdesk_surface_committed(struct tw_desktop_surface *dsurf,
 	struct tw_backend_output *output =
 		tw_backend_focused_output(xdg->backend);
 
-	if (!view->mapped) {
+	if (!view->added) {
 		view->output = xdg_output_from_backend_output(xdg, output);
 		tw_workspace_add_view(ws, view);
-		twdesk_surface_focus(xdg, dsurf);
-		view->mapped = true;
 	} else {
 		tw_xdg_view_set_position(view, view->x, view->y);
+	}
+
+	if (!view->mapped) {
+		twdesk_surface_focus(xdg, dsurf);
+		view->mapped = true;
 	}
 }
 
@@ -281,7 +293,7 @@ twdesk_minimized(struct tw_desktop_surface *dsurf, void *user_data)
 	struct tw_xdg *xdg = user_data;
 	struct tw_workspace *ws = xdg->actived_workspace[0];
 	struct tw_xdg_view *view = dsurf->user_data;
-	if (tw_workspace_has_view(ws, view))
+	if (!tw_workspace_has_view(ws, view))
 		return;
 	tw_workspace_minimize_view(ws, view);
 }
@@ -572,13 +584,13 @@ tw_xdg_workspace_layout_name(struct tw_xdg *xdg, uint32_t i)
 int
 tw_xdg_layout_type_from_name(const char *name)
 {
-	if (name && strcmp(name, "floating"))
+	if (name && !strcmp(name, "floating"))
 		return LAYOUT_FLOATING;
-	else if (name && strcmp(name, "tiling"))
+	else if (name && !strcmp(name, "tiling"))
 		return LAYOUT_TILING;
-	else if (name && strcmp(name, "maximized"))
+	else if (name && !strcmp(name, "maximized"))
 		return LAYOUT_MAXIMIZED;
-	else if (name && strcmp(name, "fullscreened"))
+	else if (name && !strcmp(name, "fullscreened"))
 		return LAYOUT_FULLSCREEN;
 	return -1;
 }

@@ -69,6 +69,19 @@ surface_add_to_outputs_list(struct tw_backend *backend,
  * tw_surface would have to a bit different. */
 
 static void
+subsurface_add_to_list(struct wl_list *parent_head, struct tw_surface *surface)
+{
+	struct tw_subsurface *sub;
+
+	wl_list_insert(parent_head->prev,
+	               &surface->links[TW_VIEW_GLOBAL_LINK]);
+	wl_list_for_each_reverse(sub, &surface->subsurfaces, parent_link) {
+		subsurface_add_to_list(&surface->links[TW_VIEW_GLOBAL_LINK],
+		                       sub->surface);
+	}
+}
+
+static void
 surface_add_to_list(struct tw_backend *backend, struct tw_surface *surface)
 {
 	//we should also add to the output
@@ -81,10 +94,9 @@ surface_add_to_list(struct tw_backend *backend, struct tw_surface *surface)
 	//subsurface inserts just above its main surface, here we take the
 	//reverse order of the subsurfaces and insert them one by one in front
 	//of the main surface
-	wl_list_for_each_reverse(sub, &surface->subsurfaces, parent_link) {
-		wl_list_insert(surface->links[TW_VIEW_GLOBAL_LINK].prev,
-		               &sub->surface->links[TW_VIEW_GLOBAL_LINK]);
-	}
+	wl_list_for_each_reverse(sub, &surface->subsurfaces, parent_link)
+		subsurface_add_to_list(&surface->links[TW_VIEW_GLOBAL_LINK],
+		                       sub->surface);
 }
 
 static void
@@ -140,8 +152,8 @@ surface_accumulate_damage(struct tw_surface *surface,
 	}
 	pixman_region32_intersect(&damage, &damage, &bbox);
 	pixman_region32_subtract(&damage, &damage, clipped);
-	pixman_region32_union(&current->plane->damage,
-	                      &current->plane->damage, &damage);
+	/* pixman_region32_union(&current->plane->damage, */
+	/*                       &current->plane->damage, &damage); */
 
 	//update the clip region here. but yeah, our surface region is not
 	//correct at all.

@@ -156,8 +156,6 @@ pointer_focus_motion(struct tw_backend_seat *seat,
 			tw_pointer_notify_motion(pointer, timespec, x, y);
 	else if (focused)
 		tw_pointer_notify_enter(pointer, focused->resource, x, y);
-	else
-		tw_pointer_clear_focus(pointer);
 }
 
 static void
@@ -487,7 +485,9 @@ new_seat_for_backend(struct tw_backend *backend,
 	seat->backend = backend;
 	seat->idx = new_seat_id;
 	seat->capabilities = 0;
-	seat->tw_seat = tw_seat_create(backend->display, dev->name);
+	seat->tw_seat = tw_seat_create(backend->display,
+	                               &backend->global_cursor,
+	                               dev->name);
 
 	wl_list_init(&seat->link);
 

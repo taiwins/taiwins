@@ -19,14 +19,13 @@
  *
  */
 
+
 #include <string.h>
 #include <stdlib.h>
-#include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <taiwins/objects/data_device.h>
 #include <taiwins/objects/seat.h>
-
+#include <taiwins/objects/utils.h>
 
 static const struct wl_data_source_interface data_source_impl;
 
@@ -62,13 +61,14 @@ data_source_set_actions(struct wl_client *client,
 		wl_resource_post_error(resource,
 		                       WL_DATA_SOURCE_ERROR_INVALID_SOURCE,
 		                       "data source action already set.");
-	if (!(dnd_actions & (TW_DATA_DEVICE_ACCEPT_ACTIONS))) {
+	if (dnd_actions && !(dnd_actions & (TW_DATA_DEVICE_ACCEPT_ACTIONS))) {
 		wl_resource_post_error(resource,
 		                       WL_DATA_SOURCE_ERROR_INVALID_ACTION_MASK,
 		                       "the actions are not supported");
 		return;
 	}
 	data_source->actions = dnd_actions;
+	tw_data_offer_set_source_actions(&data_source->offer, dnd_actions);
 }
 
 static void
@@ -86,14 +86,11 @@ static const struct wl_data_source_interface data_source_impl = {
 static void
 destroy_data_source(struct wl_resource *resource)
 {
-	char *mime_type;
+	char **mime_type;
 	struct tw_data_source *source = tw_data_source_from_resource(resource);
 
-	if (source->device)
-		tw_data_device_handle_source_destroy(source->device, source);
-
 	wl_array_for_each(mime_type, &source->mimes)
-		free(mime_type);
+		free(*mime_type);
 	wl_array_release(&source->mimes);
 	wl_signal_emit(&source->destroy_signal, source);
 	source->actions = 0;
@@ -101,11 +98,14 @@ destroy_data_source(struct wl_resource *resource)
 }
 
 struct tw_data_source *
-tw_data_source_create(struct wl_resource *resource)
+tw_data_source_create(struct wl_client *client, uint32_t id, uint32_t version)
 {
-	struct tw_data_source *source =
-		calloc(1, sizeof(struct tw_data_source));
-	if (!source)
+	struct tw_data_source *source;
+	struct wl_resource *resource = NULL;
+
+	if (!tw_create_wl_resource_for_obj(resource, source, client,
+	                                   id, version,
+	                                   wl_data_source_interface))
 		return NULL;
 	source->resource = resource;
 	source->selection_source = false;
@@ -114,5 +114,8 @@ tw_data_source_create(struct wl_resource *resource)
 	wl_array_init(&source->mimes);
 	wl_signal_init(&source->destroy_signal);
 	source->actions = 0;
+
+	//init an empty offer
+	tw_data_offer_init(&source->offer, source);
 	return source;
 }

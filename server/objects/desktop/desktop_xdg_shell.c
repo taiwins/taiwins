@@ -38,6 +38,7 @@
 struct tw_xdg_surface {
 	struct tw_desktop_surface base;
 	struct wl_listener surface_destroy;
+	struct wl_resource *wm_base;
 	bool configured;
         /* has_next_window geometry once set, will always stay valid, so we can
          * update window geometry every commit. The next_window_geometry is the
@@ -235,7 +236,7 @@ xdg_surface_set_role(struct tw_desktop_surface *dsurf,
 }
 
 static void
-handle_xdg_surf_surface_destroy(struct wl_listener *listener, void *userdata)
+notify_xdg_surf_surface_destroy(struct wl_listener *listener, void *userdata)
 {
 	struct tw_xdg_surface *surf =
 		container_of(listener, struct tw_xdg_surface, surface_destroy);
@@ -247,7 +248,7 @@ handle_xdg_surf_surface_destroy(struct wl_listener *listener, void *userdata)
 
 static void
 compile_toplevel_states(struct tw_desktop_surface *dsurf,
-                            struct wl_array *states, uint32_t w, uint32_t h)
+                        struct wl_array *states, uint32_t w, uint32_t h)
 {
 	enum xdg_toplevel_state *state = NULL;
 	if (dsurf->maximized) {
@@ -260,6 +261,10 @@ compile_toplevel_states(struct tw_desktop_surface *dsurf,
 	if (w != dsurf->window_geometry.w || h != dsurf->window_geometry.h) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_RESIZING;
+	}
+	if (dsurf->focused) {
+		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
+		*state = XDG_TOPLEVEL_STATE_ACTIVATED;
 	}
 }
 
@@ -306,17 +311,28 @@ close_xdg_surface(struct tw_desktop_surface *dsurf)
 }
 
 static void
+ping_xdg_surface(struct tw_desktop_surface *dsurf, uint32_t serial)
+{
+	struct tw_xdg_surface *xdg_surface =
+		container_of(dsurf, struct tw_xdg_surface, base);
+	xdg_wm_base_send_ping(xdg_surface->wm_base, serial);
+}
+
+static void
 init_xdg_surface(struct tw_xdg_surface *surface,
                  struct wl_resource *wl_surface, struct wl_resource *resource,
+                 struct wl_resource *wm_base,
                  struct tw_desktop_manager *desktop)
 {
 	tw_desktop_surface_init(&surface->base, wl_surface, resource,
 	                        desktop);
 	surface->base.configure = configure_xdg_surface;
 	surface->base.close = close_xdg_surface;
+	surface->base.ping = ping_xdg_surface;
+	surface->wm_base = wm_base;
 
 	tw_set_resource_destroy_listener(wl_surface, &surface->surface_destroy,
-	                                 handle_xdg_surf_surface_destroy);
+	                                 notify_xdg_surf_surface_destroy);
 }
 
 /****************************** xdg toplevel *********************************/
@@ -1063,7 +1079,7 @@ handle_create_xdg_surface(struct wl_client *client,
 	}
 	wl_resource_set_implementation(r, &xdg_surface_impl, &dsurf->base,
 	                               destroy_xdg_surface_resource);
-	init_xdg_surface(dsurf, surface, r, desktop);
+	init_xdg_surface(dsurf, surface, r, resource, desktop);
 }
 
 static void

@@ -308,7 +308,8 @@ bind_seat(struct wl_client *client, void *data,
 ///// shared API
 
 struct tw_seat *
-tw_seat_create(struct wl_display *display, const char *name)
+tw_seat_create(struct wl_display *display, struct tw_cursor *seat_cursor,
+               const char *name)
 {
 	struct tw_seat *seat = calloc(1, sizeof(struct tw_seat));
 	if (!seat)
@@ -322,7 +323,9 @@ tw_seat_create(struct wl_display *display, const char *name)
 	seat->display = display;
 	seat->last_pointer_serial = 0;
 	seat->last_touch_serial = 0;
+	seat->cursor = seat_cursor;
 
+	wl_signal_init(&seat->destroy_signal);
 	wl_signal_init(&seat->focus_signal);
 	wl_signal_init(&seat->new_cursor_signal);
 	seat->global = wl_global_create(display, &wl_seat_interface, 7,
@@ -337,6 +340,7 @@ tw_seat_destroy(struct tw_seat *seat)
 	struct wl_resource *r, *tmp;
 
 	wl_global_destroy(seat->global);
+	wl_signal_emit(&seat->destroy_signal, seat);
 
 	wl_list_for_each_safe(client, next, &seat->clients, link) {
 		wl_resource_for_each_safe(r, tmp, &client->resources) {

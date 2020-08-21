@@ -66,6 +66,12 @@ tw_set_display_destroy_listener(struct wl_display *display,
 	wl_display_add_destroy_listener(display, listener);
 }
 
+bool
+tw_match_wl_resource_client(struct wl_resource *a, struct wl_resource *b)
+{
+	return wl_resource_get_client(a) == wl_resource_get_client(b);
+}
+
 static void
 handle_noop(struct wl_listener *listener, void *data)
 {

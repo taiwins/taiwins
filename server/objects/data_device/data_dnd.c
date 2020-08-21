@@ -19,113 +19,185 @@
  *
  */
 
-
+#include <stdlib.h>
+#include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 #include <wayland-server.h>
+#include <ctypes/helpers.h>
+#include <taiwins/objects/utils.h>
 #include <taiwins/objects/data_device.h>
 #include <taiwins/objects/seat.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/cursor.h>
+#include <wayland-util.h>
 
-// the data device has a few methods you need to call,
-// enter/leave/motion/drop/
-
-// for client, a new data offer is created when (1) keyboard focused on a
-// different surface(through wl_data_device_send_selection). The surface enter
-// event, (2) surface enter event(also remove the ones in leaving event).
-
+/* the second place for creating new data offer */
 static void
 dnd_pointer_enter(struct tw_seat_pointer_grab *grab,
                   struct wl_resource *surface, double sx, double sy)
 {
-	uint32_t serial;
 	struct tw_seat *seat = grab->seat;
-	struct tw_data_device *device = grab->data;
-	// TODO maybe execute normal enter?
+	struct tw_pointer *pointer = &seat->pointer;
+	struct tw_data_drag *drag =
+		container_of(grab, struct tw_data_drag, pointer_grab);
+	struct tw_data_device *data_device =
+		container_of(drag, struct tw_data_device, drag);
+	struct wl_resource *resource =
+		tw_data_device_find_client(data_device, surface);
+	struct wl_resource *prev_resource =
+		tw_data_device_find_client(data_device,
+		                           pointer->focused_surface);
+	pointer->focused_client =
+		tw_seat_client_find(seat, wl_resource_get_client(surface));
+	pointer->focused_surface = surface;
+	drag->dest_device_resource = resource;
 
-	if (!device->source_set ||
-	    surface == device->source_set->drag_origin_surface)
-		return;
-	if (device->offer_set) {
-		if (device->offer_set->current_surface == surface)
-			return;
-		else
-			wl_data_device_send_leave(device->resource);
-	} else {
-		device->offer_set =
-			tw_data_device_create_data_offer(device, surface);
+	//we should have
+	if (drag->source != NULL) {
+		uint32_t serial;
+		struct wl_resource *offer;
+
+		//creating data_offers
+		drag->source->accepted = false;
+		//TODO: idealy create data offer for all the surface that
+		offer = tw_data_device_create_data_offer(resource,
+		                                         drag->source);
+		serial = wl_display_next_serial(seat->display);
+		wl_data_device_send_leave(prev_resource);
+		wl_data_device_send_enter(resource, serial, surface,
+		                          wl_fixed_from_double(sx),
+		                          wl_fixed_from_double(sy),
+		                          offer);
 	}
-	serial = wl_display_next_serial(seat->display);
-	wl_data_device_send_enter(device->resource, serial, surface,
-	                          wl_fixed_from_double(sx),
-	                          wl_fixed_from_double(sy),
-	                          device->offer_set->resource);
-
-	//TODO I am not destroying the data_offer though,
-	// it would be destroyed on client destroyed.
 }
-
 
 static void
 dnd_pointer_button(struct tw_seat_pointer_grab *grab,
                    uint32_t time_msec, uint32_t button,
                    enum wl_pointer_button_state state)
 {
-	struct tw_data_device *device = grab->data;
-	struct tw_data_offer *offer = device->offer_set;
 	struct tw_pointer *pointer = &grab->seat->pointer;
-	struct tw_data_source *source;
+	struct tw_data_drag *drag =
+		container_of(grab, struct tw_data_drag, pointer_grab);
+	struct tw_data_source *source = drag->source;
+	struct tw_data_offer *offer = source ? &source->offer : NULL;
 
 	if (state != WL_POINTER_BUTTON_STATE_RELEASED)
 		return;
 
 	if (offer && offer->source->accepted &&
 	    offer->source->selected_dnd_action) {
-		wl_data_device_send_drop(device->resource);
+		//drop send to the one with the offer
+		wl_data_device_send_drop(drag->dest_device_resource);
 		source = offer->source;
 
 		if (wl_resource_get_version(offer->source->resource) >=
 		    WL_DATA_SOURCE_DND_DROP_PERFORMED_SINCE_VERSION)
 			wl_data_source_send_dnd_drop_performed(
 				source->resource);
+	} else if (source) {
+		wl_data_source_send_cancelled(source->resource);
 	}
-
-	if (pointer->btn_count == 0) {
-		tw_pointer_end_grab(&grab->seat->pointer);
-	}
+	tw_pointer_end_grab(pointer);
 }
 
-void
+static void
 dnd_pointer_motion(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
-                       double sx, double sy)
+                   double sx, double sy)
 {
-	struct tw_data_device *device = grab->data;
+	struct tw_pointer *pointer = &grab->seat->pointer;
+	struct tw_data_drag *drag =
+		container_of(grab, struct tw_data_drag, pointer_grab);
+	struct tw_data_device *device =
+		container_of(drag, struct tw_data_device, drag);
+	struct wl_resource *device_resource =
+		tw_data_device_find_client(device, pointer->focused_surface);
 
-	wl_data_device_send_motion(device->resource, time_msec,
+	wl_data_device_send_motion(device_resource, time_msec,
 	                           wl_fixed_from_double(sx),
 	                           wl_fixed_from_double(sy));
+}
+
+static void
+dnd_pointer_cancel(struct tw_seat_pointer_grab *grab)
+{
+	struct tw_seat *seat = grab->seat;
+	struct tw_pointer *pointer = &grab->seat->pointer;
+	struct wl_resource *surface_resource = pointer->focused_surface;
+	struct tw_surface *surface = (surface_resource) ?
+		tw_surface_from_resource(surface_resource) : NULL;
+	struct tw_data_drag *drag =
+		container_of(grab, struct tw_data_drag, pointer_grab);
+	//remove grabs.
+	if (seat->keyboard.grab == &drag->keyboard_grab)
+		tw_keyboard_end_grab(&seat->keyboard);
+	if (surface) {
+		float sx, sy;
+		struct tw_cursor *cursor = grab->seat->cursor;
+		tw_surface_to_local_pos(surface, cursor->x, cursor->y,
+		                        &sx, &sy);
+		tw_pointer_set_focus(pointer, surface_resource, sx, sy);
+	}
 }
 
 static const struct tw_pointer_grab_interface dnd_pointer_grab_impl = {
 	.enter = dnd_pointer_enter,
 	.motion = dnd_pointer_motion,
 	.button = dnd_pointer_button,
+	.cancel = dnd_pointer_cancel,
 };
 
-bool
-tw_data_source_start_drag(struct tw_data_device *device,
-                          struct tw_seat *seat)
+static void
+dnd_keyboard_enter(struct tw_seat_keyboard_grab *grab,
+                   struct wl_resource *surface, uint32_t keycodes[],
+                   size_t n_keycodes)
 {
-	static struct tw_seat_pointer_grab dnd_pointer_grab;
-	//static struct tw_seat_touch_grab dnd_touch_grab;
+	struct tw_seat_keyboard_grab *default_grab =
+		&grab->seat->keyboard.default_grab;
+	default_grab->impl->enter(default_grab, surface, keycodes, n_keycodes);
+}
 
+static const struct tw_keyboard_grab_interface dnd_keyboard_grab_impl = {
+	.enter = dnd_keyboard_enter,
+};
+
+static void
+notify_data_drag_source_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_data_drag *drag =
+		container_of(listener, struct tw_data_drag,
+		             source_destroy_listener);
+	//
+	wl_list_remove(&drag->source_destroy_listener.link);
+	drag->source = NULL;
+}
+
+bool
+tw_data_source_start_drag(struct tw_data_drag *drag,
+                          struct wl_resource *device_resource,
+                          struct tw_data_source *source, struct tw_seat *seat)
+{
 	if (!(seat->capabilities & WL_SEAT_CAPABILITY_POINTER))
 		return false;
 
 	if (seat->pointer.grab != &seat->pointer.default_grab)
 		return false;
-	dnd_pointer_grab.seat = seat;
-	dnd_pointer_grab.data = device;
-	dnd_pointer_grab.impl = &dnd_pointer_grab_impl;
 
-	tw_pointer_start_grab(&seat->pointer, &dnd_pointer_grab);
+	drag->pointer_grab.data = device_resource;
+	drag->pointer_grab.impl = &dnd_pointer_grab_impl;
+	drag->keyboard_grab.data = device_resource;
+	drag->keyboard_grab.impl = &dnd_keyboard_grab_impl;
+	drag->source = source;
+	drag->dest_device_resource = device_resource;
+
+	tw_signal_setup_listener(&drag->source->destroy_signal,
+	                         &drag->source_destroy_listener,
+	                         notify_data_drag_source_destroy);
+
+	//we need to trigger a enter event
+	tw_pointer_start_grab(&seat->pointer, &drag->pointer_grab);
+	if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
+		tw_keyboard_start_grab(&seat->keyboard, &drag->keyboard_grab);
 
 	return true;
 }

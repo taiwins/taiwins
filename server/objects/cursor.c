@@ -113,8 +113,8 @@ tw_cursor_set_surface(struct tw_cursor *cursor,
 	surface->role.commit = commit_cursor_surface;
 	surface->role.commit_private = cursor;
 	surface->role.name = TW_CURSOR_ROLE;
-	wl_resource_add_destroy_listener(surface_resource,
-	                                 &cursor->surface_destroy);
+	wl_signal_add(&surface->events.destroy,
+	              &cursor->surface_destroy);
 	cursor->hotspot_x = hotspot_x;
 	cursor->hotspot_y = hotspot_y;
 	cursor->curr_surface = surface;
@@ -134,6 +134,7 @@ tw_cursor_unset_surface(struct tw_cursor *cursor)
 
 		wl_list_remove(&cursor->surface_destroy.link);
 		wl_list_init(&cursor->surface_destroy.link);
+		cursor->curr_surface = NULL;
 	}
 }
 
