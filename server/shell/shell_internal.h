@@ -27,6 +27,7 @@
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/objects/popup_grab.h>
 #include <pixman.h>
 #include <wayland-util.h>
 
@@ -56,10 +57,12 @@ struct tw_shell_ui {
 	//information. We cannot use tw_binding system anymore, tw_bindings does
 	//not work allow to remove bindings. Then you have to listen on some
 	//events, it should be coming from tw_backend.
-	uint32_t x; uint32_t y;
+	int32_t x, y;
 	struct tw_layer *layer;
 	enum taiwins_ui_type type;
 	struct wl_listener surface_destroy;
+	struct wl_listener grab_close;
+	struct tw_popup_grab grab;
 	//I need to translate this into size, positional.
 	struct {
 		uint32_t x, y, w, h;

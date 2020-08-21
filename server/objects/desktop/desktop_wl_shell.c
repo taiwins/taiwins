@@ -40,6 +40,7 @@
 struct tw_wl_shell_surface {
 	struct tw_desktop_surface base;
 	/* used only by popup */
+	struct tw_popup_grab popup_grab;
 	struct wl_listener popup_close;
 	struct wl_listener surface_destroy;
 };
@@ -341,7 +342,7 @@ handle_set_popup(struct wl_client *client,
 		container_of(popup, struct tw_wl_shell_surface, base);
 	struct tw_surface *tw_surface = popup->tw_surface;
 	struct tw_subsurface *subsurface;
-	struct tw_popup_grab *grab;
+
 	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
 
 	subsurface = calloc(1, sizeof(*subsurface));
@@ -349,18 +350,15 @@ handle_set_popup(struct wl_client *client,
 		wl_resource_post_no_memory(resource);
 		return;
 	}
-	grab = tw_popup_grab_create(tw_surface, popup->resource, tw_seat);
-	if (!grab) {
-		wl_resource_post_no_memory(resource);
-		free(subsurface);
-		return;
-	}
+	tw_popup_grab_init(&shell_surf->popup_grab, tw_surface,
+	                   popup->resource);
 
 	transient_impl_subsurface(subsurface, popup, parent, x, y);
-	tw_signal_setup_listener(&grab->close, &shell_surf->popup_close,
+	tw_signal_setup_listener(&shell_surf->popup_grab.close,
+	                         &shell_surf->popup_close,
 	                         notify_close_wl_shell_popup);
         wl_shell_surface_set_role(popup, TW_DESKTOP_POPUP_SURFACE);
-        tw_popup_grab_start(grab);
+        tw_popup_grab_start(&shell_surf->popup_grab, tw_seat);
 }
 
 static void

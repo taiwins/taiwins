@@ -35,6 +35,7 @@
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/logger.h>
+#include <taiwins/objects/utils.h>
 #include "backend.h"
 
 #include "shell.h"
@@ -72,8 +73,7 @@ shell_create_ui_element(struct tw_shell *shell,
 	elem->x = x;
 	elem->y = y;
 	elem->layer = layer;
-	wl_list_remove(&surface->links[TW_VIEW_LAYER_LINK]);
-	wl_list_init(&surface->links[TW_VIEW_LAYER_LINK]);
+	tw_reset_wl_list(&surface->links[TW_VIEW_LAYER_LINK]);
 	wl_list_insert(layer->views.prev, &surface->links[TW_VIEW_LAYER_LINK]);
 	shell_ui_set_role(elem, commit_cb, surface);
 	wl_list_init(&elem->surface_destroy.link);
@@ -129,13 +129,12 @@ commit_panel(struct tw_surface *surface)
 	//output_configure for the size. For now we are expecting the surface to
 	//hornor size.
 	assert(geo->width == (unsigned)output->output->state.w);
+	ui->x = output->output->state.x;
+	ui->y = output->output->state.y;
 
-	if (shell->panel_pos == TAIWINS_SHELL_PANEL_POS_TOP)
-		ui->y = 0;
-	else
-		ui->y = output->output->state.h -
-			surface->geometry.xywh.height;
-	ui->x = 0;
+	if (shell->panel_pos == TAIWINS_SHELL_PANEL_POS_BOTTOM)
+		ui->y += (output->output->state.h - geo->height);
+
 	tw_surface_set_position(surface, ui->x, ui->y);
 	output->panel_height = geo->height;
 }
@@ -146,8 +145,8 @@ commit_fullscreen(struct tw_surface *surface)
 	struct tw_shell_ui *ui = surface->role.commit_private;
 	struct tw_shell_output *output = ui->output;
 	pixman_rectangle32_t *geo = &surface->geometry.xywh;
-	ui->x = 0;
-	ui->y = 0;
+	ui->x = output->output->state.x;
+	ui->y = output->output->state.y;
 	assert(geo->width == (unsigned)output->output->state.w);
 	assert(geo->height == (unsigned)output->output->state.h);
 	tw_surface_set_position(surface, ui->x, ui->y);
@@ -263,6 +262,7 @@ create_ui_element(struct wl_client *client,
 		wl_client_post_no_memory(client);
 		return;
 	}
+
 	if (allocated)
 		wl_resource_set_implementation(resource, &tw_ui_impl, elem,
 		                               shell_ui_unbind_free);
@@ -293,18 +293,41 @@ create_shell_panel(struct wl_client *client,
 }
 
 static void
+notify_shell_widget_close(struct wl_listener *listener, void *data)
+{
+	struct tw_shell_ui *ui =
+		container_of(listener, struct tw_shell_ui, grab_close);
+	taiwins_ui_send_close(ui->resource);
+}
+
+/** I should have a seat on it */
+static void
 launch_shell_widget(struct wl_client *client,
                     struct wl_resource *resource,
                     uint32_t tw_ui,
                     struct wl_resource *wl_surface,
+                    struct wl_resource *wl_seat,
                     int32_t idx,
                     uint32_t x, uint32_t y)
 {
 	struct tw_shell *shell = wl_resource_get_user_data(resource);
 	struct tw_shell_output *output = &shell->tw_outputs[idx];
+	struct tw_seat *seat = tw_seat_from_resource(wl_seat);
+
+	x += output->output->state.x;
+	y += output->output->state.y;
 	create_ui_element(client, shell, &shell->widget, tw_ui,
 	                  wl_surface, output,
 	                  x, y, TAIWINS_UI_TYPE_WIDGET);
+	if (shell->widget.resource) {
+		tw_popup_grab_init(&shell->widget.grab,
+		                   tw_surface_from_resource(wl_surface),
+		                   shell->widget.resource);
+		tw_signal_setup_listener(&shell->widget.grab.close,
+		                         &shell->widget.grab_close,
+		                         notify_shell_widget_close);
+		tw_popup_grab_start(&shell->widget.grab, seat);
+	}
 }
 
 static void
@@ -429,12 +452,6 @@ unbind_shell(struct wl_resource *resource)
 	tw_layer_unset_position(&shell->ui_layer);
 	tw_layer_unset_position(&shell->locker_layer);
 
-	/* wl_list_for_each_safe(v, n, locker_layer, layer_link.link) */
-	/*	weston_view_unmap(v); */
-	/* wl_list_for_each_safe(v, n, bg_layer, layer_link.link) */
-	/*	weston_view_unmap(v); */
-	/* wl_list_for_each_safe(v, n, ui_layer, layer_link.link) */
-	/*	weston_view_unmap(v); */
 	tw_logl("shell_unbinded!\n");
 }
 

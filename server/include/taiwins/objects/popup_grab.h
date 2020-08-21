@@ -54,12 +54,13 @@ struct tw_popup_grab {
 	struct wl_signal close;
 };
 
-struct tw_popup_grab *
-tw_popup_grab_create(struct tw_surface *surface, struct wl_resource *obj,
-                     struct tw_seat *seat);
+void
+tw_popup_grab_init(struct tw_popup_grab *grab, struct tw_surface *surface,
+                   struct wl_resource *obj);
 
 void
-tw_popup_grab_start(struct tw_popup_grab *grab);
+tw_popup_grab_start(struct tw_popup_grab *grab, struct tw_seat *seat);
+
 
 #ifdef  __cplusplus
 }
