@@ -49,6 +49,7 @@
 #include <taiwins/objects/dmabuf.h>
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/objects/profiler.h>
 
 #include "backend.h"
 #include "backend_internal.h"
@@ -169,12 +170,15 @@ try_pick_subsurfaces(struct tw_surface *parent, float x, float y,
 {
 	struct tw_surface *surface;
 	struct tw_subsurface *sub;
-	wl_list_for_each(sub, &parent->subsurfaces,
-	                 parent_link) {
-		surface = sub->surface;
-		if (tw_surface_has_input_point(surface, x, y)) {
-			tw_surface_to_local_pos(surface, x, y, sx, sy);
-			return surface;
+	//recursively picking subsurfaces, we need to find a way to avoid this
+	wl_list_for_each(sub, &parent->subsurfaces, parent_link) {
+		surface = try_pick_subsurfaces(sub->surface, x, y, sx, sy);
+		if (!surface) {
+			surface = sub->surface;
+			if (tw_surface_has_input_point(surface, x, y)) {
+				tw_surface_to_local_pos(surface, x, y, sx, sy);
+				return surface;
+			}
 		}
 	}
 	return NULL;
@@ -187,7 +191,9 @@ tw_backend_pick_surface_from_layers(struct tw_backend *backend,
 {
 	struct tw_layer *layer;
 	struct tw_layers_manager *layers = &backend->layers_manager;
-	struct tw_surface *surface, *sub;
+	struct tw_surface *surface, *sub, *picked = NULL;
+
+	SCOPE_PROFILE_BEG();
 
 	//TODO: for very small amount of views, this works well. But it is a
 	//linear algorithm so when number of windows gets very large, we may
@@ -199,16 +205,22 @@ tw_backend_pick_surface_from_layers(struct tw_backend *backend,
 		                 links[TW_VIEW_LAYER_LINK]) {
 			if ((sub = try_pick_subsurfaces(surface, x, y,
 			                                sx, sy))) {
-				return sub;
+				picked = sub;
+				goto out;
 			} else if (tw_surface_has_input_point(surface, x, y)) {
 				tw_surface_to_local_pos(surface, x, y, sx, sy);
-				return surface;
+				picked = surface;
+				goto out;
 			}
 		}
 	}
-	*sx = -1000000;
-	*sy = -1000000;
-	return NULL;
+out:
+	SCOPE_PROFILE_END();
+	if (!picked) {
+		*sx = -1000000;
+		*sy = -1000000;
+	}
+	return picked;
 }
 
 static bool

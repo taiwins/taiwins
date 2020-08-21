@@ -266,8 +266,6 @@ layer_renderer_paint_surface(struct tw_surface *surface,
 	struct tw_quad_tex_shader *shader;
 	struct tw_render_texture *texture = surface->buffer.handle.ptr;
 
-	SCOPE_PROFILE_BEG();
-
 	if (!texture)
 		return;
 
@@ -282,6 +280,8 @@ layer_renderer_paint_surface(struct tw_surface *surface,
 		tw_logl_level(TW_LOG_ERRO, "unknown texture format!");
 		return;
 	}
+	//scope start
+	SCOPE_PROFILE_BEG();
 
 	tw_mat3_multiply(&tmp,
 	                 &o->state.view_2d,
@@ -300,8 +300,8 @@ layer_renderer_paint_surface(struct tw_surface *surface,
 	glUniform1f(shader->uniform.alpha, 1.0f);
 
 	layer_renderer_draw_quad(texture->inverted_y);
-
-	SCOPE_PROFILE_END();
+	//scope end
+        SCOPE_PROFILE_END();
 }
 
 
