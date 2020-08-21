@@ -694,11 +694,15 @@ tw_surface_has_point(struct tw_surface *surface, float x, float y)
 bool
 tw_surface_has_input_point(struct tw_surface *surface, float x, float y)
 {
+	bool on_surface = tw_surface_has_point(surface, x, y);
+
 	tw_surface_to_local_pos(surface, x, y, &x, &y);
 	tw_mat3_vec_transform(&surface->current->surface_to_buffer,
 	                      x, y, &x, &y);
-	return pixman_region32_contains_point(&surface->current->input_region,
-	                                      x, y, NULL);
+
+	return on_surface &&
+		pixman_region32_contains_point(&surface->current->input_region,
+		                               x, y, NULL);
 }
 
 
