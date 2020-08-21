@@ -211,10 +211,19 @@ notify_resource_destroy(struct wl_listener *listener, void *userdata)
 static void
 notify_parent_destroy(struct wl_listener *listener, void *userdata)
 {
+	struct tw_popup_grab *parent = userdata;
 	struct tw_popup_grab *grab =
 		container_of(listener, struct tw_popup_grab, parent_destroy);
 	tw_reset_wl_list(&grab->parent_destroy.link);
-	grab->parent_grab = NULL;
+
+	if (parent->parent_grab) {
+		grab->parent_grab = parent->parent_grab;
+		tw_signal_setup_listener(&parent->parent_grab->close,
+		                         &grab->parent_destroy,
+		                         notify_parent_destroy);
+	} else {
+		grab->parent_grab = NULL;
+	}
 }
 
 void
