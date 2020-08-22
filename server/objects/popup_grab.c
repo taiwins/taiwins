@@ -35,8 +35,10 @@ static const struct tw_touch_grab_interface popup_touch_grab_impl;
 static inline bool
 tw_popup_grab_is_current(struct tw_seat *seat)
 {
-	return seat->pointer.grab->impl == &popup_pointer_grab_impl &&
-		seat->touch.grab->impl == &popup_touch_grab_impl;
+	return (seat->pointer.grab &&
+	        seat->pointer.grab->impl == &popup_pointer_grab_impl) ||
+		(seat->touch.grab &&
+		 seat->touch.grab->impl == &popup_touch_grab_impl);
 }
 
 static void tw_popup_grab_close(struct tw_popup_grab *grab);
@@ -183,17 +185,17 @@ tw_popup_grab_close(struct tw_popup_grab *grab)
 	struct tw_pointer *pointer = &seat->pointer;
 	struct tw_touch *touch = &seat->touch;
 
-	if (seat->pointer.grab == &grab->pointer_grab)
-		tw_pointer_end_grab(pointer);
-	if (seat->touch.grab == &grab->touch_grab)
-		tw_touch_end_grab(touch);
+	//we need to end grab unconditionally since we could be nested.
+	tw_pointer_end_grab(pointer);
+	tw_touch_end_grab(touch);
 	wl_signal_emit(&grab->close, grab);
+
+	tw_reset_wl_list(&grab->parent_destroy.link);
+	tw_reset_wl_list(&grab->resource_destroy.link);
 
 	//also, if there is a parent, we switch to parent
 	if (grab->parent_grab)
-		tw_popup_grab_close(grab->parent_grab);
-
-	wl_list_remove(&grab->resource_destroy.link);
+		tw_popup_grab_start(grab->parent_grab, seat);
 }
 
 static void
@@ -212,7 +214,7 @@ notify_parent_destroy(struct wl_listener *listener, void *userdata)
 		container_of(listener, struct tw_popup_grab, parent_destroy);
 	tw_reset_wl_list(&grab->parent_destroy.link);
 
-	if (parent->parent_grab) {
+	if (parent->parent_grab && grab != parent->parent_grab) {
 		grab->parent_grab = parent->parent_grab;
 		tw_signal_setup_listener(&parent->parent_grab->close,
 		                         &grab->parent_destroy,
@@ -241,7 +243,6 @@ tw_popup_grab_start(struct tw_popup_grab *grab, struct tw_seat *seat)
 		tw_pointer_start_grab(&seat->pointer, &grab->pointer_grab);
 		//TODO: this is a hack, should work most of the time
 		tw_pointer_notify_enter(&seat->pointer, grab->focus, 0, 0);
-
 	}
 	if (seat->capabilities & WL_SEAT_CAPABILITY_TOUCH) {
 		tw_touch_start_grab(&seat->touch, &grab->touch_grab);
