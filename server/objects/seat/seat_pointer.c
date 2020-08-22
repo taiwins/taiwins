@@ -181,6 +181,7 @@ tw_seat_remove_pointer(struct tw_seat *seat)
 	pointer->grab = &pointer->default_grab;
 	pointer->focused_client = NULL;
 	pointer->focused_surface = NULL;
+	tw_reset_wl_list(&pointer->focused_destroy.link);
 }
 
 void

@@ -169,6 +169,7 @@ tw_seat_remove_touch(struct tw_seat *seat)
 	touch->grab = &touch->default_grab;
 	touch->focused_client = NULL;
 	touch->focused_surface = NULL;
+	tw_reset_wl_list(&touch->focused_destroy.link);
 }
 
 void

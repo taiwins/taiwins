@@ -155,6 +155,7 @@ tw_seat_remove_keyboard(struct tw_seat *seat)
 	keyboard->keymap_size = 0;
 	keyboard->focused_client = NULL;
 	keyboard->focused_surface = NULL;
+	tw_reset_wl_list(&keyboard->focused_destroy.link);
 }
 
 void
