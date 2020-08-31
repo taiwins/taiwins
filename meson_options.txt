@@ -11,3 +11,10 @@ option(
   value: false,
   description: 'Enable doxygen build'
 )
+
+option(
+  'debug-damage',
+  type: 'boolean',
+  value: false,
+  description: 'Paint the damage updating region'
+)

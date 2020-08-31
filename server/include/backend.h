@@ -100,6 +100,7 @@ struct tw_backend_output {
 		float scale;
 		enum wl_output_transform transform;
 		struct tw_cursor_constrain constrain;
+		pixman_region32_t damage;
 		//TODO set gamma, the gamma value is the typical exp value you
 		//used for monitors, 1.0 means linear gamma. wlr uses a
 		//different gamma method, we deal with later

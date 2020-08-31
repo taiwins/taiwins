@@ -23,11 +23,10 @@
 #include <ctypes/helpers.h>
 #include <wayland-server.h>
 
-#include "backend.h"
-#include "backend_internal.h"
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/matrix.h>
 #include <wayland-util.h>
+#include "backend_internal.h"
 #include "renderer/renderer.h"
 
 static enum wl_output_transform
@@ -143,6 +142,16 @@ init_output_state(struct tw_backend_output *o)
 	pixman_region32_init(&o->state.constrain.region);
 	wl_list_insert(o->backend->global_cursor.constrains.prev,
 	               &o->state.constrain.link);
+	pixman_region32_init(&o->state.damage);
+}
+
+static void
+fini_output_state(struct tw_backend_output *o)
+{
+	o->state.dirty = false;
+	tw_reset_wl_list(&o->state.constrain.link);
+	pixman_region32_fini(&o->state.constrain.region);
+	pixman_region32_fini(&o->state.damage);
 }
 
 static void
@@ -163,6 +172,7 @@ notify_new_output_frame(struct wl_listener *listener, void *data)
 		return;
 
 	renderer->repaint_output(renderer, output);
+	wlr_output_set_damage(output->wlr_output, &output->state.damage);
 	wlr_output_commit(output->wlr_output);
 
 	//sure this is the good place to start?
@@ -184,10 +194,10 @@ notify_output_remove(struct wl_listener *listener, UNUSED_ARG(void *data))
 
 	output->id = -1;
 	wl_list_remove(&output->link);
-	wl_list_remove(&output->state.constrain.link);
 	wl_list_remove(&output->frame_listener.link);
 	wl_list_remove(&output->destroy_listener.link);
-	pixman_region32_fini(&output->state.constrain.region);
+
+        fini_output_state(output);
 
 	backend->output_pool &= unset;
 	wl_signal_emit(&backend->output_unplug_signal, output);

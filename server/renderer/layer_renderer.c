@@ -23,6 +23,7 @@
 #include <GLES2/gl2ext.h>
 #include <GLES3/gl3.h>
 #include <assert.h>
+#include <time.h>
 #include <wayland-server-core.h>
 #include <wayland-util.h>
 #include <pixman.h>
@@ -41,6 +42,8 @@
 struct tw_layer_renderer {
 	struct tw_renderer base;
 	struct tw_quad_tex_shader quad_shader;
+	/* for debug rendering */
+	struct tw_quad_color_shader color_quad_shader;
 	/* for external sampler */
 	struct tw_quad_tex_shader ext_quad_shader;
 	struct wl_listener destroy_listener;
@@ -126,7 +129,7 @@ tw_layer_renderer_stack_damage(struct tw_backend *backend,
 		                               output->state.h);
 		pixman_region32_translate(&output_damage, -output->state.x,
 		                          -output->state.y);
-		/* wlr_output_set_damage(output->wlr_output, &output_damage); */
+		pixman_region32_copy(&output->state.damage, &output_damage);
 		pixman_region32_fini(&output_damage);
 	}
 
@@ -218,6 +221,40 @@ layer_renderer_cleanup_buffer(struct tw_renderer *renderer,
 	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
 }
 
+#if defined (_TW_DEBUG_DAMAGE)
+
+static void
+layer_renderer_paint_surface_damage(struct tw_surface *surface,
+                                    struct tw_layer_renderer *rdr,
+                                    struct tw_backend_output *o,
+                                    const struct tw_mat3 *proj)
+{
+	int nrects;
+	pixman_box32_t *boxes;
+	pixman_region32_t surface_damage;
+	GLfloat debug_colors[4] = {0.7, 0.3, 0.0, 1.0};
+	struct tw_quad_color_shader *shader =
+		&rdr->color_quad_shader;
+
+	glUseProgram(shader->prog);
+	glUniformMatrix3fv(shader->uniform.proj, 1, GL_FALSE, proj->d);
+	glUniform4f(shader->uniform.color, debug_colors[0], debug_colors[1],
+	            debug_colors[2], debug_colors[3]);
+	glUniform1f(shader->uniform.alpha, 0.5);
+
+	pixman_region32_init(&surface_damage);
+	pixman_region32_intersect(&surface_damage, &surface->clip,
+	                          &o->state.damage);
+	boxes = pixman_region32_rectangles(&surface_damage, &nrects);
+	for (int i = 0; i < nrects; i++) {
+		layer_renderer_scissor_surface(&rdr->base, o, &boxes[i]);
+		layer_renderer_draw_quad(false);
+	}
+	pixman_region32_fini(&surface_damage);
+}
+
+#endif
+
 static void
 layer_renderer_paint_surface(struct tw_surface *surface,
                              struct tw_layer_renderer *rdr,
@@ -267,7 +304,9 @@ layer_renderer_paint_surface(struct tw_surface *surface,
 		layer_renderer_scissor_surface(&rdr->base, o, &boxes[i]);
 		layer_renderer_draw_quad(texture->inverted_y);
 	}
-
+#if defined (_TW_DEBUG_DAMAGE)
+	layer_renderer_paint_surface_damage(surface, rdr, o, &proj);
+#endif
 	SCOPE_PROFILE_END();
 }
 
@@ -310,7 +349,8 @@ layer_renderer_repaint_output(struct tw_renderer *renderer,
 		now_int = now.tv_sec * 1000 + now.tv_nsec / 1000000;
 		tw_surface_flush_frame(surface, now_int);
 	}
-
+	//presentation feebacks
+	clock_gettime(CLOCK_MONOTONIC, &now);
 	wl_list_for_each_safe(feedback, tmp, &backend->presentation.feedbacks,
 	                      link) {
 		struct wl_resource *wl_output =
@@ -330,6 +370,8 @@ tw_layer_renderer_destroy(struct wlr_renderer *wlr_renderer)
 	struct tw_layer_renderer *renderer =
 		container_of(wlr_renderer, struct tw_layer_renderer,
 		             base.base);
+
+	tw_quad_color_shader_fini(&renderer->color_quad_shader);
 	tw_quad_tex_blend_shader_fini(&renderer->quad_shader);
 	tw_quad_tex_ext_blend_shader_fini(&renderer->quad_shader);
 	tw_renderer_base_fini(&renderer->base);
@@ -350,6 +392,7 @@ tw_layer_renderer_create(struct wlr_egl *egl, EGLenum platform,
 		free(renderer);
 		return NULL;
 	}
+	tw_quad_color_shader_init(&renderer->color_quad_shader);
 	tw_quad_tex_blend_shader_init(&renderer->quad_shader);
 	tw_quad_tex_ext_blend_shader_init(&renderer->ext_quad_shader);
 	renderer->base.wlr_impl.destroy = tw_layer_renderer_destroy;
