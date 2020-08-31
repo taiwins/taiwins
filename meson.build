@@ -30,18 +30,16 @@ add_project_arguments(global_args, language : 'c')
 add_project_link_arguments(global_link_args, language : 'c')
 
 ###### subprojects
-wlroots_options = [
-  'c_std=c11',
-  'warning_level=2',
-  'werror=true',
-  'examples=false',
-]
-
 twclient = subproject('twclient')
 nklua = subproject('nklua')
 tdbus = subproject('tdbus')
 ctypes = subproject('ctypes')
-wlroots = subproject('wlroots', default_options : wlroots_options )
+wlroots = subproject('wlroots', default_options : [
+		       'c_std=c11',
+		       'warning_level=2',
+		       'werror=true',
+		       'examples=false',
+		     ])
 pixman = subproject('pixman', default_options: ['gtk=disabled', 'libpng=disabled','werror=false'],
 		    version: '>= 0.25.2', required: false)
 
@@ -52,18 +50,24 @@ else
   dep_pixman = dependency('pixman-1', version: '>= 0.25.2')
 endif
 
-dep_xkbcommon = dependency('xkbcommon', version: '>= 0.3.0')
-dep_wayland_server = dependency('wayland-server', version: '>= 1.12.0')
-dep_wayland_client = dependency('wayland-client', version: '>= 1.12.0')
+if wlroots.found()
+  dep_wlroots = wlroots.get_variable('wlroots')
+else
+  dep_wlroots = dependency('wlroots', required: true)
+endif
+
 dep_lua = dependency('lua', version: '>= 5.3', required: false)
 if not dep_lua.found()
   dep_lua = dependency('lua-5.3', version: '>= 5.3', required: true)
 endif
+
+dep_xkbcommon = dependency('xkbcommon', version: '>= 0.3.0')
+dep_wayland_server = dependency('wayland-server', version: '>= 1.12.0')
+dep_wayland_client = dependency('wayland-client', version: '>= 1.12.0')
 dep_threads = dependency('threads')
 dep_glesv2 = dependency('glesv2')
 dep_libdrm = dependency('libdrm', version: '>= 2.4.68')
 dep_libinput = dependency('libinput', version: '>=1.9.0')
-dep_wlroots = wlroots.get_variable('wlroots')
 dep_pam = cc.find_library('pam')
 dep_m = cc.find_library('m')
 dep_dl = cc.find_library('dl')
