@@ -27,6 +27,7 @@
 #include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <wayland-util.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon.h>
 #include <wlr/types/wlr_input_device.h>
@@ -239,6 +240,43 @@ static const struct tw_touch_grab_interface touch_impl = {
 };
 
 /******************************************************************************
+ * session_switch grab
+ *****************************************************************************/
+static int
+session_switch_get_index(uint32_t key, struct tw_seat_events *seat_events)
+{
+	const xkb_keysym_t *keysyms;
+	struct xkb_state *state = seat_events->keyboard_dev->xkb_state;
+	uint32_t nsyms = xkb_state_key_get_syms(state, key+8, &keysyms);
+
+	for (unsigned i = 0; i < nsyms; i++) {
+		xkb_keysym_t keysym = keysyms[i];
+		if (keysym >= XKB_KEY_XF86Switch_VT_1 &&
+		    keysym <= XKB_KEY_XF86Switch_VT_12) {
+			return keysym - XKB_KEY_XF86Switch_VT_1+1;
+		}
+	}
+	return -1;
+}
+
+static void
+session_switch_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
+                   uint32_t key, uint32_t state)
+{
+	struct tw_seat_events *seat_events =
+		container_of(grab, struct tw_seat_events,
+		             session_switch_grab);
+	int sid = session_switch_get_index(key, seat_events);
+	struct tw_backend *backend = seat_events->backend;
+	tw_backend_switch_session(backend, sid);
+}
+
+static const struct tw_keyboard_grab_interface session_switch_impl = {
+	.key = session_switch_key,
+};
+
+
+/******************************************************************************
  * events
  *
  * The following listeners are the main input handlings in taiwins. It runs
@@ -265,6 +303,12 @@ handle_key_input(struct wl_listener *listener, void *data)
         if (seat_keyboard->grab != &seat_keyboard->default_grab ||
             event->state != WLR_KEY_PRESSED)
 		return;
+        if (session_switch_get_index(event->keycode, seat_events) > 0) {
+	        tw_keyboard_start_grab(seat_keyboard,
+	                               &seat_events->session_switch_grab);
+	        return;
+        }
+
 	state = tw_bindings_find_key(seat_events->bindings,
 	                             event->keycode,
 	                             curr_modmask(seat_events));
@@ -414,6 +458,7 @@ tw_seat_events_init(struct tw_seat_events *seat_events,
                     struct tw_backend_seat *seat, struct tw_bindings *bindings)
 {
 	seat_events->seat = seat->tw_seat;
+	seat_events->backend = seat->backend;
 	seat_events->bindings = bindings;
 	seat_events->keyboard_dev = NULL;
 	seat_events->pointer_dev = NULL;
@@ -426,6 +471,9 @@ tw_seat_events_init(struct tw_seat_events *seat_events,
 	seat_events->mod_input.notify = handle_modifiers_input;
 	seat_events->binding_key_grab.impl = &keybinding_impl;
 	seat_events->binding_key_grab.data = NULL;
+	//session switch grab
+	seat_events->session_switch_grab.impl = &session_switch_impl;
+	seat_events->session_switch_grab.data = NULL;
 
 	wl_list_init(&seat_events->btn_input.link);
 	seat_events->btn_input.notify = handle_btn_input;

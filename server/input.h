@@ -35,6 +35,7 @@ extern "C" {
 
 struct tw_seat_events {
 	struct tw_seat *seat;
+	struct tw_backend *backend;
 	struct tw_bindings *bindings;
 	struct wlr_keyboard *keyboard_dev;
 	struct wlr_pointer *pointer_dev;
@@ -47,6 +48,7 @@ struct tw_seat_events {
 	struct wl_listener axis_input;
 	struct wl_listener tch_input;
 
+	struct tw_seat_keyboard_grab session_switch_grab;
 	struct tw_seat_keyboard_grab binding_key_grab;
 	struct tw_seat_pointer_grab binding_pointer_grab;
 	struct tw_seat_touch_grab binding_touch_grab;

@@ -30,6 +30,7 @@
 #include <wayland-util.h>
 #include <wlr/backend.h>
 #include <wlr/backend/session.h>
+#include <wlr/backend/multi.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_cursor.h>
@@ -348,5 +349,17 @@ tw_backend_add_listener(struct tw_backend *backend,
 	case TW_BACKEND_CH_SEAT:
 		wl_signal_add(&backend->seat_ch_signal, listener);
 		break;
+	}
+}
+
+void
+tw_backend_switch_session(struct tw_backend *backend, uint32_t id)
+{
+	struct wlr_session *session;
+
+	if (id > 0 && id <= 7 && wlr_backend_is_multi(backend->auto_backend)) {
+		session = wlr_backend_get_session(backend->auto_backend);
+		if (session)
+			wlr_session_change_vt(session, id);
 	}
 }

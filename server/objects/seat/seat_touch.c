@@ -160,15 +160,19 @@ tw_seat_remove_touch(struct tw_seat *seat)
 	struct wl_resource *resource, *next;
 	struct tw_touch *touch = &seat->touch;
 
-	seat->capabilities &= ~WL_SEAT_CAPABILITY_KEYBOARD;
+	seat->capabilities &= ~WL_SEAT_CAPABILITY_TOUCH;
 	tw_seat_send_capabilities(seat);
+
+	//now we remove the link of the resources, the resource itself would get
+	//destroyed in release request.
 	wl_list_for_each(client, &seat->clients, link)
 		wl_resource_for_each_safe(resource, next, &client->touches)
-			wl_resource_destroy(resource);
+			tw_reset_wl_list(wl_resource_get_link(resource));
 
 	touch->grab = &touch->default_grab;
 	touch->focused_client = NULL;
 	touch->focused_surface = NULL;
+	tw_reset_wl_list(&touch->focused_destroy.link);
 }
 
 void

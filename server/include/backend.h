@@ -283,6 +283,8 @@ tw_backend_seat_set_xkb_rules(struct tw_backend_seat *seat,
 void
 tw_backend_set_repeat_info(struct tw_backend *backend,
                            unsigned int rate, unsigned int delay);
+void
+tw_backend_switch_session(struct tw_backend *backend, uint32_t session);
 
 #ifdef  __cplusplus
 }

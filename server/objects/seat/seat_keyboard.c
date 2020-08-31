@@ -145,9 +145,12 @@ tw_seat_remove_keyboard(struct tw_seat *seat)
 
 	seat->capabilities &= ~WL_SEAT_CAPABILITY_KEYBOARD;
 	tw_seat_send_capabilities(seat);
+
+	//now we remove the link of the resources, the resource itself would get
+	//destroyed in release request.
 	wl_list_for_each(client, &seat->clients, link)
 		wl_resource_for_each_safe(resource, next, &client->keyboards)
-			wl_resource_destroy(resource);
+			tw_reset_wl_list(wl_resource_get_link(resource));
 
 	if (keyboard->keymap_string)
 		free(keyboard->keymap_string);
@@ -155,6 +158,7 @@ tw_seat_remove_keyboard(struct tw_seat *seat)
 	keyboard->keymap_size = 0;
 	keyboard->focused_client = NULL;
 	keyboard->focused_surface = NULL;
+	tw_reset_wl_list(&keyboard->focused_destroy.link);
 }
 
 void
