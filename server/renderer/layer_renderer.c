@@ -232,7 +232,7 @@ layer_renderer_paint_surface_damage(struct tw_surface *surface,
 	int nrects;
 	pixman_box32_t *boxes;
 	pixman_region32_t surface_damage;
-	GLfloat debug_colors[4] = {0.7, 0.3, 0.0, 1.0};
+	GLfloat debug_colors[4] = {1.0, 1.0, 0.0, 1.0};
 	struct tw_quad_color_shader *shader =
 		&rdr->color_quad_shader;
 
@@ -253,7 +253,36 @@ layer_renderer_paint_surface_damage(struct tw_surface *surface,
 	pixman_region32_fini(&surface_damage);
 }
 
+#elif defined(_TW_DEBUG_CLIP)
+
+static void
+layer_render_paint_surface_clip(struct tw_surface *surface,
+                                struct tw_layer_renderer *rdr,
+                                struct tw_backend_output *o,
+                                const struct tw_mat3 *proj)
+{
+	int nrects;
+	pixman_box32_t *boxes;
+	//purple color for clip
+	GLfloat debug_colors[4] = {1.0, 0.0, 1.0, 1.0};
+	struct tw_quad_color_shader *shader =
+		&rdr->color_quad_shader;
+
+	glUseProgram(shader->prog);
+	glUniformMatrix3fv(shader->uniform.proj, 1, GL_FALSE, proj->d);
+	glUniform4f(shader->uniform.color, debug_colors[0], debug_colors[1],
+	            debug_colors[2], debug_colors[3]);
+	glUniform1f(shader->uniform.alpha, 0.5);
+
+	boxes = pixman_region32_rectangles(&surface->clip, &nrects);
+	for (int i = 0; i < nrects; i++) {
+		layer_renderer_scissor_surface(&rdr->base, o, &boxes[i]);
+		layer_renderer_draw_quad(false);
+	}
+}
+
 #endif
+
 
 static void
 layer_renderer_paint_surface(struct tw_surface *surface,
@@ -306,6 +335,8 @@ layer_renderer_paint_surface(struct tw_surface *surface,
 	}
 #if defined (_TW_DEBUG_DAMAGE)
 	layer_renderer_paint_surface_damage(surface, rdr, o, &proj);
+#elif defined(_TW_DEBUG_CLIP)
+	layer_render_paint_surface_clip(surface, rdr, o, &proj);
 #endif
 	SCOPE_PROFILE_END();
 }

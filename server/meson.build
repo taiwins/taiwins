@@ -9,8 +9,10 @@ if get_option('enable-profiler')
    twobject_cargs += '-D_TW_ENABLE_PROFILING'
 endif
 
-if get_option('debug-damage')
+if get_option('rendering-debug') == 'damage'
   taiwins_cargs += '-D_TW_DEBUG_DAMAGE'
+elif get_option('rendering-debug') == 'clip'
+  taiwins_cargs += '-D_TW_DEBUG_CLIP'
 endif
 
 if cc.has_function('libinput_device_touch_get_touch_count',
