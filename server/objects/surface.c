@@ -131,9 +131,8 @@ surface_set_opaque_region(struct wl_client *client,
 		pixman_region32_clear(&surface->pending->opaque_region);
 	} else {
 		region = tw_region_from_resource(region_res);
-		pixman_region32_union(&surface->pending->opaque_region,
-		                      &surface->pending->opaque_region,
-		                      &region->region);
+		pixman_region32_copy(&surface->pending->opaque_region,
+		                     &region->region);
 	}
 	surface->pending->commit_state |= TW_SURFACE_OPAQUE_REGION;
 }
