@@ -210,7 +210,14 @@ static void
 layer_renderer_cleanup_buffer(struct tw_renderer *renderer,
                               struct tw_backend_output *output)
 {
-	//how much GL information you want
+	//TODO: this cleanup function will be replaced when we render only the
+	//damage part
+
+	//restore the scissor information for cleaning up the canvas
+	glDisable(GL_SCISSOR_TEST);
+	//TODO: the viewport is clearly not correct, since the output will have
+	//scale difference, by then we will need to update the viewport, damage
+	//and project matrix
 	glViewport(0, 0, output->state.w, output->state.h);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
