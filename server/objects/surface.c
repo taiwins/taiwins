@@ -427,7 +427,13 @@ surface_update_geometry(struct tw_surface *surface)
 	    box.y1 != surface->geometry.xywh.y ||
 	    (box.x2-box.x1) != (int)surface->geometry.xywh.width ||
 	    (box.y2-box.y1) != (int)surface->geometry.xywh.height) {
-		surface->geometry.prev_xywh = surface->geometry.xywh;
+
+		pixman_region32_union_rect(&surface->geometry.dirty,
+		                           &surface->geometry.dirty,
+		                           surface->geometry.xywh.x,
+		                           surface->geometry.xywh.y,
+		                           surface->geometry.xywh.width,
+		                           surface->geometry.xywh.height);
 		surface->geometry.xywh.x = box.x1;
 		surface->geometry.xywh.y = box.y1;
 		surface->geometry.xywh.width = box.x2-box.x1;
@@ -700,7 +706,13 @@ void
 tw_surface_dirty_geometry(struct tw_surface *surface)
 {
 	struct tw_subsurface *sub;
-	surface->geometry.dirty = true;
+	pixman_region32_union_rect(&surface->geometry.dirty,
+	                           &surface->geometry.dirty,
+	                           surface->geometry.xywh.x,
+	                           surface->geometry.xywh.y,
+	                           surface->geometry.xywh.width,
+	                           surface->geometry.xywh.height);
+
 	wl_list_for_each(sub, &surface->subsurfaces, parent_link)
 		tw_surface_dirty_geometry(sub->surface);
 	if (surface->manager)
@@ -722,7 +734,7 @@ tw_surface_flush_frame(struct tw_surface *surface, uint32_t time)
 		wl_callback_send_done(callback, time);
 		wl_resource_destroy(callback);
 	}
-	surface->geometry.dirty = false;
+	pixman_region32_clear(&surface->geometry.dirty);
 	//handlers like presentation feedback may happen here.
 	wl_signal_emit(&surface->events.frame, &event);
 }
@@ -755,6 +767,7 @@ surface_destroy_resource(struct wl_resource *resource)
 		tw_surface_buffer_release(&surface->buffer);
 
 	pixman_region32_fini(&surface->clip);
+	pixman_region32_fini(&surface->geometry.dirty);
 
 	wl_signal_emit(&surface->events.destroy, surface);
 
@@ -787,6 +800,7 @@ tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
 	wl_signal_init(&surface->events.frame);
 	wl_signal_init(&surface->events.destroy);
 	pixman_region32_init(&surface->clip);
+	pixman_region32_init(&surface->geometry.dirty);
 
 	for (int i = 0; i < MAX_VIEW_LINKS; i++)
 		wl_list_init(&surface->links[i]);

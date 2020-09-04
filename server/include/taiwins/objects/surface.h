@@ -169,7 +169,7 @@ struct tw_surface {
                  * tracker. It would not be very useful in other cases.
                  */
 		pixman_rectangle32_t xywh;
-		pixman_rectangle32_t prev_xywh;
+		pixman_region32_t dirty;
                 /**
                  * map from (-1,-1,1,1) to global coordinates in a Y-down
                  * coordinate system
@@ -177,7 +177,6 @@ struct tw_surface {
 		struct tw_mat3 transform;
 		struct tw_mat3 inverse_transform;
 
-		bool dirty;
 	} geometry;
 
 	struct {

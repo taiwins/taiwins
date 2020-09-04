@@ -54,7 +54,7 @@ static void
 surface_accumulate_damage(struct tw_surface *surface,
                           pixman_region32_t *clipped)
 {
-	pixman_region32_t damage, bbox, old_bbox, opaque;
+	pixman_region32_t damage, bbox, opaque;
 	struct tw_view *current = surface->current;
 
 	pixman_region32_init(&damage);
@@ -63,15 +63,10 @@ surface_accumulate_damage(struct tw_surface *surface,
 	                          surface->geometry.xywh.y,
 	                          surface->geometry.xywh.width,
 	                          surface->geometry.xywh.height);
-	pixman_region32_init_rect(&old_bbox,
-	                          surface->geometry.prev_xywh.x,
-	                          surface->geometry.prev_xywh.y,
-	                          surface->geometry.prev_xywh.width,
-	                          surface->geometry.prev_xywh.height);
 	pixman_region32_init(&opaque);
 
-	if (surface->geometry.dirty) {
-		pixman_region32_union(&damage, &bbox, &old_bbox);
+	if (pixman_region32_not_empty(&surface->geometry.dirty)) {
+		pixman_region32_copy(&damage, &surface->geometry.dirty);
 	} else {
 		pixman_region32_copy(&damage, &current->surface_damage);
 		pixman_region32_translate(&damage, surface->geometry.xywh.x,
@@ -92,7 +87,6 @@ surface_accumulate_damage(struct tw_surface *surface,
 
 	pixman_region32_fini(&damage);
 	pixman_region32_fini(&bbox);
-	pixman_region32_fini(&old_bbox);
 	pixman_region32_fini(&opaque);
 }
 

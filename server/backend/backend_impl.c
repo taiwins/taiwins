@@ -369,7 +369,7 @@ notify_dirty_wl_surface(struct wl_listener *listener, void *data)
 	struct tw_surface *surface = data;
 	struct tw_backend *backend = impl->backend;
 
-	if (surface->geometry.dirty)
+	if (pixman_region32_not_empty(&surface->geometry.dirty))
 		reassign_surface_outputs(surface, backend);
 
 	wl_list_for_each(output, &backend->heads, link) {
