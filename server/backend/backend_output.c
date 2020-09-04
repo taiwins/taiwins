@@ -25,7 +25,8 @@
 
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/matrix.h>
-#include <wayland-util.h>
+#include <taiwins/objects/logger.h>
+
 #include "backend_internal.h"
 #include "renderer/renderer.h"
 
@@ -142,7 +143,11 @@ init_output_state(struct tw_backend_output *o)
 	pixman_region32_init(&o->state.constrain.region);
 	wl_list_insert(o->backend->global_cursor.constrains.prev,
 	               &o->state.constrain.link);
-	pixman_region32_init(&o->state.damage);
+	for (int i = 0; i < 3; i++)
+		pixman_region32_init(&o->state.damages[i]);
+	o->state.pending_damage = &o->state.damages[0];
+	o->state.curr_damage = &o->state.damages[1];
+	o->state.prev_damage = &o->state.damages[2];
 }
 
 static void
@@ -151,12 +156,48 @@ fini_output_state(struct tw_backend_output *o)
 	o->state.dirty = false;
 	tw_reset_wl_list(&o->state.constrain.link);
 	pixman_region32_fini(&o->state.constrain.region);
-	pixman_region32_fini(&o->state.damage);
+	for (int i = 0; i < 3; i++)
+		pixman_region32_fini(&o->state.damages[i]);
+}
+
+/**
+ * @brief manage the backend output damage state
+ */
+static void
+shuffle_output_damage(struct tw_backend_output *output)
+{
+	//here we swap the damage as if it is output is triple-buffered. It is
+	//okay even if output is actually double buffered, as we only need to
+	//ensure that renderer requested the correct damage based on the age.
+	pixman_region32_t *curr = output->state.curr_damage;
+	pixman_region32_t *pending = output->state.pending_damage;
+	pixman_region32_t *previous = output->state.prev_damage;
+
+	//later on renderer will access either current or previous damage for
+	//composing buffer_damage.
+	output->state.curr_damage = pending;
+	output->state.prev_damage = curr;
+	output->state.pending_damage = previous;
+}
+
+/**
+ * @brief dirty the previous_damage if buffer_age is too large
+ */
+static inline int
+rectify_output_buffer_age(struct tw_backend_output *output, int buffer_age)
+{
+	if (buffer_age > 2)
+		pixman_region32_union_rect(output->state.prev_damage,
+		                           output->state.prev_damage,
+		                           0, 0,
+		                           output->state.w, output->state.h);
+	return MIN(2, MAX(0, buffer_age));
 }
 
 static void
 notify_new_output_frame(struct wl_listener *listener, void *data)
 {
+	int buffer_age;
 	struct tw_backend_output *output =
 		container_of(listener, struct tw_backend_output,
 		             frame_listener);
@@ -168,11 +209,15 @@ notify_new_output_frame(struct wl_listener *listener, void *data)
 		return;
 	//output need to have transform
 
-	if (!wlr_output_attach_render(output->wlr_output, NULL))
+	if (!wlr_output_attach_render(output->wlr_output, &buffer_age))
 		return;
+	buffer_age = rectify_output_buffer_age(output, buffer_age);
 
-	renderer->repaint_output(renderer, output);
-	wlr_output_set_damage(output->wlr_output, &output->state.damage);
+	renderer->repaint_output(renderer, output, buffer_age);
+	wlr_output_set_damage(output->wlr_output,
+	                      &output->state.damages[buffer_age]);
+	shuffle_output_damage(output);
+
 	wlr_output_commit(output->wlr_output);
 
 	//sure this is the good place to start?

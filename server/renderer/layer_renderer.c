@@ -120,6 +120,7 @@ tw_layer_renderer_stack_damage(struct tw_backend *backend,
 
 	wl_list_for_each(output, &backend->heads, link) {
 		pixman_region32_t output_damage;
+
 		pixman_region32_init(&output_damage);
 		pixman_region32_copy(&output_damage, &plane->damage);
 		pixman_region32_intersect_rect(&output_damage, &output_damage,
@@ -127,9 +128,11 @@ tw_layer_renderer_stack_damage(struct tw_backend *backend,
 		                               output->state.y,
 		                               output->state.w,
 		                               output->state.h);
-		pixman_region32_translate(&output_damage, -output->state.x,
+		pixman_region32_translate(&output_damage,
+		                          -output->state.x,
 		                          -output->state.y);
-		pixman_region32_copy(&output->state.damage, &output_damage);
+		pixman_region32_copy(output->state.pending_damage,
+		                     &output_damage);
 		pixman_region32_fini(&output_damage);
 	}
 
@@ -224,8 +227,9 @@ layer_renderer_cleanup_buffer(struct tw_renderer *renderer,
 	renderer->viewport_h = output->state.h;
 	renderer->viewport_w = output->state.w;
 
-	glClear(GL_COLOR_BUFFER_BIT);
-	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+	//now we cannot use clear buffer to clean up the damages anymore
+	/* glClear(GL_COLOR_BUFFER_BIT); */
+	/* glClearColor(0.5f, 0.5f, 0.5f, 1.0f); */
 }
 
 #if defined (_TW_DEBUG_DAMAGE)
@@ -294,13 +298,15 @@ layer_render_paint_surface_clip(struct tw_surface *surface,
 static void
 layer_renderer_paint_surface(struct tw_surface *surface,
                              struct tw_layer_renderer *rdr,
-                             struct tw_backend_output *o)
+                             struct tw_backend_output *o,
+                             pixman_region32_t *output_damage)
 {
 	int nrects;
 	pixman_box32_t *boxes;
 	struct tw_mat3 proj, tmp;
 	struct tw_quad_tex_shader *shader;
 	struct tw_render_texture *texture = surface->buffer.handle.ptr;
+	pixman_region32_t damage;
 
 	if (!texture)
 		return;
@@ -335,11 +341,18 @@ layer_renderer_paint_surface(struct tw_surface *surface,
 	glUniform1i(shader->uniform.texture, 0);
 	glUniform1f(shader->uniform.alpha, 1.0f);
 
-	boxes = pixman_region32_rectangles(&surface->clip, &nrects);
+	//extracting damages
+	pixman_region32_init(&damage);
+	pixman_region32_intersect(&damage, &surface->clip, output_damage);
+	boxes = pixman_region32_rectangles(&damage, &nrects);
+
 	for (int i = 0; i < nrects; i++) {
 		layer_renderer_scissor_surface(&rdr->base, o, &boxes[i]);
 		layer_renderer_draw_quad(texture->inverted_y);
 	}
+
+	pixman_region32_fini(&damage);
+
 #if defined (_TW_DEBUG_DAMAGE)
 	layer_renderer_paint_surface_damage(surface, rdr, o, &proj);
 #elif defined(_TW_DEBUG_CLIP)
@@ -348,9 +361,25 @@ layer_renderer_paint_surface(struct tw_surface *surface,
 	SCOPE_PROFILE_END();
 }
 
+static inline void
+layer_renderer_compose_output_buffer_damage(struct tw_backend_output *output,
+                                            pixman_region32_t *damage,
+                                            int buffer_age)
+{
+	pixman_region32_t *damages[2] = {
+		output->state.curr_damage,
+		output->state.prev_damage,
+	};
+
+	pixman_region32_copy(damage, output->state.pending_damage);
+	for (int i = 0; i < buffer_age; i++)
+		pixman_region32_union(damage, damage, damages[i]);
+}
+
 static void
 layer_renderer_repaint_output(struct tw_renderer *renderer,
-                              struct tw_backend_output *output)
+                              struct tw_backend_output *output,
+                              int buffer_age)
 {
 	struct tw_plane main_plane;
 	struct tw_surface *surface;
@@ -360,12 +389,14 @@ layer_renderer_repaint_output(struct tw_renderer *renderer,
 	struct tw_layer_renderer *layer_render =
 		container_of(renderer, struct tw_layer_renderer, base);
 	struct timespec now;
+	pixman_region32_t output_damage;
 	uint32_t now_int;
 
 	SCOPE_PROFILE_BEG();
 
 	tw_backend_build_surface_list(backend);
 	tw_plane_init(&main_plane);
+	pixman_region32_init(&output_damage);
 
 	//move to plane
 	wl_list_for_each(surface, &manager->views,
@@ -373,6 +404,8 @@ layer_renderer_repaint_output(struct tw_renderer *renderer,
 		surface->current->plane = &main_plane;
 	}
 	tw_layer_renderer_stack_damage(backend, &main_plane);
+	layer_renderer_compose_output_buffer_damage(output, &output_damage,
+	                                            buffer_age);
 
 	layer_renderer_cleanup_buffer(renderer, output);
 
@@ -381,7 +414,8 @@ layer_renderer_repaint_output(struct tw_renderer *renderer,
 	wl_list_for_each_reverse(surface, &manager->views,
 	                         links[TW_VIEW_GLOBAL_LINK]) {
 
-		layer_renderer_paint_surface(surface, layer_render, output);
+		layer_renderer_paint_surface(surface, layer_render, output,
+		                             &output_damage);
 
 		clock_gettime(CLOCK_MONOTONIC, &now);
 		now_int = now.tv_sec * 1000 + now.tv_nsec / 1000000;
@@ -396,11 +430,11 @@ layer_renderer_repaint_output(struct tw_renderer *renderer,
 				output, feedback->surface->resource);
 		tw_presentation_feeback_sync(feedback, wl_output, &now);
 	}
+	pixman_region32_fini(&output_damage);
 	tw_plane_fini(&main_plane);
 
 	SCOPE_PROFILE_END();
 }
-
 
 static void
 tw_layer_renderer_destroy(struct wlr_renderer *wlr_renderer)

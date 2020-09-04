@@ -58,7 +58,9 @@ struct tw_renderer {
 	} events;
 
 	void (*repaint_output)(struct tw_renderer *renderer,
-	                       struct tw_backend_output *output);
+	                       struct tw_backend_output *output,
+	                       int buffer_age);
+	//TODO: reading pixels for recording.
 
 	/** interfaces **/
 	PFNGLEGLIMAGETARGETTEXTURE2DOESPROC glEGLImageTargetTexture2DOES;
