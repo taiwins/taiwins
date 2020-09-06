@@ -14,6 +14,8 @@ protocols = [['taiwins-shell', 'taiwins'],
 	     ['presentation-time', 'stable'],
 	     ['xdg-shell', 'stable'],
 	     ['xdg-output', 'v1'],
+	     ['input-method', 'v1'],
+	     ['text-input', 'v3'],
 	     ['wlr-layer-shell', 'internal']
 	    ]
 
