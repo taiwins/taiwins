@@ -39,7 +39,7 @@ wlroots = subproject('wlroots', default_options : [
 		       'warning_level=2',
 		       'werror=true',
 		       'examples=false',
-		     ])
+		     ], required: false)
 pixman = subproject('pixman', default_options: ['gtk=disabled', 'libpng=disabled','werror=false'],
 		    version: '>= 0.25.2', required: false)
 
