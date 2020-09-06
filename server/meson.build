@@ -36,6 +36,7 @@ taiwins_obj_srcs = [
   'objects/dmabuf.c',
   'objects/compositor.c',
   'objects/surface.c',
+  'objects/subsurface.c',
   'objects/region.c',
   'objects/buffer.c',
   'objects/layers.c',

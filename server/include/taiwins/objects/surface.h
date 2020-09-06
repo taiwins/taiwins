@@ -291,6 +291,9 @@ tw_surface_flush_frame(struct tw_surface *surface, uint32_t time_msec);
 bool
 tw_surface_is_subsurface(struct tw_surface *surf);
 
+bool
+tw_subsurface_is_synched(struct tw_subsurface *sub);
+
 struct tw_subsurface *
 tw_surface_get_subsurface(struct tw_surface *surf);
 
