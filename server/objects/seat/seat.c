@@ -316,8 +316,10 @@ tw_seat_create(struct wl_display *display, struct tw_cursor *seat_cursor,
 		return NULL;
 
 	strop_ncpy(seat->name, name, 32);
+	wl_list_init(&seat->link);
 	wl_list_init(&seat->clients);
-	seat->capabilities = 0;
+        wl_list_init(&seat->resources);
+        seat->capabilities = 0;
 	seat->repeat_delay = 500;
 	seat->repeat_rate = 25;
 	seat->display = display;
