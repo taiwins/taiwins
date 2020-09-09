@@ -1,5 +1,5 @@
 /*
- * input_method.h - taiwins server input-method header
+ * input_method.h - taiwins server input method header
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -22,12 +22,89 @@
 #ifndef TW_INPUT_METHOD_H
 #define TW_INPUT_METHOD_H
 
-#include <wayland-server-core.h>
+#include <pixman.h>
 #include <wayland-server.h>
+#include <taiwins/objects/seat.h>
+#include <taiwins/objects/surface.h>
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
+
+enum tw_input_method_request_type {
+	TW_INPUT_METHOD_PREEDIT = 1 << 0,
+	TW_INPUT_METHOD_COMMIT_STRING = 1 << 1,
+	TW_INPUT_METHOD_SURROUNDING_DELETE = 1 << 2,
+};
+
+enum tw_input_method_event_type {
+	TW_INPUT_METHOD_TOGGLE = 1 << 0,
+	TW_INPUT_METHOD_SURROUNDING_TEXT = 1 << 1,
+	TW_INPUT_METHOD_CHANGE_CAUSE = 1 << 2,
+	TW_INPUT_METHOD_CONTENT_TYPE = 1 << 3,
+	TW_INPUT_METHOD_CURSOR_RECTANGLE = 1 << 4,
+};
+
+struct tw_input_method_event {
+	bool enabled;
+	struct {
+		uint32_t cursor, anchor;
+		const char *text;
+	} surrounding;
+	pixman_rectangle32_t cursor_rect;
+
+	uint32_t change_cause, content_hint, content_purpose;
+	uint32_t events;
+};
+
+struct tw_input_method_state {
+	struct {
+		char *text;
+		int32_t cursor_begin, cursor_end;
+	} preedit;
+	char *commit_string;
+	struct {
+		uint32_t before_length, after_length;
+	} surrounding_delete;
+	uint32_t requests;
+};
+
+struct tw_input_method {
+	struct wl_resource *resource;
+	/**< tw_input_method_manager:resources */
+	struct wl_list link;
+	struct tw_seat *seat;
+
+	struct {
+		struct tw_subsurface subsurface;
+		pixman_rectangle32_t rectangle;
+	} im_surface;
+
+	struct tw_seat_keyboard_grab im_grab;
+	struct tw_input_method_state pending, current;
+	struct wl_listener seat_destroy_listener;
+	bool active;
+};
+
+struct tw_input_method_manager {
+	struct wl_display *display;
+	struct wl_listener display_destroy_listener;
+	struct wl_global *global;
+	struct wl_list ims;
+};
+
+void
+tw_input_method_send_event(struct tw_input_method *im,
+                           struct tw_input_method_event *event);
+struct tw_input_method *
+tw_input_method_find_from_seat(struct tw_seat *seat);
+
+struct tw_input_method_manager *
+tw_input_method_manager_create_global(struct wl_display *display);
+
+bool
+tw_input_method_manager_init(struct tw_input_method_manager *manager,
+                             struct wl_display *display);
 
 #ifdef  __cplusplus
 }

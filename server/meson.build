@@ -48,6 +48,7 @@ taiwins_obj_srcs = [
   'objects/presentation_feedback.c',
   'objects/viewporter.c',
   'objects/input_method.c',
+  'objects/text_input.c',
 
   wayland_linux_dmabuf_server_protocol_h,
   wayland_linux_dmabuf_private_code_c,
@@ -61,6 +62,8 @@ taiwins_obj_srcs = [
   wayland_xdg_output_private_code_c,
   wayland_input_method_server_protocol_h,
   wayland_input_method_private_code_c,
+  wayland_text_input_server_protocol_h,
+  wayland_text_input_private_code_c,
 ]
 
 taiwins_objects_inc = include_directories('include')
