@@ -60,6 +60,8 @@ struct tw_renderer {
 	void (*repaint_output)(struct tw_renderer *renderer,
 	                       struct tw_backend_output *output,
 	                       int buffer_age);
+	void (*notify_surface_destroy)(struct tw_renderer *renderer,
+	                               struct tw_surface *surface);
 	//TODO: reading pixels for recording.
 
 	/** interfaces **/

@@ -41,6 +41,8 @@
 
 struct tw_layer_renderer {
 	struct tw_renderer base;
+	struct tw_plane main_plane;
+
 	struct tw_quad_tex_shader quad_shader;
 	/* for debug rendering */
 	struct tw_quad_color_shader color_quad_shader;
@@ -48,7 +50,6 @@ struct tw_layer_renderer {
 	struct tw_quad_tex_shader ext_quad_shader;
 	struct wl_listener destroy_listener;
 };
-
 
 static void
 surface_accumulate_damage(struct tw_surface *surface,
@@ -116,12 +117,13 @@ tw_layer_renderer_stack_damage(struct tw_backend *backend,
 		pixman_region32_t output_damage;
 
 		pixman_region32_init(&output_damage);
-		pixman_region32_copy(&output_damage, &plane->damage);
-		pixman_region32_intersect_rect(&output_damage, &output_damage,
+		pixman_region32_intersect_rect(&output_damage, &plane->damage,
 		                               output->state.x,
 		                               output->state.y,
 		                               output->state.w,
 		                               output->state.h);
+		pixman_region32_subtract(&plane->damage, &plane->damage,
+		                         &output_damage);
 		pixman_region32_translate(&output_damage,
 		                          -output->state.x,
 		                          -output->state.y);
@@ -222,43 +224,13 @@ layer_renderer_cleanup_buffer(struct tw_renderer *renderer,
 	renderer->viewport_w = output->state.w;
 
 	//now we cannot use clear buffer to clean up the damages anymore
-	/* glClear(GL_COLOR_BUFFER_BIT); */
-	/* glClearColor(0.5f, 0.5f, 0.5f, 1.0f); */
+#if defined (_TW_DEBUG_DAMAGE) || defined (_TW_DEBUG_CLIP)
+	glClear(GL_COLOR_BUFFER_BIT);
+	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+#endif
 }
 
-#if defined (_TW_DEBUG_DAMAGE)
-
-static void
-layer_renderer_paint_surface_damage(struct tw_surface *surface,
-                                    struct tw_layer_renderer *rdr,
-                                    struct tw_backend_output *o,
-                                    const struct tw_mat3 *proj)
-{
-	int nrects;
-	pixman_box32_t *boxes;
-	pixman_region32_t surface_damage;
-	GLfloat debug_colors[4] = {1.0, 1.0, 0.0, 1.0};
-	struct tw_quad_color_shader *shader =
-		&rdr->color_quad_shader;
-
-	glUseProgram(shader->prog);
-	glUniformMatrix3fv(shader->uniform.proj, 1, GL_FALSE, proj->d);
-	glUniform4f(shader->uniform.color, debug_colors[0], debug_colors[1],
-	            debug_colors[2], debug_colors[3]);
-	glUniform1f(shader->uniform.alpha, 0.5);
-
-	pixman_region32_init(&surface_damage);
-	pixman_region32_intersect(&surface_damage, &surface->clip,
-	                          &o->state.damage);
-	boxes = pixman_region32_rectangles(&surface_damage, &nrects);
-	for (int i = 0; i < nrects; i++) {
-		layer_renderer_scissor_surface(&rdr->base, o, &boxes[i]);
-		layer_renderer_draw_quad(false);
-	}
-	pixman_region32_fini(&surface_damage);
-}
-
-#elif defined(_TW_DEBUG_CLIP)
+#if defined(_TW_DEBUG_CLIP)
 
 static void
 layer_render_paint_surface_clip(struct tw_surface *surface,
@@ -338,7 +310,12 @@ layer_renderer_paint_surface(struct tw_surface *surface,
 	//extracting damages
 	pixman_region32_init(&damage);
 	pixman_region32_intersect(&damage, &surface->clip, output_damage);
+
+#if defined (_TW_DEBUG_CLIP)
+	boxes = pixman_region32_rectangles(&surface->clip, &nrects);
+#else
 	boxes = pixman_region32_rectangles(&damage, &nrects);
+#endif
 
 	for (int i = 0; i < nrects; i++) {
 		layer_renderer_scissor_surface(&rdr->base, o, &boxes[i]);
@@ -347,9 +324,7 @@ layer_renderer_paint_surface(struct tw_surface *surface,
 
 	pixman_region32_fini(&damage);
 
-#if defined (_TW_DEBUG_DAMAGE)
-	layer_renderer_paint_surface_damage(surface, rdr, o, &proj);
-#elif defined(_TW_DEBUG_CLIP)
+#if defined(_TW_DEBUG_CLIP)
 	layer_render_paint_surface_clip(surface, rdr, o, &proj);
 #endif
 	SCOPE_PROFILE_END();
@@ -375,7 +350,6 @@ layer_renderer_repaint_output(struct tw_renderer *renderer,
                               struct tw_backend_output *output,
                               int buffer_age)
 {
-	struct tw_plane main_plane;
 	struct tw_surface *surface;
 	struct tw_presentation_feedback *feedback, *tmp;
 	struct tw_backend *backend = output->backend;
@@ -389,15 +363,14 @@ layer_renderer_repaint_output(struct tw_renderer *renderer,
 	SCOPE_PROFILE_BEG();
 
 	tw_backend_build_surface_list(backend);
-	tw_plane_init(&main_plane);
 	pixman_region32_init(&output_damage);
 
 	//move to plane
 	wl_list_for_each(surface, &manager->views,
 	                 links[TW_VIEW_GLOBAL_LINK]) {
-		surface->current->plane = &main_plane;
+		surface->current->plane = &layer_render->main_plane;
 	}
-	tw_layer_renderer_stack_damage(backend, &main_plane);
+	tw_layer_renderer_stack_damage(backend, &layer_render->main_plane);
 	layer_renderer_compose_output_buffer_damage(output, &output_damage,
 	                                            buffer_age);
 
@@ -425,9 +398,19 @@ layer_renderer_repaint_output(struct tw_renderer *renderer,
 		tw_presentation_feeback_sync(feedback, wl_output, &now);
 	}
 	pixman_region32_fini(&output_damage);
-	tw_plane_fini(&main_plane);
 
 	SCOPE_PROFILE_END();
+}
+
+static void
+layer_renderer_handle_surface_destroy(struct tw_renderer *renderer,
+                                      struct tw_surface *surface)
+{
+	struct tw_layer_renderer *layer_render =
+		container_of(renderer, struct tw_layer_renderer, base);
+	pixman_region32_union(&layer_render->main_plane.damage,
+	                      &layer_render->main_plane.damage,
+	                      &surface->clip);
 }
 
 static void
@@ -441,6 +424,9 @@ tw_layer_renderer_destroy(struct wlr_renderer *wlr_renderer)
 	tw_quad_tex_blend_shader_fini(&renderer->quad_shader);
 	tw_quad_tex_ext_blend_shader_fini(&renderer->quad_shader);
 	tw_renderer_base_fini(&renderer->base);
+
+	tw_plane_fini(&renderer->main_plane);
+
 	free(renderer);
 }
 
@@ -458,6 +444,8 @@ tw_layer_renderer_create(struct wlr_egl *egl, EGLenum platform,
 		free(renderer);
 		return NULL;
 	}
+	tw_plane_init(&renderer->main_plane);
+
 	tw_quad_color_shader_init(&renderer->color_quad_shader);
 	tw_quad_tex_blend_shader_init(&renderer->quad_shader);
 	tw_quad_tex_ext_blend_shader_init(&renderer->ext_quad_shader);
@@ -465,6 +453,8 @@ tw_layer_renderer_create(struct wlr_egl *egl, EGLenum platform,
 	wlr_renderer_init(&renderer->base.base, &renderer->base.wlr_impl);
 
 	renderer->base.repaint_output = layer_renderer_repaint_output;
+	renderer->base.notify_surface_destroy =
+		layer_renderer_handle_surface_destroy;
 
 	return &renderer->base.base;
 }
