@@ -113,11 +113,11 @@ void
 tw_render_texture_destroy(struct tw_render_texture *texture);
 
 bool
-tw_renderer_init_base(struct tw_renderer *renderer,
-                      struct wlr_egl *egl, EGLenum platform,
-                      void *remote_display, EGLint visual_id);
+tw_renderer_init(struct tw_renderer *renderer,
+                 struct wlr_egl *egl, EGLenum platform,
+                 void *remote_display, EGLint visual_id);
 void
-tw_renderer_base_fini(struct tw_renderer *renderer);
+tw_renderer_fini(struct tw_renderer *renderer);
 
 struct wlr_renderer *
 tw_layer_renderer_create(struct wlr_egl *egl, EGLenum platform,

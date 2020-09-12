@@ -423,7 +423,7 @@ tw_layer_renderer_destroy(struct wlr_renderer *wlr_renderer)
 	tw_quad_color_shader_fini(&renderer->color_quad_shader);
 	tw_quad_tex_blend_shader_fini(&renderer->quad_shader);
 	tw_quad_tex_ext_blend_shader_fini(&renderer->quad_shader);
-	tw_renderer_base_fini(&renderer->base);
+	tw_renderer_fini(&renderer->base);
 
 	tw_plane_fini(&renderer->main_plane);
 
@@ -439,8 +439,8 @@ tw_layer_renderer_create(struct wlr_egl *egl, EGLenum platform,
 		calloc(1, sizeof(struct tw_layer_renderer));
 	if (!renderer)
 		return NULL;
-	if (!tw_renderer_init_base(&renderer->base, egl, platform,
-	                           remote_display, visual_id)) {
+	if (!tw_renderer_init(&renderer->base, egl, platform,
+	                      remote_display, visual_id)) {
 		free(renderer);
 		return NULL;
 	}
