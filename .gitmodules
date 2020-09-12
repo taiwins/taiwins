@@ -16,3 +16,6 @@
 [submodule "subprojects/wlroots"]
 	path = subprojects/wlroots
 	url = https://github.com/swaywm/wlroots
+[submodule "subprojects/twobjects"]
+	path = subprojects/twobjects
+	url = https://github.com/taiwins/twobjects.git
