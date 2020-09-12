@@ -100,9 +100,11 @@ struct tw_backend_output {
 		float scale;
 		enum wl_output_transform transform;
 		struct tw_cursor_constrain constrain;
-		//TODO set gamma, the gamma value is the typical exp value you
-		//used for monitors, 1.0 means linear gamma. wlr uses a
-		//different gamma method, we deal with later
+		/**< we have 3 frame_damages for triple buffering */
+		pixman_region32_t damages[3];
+		pixman_region32_t *pending_damage, *curr_damage, *prev_damage;
+
+		//TODO set gamma, wlroots uses gamma for redshift.
 		float gamma_value;
 
 		/* convert global coordinates to output GL coordinates */
@@ -243,6 +245,12 @@ struct tw_surface *
 tw_backend_pick_surface_from_layers(struct tw_backend *backend,
                                     float x, float y,
                                     float *sx,  float *sy);
+/**
+ * @brief build the surface list, top down fashion based on layers
+ */
+void
+tw_backend_build_surface_list(struct tw_backend *backend);
+
 void
 tw_backend_set_output_scale(struct tw_backend_output *output, float scale);
 

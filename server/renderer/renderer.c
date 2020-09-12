@@ -341,9 +341,9 @@ query_extensions(struct tw_renderer *renderer)
 }
 
 bool
-tw_renderer_init_base(struct tw_renderer *renderer,
-                      struct wlr_egl *egl, EGLenum platform,
-                      void *remote_display, EGLint visual_id)
+tw_renderer_init(struct tw_renderer *renderer,
+                 struct wlr_egl *egl, EGLenum platform,
+                 void *remote_display, EGLint visual_id)
 {
 	bool init = false;
 	if (!renderer)
@@ -391,7 +391,7 @@ tw_renderer_init_base(struct tw_renderer *renderer,
 }
 
 void
-tw_renderer_base_fini(struct tw_renderer *renderer)
+tw_renderer_fini(struct tw_renderer *renderer)
 {
 	if (renderer->options.enable_debug) {
 		glDisable(GL_DEBUG_OUTPUT_KHR);

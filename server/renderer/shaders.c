@@ -58,11 +58,12 @@ static const GLchar quad_vs[] =
 
 static const GLchar color_quad_fs[] =
 	"precision mediump float;\n"
+	"uniform float alpha;\n"
 	"varying vec4 o_color;\n"
 	"varying vec2 o_texcoord;\n"
 	"\n"
 	"void main() {\n"
-	"	gl_FragColor = o_color;\n"
+	"	gl_FragColor = o_color * alpha;\n"
 	"}\n"
 	"\n";
 
@@ -198,8 +199,10 @@ tw_quad_color_shader_init(struct tw_quad_color_shader *shader)
 	shader->prog = tw_renderer_create_program(quad_vs, color_quad_fs);
 	shader->uniform.proj = glGetUniformLocation(shader->prog, "proj");
 	shader->uniform.color = glGetUniformLocation(shader->prog, "color");
+	shader->uniform.alpha = glGetUniformLocation(shader->prog, "alpha");
 	assert(shader->uniform.proj >= 0);
 	assert(shader->uniform.color >= 0);
+	assert(shader->uniform.alpha >= 0);
 }
 
 void

@@ -26,6 +26,7 @@
 #include <stdbool.h>
 #include <wayland-server-protocol.h>
 #include <wayland-server.h>
+#include <pixman.h>
 
 #define TW_EPSILON 1.0e-6
 
@@ -52,6 +53,9 @@ tw_mat3_multiply(struct tw_mat3 *dst,
 void
 tw_mat3_vec_transform(const struct tw_mat3 *mat, float x, float y,
                       float *rx, float *ry);
+void
+tw_mat3_box_transform(const struct tw_mat3 *mat,
+                      pixman_box32_t *dst, const pixman_box32_t *src);
 void
 tw_mat3_scale(struct tw_mat3 *dst, float x, float y);
 

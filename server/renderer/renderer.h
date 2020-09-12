@@ -58,7 +58,11 @@ struct tw_renderer {
 	} events;
 
 	void (*repaint_output)(struct tw_renderer *renderer,
-	                       struct tw_backend_output *output);
+	                       struct tw_backend_output *output,
+	                       int buffer_age);
+	void (*notify_surface_destroy)(struct tw_renderer *renderer,
+	                               struct tw_surface *surface);
+	//TODO: reading pixels for recording.
 
 	/** interfaces **/
 	PFNGLEGLIMAGETARGETTEXTURE2DOESPROC glEGLImageTargetTexture2DOES;
@@ -109,11 +113,11 @@ void
 tw_render_texture_destroy(struct tw_render_texture *texture);
 
 bool
-tw_renderer_init_base(struct tw_renderer *renderer,
-                      struct wlr_egl *egl, EGLenum platform,
-                      void *remote_display, EGLint visual_id);
+tw_renderer_init(struct tw_renderer *renderer,
+                 struct wlr_egl *egl, EGLenum platform,
+                 void *remote_display, EGLint visual_id);
 void
-tw_renderer_base_fini(struct tw_renderer *renderer);
+tw_renderer_fini(struct tw_renderer *renderer);
 
 struct wlr_renderer *
 tw_layer_renderer_create(struct wlr_egl *egl, EGLenum platform,

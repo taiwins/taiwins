@@ -35,6 +35,7 @@ struct tw_quad_color_shader {
 	struct {
 		GLint proj;
 		GLint color;
+		GLint alpha;
 	} uniform;
 };
 

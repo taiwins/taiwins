@@ -1,10 +1,18 @@
-taiwins_cargs = [
+twobject_cargs = [
   '-D_GNU_SOURCE',
   '-DWLR_USE_UNSTABLE'
 ]
 
+taiwins_cargs = []
+
 if get_option('enable-profiler')
-   taiwins_cargs += '-D_TW_ENABLE_PROFILING'
+   twobject_cargs += '-D_TW_ENABLE_PROFILING'
+endif
+
+if get_option('rendering-debug') == 'damage'
+  taiwins_cargs += '-D_TW_DEBUG_DAMAGE'
+elif get_option('rendering-debug') == 'clip'
+  taiwins_cargs += '-D_TW_DEBUG_CLIP'
 endif
 
 if cc.has_function('libinput_device_touch_get_touch_count',
@@ -28,6 +36,7 @@ taiwins_obj_srcs = [
   'objects/dmabuf.c',
   'objects/compositor.c',
   'objects/surface.c',
+  'objects/subsurface.c',
   'objects/region.c',
   'objects/buffer.c',
   'objects/layers.c',
@@ -76,7 +85,7 @@ taiwins_objects_deps = [
 lib_taiwins_objects = both_libraries(
   'taiwins-objects',
   taiwins_obj_srcs,
-  c_args : taiwins_cargs,
+  c_args : twobject_cargs,
   dependencies : taiwins_objects_deps,
   include_directories : taiwins_objects_inc,
   install : true,
@@ -84,7 +93,7 @@ lib_taiwins_objects = both_libraries(
 
 dep_taiwins_objects = declare_dependency(
   link_with : lib_taiwins_objects,
-  compile_args : taiwins_cargs,
+  compile_args : twobject_cargs,
   include_directories : taiwins_objects_inc,
   dependencies : taiwins_objects_deps,
 )

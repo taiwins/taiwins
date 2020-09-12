@@ -369,7 +369,7 @@ notify_dirty_wl_surface(struct wl_listener *listener, void *data)
 	struct tw_surface *surface = data;
 	struct tw_backend *backend = impl->backend;
 
-	if (surface->geometry.dirty)
+	if (pixman_region32_not_empty(&surface->geometry.dirty))
 		reassign_surface_outputs(surface, backend);
 
 	wl_list_for_each(output, &backend->heads, link) {
@@ -388,11 +388,14 @@ notify_rm_wl_surface(struct wl_listener *listener, void *data)
 		container_of(listener, struct tw_backend_impl,
 		             surface_destroy);
 	struct tw_backend *backend = impl->backend;
+	struct tw_renderer *renderer =
+		container_of(backend->main_renderer, struct tw_renderer, base);
 
 	wl_list_for_each(output, &backend->heads, link) {
 		if ((1u << output->id) & surface->output_mask)
 			tw_backend_output_dirty(output);
 	}
+	renderer->notify_surface_destroy(renderer, surface);
 }
 
 void

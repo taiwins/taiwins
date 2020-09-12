@@ -348,6 +348,8 @@ tw_workspace_focus_view(struct tw_workspace *ws, struct tw_xdg_view *v)
 	} else {
 		tw_logl_level(TW_LOG_ERRO, "the view has invalid layer");
 	}
+
+	tw_surface_dirty_geometry(v->dsurf->tw_surface);
 	//finally we manage our recent views.
 	wl_list_remove(&v->link);
 	wl_list_insert(&ws->recent_views, &v->link);

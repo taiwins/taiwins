@@ -42,6 +42,7 @@
 #include <xkbcommon/xkbcommon.h>
 #include <pixman.h>
 
+#include <taiwins/objects/profiler.h>
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/compositor.h>
@@ -362,4 +363,77 @@ tw_backend_switch_session(struct tw_backend *backend, uint32_t id)
 		if (session)
 			wlr_session_change_vt(session, id);
 	}
+}
+
+static void
+surface_add_to_outputs_list(struct tw_backend *backend,
+                            struct tw_surface *surface)
+{
+	struct tw_backend_output *output;
+	struct tw_subsurface *sub;
+
+	assert(surface->output >= 0 && surface->output <= 31);
+	output = &backend->outputs[surface->output];
+
+	wl_list_insert(output->views.prev,
+	               &surface->links[TW_VIEW_OUTPUT_LINK]);
+
+	wl_list_for_each(sub, &surface->subsurfaces, parent_link)
+		surface_add_to_outputs_list(backend, sub->surface);
+}
+
+static void
+subsurface_add_to_list(struct wl_list *parent_head, struct tw_surface *surface)
+{
+	struct tw_subsurface *sub;
+
+	wl_list_insert(parent_head->prev,
+	               &surface->links[TW_VIEW_GLOBAL_LINK]);
+	wl_list_for_each_reverse(sub, &surface->subsurfaces, parent_link) {
+		subsurface_add_to_list(&surface->links[TW_VIEW_GLOBAL_LINK],
+		                       sub->surface);
+	}
+}
+
+static void
+surface_add_to_list(struct tw_backend *backend, struct tw_surface *surface)
+{
+	//we should also add to the output
+	struct tw_subsurface *sub;
+	struct tw_layers_manager *manager = &backend->layers_manager;
+
+	wl_list_insert(manager->views.prev,
+	               &surface->links[TW_VIEW_GLOBAL_LINK]);
+
+	//subsurface inserts just above its main surface, here we take the
+	//reverse order of the subsurfaces and insert them one by one in front
+	//of the main surface
+	wl_list_for_each_reverse(sub, &surface->subsurfaces, parent_link)
+		subsurface_add_to_list(&surface->links[TW_VIEW_GLOBAL_LINK],
+		                       sub->surface);
+}
+
+void
+tw_backend_build_surface_list(struct tw_backend *backend)
+{
+	struct tw_surface *surface;
+	struct tw_layer *layer;
+	struct tw_backend_output *output;
+	struct tw_layers_manager *manager = &backend->layers_manager;
+
+	SCOPE_PROFILE_BEG();
+
+	wl_list_init(&manager->views);
+	wl_list_for_each(output, &backend->heads, link)
+		wl_list_init(&output->views);
+
+	wl_list_for_each(layer, &manager->layers, link) {
+		wl_list_for_each(surface, &layer->views,
+		                 links[TW_VIEW_LAYER_LINK]) {
+			surface_add_to_list(backend, surface);
+			surface_add_to_outputs_list(backend, surface);
+		}
+	}
+
+	SCOPE_PROFILE_END();
 }

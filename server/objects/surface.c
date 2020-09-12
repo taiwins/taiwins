@@ -36,8 +36,6 @@
 
 #define CALLBACK_VERSION 1
 #define SURFACE_VERSION 4
-#define SUBSURFACE_VERSION 1
-
 
 /*
  * tasks tracking:
@@ -131,9 +129,8 @@ surface_set_opaque_region(struct wl_client *client,
 		pixman_region32_clear(&surface->pending->opaque_region);
 	} else {
 		region = tw_region_from_resource(region_res);
-		pixman_region32_union(&surface->pending->opaque_region,
-		                      &surface->pending->opaque_region,
-		                      &region->region);
+		pixman_region32_copy(&surface->pending->opaque_region,
+		                     &region->region);
 	}
 	surface->pending->commit_state |= TW_SURFACE_OPAQUE_REGION;
 }
@@ -392,6 +389,7 @@ surface_build_geometry_matrix(struct tw_surface *surface)
 		target_width = buffer_width;
 		target_height = buffer_height;
 	}
+	//working in the center origin cooridnate system
 	//since (-1, -1) is up-left
 	tw_mat3_scale(transform, target_width / 2.0, target_height / 2.0);
 	tw_mat3_wl_transform(&tmp, current->transform, false); //ydown
@@ -403,9 +401,11 @@ surface_build_geometry_matrix(struct tw_surface *surface)
 		              1.0/current->buffer_scale);
 		tw_mat3_multiply(transform, &tmp, transform);
 	}
-	//update the coordinates
 
+	//move the origin back to top-left cornor.
+	//1st: we need to shift the surfaceby half or its length.
 	tw_mat3_vec_transform(transform, 1.0, 1.0, &x, &y);
+	//2nd: then move the origin to the origin geometry
 	tw_mat3_translate(&tmp,
 	                  fabs(x) + surface->geometry.x,
 	                  fabs(y) + surface->geometry.y);
@@ -416,28 +416,22 @@ surface_build_geometry_matrix(struct tw_surface *surface)
 static void
 surface_update_geometry(struct tw_surface *surface)
 {
-	pixman_box32_t box = {INT_MAX, INT_MAX, INT_MIN, INT_MIN};
-	float corners[4][2] = {
-		{-1.0f, -1.0f}, {-1.0f, 1.0f},
-		{1.0f, -1.0f}, {1.0f, 1.0f},
-	};
-
+	pixman_box32_t box = {-1, -1, 1, 1};
 	//update new geometry
 	surface_build_geometry_matrix(surface);
-	for (int i = 0; i < 4; i++) {
-		tw_mat3_vec_transform(&surface->geometry.transform,
-		                      corners[i][0], corners[i][1],
-		                      &corners[i][0], &corners[i][1]);
-		box.x1 = MIN(box.x1, (int32_t)corners[i][0]);
-		box.y1 = MIN(box.y1, (int32_t)corners[i][1]);
-		box.x2 = MAX(box.x2, (int32_t)corners[i][0]);
-		box.y2 = MAX(box.y2, (int32_t)corners[i][1]);
-	}
+	tw_mat3_box_transform(&surface->geometry.transform, &box, &box);
+
 	if (box.x1 != surface->geometry.xywh.x ||
 	    box.y1 != surface->geometry.xywh.y ||
 	    (box.x2-box.x1) != (int)surface->geometry.xywh.width ||
 	    (box.y2-box.y1) != (int)surface->geometry.xywh.height) {
-		surface->geometry.prev_xywh = surface->geometry.xywh;
+
+		pixman_region32_union_rect(&surface->geometry.dirty,
+		                           &surface->geometry.dirty,
+		                           surface->geometry.xywh.x,
+		                           surface->geometry.xywh.y,
+		                           surface->geometry.xywh.width,
+		                           surface->geometry.xywh.height);
 		surface->geometry.xywh.x = box.x1;
 		surface->geometry.xywh.y = box.y1;
 		surface->geometry.xywh.width = box.x2-box.x1;
@@ -527,21 +521,7 @@ surface_commit_state(struct tw_surface *surface)
 		surface->role.commit(surface);
 }
 
-static bool
-subsurface_is_synched(struct tw_subsurface *subsurface)
-{
-	while (subsurface != NULL) {
-		if (subsurface->sync)
-			return true;
-		if (!subsurface->parent)
-			return false;
-		subsurface = tw_surface_get_subsurface(subsurface->parent);
-	}
-
-	return false;
-}
-
-static void
+void
 subsurface_commit_for_parent(struct tw_subsurface *subsurface, bool sync)
 {
 	//I feel like the logic here is not right at all. But I don't know,
@@ -563,7 +543,7 @@ surface_commit_as_subsurface(struct tw_surface *surface, bool forced)
 {
 	struct tw_subsurface *subsurface = surface->role.commit_private;
 	//only commit if is not synchronized.
-	if (forced || !subsurface_is_synched(subsurface)) {
+	if (forced || !tw_subsurface_is_synched(subsurface)) {
 		surface_commit_state(subsurface->surface);
 		return true;
 	}
@@ -641,7 +621,7 @@ tw_surface_has_role(struct tw_surface *surface)
 void
 tw_surface_unmap(struct tw_surface *surface)
 {
-	//TODO: do I need a mapped filed?
+	//TODO: do I need a mapped field?
 	for (int i = 0; i < MAX_VIEW_LINKS; i++)
 		tw_reset_wl_list(&surface->links[i]);
 }
@@ -688,7 +668,6 @@ tw_surface_has_point(struct tw_surface *surface, float x, float y)
 	int32_t y2 = surface->geometry.xywh.y + surface->geometry.xywh.height;
 
 	return (x >= x1 && x <= x2 && y >= y1 && y <= y2);
-
 }
 
 bool
@@ -705,12 +684,17 @@ tw_surface_has_input_point(struct tw_surface *surface, float x, float y)
 		                               x, y, NULL);
 }
 
-
 void
 tw_surface_dirty_geometry(struct tw_surface *surface)
 {
 	struct tw_subsurface *sub;
-	surface->geometry.dirty = true;
+	pixman_region32_union_rect(&surface->geometry.dirty,
+	                           &surface->geometry.dirty,
+	                           surface->geometry.xywh.x,
+	                           surface->geometry.xywh.y,
+	                           surface->geometry.xywh.width,
+	                           surface->geometry.xywh.height);
+
 	wl_list_for_each(sub, &surface->subsurfaces, parent_link)
 		tw_surface_dirty_geometry(sub->surface);
 	if (surface->manager)
@@ -732,7 +716,7 @@ tw_surface_flush_frame(struct tw_surface *surface, uint32_t time)
 		wl_callback_send_done(callback, time);
 		wl_resource_destroy(callback);
 	}
-	surface->geometry.dirty = false;
+	pixman_region32_clear(&surface->geometry.dirty);
 	//handlers like presentation feedback may happen here.
 	wl_signal_emit(&surface->events.frame, &event);
 }
@@ -765,6 +749,7 @@ surface_destroy_resource(struct wl_resource *resource)
 		tw_surface_buffer_release(&surface->buffer);
 
 	pixman_region32_fini(&surface->clip);
+	pixman_region32_fini(&surface->geometry.dirty);
 
 	wl_signal_emit(&surface->events.destroy, surface);
 
@@ -789,7 +774,6 @@ tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
 	//initializers
 	surface->manager = manager;
 	surface->resource = resource;
-	surface->state = 0;
 	surface->is_mapped = false;
 	surface->pending = &surface->surface_states[0];
 	surface->current = &surface->surface_states[1];
@@ -798,6 +782,7 @@ tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
 	wl_signal_init(&surface->events.frame);
 	wl_signal_init(&surface->events.destroy);
 	pixman_region32_init(&surface->clip);
+	pixman_region32_init(&surface->geometry.dirty);
 
 	for (int i = 0; i < MAX_VIEW_LINKS; i++)
 		wl_list_init(&surface->links[i]);
@@ -829,269 +814,6 @@ tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
 	if (manager)
 		wl_signal_emit(&manager->surface_created_signal, surface);
 	return surface;
-}
-
-/******************************************************************************
- * wl_subsurface implementation
- *****************************************************************************/
-
-static const struct wl_subsurface_interface subsurface_impl;
-
-static void subsurface_commit_role(struct tw_surface *surf) {
-	struct tw_subsurface *sub = surf->role.commit_private;
-	struct tw_surface *parent = sub->parent;
-	// surface has moved, or parent has moved. We would need to dirty the
-	// geometry now.
-	if (surf->geometry.xywh.x != sub->sx + parent->geometry.xywh.x ||
-	    surf->geometry.xywh.y != sub->sy + parent->geometry.xywh.y)
-		tw_surface_set_position(surf, parent->geometry.xywh.x + sub->sx,
-		                        parent->geometry.xywh.y + sub->sy);
-}
-
-bool
-tw_surface_is_subsurface(struct tw_surface *surf)
-{
-	return surf->role.commit == subsurface_commit_role;
-}
-
-struct tw_subsurface *
-tw_surface_get_subsurface(struct tw_surface *surf)
-{
-	return (tw_surface_is_subsurface(surf)) ?
-		surf->role.commit_private :
-		NULL;
-}
-
-static struct tw_subsurface *
-tw_subsurface_from_resource(struct wl_resource *resource)
-{
-	assert(wl_resource_instance_of(resource, &wl_subsurface_interface,
-	                               &subsurface_impl));
-	return wl_resource_get_user_data(resource);
-}
-
-static struct tw_subsurface *
-find_sibling_subsurface(struct tw_subsurface *subsurface,
-                        struct tw_surface *surface)
-{
-	struct tw_surface *parent = subsurface->parent;
-	struct tw_subsurface *sibling;
-	wl_list_for_each(sibling, &parent->subsurfaces, parent_link) {
-		if (sibling->surface == surface && sibling != subsurface)
-			return sibling;
-	}
-	wl_list_for_each(sibling, &parent->subsurfaces_pending,
-	                 parent_pending_link) {
-		if (sibling->surface == surface && sibling != subsurface)
-			return sibling;
-	}
-	return NULL;
-}
-
-static void
-subsurface_handle_destroy(struct wl_client *client,
-                          struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
-static void
-subsurface_set_position(struct wl_client *client,
-                        struct wl_resource *resource,
-                        int32_t x,
-                        int32_t y)
-{
-	struct tw_subsurface *subsurf =
-		tw_subsurface_from_resource(resource);
-	tw_subsurface_update_pos(subsurf, x, y);
-}
-
-static void
-subsurface_place_above(struct wl_client *client,
-                       struct wl_resource *resource,
-                       struct wl_resource *sibling)
-{
-	struct tw_subsurface *subsurface =
-		tw_subsurface_from_resource(resource);
-	struct tw_surface *sibling_surface =
-		tw_surface_from_resource(sibling);
-	struct tw_subsurface *sibling_subsurface =
-		find_sibling_subsurface(subsurface, sibling_surface);
-	if (!sibling_subsurface) {
-		wl_resource_post_error(
-			resource,
-			WL_SUBSURFACE_ERROR_BAD_SURFACE,
-			"wl_surface@%d is not sibling to "
-			"wl_surface@%d",
-			wl_resource_get_id(sibling_surface->resource),
-			wl_resource_get_id(subsurface->surface->resource));
-	}
-	wl_list_remove(&subsurface->parent_pending_link);
-	wl_list_insert(&sibling_subsurface->parent_pending_link,
-	               &subsurface->parent_pending_link);
-}
-
-static void
-subsurface_place_below(struct wl_client *client,
-                       struct wl_resource *resource,
-                       struct wl_resource *sibling)
-{
-	struct tw_subsurface *subsurface =
-		tw_subsurface_from_resource(resource);
-	struct tw_surface *sibling_surface =
-		tw_surface_from_resource(sibling);
-	struct tw_subsurface *sibling_subsurface =
-		find_sibling_subsurface(subsurface, sibling_surface);
-	if (!sibling_subsurface) {
-		wl_resource_post_error(
-			resource,
-			WL_SUBSURFACE_ERROR_BAD_SURFACE,
-			"wl_surface@%d is not sibling to "
-			"wl_surface@%d",
-			wl_resource_get_id(sibling_surface->resource),
-			wl_resource_get_id(subsurface->surface->resource));
-	}
-	wl_list_remove(&subsurface->parent_pending_link);
-	wl_list_insert(sibling_subsurface->parent_pending_link.prev,
-	               &subsurface->parent_pending_link);
-}
-
-static void
-subsurface_set_sync(struct wl_client *client, struct wl_resource *resource)
-{
-	struct tw_subsurface *subsurface =
-		tw_subsurface_from_resource(resource);
-	subsurface->sync = true;
-}
-
-static void
-subsurface_set_desync(struct wl_client *client, struct wl_resource *resource)
-{
-	struct tw_subsurface *subsurface =
-		tw_subsurface_from_resource(resource);
-	if (subsurface->sync) {
-		subsurface->sync = false;
-		if (!subsurface_is_synched(subsurface))
-			subsurface_commit_for_parent(subsurface, true);
-	}
-}
-
-static const struct wl_subsurface_interface subsurface_impl = {
-	.destroy = subsurface_handle_destroy,
-	.set_position = subsurface_set_position,
-	.place_above = subsurface_place_above,
-	.place_below = subsurface_place_below,
-	.set_sync = subsurface_set_sync,
-	.set_desync = subsurface_set_desync,
-};
-
-static inline void
-subsurface_set_role(struct tw_subsurface *subsurface, struct tw_surface *surf)
-{
-	surf->role.commit_private = subsurface;
-        surf->role.commit = subsurface_commit_role;
-        surf->role.name = "subsurface";
-}
-
-static inline void
-subsurface_unset_role(struct tw_subsurface *subsurface)
-{
-	subsurface->surface->role.commit_private = NULL;
-	subsurface->surface->role.commit = NULL;
-	subsurface->surface->role.name  = NULL;
-}
-
-static void
-subsurface_destroy(struct tw_subsurface *subsurface)
-{
-	struct tw_surface_manager *manager;
-	if (!subsurface)
-		return;
-	manager = subsurface->surface->manager;
-	if (manager)
-		wl_signal_emit(&manager->subsurface_destroy_signal,
-		               subsurface);
-
-	wl_list_remove(&subsurface->surface_destroyed.link);
-	if (subsurface->parent) {
-		wl_list_remove(&subsurface->parent_link);
-		wl_list_remove(&subsurface->parent_pending_link);
-	}
-	wl_resource_set_user_data(subsurface->resource, NULL);
-	if (subsurface->surface)
-		subsurface_unset_role(subsurface);
-
-	subsurface->parent = NULL;
-	free(subsurface);
-}
-
-static void
-subsurface_destroy_resource(struct wl_resource *resource)
-{
-	struct tw_subsurface *subsurface =
-		tw_subsurface_from_resource(resource);
-	subsurface_destroy(subsurface);
-}
-
-static void
-notify_subsurface_surface_destroy(struct wl_listener *listener, void *data)
-{
-	struct tw_subsurface *subsurface =
-		container_of(listener, struct tw_subsurface,
-		             surface_destroyed);
-	subsurface_destroy(subsurface);
-}
-
-struct tw_subsurface *
-tw_subsurface_create(struct wl_client *client, uint32_t version,
-                     uint32_t id, struct tw_surface *surface,
-                     struct tw_surface *parent)
-{
-	struct tw_subsurface *subsurface = NULL;
-	struct wl_resource *resource = NULL;
-
-	if (!tw_create_wl_resource_for_obj(resource, subsurface, client, id,
-	                                   version, wl_subsurface_interface)) {
-		wl_client_post_no_memory(client);
-		return NULL;
-	}
-	wl_resource_set_implementation(resource, &subsurface_impl,
-	                               subsurface,
-	                               subsurface_destroy_resource);
-	subsurface->resource = resource;
-	subsurface->surface = surface;
-	subsurface->parent = parent;
-	subsurface_set_role(subsurface, surface);
-	// stacking order
-	wl_list_init(&subsurface->parent_link);
-	wl_list_init(&subsurface->parent_pending_link);
-	wl_list_insert(parent->subsurfaces_pending.prev,
-	               &subsurface->parent_pending_link);
-	// add listeners
-	wl_list_init(&subsurface->surface_destroyed.link);
-	subsurface->surface_destroyed.notify =
-		notify_subsurface_surface_destroy;
-	wl_signal_add(&surface->events.destroy,
-	              &subsurface->surface_destroyed);
-
-	if (surface->manager)
-		wl_signal_emit(&surface->manager->subsurface_created_signal,
-		               subsurface);
-
-	return subsurface;
-}
-
-void
-tw_subsurface_update_pos(struct tw_subsurface *sub,
-                         int32_t sx, int32_t sy)
-{
-	struct tw_surface *surface = sub->surface;
-	struct tw_surface *parent = sub->parent;
-
-	sub->sx = sx;
-	sub->sy = sy;
-	tw_surface_set_position(surface, parent->geometry.x + sx,
-	                        parent->geometry.y + sy);
 }
 
 void
