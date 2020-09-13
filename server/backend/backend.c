@@ -42,7 +42,6 @@
 #include <xkbcommon/xkbcommon.h>
 #include <pixman.h>
 
-#include <taiwins/objects/profiler.h>
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/compositor.h>
@@ -53,6 +52,7 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/profiler.h>
 
+#include "profiling.h"
 #include "backend.h"
 #include "backend_internal.h"
 

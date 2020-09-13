@@ -34,7 +34,7 @@
 #include <taiwins/objects/matrix.h>
 #include <taiwins/objects/plane.h>
 #include <taiwins/objects/surface.h>
-#include <taiwins/objects/profiler.h>
+#include "profiling.h"
 #include "renderer.h"
 #include "shaders.h"
 #include "backend.h"
