@@ -16,6 +16,7 @@ taiwins_obj_srcs = [
   'seat/seat_pointer.c',
   'seat/seat_touch.c',
   'dmabuf.c',
+  'output.c',
   'compositor.c',
   'surface.c',
   'subsurface.c',
