@@ -24,6 +24,7 @@
 #include <stdint.h>
 #include <wayland-server-core.h>
 #include <wayland-server.h>
+#include <wayland-util.h>
 #include <wayland-xdg-shell-server-protocol.h>
 #include <pixman.h>
 
@@ -249,10 +250,13 @@ notify_xdg_surf_surface_destroy(struct wl_listener *listener, void *userdata)
 }
 
 static void
-compile_toplevel_states(struct tw_desktop_surface *dsurf,
+compile_toplevel_states(struct tw_xdg_surface *xdg_surface,
                         struct wl_array *states, uint32_t w, uint32_t h)
 {
+	struct tw_desktop_surface *dsurf = &xdg_surface->base;
 	enum xdg_toplevel_state *state = NULL;
+	uint32_t ver = wl_resource_get_version(xdg_surface->toplevel.resource);
+
 	if (dsurf->maximized) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_MAXIMIZED;
@@ -267,6 +271,27 @@ compile_toplevel_states(struct tw_desktop_surface *dsurf,
 	if (dsurf->focused) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_ACTIVATED;
+	}
+	//tiled state
+	if ((dsurf->tiled_state & TW_DESKTOP_SURFACE_TILED_LEFT) &&
+	    ver >= XDG_TOPLEVEL_STATE_TILED_LEFT_SINCE_VERSION) {
+		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
+		*state = XDG_TOPLEVEL_STATE_TILED_LEFT;
+	}
+	if ((dsurf->tiled_state & TW_DESKTOP_SURFACE_TILED_RIGHT) &&
+	    ver >= XDG_TOPLEVEL_STATE_TILED_RIGHT_SINCE_VERSION) {
+		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
+		*state = XDG_TOPLEVEL_STATE_TILED_RIGHT;
+	}
+	if ((dsurf->tiled_state & TW_DESKTOP_SURFACE_TILED_TOP) &&
+	    ver >= XDG_TOPLEVEL_STATE_TILED_TOP_SINCE_VERSION) {
+		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
+		*state = XDG_TOPLEVEL_STATE_TILED_TOP;
+	}
+	if ((dsurf->tiled_state & TW_DESKTOP_SURFACE_TILED_BOTTOM) &&
+	    ver >= XDG_TOPLEVEL_STATE_TILED_BOTTOM_SINCE_VERSION) {
+		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
+		*state = XDG_TOPLEVEL_STATE_TILED_BOTTOM;
 	}
 }
 
@@ -284,7 +309,7 @@ configure_xdg_surface(struct tw_desktop_surface *dsurf,
 	wl_array_init(&states);
 
 	if (dsurf->type == TW_DESKTOP_TOPLEVEL_SURFACE) {
-		compile_toplevel_states(dsurf, &states, width, height);
+		compile_toplevel_states(xdg_surface, &states, width, height);
 		xdg_toplevel_send_configure(xdg_surface->toplevel.resource,
 		                            width, height, &states);
 	} else if (dsurf->type == TW_DESKTOP_POPUP_SURFACE) {

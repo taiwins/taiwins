@@ -111,7 +111,6 @@ tw_desktop_surface_init(struct tw_desktop_surface *surf,
 	surf->resource = resource;
 	surf->fullscreened = false;
 	surf->maximized = false;
-	surf->minimized = false;
 	surf->surface_added = false;
 	surf->focused = false;
 	surf->title = NULL;

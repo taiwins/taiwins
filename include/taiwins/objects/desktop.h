@@ -80,13 +80,20 @@ enum tw_desktop_surface_type {
 	TW_DESKTOP_POPUP_SURFACE = 4,
 };
 
+enum tw_desktop_surface_tiled_state {
+	TW_DESKTOP_SURFACE_TILED_LEFT = 1 << 0,
+	TW_DESKTOP_SURFACE_TILED_RIGHT = 1 << 1,
+	TW_DESKTOP_SURFACE_TILED_TOP = 1 << 2,
+	TW_DESKTOP_SURFACE_TILED_BOTTOM = 1 << 3,
+};
+
 struct tw_desktop_surface {
 	struct wl_resource *resource; /**< shared by implementation */
 	struct tw_surface *tw_surface;
 	struct tw_desktop_manager *desktop;
 	enum tw_desktop_surface_type type;
-	bool fullscreened,  maximized, minimized;
-	bool focused, surface_added;
+	bool fullscreened, maximized, focused, surface_added;
+	uint32_t tiled_state;
 	char *title, *class;
         /**
          * the window geometry for this given desktop surface, always available
