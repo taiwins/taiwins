@@ -1,5 +1,5 @@
 /*
- * logger.h - taiwins logging functions
+ * profiler.h - taiwins server profiler handler
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -19,45 +19,28 @@
  *
  */
 
-#ifndef TW_LOGGER_H
-#define TW_LOGGER_H
+#ifndef TW_PROFILING_H
+#define TW_PROFILING_H
 
-#include <stdarg.h>
-#include <stdio.h>
+#include <stdbool.h>
+#include <wayland-server-core.h>
+#include <taiwins/objects/profiler.h>
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-enum TW_LOG_LEVEL {
-	TW_LOG_INFO = 0,
-	TW_LOG_DBUG = 1,
-	TW_LOG_WARN = 2,
-	TW_LOG_ERRO = 3,
-};
+#ifdef _TW_ENABLE_PROFILING
 
-void
-tw_logger_open(const char *path);
+#define SCOPE_PROFILE_BEG() tw_profiler_start_timer(__func__)
+#define SCOPE_PROFILE_END() tw_profiler_stop_timer(__func__)
 
-void
-tw_logger_use_file(FILE *file);
+#else
 
-void
-tw_logger_close(void);
+#define SCOPE_PROFILE_BEG()
+#define SCOPE_PROFILE_END()
 
-/**
- * @brief logging at info level.
- */
-int
-tw_log_level(enum TW_LOG_LEVEL level, const char *format, ...);
-
-#define tw_logl(format, ...) \
-	tw_log_level(TW_LOG_INFO, "%s:%d " format, __FILE__, __LINE__, ##__VA_ARGS__)
-
-
-#define tw_logl_level(level, format, ...) \
-	tw_log_level(level, "%s:%d " format, __FILE__, __LINE__, \
-	             ##__VA_ARGS__)
+#endif
 
 #ifdef  __cplusplus
 }

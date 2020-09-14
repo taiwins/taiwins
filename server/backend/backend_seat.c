@@ -30,11 +30,11 @@
 #include <xkbcommon/xkbcommon.h>
 #include <ctypes/helpers.h>
 #include <taiwins/objects/seat.h>
-#include <taiwins/objects/profiler.h>
 #include <taiwins/objects/cursor.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/surface.h>
 
+#include "profiling.h"
 #include "backend.h"
 #include "backend_internal.h"
 #include "taiwins/objects/utils.h"
