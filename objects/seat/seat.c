@@ -293,6 +293,8 @@ tw_seat_create(struct wl_display *display, struct tw_cursor *seat_cursor,
 	strncpy(seat->name, name, 32);
 	seat->name[31] = 0;
 
+	wl_list_init(&seat->resources);
+	wl_list_init(&seat->link);
 	wl_list_init(&seat->clients);
 	seat->capabilities = 0;
 	seat->repeat_delay = 500;

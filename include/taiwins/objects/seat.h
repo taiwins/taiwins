@@ -173,6 +173,8 @@ struct tw_seat {
 	struct wl_global *global;
 	struct wl_list clients;
 	struct wl_list link;
+	/** exotic resources like input-method and text-input */
+	struct wl_list resources;
 	char name[32];
 
 	uint32_t capabilities;

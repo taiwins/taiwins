@@ -46,6 +46,8 @@ taiwins_obj_srcs = [
   'desktop/desktop_xdg_shell.c',
   'presentation_feedback.c',
   'viewporter.c',
+  'input_method.c',
+  'text_input.c',
   'os-compatibility.c',
   'drm_formats.c',
   'egl.c',
@@ -63,6 +65,10 @@ taiwins_obj_srcs = [
   wayland_xdg_output_private_code_c,
   wayland_pointer_gestures_server_protocol_h,
   wayland_pointer_gestures_private_code_c,
+  wayland_input_method_server_protocol_h,
+  wayland_input_method_private_code_c,
+  wayland_text_input_server_protocol_h,
+  wayland_text_input_private_code_c,
 ]
 
 twobjects_deps = [
