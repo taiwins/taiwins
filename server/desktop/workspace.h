@@ -89,7 +89,7 @@ struct tw_xdg_view {
 	int32_t x, y;
 	/**< "Planed size" are set by us, where clients need to resize to, but
 	 * may not yet */
-	uint32_t planed_w, planed_h;
+	uint32_t planed_w, planed_h, state;
 	pixman_rectangle32_t old_geometry;
 	/** added is set on view added to workspace, mapped is set on the first
 	 * commit */
@@ -117,10 +117,11 @@ tw_xdg_view_destroy(struct tw_xdg_view *view);
 void
 tw_xdg_view_set_position(struct tw_xdg_view *view, int x, int y);
 
-/* configure the size and state, if w and h are zero only configures the
- * state */
+/**
+ * @brief modify the view state to be focused or not.
+ */
 void
-tw_xdg_view_configure(struct tw_xdg_view *view, uint32_t w, uint32_t h);
+tw_xdg_view_set_focus(struct tw_xdg_view *view, bool focus);
 
 /******************************************************************************
  * workspace API
@@ -144,6 +145,12 @@ tw_workspace_has_view(const struct tw_workspace *ws,
 bool
 tw_workspace_empty(const struct tw_workspace *ws);
 
+/**
+ * @brief move view to the front in the workspace.
+ *
+ * This action is different than tw_xdg_view_set_focus, which will only change
+ * the view state.
+ */
 bool
 tw_workspace_focus_view(struct tw_workspace *ws, struct tw_xdg_view *v);
 

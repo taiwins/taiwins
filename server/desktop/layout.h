@@ -55,6 +55,14 @@ enum tw_xdg_layout_command {
 	DPSR_output_resize,
 };
 
+enum tw_xdg_view_state {
+	TW_XDG_VIEW_TILED_LEFT = 1 << 0,
+	TW_XDG_VIEW_TILED_RIGHT = 1 << 1,
+	TW_XDG_VIEW_TILED_TOP = 1 << 2,
+	TW_XDG_VIEW_TILED_BOTTOM = 1 << 3,
+	TW_XDG_VIEW_FOCUSED = 1 << 4,
+};
+
 struct tw_xdg_view;
 struct tw_xdg_layout_op {
 	struct tw_xdg_view *v, *focused;
@@ -64,6 +72,7 @@ struct tw_xdg_layout_op {
 		struct { uint32_t width, height; } size;
 		float scale;
 		bool end;
+		uint32_t state;
 	} out;
 	//input
 	union {

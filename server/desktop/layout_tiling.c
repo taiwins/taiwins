@@ -33,6 +33,10 @@
 #include "workspace.h"
 #include "layout.h"
 
+static const uint32_t TILINT_STATE =
+	TW_XDG_VIEW_TILED_LEFT | TW_XDG_VIEW_TILED_RIGHT |
+	TW_XDG_VIEW_TILED_TOP | TW_XDG_VIEW_TILED_BOTTOM;
+
 void
 emplace_tiling(const enum tw_xdg_layout_command command,
                const struct tw_xdg_layout_op *arg, struct tw_xdg_view *v,
@@ -398,6 +402,7 @@ tiling_arrange_subtree(struct tiling_view *subtree, pixman_rectangle32_t *geo,
 			geo->height - 2 * ((subtree->vertical) ?
 					   o->output->inner_gap :
 					   o->output->outer_gap);
+		data->out.state = TILINT_STATE;
 		data->out.end = false;
 		return 1;
 	}

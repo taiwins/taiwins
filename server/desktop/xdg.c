@@ -22,6 +22,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <ctypes/helpers.h>
 #include <taiwins/objects/surface.h>
@@ -89,11 +90,8 @@ twdesk_surface_focus(struct tw_xdg *xdg, struct tw_desktop_surface *dsurf)
 		tw_keyboard_set_focus(&tw_seat->keyboard,
 		                      dsurf->tw_surface->resource, NULL);
 	dsurf->ping(dsurf, wl_display_next_serial(tw_seat->display));
-	wl_list_for_each(view, &ws->recent_views, link) {
-		dsurf->focused = (view->dsurf == dsurf);
-		tw_xdg_view_configure(view, view->planed_w, view->planed_h);
-	}
-
+	wl_list_for_each(view, &ws->recent_views, link)
+		tw_xdg_view_set_focus(view, (view->dsurf == dsurf));
 }
 
 static void
@@ -194,7 +192,9 @@ twdesk_surface_show_window_menu(struct tw_desktop_surface *surface,
                                 int32_t x, int32_t y,
                                 void *user_data)
 {
-	//TODO get taiwins shell to draw the menu
+	//TODO implementation
+	tw_logl("desktop_surface@%d requires show window menu",
+	        wl_resource_get_id(surface->resource));
 }
 
 static void
@@ -202,7 +202,9 @@ twdesk_set_parent(struct tw_desktop_surface *surface,
                   struct tw_desktop_surface *parent,
                   void *user_data)
 {
-	//TODO: tw_xdg_view should have a parent?
+	//TODO implementation
+	tw_logl("desktop_surface@%d requires set_parent",
+	        wl_resource_get_id(surface->resource));
 }
 
 static void
@@ -263,8 +265,7 @@ twdesk_fullscreen(struct tw_desktop_surface *dsurf,
 		view->output;
 	assert(xdg_output);
 
-        if (tw_workspace_has_view(ws, view) &&
-            ws->current_layout != LAYOUT_FULLSCREEN) {
+        if (tw_workspace_has_view(ws, view)) {
 	        tw_workspace_fullscreen_view(ws, view, xdg_output, fullscreen);
 	        twdesk_surface_focus(xdg, dsurf);
         }
@@ -280,8 +281,7 @@ twdesk_maximized(struct tw_desktop_surface *dsurf, bool maximized,
 	struct tw_xdg_view *view = dsurf->user_data;
 
 	assert(view);
-	if (tw_workspace_has_view(ws, view) &&
-	    ws->current_layout != LAYOUT_MAXIMIZED) {
+	if (tw_workspace_has_view(ws, view)) {
 		tw_workspace_maximize_view(ws, view, maximized);
 	        twdesk_surface_focus(xdg, dsurf);
 	}

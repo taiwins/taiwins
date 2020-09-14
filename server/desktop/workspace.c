@@ -76,10 +76,25 @@ tw_xdg_view_set_position(struct tw_xdg_view *view, int x, int y)
 	tw_surface_set_position(surface, x-gx, y-gy);
 }
 
-void
-tw_xdg_view_configure(struct tw_xdg_view *view, uint32_t w, uint32_t h)
+static void
+tw_xdg_view_configure(struct tw_xdg_view *view)
 {
-	view->dsurf->configure(view->dsurf, 0, 0, 0, w, h);
+	view->dsurf->tiled_state = view->state & 15;
+	view->dsurf->focused = (view->state & TW_XDG_VIEW_FOCUSED);
+	view->dsurf->maximized =(view->type == LAYOUT_MAXIMIZED);
+	view->dsurf->fullscreened = (view->type == LAYOUT_FULLSCREEN);
+	view->dsurf->configure(view->dsurf, 0, 0, 0,
+	                       view->planed_w, view->planed_h);
+}
+
+void
+tw_xdg_view_set_focus(struct tw_xdg_view *view, bool focus)
+{
+	if (focus)
+		view->state |= TW_XDG_VIEW_FOCUSED;
+	else
+		view->state &= ~TW_XDG_VIEW_FOCUSED;
+	tw_xdg_view_configure(view);
 }
 
 static void
@@ -201,9 +216,6 @@ tw_workspace_view_pick_settings(struct tw_workspace *ws,
 {
 	v->layout = tw_workspace_view_pick_layout(ws, v);
 	v->layer = tw_workspace_view_pick_layer(ws, v);
-	v->dsurf->fullscreened = (v->type == LAYOUT_FULLSCREEN);
-	v->dsurf->maximized = (v->type == LAYOUT_MAXIMIZED);
-	v->dsurf->minimized = false;
 }
 
 static uint32_t
@@ -235,10 +247,10 @@ apply_layout_operations(const struct tw_xdg_layout_op *ops, const int len)
 		                         ops[i].out.pos.y);
 
 		if (ops[i].out.size.height && ops[i].out.size.width) {
-			tw_xdg_view_configure(v, ops[i].out.size.width,
-			                      ops[i].out.size.height);
 			v->planed_w = ops[i].out.size.width;
 			v->planed_h = ops[i].out.size.height;
+			v->state = ops[i].out.state;
+			tw_xdg_view_configure(v);
 		}
 	}
 }
@@ -506,7 +518,6 @@ tw_workspace_minimize_view(struct tw_workspace *w, struct tw_xdg_view *v)
 	wl_list_insert(&w->hidden_layer.views,
 	               &surface->links[TW_VIEW_LAYER_LINK]);
 	tw_workspace_defocus_view(w, v);
-	v->dsurf->minimized = true;
 }
 
 void
