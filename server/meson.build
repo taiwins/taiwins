@@ -4,7 +4,7 @@ taiwins_cargs = [
 ]
 
 if get_option('enable-profiler')
-  taiwns_cargs += '-D_TW_ENABLE_PROFILING'
+  taiwins_cargs += '-D_TW_ENABLE_PROFILING'
 endif
 
 if get_option('rendering-debug') == 'damage'
