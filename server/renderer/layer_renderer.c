@@ -69,7 +69,11 @@ surface_accumulate_damage(struct tw_surface *surface,
 	if (pixman_region32_not_empty(&surface->geometry.dirty)) {
 		pixman_region32_copy(&damage, &surface->geometry.dirty);
 	} else {
-		pixman_region32_copy(&damage, &current->surface_damage);
+		pixman_region32_intersect_rect(&damage,
+		                               &current->surface_damage,
+		                               0, 0,
+		                               surface->geometry.xywh.width,
+		                               surface->geometry.xywh.height);
 		pixman_region32_translate(&damage, surface->geometry.xywh.x,
 		                          surface->geometry.xywh.y);
 		pixman_region32_intersect(&damage, &damage, &bbox);
