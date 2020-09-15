@@ -131,7 +131,7 @@ notify_focused_disappear(struct wl_listener *listener, void *data)
 	wl_list_init(&listener->link);
 }
 
-struct tw_touch *
+WL_EXPORT struct tw_touch *
 tw_seat_new_touch(struct tw_seat *seat)
 {
 	struct tw_touch *touch = &seat->touch;
@@ -152,7 +152,7 @@ tw_seat_new_touch(struct tw_seat *seat)
 	return touch;
 }
 
-void
+WL_EXPORT void
 tw_seat_remove_touch(struct tw_seat *seat)
 {
 	struct tw_seat_client *client;
@@ -174,7 +174,7 @@ tw_seat_remove_touch(struct tw_seat *seat)
 	tw_reset_wl_list(&touch->focused_destroy.link);
 }
 
-void
+WL_EXPORT void
 tw_touch_start_grab(struct tw_touch *touch, struct tw_seat_touch_grab *grab)
 {
 	struct tw_seat *seat = wl_container_of(touch, seat, touch);
@@ -183,7 +183,7 @@ tw_touch_start_grab(struct tw_touch *touch, struct tw_seat_touch_grab *grab)
 	grab->seat = seat;
 }
 
-void
+WL_EXPORT void
 tw_touch_end_grab(struct tw_touch *touch)
 {
 	if (touch->grab && touch->grab != &touch->default_grab &&
@@ -192,7 +192,7 @@ tw_touch_end_grab(struct tw_touch *touch)
 	touch->grab = &touch->default_grab;
 }
 
-void
+WL_EXPORT void
 tw_touch_set_focus(struct tw_touch *touch,
                      struct wl_resource *wl_surface,
                      double sx, double sy)
@@ -213,14 +213,14 @@ tw_touch_set_focus(struct tw_touch *touch,
 	}
 }
 
-void
+WL_EXPORT void
 tw_touch_clear_focus(struct tw_touch *touch)
 {
 	touch->focused_client = NULL;
 	touch->focused_surface = NULL;
 }
 
-void
+WL_EXPORT void
 tw_touch_notify_down(struct tw_touch *touch, uint32_t time_msec, uint32_t id,
                      double sx, double sy)
 {
@@ -229,7 +229,7 @@ tw_touch_notify_down(struct tw_touch *touch, uint32_t time_msec, uint32_t id,
 		                        sx, sy);
 }
 
-void
+WL_EXPORT void
 tw_touch_notify_up(struct tw_touch *touch, uint32_t time_msec,
                    uint32_t touch_id)
 {
@@ -237,7 +237,7 @@ tw_touch_notify_up(struct tw_touch *touch, uint32_t time_msec,
 		touch->grab->impl->up(touch->grab, time_msec, touch_id);
 }
 
-void
+WL_EXPORT void
 tw_touch_notify_motion(struct tw_touch *touch, uint32_t time_msec,
                        uint32_t touch_id, double sx, double sy)
 {
@@ -246,7 +246,7 @@ tw_touch_notify_motion(struct tw_touch *touch, uint32_t time_msec,
 		                          sx, sy);
 }
 
-void
+WL_EXPORT void
 tw_touch_notify_enter(struct tw_touch *touch,
                       struct wl_resource *surface, double sx, double sy)
 {
@@ -254,7 +254,7 @@ tw_touch_notify_enter(struct tw_touch *touch,
 		touch->grab->impl->enter(touch->grab, surface, sx, sy);
 }
 
-void
+WL_EXPORT void
 tw_touch_notify_cancel(struct tw_touch *touch)
 {
 	if (touch->grab && touch->grab->impl->touch_cancel)

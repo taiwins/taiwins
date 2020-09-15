@@ -30,6 +30,8 @@
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/utils.h>
 
+#include "data_internal.h"
+
 static const struct wl_data_offer_interface data_offer_impl;
 
 static inline bool

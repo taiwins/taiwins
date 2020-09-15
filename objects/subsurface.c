@@ -45,13 +45,13 @@ static void subsurface_commit_role(struct tw_surface *surf) {
 		                        parent->geometry.xywh.y + sub->sy);
 }
 
-bool
+WL_EXPORT bool
 tw_surface_is_subsurface(struct tw_surface *surf)
 {
 	return surf->role.commit == subsurface_commit_role;
 }
 
-struct tw_subsurface *
+WL_EXPORT struct tw_subsurface *
 tw_surface_get_subsurface(struct tw_surface *surf)
 {
 	return (tw_surface_is_subsurface(surf)) ?
@@ -243,7 +243,7 @@ notify_subsurface_surface_destroy(struct wl_listener *listener, void *data)
  * tw_subsurface API
  ******************************************************************************/
 
-struct tw_subsurface *
+WL_EXPORT struct tw_subsurface *
 tw_subsurface_create(struct wl_client *client, uint32_t version,
                      uint32_t id, struct tw_surface *surface,
                      struct tw_surface *parent)
@@ -282,7 +282,7 @@ tw_subsurface_create(struct wl_client *client, uint32_t version,
 	return subsurface;
 }
 
-void
+WL_EXPORT void
 tw_subsurface_update_pos(struct tw_subsurface *sub,
                          int32_t sx, int32_t sy)
 {
@@ -295,7 +295,7 @@ tw_subsurface_update_pos(struct tw_subsurface *sub,
 	                        parent->geometry.y + sy);
 }
 
-bool
+WL_EXPORT bool
 tw_subsurface_is_synched(struct tw_subsurface *subsurface)
 {
 	while (subsurface != NULL) {

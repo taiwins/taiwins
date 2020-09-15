@@ -27,6 +27,8 @@
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/utils.h>
 
+#include "data_internal.h"
+
 static const struct wl_data_source_interface data_source_impl;
 
 struct tw_data_source *

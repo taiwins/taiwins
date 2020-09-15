@@ -596,7 +596,7 @@ static const struct wl_surface_interface surface_impl = {
 
 /*************************** surface API *************************************/
 
-struct tw_surface *
+WL_EXPORT struct tw_surface *
 tw_surface_from_resource(struct wl_resource *wl_surface)
 {
 	assert(wl_resource_instance_of(wl_surface,
@@ -605,19 +605,19 @@ tw_surface_from_resource(struct wl_resource *wl_surface)
 	return wl_resource_get_user_data(wl_surface);
 }
 
-bool
+WL_EXPORT bool
 tw_surface_has_texture(struct tw_surface *surface)
 {
 	return surface->buffer.handle.ptr || surface->buffer.handle.id;
 }
 
-bool
+WL_EXPORT bool
 tw_surface_has_role(struct tw_surface *surface)
 {
 	return surface->role.commit != NULL;
 }
 
-void
+WL_EXPORT void
 tw_surface_unmap(struct tw_surface *surface)
 {
 	//TODO: do I need a mapped field?
@@ -625,7 +625,7 @@ tw_surface_unmap(struct tw_surface *surface)
 		tw_reset_wl_list(&surface->links[i]);
 }
 
-void
+WL_EXPORT void
 tw_surface_set_position(struct tw_surface *surface, float x, float y)
 {
 	struct tw_subsurface *sub;
@@ -642,7 +642,7 @@ tw_surface_set_position(struct tw_surface *surface, float x, float y)
 		                        x + sub->sx, y + sub->sy);
 }
 
-void
+WL_EXPORT void
 tw_surface_to_local_pos(struct tw_surface *surface, float x, float y,
                         float *sx, float *sy)
 {
@@ -650,7 +650,7 @@ tw_surface_to_local_pos(struct tw_surface *surface, float x, float y,
 	*sy = y - surface->geometry.y;
 }
 
-void
+WL_EXPORT void
 tw_surface_to_global_pos(struct tw_surface *surface, float sx, float sy,
                         float *gx, float *gy)
 {
@@ -658,7 +658,7 @@ tw_surface_to_global_pos(struct tw_surface *surface, float sx, float sy,
 	*gy = surface->geometry.y + sy;
 }
 
-bool
+WL_EXPORT bool
 tw_surface_has_point(struct tw_surface *surface, float x, float y)
 {
 	int32_t x1 = surface->geometry.xywh.x;
@@ -669,7 +669,7 @@ tw_surface_has_point(struct tw_surface *surface, float x, float y)
 	return (x >= x1 && x <= x2 && y >= y1 && y <= y2);
 }
 
-bool
+WL_EXPORT bool
 tw_surface_has_input_point(struct tw_surface *surface, float x, float y)
 {
 	bool on_surface = tw_surface_has_point(surface, x, y);
@@ -683,7 +683,7 @@ tw_surface_has_input_point(struct tw_surface *surface, float x, float y)
 		                               x, y, NULL);
 }
 
-void
+WL_EXPORT void
 tw_surface_dirty_geometry(struct tw_surface *surface)
 {
 	struct tw_subsurface *sub;
@@ -701,7 +701,7 @@ tw_surface_dirty_geometry(struct tw_surface *surface)
 		               surface);
 }
 
-void
+WL_EXPORT void
 tw_surface_flush_frame(struct tw_surface *surface, uint32_t time)
 {
 	struct wl_resource *callback, *next;
@@ -755,7 +755,7 @@ surface_destroy_resource(struct wl_resource *resource)
 	free(surface);
 }
 
-struct tw_surface *
+WL_EXPORT struct tw_surface *
 tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
                   struct tw_surface_manager *manager)
 {
@@ -815,7 +815,7 @@ tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
 	return surface;
 }
 
-void
+WL_EXPORT void
 tw_surface_manager_init(struct tw_surface_manager *manager)
 {
 	wl_signal_init(&manager->surface_created_signal);

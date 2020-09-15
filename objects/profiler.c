@@ -102,7 +102,7 @@ write_end(const struct tw_profiler_scope *scope, FILE *file, bool comma)
 	fprintf(file, "}\n");
 }
 
-void
+WL_EXPORT void
 tw_profiler_close()
 {
 	write_footer(s_profiler.file);
@@ -119,7 +119,7 @@ notify_profile_display_destroy(struct wl_listener *listener, void *data)
 	s_profiler.display = NULL;
 }
 
-bool
+WL_EXPORT bool
 tw_profiler_open(struct wl_display *display, const char *fname)
 {
 	FILE *file = fopen(fname, "w");
@@ -145,7 +145,7 @@ tw_profiler_open(struct wl_display *display, const char *fname)
 	return true;
 }
 
-void
+WL_EXPORT void
 tw_profiler_start_timer(const char *name)
 {
 	struct timespec spec;
@@ -162,7 +162,7 @@ tw_profiler_start_timer(const char *name)
 	s_profiler.depth+=1;
 }
 
-void
+WL_EXPORT void
 tw_profiler_stop_timer(const char *name)
 {
 	int32_t depth = s_profiler.depth-1;

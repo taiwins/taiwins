@@ -140,7 +140,7 @@ notify_focused_disappear(struct wl_listener *listener, void *data)
 	wl_list_init(&listener->link);
 }
 
-struct tw_pointer *
+WL_EXPORT struct tw_pointer *
 tw_seat_new_pointer(struct tw_seat *seat)
 {
 	struct tw_pointer *pointer = &seat->pointer;
@@ -163,7 +163,7 @@ tw_seat_new_pointer(struct tw_seat *seat)
 	return pointer;
 }
 
-void
+WL_EXPORT void
 tw_seat_remove_pointer(struct tw_seat *seat)
 {
 	struct tw_seat_client *client;
@@ -185,7 +185,7 @@ tw_seat_remove_pointer(struct tw_seat *seat)
 	tw_reset_wl_list(&pointer->focused_destroy.link);
 }
 
-void
+WL_EXPORT void
 tw_pointer_start_grab(struct tw_pointer *pointer,
                       struct tw_seat_pointer_grab *grab)
 {
@@ -195,7 +195,7 @@ tw_pointer_start_grab(struct tw_pointer *pointer,
 	grab->seat = seat;
 }
 
-void
+WL_EXPORT void
 tw_pointer_end_grab(struct tw_pointer *pointer)
 {
 	if (pointer->grab && pointer->grab != &pointer->default_grab &&
@@ -204,7 +204,7 @@ tw_pointer_end_grab(struct tw_pointer *pointer)
 	pointer->grab = &pointer->default_grab;
 }
 
-void
+WL_EXPORT void
 tw_pointer_set_focus(struct tw_pointer *pointer,
                      struct wl_resource *wl_surface,
                      double sx, double sy)
@@ -232,7 +232,7 @@ tw_pointer_set_focus(struct tw_pointer *pointer,
 	}
 }
 
-void
+WL_EXPORT void
 tw_pointer_clear_focus(struct tw_pointer *pointer)
 {
 	struct tw_seat_client *client;
@@ -251,7 +251,7 @@ tw_pointer_clear_focus(struct tw_pointer *pointer)
 	pointer->focused_surface = NULL;
 }
 
-void
+WL_EXPORT void
 tw_pointer_notify_enter(struct tw_pointer *pointer,
                         struct wl_resource *wl_surface,
                         double sx, double sy)
@@ -260,7 +260,7 @@ tw_pointer_notify_enter(struct tw_pointer *pointer,
 		pointer->grab->impl->enter(pointer->grab, wl_surface, sx, sy);
 }
 
-void
+WL_EXPORT void
 tw_pointer_notify_motion(struct tw_pointer *pointer, uint32_t time_msec,
                          double sx, double sy)
 {
@@ -268,7 +268,7 @@ tw_pointer_notify_motion(struct tw_pointer *pointer, uint32_t time_msec,
 		pointer->grab->impl->motion(pointer->grab, time_msec, sx, sy);
 }
 
-void
+WL_EXPORT void
 tw_pointer_notify_button(struct tw_pointer *pointer, uint32_t time_msec,
                          uint32_t button, enum wl_pointer_button_state state)
 {
@@ -277,7 +277,7 @@ tw_pointer_notify_button(struct tw_pointer *pointer, uint32_t time_msec,
 		                                   button, state);
 }
 
-void
+WL_EXPORT void
 tw_pointer_notify_axis(struct tw_pointer *pointer, uint32_t time_msec,
                        enum wl_pointer_axis axis, double val, int val_disc,
                        enum wl_pointer_axis_source source)
@@ -287,7 +287,7 @@ tw_pointer_notify_axis(struct tw_pointer *pointer, uint32_t time_msec,
 		                          val, val_disc, source);
 }
 
-void
+WL_EXPORT void
 tw_pointer_notify_frame(struct tw_pointer *pointer)
 {
 	if (pointer->grab && pointer->grab->impl->frame)

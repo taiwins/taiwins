@@ -63,7 +63,7 @@ commit_cursor_surface(struct tw_surface *surface)
 	cursor_set_surface_pos(cursor);
 }
 
-void
+WL_EXPORT void
 tw_cursor_init(struct tw_cursor *cursor)
 {
 	memset(cursor, 0, sizeof(*cursor));
@@ -78,7 +78,7 @@ tw_cursor_init(struct tw_cursor *cursor)
 	cursor->surface_destroy.notify = notify_cursor_surface_destroy;
 }
 
-void
+WL_EXPORT void
 tw_cursor_fini(struct tw_cursor *cursor)
 {
 	struct tw_cursor_constrain *con, *tmp;
@@ -90,7 +90,7 @@ tw_cursor_fini(struct tw_cursor *cursor)
 	memset(cursor, 0, sizeof(*cursor));
 }
 
-void
+WL_EXPORT void
 tw_cursor_set_surface(struct tw_cursor *cursor,
                       struct wl_resource *surface_resource,
                       struct wl_resource *pointer_resource,
@@ -122,7 +122,7 @@ tw_cursor_set_surface(struct tw_cursor *cursor,
 		               &surface->links[TW_VIEW_LAYER_LINK]);
 }
 
-void
+WL_EXPORT void
 tw_cursor_unset_surface(struct tw_cursor *cursor)
 {
 	struct tw_surface *curr_surface = cursor->curr_surface;
@@ -137,7 +137,7 @@ tw_cursor_unset_surface(struct tw_cursor *cursor)
 	}
 }
 
-void
+WL_EXPORT void
 tw_cursor_set_wrap(struct tw_cursor *cursor, int32_t x, int32_t y,
                    uint32_t width, uint32_t height)
 {
@@ -146,7 +146,7 @@ tw_cursor_set_wrap(struct tw_cursor *cursor, int32_t x, int32_t y,
 	                          x, y, width, height);
 }
 
-void
+WL_EXPORT void
 tw_cursor_unset_wrap(struct tw_cursor *cursor)
 {
 	pixman_region32_clear(&cursor->curr_wrap.region);
@@ -155,7 +155,7 @@ tw_cursor_unset_wrap(struct tw_cursor *cursor)
 	                          UINT32_MAX, UINT32_MAX);
 }
 
-void
+WL_EXPORT void
 tw_cursor_move(struct tw_cursor *cursor, float dx, float dy)
 {
 	struct tw_cursor_constrain *constrain;
@@ -185,7 +185,7 @@ set_pos:
 	cursor_set_surface_pos(cursor);
 }
 
-void
+WL_EXPORT void
 tw_cursor_move_with_wrap(struct tw_cursor *cursor, float dx, float dy,
                          int32_t x, int32_t y, uint32_t width, uint32_t height)
 {
@@ -196,7 +196,7 @@ tw_cursor_move_with_wrap(struct tw_cursor *cursor, float dx, float dy,
 	tw_cursor_set_wrap(cursor, e->x1, e->y1, e->x2 - e->x1, e->y2 - e->y1);
 }
 
-void
+WL_EXPORT void
 tw_cursor_set_pos(struct tw_cursor *cursor, float nx, float ny)
 {
 	tw_cursor_move(cursor, nx - cursor->x, ny - cursor->y);

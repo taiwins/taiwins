@@ -34,7 +34,7 @@
 
 static const struct wl_seat_interface seat_impl;
 
-struct tw_seat_client *
+WL_EXPORT struct tw_seat_client *
 tw_seat_client_find(struct tw_seat *seat, struct wl_client *client)
 {
 	struct tw_seat_client *seat_client = NULL;
@@ -307,7 +307,7 @@ bind_seat(struct wl_client *client, void *data,
 
 ///// shared API
 
-struct tw_seat *
+WL_EXPORT struct tw_seat *
 tw_seat_create(struct wl_display *display, struct tw_cursor *seat_cursor,
                const char *name)
 {
@@ -335,7 +335,7 @@ tw_seat_create(struct wl_display *display, struct tw_cursor *seat_cursor,
 	return seat;
 }
 
-void
+WL_EXPORT void
 tw_seat_destroy(struct tw_seat *seat)
 {
 	struct tw_seat_client *client, *next;
@@ -356,7 +356,7 @@ tw_seat_destroy(struct tw_seat *seat)
 	free(seat);
 }
 
-struct tw_seat *
+WL_EXPORT struct tw_seat *
 tw_seat_from_resource(struct wl_resource *resource)
 {
 	struct tw_seat_client *seat_client;
@@ -367,7 +367,7 @@ tw_seat_from_resource(struct wl_resource *resource)
 }
 
 
-void
+WL_EXPORT void
 tw_seat_set_name(struct tw_seat *seat, const char *name)
 {
 	struct tw_seat_client *client, *next;
@@ -382,7 +382,7 @@ tw_seat_set_name(struct tw_seat *seat, const char *name)
 	}
 }
 
-void
+WL_EXPORT void
 tw_seat_set_key_repeat_rate(struct tw_seat *seat, uint32_t delay,
                             uint32_t rate)
 {
@@ -401,7 +401,7 @@ tw_seat_set_key_repeat_rate(struct tw_seat *seat, uint32_t delay,
 	}
 }
 
-void
+WL_EXPORT void
 tw_seat_send_capabilities(struct tw_seat *seat)
 {
 	struct tw_seat_client *client;
@@ -412,7 +412,7 @@ tw_seat_send_capabilities(struct tw_seat *seat)
 	}
 }
 
-bool
+WL_EXPORT bool
 tw_seat_valid_serial(struct tw_seat *seat, uint32_t serial)
 {
 	return serial == seat->last_pointer_serial ||

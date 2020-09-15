@@ -193,7 +193,7 @@ destroy_tw_compositor(struct wl_listener *listener, void *data)
 	wl_global_destroy(compositor->wl_subcompositor);
 }
 
-bool
+WL_EXPORT bool
 tw_compositor_init(struct tw_compositor *compositor,
                    struct wl_display *display)
 {
@@ -223,7 +223,7 @@ tw_compositor_init(struct tw_compositor *compositor,
 	return true;
 }
 
-struct tw_compositor *
+WL_EXPORT struct tw_compositor *
 tw_compositor_create_global(struct wl_display *display)
 {
 	struct tw_compositor *compositor = &s_tw_compositor;

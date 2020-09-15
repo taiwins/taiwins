@@ -22,10 +22,11 @@
 #include <assert.h>
 #include <stdio.h>
 #include <taiwins/objects/logger.h>
+#include <wayland-util.h>
 
 static FILE *tw_logfile = NULL;
 
-void
+WL_EXPORT void
 tw_logger_open(const char *path)
 {
 	if (tw_logfile && tw_logfile != stdout && tw_logfile != stderr)
@@ -33,14 +34,14 @@ tw_logger_open(const char *path)
 	tw_logfile = fopen(path, "w");
 }
 
-void
+WL_EXPORT void
 tw_logger_close(void)
 {
 	if (tw_logfile && tw_logfile != stdout && tw_logfile != stderr)
 		fclose(tw_logfile);
 }
 
-void
+WL_EXPORT void
 tw_logger_use_file(FILE *file)
 {
 	if (!file)
@@ -67,7 +68,7 @@ level_to_string(enum TW_LOG_LEVEL level)
 }
 
 //TODO: if we can disable logger at release
-int
+WL_EXPORT int
 tw_log_level(enum TW_LOG_LEVEL level, const char *format, ...)
 {
 	int ret = -1;

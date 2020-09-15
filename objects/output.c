@@ -60,13 +60,13 @@ tw_output_send_config(struct wl_resource *resource)
 	}
 }
 
-void
+WL_EXPORT void
 tw_output_set_name(struct tw_output *output, const char *name)
 {
 	strncpy(output->name, name, 31);
 }
 
-void
+WL_EXPORT void
 tw_output_set_scale(struct tw_output *output, uint32_t scale)
 {
 	if (!scale) {
@@ -76,13 +76,13 @@ tw_output_set_scale(struct tw_output *output, uint32_t scale)
 	output->scale = scale;
 }
 
-void
+WL_EXPORT void
 tw_output_set_coord(struct tw_output *output, int x, int y)
 {
 	output->x = x;
 	output->y = y;
 }
-void
+WL_EXPORT void
 tw_output_set_geometry(struct tw_output *output,
                        int physical_w, int physical_h,
                        char *make, char *model,
@@ -100,7 +100,7 @@ tw_output_set_geometry(struct tw_output *output,
 	output->geometry.transform = transform;
 }
 
-void
+WL_EXPORT void
 tw_output_set_mode(struct tw_output *output, uint32_t mode_flags,
                    int width, int height, int refresh)
 {
@@ -117,7 +117,7 @@ tw_output_set_mode(struct tw_output *output, uint32_t mode_flags,
 
 }
 
-void
+WL_EXPORT void
 tw_output_send_clients(struct tw_output *output)
 {
 	struct wl_resource *resource;
@@ -176,7 +176,7 @@ notify_output_display_destroy(struct wl_listener *listener, void *data)
 
 }
 
-struct tw_output *
+WL_EXPORT struct tw_output *
 tw_output_create(struct wl_display *display)
 {
 	struct tw_output *output = calloc(1, sizeof(*output));

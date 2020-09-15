@@ -33,6 +33,8 @@
 #include <taiwins/objects/cursor.h>
 #include <taiwins/objects/surface.h>
 
+#include "data_internal.h"
+
 static struct tw_data_device_manager s_tw_data_device_manager;
 
 static struct tw_data_device *
@@ -333,7 +335,7 @@ notify_data_device_manager_display_destroy(struct wl_listener *listener,
 	wl_global_destroy(manager->global);
 }
 
-bool
+WL_EXPORT bool
 tw_data_device_manager_init(struct tw_data_device_manager *manager,
                             struct wl_display *display)
 {
@@ -352,7 +354,7 @@ tw_data_device_manager_init(struct tw_data_device_manager *manager,
 	return true;
 }
 
-struct tw_data_device_manager *
+WL_EXPORT struct tw_data_device_manager *
 tw_data_device_create_global(struct wl_display *display)
 {
 	struct tw_data_device_manager *manager =

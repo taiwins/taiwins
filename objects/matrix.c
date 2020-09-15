@@ -116,7 +116,7 @@ transform_ydown_from_yup(enum wl_output_transform t)
 	return transform_yup_to_ydown[t];
 }
 
-void
+WL_EXPORT void
 tw_mat3_init(struct tw_mat3 *mat)
 {
 	static const struct tw_mat3 i = {
@@ -127,7 +127,7 @@ tw_mat3_init(struct tw_mat3 *mat)
 	memcpy(mat, &i, sizeof(*mat));
 }
 
-void
+WL_EXPORT void
 tw_mat3_transpose(struct tw_mat3 *dst, const struct tw_mat3 *src)
 {
 	struct tw_mat3 tmp;
@@ -137,7 +137,7 @@ tw_mat3_transpose(struct tw_mat3 *dst, const struct tw_mat3 *src)
 	memcpy(dst, &tmp, sizeof(tmp));
 }
 
-void
+WL_EXPORT void
 tw_mat3_multiply(struct tw_mat3 *dst, const struct tw_mat3 *a,
                  const struct tw_mat3 *b)
 {
@@ -158,7 +158,7 @@ tw_mat3_multiply(struct tw_mat3 *dst, const struct tw_mat3 *a,
 	memcpy(dst, &tmp, sizeof(*dst));
 }
 
-void
+WL_EXPORT void
 tw_mat3_vec_transform(const struct tw_mat3 *mat, float x, float y,
                       float *rx, float *ry)
 {
@@ -166,7 +166,7 @@ tw_mat3_vec_transform(const struct tw_mat3 *mat, float x, float y,
 	*ry = mat->d[1] * x + mat->d[4] * y + mat->d[7];
 }
 
-void
+WL_EXPORT void
 tw_mat3_box_transform(const struct tw_mat3 *mat,
                       pixman_box32_t *dst, const pixman_box32_t *src)
 {
@@ -187,7 +187,7 @@ tw_mat3_box_transform(const struct tw_mat3 *mat,
 	*dst = box;
 }
 
-void
+WL_EXPORT void
 tw_mat3_translate(struct tw_mat3 *mat, float x, float y)
 {
 	tw_mat3_init(mat);
@@ -195,7 +195,7 @@ tw_mat3_translate(struct tw_mat3 *mat, float x, float y)
 	mat->d[7] = y;
 }
 
-void
+WL_EXPORT void
 tw_mat3_scale(struct tw_mat3 *dst, float x, float y)
 {
 	tw_mat3_init(dst);
@@ -204,7 +204,7 @@ tw_mat3_scale(struct tw_mat3 *dst, float x, float y)
 }
 
 /* rotate ccw */
-void
+WL_EXPORT void
 tw_mat3_rotate(struct tw_mat3 *mat, float degree, bool yup)
 {
 	float rad = deg2rad(degree);
@@ -215,7 +215,7 @@ tw_mat3_rotate(struct tw_mat3 *mat, float degree, bool yup)
 	mat->d[4] = cos(rad);
 }
 
-void
+WL_EXPORT void
 tw_mat3_wl_transform(struct tw_mat3 *dst,
                      enum wl_output_transform transform, bool yup)
 {
@@ -223,7 +223,7 @@ tw_mat3_wl_transform(struct tw_mat3 *dst,
 	memcpy(dst, &transform_2ds[transform], sizeof(*dst));
 }
 
-void
+WL_EXPORT void
 tw_mat3_transform_rect(struct tw_mat3 *dst, bool yup,
                        enum wl_output_transform transform,
                        uint32_t width, uint32_t height, uint32_t scale)
@@ -268,7 +268,7 @@ tw_mat3_transform_rect(struct tw_mat3 *dst, bool yup,
 	}
 }
 
-void
+WL_EXPORT void
 tw_mat3_ortho_proj(struct tw_mat3 *dst, uint32_t width,
                    uint32_t height)
 {
@@ -293,7 +293,7 @@ det_mat3(const struct tw_mat3 *mat)
 		mat->d[6] * (mat->d[1] * mat->d[5] - mat->d[2] * mat->d[4]);
 }
 
-bool
+WL_EXPORT bool
 tw_mat3_inverse(struct tw_mat3 *dst, const struct tw_mat3 *src)
 {
 	float sign = 1.0, det = 0.0;
@@ -328,13 +328,13 @@ tw_mat3_inverse(struct tw_mat3 *dst, const struct tw_mat3 *src)
  * vec3 implementation
  *****************************************************************************/
 
-float
+WL_EXPORT float
 tw_vec3_dot(const struct tw_vec3 *a, const struct tw_vec3 *b)
 {
 	return (a->x * b->x) + (b->y * b->y) + (a->z * b->z);
 }
 
-void
+WL_EXPORT void
 tw_vec3_normalize(struct tw_vec3 *dst, const struct tw_vec3 *src)
 {
 	float norm = tw_vec3_dot(src, src);
@@ -343,7 +343,7 @@ tw_vec3_normalize(struct tw_vec3 *dst, const struct tw_vec3 *src)
 	dst->z = src->z / norm;
 }
 
-void
+WL_EXPORT void
 tw_vec3_cross(struct tw_vec3 *dst, const struct tw_vec3 *a,
               const struct tw_vec3 *b)
 {
@@ -356,7 +356,7 @@ tw_vec3_cross(struct tw_vec3 *dst, const struct tw_vec3 *a,
  * Mat4 implementation
  *****************************************************************************/
 
-void
+WL_EXPORT void
 tw_mat4_init(struct tw_mat4 *mat)
 {
 	static const struct tw_mat4 identity = {
@@ -368,7 +368,7 @@ tw_mat4_init(struct tw_mat4 *mat)
 	memcpy(mat, &identity, sizeof(*mat));
 }
 
-void
+WL_EXPORT void
 tw_mat4_transpose(struct tw_mat4 *dst, const struct tw_mat4 *src)
 {
 	struct tw_mat4 tmp;
@@ -381,7 +381,7 @@ tw_mat4_transpose(struct tw_mat4 *dst, const struct tw_mat4 *src)
 	memcpy(dst, &tmp, sizeof(*dst));
 }
 
-void
+WL_EXPORT void
 tw_mat4_multiply(struct tw_mat4 *dst, const struct tw_mat4 *a,
                  const struct tw_mat4 *b)
 {
@@ -409,7 +409,7 @@ tw_mat4_multiply(struct tw_mat4 *dst, const struct tw_mat4 *a,
 }
 
 //adopted from mesa gluInvertMatrix, TODO: not tested.
-bool
+WL_EXPORT bool
 tw_mat4_inverse(struct tw_mat4 *dst, const struct tw_mat4 *src)
 {
 	const float *m = src->d;
@@ -536,7 +536,7 @@ tw_mat4_inverse(struct tw_mat4 *dst, const struct tw_mat4 *src)
 	return true;
 }
 
-void
+WL_EXPORT void
 tw_mat4_translate(struct tw_mat4 *dst, float x, float y, float z)
 {
 	tw_mat4_init(dst);
@@ -545,7 +545,7 @@ tw_mat4_translate(struct tw_mat4 *dst, float x, float y, float z)
 	dst->d[14]= z;
 }
 
-void
+WL_EXPORT void
 tw_mat4_scale(struct tw_mat4 *dst, float x, float y, float z)
 {
 	tw_mat4_init(dst);
@@ -554,7 +554,7 @@ tw_mat4_scale(struct tw_mat4 *dst, float x, float y, float z)
 	dst->d[14]= z;
 }
 
-void
+WL_EXPORT void
 tw_mat4_rotate(struct tw_mat4 *dst, const struct tw_vec3 *axis, float angle)
 {
 
