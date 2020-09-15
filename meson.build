@@ -18,7 +18,7 @@ global_args_maybe = [
 	'-Wno-pedantic',
 ]
 
-add_project_arguments(
+add_global_arguments(
   cc.get_supported_arguments(global_args_maybe),
   language : 'c'
 )
