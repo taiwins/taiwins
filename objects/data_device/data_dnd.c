@@ -31,6 +31,8 @@
 #include <taiwins/objects/cursor.h>
 #include <wayland-util.h>
 
+#include "data_internal.h"
+
 /* the second place for creating new data offer */
 static void
 dnd_pointer_enter(struct tw_seat_pointer_grab *grab,

@@ -223,7 +223,7 @@ notify_parent_destroy(struct wl_listener *listener, void *userdata)
 	}
 }
 
-void
+WL_EXPORT void
 tw_popup_grab_start(struct tw_popup_grab *grab, struct tw_seat *seat)
 {
 	grab->seat = seat;
@@ -249,7 +249,7 @@ tw_popup_grab_start(struct tw_popup_grab *grab, struct tw_seat *seat)
 	}
 }
 
-void
+WL_EXPORT void
 tw_popup_grab_init(struct tw_popup_grab *grab, struct tw_surface *surface,
                    struct wl_resource *obj)
 {

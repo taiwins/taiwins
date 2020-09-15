@@ -31,7 +31,7 @@ notify_display_destroy(struct wl_listener *listener, void *data)
 	//there is nothing to do right now.
 }
 
-void
+WL_EXPORT void
 tw_layers_manager_init(struct tw_layers_manager *manager,
                        struct wl_display *display)
 {
@@ -47,7 +47,7 @@ tw_layers_manager_init(struct tw_layers_manager *manager,
 	                      manager);
 }
 
-struct tw_layers_manager *
+WL_EXPORT struct tw_layers_manager *
 tw_layers_manager_create_global(struct wl_display *display)
 {
 	struct tw_layers_manager *manager = &s_layers_manager;
@@ -55,7 +55,7 @@ tw_layers_manager_create_global(struct wl_display *display)
 	return manager;
 }
 
-void
+WL_EXPORT void
 tw_layer_init(struct tw_layer *layer)
 {
 	wl_list_init(&layer->link);
@@ -63,7 +63,7 @@ tw_layer_init(struct tw_layer *layer)
 }
 
 
-void
+WL_EXPORT void
 tw_layer_set_position(struct tw_layer *layer, enum tw_layer_pos pos,
                       struct tw_layers_manager *manager)
 {
@@ -83,7 +83,7 @@ tw_layer_set_position(struct tw_layer *layer, enum tw_layer_pos pos,
 	wl_list_insert(layers, &layer->link);
 }
 
-void
+WL_EXPORT void
 tw_layer_unset_position(struct tw_layer *layer)
 {
 	wl_list_remove(&layer->link);

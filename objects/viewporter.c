@@ -260,7 +260,7 @@ notify_display_destroy(struct wl_listener *listener, void *display)
 	wl_global_destroy(viewporter->globals);
 }
 
-bool
+WL_EXPORT bool
 tw_viewporter_init(struct tw_viewporter *viewporter,
                    struct wl_display *display)
 {
@@ -277,7 +277,7 @@ tw_viewporter_init(struct tw_viewporter *viewporter,
 	return true;
 }
 
-struct tw_viewporter *
+WL_EXPORT struct tw_viewporter *
 tw_viewporter_create_global(struct wl_display *display)
 {
 	struct tw_viewporter *viewporter = &s_tw_viewporter;

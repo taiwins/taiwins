@@ -117,7 +117,7 @@ handle_display_destroy(struct wl_listener *listener, void *data)
 	wl_global_destroy(manager->global);
 }
 
-bool
+WL_EXPORT bool
 tw_xdg_output_manager_init(struct tw_xdg_output_manager *manager,
                            struct wl_display *display)
 {
@@ -136,7 +136,7 @@ tw_xdg_output_manager_init(struct tw_xdg_output_manager *manager,
 	return true;
 }
 
-struct tw_xdg_output_manager *
+WL_EXPORT struct tw_xdg_output_manager *
 tw_xdg_output_manager_create_global(struct wl_display *display)
 {
 	static struct tw_xdg_output_manager s_xdg_output_manager = {0};

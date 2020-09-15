@@ -50,7 +50,7 @@ tw_launch_default_exec(const char *path, struct tw_subprocess *chld)
 	return 0;
 }
 
-struct wl_client *
+WL_EXPORT struct wl_client *
 tw_launch_client_complex(struct wl_display *display, const char *path,
                          struct tw_subprocess *chld,
                          int (*fork_cb)(pid_t, struct tw_subprocess *),
@@ -129,14 +129,15 @@ tw_launch_client_complex(struct wl_display *display, const char *path,
 
 }
 
-struct wl_client *
+WL_EXPORT struct wl_client *
 tw_launch_client(struct wl_display *display, const char *path,
                  struct tw_subprocess *chld)
 {
 	return tw_launch_client_complex(display, path, chld, NULL, NULL);
 }
 
-struct wl_list *tw_get_clients_head()
+WL_EXPORT struct wl_list *
+tw_get_clients_head()
 {
 	static struct wl_list clients_head = {
 		.prev = &clients_head,
@@ -146,7 +147,7 @@ struct wl_list *tw_get_clients_head()
 	return &clients_head;
 }
 
-void
+WL_EXPORT void
 tw_end_client(struct wl_client *client)
 {
 	pid_t pid; uid_t uid; gid_t gid;

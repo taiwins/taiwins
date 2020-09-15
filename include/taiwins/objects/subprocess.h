@@ -66,11 +66,8 @@ tw_launch_client_complex(struct wl_display *display, const char *path,
                          struct tw_subprocess *chld,
                          int (*fork)(pid_t, struct tw_subprocess *),
                          int (*exec)(const char *, struct tw_subprocess *));
-
 void
 tw_end_client(struct wl_client *client);
-
-
 
 #ifdef  __cplusplus
 }

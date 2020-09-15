@@ -31,7 +31,7 @@
 #include <taiwins/objects/surface.h>
 
 
-bool
+WL_EXPORT bool
 tw_surface_buffer_update(struct tw_surface_buffer *buffer,
                          struct wl_resource *resource,
                          pixman_region32_t *damage)
@@ -57,7 +57,7 @@ tw_surface_buffer_update(struct tw_surface_buffer *buffer,
 	return ret;
 }
 
-void
+WL_EXPORT void
 tw_surface_buffer_new(struct tw_surface_buffer *buffer,
                       struct wl_resource *resource)
 {
@@ -78,7 +78,7 @@ tw_surface_buffer_new(struct tw_surface_buffer *buffer,
 		buffer->resource = resource;
 }
 
-void
+WL_EXPORT void
 tw_surface_buffer_release(struct tw_surface_buffer *buffer)
 {
 	if (!buffer->resource)

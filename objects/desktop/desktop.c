@@ -55,7 +55,7 @@ handle_display_destroy(struct wl_listener *listener, void *data)
 	tw_desktop_fini(desktop);
 }
 
-bool
+WL_EXPORT bool
 tw_desktop_init(struct tw_desktop_manager *desktop,
                 struct wl_display *display,
                 const struct tw_desktop_surface_api *api,
@@ -83,7 +83,7 @@ tw_desktop_init(struct tw_desktop_manager *desktop,
 	return ret;
 }
 
-struct tw_desktop_manager *
+WL_EXPORT struct tw_desktop_manager *
 tw_desktop_create_global(struct wl_display *display,
                          const struct tw_desktop_surface_api *api,
                          void *user_data,
@@ -250,7 +250,7 @@ tw_surface_is_wl_shell_surface(struct tw_surface *surface);
 bool
 tw_surface_is_xdg_surface(struct tw_surface *surface);
 
-struct tw_desktop_surface *
+WL_EXPORT struct tw_desktop_surface *
 tw_desktop_surface_from_tw_surface(struct tw_surface *surface)
 {
 	if (tw_surface_is_wl_shell_surface(surface) ||

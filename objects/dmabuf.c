@@ -57,14 +57,14 @@ destroy_wl_buffer(struct wl_resource *resource)
 	tw_dmabuf_buffer_destroy(buffer);
 }
 
-bool
+WL_EXPORT bool
 tw_is_wl_buffer_dmabuf(struct wl_resource *resource)
 {
 	return wl_resource_instance_of(resource, &wl_buffer_interface,
 	                               &wl_buffer_impl) != 0;
 }
 
-struct tw_dmabuf_buffer *
+WL_EXPORT struct tw_dmabuf_buffer *
 tw_dmabuf_buffer_from_resource(struct wl_resource *resource)
 {
 	struct tw_dmabuf_buffer *buffer;
@@ -491,7 +491,7 @@ notify_dmabuf_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&dma->destroy_listener.link);
 }
 
-bool
+WL_EXPORT bool
 tw_linux_dmabuf_init(struct tw_linux_dmabuf *dmabuf,
                      struct wl_display *display)
 {
@@ -514,7 +514,7 @@ tw_linux_dmabuf_init(struct tw_linux_dmabuf *dmabuf,
 	return true;
 }
 
-struct tw_linux_dmabuf *
+WL_EXPORT struct tw_linux_dmabuf *
 tw_dmabuf_create_global(struct wl_display *display)
 {
 	struct tw_linux_dmabuf *dmabuf = &s_tw_linux_dmabuf;

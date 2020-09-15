@@ -82,7 +82,7 @@ region_destroy_resource(struct wl_resource *resource)
 	free(region);
 }
 
-struct tw_region *
+WL_EXPORT struct tw_region *
 tw_region_from_resource(struct wl_resource *wl_region)
 {
 	assert(wl_resource_instance_of(wl_region, &wl_region_interface,
@@ -90,7 +90,7 @@ tw_region_from_resource(struct wl_resource *wl_region)
 	return wl_resource_get_user_data(wl_region);
 }
 
-struct tw_region *
+WL_EXPORT struct tw_region *
 tw_region_create(struct wl_client *client, uint32_t version, uint32_t id,
                  struct tw_surface_manager *manager)
 {

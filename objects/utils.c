@@ -24,7 +24,7 @@
 #include <wayland-server.h>
 #include <taiwins/objects/utils.h>
 
-void
+WL_EXPORT void
 tw_signal_setup_listener(struct wl_signal *signal,
                          struct wl_listener *listener,
                          wl_notify_func_t notify)
@@ -38,7 +38,7 @@ tw_signal_setup_listener(struct wl_signal *signal,
 	wl_signal_add(signal, listener);
 }
 
-void
+WL_EXPORT void
 tw_set_resource_destroy_listener(struct wl_resource *resource,
                                  struct wl_listener *listener,
                                  wl_notify_func_t notify)
@@ -52,7 +52,7 @@ tw_set_resource_destroy_listener(struct wl_resource *resource,
 	wl_resource_add_destroy_listener(resource, listener);
 }
 
-void
+WL_EXPORT void
 tw_set_display_destroy_listener(struct wl_display *display,
                                 struct wl_listener *listener,
                                 wl_notify_func_t notify)
@@ -66,7 +66,7 @@ tw_set_display_destroy_listener(struct wl_display *display,
 	wl_display_add_destroy_listener(display, listener);
 }
 
-bool
+WL_EXPORT bool
 tw_match_wl_resource_client(struct wl_resource *a, struct wl_resource *b)
 {
 	return wl_resource_get_client(a) == wl_resource_get_client(b);
@@ -82,7 +82,7 @@ handle_noop(struct wl_listener *listener, void *data)
 /* adopted from wlroots, primary purpose is for providing safe env when
  * notifiers remove the from the list
  */
-void
+WL_EXPORT void
 tw_signal_emit_safe(struct wl_signal *signal, void *data)
 {
 	//the algorithm works in this way:

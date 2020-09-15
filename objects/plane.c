@@ -23,7 +23,7 @@
 #include <wayland-util.h>
 #include <taiwins/objects/plane.h>
 
-void
+WL_EXPORT void
 tw_plane_init(struct tw_plane *plane)
 {
 	wl_list_init(&plane->link);
@@ -31,7 +31,7 @@ tw_plane_init(struct tw_plane *plane)
 	pixman_region32_init(&plane->damage);
 }
 
-void
+WL_EXPORT void
 tw_plane_fini(struct tw_plane *plane)
 {
 	wl_list_remove(&plane->link);

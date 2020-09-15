@@ -193,7 +193,7 @@ handle_display_destroy(struct wl_listener *listener, void *data)
 	presentation->display = NULL;
 }
 
-bool
+WL_EXPORT bool
 tw_presentation_init(struct tw_presentation *presentation,
                      struct wl_display *display)
 {
@@ -213,7 +213,7 @@ tw_presentation_init(struct tw_presentation *presentation,
 	return true;
 }
 
-struct tw_presentation*
+WL_EXPORT struct tw_presentation*
 tw_presentation_create_global(struct wl_display *display)
 {
 	static struct tw_presentation s_presentation = {0};
@@ -225,7 +225,7 @@ tw_presentation_create_global(struct wl_display *display)
 	return &s_presentation;
 }
 
-void
+WL_EXPORT void
 tw_presentation_feeback_sync(struct tw_presentation_feedback *feedback,
                              struct wl_resource *output,
                              struct timespec *timespec)

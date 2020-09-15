@@ -108,7 +108,7 @@ notify_focused_disappear(struct wl_listener *listener, void *data)
 	wl_list_init(&listener->link);
 }
 
-struct tw_keyboard *
+WL_EXPORT struct tw_keyboard *
 tw_seat_new_keyboard(struct tw_seat *seat)
 {
 	struct tw_keyboard *keyboard = &seat->keyboard;
@@ -133,7 +133,7 @@ tw_seat_new_keyboard(struct tw_seat *seat)
 	return keyboard;
 }
 
-void
+WL_EXPORT void
 tw_seat_remove_keyboard(struct tw_seat *seat)
 {
 	struct tw_seat_client *client;
@@ -158,7 +158,7 @@ tw_seat_remove_keyboard(struct tw_seat *seat)
 	tw_reset_wl_list(&keyboard->focused_destroy.link);
 }
 
-void
+WL_EXPORT void
 tw_keyboard_start_grab(struct tw_keyboard *keyboard,
                        struct tw_seat_keyboard_grab *grab)
 {
@@ -166,7 +166,7 @@ tw_keyboard_start_grab(struct tw_keyboard *keyboard,
 	grab->seat = wl_container_of(keyboard, grab->seat, keyboard);
 }
 
-void
+WL_EXPORT void
 tw_keyboard_end_grab(struct tw_keyboard *keyboard)
 {
 	if (keyboard->grab && keyboard->grab != &keyboard->default_grab &&
@@ -175,7 +175,7 @@ tw_keyboard_end_grab(struct tw_keyboard *keyboard)
 	keyboard->grab = &keyboard->default_grab;
 }
 
-void
+WL_EXPORT void
 tw_keyboard_set_keymap(struct tw_keyboard *keyboard,
                        struct xkb_keymap *keymap)
 {
@@ -197,7 +197,7 @@ tw_keyboard_set_keymap(struct tw_keyboard *keyboard,
 	}
 }
 
-void
+WL_EXPORT void
 tw_keyboard_send_keymap(struct tw_keyboard *keyboard,
                         struct wl_resource *resource)
 {
@@ -227,7 +227,7 @@ tw_keyboard_send_keymap(struct tw_keyboard *keyboard,
 	close(keymap_fd);
 }
 
-void
+WL_EXPORT void
 tw_keyboard_set_focus(struct tw_keyboard *keyboard,
                       struct wl_resource *wl_surface,
                       struct wl_array *focus_keys)
@@ -260,7 +260,7 @@ tw_keyboard_set_focus(struct tw_keyboard *keyboard,
 	}
 }
 
-void
+WL_EXPORT void
 tw_keyboard_clear_focus(struct tw_keyboard *keyboard)
 {
 	struct tw_seat_client *client;
@@ -280,7 +280,7 @@ tw_keyboard_clear_focus(struct tw_keyboard *keyboard)
 	keyboard->focused_surface = NULL;
 }
 
-void
+WL_EXPORT void
 tw_keyboard_notify_enter(struct tw_keyboard *keyboard,
                          struct wl_resource *surface, uint32_t *keycodes,
                          size_t n_keycodes)
@@ -290,7 +290,7 @@ tw_keyboard_notify_enter(struct tw_keyboard *keyboard,
 		                            surface, keycodes, n_keycodes);
 }
 
-void
+WL_EXPORT void
 tw_keyboard_notify_key(struct tw_keyboard *keyboard, uint32_t time_msec,
                        uint32_t key, uint32_t state)
 {
@@ -299,7 +299,7 @@ tw_keyboard_notify_key(struct tw_keyboard *keyboard, uint32_t time_msec,
 		                          state);
 }
 
-void
+WL_EXPORT void
 tw_keyboard_notify_modifiers(struct tw_keyboard *keyboard,
                              uint32_t mods_depressed, uint32_t mods_latched,
                              uint32_t mods_locked, uint32_t group)
