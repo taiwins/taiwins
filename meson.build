@@ -5,29 +5,23 @@ project('taiwins', 'c',
 	  'c_std=gnu11',
 	  'werror=true',
 	],
-	meson_version: '>= 0.5',
+	meson_version: '>= 0.46',
 	license: 'GPLv2+')
 
 
 ###### compile flags
 cc = meson.get_compiler('c')
 
-global_args = []
-global_link_args = []
 global_args_maybe = [
 	'-Wno-unused-parameter',
 	'-Wno-missing-field-initializers',
 	'-Wno-pedantic',
 ]
 
-foreach a : global_args_maybe
-  if cc.has_argument(a)
-    global_args += a
-  endif
-endforeach
-
-add_project_arguments(global_args, language : 'c')
-add_project_link_arguments(global_link_args, language : 'c')
+add_project_arguments(
+  cc.get_supported_arguments(global_args_maybe),
+  language : 'c'
+)
 
 ###### subprojects
 twclient = subproject('twclient')
