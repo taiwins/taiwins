@@ -341,7 +341,7 @@ tiling_view_resize(struct tiling_view *view,
  *
  * TODO: add this later to the layout operations
  */
-static inline void
+void
 tiling_view_shift(struct tiling_view *view, bool forward)
 {
 	vtree_node_shift(&view->node, forward);

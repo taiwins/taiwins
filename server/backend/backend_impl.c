@@ -141,7 +141,7 @@ renderer_test_import_dmabuf(struct tw_dmabuf_attributes *attrs,
                             void *data)
 {
 	struct tw_renderer *rdr = data;
-	struct tw_render_texture texture;
+	struct tw_render_texture texture = {0};
 
 	if (tw_renderer_import_dma(&texture, rdr, attrs))
 		tw_render_texture_destroy(&texture);
@@ -244,9 +244,10 @@ reassign_surface_outputs(struct tw_surface *surface,
                          struct tw_backend *backend)
 {
 	uint32_t area = 0, max = 0, mask = 0;
-	struct tw_backend_output *output, *major;
+	struct tw_backend_output *output, *major = NULL;
 	pixman_region32_t surface_region;
 	pixman_box32_t *e;
+
 	pixman_region32_init_rect(&surface_region,
 	                          surface->geometry.xywh.x,
 	                          surface->geometry.xywh.y,
