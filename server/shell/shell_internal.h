@@ -106,7 +106,7 @@ struct tw_shell {
 	struct tw_surface *the_widget_surface;
 	enum taiwins_shell_panel_pos panel_pos;
 
-	struct wl_signal output_area_signal;
+	struct wl_signal desktop_area_signal;
 	struct wl_signal widget_create_signal;
 	struct wl_signal widget_close_signal;
 

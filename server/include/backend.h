@@ -235,6 +235,9 @@ void
 tw_backend_defer_outputs(struct tw_backend *backend, bool defer);
 
 void
+tw_backend_commit_output_state(struct tw_backend_output *o);
+
+void
 tw_backend_add_listener(struct tw_backend *backend,
                         enum tw_backend_event_type event,
                         struct wl_listener *listener);

@@ -41,7 +41,6 @@
 #include <taiwins/objects/utils.h>
 
 #include "backend.h"
-#include "backend/backend_internal.h"
 #include "shell.h"
 #include "bindings.h"
 #include "config_internal.h"
@@ -186,9 +185,11 @@ tw_try_config(struct tw_config *tmp_config, struct tw_config *main_config)
 
 	if (is_file_exist(path)) {
 		safe = safe && tmp_config->read_config(tmp_config, path);
-                if (!safe)
+		if (!safe) {
 			main_config->err_msg =
 				tmp_config->read_error(tmp_config);
+			tw_logl("config error: %s", main_config->err_msg);
+		}
 	}
 	return safe;
 }
@@ -345,7 +346,7 @@ tw_config_apply_output(struct tw_config_table *t,
 }
 
 static void
-tw_config_output_create(struct wl_listener *listener, void *data)
+notify_config_output_create(struct wl_listener *listener, void *data)
 {
 	struct tw_config *config =
 		container_of(listener, struct tw_config,
@@ -354,7 +355,7 @@ tw_config_output_create(struct wl_listener *listener, void *data)
 }
 
 static void
-tw_config_seat_change(struct wl_listener *listener, void *data)
+notify_config_seat_change(struct wl_listener *listener, void *data)
 {
 	struct tw_config *config =
 		container_of(listener, struct tw_config, seat_change_listener);
@@ -394,10 +395,10 @@ tw_config_create(struct tw_backend *backend, struct tw_bindings *bindings)
 	                 sizeof(struct tw_config_obj), NULL);
 	tw_signal_setup_listener(&backend->output_plug_signal,
 	                         &config->output_created_listener,
-	                         tw_config_output_create);
+	                         notify_config_output_create);
 	tw_signal_setup_listener(&backend->seat_ch_signal,
 	                         &config->seat_change_listener,
-	                         tw_config_seat_change);
+	                         notify_config_seat_change);
 	return config;
 }
 

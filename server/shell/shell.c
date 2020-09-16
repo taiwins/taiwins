@@ -117,6 +117,23 @@ shell_output_from_backend_output(struct tw_shell *shell,
 /******************************************************************************
  * shell interface
  *****************************************************************************/
+static void
+shell_change_desktop_area(void *data)
+{
+	struct tw_shell_output *shell_output = data;
+	struct tw_backend_output *backend_output = shell_output->output;
+	struct tw_shell *shell = shell_output->shell;
+
+	wl_signal_emit(&shell->desktop_area_signal, backend_output);
+}
+
+static void
+panel_size_changed(struct tw_shell_output *shell_output)
+{
+	struct tw_shell *shell = shell_output->shell;
+	struct wl_event_loop *loop = wl_display_get_event_loop(shell->display);
+	wl_event_loop_add_idle(loop, shell_change_desktop_area, shell_output);
+}
 
 static void
 commit_panel(struct tw_surface *surface)
@@ -136,6 +153,9 @@ commit_panel(struct tw_surface *surface)
 		ui->y += (output->output->state.h - geo->height);
 
 	tw_surface_set_position(surface, ui->x, ui->y);
+
+        if (output->panel_height != (int)geo->height)
+	        panel_size_changed(output);
 	output->panel_height = geo->height;
 }
 
@@ -182,7 +202,7 @@ shell_ui_unbind(struct wl_resource *resource)
 	if (output && ui == &output->panel) {
 		output->panel = (struct tw_shell_ui){0};
 		output->panel_height = 0;
-		//TODO
+		panel_size_changed(output);
 	} else if (output && ui == &output->background) {
 		output->background = (struct tw_shell_ui){0};
 	}
@@ -551,7 +571,7 @@ tw_shell_output_available_space(struct tw_shell *shell,
 struct wl_signal *
 tw_shell_get_desktop_area_signal(struct tw_shell *shell)
 {
-	return &shell->output_area_signal;
+	return &shell->desktop_area_signal;
 }
 
 void
@@ -738,7 +758,7 @@ tw_shell_create_global(struct wl_display *display,
 	wl_list_for_each(layer, &layers->layers, link)
 		tw_logl("layer position %x\n", layer->position);
 	//signals
-	wl_signal_init(&s_shell.output_area_signal);
+	wl_signal_init(&s_shell.desktop_area_signal);
 	wl_signal_init(&s_shell.widget_create_signal);
 	wl_signal_init(&s_shell.widget_close_signal);
 

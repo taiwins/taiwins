@@ -308,7 +308,6 @@ main(int argc, char *argv[])
 		                 &options.test_client);
 
 	if (!tw_run_config(ec.config)) {
-		tw_logl_level(TW_LOG_WARN, "config error!");
 		if (!tw_run_default_config(ec.config))
 			goto err_config;
 	}
