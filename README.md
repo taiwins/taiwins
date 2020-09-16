@@ -1,17 +1,18 @@
 ## Taiwins, a morden wayland window manager
 
-Taiwins is a wayland window manager, supports both tiling and floating
+Taiwins is a dynamic wayland window manager, supports both tiling and floating
 layout. It is designed to be mordern and modular. It is extensible through lua
 script and it has built-in **shell** and **widgets** implementation through
 [nuklear GUI](https://github.com/vurtun/nuklear). It also supports popular
 tiling window manager features like gapping.
 
-Taiwins is usable but currently under heavy developement. You can refer to
-[progress](docs/progress.org) for current progress.
-
+Taiwins is usable and currently under heavy developement. If you would like to
+contribute to the project, You can refer to [contributing](CONTRIBUTING.md) for
+getting started.
 
 ## How to build
 you will need following dependencies
+
 - Pixman
 - libweston(if you have an nvidia graphics card you may need weston-eglstream)
 - xkbcommon
@@ -21,24 +22,22 @@ you will need following dependencies
 - cairo
 - lua
 - librsvg
-- opengl>=3.3
-- vulkan
-- cmake
+- opengl or opengles
+- meson
+- ninja
 - pam
 - fontconfig
 - freetype2
-- xcursor-themes(required for whiteglass cursor)
 
 ## build steps:
 with source code, you can easily compile and try out:
 
-	git clone https://github.com/taiwins/taiwins taiwins && cd taiwins
-	git submodule init
-	git submodule update
-	mkdir build && cd build
-	cmake ..
-	make -j8
+	git clone https://github.com/taiwins/taiwins --recursive taiwins && cd taiwins
 
+	meson wrap promote subprojects/twclient/subprojects/ctypes
+	
+	meson build && ninja -C build
+	
 For those who use Archlinux, there is an
 [aur](https://aur.archlinux.org/packages/taiwins-git) package you can simply install.
 
@@ -71,15 +70,6 @@ Though it is configurable, by default available bindings are
 - `Super+p` calling **shell-console** to launch application
 
 ### Documentation
-Currently documentation is generated through doxygen. SET `BUILD_DOC=ON` option
-with cmake to enable building documentation.	
-
-### Screenshots
-- widget example
-![current progress](imgs/with-nuklear.png)
-
-- opening application in floating mode
-![use-emacs](imgs/use-emacs.png)
-
-- opening application in tiling mode
-![tiling](imgs/resizing.png)
+Currently documentation is generated through doxygen. enable `build_doc` option
+to enable building documentation. We also host a online themed
+[documentation](https://taiwins.org/page_doc.html) which you can access.

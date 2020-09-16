@@ -1,4 +1,6 @@
-# Client data structures
+# Twclient quick reference
+
+## Client data structures
 
 -   **tw\_globals:** the global structure that fits the need of an wayland
     client.  It contains things like `wl_shm`, `wl_shm_format`, `wl_compositor`,
