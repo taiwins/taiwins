@@ -25,20 +25,37 @@
 #include <linux/input.h>
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/surface.h>
-#include <wayland-server-protocol.h>
+#include <taiwins/objects/desktop.h>
+#include <wayland-server.h>
 
 #include "bindings.h"
-#include "desktop/workspace.h"
 #include "xdg.h"
 #include "shell.h"
 #include "config_internal.h"
 
-
-/* TW_ZOOM_AXIS_BINDING */
 static bool
-zoom_axis(struct tw_pointer *pointer, uint32_t time, double delta,
-          enum wl_pointer_axis direction, uint32_t modifiers, void *data)
+quit_compositor(struct tw_keyboard *keyboard, uint32_t time,
+                uint32_t key, uint32_t modifiers, uint32_t option, void *data)
 {
+	struct tw_config *config = data;
+	struct wl_display *wl_display = config->backend->display;
+
+	tw_logl("%s: quit taiwins", "taiwins");
+	wl_display_terminate(wl_display);
+	return true;
+}
+
+/* TW_CLOSE_APP_BINDING */
+static bool
+close_application(struct tw_keyboard *keyboard, uint32_t time,
+                  uint32_t key, uint32_t mods, uint32_t option, void *data)
+{
+	struct wl_resource *resource = keyboard->focused_surface;
+	struct tw_surface *surface = (keyboard->focused_surface) ?
+		tw_surface_from_resource(resource) : NULL;
+
+	if (surface && tw_desktop_surface_from_tw_surface(surface))
+		wl_client_destroy(wl_resource_get_client(resource));
 	return true;
 }
 
@@ -71,6 +88,15 @@ should_start_console(struct tw_keyboard *keyboard, uint32_t time,
 	return true;
 }
 
+/* TW_ZOOM_AXIS_BINDING */
+static bool
+zoom_axis(struct tw_pointer *pointer, uint32_t time, double delta,
+          enum wl_pointer_axis direction, uint32_t modifiers, void *data)
+{
+	return true;
+}
+
+/* TW_ALPHA_AXIS_BINDING */
 static bool
 alpha_axis(struct tw_pointer *pointer, uint32_t time, double delta,
            enum wl_pointer_axis direction, uint32_t modifiers, void *data)
@@ -117,12 +143,18 @@ click_activate_surface(struct tw_pointer *pointer, uint32_t time,
 	struct tw_config *config = data;
 	struct tw_xdg *desktop =
 		tw_config_request_object(config, "desktop");
+	struct tw_seat *seat = container_of(pointer, struct tw_seat, pointer);
+	struct tw_keyboard *keyboard = &seat->keyboard;
+
 	if (desktop && pointer->focused_surface) {
 		surface = tw_surface_from_resource(pointer->focused_surface);
 		view = tw_xdg_view_from_tw_surface(surface);
 
 		if (pointer->btn_count > 0 && view)
 			tw_xdg_view_activate(desktop, view);
+		else if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
+			tw_keyboard_set_focus(keyboard,
+			                      pointer->focused_surface, NULL);
 	}
 	return false;
 }
@@ -286,18 +318,6 @@ desktop_recent_view(struct tw_keyboard *keyboard, uint32_t time,
 	return true;
 }
 
-static bool
-quit_compositor(struct tw_keyboard *keyboard, uint32_t time,
-                uint32_t key, uint32_t modifiers, uint32_t option, void *data)
-{
-	struct tw_config *config = data;
-	struct wl_display *wl_display = config->backend->display;
-
-	tw_logl("%s: quit taiwins", "taiwins");
-	wl_display_terminate(wl_display);
-	return true;
-}
-
 void
 tw_config_default_bindings(struct tw_config *c)
 {
@@ -307,6 +327,14 @@ tw_config_default_bindings(struct tw_config *c)
 			.key_func = quit_compositor,
 			.type = TW_BINDING_key,
 			.name = "TW_QUIT",
+		},
+		[TW_CLOSE_APP_BINDING] = {
+			.keypress = {{KEY_C, TW_MODIFIER_SUPER |
+					TW_MODIFIER_SHIFT},
+			             {0}, {0}, {0}, {0}},
+			.key_func = close_application,
+			.type = TW_BINDING_key,
+			.name = "TW_CLOSE_APP",
 		},
 		[TW_RELOAD_CONFIG_BINDING] = {
 			.keypress = {{KEY_R, TW_MODIFIER_CTRL |
