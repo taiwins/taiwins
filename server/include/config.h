@@ -31,6 +31,9 @@
 extern "C" {
 #endif
 
+#define TW_CONFIG_SHELL_PATH "shell_path"
+#define TW_CONFIG_CONSOLE_PATH "console_path"
+
 struct tw_config;
 struct tw_config_table;
 

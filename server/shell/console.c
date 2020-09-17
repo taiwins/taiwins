@@ -23,15 +23,19 @@
 #include <unistd.h>
 #include <linux/input.h>
 #include <unistd.h>
+#include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <wayland-taiwins-console-server-protocol.h>
 #include <ctypes/sequential.h>
 #include <taiwins/objects/subprocess.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/utils.h>
+#include <wayland-util.h>
 
 #include "backend.h"
 #include "shell.h"
+#include "taiwins/objects/seat.h"
 
 #define CONSOLE_WIDTH  600
 #define CONSOLE_HEIGHT 300
@@ -61,11 +65,12 @@ struct tw_console {
 static struct tw_console s_console;
 
 static void
-console_surface_destroy_cb(struct wl_listener *listener, void *data)
+notify_console_surface_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_console *console =
 		container_of(listener, struct tw_console,
 		             close_console_listener);
+	tw_reset_wl_list(&listener->link);
 	console->surface = NULL;
 }
 
@@ -86,13 +91,16 @@ close_console(struct wl_client *client,
 
 static void
 set_console(struct wl_client *client,
-	     struct wl_resource *resource,
-	     uint32_t ui_elem,
-	     struct wl_resource *wl_surface)
+            struct wl_resource *resource,
+            uint32_t ui_elem,
+            struct wl_resource *wl_surface,
+            struct wl_resource *wl_seat)
 {
 	struct tw_console *lch = wl_resource_get_user_data(resource);
 	struct tw_backend_output *output =
 		tw_backend_focused_output(lch->backend);
+	struct tw_seat *seat = tw_seat_from_resource(wl_seat);
+	struct tw_keyboard *keyboard = &seat->keyboard;
 	int32_t sx = output->state.w/2 - CONSOLE_WIDTH/2;
 
 	tw_shell_create_ui_elem(lch->shell, client, output, ui_elem,
@@ -100,6 +108,8 @@ set_console(struct wl_client *client,
 	lch->surface = tw_surface_from_resource(wl_surface);
 	wl_resource_add_destroy_listener(wl_surface,
 	                                 &lch->close_console_listener);
+	if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
+		tw_keyboard_set_focus(keyboard, wl_surface, NULL);
 }
 
 
@@ -122,7 +132,7 @@ unbind_console(struct wl_resource *r)
 
 
 static void
-bind_console(struct wl_client *client, void *data, UNUSED_ARG(uint32_t version),
+bind_console(struct wl_client *client, void *data, uint32_t version,
              uint32_t id)
 {
 	struct tw_console *console = data;
@@ -216,8 +226,8 @@ tw_console_create_global(struct wl_display *display, const char *path,
 
 	//close close
 	wl_list_init(&s_console.close_console_listener.link);
-	s_console.close_console_listener.notify = console_surface_destroy_cb;
-	//where is the signal for console close???
+	s_console.close_console_listener.notify =
+		notify_console_surface_destroy;
 
 	//destroy globals
 	tw_set_display_destroy_listener(display,

@@ -41,6 +41,7 @@
 #include <taiwins/objects/utils.h>
 
 #include "backend.h"
+#include "config.h"
 #include "shell.h"
 #include "bindings.h"
 #include "config_internal.h"
@@ -210,8 +211,8 @@ tw_config_wake_compositor(struct tw_config *c)
 	const char *console_path;
 
 	initialized = tw_config_request_object(c, "initialized");
-	shell_path =  tw_config_request_object(c, "shell_path");
-	console_path = tw_config_request_object(c, "console_path");
+	shell_path =  tw_config_request_object(c, TW_CONFIG_SHELL_PATH);
+	console_path = tw_config_request_object(c, TW_CONFIG_CONSOLE_PATH);
 	if (initialized)
 		goto initialized;
 

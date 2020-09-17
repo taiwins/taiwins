@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <wayland-taiwins-shell-server-protocol.h>
 #include <pixman.h>
@@ -36,6 +37,7 @@
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
+#include <wayland-util.h>
 #include "backend.h"
 
 #include "shell.h"
@@ -76,9 +78,10 @@ shell_create_ui_element(struct tw_shell *shell,
 	tw_reset_wl_list(&surface->links[TW_VIEW_LAYER_LINK]);
 	wl_list_insert(layer->views.prev, &surface->links[TW_VIEW_LAYER_LINK]);
 	shell_ui_set_role(elem, commit_cb, surface);
-	wl_list_init(&elem->surface_destroy.link);
-	elem->surface_destroy.notify = notify_shell_ui_surface_destroy;
-	wl_signal_add(&surface->events.destroy, &elem->surface_destroy);
+	wl_list_init(&elem->grab_close.link);
+	tw_signal_setup_listener(&surface->events.destroy,
+	                         &elem->surface_destroy,
+	                         notify_shell_ui_surface_destroy);
 
 	return elem;
 }
@@ -206,7 +209,8 @@ shell_ui_unbind(struct wl_resource *resource)
 	} else if (output && ui == &output->background) {
 		output->background = (struct tw_shell_ui){0};
 	}
-
+	tw_reset_wl_list(&ui->surface_destroy.link);
+	tw_reset_wl_list(&ui->grab_close.link);
 	ui->binded = NULL;
 	ui->layer = NULL;
 	ui->resource = NULL;
@@ -290,7 +294,6 @@ create_ui_element(struct wl_client *client,
 		wl_resource_set_implementation(resource, &tw_ui_impl, elem,
 		                               shell_ui_unbind);
 	elem->type = type;
-
 	wl_signal_emit(&shell->widget_create_signal, shell);
 }
 
@@ -333,6 +336,7 @@ launch_shell_widget(struct wl_client *client,
 	struct tw_shell *shell = wl_resource_get_user_data(resource);
 	struct tw_shell_output *output = &shell->tw_outputs[idx];
 	struct tw_seat *seat = tw_seat_from_resource(wl_seat);
+	struct tw_keyboard *keyboard = &seat->keyboard;
 
 	x += output->output->state.x;
 	y += output->output->state.y;
@@ -348,6 +352,8 @@ launch_shell_widget(struct wl_client *client,
 		                         notify_shell_widget_close);
 		tw_popup_grab_start(&shell->widget.grab, seat);
 	}
+	if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
+		tw_keyboard_set_focus(keyboard, wl_surface, NULL);
 }
 
 static void
