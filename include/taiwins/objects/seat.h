@@ -177,7 +177,9 @@ struct tw_seat {
 
 	uint32_t capabilities;
 	uint32_t repeat_delay, repeat_rate;
-	uint32_t last_pointer_serial, last_touch_serial;
+	uint32_t last_pointer_serial;
+	uint32_t last_touch_serial;
+	uint32_t last_keyboard_serial;
 	struct tw_keyboard keyboard;
 	struct tw_pointer pointer;
 	struct tw_touch touch;

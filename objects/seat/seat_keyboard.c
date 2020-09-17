@@ -61,6 +61,7 @@ notify_keyboard_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
 		wl_resource_for_each(keyboard, &client->keyboards)
 			wl_keyboard_send_key(keyboard, serial, time_msec,
 			                     key, state);
+		seat->last_keyboard_serial = serial;
 	}
 }
 

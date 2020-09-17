@@ -42,8 +42,11 @@ notify_touch_down(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 {
 	struct wl_resource *touch_res;
 	struct tw_touch *touch = &grab->seat->touch;
-	uint32_t serial =  wl_display_get_serial(grab->seat->display);
-	if (touch->focused_client)
+	uint32_t serial;
+
+        if (touch->focused_client) {
+		serial = wl_display_get_serial(grab->seat->display);
+
 		wl_resource_for_each(touch_res,
 		                     &touch->focused_client->touches) {
 			wl_touch_send_down(touch_res, serial, time_msec,
@@ -52,8 +55,10 @@ notify_touch_down(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 			                   wl_fixed_from_double(sx),
 			                   wl_fixed_from_double(sy));
 			wl_touch_send_frame(touch_res);
+
+			grab->seat->last_touch_serial = serial;
 		}
-	grab->seat->last_touch_serial = serial;
+	}
 }
 
 static void
@@ -62,15 +67,17 @@ notify_touch_up(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 {
 	struct wl_resource *touch_res;
 	struct tw_touch *touch = &grab->seat->touch;
-	uint32_t serial =  wl_display_get_serial(grab->seat->display);
+	uint32_t serial;
 
-	if (touch->focused_client)
+	if (touch->focused_client) {
+		serial = wl_display_get_serial(grab->seat->display);
 		wl_resource_for_each(touch_res,
 		                     &touch->focused_client->touches) {
 			wl_touch_send_up(touch_res, serial, time_msec,
 			                 touch_id);
 			wl_touch_send_frame(touch_res);
 		}
+	}
 
 }
 

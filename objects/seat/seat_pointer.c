@@ -60,14 +60,14 @@ notify_pointer_button(struct tw_seat_pointer_grab *grab,
 	struct wl_resource *resource;
 	struct tw_pointer *pointer = &grab->seat->pointer;
 	struct tw_seat_client *client = pointer->focused_client;
-	uint32_t serial = wl_display_next_serial(grab->seat->display);
+	uint32_t serial;
 	if (client) {
+		serial = wl_display_next_serial(grab->seat->display);
 		wl_resource_for_each(resource, &client->pointers)
 			wl_pointer_send_button(resource, serial, time_msec,
 			                       button, state);
-		//XXX forcusing on the clients should be compositor logic
+		grab->seat->last_pointer_serial = serial;
 	}
-	grab->seat->last_pointer_serial = serial;
 }
 
 static void

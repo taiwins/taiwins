@@ -323,6 +323,7 @@ tw_seat_create(struct wl_display *display, struct tw_cursor *seat_cursor,
 	seat->repeat_delay = 500;
 	seat->repeat_rate = 25;
 	seat->display = display;
+	seat->last_keyboard_serial = 0;
 	seat->last_pointer_serial = 0;
 	seat->last_touch_serial = 0;
 	seat->cursor = seat_cursor;
@@ -416,5 +417,6 @@ WL_EXPORT bool
 tw_seat_valid_serial(struct tw_seat *seat, uint32_t serial)
 {
 	return serial == seat->last_pointer_serial ||
-		serial == seat->last_touch_serial;
+		serial == seat->last_touch_serial ||
+		serial == seat->last_keyboard_serial;
 }
