@@ -1,5 +1,5 @@
 project('taiwins', 'c',
-	version : '0.1.1',
+	version : '0.2.0',
 	default_options: [
 	  'warning_level=2', #warn level has to be 2 to get wlroots compiles
 	  'c_std=gnu11',
