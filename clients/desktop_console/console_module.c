@@ -168,7 +168,7 @@ thread_run_module(void *arg)
 {
 	struct console_module *module = arg;
 	char *exec_command = NULL, *search_command = NULL;
-	char *exec_res;
+	char *exec_res = NULL;
 	vector_t search_results = {0};
 	int exec_ret = 0, search_ret = 0;
 	struct module_search_cache cache;
