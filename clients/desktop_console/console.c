@@ -610,6 +610,8 @@ start_console(void *data, struct taiwins_console *tw_console,
 	struct desktop_console *console = (struct desktop_console *)data;
 	struct tw_appsurf *surface = &console->surface;
 	struct wl_surface *wl_surface = NULL;
+	struct wl_seat *seat = console->globals.inputs.wl_seat;
+
 	int w = wl_fixed_to_int(width);
 	int h = wl_fixed_to_int(height);
 	int s = wl_fixed_to_int(scale);
@@ -618,10 +620,10 @@ start_console(void *data, struct taiwins_console *tw_console,
 
 	console->bounds = tw_make_bbox_origin(w, h, s);
 	console->collapsed_bounds =
-		tw_make_bbox_origin(w, CON_EDIT_H + border * 2 + margin * 2, s);
+		tw_make_bbox_origin(w, CON_EDIT_H + border*2 + margin*2, s);
 
 	wl_surface = wl_compositor_create_surface(console->globals.compositor);
-	console->proxy = taiwins_console_launch(tw_console, wl_surface);
+	console->proxy = taiwins_console_launch(tw_console, wl_surface, seat);
 
 	tw_appsurf_init(surface, wl_surface,
 	                &console->globals, TW_APPSURF_WIDGET,
@@ -776,7 +778,7 @@ load_console_icons(struct desktop_console *console, uint32_t icons)
 {
 	int fd, flags;
 	char iconfile[128];
-	char iconpath[PATH_MAX];
+	char iconpath[PATH_MAX] = {0};
 	struct image_cache cache;
 	const char *cache_types[] = {
 		"apps", "mimes", "places", "status", "devices"

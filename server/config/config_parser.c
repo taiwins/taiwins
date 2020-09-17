@@ -29,6 +29,7 @@
 #include <ctypes/sequential.h>
 #include <ctypes/tree.h>
 #include <ctypes/strops.h>
+#include <taiwins/objects/seat.h>
 
 #include "config_internal.h"
 
@@ -38,10 +39,10 @@ struct event_map {
 };
 
 static const struct event_map modifiers_map[] = {
-	{"C", MODIFIER_CTRL}, {"Ctrl", MODIFIER_CTRL},
-	{"M", MODIFIER_ALT}, {"Alt", MODIFIER_ALT},
-	{"s", MODIFIER_SUPER}, {"Super", MODIFIER_SUPER},
-	{"S", MODIFIER_SHIFT}, {"Shift", MODIFIER_SHIFT},
+	{"C", TW_MODIFIER_CTRL},  {"Ctrl",  TW_MODIFIER_CTRL},
+	{"M", TW_MODIFIER_ALT},   {"Alt",   TW_MODIFIER_ALT},
+	{"s", TW_MODIFIER_SUPER}, {"Super", TW_MODIFIER_SUPER},
+	{"S", TW_MODIFIER_SHIFT}, {"Shift", TW_MODIFIER_SHIFT},
 };
 
 static const struct event_map special_keys_table[] = {

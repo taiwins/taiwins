@@ -152,6 +152,7 @@ shell_launch_widget(struct desktop_shell *shell)
 {
 	struct widget_launch_info *info = &shell->widget_launch;
 	struct shell_output *shell_output = shell->widget_launch.output;
+	struct tw_globals *globals = &shell->globals;
 
 	if (info->current == info->widget && info->current != NULL)
 		return;
@@ -162,7 +163,9 @@ shell_launch_widget(struct desktop_shell *shell)
 		wl_compositor_create_surface(shell->globals.compositor);
 	struct taiwins_ui *widget_proxy =
 		taiwins_shell_launch_widget(shell->interface, widget_surface,
-				       shell_output->index, info->x, info->y);
+		                            globals->inputs.wl_seat,
+		                            shell_output->index,
+		                            info->x, info->y);
 	info->widget->proxy = widget_proxy;
 	taiwins_ui_add_listener(widget_proxy, &widget_impl, info);
 	tw_appsurf_init(&info->widget->widget, widget_surface,
@@ -206,7 +209,7 @@ shell_launch_notif(struct desktop_shell *shell, struct shell_notif *notif)
 	struct shell_widget *widget = &notification_widget;
 
 	//notification does not race the widget apps
-	if (info->current)
+	if (info->current || !output)
 		return;
 
 	//hard coded location, we can actually have a location

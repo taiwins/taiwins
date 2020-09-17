@@ -10,9 +10,12 @@
 [submodule "3rdparties/taiwins-protocols"]
 	path = subprojects/taiwins-protocols
 	url = https://github.com/taiwins/taiwins-protocols
-[submodule "3rdparties/libweston"]
-	path = subprojects/libweston
-	url = https://gitlab.freedesktop.org/wayland/weston.git
 [submodule "3rdparties/tdbus"]
 	path = subprojects/tdbus
 	url = https://github.com/xeechou/tdbus
+[submodule "subprojects/wlroots"]
+	path = subprojects/wlroots
+	url = https://github.com/swaywm/wlroots
+[submodule "subprojects/twobjects"]
+	path = subprojects/twobjects
+	url = https://github.com/taiwins/twobjects.git

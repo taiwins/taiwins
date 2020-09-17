@@ -1,0 +1,18 @@
+option('enable-profiler',
+       type: 'boolean',
+       value: false,
+       description: 'Enable taiwins profiler'
+)
+
+option('build-doc',
+       type: 'boolean',
+       value: false,
+       description: 'Enable doxygen build'
+)
+
+option('rendering-debug',
+       type: 'combo',
+       choices: ['none', 'damage', 'clip'],
+       value: 'none',
+       description: 'Enable the various rendering debugging options'
+)

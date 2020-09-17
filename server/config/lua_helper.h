@@ -168,6 +168,36 @@ tw_lua_is_rgb(lua_State *L, int pos, uint32_t *code)
 		tw_lua_is_rgb_dict(L, pos, code);
 }
 
+static inline bool
+tw_lua_is_tuple2(lua_State *L, int pos, int *x, int *y)
+{
+	bool ret = true;
+
+	if (lua_istable(L, pos) && lua_rawlen(L, pos) == 2) {
+		lua_rawgeti(L, pos, 1);
+		ret = ret && tw_lua_isnumber(L, -1);
+		*x = lua_tonumber(L, -1);
+		lua_pop(L, 1);
+
+		lua_rawgeti(L, pos, 1);
+		ret = ret && tw_lua_isnumber(L, -1);
+		*y = lua_tonumber(L, -1);
+		lua_pop(L, 1);
+	} else
+		return false;
+	return  ret;
+}
+
+static inline bool
+tw_lua_is_int2str(lua_State *L, int pos, int *x, int *y)
+{
+	if (tw_lua_isstring(L, pos) &&
+	    sscanf(lua_tostring(L, pos), "%dx%d", x,y))
+		return true;
+	else
+		return false;
+}
+
 #ifdef __cplusplus
 }
 #endif

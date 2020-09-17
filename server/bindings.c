@@ -1,7 +1,7 @@
 /*
  * bindings.c - taiwins bindings function
  *
- * Copyright (c) 2019 Xichen Zhou
+ * Copyright (c) 2020 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,236 +19,222 @@
  *
  */
 
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <linux/input-event-codes.h>
+#include <string.h>
+#include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
+#include <wayland-util.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <wayland-server.h>
-
 #include <ctypes/tree.h>
+#include <ctypes/vector.h>
 #include <ctypes/helpers.h>
+#include <taiwins/objects/utils.h>
+
 #include "bindings.h"
 
-
-static inline xkb_keycode_t
-kc_linux2xkb(uint32_t kc_linux)
-{
-	//this should only work on x11, but very weird it works all the time
-	return kc_linux+8;
-}
-
-static inline uint32_t
-kc_xkb2linux(xkb_keycode_t keycode)
-{
-	return keycode - 8;
-}
-
-static uint32_t
-modifier_mask_from_xkb_state(struct xkb_state *state)
-{
-	uint32_t mask = 0;
-	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_ALT,
-	                                 XKB_STATE_MODS_EFFECTIVE))
-		mask |= MODIFIER_ALT;
-	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_CTRL,
-	                                 XKB_STATE_MODS_EFFECTIVE))
-		mask |= MODIFIER_CTRL;
-	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_LOGO,
-	                                 XKB_STATE_MODS_EFFECTIVE))
-		mask |= MODIFIER_SUPER;
-	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_SHIFT,
-	                                 XKB_STATE_MODS_EFFECTIVE))
-		mask |= MODIFIER_SHIFT;
-	return mask;
-}
-
 struct tw_binding_node {
-	union {
-		xkb_keycode_t keycode;
-		uint32_t btn;
-		enum wl_pointer_axis axis;
-	};
+	struct vtree_node node;
+	uint32_t keycode;
 	uint32_t modifier;
 	//this is a private option you need to have for
-	uint32_t option;
-	struct vtree_node node;
-
-	void *user_data;
-	tw_key_binding key_binding;
-
+	bool end;
+	struct tw_binding binding;
 };
 
 struct tw_bindings {
 	//root node for keyboard
+	struct wl_display *display;
 	struct tw_binding_node root_node;
-	struct weston_compositor *ec;
+	struct wl_listener destroy_listener;
 	vector_t apply_list;
-	vector_t weston_bindings;
 };
 
-//////////////////////////////////////////////////////////////////////////////
-// keybidning_grab interface
-//////////////////////////////////////////////////////////////////////////////
-struct keybinding_container {
-	struct weston_keyboard_grab grab;
-	struct tw_binding_node *node;
-};
 
-static void
-tw_keybinding_key(struct weston_keyboard_grab *grab,
-		  const struct timespec *time, uint32_t key, uint32_t state)
+static struct tw_binding_node *
+make_binding_node(uint32_t code, uint32_t mod, uint32_t option,
+                  const tw_key_binding func, const void *data, bool end)
 {
-	struct keybinding_container *container =
-		container_of(grab, struct keybinding_container, grab);
-	struct tw_binding_node *tree = container->node;
-	struct weston_keyboard *keyboard = grab->keyboard;
-	//we get it twice
-	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
-		return;
-
-	xkb_keycode_t keycode = kc_linux2xkb(key);
-	uint32_t mod = modifier_mask_from_xkb_state(keyboard->xkb_state.state);
-
-	bool hit = false;
-	for (unsigned i = 0; i < vtree_len(&tree->node); i++) {
-		struct tw_binding_node *node =
-			vtree_container(vtree_ith_child(&tree->node, i));
-		//end of a thread, hits a keybinding
-		if (node->keycode == keycode && node->modifier == mod) {
-			container->node = node;
-			hit = true;
-			if (vtree_len(&node->node) == 0) {
-				grab->interface->cancel(grab);
-				node->key_binding(keyboard, time, key,
-				                  node->option,
-				                  node->user_data);
-			}
-			break;
-		}
+	//allocate a new node
+	struct tw_binding_node *node = calloc(1, sizeof(*node));
+	vtree_node_init(&node->node, offsetof(struct tw_binding_node, node));
+	node->keycode = code;
+	node->modifier = mod;
+	node->end = end;
+	if (end) {
+		node->binding.type = TW_BINDING_key;
+		node->binding.key_func = func;
+		node->binding.option = option;
+		node->binding.user_data = (void *)data;
 	}
-	if (!hit)
-		grab->interface->cancel(grab);
+	else {
+		//internal node
+		node->binding = (struct tw_binding){0};
+		node->binding.key_func = NULL;
+
+	}
+	return node;
+}
+
+static inline bool
+key_presses_end(const struct tw_key_press presses[MAX_KEY_SEQ_LEN], int i)
+{
+	return (i == MAX_KEY_SEQ_LEN-1 ||
+		presses[i+1].keycode == KEY_RESERVED);
 }
 
 static void
-tw_keybinding_modifiers(UNUSED_ARG(struct weston_keyboard_grab *grab),
-                        UNUSED_ARG(uint32_t serial),
-                        UNUSED_ARG(uint32_t mods_depressed),
-                        UNUSED_ARG(uint32_t mods_latched),
-                        UNUSED_ARG(uint32_t mods_locked),
-                        UNUSED_ARG(uint32_t group))
+notify_bindings_destroy(struct wl_listener *listener, void *data)
 {
-	//Do nothing here, the weston_keyboard is already updated
+	struct tw_bindings *bindings =
+		container_of(listener, struct tw_bindings, destroy_listener);
+	tw_bindings_destroy(bindings);
 }
 
 static void
-tw_keybinding_cancel(struct weston_keyboard_grab *grab)
+tw_bindings_release(struct tw_bindings *bindings)
 {
-	struct keybinding_container *container =
-		container_of(grab, struct keybinding_container, grab);
-	weston_keyboard_end_grab(grab->keyboard);
-	free(container);
+	tw_reset_wl_list(&bindings->destroy_listener.link);
+	vtree_destroy_children(&bindings->root_node.node, free);
+	if (bindings->apply_list.elems)
+		vector_destroy(&bindings->apply_list);
 }
 
-static struct weston_keyboard_grab_interface tw_keybinding_grab = {
-	.key = tw_keybinding_key,
-	.modifiers = tw_keybinding_modifiers,
-	.cancel = tw_keybinding_cancel,
-};
+/******************************************************************************
+ * exposed API
+ *****************************************************************************/
 
-static void
-tw_start_keybinding(struct weston_keyboard *keyboard,
-                    UNUSED_ARG(const struct timespec *time),
-                    UNUSED_ARG(uint32_t key), UNUSED_ARG(void *data))
-{
-	//if you read the code of libweston, in the function
-	//weston_compositor_run_key_binding it does a little trick. Because the
-	//grab is called right after, so it installs a special grab to swallow
-	//the key and free it. But this only happens if and only if user does
-	//not install a grab in the keybinding, which is what we are exactly
-	//doing here.
-
-	//so when ever the keybinding is called here, we know for sure we want
-	//to start a key binding sequence now.
-
-	//The grab is very powerful, you can use it to implement things like
-	//double click
-	struct tw_bindings *bindings = data;
-	struct keybinding_container *container =
-		zalloc(sizeof(struct keybinding_container));
-	container->node = &bindings->root_node;
-	container->grab.interface = &tw_keybinding_grab;
-	weston_keyboard_start_grab(keyboard,
-				   &container->grab);
-}
-
-/////////////////////////////////////////////////////////////////////
-//tw_bindings
-/////////////////////////////////////////////////////////////////////
 struct tw_bindings *
-tw_bindings_create(struct weston_compositor *ec)
+tw_bindings_create(struct wl_display *display)
 {
-	struct tw_bindings *root = zalloc(sizeof(struct tw_bindings));
+	struct tw_bindings *root = calloc(1, sizeof(struct tw_bindings));
 	if (root) {
-		root->ec = ec;
+		root->display = display;
 		vtree_node_init(&root->root_node.node,
 				offsetof(struct tw_binding_node, node));
 	}
 	vector_init_zero(&root->apply_list,
 	                 sizeof(struct tw_binding), NULL);
-	vector_init_zero(&root->weston_bindings,
-	                 sizeof(struct weston_binding *), NULL);
+	tw_set_display_destroy_listener(display, &root->destroy_listener,
+	                                notify_bindings_destroy);
 	return root;
 }
 
 void
 tw_bindings_destroy(struct tw_bindings *bindings)
 {
-	vtree_destroy_children(&bindings->root_node.node, free);
-	if (bindings->apply_list.elems)
-		vector_destroy(&bindings->apply_list);
-
-	struct weston_binding **wb;
-	vector_for_each(wb, &bindings->weston_bindings)
-		weston_binding_destroy(*wb);
-	vector_destroy(&bindings->weston_bindings);
-
+	tw_bindings_release(bindings);
 	free(bindings);
 }
 
-static inline struct tw_binding_node *
-make_binding_node(xkb_keycode_t code, uint32_t mod, uint32_t option,
-		  tw_key_binding fuc, const void *data, bool end)
+void
+tw_bindings_move(struct tw_bindings *dst, struct tw_bindings *src)
 {
-	//allocate new ones
-	struct tw_binding_node *binding = zalloc(sizeof(struct tw_binding_node));
-	vtree_node_init(&binding->node, offsetof(struct tw_binding_node, node));
-	binding->keycode = code;
-	binding->modifier = mod;
-	if (end) {
-		binding->key_binding = fuc;
-		binding->option = option;
-		binding->user_data = (void *)data;
-	}
-	else {
-		//internal node
-		binding->key_binding = NULL;
-		binding->user_data = NULL;
-		binding->option = 0;
-	}
-	return binding;
+	struct vtree_node **pnode;
+
+	tw_bindings_release(dst);
+	vtree_node_init(&dst->root_node.node,
+	                offsetof(struct tw_binding_node, node));
+	//a shallow copy
+	dst->display = src->display;
+	vector_for_each(pnode, &src->root_node.node.children)
+		(*pnode)->parent = &dst->root_node.node;
+	dst->root_node = src->root_node;
+	dst->apply_list = src->apply_list;
+
+	//purge the src list
+	vector_init_zero(&src->apply_list, sizeof(struct tw_binding), NULL);
+	vtree_node_init(&src->root_node.node,
+	                offsetof(struct tw_binding_node, node));
+	tw_reset_wl_list(&src->destroy_listener.link);
 }
 
-static inline bool
-tw_key_presses_end(const struct tw_key_press presses[MAX_KEY_SEQ_LEN], int i)
+struct tw_binding_node *
+tw_binding_node_step(struct tw_binding_node *tree,
+                         uint32_t keycode, uint32_t mod_mask)
 {
-	return (i == MAX_KEY_SEQ_LEN-1 ||
-		presses[i+1].keycode == KEY_RESERVED);
+	struct tw_binding_node *node = NULL;
+
+	for (unsigned i = 0; i < vtree_len(&tree->node); i++) {
+		node = vtree_container(vtree_ith_child(&tree->node, i));
+		if (node->keycode == keycode &&
+		    node->modifier == mod_mask)
+			return node;
+	}
+	return NULL;
+}
+
+struct tw_binding *
+tw_binding_node_get_binding(struct tw_binding_node *state)
+{
+	return (state && state->end) ? &state->binding : NULL;
+}
+
+struct tw_binding_node *
+tw_bindings_find_key(struct tw_bindings *bindings,
+                     uint32_t key, uint32_t mod_mask)
+{
+	struct tw_binding_node *root = &bindings->root_node;
+	struct tw_binding_node *node = NULL;
+
+	for (unsigned i = 0; i < vtree_len(&root->node); i++) {
+		node = vtree_container(vtree_ith_child(&root->node, i));
+		if (node->keycode == key && node->modifier == mod_mask) {
+			return root;
+		}
+	}
+	return NULL;
+}
+
+struct tw_binding *
+tw_bindings_find_btn(struct tw_bindings *bindings, uint32_t btn,
+                     uint32_t mod_mask)
+{
+	struct tw_binding *binding = NULL;
+	vector_for_each(binding, &bindings->apply_list) {
+		if (binding->type == TW_BINDING_btn &&
+		    binding->btnpress.btn == btn &&
+		    binding->btnpress.modifier == mod_mask)
+			return binding;
+	}
+	return NULL;
+}
+
+struct tw_binding *
+tw_bindings_find_axis(struct tw_bindings *bindings,
+                      enum wl_pointer_axis action, uint32_t mod_mask)
+{
+	struct tw_binding *binding = NULL;
+	vector_for_each(binding, &bindings->apply_list) {
+		if (binding->type == TW_BINDING_axis &&
+		    binding->axisaction.modifier == mod_mask &&
+		    binding->axisaction.axis_event == action)
+			return binding;
+	}
+	return NULL;
 
 }
+
+struct tw_binding *
+tw_bindings_find_touch(struct tw_bindings *bindings, uint32_t mod_mask)
+{
+	struct tw_binding *binding = NULL;
+	vector_for_each(binding, &bindings->apply_list) {
+		if (binding->type == TW_BINDING_tch &&
+		    binding->touch.modifier == mod_mask)
+			return binding;
+	}
+	return NULL;
+
+}
+
+
 
 bool tw_bindings_add_axis(struct tw_bindings *root,
 			  const struct tw_axis_motion *motion,
@@ -279,14 +265,14 @@ tw_bindings_add_btn(struct tw_bindings *root,
 
 bool
 tw_bindings_add_touch(struct tw_bindings *root,
-		      enum weston_keyboard_modifier modifier,
+                      uint32_t modifiers,
 		      const tw_touch_binding binding,
 		      void *data)
 {
 	struct tw_binding *new_binding = vector_newelem(&root->apply_list);
 	new_binding->type = TW_BINDING_tch;
 	new_binding->touch_func = binding;
-	new_binding->btnpress.modifier = modifier;
+	new_binding->touch.modifier = modifiers;
 	new_binding->user_data = data;
 	return true;
 }
@@ -309,50 +295,44 @@ tw_bindings_add_key(struct tw_bindings *root,
 	struct tw_binding_node *subtree = &root->root_node;
 	for (int i = 0; i < MAX_KEY_SEQ_LEN; i++) {
 		uint32_t mod = presses[i].modifier;
-		uint32_t linux_code = presses[i].keycode;
-		xkb_keycode_t code = kc_linux2xkb(linux_code);
+		uint32_t code = presses[i].keycode;
 		int hit = -1;
 		struct tw_binding_node *binding;
 
-		if (linux_code == KEY_RESERVED)
+		if (code == KEY_RESERVED)
 			break;
 
 		for (unsigned j = 0; j < vtree_len(&subtree->node); j++) {
 			//find the collisions
-			 binding =
-				 vtree_container(vtree_ith_child(&subtree->node, j));
+			 binding = vtree_container(
+				 vtree_ith_child(&subtree->node, j));
 			if (mod == binding->modifier &&
 			    code == binding->keycode) {
 				hit = j;
 				break;
 			}
 		}
-		if (hit == -1 && i == 0) {
-			struct tw_binding *new_binding =
-				vector_newelem(&root->apply_list);
-			new_binding->type = TW_BINDING_key;
-			new_binding->keypress[0] = presses[0];
-		}
 		if (hit == -1) {
 			//add node to the system
 			struct tw_binding_node *binding =
-				make_binding_node(code, mod, option, func, data,
-						  tw_key_presses_end(presses, i));
+				make_binding_node(code, mod, option,
+				                  func, data,
+				                  key_presses_end(presses, i));
 			vtree_node_add_child(&subtree->node, &binding->node);
 			subtree = binding;
 
 		} else {
 			//test of collisions
-			struct tw_binding_node *similar =
-				vtree_container(vtree_ith_child(&subtree->node, hit));
+			struct tw_binding_node *similar = vtree_container(
+				vtree_ith_child(&subtree->node, hit));
 			//case 0: both internal node, we continue
-			if (!tw_key_presses_end(presses, i) &&
-			    similar->key_binding == NULL) {
+			if (!key_presses_end(presses, i) && !similar->end) {
 				subtree = similar;
 				continue;
 			}
 			//case 1: Oops. We are on the internal node, tree is not
-			//case 2: Oops. We are on the end node, tree is on the internal.
+			//case 2: Oops. We are on the end node, tree is on the
+			//internal.
 			//case 3: Oops. We are both on the end node.
 			else {
 				return false;
@@ -362,54 +342,8 @@ tw_bindings_add_key(struct tw_bindings *root,
 	return true;
 }
 
-void
-tw_bindings_apply(struct tw_bindings *root)
-{
-
-	//destroy the previous bindigns
-	struct weston_binding **wbp;
-	struct weston_binding *wb;
-	vector_for_each(wbp, &root->weston_bindings)
-		weston_binding_destroy(*wbp);
-	vector_destroy(&root->weston_bindings);
-	//vector_for_each_safe
-	struct tw_binding *b;
-	vector_for_each(b, &root->apply_list) {
-		switch (b->type) {
-		case TW_BINDING_key:
-			wb = weston_compositor_add_key_binding(
-				root->ec, b->keypress[0].keycode,
-				b->keypress[0].modifier,
-				tw_start_keybinding, root);
-			break;
-		case TW_BINDING_axis:
-			wb = weston_compositor_add_axis_binding(
-				root->ec, b->axisaction.axis_event,
-				b->axisaction.modifier, b->axis_func,
-				b->user_data);
-			break;
-		case TW_BINDING_btn:
-			wb = weston_compositor_add_button_binding(
-				root->ec,
-				b->btnpress.btn, b->btnpress.modifier,
-				b->btn_func, b->user_data);
-			break;
-		case TW_BINDING_tch:
-			wb = weston_compositor_add_touch_binding(
-				root->ec, b->btnpress.modifier,
-				b->touch_func, b->user_data);
-			break;
-		case TW_BINDING_INVALID:
-			continue;
-		}
-		vector_append(&root->weston_bindings, &wb);
-	}
-	vector_destroy(&root->apply_list);
-	vector_init_zero(&root->apply_list,
-			 sizeof(struct tw_binding), NULL);
-}
-
-static void print_node(const struct vtree_node *n)
+static void
+print_node(const struct vtree_node *n)
 {
 	const struct tw_binding_node *node =
 		container_of(n, const struct tw_binding_node, node);
