@@ -243,7 +243,7 @@ print_help(void)
 		"  -h, --help             Show help message and quit.\n"
 		"  -v, --version          Show the version number and quit.\n"
 		"  -s, --shell            Specify the taiwins shell client path.\n"
-		"  -e, --console          Specify the taiwins console client path.\n"
+		"  -c, --console          Specify the taiwins console client path.\n"
 		"  -l, --log-path         Specify the logging path.\n"
 		"  -n, --no-shell         Launch taiwins without shell client.\n"
 		"  -p, --profiling-path   Specify the profiling path.\n"

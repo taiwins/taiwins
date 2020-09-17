@@ -43,20 +43,28 @@ For those who use Archlinux, there is an
 
 ## How to run
 
-Here is currently how I run the compositor, lua configuration is supported(in
-progress), see the [sample config](docs/config.lua) for example
+Taiwins starts with default shell and default console they are found. You can
+also specifiy the shell application and console application through command line
+options.
 
 	cd build
-	./bin/taiwins ./bin/taiwins-shell ./bin/taiwins-console
+	./bin/taiwins -s ./bin/taiwins-shell -c ./bin/taiwins-console
 	
 Or if you install systemwisely, you can simply use
 
-	taiwins taiwins-shell taiwins-console
+	taiwins 
+
+If you prefer not to have the shell, try `taiwins -n` which will make taiwins
+run without shell, user can start a shell later.
+
+The default configuration is `$XDG_CONFIG_PATH/taiwins/config.lua`, see the
+[sample config](docs/config.lua) for example.
 
 ### key-bindings
 Though it is configurable, by default available bindings are
 
 - `F12` : quit taiwins
+- `Super+Shift+c` close current application
 - `Ctrl+LEFT/RIGHT` switch to previous/next workspace
 - `Alt+Super+b` switch to last workspace
 - `Alt+LEFT` resize window to the left (only in tiling mode)
