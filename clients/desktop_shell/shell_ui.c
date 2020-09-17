@@ -209,7 +209,7 @@ shell_launch_notif(struct desktop_shell *shell, struct shell_notif *notif)
 	struct shell_widget *widget = &notification_widget;
 
 	//notification does not race the widget apps
-	if (info->current)
+	if (info->current || !output)
 		return;
 
 	//hard coded location, we can actually have a location

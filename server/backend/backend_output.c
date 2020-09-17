@@ -98,6 +98,7 @@ correct_output_mode(struct tw_backend_output *o)
 	                          o->state.x, o->state.y,
 	                          o->state.w, o->state.h);
 }
+
 void
 tw_backend_commit_output_state(struct tw_backend_output *o)
 {

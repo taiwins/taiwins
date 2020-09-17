@@ -202,9 +202,8 @@ retrieve_themes_to_search(vector_t *theme_lookups,
 			.high_res =  option->high_res,
 			.low_res = option->low_res
 		};
-
-		path_concat(theme_elem.path, sizeof(theme_elem.path), 2,
-		            "usr/share/icons", option->update_theme);
+		path_join(theme_elem.path, sizeof(theme_elem.path), 2,
+		          "/usr/share/icons", option->update_theme);
 		if (!is_dir_exist(theme_elem.path)) {
 			fprintf(stderr, "theme %s not found", option->update_theme);
 			return false;
@@ -222,8 +221,8 @@ retrieve_themes_to_search(vector_t *theme_lookups,
 			if (strcmp(entry->d_name, ".") == 0 ||
 			    strcmp(entry->d_name, "..") == 0)
 				continue;
-			path_concat(theme_elem.path, sizeof(theme_elem.path), 2,
-			            "usr/share/icons", entry->d_name);
+			path_join(theme_elem.path, sizeof(theme_elem.path), 2,
+			            "/usr/share/icons", entry->d_name);
 			vector_append(theme_lookups, &theme_elem);
 		}
 		closedir(dir);

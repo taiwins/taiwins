@@ -1,6 +1,9 @@
+version = '"@0@"'.format(meson.project_version())
+
 taiwins_cargs = [
   '-D_GNU_SOURCE',
-  '-DWLR_USE_UNSTABLE'
+  '-DWLR_USE_UNSTABLE',
+  '-D_TW_VERSION=@0@'.format(version),
 ]
 
 if get_option('enable-profiler')

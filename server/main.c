@@ -27,7 +27,9 @@
 #include <unistd.h>
 #include <assert.h>
 #include <errno.h>
+#include <getopt.h>
 #include <sys/wait.h>
+#include <limits.h>
 #include <wayland-server.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/profiler.h>
@@ -35,12 +37,21 @@
 #include <taiwins/objects/seat.h>
 
 #include <ctypes/helpers.h>
+#include <ctypes/os/file.h>
 #include "bindings.h"
 #include "renderer/renderer.h"
 #include "backend.h"
 #include "input.h"
 #include "config.h"
 #include "taiwins/objects/utils.h"
+
+struct tw_options {
+	const char *test_case;
+	const char *shell_path;
+	const char *console_path;
+	const char *log_path;
+	const char *profiling_path;
+};
 
 struct tw_server {
 	struct wl_display *display;
@@ -57,10 +68,6 @@ struct tw_server {
 	struct wl_listener seat_remove;
 };
 
-struct tw_options {
-	const char *test_case;
-	struct tw_subprocess test_client;
-};
 
 static bool
 bind_backend(struct tw_server *server)
@@ -130,6 +137,7 @@ tw_server_init(struct tw_server *server, struct wl_display *display)
 {
 	server->display = display;
 	server->loop = wl_display_get_event_loop(display);
+
 	if (!bind_backend(server))
 		return false;
 	if (!bind_config(server))
@@ -143,53 +151,6 @@ tw_server_fini(struct tw_server *server)
 {
 	tw_config_destroy(server->config);
 	tw_bindings_destroy(server->bindings);
-}
-
-
-static void
-print_option(void)
-{}
-
-static bool
-drop_permissions(void) {
-	if (getuid() != geteuid() || getgid() != getegid()) {
-		// Set the gid and uid in the correct order.
-		if (setgid(getgid()) != 0) {
-			return false;
-		}
-		if (setuid(getuid()) != 0) {
-			return false;
-		}
-	}
-	if (setgid(0) != -1 || setuid(0) != -1) {
-		return false;
-	}
-	return true;
-}
-
-static bool
-parse_options(struct tw_options *options, int argc, char **argv)
-{
-	bool ret = true;
-	const char *arg;
-	for (int cursor = 1, advance = 1; cursor < argc; cursor+=advance) {
-		advance = 1;
-		arg = argv[cursor];
-		if (!strcmp(arg, "--help")) {
-			print_option();
-			return false;
-		} else if (!strcmp(arg, "-t") || !strcmp(arg, "--test")) {
-			if (cursor+1 < argc) {
-				options->test_case = argv[cursor+1];
-				advance = 2;
-				continue;
-			} else {
-				ret = false;
-				break;
-			}
-		}
-	}
-	return ret;
 }
 
 static bool
@@ -255,6 +216,122 @@ tw_handle_sigchld(int sig_num, void *data)
 	return 1;
 }
 
+
+static bool
+drop_permissions(void)
+{
+	if (getuid() != geteuid() || getgid() != getegid()) {
+		// Set the gid and uid in the correct order.
+		if (setgid(getgid()) != 0)
+			return false;
+		if (setuid(getuid()) != 0)
+			return false;
+	}
+	if (setgid(0) != -1 || setuid(0) != -1) {
+		return false;
+	}
+	return true;
+}
+
+
+static void
+print_help(void)
+{
+	const char* usage =
+		"Usage: taiwins [options] [command]\n"
+		"\n"
+		"  -h, --help             Show help message and quit.\n"
+		"  -v, --version          Show the version number and quit.\n"
+		"  -s, --shell            Specify the taiwins shell client path.\n"
+		"  -c, --console          Specify the taiwins console client path.\n"
+		"  -l, --log-path         Specify the logging path.\n"
+		"  -n, --no-shell         Launch taiwins without shell client.\n"
+		"  -p, --profiling-path   Specify the profiling path.\n"
+		"\n";
+	fprintf(stdout, "%s", usage);
+}
+
+static void
+verify_set_executable(const char **dst, const char *src)
+{
+	char full_path[PATH_MAX];
+
+	if (find_executable(src, full_path, PATH_MAX)) {
+		*dst = src;
+	} else {
+		tw_logl_level(TW_LOG_ERRO, "executable %s not found", src);
+		exit(EXIT_FAILURE);
+	}
+}
+
+static void
+parse_options(struct tw_options *options, int argc, char **argv)
+{
+	int c;
+	bool no_shell = false;
+	char full_path[PATH_MAX];
+
+	static const struct option long_options[] = {
+		{"help", no_argument, NULL, 'h'},
+		{"version", no_argument, NULL, 'v'},
+		{"shell", required_argument, NULL, 's'},
+		{"console", required_argument, NULL, 'c'},
+		{"log-path", required_argument, NULL, 'l'},
+		{"no-shell", no_argument, NULL, 'n'},
+		{"profiling-path", required_argument, NULL, 'p'},
+		{0,0,0,0},
+	};
+	//init options
+	memset(options, 0, sizeof(*options));
+	options->shell_path =
+		find_executable("taiwins-shell", full_path, PATH_MAX) ?
+		"taiwins-shell" : NULL;
+	options->console_path =
+		find_executable("taiwins-console", full_path, PATH_MAX) ?
+		"taiwins-console" : NULL;
+
+	while (1) {
+		int opt_index = 0;
+		c = getopt_long(argc, argv, "hvns:c:l:p:",
+		                long_options, &opt_index);
+		if (c == -1)
+			break;
+		switch (c) {
+		case 'h':
+			print_help();
+			exit(EXIT_SUCCESS);
+			break;
+		case 'v':
+			fprintf(stdout, "Taiwins version " _TW_VERSION "\n");
+			exit(EXIT_SUCCESS);
+			break;
+		case 'n':
+			no_shell = true;
+			break;
+		case 's':
+			verify_set_executable(&options->shell_path, optarg);
+			break;
+		case 'c':
+			verify_set_executable(&options->console_path, optarg);
+			break;
+		case 'l':
+			options->log_path = optarg;
+			break;
+		case 'p':
+			options->profiling_path = optarg;
+			break;
+		default:
+			fprintf(stderr, "uknown argument %c\n.", c);
+			exit(EXIT_FAILURE);
+			break;
+		}
+	}
+	if (no_shell) {
+		options->shell_path = NULL;
+		options->console_path = NULL;
+	}
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -265,9 +342,11 @@ main(int argc, char *argv[])
 	struct wl_event_loop *loop;
 	struct tw_options options = {0};
 
-	if (!parse_options(&options, argc, argv))
-		return -1;
-	tw_logger_use_file(stderr);
+	parse_options(&options, argc, argv);
+	if (!options.log_path)
+		tw_logger_use_file(stderr);
+	else
+		tw_logger_open(options.log_path);
 
 	display = wl_display_create();
 	if (!display) {
@@ -285,7 +364,9 @@ main(int argc, char *argv[])
 		ret = -1;
 		goto err_socket;
 	}
-	if (!tw_profiler_open(display, "/tmp/taiwins-profiler.json"))
+	if (!options.profiling_path)
+		options.profiling_path = "/dev/null";
+	if (!tw_profiler_open(display, options.profiling_path))
 		goto err_profiler;
 
 	signals[0] = wl_event_loop_add_signal(loop, SIGTERM,
@@ -303,12 +384,11 @@ main(int argc, char *argv[])
 	if (!drop_permissions())
 		goto err_permission;
 
-	if (options.test_case)
-		tw_launch_client(display, options.test_case,
-		                 &options.test_client);
-
+	tw_config_register_object(ec.config, TW_CONFIG_SHELL_PATH,
+	                          (void *)options.shell_path);
+	tw_config_register_object(ec.config, TW_CONFIG_CONSOLE_PATH,
+	                          (void *)options.console_path);
 	if (!tw_run_config(ec.config)) {
-		tw_logl_level(TW_LOG_WARN, "config error!");
 		if (!tw_run_default_config(ec.config))
 			goto err_config;
 	}

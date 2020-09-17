@@ -28,8 +28,8 @@ Start with a short, explicit title would be a good idea. Taiwins is modular in
 design, and it splitted into server and client code. As you can see in the
 source tree, on the server side, can find `backend`, `dbus`, `compositor`,
 `config`, `desktop`, etc. Client now has `desktop_shell`, `desktop_console`,
-`widget` and `update_icon_cache`. So an good example of commit message would be
-like this:
+`widget` and `update_icon_cache`. Signing-off is recommended so we can count the
+contribution. An good example of commit message would be like this:
 	
 	config: adding new reload shell binding.
 	
@@ -38,9 +38,7 @@ like this:
 	
 	Signed-off-by: John Doe <J.Doe@abcdefg.org>
 
-We try to follow the [Developer Certiicate of
-Origin](https://elinux.org/Developer_Certificate_Of_Origin) agreement, *Signing
-off* the commit is recommended, it certificates agree with it.
+Signing-off is done through `git commit -s`.
 
 ### code review
 
@@ -120,6 +118,3 @@ function_is_very_very_lone(very_complex_type_name_a a,
 At the moment documentation is generated through doxygen. Also, previous notes
 registered during the development is under `docs/. For start, you can check out
 the [mainpage](docs/mainpage.md).
-
-The [development](docs/progress.md) was tracked using org mode, if you are a
-emacs user, it would looks way nicer than github's renderer.

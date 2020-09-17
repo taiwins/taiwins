@@ -40,6 +40,7 @@ extern "C" {
 
 enum tw_builtin_binding_t {
 	TW_QUIT_BINDING = 0,
+	TW_CLOSE_APP_BINDING,
 	TW_RELOAD_CONFIG_BINDING,
 	//QUIT taiwins, rerun configuration
 	//console

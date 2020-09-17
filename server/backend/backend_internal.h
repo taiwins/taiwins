@@ -56,9 +56,6 @@ void
 tw_backend_new_output(struct tw_backend *backend,
                       struct wlr_output *wlr_output);
 void
-tw_backend_commit_output_state(struct tw_backend_output *o);
-
-void
 tw_backend_new_keyboard(struct tw_backend *backend,
                         struct wlr_input_device *dev);
 void

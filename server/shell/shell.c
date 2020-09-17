@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <wayland-taiwins-shell-server-protocol.h>
 #include <pixman.h>
@@ -36,6 +37,7 @@
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
+#include <wayland-util.h>
 #include "backend.h"
 
 #include "shell.h"
@@ -76,9 +78,10 @@ shell_create_ui_element(struct tw_shell *shell,
 	tw_reset_wl_list(&surface->links[TW_VIEW_LAYER_LINK]);
 	wl_list_insert(layer->views.prev, &surface->links[TW_VIEW_LAYER_LINK]);
 	shell_ui_set_role(elem, commit_cb, surface);
-	wl_list_init(&elem->surface_destroy.link);
-	elem->surface_destroy.notify = notify_shell_ui_surface_destroy;
-	wl_signal_add(&surface->events.destroy, &elem->surface_destroy);
+	wl_list_init(&elem->grab_close.link);
+	tw_signal_setup_listener(&surface->events.destroy,
+	                         &elem->surface_destroy,
+	                         notify_shell_ui_surface_destroy);
 
 	return elem;
 }
@@ -117,6 +120,23 @@ shell_output_from_backend_output(struct tw_shell *shell,
 /******************************************************************************
  * shell interface
  *****************************************************************************/
+static void
+shell_change_desktop_area(void *data)
+{
+	struct tw_shell_output *shell_output = data;
+	struct tw_backend_output *backend_output = shell_output->output;
+	struct tw_shell *shell = shell_output->shell;
+
+	wl_signal_emit(&shell->desktop_area_signal, backend_output);
+}
+
+static void
+panel_size_changed(struct tw_shell_output *shell_output)
+{
+	struct tw_shell *shell = shell_output->shell;
+	struct wl_event_loop *loop = wl_display_get_event_loop(shell->display);
+	wl_event_loop_add_idle(loop, shell_change_desktop_area, shell_output);
+}
 
 static void
 commit_panel(struct tw_surface *surface)
@@ -136,6 +156,9 @@ commit_panel(struct tw_surface *surface)
 		ui->y += (output->output->state.h - geo->height);
 
 	tw_surface_set_position(surface, ui->x, ui->y);
+
+        if (output->panel_height != (int)geo->height)
+	        panel_size_changed(output);
 	output->panel_height = geo->height;
 }
 
@@ -182,11 +205,12 @@ shell_ui_unbind(struct wl_resource *resource)
 	if (output && ui == &output->panel) {
 		output->panel = (struct tw_shell_ui){0};
 		output->panel_height = 0;
-		//TODO
+		panel_size_changed(output);
 	} else if (output && ui == &output->background) {
 		output->background = (struct tw_shell_ui){0};
 	}
-
+	tw_reset_wl_list(&ui->surface_destroy.link);
+	tw_reset_wl_list(&ui->grab_close.link);
 	ui->binded = NULL;
 	ui->layer = NULL;
 	ui->resource = NULL;
@@ -270,7 +294,6 @@ create_ui_element(struct wl_client *client,
 		wl_resource_set_implementation(resource, &tw_ui_impl, elem,
 		                               shell_ui_unbind);
 	elem->type = type;
-
 	wl_signal_emit(&shell->widget_create_signal, shell);
 }
 
@@ -313,6 +336,7 @@ launch_shell_widget(struct wl_client *client,
 	struct tw_shell *shell = wl_resource_get_user_data(resource);
 	struct tw_shell_output *output = &shell->tw_outputs[idx];
 	struct tw_seat *seat = tw_seat_from_resource(wl_seat);
+	struct tw_keyboard *keyboard = &seat->keyboard;
 
 	x += output->output->state.x;
 	y += output->output->state.y;
@@ -328,6 +352,8 @@ launch_shell_widget(struct wl_client *client,
 		                         notify_shell_widget_close);
 		tw_popup_grab_start(&shell->widget.grab, seat);
 	}
+	if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
+		tw_keyboard_set_focus(keyboard, wl_surface, NULL);
 }
 
 static void
@@ -551,7 +577,7 @@ tw_shell_output_available_space(struct tw_shell *shell,
 struct wl_signal *
 tw_shell_get_desktop_area_signal(struct tw_shell *shell)
 {
-	return &shell->output_area_signal;
+	return &shell->desktop_area_signal;
 }
 
 void
@@ -738,7 +764,7 @@ tw_shell_create_global(struct wl_display *display,
 	wl_list_for_each(layer, &layers->layers, link)
 		tw_logl("layer position %x\n", layer->position);
 	//signals
-	wl_signal_init(&s_shell.output_area_signal);
+	wl_signal_init(&s_shell.desktop_area_signal);
 	wl_signal_init(&s_shell.widget_create_signal);
 	wl_signal_init(&s_shell.widget_close_signal);
 

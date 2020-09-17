@@ -272,7 +272,6 @@ static tw_config_transform_t TRANSFORMS[] = {
 #define REGISTRY_WORKSPACES "__workspaces"
 #define REGISTRY_HINT "__hint"
 #define CONFIG_TABLE "__config_table"
-#define CONFIG_WESTON_OUTPUT "_weston_output"
 
 #define METATABLE_COMPOSITOR "metatable_compositor"
 #define METATABLE_WORKSPACE "metatable_workspace"

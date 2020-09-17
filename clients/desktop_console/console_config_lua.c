@@ -704,7 +704,7 @@ void *
 desktop_console_run_config_lua(struct desktop_console *console,
                                const char *path)
 {
-	char configpath[PATH_MAX];
+	char configpath[PATH_MAX] = {0};
 	const char *err_msg;
 	lua_State *L;
 	int n;
