@@ -1,10 +1,10 @@
-## Taiwins, a morden wayland window manager
+## Taiwins, a modern wayland window manager
 
 Taiwins is a dynamic wayland window manager, supports both tiling and floating
-layout. It is designed to be mordern and modular. It is extensible through lua
+layout. It is designed to be modern and modular. It is extensible through lua
 script and it has built-in **shell** and **widgets** implementation through
-[nuklear GUI](https://github.com/vurtun/nuklear). It also supports popular
-tiling window manager features like gapping.
+[nuklear GUI](https://github.com/Immediate-Mode-UI/Nuklear). It also supports 
+popular tiling window manager features like gapping.
 
 Taiwins is usable and currently under heavy developement. If you would like to
 contribute to the project, You can refer to [contributing](CONTRIBUTING.md) for
