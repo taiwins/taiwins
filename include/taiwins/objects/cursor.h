@@ -23,7 +23,6 @@
 #define TW_CURSOR_H
 
 #include <stdint.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <pixman.h>
 
@@ -59,6 +58,7 @@ struct tw_cursor {
 	float x, y;
 
 	struct tw_surface *curr_surface;
+	struct tw_layer *cursor_layer;
 
 	struct wl_list constrains; /* tw_cursor_constrain:link */
 	struct tw_cursor_constrain curr_wrap;
@@ -66,7 +66,7 @@ struct tw_cursor {
 };
 
 void
-tw_cursor_init(struct tw_cursor *cursor);
+tw_cursor_init(struct tw_cursor *cursor, struct tw_layer *cursor_layer);
 
 void
 tw_cursor_fini(struct tw_cursor *cursor);
@@ -91,7 +91,6 @@ void
 tw_cursor_set_surface(struct tw_cursor *cursor,
                       struct wl_resource *surface_resource,
                       struct wl_resource *pointer_resource,
-                      struct tw_layer *cursor_layer,
                       int32_t hotspot_x, int32_t hotspot_y);
 void
 tw_cursor_unset_surface(struct tw_cursor *cursor);
