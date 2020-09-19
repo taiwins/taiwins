@@ -156,8 +156,8 @@ tw_workspace_release(struct tw_workspace *ws)
 	//get rid of all the surface, maybe
 	for (unsigned i = 0; i < NUMOF(layers); i++) {
 		wl_list_for_each_safe(surf, next, &layers[i]->views,
-				      links[TW_VIEW_LAYER_LINK])
-			tw_reset_wl_list(&surf->links[TW_VIEW_LAYER_LINK]);
+		                      layer_link)
+			tw_reset_wl_list(&surf->layer_link);
 	}
 	//we have this?
 	wl_list_for_each_safe(view, tmp, &ws->recent_views, link)
@@ -321,10 +321,9 @@ tw_workspace_move_front_views(struct tw_workspace *ws)
 	struct tw_surface *replaced, *tmp;
 	//move all the front layer apps to back
 	wl_list_for_each_reverse_safe(replaced, tmp, &ws->front_layer.views,
-	                              links[TW_VIEW_LAYER_LINK]) {
-		wl_list_remove(&replaced->links[TW_VIEW_LAYER_LINK]);
-		wl_list_insert(&ws->back_layer.views,
-		               &replaced->links[TW_VIEW_LAYER_LINK]);
+	                              layer_link) {
+		wl_list_remove(&replaced->layer_link);
+		wl_list_insert(&ws->back_layer.views, &replaced->layer_link);
 	}
 }
 
@@ -334,10 +333,11 @@ tw_workspace_focus_view(struct tw_workspace *ws, struct tw_xdg_view *v)
 {
 	struct wl_list *replaced;
 	struct tw_surface *surface = v->dsurf->tw_surface;
+
 	if (!tw_workspace_has_view(ws, v))
 		return false;
 
-	wl_list_remove(&surface->links[TW_VIEW_LAYER_LINK]);
+	wl_list_remove(&surface->layer_link);
 
 	if (v->type == LAYOUT_FULLSCREEN) {
 		assert(wl_list_length(&ws->fullscreen_layer.views) <= 1);
@@ -349,16 +349,15 @@ tw_workspace_focus_view(struct tw_workspace *ws, struct tw_xdg_view *v)
 			               replaced);
 		}
 		wl_list_insert(&ws->fullscreen_layer.views,
-		               &surface->links[TW_VIEW_LAYER_LINK]);
+		               &surface->layer_link);
 	} else if (v->type == LAYOUT_FLOATING || v->type == LAYOUT_MAXIMIZED) {
-	        wl_list_insert(&ws->front_layer.views,
-	                       &surface->links[TW_VIEW_LAYER_LINK]);
+	        wl_list_insert(&ws->front_layer.views, &surface->layer_link);
 	} else if (v->type == LAYOUT_TILING) {
 		tw_workspace_move_front_views(ws);
-		wl_list_insert(&ws->mid_layer.views,
-		               &surface->links[TW_VIEW_LAYER_LINK]);
+		wl_list_insert(&ws->mid_layer.views, &surface->layer_link);
 	} else {
 		tw_logl_level(TW_LOG_ERRO, "the view has invalid layer");
+		return false;
 	}
 
 	tw_surface_dirty_geometry(v->dsurf->tw_surface);
@@ -398,7 +397,7 @@ tw_workspace_add_view_with_geometry(struct tw_workspace *w,
 		},
 	};
 	tw_workspace_view_pick_settings(w, view);
-	tw_reset_wl_list(&surface->links[TW_VIEW_LAYER_LINK]);
+	tw_reset_wl_list(&surface->layer_link);
 	arrange_view_for_workspace(w, view, DPSR_add, &arg);
 
 	tw_workspace_focus_view(w, view);
@@ -438,7 +437,7 @@ tw_workspace_remove_view(struct tw_workspace *w, struct tw_xdg_view *view)
 	surface = view->dsurf->tw_surface;
 
 	arrange_view_for_workspace(w, view, DPSR_del, &arg);
-	tw_reset_wl_list(&surface->links[TW_VIEW_LAYER_LINK]);
+	tw_reset_wl_list(&surface->layer_link);
 	view->added = false;
 	return true;
 }
@@ -515,8 +514,7 @@ tw_workspace_minimize_view(struct tw_workspace *w, struct tw_xdg_view *v)
 	surface = v->dsurf->tw_surface;
 	tw_xdg_view_backup_geometry(v);
 	tw_workspace_remove_view(w, v);
-	wl_list_insert(&w->hidden_layer.views,
-	               &surface->links[TW_VIEW_LAYER_LINK]);
+	wl_list_insert(&w->hidden_layer.views, &surface->layer_link);
 	tw_workspace_defocus_view(w, v);
 }
 
