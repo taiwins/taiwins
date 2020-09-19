@@ -119,7 +119,7 @@ tw_cursor_set_surface(struct tw_cursor *cursor,
 	cursor->curr_surface = surface;
 	if (cursor->cursor_layer)
 		wl_list_insert(cursor->cursor_layer->views.prev,
-		               &surface->links[TW_VIEW_LAYER_LINK]);
+		               &surface->layer_link);
 }
 
 WL_EXPORT void
@@ -128,11 +128,9 @@ tw_cursor_unset_surface(struct tw_cursor *cursor)
 	struct tw_surface *curr_surface = cursor->curr_surface;
 	//remove current cursor surface
 	if (curr_surface) {
-		wl_list_remove(&curr_surface->links[TW_VIEW_LAYER_LINK]);
-		wl_list_init(&curr_surface->links[TW_VIEW_LAYER_LINK]);
+		tw_reset_wl_list(&curr_surface->layer_link);
+		tw_reset_wl_list(&cursor->surface_destroy.link);
 
-		wl_list_remove(&cursor->surface_destroy.link);
-		wl_list_init(&cursor->surface_destroy.link);
 		cursor->curr_surface = NULL;
 	}
 }

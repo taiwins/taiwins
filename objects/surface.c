@@ -618,14 +618,6 @@ tw_surface_has_role(struct tw_surface *surface)
 }
 
 WL_EXPORT void
-tw_surface_unmap(struct tw_surface *surface)
-{
-	//TODO: do I need a mapped field?
-	for (int i = 0; i < MAX_VIEW_LINKS; i++)
-		tw_reset_wl_list(&surface->links[i]);
-}
-
-WL_EXPORT void
 tw_surface_set_position(struct tw_surface *surface, float x, float y)
 {
 	struct tw_subsurface *sub;
@@ -731,6 +723,7 @@ surface_destroy_resource(struct wl_resource *resource)
 		               surface);
 	for (int i = 0; i < MAX_VIEW_LINKS; i++)
 		wl_list_remove(&surface->links[i]);
+	wl_list_remove(&surface->layer_link);
 
 	for (int i = 0; i < 3; i++) {
 		view = &surface->surface_states[i];
@@ -810,6 +803,8 @@ tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
 	wl_list_init(&surface->subsurfaces);
 	wl_list_init(&surface->subsurfaces_pending);
 	wl_list_init(&surface->frame_callbacks);
+	wl_list_init(&surface->layer_link);
+
 	if (manager)
 		wl_signal_emit(&manager->surface_created_signal, surface);
 	return surface;
