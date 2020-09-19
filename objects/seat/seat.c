@@ -31,6 +31,7 @@
 
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/seat.h>
+#include <taiwins/objects/cursor.h>
 
 static const struct wl_seat_interface seat_impl;
 
@@ -129,14 +130,9 @@ set_pointer_cursor(struct wl_client *client,
 		wl_resource_get_user_data(resource);
 	struct tw_seat *seat = seat_client->seat;
 
-	struct tw_event_new_cursor new_cursor_event = {
-		.pointer = resource,
-		.surface = surface,
-		.hotspot_x = hotspot_x,
-		.hotspot_y = hotspot_y,
-	};
-
-	wl_signal_emit(&seat->new_cursor_signal, &new_cursor_event);
+	if (seat->cursor)
+		tw_cursor_set_surface(seat->cursor, surface, resource,
+		                      hotspot_x, hotspot_y);
 }
 
 static const struct wl_pointer_interface pointer_impl = {
@@ -330,7 +326,6 @@ tw_seat_create(struct wl_display *display, struct tw_cursor *seat_cursor,
 
 	wl_signal_init(&seat->destroy_signal);
 	wl_signal_init(&seat->focus_signal);
-	wl_signal_init(&seat->new_cursor_signal);
 	seat->global = wl_global_create(display, &wl_seat_interface, 7,
 	                                seat, bind_seat);
 	return seat;

@@ -185,7 +185,6 @@ struct tw_seat {
 	struct tw_touch touch;
 	struct tw_cursor *cursor;
 
-	struct wl_signal new_cursor_signal;
 	struct wl_signal focus_signal;
 	struct wl_signal destroy_signal;
 };
