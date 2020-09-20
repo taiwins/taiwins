@@ -130,9 +130,11 @@ set_pointer_cursor(struct wl_client *client,
 		wl_resource_get_user_data(resource);
 	struct tw_seat *seat = seat_client->seat;
 
-	if (seat->cursor)
+	if (seat->cursor && surface)
 		tw_cursor_set_surface(seat->cursor, surface, resource,
 		                      hotspot_x, hotspot_y);
+	else if (seat->cursor)
+		tw_cursor_unset_surface(seat->cursor);
 }
 
 static const struct wl_pointer_interface pointer_impl = {
