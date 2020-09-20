@@ -75,8 +75,10 @@ shell_create_ui_element(struct tw_shell *shell,
 	elem->x = x;
 	elem->y = y;
 	elem->layer = layer;
-	tw_reset_wl_list(&surface->links[TW_VIEW_LAYER_LINK]);
-	wl_list_insert(layer->views.prev, &surface->links[TW_VIEW_LAYER_LINK]);
+
+	// install surface data.
+	tw_reset_wl_list(&surface->layer_link);
+	wl_list_insert(layer->views.prev, &surface->layer_link);
 	shell_ui_set_role(elem, commit_cb, surface);
 	wl_list_init(&elem->grab_close.link);
 	tw_signal_setup_listener(&surface->events.destroy,
@@ -201,7 +203,8 @@ shell_ui_unbind(struct wl_resource *resource)
 	struct tw_shell_output *output = ui->output;
 
 	if (ui->binded)
-		tw_surface_unmap(ui->binded);
+		tw_reset_wl_list(&ui->binded->layer_link);
+
 	if (output && ui == &output->panel) {
 		output->panel = (struct tw_shell_ui){0};
 		output->panel_height = 0;

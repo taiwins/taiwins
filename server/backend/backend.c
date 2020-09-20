@@ -204,7 +204,7 @@ tw_backend_pick_surface_from_layers(struct tw_backend *backend,
 		if (layer->position >= TW_LAYER_POS_CURSOR)
 			continue;
 		wl_list_for_each(surface, &layer->views,
-		                 links[TW_VIEW_LAYER_LINK]) {
+		                 layer_link) {
 			if ((sub = try_pick_subsurfaces(surface, x, y,
 			                                sx, sy))) {
 				picked = sub;
@@ -299,7 +299,8 @@ tw_backend_create_global(struct wl_display *display,
 
 	// initialize the global cursor, every seat will register the events on
 	// it
-	tw_cursor_init(&backend->global_cursor);
+	tw_cursor_init(&backend->global_cursor,
+	               &backend->layers_manager.cursor_layer);
 
 	wl_list_init(&backend->display_destroy_listener.link);
 	backend->display_destroy_listener.notify = release_backend;
@@ -428,8 +429,7 @@ tw_backend_build_surface_list(struct tw_backend *backend)
 		wl_list_init(&output->views);
 
 	wl_list_for_each(layer, &manager->layers, link) {
-		wl_list_for_each(surface, &layer->views,
-		                 links[TW_VIEW_LAYER_LINK]) {
+		wl_list_for_each(surface, &layer->views, layer_link) {
 			surface_add_to_list(backend, surface);
 			surface_add_to_outputs_list(backend, surface);
 		}

@@ -27,6 +27,7 @@
 
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/layers.h>
+#include <taiwins/objects/utils.h>
 
 #include "backend.h"
 #include "shell.h"
@@ -252,10 +253,9 @@ commit_layer_surface(struct tw_surface *surface)
 
 	if (ui->pending.layer && ui->pending.layer != ui->layer) {
 		ui->layer = ui->pending.layer;
-		wl_list_remove(&surface->links[TW_VIEW_LAYER_LINK]);
-		wl_list_init(&surface->links[TW_VIEW_LAYER_LINK]);
+		tw_reset_wl_list(&surface->layer_link);
 		wl_list_insert(&ui->layer->views,
-		               &surface->links[TW_VIEW_LAYER_LINK]);
+		               &surface->layer_link);
 		tw_surface_dirty_geometry(surface);
 	}
 	//need to calculate the location based on provided info.

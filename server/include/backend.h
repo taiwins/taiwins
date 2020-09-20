@@ -44,6 +44,8 @@
 #include <taiwins/objects/presentation_feedback.h>
 #include <taiwins/objects/viewporter.h>
 
+#define TW_VIEW_GLOBAL_LINK 1
+#define TW_VIEW_OUTPUT_LINK 2
 
 #ifdef  __cplusplus
 extern "C" {
@@ -130,7 +132,6 @@ struct tw_backend_seat {
 	struct wl_list link; /* tw_backend.inputs */
 	uint32_t capabilities;
 	struct tw_backend *backend;
-	struct wl_listener set_cursor;
 
 	struct tw_seat *tw_seat; /**< tw_seat implments wl_seat protocol */
 	struct {

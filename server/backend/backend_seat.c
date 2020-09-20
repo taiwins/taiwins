@@ -158,21 +158,6 @@ pointer_focus_motion(struct tw_backend_seat *seat,
 		tw_pointer_notify_enter(pointer, focused->resource, x, y);
 }
 
-static void
-notify_backend_set_cursor(struct wl_listener *listener, void *data)
-{
-	struct tw_backend_seat *seat =
-		container_of(listener, struct tw_backend_seat, set_cursor);
-	struct tw_backend *backend = seat->backend;
-	struct tw_cursor *cursor = &backend->global_cursor;
-	struct tw_event_new_cursor *event = data;
-	if (event->surface)
-		tw_cursor_set_surface(cursor, event->surface, event->pointer,
-		                      &backend->layers_manager.cursor_layer,
-		                      event->hotspot_x, event->hotspot_y);
-	else
-		tw_cursor_unset_surface(cursor);
-}
 
 static void
 notify_backend_pointer_button(struct wl_listener *listener, void *data)
@@ -488,13 +473,7 @@ new_seat_for_backend(struct tw_backend *backend,
 	seat->tw_seat = tw_seat_create(backend->display,
 	                               &backend->global_cursor,
 	                               dev->name);
-
 	wl_list_init(&seat->link);
-
-	wl_list_init(&seat->set_cursor.link);
-	seat->set_cursor.notify = notify_backend_set_cursor;
-	wl_signal_add(&seat->tw_seat->new_cursor_signal,
-	              &seat->set_cursor);
 
 	// setup the backend side
 	backend->seat_pool |= (1 << new_seat_id);
