@@ -323,7 +323,7 @@ query_extensions(struct tw_renderer *renderer)
 	renderer->glEGLImageTargetTexture2DOES =
 		get_glproc("glEGLImageTargetTexture2DOES");
 
-	//here we are dealing with only GL externsions, egl externions such as
+	//here we are dealing with only GL extensions, egl externions such as
 	//getting wl_drm dmabuff images are taking cared by wlr_egl for now.
 	if (check_glext(exts_str, "GL_KHR_debug")) {
 		renderer->options.enable_debug = true;

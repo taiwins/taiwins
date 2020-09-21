@@ -247,7 +247,7 @@ tw_render_texture_init_dma(struct tw_render_texture *texture,
 	wlr_egl_make_current(rdr->egl, EGL_NO_SURFACE, NULL);
 
 	if (!rdr->egl->exts.image_dmabuf_import_ext) {
-		tw_logl("Cannot create DMA-buf texture without externsion.");
+		tw_logl("Cannot create DMA-buf texture without extensions.");
 		return false;
 	}
 	dma_attributes_translate(&wlr_attrs, dma_attributes);

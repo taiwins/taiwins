@@ -34,3 +34,19 @@ matrix_test = executable(
   ],
 )
 test('test_matrix_test', matrix_test)
+
+
+egl_test_context = executable(
+  'tw-test-egl-context',
+  ['egl-context-test.c',
+  '../server/renderer/egl.c'],
+  c_args : ['-D_GNU_SOURCE'],
+  dependencies : [
+    dep_m,
+    dep_twobjects,
+    dep_glesv2,
+    dep_egl,
+  ],
+  include_directories : include_directories('../server/renderer'),
+)
+test('test_egl_context', egl_test_context)

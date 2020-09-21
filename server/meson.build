@@ -66,6 +66,8 @@ taiwins_src = [
   wayland_wlr_layer_shell_server_protocol_h,
   wayland_wlr_layer_shell_private_code_c,
   wayland_xdg_shell_private_code_c,
+
+  'renderer/egl.c',
 ]
 
 taiwins = executable(
