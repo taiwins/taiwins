@@ -36,6 +36,7 @@
 #include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/render/wlr_renderer.h>
+#include <wlr/backend/libinput.h>
 
 #include <ctypes/helpers.h>
 #include <xkbcommon/xkbcommon-compat.h>
@@ -51,13 +52,14 @@
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/profiler.h>
+#include <taiwins/objects/utils.h>
 
 #include "profiling.h"
 #include "backend.h"
 #include "backend_internal.h"
 
 static struct tw_backend s_tw_backend = {0};
-static struct tw_backend_impl s_tw_backend_impl;
+static struct tw_backend_obj_proxy s_tw_backend_proxy;
 
 /******************************************************************************
  * BACKEND APIs
@@ -248,14 +250,56 @@ tw_backend_init_globals(struct tw_backend *backend)
 }
 
 static void
+notify_new_input(struct wl_listener *listener, void *data)
+{
+	struct tw_backend *backend =
+		wl_container_of(listener, backend, new_input);
+	struct wlr_input_device *dev = data;
+
+	//filter the unwanted libinput device
+	if (wlr_input_device_is_libinput(dev) &&
+	    !tw_backend_valid_libinput_device(
+		    wlr_libinput_get_device_handle(dev)))
+		return;
+
+	switch (dev->type) {
+	case WLR_INPUT_DEVICE_KEYBOARD:
+		tw_backend_new_keyboard(backend, dev);
+		break;
+	case WLR_INPUT_DEVICE_POINTER:
+		tw_backend_new_pointer(backend, dev);
+		break;
+	case WLR_INPUT_DEVICE_TOUCH:
+		tw_backend_new_touch(backend, dev);
+		break;
+	case WLR_INPUT_DEVICE_SWITCH:
+		break;
+	case WLR_INPUT_DEVICE_TABLET_PAD:
+		break;
+	case WLR_INPUT_DEVICE_TABLET_TOOL:
+		break;
+	default:
+		break;
+	}
+
+}
+
+static void
+notify_new_output(struct wl_listener *listener, void *data)
+{
+	struct tw_backend *backend =
+		wl_container_of(listener, backend, new_output);
+	tw_backend_new_output(backend, data);
+}
+
+static void
 release_backend(struct wl_listener *listener, UNUSED_ARG(void *data))
 {
 	struct tw_backend *backend =
-		container_of(listener, struct tw_backend,
-		             display_destroy_listener);
+		container_of(listener, struct tw_backend, display_destroy);
 
 	tw_cursor_fini(&backend->global_cursor);
-	tw_backend_fini_impl(backend->impl);
+	tw_backend_fini_obj_proxy(backend->proxy);
 	backend->main_renderer = NULL;
 	backend->auto_backend = NULL;
 	backend->started = false;
@@ -267,12 +311,12 @@ tw_backend_create_global(struct wl_display *display,
                          wlr_renderer_create_func_t render_create)
 {
 	struct tw_backend *backend = &s_tw_backend;
-	struct tw_backend_impl *impl = &s_tw_backend_impl;
+	struct tw_backend_obj_proxy *proxy = &s_tw_backend_proxy;
 
-	assert(!impl->backend);
+	assert(!proxy->backend);
 
 	if (backend->display) {
-		tw_logl("EE: taiwins backend already initialized\n");
+		tw_logl_level(TW_LOG_ERRO, "backend already initialized\n");
 		return NULL;
 	}
 
@@ -302,10 +346,12 @@ tw_backend_create_global(struct wl_display *display,
 	tw_cursor_init(&backend->global_cursor,
 	               &backend->layers_manager.cursor_layer);
 
-	wl_list_init(&backend->display_destroy_listener.link);
-	backend->display_destroy_listener.notify = release_backend;
-	wl_display_add_destroy_listener(display,
-	                                &backend->display_destroy_listener);
+	tw_set_display_destroy_listener(display, &backend->display_destroy,
+	                                release_backend);
+	tw_signal_setup_listener(&backend->auto_backend->events.new_output,
+	                         &backend->new_output, notify_new_output);
+	tw_signal_setup_listener(&backend->auto_backend->events.new_input,
+	                         &backend->new_input, notify_new_input);
 
 	wl_signal_init(&backend->output_frame_signal);
 	wl_signal_init(&backend->output_plug_signal);
@@ -319,7 +365,7 @@ tw_backend_create_global(struct wl_display *display,
         wl_list_init(&backend->pending_heads);
 
         //output
-        tw_backend_init_impl(impl, backend);
+        tw_backend_init_obj_proxy(proxy, backend);
 	return backend;
 err_globals:
 	xkb_context_unref(backend->xkb_context);

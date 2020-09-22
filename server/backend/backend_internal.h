@@ -32,11 +32,8 @@
 extern "C" {
 #endif
 
-struct tw_backend_impl {
+struct tw_backend_obj_proxy {
 	struct tw_backend *backend;
-
-	struct wl_listener head_add;
-	struct wl_listener input_add;
 
 	struct wl_listener compositor_create_surface;
 	struct wl_listener compositor_create_subsurface;
@@ -65,10 +62,10 @@ void
 tw_backend_new_touch(struct tw_backend *backend,
                      struct wlr_input_device *dev);
 void
-tw_backend_init_impl(struct tw_backend_impl *impl,
-                     struct tw_backend *backend);
+tw_backend_init_obj_proxy(struct tw_backend_obj_proxy *proxy,
+                          struct tw_backend *backend);
 void
-tw_backend_fini_impl(struct tw_backend_impl *impl);
+tw_backend_fini_obj_proxy(struct tw_backend_obj_proxy *proxy);
 
 bool
 tw_backend_valid_libinput_device(struct libinput_device *device);

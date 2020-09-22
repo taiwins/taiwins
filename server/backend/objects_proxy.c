@@ -1,5 +1,5 @@
 /*
- * backend_impl.c - tw_backend_impl functions
+ * objects_proxy.c - proxy to taiwins objects
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -24,11 +24,11 @@
 #include <fcntl.h>
 #include <wayland-server-core.h>
 #include <wayland-server-protocol.h>
+#include <wayland-server.h>
 #include <wayland-util.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
-#include <wlr/backend/libinput.h>
 
 #include "backend.h"
 #include "backend_internal.h"
@@ -278,58 +278,14 @@ reassign_surface_outputs(struct tw_surface *surface,
 }
 
 
-static void
-notify_new_output(struct wl_listener *listener, void *data)
-{
-	struct tw_backend_impl *impl =
-		container_of(listener, struct tw_backend_impl, head_add);
-	struct tw_backend *backend = impl->backend;
-	tw_backend_new_output(backend, data);
-}
-
-static void
-notify_new_input(struct wl_listener *listener, void *data)
-{
-	struct tw_backend_impl *impl =
-		container_of(listener, struct tw_backend_impl, input_add);
-	struct tw_backend *backend = impl->backend;
-	struct wlr_input_device *dev = data;
-
-	//filter the unwanted libinput device
-	if (wlr_input_device_is_libinput(dev) &&
-	    !tw_backend_valid_libinput_device(
-		    wlr_libinput_get_device_handle(dev)))
-		return;
-
-	switch (dev->type) {
-	case WLR_INPUT_DEVICE_KEYBOARD:
-		tw_backend_new_keyboard(backend, dev);
-		break;
-	case WLR_INPUT_DEVICE_POINTER:
-		tw_backend_new_pointer(backend, dev);
-		break;
-	case WLR_INPUT_DEVICE_TOUCH:
-		tw_backend_new_touch(backend, dev);
-		break;
-	case WLR_INPUT_DEVICE_SWITCH:
-		break;
-	case WLR_INPUT_DEVICE_TABLET_PAD:
-		break;
-	case WLR_INPUT_DEVICE_TABLET_TOOL:
-		break;
-	default:
-		break;
-	}
-
-}
 
 static void
 notify_new_wl_surface(struct wl_listener *listener, void *data)
 {
-	struct tw_backend_impl *impl =
-		container_of(listener, struct tw_backend_impl,
+	struct tw_backend_obj_proxy *obj_proxy =
+		container_of(listener, struct tw_backend_obj_proxy,
 		             compositor_create_surface);
-	struct tw_backend *backend = impl->backend;
+	struct tw_backend *backend = obj_proxy->backend;
 
 	struct tw_event_new_wl_surface *event = data;
 
@@ -352,23 +308,23 @@ notify_new_wl_subsurface(struct wl_listener *listener, void *data)
 static void
 notify_new_wl_region(struct wl_listener *listener, void *data)
 {
-	struct tw_backend_impl *impl =
-		container_of(listener, struct tw_backend_impl,
+	struct tw_backend_obj_proxy *obj_proxy =
+		container_of(listener, struct tw_backend_obj_proxy,
 		             compositor_create_region);
 	struct tw_event_new_wl_region *event = data;
 	tw_region_create(event->client, event->version, event->id,
-	                 &impl->backend->surface_manager);
+	                 &obj_proxy->backend->surface_manager);
 }
 
 static void
 notify_dirty_wl_surface(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_output *output;
-	struct tw_backend_impl *impl =
-		container_of(listener, struct tw_backend_impl,
+	struct tw_backend_obj_proxy *obj_proxy =
+		container_of(listener, struct tw_backend_obj_proxy,
 		             surface_dirty_output);
 	struct tw_surface *surface = data;
-	struct tw_backend *backend = impl->backend;
+	struct tw_backend *backend = obj_proxy->backend;
 
 	if (pixman_region32_not_empty(&surface->geometry.dirty))
 		reassign_surface_outputs(surface, backend);
@@ -385,10 +341,10 @@ notify_rm_wl_surface(struct wl_listener *listener, void *data)
 {
 	struct tw_backend_output *output;
 	struct tw_surface *surface = data;
-	struct tw_backend_impl *impl =
-		container_of(listener, struct tw_backend_impl,
+	struct tw_backend_obj_proxy *obj_proxy =
+		container_of(listener, struct tw_backend_obj_proxy,
 		             surface_destroy);
-	struct tw_backend *backend = impl->backend;
+	struct tw_backend *backend = obj_proxy->backend;
 	struct tw_renderer *renderer =
 		container_of(backend->main_renderer, struct tw_renderer, base);
 
@@ -400,52 +356,40 @@ notify_rm_wl_surface(struct wl_listener *listener, void *data)
 }
 
 void
-tw_backend_init_impl(struct tw_backend_impl *impl, struct tw_backend *backend)
+tw_backend_init_obj_proxy(struct tw_backend_obj_proxy *obj_proxy,
+                          struct tw_backend *backend)
 {
 	//implementation is a global object, which can only be initialized once
 	struct wlr_backend *auto_backend = backend->auto_backend;
 	struct wlr_renderer *main_renderer = backend->main_renderer;
 	struct tw_renderer *rdr;
 
-	assert(!impl->backend);
+	assert(!obj_proxy->backend);
 	assert(auto_backend);
 	assert(main_renderer);
-	impl->backend = backend;
+	obj_proxy->backend = backend;
 	rdr = container_of(main_renderer, struct tw_renderer, base);
 
 	//listeners
-	wl_list_init(&impl->head_add.link);
-	impl->head_add.notify = notify_new_output;
-	wl_signal_add(&auto_backend->events.new_output, &impl->head_add);
+	tw_signal_setup_listener(&backend->compositor_manager.surface_create,
+	                         &obj_proxy->compositor_create_surface,
+	                         notify_new_wl_surface);
+	tw_signal_setup_listener(&backend->compositor_manager.subsurface_get,
+	                         &obj_proxy->compositor_create_subsurface,
+	                         notify_new_wl_subsurface);
+	tw_signal_setup_listener(&backend->compositor_manager.region_create,
+	                         &obj_proxy->compositor_create_region,
+	                         notify_new_wl_region);
 
-	wl_list_init(&impl->input_add.link);
-	impl->input_add.notify = notify_new_input;
-	wl_signal_add(&auto_backend->events.new_input, &impl->input_add);
-
-	wl_list_init(&impl->compositor_create_surface.link);
-	impl->compositor_create_surface.notify = notify_new_wl_surface;
-	wl_signal_add(&backend->compositor_manager.surface_create,
-	              &impl->compositor_create_surface);
-
-	wl_list_init(&impl->compositor_create_subsurface.link);
-	impl->compositor_create_subsurface.notify = notify_new_wl_subsurface;
-	wl_signal_add(&backend->compositor_manager.subsurface_get,
-	              &impl->compositor_create_subsurface);
-
-	wl_list_init(&impl->compositor_create_region.link);
-	impl->compositor_create_region.notify = notify_new_wl_region;
-	wl_signal_add(&backend->compositor_manager.region_create,
-	              &impl->compositor_create_region);
-
-	wl_list_init(&impl->surface_destroy.link);
-	impl->surface_destroy.notify = notify_rm_wl_surface;
+	wl_list_init(&obj_proxy->surface_destroy.link);
+	obj_proxy->surface_destroy.notify = notify_rm_wl_surface;
 	wl_signal_add(&backend->surface_manager.surface_destroy_signal,
-	              &impl->surface_destroy);
+	              &obj_proxy->surface_destroy);
 
-	wl_list_init(&impl->surface_dirty_output.link);
-	impl->surface_dirty_output.notify = notify_dirty_wl_surface;
+	wl_list_init(&obj_proxy->surface_dirty_output.link);
+	obj_proxy->surface_dirty_output.notify = notify_dirty_wl_surface;
 	wl_signal_add(&backend->surface_manager.surface_dirty_signal,
-	              &impl->surface_dirty_output);
+	              &obj_proxy->surface_dirty_output);
 
         //buffer imports
 	backend->surface_manager.buffer_import.buffer_import =
@@ -461,19 +405,18 @@ tw_backend_init_impl(struct tw_backend_impl *impl, struct tw_backend *backend)
 		renderer_modifiers_request;
 	backend->dma_engine.format_request.callback = rdr;
 
-	backend->impl = impl;
+	backend->proxy = obj_proxy;
 }
 
 void
-tw_backend_fini_impl(struct tw_backend_impl *impl)
+tw_backend_fini_obj_proxy(struct tw_backend_obj_proxy *obj_proxy)
 {
-	wl_list_remove(&impl->head_add.link);
-	wl_list_remove(&impl->input_add.link);
-	wl_list_remove(&impl->compositor_create_surface.link);
-	wl_list_remove(&impl->compositor_create_subsurface.link);
-	wl_list_remove(&impl->compositor_create_region.link);
-	wl_list_remove(&impl->surface_dirty_output.link);
-	wl_list_remove(&impl->surface_destroy.link);
+	wl_list_remove(&obj_proxy->compositor_create_surface.link);
+	wl_list_remove(&obj_proxy->compositor_create_subsurface.link);
+	wl_list_remove(&obj_proxy->compositor_create_region.link);
+	wl_list_remove(&obj_proxy->surface_dirty_output.link);
+	wl_list_remove(&obj_proxy->surface_destroy.link);
 
-	impl->backend = NULL;
+	obj_proxy->backend->proxy = NULL;
+	obj_proxy->backend = NULL;
 }

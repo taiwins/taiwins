@@ -164,7 +164,7 @@ struct tw_backend_seat {
 	} touch;
 };
 
-struct tw_backend_impl;
+struct tw_backend_obj_proxy;
 struct tw_backend {
 	struct wl_display *display;
         /** for now backend is based on wlr_backends. Future when migrate, we
@@ -173,12 +173,14 @@ struct tw_backend {
 	struct wlr_backend *auto_backend;
 	struct wlr_renderer *main_renderer;
 	/** interface for implementation details */
-	struct tw_backend_impl *impl;
+	struct tw_backend_obj_proxy *proxy;
 	bool started;
 	/**< options */
 	bool defer_output_creation;
-
-	struct wl_listener display_destroy_listener;
+	/**< listeners for driving the output */
+	struct wl_listener display_destroy;
+	struct wl_listener new_input;
+	struct wl_listener new_output;
 
 	struct wl_signal output_frame_signal;
         struct wl_signal output_plug_signal;
