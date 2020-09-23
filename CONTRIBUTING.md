@@ -7,6 +7,21 @@ am creating a common practice to facilitate the collaboration.
 
 ## submitting issues
 
+If you are new to git or github, check out their
+[doc](https://guides.github.com/features/issues/) for how to use this feature. A
+good issues is specific, obvious for people to understand. Additional infomation
+is appreciated, for example. If you run into a segmentfault, a stack trace in
+the description would be very helpful.
+
+If you know which part of the code leaded the problem, you can propose the issue
+with `[suggest label] actual title`.
+
+Issues can also be new proposals or questions. For proposals, you can list your
+ideas and how to implement them. Later you can link your pull request to the
+issue. A question issue need to be specific, so that an answer would not require
+an whole article to answer, or if you can also break it down to smaller
+questions.
+
 ## Pull requests
 
 There are 3 lines command to start;
