@@ -81,3 +81,8 @@ Though it is configurable, by default available bindings are
 Currently documentation is generated through doxygen. enable `build_doc` option
 to enable building documentation. We also host a online themed
 [documentation](https://taiwins.org/page_doc.html) which you can access.
+
+
+### Screenshots
+There are some example screen shots of taiwins, check out the [screenshot
+page](docs/screenshots.md) for more details.
