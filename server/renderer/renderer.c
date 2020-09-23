@@ -133,8 +133,9 @@ base_init_wl_display(struct wlr_renderer *wlr_renderer,
 
 static bool
 noop_render_texture_with_matrix(struct wlr_renderer *renderer,
-		struct wlr_texture *texture, const float matrix[static 9],
-		float alpha)
+                                struct wlr_texture *texture,
+                                const struct wlr_fbox *box,
+                                const float matrix[static 9], float alpha)
 {
 	return false;
 }
@@ -187,7 +188,7 @@ static const struct wlr_renderer_impl tw_renderer_wlr_impl = {
 	.end = base_end,
 	.clear = base_clear,
 	.scissor = base_scissor,
-	.render_texture_with_matrix = noop_render_texture_with_matrix,
+	.render_subtexture_with_matrix = noop_render_texture_with_matrix,
 	.render_quad_with_matrix = noop_render_quad_with_matrix,
 	.render_ellipse_with_matrix = noop_render_ellipse_with_matrix,
 	.formats = base_formats,

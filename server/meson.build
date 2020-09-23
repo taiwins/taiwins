@@ -81,10 +81,12 @@ taiwins = executable(
     dep_threads,
     dep_pixman,
     dep_glesv2,
+    dep_egl,
     dep_dl,
     dep_lua,
     dep_twclient_theme,
     dep_tdbus,
+    dep_libinput,
   ],
   include_directories : [
     inc_shared_config,
