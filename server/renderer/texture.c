@@ -242,6 +242,8 @@ tw_render_texture_init_dma(struct tw_render_texture *texture,
 {
 	struct wlr_dmabuf_attributes wlr_attrs;
 	EGLImageKHR image;
+	bool external_only = false;
+
 	wlr_egl_make_current(rdr->egl, EGL_NO_SURFACE, NULL);
 
 	if (!rdr->egl->exts.image_dmabuf_import_ext) {
@@ -261,7 +263,8 @@ tw_render_texture_init_dma(struct tw_render_texture *texture,
 	default:
 		break;
 	}
-	image = wlr_egl_create_image_from_dmabuf(rdr->egl, &wlr_attrs);
+	image = wlr_egl_create_image_from_dmabuf(rdr->egl, &wlr_attrs,
+	                                         &external_only);
 	if (image == EGL_NO_IMAGE_KHR) {
 		tw_logl("failed to import the DMA-BUF image");
 		return false;
