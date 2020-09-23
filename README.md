@@ -6,9 +6,9 @@ script and it has built-in **shell** and **widgets** implementation through
 [nuklear GUI](https://github.com/Immediate-Mode-UI/Nuklear). It also supports 
 popular tiling window manager features like gapping.
 
-Taiwins is usable and currently under heavy developement. If you would like to
-contribute to the project, You can refer to [contributing](CONTRIBUTING.md) for
-getting started.
+Taiwins is usable and currently under heavy developement. Join the discussion on
+[Gitter](https://gitter.im/taiwins). If you would like to contribute to the
+project, You can refer to [contributing](CONTRIBUTING.md) for getting started.
 
 ## How to build
 you will need following dependencies
