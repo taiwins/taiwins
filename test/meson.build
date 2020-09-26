@@ -1,3 +1,9 @@
+lib_fakedlclose=shared_library(
+  'fakedlclose',
+  ['fakedlclose.c'],
+  install : false,
+)
+
 dummy_surface_test = executable(
   'tw-test-dummy-surface',
   ['dummy-surface-test.c'],
@@ -35,7 +41,6 @@ matrix_test = executable(
 )
 test('test_matrix_test', matrix_test)
 
-
 egl_test_context = executable(
   'tw-test-egl-context',
   ['egl-context-test.c',
@@ -47,6 +52,8 @@ egl_test_context = executable(
     dep_glesv2,
     dep_egl,
   ],
-  include_directories : include_directories('../server/renderer'),
+  include_directories : [
+    include_directories('../server/include'),
+  ],
 )
 test('test_egl_context', egl_test_context)

@@ -38,25 +38,28 @@ struct tw_egl_options {
 	EGLenum platform;
 	/** native display type like a wl_display from wayland */
 	void *native_display;
-	EGLint egl_surface_type;
 	/** visual id represents the format the platform supports */
 	EGLint visual_id;
 
 	const EGLint *context_attribs;
-	const uint32_t drm_formats;
+	const uint32_t *drm_formats;
 	unsigned drm_formats_count;
 };
 
 struct tw_egl {
+	struct wl_display *wl_display;
+
+	EGLContext context;
 	EGLDisplay display;
 	EGLenum platform;
+	EGLint surface_type;
 	EGLConfig config;
-	EGLContext context;
 	bool query_buffer_age;
+	unsigned int internal_format;
 
 	struct {
 		PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display;
-		PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC create_platform_win;
+		PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC create_window_surface;
 		PFNEGLCREATEIMAGEKHRPROC create_image;
 		PFNEGLDESTROYIMAGEKHRPROC destroy_image;
 		PFNEGLQUERYWAYLANDBUFFERWL query_wl_buffer;
@@ -70,12 +73,11 @@ struct tw_egl {
 		PFNEGLDEBUGMESSAGECONTROLKHRPROC debug_message_control;
 	} funcs;
 
-	struct wl_display *wl_display;
 };
 
 
 bool
-tw_egl_init(struct tw_egl *egl, struct tw_egl_options *opts);
+tw_egl_init(struct tw_egl *egl, const struct tw_egl_options *opts);
 
 void
 tw_egl_fini(struct tw_egl *egl);

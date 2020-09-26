@@ -19,6 +19,7 @@
  *
  */
 
+#include <EGL/eglplatform.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <GLES3/gl3.h>
@@ -91,15 +92,14 @@ setup_egl_basic_exts(struct tw_egl *egl)
 	if (!get_egl_proc(&egl->funcs.get_platform_display,
 	                  "eglGetPlatformDisplayEXT"))
 		return false;
-	if (!get_egl_proc(&egl->funcs.create_platform_win,
+	if (!get_egl_proc(&egl->funcs.create_window_surface,
 	                  "eglCreatePlatformWindowSurfaceEXT"))
 		return false;
-
 	return true;
 }
 
 static bool
-setup_egl_display(struct tw_egl *egl, struct tw_egl_options *opts)
+setup_egl_display(struct tw_egl *egl, const struct tw_egl_options *opts)
 {
 	EGLint major, minor;
 
@@ -191,7 +191,7 @@ setup_egl_client_extensions(struct tw_egl *egl)
 
 static EGLConfig
 choose_egl_config(EGLDisplay display, EGLConfig *configs, int count,
-                  struct tw_egl_options *opts)
+                  const struct tw_egl_options *opts)
 {
 	if (!opts->visual_id)
 		return configs[0];
@@ -208,7 +208,7 @@ choose_egl_config(EGLDisplay display, EGLConfig *configs, int count,
 }
 
 static bool
-setup_egl_config(struct tw_egl *egl, struct tw_egl_options *opts)
+setup_egl_config(struct tw_egl *egl, const struct tw_egl_options *opts)
 {
 	EGLint count = 0, matched = 0, ret = 0;
 
@@ -228,7 +228,9 @@ setup_egl_config(struct tw_egl *egl, struct tw_egl_options *opts)
 	egl->config = choose_egl_config(egl->display, configs, matched, opts);
 	if (egl->config == EGL_NO_CONFIG_KHR)
 		return false;
-
+	//store the surface type for future queries
+	eglGetConfigAttrib(egl->display, egl->config,
+	                   EGL_SURFACE_TYPE, &egl->surface_type);
 
 	return true;
 }
@@ -252,11 +254,11 @@ setup_egl_context(struct tw_egl *egl)
 	attrs[1] = 3;
 	egl->context = eglCreateContext(egl->display, egl->config,
 	                                EGL_NO_CONTEXT, attrs);
-	if (!egl->context) {
+	if (egl->context == EGL_NO_CONTEXT) {
 		attrs[1] = 2;
 		egl->context = eglCreateContext(egl->display, egl->config,
 		                                EGL_NO_CONTEXT, attrs);
-		if (!egl->context) {
+		if (egl->context == EGL_NO_CONTEXT) {
 			tw_logl_level(TW_LOG_ERRO, "eglCreateContext failed");
 			return false;
 		}
@@ -276,6 +278,15 @@ setup_egl_context(struct tw_egl *egl)
 		eglDestroyContext(egl->display, egl->context);
 		egl->context = EGL_NO_CONTEXT;
 		return false;
+	}
+	if (tw_egl_check_gl_ext(egl, "GL_OES_rgb8_rgba8") ||
+	    tw_egl_check_gl_ext(egl, "GL_OES_required_internalformat") ||
+	    tw_egl_check_gl_ext(egl, "GL_ARM_rgba8")) {
+		egl->internal_format = GL_RGBA8_OES;
+	} else {
+		tw_logl("GL_RGBA8_OES not supported, performance may be "
+		        "affected");
+		egl->internal_format = GL_RGBA4;
 	}
 
 	return true;
@@ -305,11 +316,10 @@ print_egl_info(struct tw_egl *egl)
 }
 
 WL_EXPORT bool
-tw_egl_init(struct tw_egl *egl, struct tw_egl_options *opts)
+tw_egl_init(struct tw_egl *egl, const struct tw_egl_options *opts)
 {
 	if (!setup_egl_basic_exts(egl))
 		return false;
-
 	if (!setup_egl_display(egl, opts))
 		return false;
 	if (!setup_egl_client_extensions(egl))
@@ -346,8 +356,10 @@ tw_egl_fini(struct tw_egl *egl)
 		assert(egl->funcs.unbind_wl_display);
 		egl->funcs.unbind_wl_display(egl->display, egl->wl_display);
 	}
-	eglDestroyContext(egl->display, egl->context);
-	eglTerminate(egl->display);
+	if (!eglDestroyContext(egl->display, egl->context))
+		tw_logl_level(TW_LOG_ERRO, "failed to destroy EGL context");
+	if (!eglTerminate(egl->display))
+		tw_logl_level(TW_LOG_ERRO, "failed to termiate EGL display");
 	eglReleaseThread();
 }
 
