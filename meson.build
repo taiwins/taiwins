@@ -5,7 +5,7 @@ project('taiwins', 'c',
 	  'c_std=gnu11',
 	  'werror=true',
 	],
-	meson_version: '>= 0.46',
+	meson_version: '>= 0.50',
 	license: 'GPLv2+')
 
 

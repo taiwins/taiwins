@@ -16,3 +16,13 @@ option('rendering-debug',
        value: 'none',
        description: 'Enable the various rendering debugging options'
 )
+
+option('x11-backend',
+       type: 'feature',
+       value: 'auto',
+       description: 'enable X11 backend')
+
+option('xwayland',
+       type: 'feature',
+       value: 'auto',
+       description: 'enable xwayland feature')

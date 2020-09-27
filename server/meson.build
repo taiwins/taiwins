@@ -16,22 +16,11 @@ elif get_option('rendering-debug') == 'clip'
   taiwins_cargs += '-D_TW_DEBUG_CLIP'
 endif
 
-if cc.has_function('libinput_device_touch_get_touch_count',
-		   prefix: '#include <libinput.h>',
-		  dependencies: [dep_libinput])
-  taiwins_cargs += '-D_TW_HAS_LIBINPUT_GET_TOUCH_COUNT'
-endif
-
 pkgconfig = import('pkgconfig')
 
 ####### static lib
 taiwins_lib_src = [
   'bindings.c',
-  'backend/backend.c',
-  'backend/objects_proxy.c',
-  'backend/seat.c',
-  'backend/libinput.c',
-  'backend/output.c',
   'renderer/renderer.c',
   'renderer/shaders.c',
   'renderer/texture.c',
@@ -54,6 +43,8 @@ taiwins_lib_src = [
   'config/config_lua.c',
   'config/config_bus.c',
   'config/theme_lua.c',
+  'input_device.c',
+  'output_device.c',
 
   wayland_taiwins_shell_server_protocol_h,
   wayland_taiwins_shell_private_code_c,
@@ -67,9 +58,6 @@ taiwins_lib_src = [
 
   'renderer/egl.c',
   'renderer/render_context_egl.c',
-  'input_device.c',
-  'output_device.c',
-  'backend/headless.c',
 ]
 taiwins_lib_dep = [
   dep_wayland_server,
@@ -87,6 +75,9 @@ taiwins_lib_dep = [
   dep_tdbus,
   dep_libinput
 ]
+
+subdir('backend')
+
 taiwins_lib = static_library(
   'taiwins',
   taiwins_lib_src,
@@ -107,7 +98,6 @@ dep_taiwins_lib = declare_dependency(
     include_directories('.'),
     include_directories('include'),
   ],
-  install : false,
 )
 
 ####### compositor
