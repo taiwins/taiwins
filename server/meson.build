@@ -70,6 +70,7 @@ taiwins_src = [
   'renderer/egl.c',
   'renderer/render_context_egl.c',
   'input_device.c',
+  'output_device.c',
 ]
 
 taiwins = executable(
