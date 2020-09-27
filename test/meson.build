@@ -57,3 +57,11 @@ egl_test_context = executable(
   ],
 )
 test('test_egl_context', egl_test_context)
+
+headless_test = executable(
+  'tw-test-headless',
+  'headless-test.c',
+  c_args : ['-D_GNU_SOURCE', '-DWLR_USE_UNSTABLE'],
+  dependencies : dep_taiwins_lib,
+)
+test('test_headless', headless_test)

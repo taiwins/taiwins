@@ -44,6 +44,8 @@
 #include <taiwins/objects/presentation_feedback.h>
 #include <taiwins/objects/viewporter.h>
 
+#include "input_device.h"
+
 #define TW_VIEW_GLOBAL_LINK 1
 #define TW_VIEW_OUTPUT_LINK 2
 
@@ -54,6 +56,8 @@ extern "C" {
 struct tw_backend;
 struct tw_backend_output;
 struct tw_backend_seat;
+struct tw_backend_obj_proxy;
+struct tw_render_context;
 
 enum tw_backend_event_type {
 	TW_BACKEND_ADD_OUTPUT,
@@ -65,17 +69,6 @@ enum tw_backend_event_type {
 
 struct tw_backend_output_mode {
 	int32_t w, h, refresh;
-};
-
-/* we would have list of seats in  */
-enum tw_input_device_cap {
-	TW_INPUT_CAP_KEYBOARD = 1 << 0,
-	TW_INPUT_CAP_POINTER = 1 << 1,
-	TW_INPUT_CAP_TOUCH = 1 << 2,
-	TW_INPUT_CAP_TABLET_TOOL = 1 << 3,
-	TW_INPUT_CAP_TABLET_PAD = 1 << 4,
-	TW_INPUT_CAP_SWITCH = 1 << 5,
-	TW_INPUT_CAP_ALL = 0x1f,
 };
 
 /**
@@ -164,7 +157,25 @@ struct tw_backend_seat {
 	} touch;
 };
 
-struct tw_backend_obj_proxy;
+/**
+ * @brief an abstract interface all types of backend need to do implement
+ */
+struct tw_backend_impl {
+	bool (*start)(struct tw_backend *backend,
+	              struct tw_render_context *ctx);
+	const struct tw_egl_options *
+	(*gen_egl_params)(struct tw_backend *source);
+
+	//we have this events for now as we cannot be include directly into
+	//tw_backend. Later, these signals will get throw away and here we call
+	//`tw_backend_new_output` or `tw_backend_new_input` directly.
+	struct {
+		struct wl_signal destroy;
+		struct wl_signal new_input;
+		struct wl_signal new_output;
+	} events;
+};
+
 struct tw_backend {
 	struct wl_display *display;
         /** for now backend is based on wlr_backends. Future when migrate, we
@@ -174,6 +185,8 @@ struct tw_backend {
 	struct wlr_renderer *main_renderer;
 	/** interface for implementation details */
 	struct tw_backend_obj_proxy *proxy;
+	struct tw_backend_impl *impl;
+
 	bool started;
 	/**< options */
 	bool defer_output_creation;
@@ -220,6 +233,9 @@ tw_backend_create_global(struct wl_display *display,
                          wlr_renderer_create_func_t render_create);
 void
 tw_backend_flush(struct tw_backend *backend);
+
+const struct tw_egl_options *
+tw_backend_get_egl_params(struct tw_backend *backend);
 
 //remove this!
 void *

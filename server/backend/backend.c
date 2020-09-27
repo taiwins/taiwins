@@ -483,3 +483,9 @@ tw_backend_build_surface_list(struct tw_backend *backend)
 
 	SCOPE_PROFILE_END();
 }
+
+const struct tw_egl_options *
+tw_backend_get_egl_params(struct tw_backend *backend)
+{
+	return backend->impl->gen_egl_params(backend);
+}

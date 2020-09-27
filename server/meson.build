@@ -24,10 +24,8 @@ endif
 
 pkgconfig = import('pkgconfig')
 
-####### server
-taiwins_src = [
-  'main.c',
-  'input.c',
+####### static lib
+taiwins_lib_src = [
   'bindings.c',
   'backend/backend.c',
   'backend/objects_proxy.c',
@@ -71,32 +69,57 @@ taiwins_src = [
   'renderer/render_context_egl.c',
   'input_device.c',
   'output_device.c',
+  'backend/headless.c',
+]
+taiwins_lib_dep = [
+  dep_wayland_server,
+  dep_twobjects,
+  dep_ctypes,
+  dep_wlroots,
+  dep_xkbcommon,
+  dep_threads,
+  dep_pixman,
+  dep_glesv2,
+  dep_egl,
+  dep_dl,
+  dep_lua,
+  dep_twclient_theme,
+  dep_tdbus,
+  dep_libinput
+]
+taiwins_lib = static_library(
+  'taiwins',
+  taiwins_lib_src,
+  c_args : taiwins_cargs,
+  dependencies : taiwins_lib_dep,
+  include_directories : [
+    inc_shared_config,
+    include_directories('.'),
+    include_directories('include'),
+  ],
+)
+dep_taiwins_lib = declare_dependency(
+  link_with : taiwins_lib,
+  compile_args : taiwins_cargs,
+  dependencies : taiwins_lib_dep,
+  include_directories : [
+    inc_shared_config,
+    include_directories('.'),
+    include_directories('include'),
+  ],
+  install : false,
+)
+
+####### compositor
+taiwins_src = [
+  'main.c',
+  'input.c',
 ]
 
 taiwins = executable(
   'taiwins',
   taiwins_src,
   c_args : taiwins_cargs,
-  dependencies : [
-    dep_wayland_server,
-    dep_twobjects,
-    dep_ctypes,
-    dep_wlroots,
-    dep_xkbcommon,
-    dep_threads,
-    dep_pixman,
-    dep_glesv2,
-    dep_egl,
-    dep_dl,
-    dep_lua,
-    dep_twclient_theme,
-    dep_tdbus,
-    dep_libinput,
-  ],
-  include_directories : [
-    inc_shared_config,
-    include_directories('.'),
-    include_directories('include'),
-  ],
+  dependencies : dep_taiwins_lib,
   install : true,
 )
