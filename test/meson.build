@@ -65,3 +65,10 @@ headless_test = executable(
   dependencies : dep_taiwins_lib,
 )
 test('test_headless', headless_test)
+
+x11_test = executable(
+  'tw-test-x11',
+  'x11-test.c',
+  c_args : ['-D_GNU_SOURCE', '-DWLR_USE_UNSTABLE'],
+  dependencies : dep_taiwins_lib,
+)

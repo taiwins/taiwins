@@ -202,7 +202,7 @@ tw_headless_backend_add_output(struct tw_backend *backend,
         if (backend->started)
 	        headless_output_start(output, headless);
 
-        return false;
+        return true;
 }
 
 bool

@@ -41,14 +41,16 @@ enum tw_renderer_type {
 };
 
 struct tw_render_context_impl {
-	bool (*new_offscreen_surface)(struct tw_render_context *ctx,
-	                              intptr_t *surf, unsigned int width,
-	                              unsigned int height);
-	bool (*new_window_surface)(struct tw_render_context *ctx,
-	                           intptr_t *surf, void *native_window);
+	bool (*new_offscreen_surface)(struct tw_render_surface *surf,
+	                              struct tw_render_context *ctx,
+	                              unsigned int width, unsigned int height);
 
-	bool (*commit_surface)(struct tw_render_context *ctx,
-	                       struct tw_render_surface *surf);
+	bool (*new_window_surface)(struct tw_render_surface *surf,
+	                           struct tw_render_context *ctx,
+	                           void *native_window);
+
+	bool (*commit_surface)(struct tw_render_surface *surf,
+	                       struct tw_render_context *ctx);
 };
 
 /* we create this render context from scratch so we don't break everything, the
@@ -70,7 +72,6 @@ struct tw_render_context {
 struct tw_render_pipeline {
 	const char *name;
 	struct tw_render_context *ctx;
-
 	struct wl_list link;
 
 };
@@ -78,8 +79,8 @@ struct tw_render_pipeline {
 /* a render surface for backend to work with */
 struct tw_render_surface {
 	intptr_t handle;
-	void (*destroy)(struct tw_render_context *ctx,
-	                struct tw_render_surface *surface);
+	void (*destroy)(struct tw_render_surface *surface,
+	                struct tw_render_context *ctx);
 };
 
 struct tw_render_context *
@@ -92,6 +93,37 @@ tw_render_context_create_vk(struct wl_display *display);
 
 void
 tw_render_context_destroy(struct tw_render_context *ctx);
+
+static inline bool
+tw_render_surface_init_offscreen(struct tw_render_surface *surface,
+                                 struct tw_render_context *ctx,
+                                 unsigned int width, unsigned int height)
+{
+	return ctx->impl->new_offscreen_surface(surface, ctx, width, height);
+}
+
+static inline bool
+tw_render_surface_init_window(struct tw_render_surface *surf,
+                              struct tw_render_context *ctx,
+                              void *native_window)
+{
+	return ctx->impl->new_window_surface(surf, ctx, native_window);
+}
+
+static inline void
+tw_render_surface_fini(struct tw_render_surface *surface,
+                       struct tw_render_context *ctx)
+{
+	surface->destroy(surface, ctx);
+}
+
+static inline bool
+tw_render_surface_commit(struct tw_render_surface *surface,
+                         struct tw_render_context *ctx)
+{
+	return ctx->impl->commit_surface(surface, ctx);
+}
+
 
 #ifdef  __cplusplus
 }

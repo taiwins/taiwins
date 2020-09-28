@@ -19,6 +19,7 @@
  *
  */
 
+#include <EGL/eglplatform.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <EGL/egl.h>
@@ -38,7 +39,6 @@ struct tw_egl_render_context {
 	struct tw_render_context base;
 	struct tw_egl egl;
 	struct tw_render_context_impl impl;
-
 };
 
 //well you need to expose this pipeline though, otherwise how would you have
@@ -47,32 +47,50 @@ struct tw_egl_pipeline {
 	struct tw_render_pipeline base;
 };
 
+static void
+handle_egl_surface_destroy(struct tw_render_surface *surf,
+                           struct tw_render_context *base)
+{
+	struct tw_egl_render_context *ctx =
+		wl_container_of(base, ctx, base);
+	EGLSurface egl_surface = (EGLSurface)surf->handle;
+
+	if (eglGetCurrentContext() == ctx->egl.context &&
+	    eglGetCurrentSurface(EGL_DRAW) == egl_surface)
+		tw_egl_unset_current(&ctx->egl);
+	eglDestroySurface(ctx->egl.display, egl_surface);
+}
+
 /* use this if you created egl context with window surface type */
 static bool
-new_window_surface(struct tw_render_context *base, intptr_t *ret,
-                   void *native_surface)
+new_window_surface(struct tw_render_surface *surf,
+                   struct tw_render_context *base, void *native_surface)
 {
 	struct tw_egl_render_context *ctx = wl_container_of(base, ctx, base);
 	EGLSurface eglsurface = EGL_NO_SURFACE;
 
-	if (ctx->egl.surface_type != EGL_WINDOW_BIT)
+	if (!(ctx->egl.surface_type & EGL_WINDOW_BIT))
 		return false;
 
-	eglsurface = ctx->egl.funcs.create_window_surface(&ctx->egl.display,
-	                                                  &ctx->egl.config,
-	                                                  native_surface,
-	                                                  NULL);
+	eglsurface =
+		ctx->egl.funcs.create_window_surface(ctx->egl.display,
+		                                     ctx->egl.config,
+		                                     native_surface,
+		                                     NULL);
 	if (eglsurface == EGL_NO_SURFACE) {
 		tw_logl_level(TW_LOG_ERRO, "eglCreateWindowSurface failed");
 		return false;
 	}
-	*ret = (intptr_t)eglsurface;
+	surf->handle = (intptr_t)eglsurface;
+	surf->destroy = handle_egl_surface_destroy;
+
 	return true;
 }
 
 /* use this if you created egl context with pbuffer window type */
 static bool
-new_pbuffer_surface(struct tw_render_context *base, intptr_t *ret,
+new_pbuffer_surface(struct tw_render_surface *surf,
+                    struct tw_render_context *base,
                     unsigned int width, unsigned int height)
 {
 	struct tw_egl_render_context *ctx = wl_container_of(base, ctx, base);
@@ -84,7 +102,7 @@ new_pbuffer_surface(struct tw_render_context *base, intptr_t *ret,
 		EGL_NONE,
 	};
 
-	if (ctx->egl.surface_type != EGL_PBUFFER_BIT)
+	if (!(ctx->egl.surface_type & EGL_PBUFFER_BIT))
 		return false;
 
 	eglsurface = eglCreatePbufferSurface(&ctx->egl.display,
@@ -93,7 +111,8 @@ new_pbuffer_surface(struct tw_render_context *base, intptr_t *ret,
 		tw_logl_level(TW_LOG_ERRO, "eglCreatePbufferSurface failed");
 		return false;
 	}
-	*ret = (intptr_t)eglsurface; //maybe not
+	surf->handle =  (intptr_t)eglsurface; //maybe not
+	surf->destroy = handle_egl_surface_destroy;
 	return true;
 }
 

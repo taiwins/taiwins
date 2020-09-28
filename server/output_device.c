@@ -31,7 +31,7 @@ static void
 output_device_state_init(struct tw_output_device_state *state,
                          struct tw_output_device *device)
 {
-	state->enabled = false;
+	state->enabled = true;
 	state->scale = 1.0;
 	state->current_mode.w = 0;
 	state->current_mode.h = 0;
