@@ -65,6 +65,7 @@ struct tw_render_context {
 	struct wl_display *display;
 	struct wl_listener display_destroy;
 
+	struct wl_signal destroy_signal;
 	struct wl_list pipelines;
 };
 

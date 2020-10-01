@@ -20,7 +20,7 @@
  */
 
 #include <string.h>
-#include <wayland-server-core.h>
+#include <pixman.h>
 #include <wayland-server.h>
 #include <taiwins/objects/matrix.h>
 #include <taiwins/objects/logger.h>
@@ -92,4 +92,25 @@ tw_output_device_commit_state(struct tw_output_device *device)
 	wl_signal_emit(&device->events.commit_state, device);
 	//emit for sending new backend info.
 	wl_signal_emit(&device->events.info, device);
+}
+
+pixman_rectangle32_t
+tw_output_device_geometry(const struct tw_output_device *output)
+{
+	//do we need to devide by the scale?
+	return (pixman_rectangle32_t){
+		output->state.x_comp, output->state.y_comp,
+		output->state.current_mode.w / output->state.scale,
+		output->state.current_mode.h / output->state.scale
+	};
+}
+
+void
+tw_output_device_loc_to_global(const struct tw_output_device *output,
+                               float x, float y, float *gx, float *gy)
+{
+	*gx = output->state.x_comp +
+		x * output->state.current_mode.w / output->state.scale;
+	*gy = output->state.y_comp +
+		y * output->state.current_mode.h / output->state.scale;
 }

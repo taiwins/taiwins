@@ -28,8 +28,10 @@
 #include <wayland-util.h>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
+#include <time.h>
 
 #include "backend/x11.h"
+#include "input_device.h"
 #include "internal.h"
 #include "output_device.h"
 #include "render_context.h"
@@ -41,10 +43,16 @@
 static int
 frame_handler(void *data)
 {
+	/* static long long oldtime = 0, newtime; */
+	/* struct timespec spec; */
 	struct tw_x11_output *output = data;
 	wl_signal_emit(&output->device.events.new_frame, &output->device);
 	wl_event_source_timer_update(output->frame_timer,
 	                             FRAME_DELAY);
+	/* clock_gettime(CLOCK_MONOTONIC, &spec); */
+	/* newtime = (spec.tv_sec*1000000 + spec.tv_nsec/1000); */
+	/* tw_logl("time lapsed: %lld", newtime - oldtime); */
+	/* oldtime = newtime; */
 	return 0;
 }
 
@@ -62,16 +70,17 @@ parse_output_setup(struct tw_x11_output *output, xcb_connection_t *xcb)
 	         xcb_setup->protocol_minor_version);
 }
 
-static void
-x11_remove_output(struct tw_x11_output *output)
+void
+tw_x11_remove_output(struct tw_x11_output *output)
 {
 	struct tw_x11_backend *x11 = output->x11;
 
-        wl_list_remove(&output->device.link);
         wl_event_source_remove(output->frame_timer);
+	tw_output_device_fini(&output->device);
+	tw_input_device_fini(&output->pointer);
+	tw_input_device_fini(&output->touch);
 
-	wl_signal_emit(&output->device.events.destroy, &output->device);
-	tw_render_surface_fini(&output->render_surface, x11->ctx);
+	tw_render_surface_fini(&output->render_surface, x11->base.ctx);
 	xcb_destroy_window(x11->xcb_conn, output->win);
 	xcb_flush(x11->xcb_conn);
 	free(output);
@@ -122,10 +131,10 @@ tw_x11_output_start(struct tw_x11_output *output)
 	                           &xinput_mask.head);
 	//creating the render surface
 	if (!tw_render_surface_init_window(&output->render_surface,
-	                                   x11->ctx, &output->win)) {
+	                                   x11->base.ctx, &output->win)) {
 		tw_logl_level(TW_LOG_WARN, "failed to create render surface "
 		              "for X11 output");
-		x11_remove_output(output);
+		tw_x11_remove_output(output);
 		return false;
 	}
 
@@ -137,7 +146,10 @@ tw_x11_output_start(struct tw_x11_output *output)
 	wl_event_source_timer_update(output->frame_timer, FRAME_DELAY);
 
 	//finally
-	wl_signal_emit(&x11->impl.events.new_output, &output->device);
+	wl_signal_emit(&x11->base.events.new_output, &output->device);
+	wl_signal_emit(&output->device.events.info, &output->device);
+	wl_signal_emit(&x11->base.events.new_input, &output->pointer);
+	wl_signal_emit(&x11->base.events.new_input, &output->touch);
 
 	return true;
 }
@@ -146,8 +158,7 @@ bool
 tw_x11_backend_add_output(struct tw_backend *backend,
                           unsigned int width, unsigned int height)
 {
-	struct tw_x11_backend *x11 =
-		wl_container_of(backend->impl, x11, impl);
+	struct tw_x11_backend *x11 = wl_container_of(backend, x11, base);
 	struct tw_x11_output *output =
 		calloc(1, sizeof(*output));
 
@@ -158,14 +169,23 @@ tw_x11_backend_add_output(struct tw_backend *backend,
         output->height = height;
 
         tw_output_device_init(&output->device);
-        sprintf(output->device.name, "X11-%d", wl_list_length(&x11->outputs));
+        sprintf(output->device.name, "X11-%d",
+                wl_list_length(&x11->base.outputs));
         parse_output_setup(output, x11->xcb_conn);
 
-        wl_list_insert(x11->outputs.prev, &output->device.link);
+        wl_list_insert(&x11->base.outputs, &output->device.link);
+
+        tw_input_device_init(&output->pointer, TW_INPUT_TYPE_POINTER, NULL);
+        tw_input_device_init(&output->touch, TW_INPUT_TYPE_TOUCH, NULL);
+        strncpy(output->pointer.name, "X11-pointer",
+                sizeof(output->pointer.name));
+        strncpy(output->touch.name, "X11-touch", sizeof(output->touch.name));
+
+        wl_list_insert(x11->base.inputs.prev, &output->pointer.link);
+        wl_list_insert(x11->base.inputs.prev, &output->touch.link);
 
         if (backend->started)
 	        tw_x11_output_start(output);
-
 
 	return true;
 }

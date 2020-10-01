@@ -17,18 +17,18 @@ int main(int argc, char *argv[])
 	//TODO; we will want to test wayland, X11, and headless, for now, lets
 	//test headless
 	struct wl_display *display;
-	struct tw_backend backend = {0};
+	struct tw_backend *backend;
 
 	tw_logger_use_file(stderr);
 	display = wl_display_create();
 	if (!display)
 		return EXIT_FAILURE;
 
-	backend.impl = tw_headless_backend_create(display, &backend);
-	if (!backend.impl)
+	backend = tw_headless_backend_create(display);
+	if (!backend)
 		goto err;
 	const struct tw_egl_options *opts =
-		tw_backend_get_egl_params(&backend);
+		tw_backend_get_egl_params(backend);
 	struct tw_render_context *ctx =
 		tw_render_context_create_egl(display, opts);
 	tw_render_context_destroy(ctx);

@@ -1,5 +1,5 @@
 /*
- * x11.h - taiwins server x11 backend header
+ * internal.c - taiwins engine internal header
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -19,25 +19,39 @@
  *
  */
 
-#ifndef TW_X11_BACKEND_H
-#define TW_X11_BACKEND_H
+#ifndef TW_ENGINE_INTERNAL_H
+#define TW_ENGINE_INTERNAL_H
 
-#include "backend.h"
+#include "engine.h"
+#include "input_device.h"
+#include "output_device.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-struct tw_backend *
-tw_x11_backend_create(struct wl_display *display, const char *x11_display);
+struct tw_engine_seat *
+tw_engine_seat_find_create(struct tw_engine *engine, unsigned int id);
 
 bool
-tw_x11_backend_add_output(struct tw_backend *backend,
-                          unsigned int width, unsigned int height);
+tw_engine_new_output(struct tw_engine *engine,
+                     struct tw_output_device *device);
+
+void
+tw_engine_seat_add_input_device(struct tw_engine_seat *seat,
+                                struct tw_input_device *device);
+void
+tw_engine_seat_release(struct tw_engine_seat *seat);
+
+struct tw_surface *
+tw_engine_pick_surface_from_layers(struct tw_engine *backend,
+                                   float x, float y, float *sx,  float *sy);
+
+struct tw_engine_output *
+tw_engine_pick_output_for_cursor(struct tw_engine *engine);
 
 #ifdef  __cplusplus
 }
 #endif
-
 
 #endif /* EOF */

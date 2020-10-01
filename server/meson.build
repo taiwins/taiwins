@@ -58,6 +58,10 @@ taiwins_lib_src = [
 
   'renderer/egl.c',
   'renderer/render_context_egl.c',
+
+  'engine/engine.c',
+  'engine/seat.c',
+  'engine/output.c',
 ]
 taiwins_lib_dep = [
   dep_wayland_server,

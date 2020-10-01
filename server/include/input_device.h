@@ -30,7 +30,7 @@
 extern "C" {
 #endif
 
-/* we would have list of seats in  */
+//TODO: remove this
 enum tw_input_device_cap {
 	TW_INPUT_CAP_KEYBOARD = 1 << 0,
 	TW_INPUT_CAP_POINTER = 1 << 1,
@@ -54,11 +54,15 @@ enum tw_input_device_type {
  * @brief input event bus provides the many-sources-to-many-dests events
  * forwarding.
  */
-union tw_input_source {
+struct tw_input_source {
+	struct wl_signal remove; /* device remove */
+
 	struct {
 		struct wl_signal key;
 		struct wl_signal modifiers;
 		struct wl_signal keymap;
+		//Maybe we should have this
+		//struct wl_signal keymap_request;
 	} keyboard;
 
 	struct {
@@ -86,11 +90,16 @@ union tw_input_source {
 /**
  * @brief this struct mirrors the tw_input_source for the listener side.
  */
-union tw_input_sink {
+struct tw_input_sink {
+	struct wl_listener remove; /** device remove */
+
 	struct {
 		struct wl_listener key;
 		struct wl_listener modifiers;
 		struct wl_listener keymap;
+		//Maybe we should have this
+		//struct wl_listener keymap_request;
+
 	} keyboard;
 
 	struct {
@@ -130,11 +139,14 @@ struct tw_tablet_pad_input {
 /**
  * @brief a input device represents abstract input devices drives the input
  * events
+ *
+ * TODO: do I really need this destroy? Maybe I need to get rid of it.
  */
 struct tw_input_device {
 	enum tw_input_device_type type;
 	uint32_t seat_id;
 	unsigned int vendor, product;
+	char name[32];
 
 	/** available states for the specific device, some devices do not need
 	 * states */
@@ -144,9 +156,11 @@ struct tw_input_device {
 
 	} input;
 
-	union tw_input_source *emitter;
+	struct tw_input_source *emitter;
 	struct wl_list link; /* backend:inputs */
 
+	//TODO maybe making it into a impl? so we can guess the type of input
+	//device
 	void (*destroy)(struct tw_input_device *dev);
 };
 
@@ -159,13 +173,20 @@ struct tw_input_device {
  */
 void
 tw_input_device_attach_emitter(struct tw_input_device *device,
-                               union tw_input_source *emitter);
+                               struct tw_input_source *emitter);
 void
 tw_input_device_init(struct tw_input_device *device,
                      enum tw_input_device_type type,
                      void (*destroy)(struct tw_input_device *));
+/* some backend would provide keymap themselves */
+void
+tw_input_device_set_keymap(struct tw_input_device *device,
+                           struct xkb_keymap *keymap);
 void
 tw_input_device_fini(struct tw_input_device *device);
+
+void
+tw_input_source_init(struct tw_input_source *source);
 
 /** keyboard event */
 struct tw_event_keyboard_key {
@@ -174,7 +195,65 @@ struct tw_event_keyboard_key {
 	enum wl_keyboard_key_state state;
 };
 
+struct tw_event_keyboard_modifier {
+	uint32_t depressed, latched, locked, group;
+};
 
+struct tw_event_keyboard_keymap {
+	const struct xkb_keymap *keymap;
+};
+
+/** pointer events */
+struct tw_event_pointer_button {
+	enum wl_pointer_button_state state;
+	uint32_t button;
+	uint32_t time;
+};
+
+struct tw_event_pointer_motion {
+	uint32_t time;
+	double delta_x, delta_y;
+	double unaccel_dx, unaccel_dy;
+};
+
+struct tw_event_pointer_motion_abs {
+	uint32_t time_msec;
+	// From 0..1
+	double x, y;
+};
+
+struct tw_event_pointer_axis {
+	uint32_t time;
+	enum wl_pointer_axis_source source;
+	enum wl_pointer_axis axis;
+	double delta;
+	int32_t delta_discrete;
+};
+
+/** touch events */
+struct tw_event_touch_down {
+	uint32_t time;
+	int32_t touch_id;
+	// From 0..1
+	double x, y;
+};
+
+struct tw_event_touch_up {
+	uint32_t time;
+	int32_t touch_id;
+};
+
+struct tw_event_touch_motion {
+	uint32_t time;
+	int32_t touch_id;
+	// From 0..1
+	double x, y;
+};
+
+struct tw_event_touch_cancel {
+	uint32_t time_msec;
+	int32_t touch_id;
+};
 
 #ifdef  __cplusplus
 }

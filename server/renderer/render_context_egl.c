@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <taiwins/objects/utils.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <wayland-util.h>
 
@@ -124,12 +125,15 @@ notify_context_display_destroy(struct wl_listener *listener, void *display)
 
 	struct tw_egl_pipeline *pipeline, *tmp;
 
+	wl_signal_emit(&ctx->base.destroy_signal, &ctx->base);
+
 	tw_egl_fini(&ctx->egl);
 	wl_list_remove(&ctx->base.display_destroy.link);
 
 	wl_list_for_each_safe(pipeline, tmp, &ctx->base.pipelines, base.link) {
 		//tw_egl_pipeline_destroy(pipeline);
 	}
+
 
 	free(ctx);
 }
@@ -151,6 +155,7 @@ tw_render_context_create_egl(struct wl_display *display,
 	ctx->impl.new_window_surface = new_window_surface;
 	ctx->impl.new_offscreen_surface = new_pbuffer_surface;
 	wl_list_init(&ctx->base.pipelines);
+	wl_signal_init(&ctx->base.destroy_signal);
 
 	tw_set_display_destroy_listener(display, &ctx->base.display_destroy,
 	                                notify_context_display_destroy);

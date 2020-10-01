@@ -1,33 +1,82 @@
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
 #include <wayland-server-core.h>
 #include <taiwins/objects/logger.h>
 
+#include "backend/backend.h"
 #include "backend/x11.h"
 #include "egl.h"
 #include "render_context.h"
+#include "engine.h"
+
+static int
+tw_term_on_signal(int sig_num, void *data)
+{
+	struct wl_display *display = data;
+
+	tw_logl("Caught signal %s\n", strsignal(sig_num));
+	wl_display_terminate(display);
+	return 1;
+}
+
+static int
+tw_term_on_timeout(void *data)
+{
+	struct wl_display *display = data;
+
+	tw_logl("Time out");
+	wl_display_terminate(display);
+	return 0;
+}
 
 int main(int argc, char *argv[])
 {
 	struct wl_display *display;
-	struct tw_backend backend = {0};
+	struct wl_event_loop *loop;
+	struct tw_backend *backend;
 
 	tw_logger_use_file(stderr);
 	display = wl_display_create();
 	if (!display)
 		return EXIT_FAILURE;
+	loop = wl_display_get_event_loop(display);
 
-	backend.impl = tw_x11_backend_create(display, getenv("DISPLAY"));
-	if (!backend.impl)
+	struct wl_event_source *sigint =
+		wl_event_loop_add_signal(loop, SIGINT,
+		                         tw_term_on_signal, display);
+	struct wl_event_source *timeout =
+		wl_event_loop_add_timer(loop, tw_term_on_timeout, display);
+
+	if (!sigint || !timeout) {
+		tw_logl_level(TW_LOG_ERRO, "failed to add signal");
+		return EXIT_FAILURE;
+	}
+
+	backend = tw_x11_backend_create(display, getenv("DISPLAY"));
+	if (!backend)
 		goto err;
 	const struct tw_egl_options *opts =
-		tw_backend_get_egl_params(&backend);
+		tw_backend_get_egl_params(backend);
 	struct tw_render_context *ctx =
 		tw_render_context_create_egl(display, opts);
-	tw_x11_backend_add_output(&backend, 1000, 1000);
-	backend.impl->start(&backend, ctx);
+	tw_x11_backend_add_output(backend, 1000, 1000);
+
+	struct tw_engine *engine =
+		tw_engine_create_global(display, backend);
+	if (!engine)
+		goto err;
+
+	tw_backend_start(backend, ctx);
+
+	if (wl_event_source_timer_update(timeout, 3000)) {
+		tw_logl_level(TW_LOG_ERRO, "timer update failed");
+		return EXIT_FAILURE;
+	}
 
 	wl_display_run(display);
+	wl_event_source_remove(sigint);
+	wl_event_source_remove(timeout);
 
 	tw_render_context_destroy(ctx);
 	wl_display_destroy(display);

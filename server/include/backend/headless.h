@@ -23,14 +23,15 @@
 #define TW_HEADLESS_BACKEND_H
 
 #include "backend.h"
+#include "input_device.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-struct tw_backend_impl *
-tw_headless_backend_create(struct wl_display *display,
-                           struct tw_backend *backend);
+struct tw_backend *
+tw_headless_backend_create(struct wl_display *display);
+
 bool
 tw_headless_backend_add_output(struct tw_backend *backend,
                                unsigned int width, unsigned int height);

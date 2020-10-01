@@ -30,7 +30,7 @@
 #include <xcb/xinput.h>
 #include <xcb/xproto.h>
 
-#include "backend.h"
+#include "backend/backend.h"
 #include "input_device.h"
 #include "output_device.h"
 #include "render_context.h"
@@ -43,12 +43,8 @@ extern "C" {
 struct tw_x11_backend {
 	struct wl_display *display;
 	struct wl_event_source *event_source; /**< for x11 events */
-	struct tw_backend *base;
-	struct tw_render_context *ctx;
-	struct tw_backend_impl impl;
+	struct tw_backend base;
 	struct wl_listener display_destroy;
-	/* allow multiple outputs */
-	struct wl_list outputs;
 
 	Display *x11_dpy;
 	xcb_connection_t *xcb_conn;
@@ -66,9 +62,7 @@ struct tw_x11_backend {
 		xcb_atom_t variable_refresh;
 	} atoms;
 
-	struct {
-		struct tw_input_device device;
-	} keyboard;
+	struct tw_input_device keyboard;
 };
 
 struct tw_x11_output {
@@ -81,6 +75,8 @@ struct tw_x11_output {
 	struct tw_render_surface render_surface;
 	struct wl_listener info_listener;
 	unsigned int frame_interval;
+
+	struct tw_input_device pointer, touch;
 };
 
 int
@@ -88,6 +84,10 @@ x11_handle_events(int fd, uint32_t mask, void *data);
 
 bool
 tw_x11_output_start(struct tw_x11_output *output);
+
+void
+tw_x11_remove_output(struct tw_x11_output *output);
+
 
 #ifdef  __cplusplus
 }

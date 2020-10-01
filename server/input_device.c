@@ -20,6 +20,7 @@
  */
 
 #include "input_device.h"
+#include <wayland-server-core.h>
 #include <wayland-util.h>
 #include <xkbcommon/xkbcommon.h>
 
@@ -70,15 +71,57 @@ tw_input_device_fini(struct tw_input_device *device)
 
 		device->input.keyboard.keymap  = NULL;
 		device->input.keyboard.keystate  = NULL;
-
 	}
 	wl_list_remove(&device->link);
+	if (device->emitter)
+		wl_signal_emit(&device->emitter->remove, device);
 	device->destroy(device);
 }
 
 void
 tw_input_device_attach_emitter(struct tw_input_device *device,
-                               union tw_input_source *emitter)
+                               struct tw_input_source *emitter)
 {
 	device->emitter = emitter;
+}
+
+void
+tw_input_source_init(struct tw_input_source *source)
+{
+	wl_signal_init(&source->remove);
+	//keyboard
+	wl_signal_init(&source->keyboard.key);
+	wl_signal_init(&source->keyboard.modifiers);
+	wl_signal_init(&source->keyboard.keymap);
+	//pointer
+	wl_signal_init(&source->pointer.motion);
+	wl_signal_init(&source->pointer.motion_absolute);
+	wl_signal_init(&source->pointer.button);
+	wl_signal_init(&source->pointer.axis);
+	wl_signal_init(&source->pointer.frame);
+	wl_signal_init(&source->pointer.swipe_begin);
+	wl_signal_init(&source->pointer.swipe_update);
+	wl_signal_init(&source->pointer.swipe_end);
+	wl_signal_init(&source->pointer.pinch_begin);
+	wl_signal_init(&source->pointer.pinch_update);
+	wl_signal_init(&source->pointer.pinch_end);
+	//touch
+	wl_signal_init(&source->touch.down);
+	wl_signal_init(&source->touch.up);
+	wl_signal_init(&source->touch.motion);
+	wl_signal_init(&source->touch.cancel);
+}
+
+void
+tw_input_device_set_keymap(struct tw_input_device *device,
+                           struct xkb_keymap *keymap)
+{
+	if (device->type != TW_INPUT_TYPE_KEYBOARD)
+		return;
+	xkb_state_unref(device->input.keyboard.keystate);
+	xkb_keymap_unref(device->input.keyboard.keymap);
+
+        device->input.keyboard.keymap = xkb_keymap_ref(keymap);
+        device->input.keyboard.keystate =
+	        xkb_state_new(device->input.keyboard.keymap);
 }

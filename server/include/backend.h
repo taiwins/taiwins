@@ -157,25 +157,6 @@ struct tw_backend_seat {
 	} touch;
 };
 
-/**
- * @brief an abstract interface all types of backend need to do implement
- */
-struct tw_backend_impl {
-	bool (*start)(struct tw_backend *backend,
-	              struct tw_render_context *ctx);
-	const struct tw_egl_options *
-	(*gen_egl_params)(struct tw_backend *source);
-
-	//we have this events for now as we cannot be include directly into
-	//tw_backend. Later, these signals will get throw away and here we call
-	//`tw_backend_new_output` or `tw_backend_new_input` directly.
-	struct {
-		struct wl_signal destroy;
-		struct wl_signal new_input;
-		struct wl_signal new_output;
-	} events;
-};
-
 struct tw_backend {
 	struct wl_display *display;
         /** for now backend is based on wlr_backends. Future when migrate, we
@@ -185,7 +166,6 @@ struct tw_backend {
 	struct wlr_renderer *main_renderer;
 	/** interface for implementation details */
 	struct tw_backend_obj_proxy *proxy;
-	struct tw_backend_impl *impl;
 
 	bool started;
 	/**< options */

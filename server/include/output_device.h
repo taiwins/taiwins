@@ -24,6 +24,7 @@
 
 #include <wayland-server-protocol.h>
 #include <wayland-server.h>
+#include <pixman.h>
 
 #include <taiwins/objects/matrix.h>
 
@@ -45,7 +46,6 @@ struct tw_output_device_state {
 	enum wl_output_subpixel subpixel;
 	enum wl_output_transform transform;
 	struct tw_output_device_mode current_mode;
-
 };
 
 /**
@@ -97,6 +97,16 @@ tw_output_device_set_scale(struct tw_output_device *device, float scale);
 
 void
 tw_output_device_commit_state(struct tw_output_device *device);
+
+pixman_rectangle32_t
+tw_output_device_geometry(const struct tw_output_device *device);
+
+/**
+ * @brief mapping (0...1) in the output to global position
+ */
+void
+tw_output_device_loc_to_global(const struct tw_output_device *device,
+                               float x, float y, float *gx, float *gy);
 
 #ifdef  __cplusplus
 }

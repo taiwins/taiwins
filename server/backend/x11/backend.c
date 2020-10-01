@@ -20,10 +20,12 @@
  */
 
 #include <assert.h>
+#include <string.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 
 #include <wayland-util.h>
@@ -36,7 +38,7 @@
 #include <ctypes/helpers.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
-#include "backend.h"
+#include "backend/backend.h"
 #include "input_device.h"
 #include "render_context.h"
 #include "egl.h"
@@ -51,8 +53,7 @@ static const struct tw_egl_options *
 x11_gen_egl_params(struct tw_backend *backend)
 {
 	static struct tw_egl_options egl_opts = {0};
-	struct tw_x11_backend *x11 =
-		wl_container_of(backend->impl, x11, impl);
+	struct tw_x11_backend *x11 = wl_container_of(backend, x11, base);
 
 	static const EGLint egl_config_attribs[] = {
 		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
@@ -77,16 +78,19 @@ x11_start_backend(struct tw_backend *backend,
                   struct tw_render_context *ctx)
 {
 	struct tw_x11_output *output;
+	struct tw_x11_backend *x11 = wl_container_of(backend, x11, base);
 
-	struct tw_x11_backend *x11 =
-		wl_container_of(backend->impl, x11, impl);
-	x11->ctx = ctx;
-
-	wl_list_for_each(output, &x11->outputs, device.link)
+	wl_list_for_each(output, &x11->base.outputs, device.link)
 		tw_x11_output_start(output);
+	wl_signal_emit(&x11->base.events.new_input, &x11->keyboard);
 
 	return true;
 }
+
+static const struct tw_backend_impl x11_impl = {
+	.start = x11_start_backend,
+	.gen_egl_params = x11_gen_egl_params,
+};
 
 /******************************************************************************
  * initializer
@@ -178,15 +182,33 @@ x11_set_event_source(struct tw_x11_backend *x11, struct wl_display *display)
 }
 
 static void
+x11_backend_stop(struct tw_x11_backend *x11)
+{
+	struct tw_x11_output *output, *tmp;
+
+	if (!x11->base.ctx)
+		return;
+
+        wl_signal_emit(&x11->base.events.stop, &x11->base);
+        wl_list_for_each_safe(output, tmp, &x11->base.outputs, device.link)
+		tw_x11_remove_output(output);
+	wl_list_remove(&x11->base.render_context_destroy.link);
+	x11->base.ctx = NULL;
+}
+
+static void
 x11_backend_destroy(struct tw_x11_backend *x11)
 {
-	wl_signal_emit(&x11->impl.events.destroy, &x11->impl);
+	wl_signal_emit(&x11->base.events.destroy, &x11->base);
 
 	if (x11->event_source)
 		wl_event_source_remove(x11->event_source);
 	wl_list_remove(&x11->display_destroy.link);
-	//you see, here is the problem, if we attach the render context on
-	//starting the backend now we don't know when to destroy it.
+	tw_input_device_fini(&x11->keyboard);
+
+	//destroy the render context now as it needs x11 connection for fini.
+	if (x11->base.ctx)
+		tw_render_context_destroy(x11->base.ctx);
 
 	XCloseDisplay(x11->x11_dpy);
 	free(x11);
@@ -200,7 +222,16 @@ notify_x11_display_destroy(struct wl_listener *listener, void *data)
 	x11_backend_destroy(x11);
 }
 
-struct tw_backend_impl *
+static void
+notify_x11_render_context_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_x11_backend *x11 =
+		wl_container_of(listener, x11, base.render_context_destroy);
+
+        x11_backend_stop(x11);
+}
+
+struct tw_backend *
 tw_x11_backend_create(struct wl_display *display, const char *x11_display)
 {
 	struct tw_x11_backend *x11 = calloc(1, sizeof(*x11));
@@ -208,12 +239,12 @@ tw_x11_backend_create(struct wl_display *display, const char *x11_display)
 	if (!x11)
 		return NULL;
 	x11->display = display;
-	wl_list_init(&x11->outputs);
-	wl_signal_init(&x11->impl.events.destroy);
-	wl_signal_init(&x11->impl.events.new_input);
-	wl_signal_init(&x11->impl.events.new_output);
-	x11->impl.gen_egl_params = x11_gen_egl_params;
-	x11->impl.start = x11_start_backend;
+
+	tw_backend_init(&x11->base);
+	x11->base.impl = &x11_impl;
+	x11->base.render_context_destroy.notify =
+		notify_x11_render_context_destroy;
+
 	//EGL supports only x11 connection, so we will use X11 connection later
 	//if we implement vulkan, we will have to use x11 connection as well.
 	x11->x11_dpy = XOpenDisplay(x11_display);
@@ -243,11 +274,16 @@ tw_x11_backend_create(struct wl_display *display, const char *x11_display)
 		goto err_dpy;
 	}
 
+	tw_input_device_init(&x11->keyboard, TW_INPUT_TYPE_KEYBOARD, NULL);
+	strncpy(x11->keyboard.name, "X11-keyboard",
+	        sizeof(x11->keyboard.name));
+	wl_list_insert(x11->base.inputs.prev, &x11->keyboard.link);
+
 	x11->display = display;
 	tw_set_display_destroy_listener(x11->display, &x11->display_destroy,
 	                                notify_x11_display_destroy);
 
-	return &x11->impl;
+	return &x11->base;
 err_dpy:
 	XCloseDisplay(x11->x11_dpy);
 err_conn:
