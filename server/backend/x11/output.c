@@ -19,6 +19,7 @@
  *
  */
 
+#include <assert.h>
 #include <string.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -39,6 +40,23 @@
 
 #define DEFAULT_REFRESH (60 * 1000) /* 60Hz */
 #define FRAME_DELAY (1000000 / DEFAULT_REFRESH)
+
+static void
+x11_commit_output_state(struct tw_output_device *output)
+{
+	assert(output->pending.scale >= 1.0);
+	assert(output->pending.current_mode.h > 0 &&
+	       output->pending.current_mode.w > 0);
+
+	//the x11 backend will simply resize the output for us so we only need
+	//to update the view matrix
+	tw_output_device_state_rebuild_view_mat(&output->pending);
+	memcpy(&output->state, &output->pending, sizeof(output->state));
+}
+
+static const struct tw_output_device_impl x11_output_impl = {
+	.commit_state = x11_commit_output_state,
+};
 
 static int
 frame_handler(void *data)
@@ -78,7 +96,6 @@ tw_x11_remove_output(struct tw_x11_output *output)
         wl_event_source_remove(output->frame_timer);
 	tw_output_device_fini(&output->device);
 	tw_input_device_fini(&output->pointer);
-	tw_input_device_fini(&output->touch);
 
 	tw_render_surface_fini(&output->render_surface, x11->base.ctx);
 	xcb_destroy_window(x11->xcb_conn, output->win);
@@ -102,7 +119,7 @@ tw_x11_output_start(struct tw_x11_output *output)
 	xcb_create_window(x11->xcb_conn, XCB_COPY_FROM_PARENT, output->win,
 	                  x11->screen->root, 0, 0,
 	                  output->width, output->height,
-	                  1, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+	                  0, XCB_WINDOW_CLASS_INPUT_OUTPUT,
 	                  x11->screen->root_visual,
 	                  win_mask, mask_values);
 
@@ -115,16 +132,7 @@ tw_x11_output_start(struct tw_x11_output *output)
 			.deviceid = XCB_INPUT_DEVICE_ALL_MASTER,
 			.mask_len = 1
 		},
-		.mask = XCB_INPUT_XI_EVENT_MASK_KEY_PRESS |
-			XCB_INPUT_XI_EVENT_MASK_KEY_RELEASE |
-			XCB_INPUT_XI_EVENT_MASK_BUTTON_PRESS |
-			XCB_INPUT_XI_EVENT_MASK_BUTTON_RELEASE |
-			XCB_INPUT_XI_EVENT_MASK_MOTION |
-			XCB_INPUT_XI_EVENT_MASK_ENTER |
-			XCB_INPUT_XI_EVENT_MASK_LEAVE |
-			XCB_INPUT_XI_EVENT_MASK_TOUCH_BEGIN |
-			XCB_INPUT_XI_EVENT_MASK_TOUCH_END |
-			XCB_INPUT_XI_EVENT_MASK_TOUCH_UPDATE,
+		.mask = _XINPUT_EVENT_MASK,
 	};
 
 	xcb_input_xi_select_events(x11->xcb_conn, output->win, 1,
@@ -149,7 +157,6 @@ tw_x11_output_start(struct tw_x11_output *output)
 	wl_signal_emit(&x11->base.events.new_output, &output->device);
 	wl_signal_emit(&output->device.events.info, &output->device);
 	wl_signal_emit(&x11->base.events.new_input, &output->pointer);
-	wl_signal_emit(&x11->base.events.new_input, &output->touch);
 
 	return true;
 }
@@ -168,7 +175,7 @@ tw_x11_backend_add_output(struct tw_backend *backend,
         output->width = width;
         output->height = height;
 
-        tw_output_device_init(&output->device);
+        tw_output_device_init(&output->device, &x11_output_impl);
         sprintf(output->device.name, "X11-%d",
                 wl_list_length(&x11->base.outputs));
         parse_output_setup(output, x11->xcb_conn);
@@ -176,13 +183,10 @@ tw_x11_backend_add_output(struct tw_backend *backend,
         wl_list_insert(&x11->base.outputs, &output->device.link);
 
         tw_input_device_init(&output->pointer, TW_INPUT_TYPE_POINTER, NULL);
-        tw_input_device_init(&output->touch, TW_INPUT_TYPE_TOUCH, NULL);
         strncpy(output->pointer.name, "X11-pointer",
                 sizeof(output->pointer.name));
-        strncpy(output->touch.name, "X11-touch", sizeof(output->touch.name));
 
         wl_list_insert(x11->base.inputs.prev, &output->pointer.link);
-        wl_list_insert(x11->base.inputs.prev, &output->touch.link);
 
         if (backend->started)
 	        tw_x11_output_start(output);

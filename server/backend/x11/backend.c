@@ -44,6 +44,98 @@
 #include "egl.h"
 #include "internal.h"
 
+/******************************************************************************
+ * XCB event handling
+ *****************************************************************************/
+
+static void
+handle_x11_configure_notify(struct tw_output_device *device,
+                            xcb_configure_notify_event_t *ev)
+{
+	if (ev->width > 0 && ev->height > 0) {
+		device->pending.current_mode.h = ev->height;
+		device->pending.current_mode.w = ev->width;
+		tw_output_device_commit_state(device);
+	}
+}
+
+static void
+handle_new_x11_frame(void *data)
+{
+	struct tw_x11_output *output = data;
+
+	wl_signal_emit(&output->device.events.new_frame, &output->device);
+}
+
+static void
+handle_x11_request_frame(struct tw_x11_backend *x11,
+                         struct tw_x11_output *output)
+{
+	struct wl_display *display = x11->display;
+	struct wl_event_loop *loop = wl_display_get_event_loop(display);
+
+	if (!loop)
+	        return;
+        wl_event_loop_add_idle(loop, handle_new_x11_frame, output);
+}
+
+static int
+x11_handle_events(int fd, uint32_t mask, void *data)
+{
+	struct tw_x11_backend *x11 = data;
+	xcb_generic_event_t *e;
+
+	if ((mask & WL_EVENT_HANGUP) || (mask & WL_EVENT_ERROR)) {
+		wl_display_terminate(x11->display);
+		return 0;
+	}
+	while ((e = xcb_poll_for_event(x11->xcb_conn))) {
+		switch (e->response_type & 0x7f) {
+		case XCB_EXPOSE: {
+			xcb_expose_event_t *ev = (xcb_expose_event_t *)e;
+			struct tw_x11_output *output =
+				tw_x11_output_from_id(x11, ev->window);
+			if (output)
+				handle_x11_request_frame(x11, output);
+			break;
+		}
+		case XCB_CONFIGURE_NOTIFY: {
+			xcb_configure_notify_event_t *ev =
+				(xcb_configure_notify_event_t *)e;
+			struct tw_x11_output *output =
+				tw_x11_output_from_id(x11, ev->window);
+
+			if (output)
+				handle_x11_configure_notify(&output->device,
+				                            ev);
+			break;
+		}
+		case XCB_CLIENT_MESSAGE: {
+			xcb_client_message_event_t *ev =
+				(xcb_client_message_event_t *)e;
+			if (ev->data.data32[0]==x11->atoms.wm_delete_window) {
+				struct tw_x11_output *output =
+					tw_x11_output_from_id(x11, ev->window);
+				if (output != NULL)
+					tw_x11_remove_output(output);
+			}
+			break;
+		}
+		case XCB_GE_GENERIC: {
+			xcb_ge_generic_event_t *ev =
+				(xcb_ge_generic_event_t *)e;
+			if (ev->extension == x11->xinput_opcode)
+				tw_x11_handle_input_event(x11, ev);
+			break;
+		}
+
+		}
+		free(e);
+	}
+
+	return 0;
+
+}
 
 /******************************************************************************
  * backend implemenentation
@@ -169,6 +261,28 @@ x11_check_xinput(struct tw_x11_backend *x11)
 }
 
 static bool
+x11_check_xfixes(struct tw_x11_backend *x11)
+{
+	const xcb_query_extension_reply_t *ext;
+
+	ext = xcb_get_extension_data(x11->xcb_conn, &xcb_xfixes_id);
+	if (!ext || !ext->present)
+		return false;
+	xcb_xfixes_query_version_cookie_t fixes_cookie =
+		xcb_xfixes_query_version(x11->xcb_conn, 4, 0);
+	xcb_xfixes_query_version_reply_t *fixes_reply =
+		xcb_xfixes_query_version_reply(x11->xcb_conn, fixes_cookie,
+		                               NULL);
+
+	if (!fixes_reply || fixes_reply->major_version < 4) {
+		free(fixes_reply);
+		return false;
+	}
+	free(fixes_reply);
+	return true;
+}
+
+static bool
 x11_set_event_source(struct tw_x11_backend *x11, struct wl_display *display)
 {
 	int fd = xcb_get_file_descriptor(x11->xcb_conn);
@@ -264,8 +378,13 @@ tw_x11_backend_create(struct wl_display *display, const char *x11_display)
 		goto err_dpy;
 	x11_get_atoms(x11);
 
+	if (!x11_check_xfixes(x11)) {
+		tw_logl_level(TW_LOG_ERRO, "XCB xfixes ext not supported");
+		goto err_dpy;
+	}
+
 	if (!x11_check_xinput(x11)) {
-		tw_logl_level(TW_LOG_ERRO, "xinput not supported");
+		tw_logl_level(TW_LOG_ERRO, "XCB xinput ext not supported");
 		goto err_dpy;
 	}
 	if (!x11_set_event_source(x11, display)) {

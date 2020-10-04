@@ -32,8 +32,10 @@
 extern "C" {
 #endif
 
+struct tw_output_device;
+
 struct tw_output_device_mode {
-	int32_t w, h;
+	int32_t w, h; /** indicate the pixel size of the output */
 	int32_t refresh; /** -1 means unavailable */
 	bool preferred;
 };
@@ -41,11 +43,17 @@ struct tw_output_device_mode {
 struct tw_output_device_state {
 	bool enabled;
 	float scale;
-	int32_t x_comp, y_comp; /**< x,y position in global space */
+	int32_t gx, gy; /**< x,y position in global space */
 	struct tw_mat3 view_2d;
 	enum wl_output_subpixel subpixel;
 	enum wl_output_transform transform;
+	/* current mode indicates the actual window size, the effective size
+	 * is actual_size / scale */
 	struct tw_output_device_mode current_mode;
+};
+
+struct tw_output_device_impl {
+	void (*commit_state) (struct tw_output_device *device);
 };
 
 /**
@@ -67,7 +75,7 @@ struct tw_output_device {
 
 	/** a native window for different backend, could be none */
 	void *native_window;
-
+	const struct tw_output_device_impl *impl;
 	struct wl_list link; /** backend: list */
 	struct wl_array available_modes;
 
@@ -87,8 +95,8 @@ struct tw_output_device {
 };
 
 void
-tw_output_device_init(struct tw_output_device *device);
-
+tw_output_device_init(struct tw_output_device *device,
+                      const struct tw_output_device_impl *impl);
 void
 tw_output_device_fini(struct tw_output_device *device);
 
@@ -107,6 +115,9 @@ tw_output_device_geometry(const struct tw_output_device *device);
 void
 tw_output_device_loc_to_global(const struct tw_output_device *device,
                                float x, float y, float *gx, float *gy);
+
+void
+tw_output_device_state_rebuild_view_mat(struct tw_output_device_state *state);
 
 #ifdef  __cplusplus
 }

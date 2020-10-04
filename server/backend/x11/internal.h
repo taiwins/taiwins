@@ -39,6 +39,14 @@
 extern "C" {
 #endif
 
+#define _XINPUT_EVENT_MASK (XCB_INPUT_XI_EVENT_MASK_KEY_PRESS |         \
+                            XCB_INPUT_XI_EVENT_MASK_KEY_RELEASE |       \
+                            XCB_INPUT_XI_EVENT_MASK_BUTTON_PRESS |      \
+                            XCB_INPUT_XI_EVENT_MASK_BUTTON_RELEASE |    \
+                            XCB_INPUT_XI_EVENT_MASK_MOTION |            \
+                            XCB_INPUT_XI_EVENT_MASK_ENTER |             \
+                            XCB_INPUT_XI_EVENT_MASK_LEAVE)
+
 //Here we allow multiple displays?
 struct tw_x11_backend {
 	struct wl_display *display;
@@ -76,18 +84,29 @@ struct tw_x11_output {
 	struct wl_listener info_listener;
 	unsigned int frame_interval;
 
-	struct tw_input_device pointer, touch;
+	struct tw_input_device pointer;
 };
 
-int
-x11_handle_events(int fd, uint32_t mask, void *data);
-
+void
+tw_x11_handle_input_event(struct tw_x11_backend *x11,
+                          xcb_ge_generic_event_t *ge);
 bool
 tw_x11_output_start(struct tw_x11_output *output);
 
 void
 tw_x11_remove_output(struct tw_x11_output *output);
 
+static inline struct tw_x11_output *
+tw_x11_output_from_id(struct tw_x11_backend *x11, xcb_window_t id)
+{
+	struct tw_x11_output *output;
+
+	wl_list_for_each(output, &x11->base.outputs, device.link) {
+		if (output->win == id)
+			return output;
+	}
+	return NULL;
+}
 
 #ifdef  __cplusplus
 }

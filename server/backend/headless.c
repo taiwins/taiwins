@@ -128,6 +128,16 @@ static const struct tw_backend_impl headless_impl = {
 };
 
 static void
+headless_commit_output_state(struct tw_output_device *device)
+{
+
+}
+
+static const struct tw_output_device_impl headless_output_impl = {
+	.commit_state = headless_commit_output_state,
+};
+
+static void
 headless_destroy(struct tw_headless_backend *headless)
 {
 	struct tw_output_device *output, *otmp;
@@ -204,7 +214,7 @@ tw_headless_backend_add_output(struct tw_backend *backend,
 		return false;
 	}
 
-        tw_output_device_init(output);
+        tw_output_device_init(output, &headless_output_impl);
         snprintf(output->name, sizeof(output->name),
                  "headless-output%u", wl_list_length(&headless->base.outputs));
         strncpy(output->make, "headless", sizeof(output->make));
