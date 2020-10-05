@@ -389,9 +389,9 @@ tw_egl_buffer_age(struct tw_egl *egl, EGLSurface surface)
 {
 	EGLint buffer_age;
 
-	if (egl->query_buffer_age)
-		return -1;
 	if (!tw_egl_make_current(egl, surface))
+		return -1;
+	if (!egl->query_buffer_age)
 		return -1;
 	if (!eglQuerySurface(egl->display, surface,
 	                     EGL_BUFFER_AGE_EXT, &buffer_age))

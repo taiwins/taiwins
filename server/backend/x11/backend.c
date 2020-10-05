@@ -40,6 +40,7 @@
 #include <taiwins/objects/utils.h>
 #include "backend/backend.h"
 #include "input_device.h"
+#include "output_device.h"
 #include "render_context.h"
 #include "egl.h"
 #include "internal.h"
@@ -179,9 +180,22 @@ x11_start_backend(struct tw_backend *backend,
 	return true;
 }
 
+static struct tw_render_surface *
+x11_render_surface_from_output(struct tw_backend *backend,
+                               struct tw_output_device *device)
+{
+	struct tw_x11_output *output = wl_container_of(device, output, device);
+	struct tw_x11_backend *x11 = wl_container_of(backend, x11, base);
+
+	assert(x11 == output->x11);
+
+	return &output->render_surface;
+}
+
 static const struct tw_backend_impl x11_impl = {
 	.start = x11_start_backend,
 	.gen_egl_params = x11_gen_egl_params,
+	.get_render_surface = x11_render_surface_from_output,
 };
 
 /******************************************************************************

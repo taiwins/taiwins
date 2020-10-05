@@ -51,6 +51,9 @@ struct tw_render_context_impl {
 
 	bool (*commit_surface)(struct tw_render_surface *surf,
 	                       struct tw_render_context *ctx);
+
+        int (*make_current)(struct tw_render_surface *surf,
+	                    struct tw_render_context *ctx);
 };
 
 /* we create this render context from scratch so we don't break everything, the
@@ -61,7 +64,7 @@ struct tw_render_context_impl {
 struct tw_render_context {
 	enum tw_renderer_type type;
 
-	struct tw_render_context_impl *impl;
+	const struct tw_render_context_impl *impl;
 	struct wl_display *display;
 	struct wl_listener display_destroy;
 
@@ -125,6 +128,9 @@ tw_render_surface_commit(struct tw_render_surface *surface,
 	return ctx->impl->commit_surface(surface, ctx);
 }
 
+int
+tw_render_surface_make_current(struct tw_render_surface *surf,
+                               struct tw_render_context *ctx);
 
 #ifdef  __cplusplus
 }

@@ -62,6 +62,13 @@ struct tw_headless_backend {
 
 };
 
+struct tw_headless_output {
+	struct tw_headless_backend *headless;
+	struct tw_output_device device;
+	struct tw_render_surface surface;
+	uint32_t width, height;
+};
+
 static const struct tw_egl_options *
 headless_gen_egl_params(struct tw_backend *backend)
 {
@@ -86,13 +93,15 @@ headless_gen_egl_params(struct tw_backend *backend)
 }
 
 static bool
-headless_output_start(struct tw_output_device *output,
+headless_output_start(struct tw_headless_output *output,
                       struct tw_headless_backend *headless)
 {
+	tw_render_surface_init_offscreen(&output->surface, headless->base.ctx,
+	                                 output->width, output->height);
 	//announce the output.
 	wl_signal_emit(&headless->base.events.new_output, output);
 	//the wl_output events are ready.
-	wl_signal_emit(&output->events.info, output);
+	wl_signal_emit(&output->device.events.info, output);
 
 	return false;
 }
@@ -107,13 +116,13 @@ headless_input_start(struct tw_input_device *device,
 static bool
 headless_start(struct tw_backend *backend, struct tw_render_context *ctx)
 {
-	struct tw_output_device *output;
+	struct tw_headless_output *output;
 	struct tw_input_device *input;
 	//checking the externsions
 	struct tw_headless_backend *headless =
 		wl_container_of(backend, headless, base);
 
-	wl_list_for_each(output, &headless->base.outputs, link)
+	wl_list_for_each(output, &headless->base.outputs, device.link)
 		headless_output_start(output, headless);
 
 	wl_list_for_each(input, &headless->base.inputs, link)
@@ -122,9 +131,22 @@ headless_start(struct tw_backend *backend, struct tw_render_context *ctx)
 	return true;
 }
 
+static struct tw_render_surface *
+headless_get_render_surface(struct tw_backend *backend,
+                            struct tw_output_device *device)
+{
+	struct tw_headless_output *output =
+		wl_container_of(device, output, device);
+	struct tw_headless_backend *headless =
+		wl_container_of(backend, headless, base);
+	assert(headless == output->headless);
+	return &output->surface;
+}
+
 static const struct tw_backend_impl headless_impl = {
 	.start = headless_start,
 	.gen_egl_params = headless_gen_egl_params,
+	.get_render_surface = headless_get_render_surface,
 };
 
 static void
@@ -140,11 +162,13 @@ static const struct tw_output_device_impl headless_output_impl = {
 static void
 headless_destroy(struct tw_headless_backend *headless)
 {
-	struct tw_output_device *output, *otmp;
+	struct tw_headless_output *output, *otmp;
 	struct tw_input_device *input, *itmp;
 
-	wl_list_for_each_safe(output, otmp, &headless->base.outputs, link) {
-		tw_output_device_fini(output);
+	wl_list_for_each_safe(output, otmp, &headless->base.outputs,
+	                      device.link) {
+		tw_render_surface_fini(&output->surface, headless->base.ctx);
+		tw_output_device_fini(&output->device);
 		free(output);
 	}
 
@@ -207,19 +231,22 @@ tw_headless_backend_add_output(struct tw_backend *backend,
 {
 	struct tw_headless_backend *headless =
 		wl_container_of(backend->impl, headless, base);
-	struct tw_output_device *output = calloc(1, sizeof(*output));
+	struct tw_headless_output *output = calloc(1, sizeof(*output));
 
         if (output == NULL) {
 		tw_logl_level(TW_LOG_ERRO, "failed to create headless output");
 		return false;
 	}
 
-        tw_output_device_init(output, &headless_output_impl);
-        snprintf(output->name, sizeof(output->name),
+        tw_output_device_init(&output->device, &headless_output_impl);
+        snprintf(output->device.name, sizeof(output->device.name),
                  "headless-output%u", wl_list_length(&headless->base.outputs));
-        strncpy(output->make, "headless", sizeof(output->make));
-        strncpy(output->model, "headless", sizeof(output->model));
-        wl_list_insert(headless->base.outputs.prev, &output->link);
+        strncpy(output->device.make, "headless", sizeof(output->device.make));
+        strncpy(output->device.model, "headless",sizeof(output->device.model));
+        wl_list_insert(headless->base.outputs.prev, &output->device.link);
+        output->width = width;
+        output->height = height;
+        output->headless = headless;
 
         if (backend->started)
 	        headless_output_start(output, headless);
@@ -280,9 +307,19 @@ tw_backend_get_egl_params(struct tw_backend *backend)
 void
 tw_backend_start(struct tw_backend *backend, struct tw_render_context *ctx)
 {
+	assert(backend->impl->start);
+
 	backend->ctx = ctx;
 	backend->impl->start(backend, ctx);
 	backend->started = true;
 	wl_signal_add(&ctx->destroy_signal, &backend->render_context_destroy);
 	wl_signal_emit(&backend->events.start, backend);
+}
+
+struct tw_render_surface *
+tw_backend_get_render_surface(struct tw_backend *backend,
+                              struct tw_output_device *device)
+{
+	assert(backend->impl->get_render_surface);
+	return backend->impl->get_render_surface(backend, device);
 }

@@ -39,7 +39,6 @@
 struct tw_egl_render_context {
 	struct tw_render_context base;
 	struct tw_egl egl;
-	struct tw_render_context_impl impl;
 };
 
 //well you need to expose this pipeline though, otherwise how would you have
@@ -117,6 +116,33 @@ new_pbuffer_surface(struct tw_render_surface *surf,
 	return true;
 }
 
+static bool
+commit_egl_surface(struct tw_render_surface *surf,
+                   struct tw_render_context *base)
+{
+	EGLSurface surface = (EGLSurface)surf->handle;
+	struct tw_egl_render_context *ctx = wl_container_of(base, ctx, base);
+
+	eglSwapBuffers(ctx->egl.display, surface);
+
+	return true;
+}
+
+static int
+make_egl_surface_current(struct tw_render_surface *surf,
+                         struct tw_render_context *base)
+{
+	struct tw_egl_render_context *ctx = wl_container_of(base, ctx, base);
+	return tw_egl_buffer_age(&ctx->egl, (EGLSurface)surf->handle);
+}
+
+static const struct tw_render_context_impl egl_context_impl = {
+	.new_offscreen_surface = new_pbuffer_surface,
+	.new_window_surface = new_window_surface,
+	.commit_surface = commit_egl_surface,
+	.make_current = make_egl_surface_current,
+};
+
 static void
 notify_context_display_destroy(struct wl_listener *listener, void *display)
 {
@@ -151,9 +177,7 @@ tw_render_context_create_egl(struct wl_display *display,
 
 	ctx->base.type = TW_RENDERER_EGL;
 	ctx->base.display = display;
-	ctx->base.impl = &ctx->impl;
-	ctx->impl.new_window_surface = new_window_surface;
-	ctx->impl.new_offscreen_surface = new_pbuffer_surface;
+	ctx->base.impl = &egl_context_impl;
 	wl_list_init(&ctx->base.pipelines);
 	wl_signal_init(&ctx->base.destroy_signal);
 
@@ -171,4 +195,12 @@ void
 tw_render_context_destroy(struct tw_render_context *ctx)
 {
 	ctx->display_destroy.notify(&ctx->display_destroy, ctx->display);
+}
+
+int
+tw_render_surface_make_current(struct tw_render_surface *surf,
+                               struct tw_render_context *ctx)
+{
+	assert(ctx->impl && ctx->impl->commit_surface);
+	return ctx->impl->make_current(surf, ctx);
 }

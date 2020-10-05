@@ -74,6 +74,7 @@ struct tw_output_device {
 	int32_t phys_width, phys_height;
 
 	/** a native window for different backend, could be none */
+	/** Do I need to include render_surface here */
 	void *native_window;
 	const struct tw_output_device_impl *impl;
 	struct wl_list link; /** backend: list */

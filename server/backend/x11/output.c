@@ -146,6 +146,10 @@ tw_x11_output_start(struct tw_x11_output *output)
 		return false;
 	}
 
+	xcb_change_property(x11->xcb_conn, XCB_PROP_MODE_REPLACE, output->win,
+		x11->atoms.wm_protocols, XCB_ATOM_ATOM, 32, 1,
+		&x11->atoms.wm_delete_window);
+
 	xcb_map_window(x11->xcb_conn, output->win);
 	xcb_flush(x11->xcb_conn);
 

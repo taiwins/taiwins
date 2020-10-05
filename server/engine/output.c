@@ -19,6 +19,7 @@
  *
  */
 
+#include <GLES2/gl2.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <strings.h>
@@ -35,6 +36,7 @@
 #include "engine.h"
 #include "internal.h"
 #include "output_device.h"
+#include "render_context.h"
 
 static void
 init_output_state(struct tw_engine_output *o)
@@ -92,7 +94,21 @@ notify_output_destroy(struct wl_listener *listener, void *data)
 static void
 notify_output_frame(struct wl_listener *listener, void *data)
 {
-	//TODO
+	struct tw_engine_output *output =
+		wl_container_of(listener, output, listeners.frame);
+	struct tw_engine *engine = output->engine;
+	struct tw_render_context *ctx = engine->backend->ctx;
+	//TODO Anyway, there is probably no way
+	struct tw_render_surface *surface =
+		tw_backend_get_render_surface(engine->backend, output->device);
+
+	int buffer_age = tw_render_surface_make_current(surface, ctx);
+	tw_logl("current buffer age: %d", buffer_age);
+
+	glClearColor(0.0, 1.0, 1.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT);
+	tw_render_surface_commit(surface, ctx);
+
 }
 
 static void
