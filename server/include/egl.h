@@ -29,10 +29,15 @@
 #include <assert.h>
 #include <string.h>
 #include <wayland-server.h>
+#include <wayland-util.h>
+
+#include "drm_formats.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
+
+struct tw_dmabuf_attributes;
 
 struct tw_egl_options {
 	/** platform like EGL_PLATFORM_GBM_KHR */
@@ -43,8 +48,6 @@ struct tw_egl_options {
 	EGLint visual_id;
 
 	const EGLint *context_attribs;
-	const uint32_t *drm_formats;
-	unsigned drm_formats_count;
 };
 
 struct tw_egl {
@@ -55,8 +58,10 @@ struct tw_egl {
 	EGLenum platform;
 	EGLint surface_type;
 	EGLConfig config;
-	bool query_buffer_age;
+	bool query_buffer_age, image_base_khr;
+	bool import_dmabuf, import_dmabuf_modifiers;
 	unsigned int internal_format;
+	struct tw_drm_formats drm_formats;
 
 	struct {
 		PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display;
@@ -89,14 +94,29 @@ tw_egl_check_gl_ext(struct tw_egl *egl, const char *ext);
 bool
 tw_egl_check_egl_ext(struct tw_egl *egl, const char *ext);
 
-WL_EXPORT bool
+bool
 tw_egl_make_current(struct tw_egl *egl, EGLSurface surface);
 
-WL_EXPORT bool
+bool
 tw_egl_unset_current(struct tw_egl *egl);
 
-WL_EXPORT int
+int
 tw_egl_buffer_age(struct tw_egl *egl, EGLSurface surface);
+
+bool
+tw_egl_bind_wl_display(struct tw_egl *egl, struct wl_display *display);
+
+EGLImageKHR
+tw_egl_import_wl_drm_image(struct tw_egl *egl, struct wl_resource *data,
+                           EGLint *fmt, int *width, int *height,
+                           bool *y_inverted);
+EGLImageKHR
+tw_egl_import_dmabuf_image(struct tw_egl *egl,
+                           struct tw_dmabuf_attributes *attrs, bool *external);
+bool
+tw_egl_image_export_dmabuf(struct tw_egl *egl, EGLImage image,
+                           int width, int height, uint32_t flags,
+                           struct tw_dmabuf_attributes *attrs);
 
 #ifdef  __cplusplus
 }

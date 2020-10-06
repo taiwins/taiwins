@@ -58,6 +58,7 @@ taiwins_lib_src = [
 
   'renderer/egl.c',
   'renderer/render_context_egl.c',
+  'drm_formats.c',
 
   'engine/engine.c',
   'engine/seat.c',

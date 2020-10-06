@@ -19,20 +19,28 @@
  *
  */
 
-#include <EGL/eglplatform.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
+#include <EGL/eglplatform.h>
 #include <assert.h>
+#include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <taiwins/objects/logger.h>
+#include <taiwins/objects/dmabuf.h>
+#include <wayland-server-core.h>
+#include <wayland-server.h>
+#include <wayland-util.h>
 
+#include "drm_formats.h"
+#include "drm_fourcc.h"
 #include "egl.h"
 
 //we need EGL context here mostly just for import buffer and export buffers.
@@ -130,6 +138,7 @@ setup_egl_client_extensions(struct tw_egl *egl)
 	}
 	//create/destroy EGLImage
 	if (check_egl_ext(exts_str, "EGL_KHR_image_base", false)) {
+		egl->image_base_khr = true;
 		if (!get_egl_proc(&egl->funcs.create_image,
 		                  "eglCreateImageKHR"))
 			return false;
@@ -156,6 +165,8 @@ setup_egl_client_extensions(struct tw_egl *egl)
 	if (check_egl_ext(exts_str, "EGL_EXT_image_dma_buf_import", false) &&
 	    check_egl_ext(exts_str, "EGL_EXT_image_dma_buf_import_modifiers",
 	                  false)) {
+		egl->import_dmabuf = true;
+		egl->import_dmabuf_modifiers = true;
 		if (!get_egl_proc(&egl->funcs.query_dmabuf_formats,
 		                  "eglQueryDmaBufFormatsEXT"))
 			return false;
@@ -292,6 +303,103 @@ setup_egl_context(struct tw_egl *egl)
 	return true;
 }
 
+static int
+get_dmabuf_formats(struct tw_egl *egl, int *formats)
+{
+	int num = -1;
+
+	if (!egl->import_dmabuf)
+		return -1;
+	//using DRM_FORMAT_ARGB8888 and DRM_FORMAT_XRGB8888 for backup
+	if (!egl->import_dmabuf_modifiers) {
+		const int fallbacks[2] = {
+			DRM_FORMAT_ARGB8888, DRM_FORMAT_XRGB8888
+		};
+		if (formats)
+			memcpy(formats, fallbacks, sizeof(fallbacks));
+		return 2;
+	}
+	if (!egl->funcs.query_dmabuf_formats(egl->display, 0, NULL, &num)) {
+		tw_logl_level(TW_LOG_WARN, "Failed to query number of dmabuf"
+		              " formats");
+		return -1;
+	}
+
+	if (formats)
+		egl->funcs.query_dmabuf_formats(egl->display, num, formats,
+		                                &num);
+	return num;
+}
+
+static int
+get_dmabuf_modifiers(struct tw_egl *egl, int format, uint64_t *modifiers,
+                     bool *external_only)
+{
+	EGLint num;
+
+	if (!egl->funcs.query_dmabuf_modifiers)
+		return 0;
+	if (!egl->funcs.query_dmabuf_modifiers(egl->display, format, 0,
+	                                       NULL, NULL, &num))
+		return -1;
+	if (num == 0)
+		return 0;
+	if (modifiers && external_only) {
+		EGLBoolean _external_only[num];
+		egl->funcs.query_dmabuf_modifiers(egl->display, format, num,
+		                                  modifiers, _external_only,
+		                                  &num);
+		for (int i = 0; i < num; i++)
+			external_only[i] = _external_only[i] == EGL_TRUE;
+	}
+	return num;
+}
+
+static void
+init_egl_dma_formats(struct tw_egl *egl)
+{
+	int n_formats = get_dmabuf_formats(egl, NULL);
+
+	tw_drm_formats_init(&egl->drm_formats);
+	if (n_formats <= 0)
+		return;
+
+	int formats[n_formats];
+
+	get_dmabuf_formats(egl, formats);
+
+	for (int i = 0; i < n_formats; i++) {
+		uint32_t fmt = formats[i];
+		int n_modifiers =
+			get_dmabuf_modifiers(egl, fmt, NULL, NULL);
+
+		if (n_modifiers < 0)
+			continue;
+		if (n_modifiers == 0) {
+			uint64_t invalid_modifier = DRM_FORMAT_INVALID;
+			bool no = false;
+			tw_drm_formats_add_format(&egl->drm_formats, fmt,
+			                          1, &invalid_modifier, &no);
+			continue;
+		}
+
+		uint64_t modifiers[n_modifiers];
+		bool external_only[n_modifiers];
+
+		get_dmabuf_modifiers(egl, fmt, modifiers, external_only);
+
+		if (!tw_drm_formats_add_format(&egl->drm_formats, fmt,
+		                               n_modifiers, modifiers,
+		                               external_only))
+			continue;
+	}
+
+	char str_formats[n_formats * 5 + 1];
+	for (int i = 0; i < n_formats; i++)
+		snprintf(&str_formats[i*5], 6, "%.4s ", (char *)&formats[i]);
+	tw_logl("EGL Supported dmabuf formats: %s", str_formats);
+}
+
 static void
 print_egl_info(struct tw_egl *egl)
 {
@@ -331,6 +439,7 @@ tw_egl_init(struct tw_egl *egl, const struct tw_egl_options *opts)
 	//TODO setup dmabuf formats
 	if (!setup_egl_context(egl))
 		goto error;
+	init_egl_dma_formats(egl);
 	print_egl_info(egl);
 	return true;
 error:
@@ -350,6 +459,7 @@ tw_egl_fini(struct tw_egl *egl)
 	if (!egl)
 		return;
 
+	tw_drm_formats_fini(&egl->drm_formats);
 	eglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE,
 	               EGL_NO_CONTEXT);
 	if (egl->wl_display) {
@@ -427,4 +537,178 @@ tw_egl_check_gl_ext(struct tw_egl *egl, const char *ext)
 	tw_egl_unset_current(egl);
 
 	return ret;
+}
+
+WL_EXPORT bool
+tw_egl_bind_wl_display(struct tw_egl *egl, struct wl_display *display)
+{
+	if (!egl->funcs.bind_wl_display)
+		return false;
+	if (egl->funcs.bind_wl_display(egl->display, display)) {
+		egl->wl_display = display;
+		return true;
+	}
+	return false;
+}
+
+WL_EXPORT EGLImageKHR
+tw_egl_import_wl_drm_image(struct tw_egl *egl, struct wl_resource *data,
+                           EGLint *fmt, int *width, int *height,
+                           bool *y_inverted)
+{
+	EGLint _y_inverted;
+	const EGLint attribs[] = {EGL_WAYLAND_PLANE_WL, 0, EGL_NONE};
+
+	if (!egl->funcs.bind_wl_display || !egl->funcs.create_image)
+		return NULL;
+
+	if (!egl->funcs.query_wl_buffer(egl->display, data,
+	                                EGL_TEXTURE_FORMAT, fmt))
+		return NULL;
+
+	egl->funcs.query_wl_buffer(egl->display, data, EGL_WIDTH, width);
+	egl->funcs.query_wl_buffer(egl->display, data, EGL_HEIGHT, height);
+
+	if (egl->funcs.query_wl_buffer(egl->display, data,
+	                               EGL_WAYLAND_Y_INVERTED_WL,
+	                               &_y_inverted))
+		*y_inverted = _y_inverted == EGL_TRUE;
+	else
+		*y_inverted = false;
+
+	return egl->funcs.create_image(egl->display, egl->context,
+	                               EGL_WAYLAND_BUFFER_WL, data, attribs);
+}
+
+static void
+prepare_egl_dmabuf_attributes(EGLint eglattrs[50],
+                              struct tw_dmabuf_attributes *attrs,
+                              bool has_modifiers)
+{
+	unsigned int atti = 0;
+	struct {
+		EGLint fd;
+		EGLint offset;
+		EGLint pitch;
+		EGLint mod_lo;
+		EGLint mod_hi;
+	} attr_names[TW_DMA_MAX_PLANES] = {
+		{
+			EGL_DMA_BUF_PLANE0_FD_EXT,
+			EGL_DMA_BUF_PLANE0_OFFSET_EXT,
+			EGL_DMA_BUF_PLANE0_PITCH_EXT,
+			EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT,
+			EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT
+		}, {
+			EGL_DMA_BUF_PLANE1_FD_EXT,
+			EGL_DMA_BUF_PLANE1_OFFSET_EXT,
+			EGL_DMA_BUF_PLANE1_PITCH_EXT,
+			EGL_DMA_BUF_PLANE1_MODIFIER_LO_EXT,
+			EGL_DMA_BUF_PLANE1_MODIFIER_HI_EXT
+		}, {
+			EGL_DMA_BUF_PLANE2_FD_EXT,
+			EGL_DMA_BUF_PLANE2_OFFSET_EXT,
+			EGL_DMA_BUF_PLANE2_PITCH_EXT,
+			EGL_DMA_BUF_PLANE2_MODIFIER_LO_EXT,
+			EGL_DMA_BUF_PLANE2_MODIFIER_HI_EXT
+		}, {
+			EGL_DMA_BUF_PLANE3_FD_EXT,
+			EGL_DMA_BUF_PLANE3_OFFSET_EXT,
+			EGL_DMA_BUF_PLANE3_PITCH_EXT,
+			EGL_DMA_BUF_PLANE3_MODIFIER_LO_EXT,
+			EGL_DMA_BUF_PLANE3_MODIFIER_HI_EXT
+		}
+	};
+
+	eglattrs[atti++] = EGL_WIDTH;
+	eglattrs[atti++] = attrs->width;
+	eglattrs[atti++] = EGL_HEIGHT;
+	eglattrs[atti++] = attrs->height;
+	eglattrs[atti++] = EGL_LINUX_DRM_FOURCC_EXT;
+	eglattrs[atti++] = attrs->format;
+
+	for (int i = 0; i < attrs->n_planes; i++) {
+		eglattrs[atti++] = attr_names[i].fd;
+		eglattrs[atti++] = attrs->fds[i];
+		eglattrs[atti++] = attr_names[i].offset;
+		eglattrs[atti++] = attrs->offsets[i];
+		eglattrs[atti++] = attr_names[i].pitch;
+		eglattrs[atti++] = attrs->strides[i];
+		if (has_modifiers) {
+			eglattrs[atti++] = attr_names[i].mod_lo;
+			eglattrs[atti++] = attrs->modifier & 0xFFFFFFFF;
+			eglattrs[atti++] = attr_names[i].mod_hi;
+			eglattrs[atti++] = attr_names[i].mod_hi;
+			eglattrs[atti++] = attrs->modifier >> 32;
+		}
+	}
+	eglattrs[atti++] = EGL_NONE;
+	assert(atti < 50);
+}
+
+
+WL_EXPORT EGLImageKHR
+tw_egl_import_dmabuf_image(struct tw_egl *egl,
+                           struct tw_dmabuf_attributes *attrs, bool *external)
+{
+	bool has_modifier = false;
+	EGLint egl_attrs[50];
+	EGLImageKHR image = EGL_NO_IMAGE;
+
+	if (!egl->image_base_khr || !egl->import_dmabuf) {
+		tw_logl_level(TW_LOG_WARN, "no dmabuf import extension");
+		return EGL_NO_IMAGE;
+	}
+
+	if (attrs->modifier != DRM_FORMAT_MOD_INVALID &&
+	    attrs->modifier != DRM_FORMAT_MOD_LINEAR) {
+		if (!egl->import_dmabuf_modifiers) {
+			tw_logl_level(TW_LOG_WARN,
+			              "no dmabuf import modifiers externsion");
+			return EGL_NO_IMAGE;
+		}
+		has_modifier = true;
+	}
+
+
+        prepare_egl_dmabuf_attributes(egl_attrs, attrs, has_modifier);
+
+        image =  egl->funcs.create_image(egl->display, EGL_NO_CONTEXT,
+                                         EGL_LINUX_DMA_BUF_EXT, NULL,
+                                         egl_attrs);
+        if (external)
+	        *external = tw_drm_formats_is_modifier_external(
+		        &egl->drm_formats, attrs->format, attrs->modifier);
+        return image;
+}
+
+
+WL_EXPORT bool
+tw_egl_image_export_dmabuf(struct tw_egl *egl, EGLImage image,
+                           int width, int height, uint32_t flags,
+                           struct tw_dmabuf_attributes *attrs)
+{
+	memset(attrs, 0, sizeof(*attrs));
+
+	if (!egl->funcs.export_dmabuf_image ||
+	    !egl->funcs.export_dmabuf_image_query)
+		return false;
+	if (!egl->funcs.export_dmabuf_image_query(egl->display, image,
+	                                          (int *)&attrs->format,
+	                                          &attrs->n_planes,
+	                                          &attrs->modifier))
+		return false;
+	if (attrs->n_planes > TW_DMA_MAX_PLANES) {
+		tw_logl_level(TW_LOG_WARN, "exceed max DMA-buf planes");
+		return false;
+	}
+	if (!egl->funcs.export_dmabuf_image(egl->display, image, attrs->fds,
+	                                    (EGLint *)attrs->strides,
+	                                    (EGLint *)attrs->offsets))
+		return false;
+	attrs->width = width;
+	attrs->height = height;
+	attrs->flags = flags;
+	return true;
+
 }
