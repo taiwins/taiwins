@@ -3,10 +3,10 @@
 #include <signal.h>
 #include <wayland-server-core.h>
 #include <taiwins/objects/logger.h>
+#include <taiwins/objects/egl.h>
 
 #include "backend/backend.h"
 #include "backend/x11.h"
-#include "egl.h"
 #include "render_context.h"
 #include "engine.h"
 

@@ -4,8 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <taiwins/objects/logger.h>
-
-#include "egl.h"
+#include <taiwins/objects/egl.h>
 
 
 int main(int argc, char *argv[])

@@ -7,9 +7,9 @@
 #include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/logger.h>
+#include <taiwins/objects/egl.h>
 
 #include "backend/headless.h"
-#include "egl.h"
 #include "render_context.h"
 
 int main(int argc, char *argv[])

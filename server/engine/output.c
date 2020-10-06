@@ -69,6 +69,10 @@ fini_output_state(struct tw_engine_output *o)
 		pixman_region32_fini(&o->state.damages[i]);
 }
 
+/******************************************************************************
+ * listeners
+ *****************************************************************************/
+
 static void
 notify_output_destroy(struct wl_listener *listener, void *data)
 {
@@ -202,5 +206,4 @@ tw_engine_new_output(struct tw_engine *engine,
         }
 
         return true;
-
 }

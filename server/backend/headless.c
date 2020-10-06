@@ -27,17 +27,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
-#include <wayland-util.h>
+#include <taiwins/objects/egl.h>
 
 #include "backend/backend.h"
 
 #include "input_device.h"
 #include "output_device.h"
-#include "egl.h"
 #include "render_context.h"
 
 /******************************************************************************

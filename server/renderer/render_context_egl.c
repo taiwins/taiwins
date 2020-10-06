@@ -30,10 +30,10 @@
 #include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <wayland-util.h>
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/egl.h>
 
-#include "egl.h"
 #include "render_context.h"
-#include "taiwins/objects/logger.h"
 
 
 struct tw_egl_render_context {

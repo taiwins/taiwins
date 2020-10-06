@@ -45,7 +45,7 @@ egl_test_context = executable(
   'tw-test-egl-context',
   'egl-context-test.c',
   c_args : ['-D_GNU_SOURCE'],
-  dependencies : dep_taiwins_lib,
+  dependencies : dep_twobjects,
 )
 test('test_egl_context', egl_test_context)
 
