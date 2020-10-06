@@ -190,9 +190,8 @@ static inline bool
 test_import_buffer(struct tw_linux_dmabuf *dma,
                    struct tw_dmabuf_attributes *attributes)
 {
-	if (dma->import_buffer.import_buffer &&
-	    dma->import_buffer.import_buffer(attributes,
-		    dma->import_buffer.callback))
+	if (dma->impl && dma->impl->test_import &&
+	    dma->impl->test_import(attributes, dma->impl_userdata))
 		return true;
 	else
 		return false;
@@ -412,35 +411,33 @@ dmabuf_send_formats(struct tw_linux_dmabuf *dma,
 	size_t n_formats = 0, n_modifiers = 0;
 	uint32_t modifier_lo, modifier_hi;
 
-	if (!dma->format_request.format_request ||
-	    !dma->format_request.modifiers_request)
-		return false;
-	dma->format_request.format_request(dma,
-	                                   dma->format_request.callback,
-	                                   NULL, &n_formats);
+        if (!dma->impl || !dma->impl->format_request ||
+	    !dma->impl->modifiers_request)
+		return NULL;
+
+	dma->impl->format_request(dma, dma->impl_userdata,
+	                          NULL, &n_formats);
 	if (!n_formats)
 		return false;
 	assert(n_formats > 0);
 	int formats[n_formats];
-	dma->format_request.format_request(dma,
-	                                   dma->format_request.callback,
-	                                   formats, &n_formats);
+	dma->impl->format_request(dma, dma->impl_userdata,
+	                          formats, &n_formats);
 	//send DRM_FORMAT_MOD_INVALID token when no modifiers are supported for
 	//this format
         for (size_t i = 0; i < n_formats; i++) {
 	        bool no_modifiers = false;
-		dma->format_request.modifiers_request(
-			dma, dma->format_request.callback,
-			formats[i], NULL, &n_modifiers);
+		dma->impl->modifiers_request(dma, dma->impl_userdata,
+		                             formats[i], NULL, &n_modifiers);
 		if (!n_modifiers) {
 			no_modifiers = true;
 			n_modifiers = 1;
 		}
 		assert(n_modifiers > 0);
 		uint64_t modifiers[n_formats];
-		dma->format_request.modifiers_request(
-			dma, dma->format_request.callback,
-			formats[i], modifiers, &n_modifiers);
+		dma->impl->modifiers_request(dma, dma->impl_userdata,
+		                             formats[i], modifiers,
+		                             &n_modifiers);
 		if (!n_modifiers) {
 			n_modifiers = 1;
 			modifiers[0]= DRM_FORMAT_MOD_INVALID;
@@ -503,11 +500,9 @@ tw_linux_dmabuf_init(struct tw_linux_dmabuf *dmabuf,
 	if (!dmabuf->global)
 		return false;
 	dmabuf->display = display;
-	dmabuf->format_request.format_request = NULL;
-	dmabuf->format_request.modifiers_request = NULL;
-	dmabuf->format_request.callback = NULL;
-	dmabuf->import_buffer.import_buffer = NULL;
-	dmabuf->format_request.callback = NULL;
+	dmabuf->impl = NULL;
+	dmabuf->impl_userdata = NULL;
+
 	wl_list_init(&dmabuf->destroy_listener.link);
 	dmabuf->destroy_listener.notify = notify_dmabuf_destroy;
 	wl_display_add_destroy_listener(display, &dmabuf->destroy_listener);

@@ -31,6 +31,7 @@
 #include <wayland-server.h>
 #include <wayland-util.h>
 
+#include "dmabuf.h"
 #include "drm_formats.h"
 
 #ifdef  __cplusplus
@@ -117,6 +118,8 @@ bool
 tw_egl_image_export_dmabuf(struct tw_egl *egl, EGLImage image,
                            int width, int height, uint32_t flags,
                            struct tw_dmabuf_attributes *attrs);
+void
+tw_egl_impl_linux_dmabuf(struct tw_egl *egl, struct tw_linux_dmabuf *dma);
 
 #ifdef  __cplusplus
 }

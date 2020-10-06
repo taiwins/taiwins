@@ -35,6 +35,8 @@ extern "C" {
 
 #define TW_DMA_MAX_PLANES 4
 
+struct tw_linux_dmabuf;
+
 enum tw_dmabuf_attributes_flags {
 	TW_DMABUF_ATTRIBUTES_FLAGS_Y_INVERT = 1,
 	TW_DMABUF_ATTRIBUTES_FLAGS_INTERLACED = 2,
@@ -53,34 +55,32 @@ struct tw_dmabuf_attributes {
 	bool modifier_used;
 };
 
+struct tw_linux_dmabuf_impl {
+	/**
+	 * the protocol interface need a backend to does the actual IO work, we
+	 * have callbacks here to have this dmabuf interface indepedent from
+	 * actual implementation.
+	 *
+	 * The callbacks shall not allocated any data, if formats is NULL, it
+	 * would just return the number of formats available.
+	 */
+	void (*format_request)(struct tw_linux_dmabuf *dmabuf,
+	                       void *callback, int *formats,
+	                       size_t *nformats);
+	void (*modifiers_request)(struct tw_linux_dmabuf *dmabuf,
+	                          void *callback, int format,
+	                          uint64_t *modifiers,
+	                          size_t *nmodifiers);
+	bool (*test_import)(struct tw_dmabuf_attributes *attrs,
+	                    void *callback);
+};
+
 struct tw_linux_dmabuf {
 	struct wl_display *display;
 	struct wl_global *global;
 	struct wl_listener destroy_listener;
-        /**
-         * the protocol interface need a backend to does the actual IO work, we
-         * have callbacks here to have this dmabuf interface indepedent from
-         * actual implementation.
-         *
-         * The callbacks shall not allocated any data, if formats is NULL, it
-         * would just return the number of formats available.
-	 */
-	struct {
-		void (*format_request)(struct tw_linux_dmabuf *dmabuf,
-		                       void *callback, int *formats,
-		                       size_t *nformats);
-		void (*modifiers_request)(struct tw_linux_dmabuf *dmabuf,
-		                          void *callback, int format,
-		                          uint64_t *modifiers,
-		                          size_t *nmodifiers);
-		void *callback;
-	} format_request;
-	/* same as format_request */
-	struct {
-		bool (*import_buffer)(struct tw_dmabuf_attributes *attrs,
-		                      void *callback);
-		void *callback;
-	} import_buffer;
+	const struct tw_linux_dmabuf_impl *impl;
+	void *impl_userdata;
 };
 
 /**

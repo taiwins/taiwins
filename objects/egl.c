@@ -712,3 +712,87 @@ tw_egl_image_export_dmabuf(struct tw_egl *egl, EGLImage image,
 	return true;
 
 }
+
+static void
+egl_dma_format_request(struct tw_linux_dmabuf *dmabuf,
+                       void *callback, int *formats,
+                       size_t *nformats)
+{
+	struct tw_egl *egl = callback;
+
+	*nformats = tw_drm_formats_count(&egl->drm_formats);
+	if (formats) {
+		struct tw_drm_format *format;
+		int i = 0;
+		wl_array_for_each(format, &egl->drm_formats.formats) {
+			formats[i++] = format->fmt;
+		}
+	}
+}
+
+static void
+egl_dma_modifiers_request(struct tw_linux_dmabuf *dmabuf,
+                          void *callback, int fmt,
+                          uint64_t *modifiers,
+                          size_t *n_modifiers)
+{
+	struct tw_egl *egl = callback;
+	struct tw_drm_format *format, *target = NULL;
+
+	wl_array_for_each(format, &egl->drm_formats.formats) {
+		if ((int)format->fmt == fmt) {
+			target = format;
+			break;
+		}
+	}
+	if (!target)
+		goto no_modifiers;
+	*n_modifiers = format->len;
+
+	if (modifiers && *n_modifiers) {
+		struct tw_drm_modifier *modifier =
+			egl->drm_formats.modifiers.data;
+		modifier += format->cursor;
+
+		for (int i = 0; i < format->len; i++)
+			modifiers[i] = (modifier + i)->modifier;
+	}
+	return;
+no_modifiers:
+	*n_modifiers = 0;
+	return;
+}
+
+static bool
+egl_dma_test_import_buffer(struct tw_dmabuf_attributes *attrs, void *callback)
+{
+	struct tw_egl *egl = callback;
+	bool external;
+	EGLImage image = EGL_NO_IMAGE;
+
+	if (!egl->image_base_khr || !egl->import_dmabuf ||
+	    !egl->funcs.destroy_image)
+		return false;
+
+	image = tw_egl_import_dmabuf_image(egl, attrs, &external);
+
+	if (image != EGL_NO_IMAGE) {
+		egl->funcs.destroy_image(egl->display, image);
+		return true;
+	} else {
+		return false;
+	}
+}
+
+static const struct tw_linux_dmabuf_impl dmabuf_impl = {
+	.format_request = egl_dma_format_request,
+	.modifiers_request = egl_dma_modifiers_request,
+	.test_import = egl_dma_test_import_buffer,
+};
+
+WL_EXPORT void
+tw_egl_impl_linux_dmabuf(struct tw_egl *egl, struct tw_linux_dmabuf *dma)
+{
+	dma->impl = &dmabuf_impl;
+	dma->impl_userdata = egl;
+}
