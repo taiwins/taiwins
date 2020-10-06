@@ -129,6 +129,7 @@ tw_output_send_clients(struct tw_output *output)
 static void
 handle_output_release(struct wl_client *client, struct wl_resource *resource)
 {
+	wl_list_remove(wl_resource_get_link(resource));
 	wl_resource_destroy(resource);
 }
 
@@ -199,4 +200,14 @@ tw_output_create(struct wl_display *display)
 	                                &output->display_destroy_listener,
 	                                notify_output_display_destroy);
 	return output;
+}
+
+WL_EXPORT void
+tw_output_destroy(struct tw_output *output)
+{
+	free(output->geometry.make);
+	free(output->geometry.model);
+	wl_list_remove(&output->display_destroy_listener.link);
+	wl_global_destroy(output->global);
+	free(output);
 }

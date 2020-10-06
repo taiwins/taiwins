@@ -56,6 +56,9 @@ struct tw_output *
 tw_output_create(struct wl_display *display);
 
 void
+tw_output_destroy(struct tw_output *output);
+
+void
 tw_output_set_name(struct tw_output *output, const char *name);
 
 void
