@@ -52,7 +52,14 @@ enum tw_surface_state {
 };
 
 struct tw_surface;
-struct tw_surface_manager;
+struct tw_surface_buffer;
+
+struct tw_event_buffer_uploading {
+	struct tw_surface_buffer *buffer;
+	pixman_region32_t *damages;
+	struct wl_resource *wl_buffer;
+	bool new_upload;
+};
 
 typedef void (*tw_surface_commit_cb_t)(struct tw_surface *surface);
 /**
@@ -76,14 +83,13 @@ struct tw_surface_buffer {
 	/* if there is a texture with the surface, the listener should be
 	 * used at surface destruction. */
 	struct wl_listener surface_destroy_listener;
+	struct {
+		bool (*buffer_import)(struct tw_event_buffer_uploading *event,
+		                      void *callback);
+		void *callback;
+	} buffer_import;
 };
 
-struct tw_event_buffer_uploading {
-	struct tw_surface_buffer *buffer;
-	pixman_region32_t *damages;
-	struct wl_resource *wl_buffer;
-	bool new_upload;
-};
 
 struct tw_event_surface_frame {
 	struct tw_surface *surface;
@@ -115,14 +121,12 @@ struct tw_view {
 struct tw_subsurface;
 struct tw_surface {
 	struct wl_resource *resource;
-	struct tw_surface_manager *manager;
         /** the tw_surface::buffer is used to present; should stay available
          * from imported to destroy of the surface
          */
 	struct tw_surface_buffer buffer;
 
-        /* view is similar t
-         * current: commited;
+        /* current: commited;
          * pending: attached, without commit;
          * previous: last commit
          * rotating towards left.
@@ -191,6 +195,7 @@ struct tw_surface {
 		struct wl_signal frame;
 		struct wl_signal commit;
 		struct wl_signal destroy;
+		struct wl_signal dirty;
 	} events;
 
 	void *user_data;
@@ -205,6 +210,7 @@ struct tw_subsurface {
 	struct tw_surface *parent;
 	struct wl_list parent_link; /**< reflects subsurface stacking order */
 	struct wl_list parent_pending_link; /* accummulated stacking order */
+	struct wl_signal destroy;
 	struct wl_listener surface_destroyed;
 	int32_t sx, sy;
 	bool sync;
@@ -212,37 +218,13 @@ struct tw_subsurface {
 
 struct tw_region {
 	struct wl_resource *resource;
-	struct tw_surface_manager *manager;
 	pixman_region32_t region;
+	struct wl_signal destroy;
 };
-
-/**
- * @brief centralized surface hub, taking care of common signals.
- */
-struct tw_surface_manager {
-	//signals generated for all surface for additional processing, for
-	//example, wp_viewporter would take advantage of commit_signal.
-	struct wl_signal surface_created_signal;
-	struct wl_signal subsurface_created_signal;
-	struct wl_signal region_created_signal;
-	struct wl_signal surface_destroy_signal;
-	struct wl_signal subsurface_destroy_signal;
-	struct wl_signal region_destroy_signal;
-	struct wl_signal surface_dirty_signal;
-
-	struct {
-		bool (*buffer_import)(struct tw_event_buffer_uploading *event,
-		                      void *);
-		void *callback;
-	} buffer_import;
-};
-
-void
-tw_surface_manager_init(struct tw_surface_manager *manager);
 
 struct tw_surface*
-tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
-                  struct tw_surface_manager *manager);
+tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id);
+
 struct tw_surface *
 tw_surface_from_resource(struct wl_resource *wl_surface);
 
@@ -304,8 +286,8 @@ void
 tw_subsurface_update_pos(struct tw_subsurface *sub,
                          int32_t sx, int32_t sy);
 struct tw_region *
-tw_region_create(struct wl_client *client, uint32_t version, uint32_t id,
-                 struct tw_surface_manager *manager);
+tw_region_create(struct wl_client *client, uint32_t version, uint32_t id);
+
 struct tw_region *
 tw_region_from_resource(struct wl_resource *wl_region);
 

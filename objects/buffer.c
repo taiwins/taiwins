@@ -39,17 +39,16 @@ tw_surface_buffer_update(struct tw_surface_buffer *buffer,
 	struct tw_event_buffer_uploading event;
 	//compare if resource is a wl_buffer
 	struct tw_surface *surface = wl_container_of(buffer, surface, buffer);
-	struct tw_surface_manager *manager = surface->manager;
 	void *user_data;
 	bool ret = false;
 
-	if (manager && manager->buffer_import.buffer_import) {
+	if (buffer->buffer_import.buffer_import) {
 		event.wl_buffer = resource;
 		event.damages = damage;
 		event.buffer = buffer;
 		event.new_upload = false;
-		user_data = manager->buffer_import.callback;
-		ret = manager->buffer_import.buffer_import(&event, user_data);
+		user_data = buffer->buffer_import.callback;
+		ret = buffer->buffer_import.buffer_import(&event, user_data);
 	}
 	//if updating failed, nothing changes.
 	if (ret)
@@ -63,16 +62,15 @@ tw_surface_buffer_new(struct tw_surface_buffer *buffer,
 {
 	struct tw_event_buffer_uploading event = {0};
 	struct tw_surface *surface = wl_container_of(buffer, surface, buffer);
-	struct tw_surface_manager *manager = surface->manager;
 	void *user_data;
 
-	if (manager && manager->buffer_import.buffer_import) {
+	if (buffer->buffer_import.buffer_import) {
 		event.new_upload = true;
 		event.wl_buffer = resource;
 		event.damages = NULL;
 		event.buffer = buffer;
-		user_data = manager->buffer_import.callback;
-		manager->buffer_import.buffer_import(&event, user_data);
+		user_data = buffer->buffer_import.callback;
+		buffer->buffer_import.buffer_import(&event, user_data);
 	}
 	if (tw_surface_has_texture(surface))
 		buffer->resource = resource;

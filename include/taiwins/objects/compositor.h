@@ -35,9 +35,11 @@ struct tw_compositor {
 	struct wl_list clients;
 	struct wl_list subcomp_clients;
 
-	struct wl_signal surface_create;
-	struct wl_signal region_create;
-	struct wl_signal subsurface_get;
+	struct wl_signal surface_created;
+	struct wl_signal region_created;
+	struct wl_signal subsurface_created;
+	//TODO remove this, should be in surface itself.
+	struct wl_signal surface_dirty;
 
 	struct wl_listener destroy_listener;
 };
