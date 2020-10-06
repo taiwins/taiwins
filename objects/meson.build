@@ -40,6 +40,8 @@ taiwins_obj_srcs = [
   'presentation_feedback.c',
   'viewporter.c',
   'os-compatibility.c',
+  'drm_formats.c',
+  'egl.c',
 
   wayland_linux_dmabuf_server_protocol_h,
   wayland_linux_dmabuf_private_code_c,
@@ -59,6 +61,8 @@ twobjects_deps = [
     dep_xkbcommon,
     dep_libdrm,
     dep_m,
+    dep_egl,
+    dep_glesv2,
 ]
 
 lib_twobjects = both_libraries(

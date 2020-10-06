@@ -29,6 +29,8 @@ dep_wayland_server = dependency('wayland-server', version: '>= 1.12.0')
 dep_xkbcommon = dependency('xkbcommon', version: '>= 0.3.0')
 dep_libdrm = dependency('libdrm', version: '>= 2.4.68')
 dep_m = cc.find_library('m')
+dep_glesv2 = dependency('glesv2')
+dep_egl = dependency('egl')
 
 twobjects_inc = include_directories('include')
 
