@@ -45,7 +45,7 @@
  *****************************************************************************/
 
 static void
-handle_egl_surface_destroy(struct tw_render_surface *surf,
+handle_egl_surface_destroy(struct tw_render_presentable *surf,
                            struct tw_render_context *base)
 {
 	struct tw_egl_render_context *ctx =
@@ -60,7 +60,7 @@ handle_egl_surface_destroy(struct tw_render_surface *surf,
 
 /* use this if you created egl context with window surface type */
 static bool
-new_window_surface(struct tw_render_surface *surf,
+new_window_surface(struct tw_render_presentable *surf,
                    struct tw_render_context *base, void *native_surface)
 {
 	struct tw_egl_render_context *ctx = wl_container_of(base, ctx, base);
@@ -86,7 +86,7 @@ new_window_surface(struct tw_render_surface *surf,
 
 /* use this if you created egl context with pbuffer window type */
 static bool
-new_pbuffer_surface(struct tw_render_surface *surf,
+new_pbuffer_surface(struct tw_render_presentable *surf,
                     struct tw_render_context *base,
                     unsigned int width, unsigned int height)
 {
@@ -114,7 +114,7 @@ new_pbuffer_surface(struct tw_render_surface *surf,
 }
 
 static bool
-commit_egl_surface(struct tw_render_surface *surf,
+commit_egl_surface(struct tw_render_presentable *surf,
                    struct tw_render_context *base)
 {
 	EGLSurface surface = (EGLSurface)surf->handle;
@@ -126,7 +126,7 @@ commit_egl_surface(struct tw_render_surface *surf,
 }
 
 static int
-make_egl_surface_current(struct tw_render_surface *surf,
+make_egl_surface_current(struct tw_render_presentable *surf,
                          struct tw_render_context *base)
 {
 	struct tw_egl_render_context *ctx = wl_container_of(base, ctx, base);

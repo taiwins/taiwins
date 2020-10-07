@@ -63,7 +63,7 @@ struct tw_headless_backend {
 struct tw_headless_output {
 	struct tw_headless_backend *headless;
 	struct tw_output_device device;
-	struct tw_render_surface surface;
+	struct tw_render_presentable surface;
 	uint32_t width, height;
 };
 
@@ -94,7 +94,7 @@ static bool
 headless_output_start(struct tw_headless_output *output,
                       struct tw_headless_backend *headless)
 {
-	tw_render_surface_init_offscreen(&output->surface, headless->base.ctx,
+	tw_render_presentable_init_offscreen(&output->surface, headless->base.ctx,
 	                                 output->width, output->height);
 	//announce the output.
 	wl_signal_emit(&headless->base.events.new_output, output);
@@ -129,7 +129,7 @@ headless_start(struct tw_backend *backend, struct tw_render_context *ctx)
 	return true;
 }
 
-static struct tw_render_surface *
+static struct tw_render_presentable *
 headless_get_render_surface(struct tw_backend *backend,
                             struct tw_output_device *device)
 {
@@ -165,7 +165,7 @@ headless_destroy(struct tw_headless_backend *headless)
 
 	wl_list_for_each_safe(output, otmp, &headless->base.outputs,
 	                      device.link) {
-		tw_render_surface_fini(&output->surface, headless->base.ctx);
+		tw_render_presentable_fini(&output->surface, headless->base.ctx);
 		tw_output_device_fini(&output->device);
 		free(output);
 	}
@@ -310,11 +310,11 @@ tw_backend_start(struct tw_backend *backend, struct tw_render_context *ctx)
 	backend->ctx = ctx;
 	backend->impl->start(backend, ctx);
 	backend->started = true;
-	wl_signal_add(&ctx->destroy_signal, &backend->render_context_destroy);
+	wl_signal_add(&ctx->events.destroy, &backend->render_context_destroy);
 	wl_signal_emit(&backend->events.start, backend);
 }
 
-struct tw_render_surface *
+struct tw_render_presentable *
 tw_backend_get_render_surface(struct tw_backend *backend,
                               struct tw_output_device *device)
 {

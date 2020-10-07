@@ -179,7 +179,7 @@ x11_start_backend(struct tw_backend *backend,
 	return true;
 }
 
-static struct tw_render_surface *
+static struct tw_render_presentable *
 x11_render_surface_from_output(struct tw_backend *backend,
                                struct tw_output_device *device)
 {

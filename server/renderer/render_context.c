@@ -36,8 +36,8 @@ tw_render_context_destroy(struct tw_render_context *ctx)
 }
 
 int
-tw_render_surface_make_current(struct tw_render_surface *surf,
-                               struct tw_render_context *ctx)
+tw_render_presentable_make_current(struct tw_render_presentable *surf,
+                                   struct tw_render_context *ctx)
 {
 	assert(ctx->impl && ctx->impl->commit_surface);
 	return ctx->impl->make_current(surf, ctx);

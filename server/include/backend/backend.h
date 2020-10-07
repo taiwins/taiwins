@@ -39,7 +39,7 @@ struct tw_backend_impl {
 
 	//it is either this or I need to include render_surface in
 	//tw_output_device
-	struct tw_render_surface *
+	struct tw_render_presentable *
 	(*get_render_surface)(struct tw_backend *backend,
 	                      struct tw_output_device *device);
 };
@@ -78,7 +78,7 @@ tw_backend_start(struct tw_backend *backend, struct tw_render_context *ctx);
 const struct tw_egl_options *
 tw_backend_get_egl_params(struct tw_backend *backend);
 
-struct tw_render_surface *
+struct tw_render_presentable *
 tw_backend_get_render_surface(struct tw_backend *backend,
                               struct tw_output_device *device);
 

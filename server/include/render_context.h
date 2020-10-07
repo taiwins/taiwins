@@ -39,6 +39,7 @@ struct tw_egl_options;
 struct tw_render_pipeline;
 struct tw_render_context;
 struct tw_render_surface;
+struct tw_render_presentable;
 struct tw_render_texture;
 
 enum tw_renderer_type {
@@ -47,18 +48,18 @@ enum tw_renderer_type {
 };
 
 struct tw_render_context_impl {
-	bool (*new_offscreen_surface)(struct tw_render_surface *surf,
+	bool (*new_offscreen_surface)(struct tw_render_presentable *surf,
 	                              struct tw_render_context *ctx,
 	                              unsigned int width, unsigned int height);
 
-	bool (*new_window_surface)(struct tw_render_surface *surf,
+	bool (*new_window_surface)(struct tw_render_presentable *surf,
 	                           struct tw_render_context *ctx,
 	                           void *native_window);
 
-	bool (*commit_surface)(struct tw_render_surface *surf,
+	bool (*commit_surface)(struct tw_render_presentable *surf,
 	                       struct tw_render_context *ctx);
 
-        int (*make_current)(struct tw_render_surface *surf,
+        int (*make_current)(struct tw_render_presentable *surf,
 	                    struct tw_render_context *ctx);
 };
 
@@ -96,9 +97,9 @@ struct tw_render_pipeline {
 
 /* a render surface for backend to work with */
 //TODO: rename it tw_render_presentable, and it should have a present
-struct tw_render_surface {
+struct tw_render_presentable {
 	intptr_t handle;
-	void (*destroy)(struct tw_render_surface *surface,
+	void (*destroy)(struct tw_render_presentable *surface,
 	                struct tw_render_context *ctx);
 };
 
@@ -152,38 +153,38 @@ void
 tw_render_context_set_compositor(struct tw_render_context *ctx,
                                  struct tw_compositor *compositor);
 static inline bool
-tw_render_surface_init_offscreen(struct tw_render_surface *surface,
-                                 struct tw_render_context *ctx,
-                                 unsigned int width, unsigned int height)
+tw_render_presentable_init_offscreen(struct tw_render_presentable *surface,
+                                     struct tw_render_context *ctx,
+                                     unsigned int width, unsigned int height)
 {
 	return ctx->impl->new_offscreen_surface(surface, ctx, width, height);
 }
 
 static inline bool
-tw_render_surface_init_window(struct tw_render_surface *surf,
-                              struct tw_render_context *ctx,
-                              void *native_window)
+tw_render_presentable_init_window(struct tw_render_presentable *surf,
+                                  struct tw_render_context *ctx,
+                                  void *native_window)
 {
 	return ctx->impl->new_window_surface(surf, ctx, native_window);
 }
 
 static inline void
-tw_render_surface_fini(struct tw_render_surface *surface,
-                       struct tw_render_context *ctx)
+tw_render_presentable_fini(struct tw_render_presentable *surface,
+                           struct tw_render_context *ctx)
 {
 	surface->destroy(surface, ctx);
 }
 
 static inline bool
-tw_render_surface_commit(struct tw_render_surface *surface,
-                         struct tw_render_context *ctx)
+tw_render_presentable_commit(struct tw_render_presentable *surface,
+                             struct tw_render_context *ctx)
 {
 	return ctx->impl->commit_surface(surface, ctx);
 }
 
 int
-tw_render_surface_make_current(struct tw_render_surface *surf,
-                               struct tw_render_context *ctx);
+tw_render_presentable_make_current(struct tw_render_presentable *surf,
+                                   struct tw_render_context *ctx);
 
 void
 tw_render_init_wl_surface(struct tw_render_wl_surface *surface,

@@ -80,7 +80,7 @@ struct tw_x11_output {
         unsigned int width, height;
 
 	xcb_window_t win;
-	struct tw_render_surface render_surface;
+	struct tw_render_presentable render_surface;
 	struct wl_listener info_listener;
 	unsigned int frame_interval;
 

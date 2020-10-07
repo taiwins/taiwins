@@ -97,7 +97,7 @@ tw_x11_remove_output(struct tw_x11_output *output)
 	tw_output_device_fini(&output->device);
 	tw_input_device_fini(&output->pointer);
 
-	tw_render_surface_fini(&output->render_surface, x11->base.ctx);
+	tw_render_presentable_fini(&output->render_surface, x11->base.ctx);
 	xcb_destroy_window(x11->xcb_conn, output->win);
 	xcb_flush(x11->xcb_conn);
 	free(output);
@@ -138,8 +138,8 @@ tw_x11_output_start(struct tw_x11_output *output)
 	xcb_input_xi_select_events(x11->xcb_conn, output->win, 1,
 	                           &xinput_mask.head);
 	//creating the render surface
-	if (!tw_render_surface_init_window(&output->render_surface,
-	                                   x11->base.ctx, &output->win)) {
+	if (!tw_render_presentable_init_window(&output->render_surface,
+	                                       x11->base.ctx, &output->win)) {
 		tw_logl_level(TW_LOG_WARN, "failed to create render surface "
 		              "for X11 output");
 		tw_x11_remove_output(output);
