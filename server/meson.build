@@ -23,7 +23,6 @@ taiwins_lib_src = [
   'bindings.c',
   'renderer/renderer.c',
   'renderer/shaders.c',
-  'renderer/texture.c',
   'renderer/layer_renderer.c',
   'shell/shell.c',
   'shell/shell_layer.c',
@@ -56,7 +55,9 @@ taiwins_lib_src = [
   wayland_wlr_layer_shell_private_code_c,
   wayland_xdg_shell_private_code_c,
 
-  'renderer/render_context_egl.c',
+  'renderer/render_context.c',
+  'renderer/egl_render_context.c',
+  'renderer/egl_texture.c',
 
   'engine/engine.c',
   'engine/seat.c',
@@ -66,7 +67,7 @@ taiwins_lib_dep = [
   dep_wayland_server,
   dep_twobjects,
   dep_ctypes,
-  dep_wlroots,
+  # dep_wlroots,
   dep_xkbcommon,
   dep_threads,
   dep_pixman,

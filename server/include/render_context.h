@@ -24,7 +24,12 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <pixman.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
+#include <taiwins/objects/dmabuf.h>
+#include <taiwins/objects/compositor.h>
+#include <taiwins/objects/surface.h>
 
 #ifdef  __cplusplus
 extern "C" {
@@ -34,6 +39,7 @@ struct tw_egl_options;
 struct tw_render_pipeline;
 struct tw_render_context;
 struct tw_render_surface;
+struct tw_render_texture;
 
 enum tw_renderer_type {
 	TW_RENDERER_EGL,
@@ -68,7 +74,15 @@ struct tw_render_context {
 	struct wl_display *display;
 	struct wl_listener display_destroy;
 
-	struct wl_signal destroy_signal;
+	struct {
+		struct wl_signal destroy;
+		struct wl_signal dma_set;
+		struct wl_signal compositor_set;
+		//this is plain damn weird.
+		struct wl_signal wl_surface_dirty;
+		struct wl_signal wl_surface_destroy;
+	} events;
+
 	struct wl_list pipelines;
 };
 
@@ -81,10 +95,43 @@ struct tw_render_pipeline {
 };
 
 /* a render surface for backend to work with */
+//TODO: rename it tw_render_presentable, and it should have a present
 struct tw_render_surface {
 	intptr_t handle;
 	void (*destroy)(struct tw_render_surface *surface,
 	                struct tw_render_context *ctx);
+};
+
+struct tw_render_texture {
+	uint32_t width, height;
+	int fmt;
+	bool has_alpha, inverted_y;
+	enum wl_shm_format wl_format;
+
+	void (*destroy)(struct tw_render_texture *tex,
+	                struct tw_render_context *ctx);
+};
+
+/**
+ * @brief render data for wl_surface, created
+ */
+struct tw_render_wl_surface {
+	struct tw_render_context *ctx;
+	struct tw_surface *surface;
+	pixman_region32_t clip;
+
+#ifdef TW_OVERLAY_PLANE
+	pixman_region32_t output_damage[32];
+#endif
+	/** used if surface is on layers */
+	struct wl_list layer_link;
+
+	struct {
+		struct wl_listener destroy;
+		struct wl_listener commit;
+		struct wl_listener frame;
+		struct wl_listener dirty;
+	} listeners;
 };
 
 struct tw_render_context *
@@ -98,6 +145,12 @@ tw_render_context_create_vk(struct wl_display *display);
 void
 tw_render_context_destroy(struct tw_render_context *ctx);
 
+void
+tw_render_context_set_dma(struct tw_render_context *ctx,
+                          struct tw_linux_dmabuf *dma);
+void
+tw_render_context_set_compositor(struct tw_render_context *ctx,
+                                 struct tw_compositor *compositor);
 static inline bool
 tw_render_surface_init_offscreen(struct tw_render_surface *surface,
                                  struct tw_render_context *ctx,
@@ -131,6 +184,13 @@ tw_render_surface_commit(struct tw_render_surface *surface,
 int
 tw_render_surface_make_current(struct tw_render_surface *surf,
                                struct tw_render_context *ctx);
+
+void
+tw_render_init_wl_surface(struct tw_render_wl_surface *surface,
+                          struct tw_surface *tw_surface,
+                          struct tw_render_context *ctx);
+void
+tw_render_fini_wl_surface(struct tw_render_wl_surface *surface);
 
 #ifdef  __cplusplus
 }
