@@ -551,6 +551,16 @@ tw_egl_bind_wl_display(struct tw_egl *egl, struct wl_display *display)
 	return false;
 }
 
+WL_EXPORT bool
+tw_egl_destroy_image(struct tw_egl *egl, EGLImageKHR image)
+{
+	if (!egl->funcs.destroy_image)
+		return false;
+	if (image == EGL_NO_IMAGE)
+		return true;
+	return egl->funcs.destroy_image(egl->display, image);
+}
+
 WL_EXPORT EGLImageKHR
 tw_egl_import_wl_drm_image(struct tw_egl *egl, struct wl_resource *data,
                            EGLint *fmt, int *width, int *height,
