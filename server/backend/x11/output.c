@@ -50,7 +50,6 @@ x11_commit_output_state(struct tw_output_device *output)
 
 	//the x11 backend will simply resize the output for us so we only need
 	//to update the view matrix
-	tw_output_device_state_rebuild_view_mat(&output->pending);
 	memcpy(&output->state, &output->pending, sizeof(output->state));
 }
 
@@ -64,7 +63,8 @@ frame_handler(void *data)
 	/* static long long oldtime = 0, newtime; */
 	/* struct timespec spec; */
 	struct tw_x11_output *output = data;
-	wl_signal_emit(&output->device.events.new_frame, &output->device);
+	wl_signal_emit(&output->output.device.events.new_frame,
+	               &output->output.device);
 	wl_event_source_timer_update(output->frame_timer,
 	                             FRAME_DELAY);
 	/* clock_gettime(CLOCK_MONOTONIC, &spec); */
@@ -79,10 +79,13 @@ parse_output_setup(struct tw_x11_output *output, xcb_connection_t *xcb)
 {
 	const xcb_setup_t *xcb_setup = xcb_get_setup(xcb);
 
-	snprintf(output->device.make, sizeof(output->device.make), "%.*s",
-	         xcb_setup_vendor_length(xcb_setup),
+	snprintf(output->output.device.make,
+	         sizeof(output->output.device.make),
+	         "%.*s", xcb_setup_vendor_length(xcb_setup),
 	         xcb_setup_vendor(xcb_setup));
-	snprintf(output->device.model, sizeof(output->device.model),
+
+	snprintf(output->output.device.model,
+	         sizeof(output->output.device.model),
 	         "%"PRIu16".%"PRIu16,
 	         xcb_setup->protocol_major_version,
 	         xcb_setup->protocol_minor_version);
@@ -94,10 +97,10 @@ tw_x11_remove_output(struct tw_x11_output *output)
 	struct tw_x11_backend *x11 = output->x11;
 
         wl_event_source_remove(output->frame_timer);
-	tw_output_device_fini(&output->device);
+	tw_output_device_fini(&output->output.device);
 	tw_input_device_fini(&output->pointer);
 
-	tw_render_presentable_fini(&output->render_surface, x11->base.ctx);
+	tw_render_presentable_fini(&output->output.surface, x11->base.ctx);
 	xcb_destroy_window(x11->xcb_conn, output->win);
 	xcb_flush(x11->xcb_conn);
 	free(output);
@@ -108,18 +111,25 @@ tw_x11_output_start(struct tw_x11_output *output)
 {
 	struct tw_x11_backend *x11 = output->x11;
 	struct wl_event_loop *loop = wl_display_get_event_loop(x11->display);
+	unsigned width, height;
 
 	//for the given window
 	uint32_t win_mask = XCB_CW_EVENT_MASK;
 	uint32_t mask_values[] = {
 		XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_STRUCTURE_NOTIFY
 	};
+
+	//this step is a must
+	output->output.ctx = x11->base.ctx;
+	tw_output_device_commit_state(&output->output.device);
+	tw_output_device_raw_resolution(&output->output.device,
+	                                &width, &height);
+
         //creating the window but not mapping it yet.
 	output->win = xcb_generate_id(x11->xcb_conn);
 	xcb_create_window(x11->xcb_conn, XCB_COPY_FROM_PARENT, output->win,
 	                  x11->screen->root, 0, 0,
-	                  output->width, output->height,
-	                  0, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+	                  width, height, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT,
 	                  x11->screen->root_visual,
 	                  win_mask, mask_values);
 
@@ -138,7 +148,7 @@ tw_x11_output_start(struct tw_x11_output *output)
 	xcb_input_xi_select_events(x11->xcb_conn, output->win, 1,
 	                           &xinput_mask.head);
 	//creating the render surface
-	if (!tw_render_presentable_init_window(&output->render_surface,
+	if (!tw_render_presentable_init_window(&output->output.surface,
 	                                       x11->base.ctx, &output->win)) {
 		tw_logl_level(TW_LOG_WARN, "failed to create render surface "
 		              "for X11 output");
@@ -158,8 +168,9 @@ tw_x11_output_start(struct tw_x11_output *output)
 	wl_event_source_timer_update(output->frame_timer, FRAME_DELAY);
 
 	//finally
-	wl_signal_emit(&x11->base.events.new_output, &output->device);
-	wl_signal_emit(&output->device.events.info, &output->device);
+	wl_signal_emit(&x11->base.events.new_output, &output->output.device);
+	wl_signal_emit(&output->output.device.events.info,
+	               &output->output.device);
 	wl_signal_emit(&x11->base.events.new_input, &output->pointer);
 
 	return true;
@@ -170,21 +181,21 @@ tw_x11_backend_add_output(struct tw_backend *backend,
                           unsigned int width, unsigned int height)
 {
 	struct tw_x11_backend *x11 = wl_container_of(backend, x11, base);
-	struct tw_x11_output *output =
-		calloc(1, sizeof(*output));
+	struct tw_x11_output *output = calloc(1, sizeof(*output));
 
         if (!output)
 		return false;
         output->x11 = x11;
-        output->width = width;
-        output->height = height;
 
-        tw_output_device_init(&output->device, &x11_output_impl);
-        sprintf(output->device.name, "X11-%d",
+        tw_render_output_init(&output->output, &x11_output_impl);
+        tw_output_device_set_custom_mode(&output->output.device, width, height,
+                                         0);
+
+        sprintf(output->output.device.name, "X11-%d",
                 wl_list_length(&x11->base.outputs));
         parse_output_setup(output, x11->xcb_conn);
 
-        wl_list_insert(&x11->base.outputs, &output->device.link);
+        wl_list_insert(&x11->base.outputs, &output->output.device.link);
 
         tw_input_device_init(&output->pointer, TW_INPUT_TYPE_POINTER, NULL);
         strncpy(output->pointer.name, "X11-pointer",

@@ -56,6 +56,7 @@ taiwins_lib_src = [
   wayland_xdg_shell_private_code_c,
 
   'renderer/render_context.c',
+  'renderer/render_output.c',
   'renderer/egl_render_context.c',
   'renderer/egl_texture.c',
 
@@ -105,15 +106,15 @@ dep_taiwins_lib = declare_dependency(
 )
 
 ####### compositor
-taiwins_src = [
-  'main.c',
-  'input.c',
-]
+# taiwins_src = [
+#   'main.c',
+#   'input.c',
+# ]
 
-taiwins = executable(
-  'taiwins',
-  taiwins_src,
-  c_args : taiwins_cargs,
-  dependencies : dep_taiwins_lib,
-  install : true,
-)
+# taiwins = executable(
+#   'taiwins',
+#   taiwins_src,
+#   c_args : taiwins_cargs,
+#   dependencies : dep_taiwins_lib,
+#   install : true,
+# )

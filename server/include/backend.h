@@ -199,7 +199,6 @@ struct tw_backend {
 	struct tw_cursor global_cursor;
 
 	/** the basic objects required by a compositor **/
-	struct tw_surface_manager surface_manager;
 	struct tw_layers_manager layers_manager;
 	struct tw_compositor compositor_manager;
 	struct tw_data_device_manager data_device_manager;

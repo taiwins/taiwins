@@ -51,15 +51,19 @@
 #include "backend/backend.h"
 #include "engine.h"
 #include "internal.h"
+#include "render_context.h"
 
 static struct tw_engine s_engine = {0};
-/* static struct tw_engine_obj_proxy s_tw_backend_proxy; */
+
+/******************************************************************************
+ * listeners
+ *****************************************************************************/
 
 static void
 notify_new_input(struct wl_listener *listener, void *data)
 {
 	struct tw_engine *engine =
-		wl_container_of(listener, engine, new_input);
+		wl_container_of(listener, engine, listeners.new_input);
 	struct tw_input_device *device = data;
 	struct tw_engine_seat *seat =
 		tw_engine_seat_find_create(engine, device->seat_id);
@@ -71,11 +75,41 @@ static void
 notify_new_output(struct wl_listener *listener, void *data)
 {
 	struct tw_engine *engine =
-		wl_container_of(listener, engine, new_output);
+		wl_container_of(listener, engine, listeners.new_output);
 	struct tw_output_device *device = data;
 	tw_logl("new output: %s", device->name);
 	tw_engine_new_output(engine, device);
 }
+
+
+static void
+notify_engine_release(struct wl_listener *listener, void *data)
+{
+	struct tw_engine *engine =
+		wl_container_of(listener, engine, listeners.display_destroy);
+
+        wl_list_remove(&engine->listeners.display_destroy.link);
+	tw_cursor_fini(&engine->global_cursor);
+	/* tw_backend_fini_obj_proxy(backend->proxy); */
+	engine->started = false;
+	engine->display = NULL;
+}
+
+static void
+notify_engine_backend_started(struct wl_listener *listener, void *data)
+{
+	struct tw_engine *engine =
+		wl_container_of(listener, engine, listeners.backend_started);
+	struct tw_backend *backend = data;
+
+        assert(backend == engine->backend);
+        //TODO
+        /* tw_engine_set_render(engine, backend->ctx); */
+}
+
+/******************************************************************************
+ * listeners
+ *****************************************************************************/
 
 static bool
 engine_init_globals(struct tw_engine *engine)
@@ -93,24 +127,11 @@ engine_init_globals(struct tw_engine *engine)
 	if (!tw_viewporter_init(&engine->viewporter, engine->display))
 		return false;
 
-	tw_surface_manager_init(&engine->surface_manager);
 	tw_layers_manager_init(&engine->layers_manager, engine->display);
 
 	return true;
 }
 
-static void
-engine_release(struct wl_listener *listener, void *data)
-{
-	struct tw_engine *engine =
-		wl_container_of(listener, engine, display_destroy);
-
-        wl_list_remove(&engine->display_destroy.link);
-	tw_cursor_fini(&engine->global_cursor);
-	/* tw_backend_fini_obj_proxy(backend->proxy); */
-	engine->started = false;
-	engine->display = NULL;
-}
 
 struct tw_engine *
 tw_engine_create_global(struct wl_display *display, struct tw_backend *backend)
@@ -134,11 +155,6 @@ tw_engine_create_global(struct wl_display *display, struct tw_backend *backend)
 	if (!backend)
 		return NULL;
 	engine->backend = backend;
-	/* backend->main_renderer = */
-	/*	wlr_backend_get_renderer(backend->auto_backend); */
-	/* //this would initialize the wl_shm */
-	/* wlr_renderer_init_wl_display(backend->main_renderer, display); */
-
 
 	engine->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	if (!engine->xkb_context)
@@ -151,12 +167,18 @@ tw_engine_create_global(struct wl_display *display, struct tw_backend *backend)
 	               &engine->layers_manager.cursor_layer);
 
 	//listeners
-	tw_set_display_destroy_listener(display, &engine->display_destroy,
-	                                engine_release);
+	tw_set_display_destroy_listener(display,
+	                                &engine->listeners.display_destroy,
+	                                notify_engine_release);
 	tw_signal_setup_listener(&backend->events.new_output,
-	                         &engine->new_output, notify_new_output);
+	                         &engine->listeners.new_output,
+	                         notify_new_output);
 	tw_signal_setup_listener(&backend->events.new_input,
-	                         &engine->new_input, notify_new_input);
+	                         &engine->listeners.new_input,
+	                         notify_new_input);
+	tw_signal_setup_listener(&backend->events.start,
+	                         &engine->listeners.backend_started,
+	                         notify_engine_backend_started);
 	//signals
 	wl_signal_init(&engine->events.seat_created);
 	wl_signal_init(&engine->events.seat_remove);

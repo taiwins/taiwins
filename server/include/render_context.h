@@ -75,6 +75,8 @@ struct tw_render_context {
 	struct wl_display *display;
 	struct wl_listener display_destroy;
 
+	struct wl_list outputs;
+
 	struct {
 		struct wl_signal destroy;
 		struct wl_signal dma_set;

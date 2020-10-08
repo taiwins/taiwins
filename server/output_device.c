@@ -27,31 +27,6 @@
 
 #include "output_device.h"
 
-static enum wl_output_transform
-inverse_wl_transform(enum wl_output_transform t)
-{
-	if ((t & WL_OUTPUT_TRANSFORM_90) &&
-	    !(t & WL_OUTPUT_TRANSFORM_FLIPPED)) {
-		t ^= WL_OUTPUT_TRANSFORM_180;
-	}
-	return t;
-}
-
-static void
-output_get_effective_resolution(const struct tw_output_device_state *state,
-                                int *width, int *height)
-{
-	if (state->transform % WL_OUTPUT_TRANSFORM_180 == 0) {
-		*width = state->current_mode.w;
-		*height = state->current_mode.h;
-	} else {
-		*width = state->current_mode.h;
-		*height = state->current_mode.w;
-	}
-	*width /= state->scale;
-	*height /= state->scale;
-}
-
 static void
 output_device_state_init(struct tw_output_device_state *state,
                          struct tw_output_device *device)
@@ -67,7 +42,6 @@ output_device_state_init(struct tw_output_device_state *state,
 
         state->gx = 0;
 	state->gy = 0;
-	tw_mat3_init(&state->view_2d);
 }
 
 void
@@ -100,6 +74,29 @@ tw_output_device_fini(struct tw_output_device *device)
 }
 
 void
+tw_output_device_set_id(struct tw_output_device *device, int id)
+{
+	device->id = id;
+}
+
+void
+tw_output_device_set_pos(struct tw_output_device *device, int gx, int gy)
+{
+	device->pending.gx = gx;
+	device->pending.gy = gy;
+}
+
+void
+tw_output_device_set_custom_mode(struct tw_output_device *device,
+                                 unsigned width, unsigned height, int refresh)
+{
+	device->pending.current_mode.w = width;
+	device->pending.current_mode.h = height;
+	device->pending.current_mode.preferred = false;
+	device->pending.current_mode.refresh = refresh;
+}
+
+void
 tw_output_device_set_scale(struct tw_output_device *device, float scale)
 {
 	if (scale <= 0) {
@@ -119,6 +116,23 @@ tw_output_device_commit_state(struct tw_output_device *device)
 	//emit for sending new backend info.
 	wl_signal_emit(&device->events.info, device);
 }
+
+static void
+output_get_effective_resolution(const struct tw_output_device_state *state,
+                                int *width, int *height)
+{
+	if (state->transform % WL_OUTPUT_TRANSFORM_180 == 0) {
+		*width = state->current_mode.w;
+		*height = state->current_mode.h;
+	} else {
+		*width = state->current_mode.h;
+		*height = state->current_mode.w;
+	}
+	*width /= state->scale;
+	*height /= state->scale;
+}
+
+
 
 pixman_rectangle32_t
 tw_output_device_geometry(const struct tw_output_device *output)
@@ -145,27 +159,9 @@ tw_output_device_loc_to_global(const struct tw_output_device *output,
 }
 
 void
-tw_output_device_state_rebuild_view_mat(struct tw_output_device_state *state)
+tw_output_device_raw_resolution(const struct tw_output_device *device,
+                                unsigned *width, unsigned *height)
 {
-	struct tw_mat3 glproj, tmp;
-	int width, height;
-
-	//the transform should be
-	// T' = glproj * inv_wl_transform * scale * -translate * T
-
-	//effective resolution is going from
-	output_get_effective_resolution(state, &width, &height);
-
-	//output scale and inverse transform.
-	tw_mat3_translate(&state->view_2d, -state->gx, -state->gy);
-	tw_mat3_transform_rect(&tmp, false,
-	                       inverse_wl_transform(state->transform),
-	                       width, height, state->scale);
-	//glproj matrix,
-	tw_mat3_init(&glproj);
-	glproj.d[4] = -1;
-	glproj.d[7] = state->current_mode.h;
-
-	tw_mat3_multiply(&state->view_2d, &tmp, &state->view_2d);
-	tw_mat3_multiply(&state->view_2d, &glproj, &state->view_2d);
+	*width = device->state.current_mode.w;
+	*height = device->state.current_mode.h;
 }

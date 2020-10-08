@@ -44,7 +44,6 @@ struct tw_output_device_state {
 	bool enabled;
 	float scale;
 	int32_t gx, gy; /**< x,y position in global space */
-	struct tw_mat3 view_2d;
 	enum wl_output_subpixel subpixel;
 	enum wl_output_transform transform;
 	/* current mode indicates the actual window size, the effective size
@@ -71,7 +70,7 @@ struct tw_output_device_impl {
 struct tw_output_device {
 	char name[32], make[32], model[32];
 	char serial[16];
-	int32_t phys_width, phys_height;
+	int32_t phys_width, phys_height, id;
 
 	/** a native window for different backend, could be none */
 	/** Do I need to include render_surface here */
@@ -102,8 +101,17 @@ void
 tw_output_device_fini(struct tw_output_device *device);
 
 void
+tw_output_device_set_id(struct tw_output_device *device, int id);
+
+void
 tw_output_device_set_scale(struct tw_output_device *device, float scale);
 
+void
+tw_output_device_set_pos(struct tw_output_device *device, int gx, int gy);
+
+void
+tw_output_device_set_custom_mode(struct tw_output_device *device,
+                                 unsigned width, unsigned height, int refresh);
 void
 tw_output_device_commit_state(struct tw_output_device *device);
 
@@ -111,14 +119,18 @@ pixman_rectangle32_t
 tw_output_device_geometry(const struct tw_output_device *device);
 
 /**
+ * @brief get raw resolution, without scale or transform
+ */
+void
+tw_output_device_raw_resolution(const struct tw_output_device *device,
+                                unsigned *width, unsigned *height);
+
+/**
  * @brief mapping (0...1) in the output to global position
  */
 void
 tw_output_device_loc_to_global(const struct tw_output_device *device,
                                float x, float y, float *gx, float *gy);
-
-void
-tw_output_device_state_rebuild_view_mat(struct tw_output_device_state *state);
 
 #ifdef  __cplusplus
 }

@@ -37,12 +37,12 @@
 #include "internal.h"
 #include "output_device.h"
 #include "render_context.h"
+#include "render_output.h"
 
 static void
-init_output_state(struct tw_engine_output *o)
+init_engine_output_state(struct tw_engine_output *o)
 {
 	pixman_rectangle32_t rect = tw_output_device_geometry(o->device);
-	o->state.dirty = true;
 	//okay, here is what we will need to fix
 	wl_list_init(&o->constrain.link);
 	pixman_region32_init_rect(&o->constrain.region,
@@ -50,23 +50,14 @@ init_output_state(struct tw_engine_output *o)
 
 	wl_list_insert(o->engine->global_cursor.constrains.prev,
 	               &o->constrain.link);
-	for (int i = 0; i < 3; i++)
-		pixman_region32_init(&o->state.damages[i]);
-
-	o->state.repaint_state = TW_REPAINT_DIRTY;
-	o->state.pending_damage = &o->state.damages[0];
-	o->state.curr_damage = &o->state.damages[1];
-	o->state.prev_damage = &o->state.damages[2];
 }
 
 static void
-fini_output_state(struct tw_engine_output *o)
+fini_engine_output_state(struct tw_engine_output *o)
 {
-	o->state.dirty = false;
 	tw_reset_wl_list(&o->constrain.link);
 	pixman_region32_fini(&o->constrain.region);
-	for (int i = 0; i < 3; i++)
-		pixman_region32_fini(&o->state.damages[i]);
+
 }
 
 /******************************************************************************
@@ -84,35 +75,14 @@ notify_output_destroy(struct wl_listener *listener, void *data)
 	output->id = -1;
 	wl_list_remove(&output->link);
 	wl_list_remove(&output->listeners.destroy.link);
-	wl_list_remove(&output->listeners.frame.link);
 	wl_list_remove(&output->listeners.info.link);
 
 	//TODO we should have this
-	//tw_output_destroy(output->tw_output);
+	tw_output_destroy(output->tw_output);
 
-	fini_output_state(output);
+	fini_engine_output_state(output);
 	engine->output_pool &= unset;
 	wl_signal_emit(&engine->events.output_remove, output);
-}
-
-static void
-notify_output_frame(struct wl_listener *listener, void *data)
-{
-	struct tw_engine_output *output =
-		wl_container_of(listener, output, listeners.frame);
-	struct tw_engine *engine = output->engine;
-	struct tw_render_context *ctx = engine->backend->ctx;
-	//TODO Anyway, there is probably no way
-	struct tw_render_surface *surface =
-		tw_backend_get_render_surface(engine->backend, output->device);
-
-	int buffer_age = tw_render_surface_make_current(surface, ctx);
-	tw_logl("current buffer age: %d", buffer_age);
-
-	glClearColor(0.0, 1.0, 1.0, 1.0);
-	glClear(GL_COLOR_BUFFER_BIT);
-	tw_render_surface_commit(surface, ctx);
-
 }
 
 static void
@@ -120,6 +90,7 @@ notify_output_info(struct wl_listener *listener, void *data)
 {
 	struct tw_engine_output *output =
 		wl_container_of(listener, output, listeners.info);
+	//TODO: broadcast to tw_output
 }
 
 static void
@@ -134,9 +105,6 @@ notify_output_new_mode(struct wl_listener *listener, void *data)
 	                          rect.x, rect.y, rect.width, rect.width);
 }
 
-/******************************************************************************
- * internal APIs
- *****************************************************************************/
 struct tw_engine_output *
 tw_engine_pick_output_for_cursor(struct tw_engine *engine)
 {
@@ -176,20 +144,19 @@ tw_engine_new_output(struct tw_engine *engine,
 	output->engine = engine;
 	output->device = device;
 	output->tw_output = tw_output_create(engine->display);
+	tw_output_device_set_id(device, id);
+
 	wl_list_init(&output->link);
 	if (!output->tw_output) {
 		tw_logl_level(TW_LOG_ERRO, "failed to create wl_output");
 		return false;
 	}
 
-	init_output_state(output);
+	init_engine_output_state(output);
 
 	tw_signal_setup_listener(&device->events.info,
 	                         &output->listeners.info,
 	                         notify_output_info);
-	tw_signal_setup_listener(&device->events.new_frame,
-	                         &output->listeners.frame,
-	                         notify_output_frame);
 	tw_signal_setup_listener(&device->events.destroy,
 	                         &output->listeners.destroy,
 	                         notify_output_destroy);

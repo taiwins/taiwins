@@ -34,6 +34,7 @@
 #include "input_device.h"
 #include "output_device.h"
 #include "render_context.h"
+#include "render_output.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -74,13 +75,11 @@ struct tw_x11_backend {
 };
 
 struct tw_x11_output {
-	struct tw_output_device device;
+	struct tw_render_output output;
 	struct tw_x11_backend *x11;
 	struct wl_event_source *frame_timer;
-        unsigned int width, height;
 
 	xcb_window_t win;
-	struct tw_render_presentable render_surface;
 	struct wl_listener info_listener;
 	unsigned int frame_interval;
 
@@ -101,7 +100,7 @@ tw_x11_output_from_id(struct tw_x11_backend *x11, xcb_window_t id)
 {
 	struct tw_x11_output *output;
 
-	wl_list_for_each(output, &x11->base.outputs, device.link) {
+	wl_list_for_each(output, &x11->base.outputs, output.device.link) {
 		if (output->win == id)
 			return output;
 	}

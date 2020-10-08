@@ -198,6 +198,7 @@ notify_context_display_destroy(struct wl_listener *listener, void *display)
 	wl_signal_emit(&ctx->base.events.destroy, &ctx->base);
 
 	tw_egl_fini(&ctx->egl);
+	wl_array_release(&ctx->pixel_formats);
 	wl_list_remove(&ctx->base.display_destroy.link);
 
 	wl_list_for_each_safe(pipeline, tmp, &ctx->base.pipelines, base.link) {
@@ -365,6 +366,7 @@ tw_render_context_create_egl(struct wl_display *display,
 	wl_signal_init(&ctx->base.events.compositor_set);
 	wl_signal_init(&ctx->base.events.wl_surface_dirty);
 	wl_signal_init(&ctx->base.events.wl_surface_destroy);
+	wl_list_init(&ctx->base.outputs);
 
 	tw_set_display_destroy_listener(display, &ctx->base.display_destroy,
 	                                notify_context_display_destroy);

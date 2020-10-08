@@ -25,6 +25,7 @@
 #include "engine.h"
 #include "input_device.h"
 #include "output_device.h"
+#include "render_context.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -46,9 +47,11 @@ tw_engine_seat_release(struct tw_engine_seat *seat);
 struct tw_surface *
 tw_engine_pick_surface_from_layers(struct tw_engine *backend,
                                    float x, float y, float *sx,  float *sy);
-
 struct tw_engine_output *
 tw_engine_pick_output_for_cursor(struct tw_engine *engine);
+
+void
+tw_engine_set_render(struct tw_engine *engine, struct tw_render_context *ctx);
 
 #ifdef  __cplusplus
 }

@@ -24,6 +24,7 @@
 #include <linux/input.h>
 
 #include "internal.h"
+#include "output_device.h"
 
 static void
 handle_x11_key_event(struct tw_input_device *keyboard,
@@ -100,18 +101,19 @@ handle_x11_motion(struct tw_x11_backend *x11, xcb_ge_generic_event_t *ge)
 	xcb_input_motion_event_t *ev = (xcb_input_motion_event_t *)ge;
 	struct tw_x11_output *output = tw_x11_output_from_id(x11, ev->event);
 	struct tw_event_pointer_motion_abs motion = {0};
-	float width, height;
+	unsigned width, height;
 	struct tw_input_source *emitter;
 
 	if (!output) return;
 
-	width = (output->device.state.current_mode.w);
-	height = (output->device.state.current_mode.h);
+	tw_output_device_raw_resolution(&output->output.device,
+	                                &width, &height);
+
 	emitter = output->pointer.emitter;
 
 	motion.time_msec = ev->time;
-	motion.x = (double)(ev->event_x >> 16) / width;
-	motion.y = (double)(ev->event_y >> 16) / height;
+	motion.x = (double)(ev->event_x >> 16) / (float)width;
+	motion.y = (double)(ev->event_y >> 16) / (float)height;
 	if (emitter)
 		wl_signal_emit(&emitter->pointer.motion_absolute, &motion);
 }

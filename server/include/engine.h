@@ -66,29 +66,12 @@ struct tw_engine_output {
 
 	int id, cloning;
 	struct wl_list link; /* tw_engine:heads */
-	struct wl_list views; /** tw_surface->output_link */
 	char name[24];
 
 	struct tw_cursor_constrain constrain;
 
 	struct {
-		bool dirty;
-		/**< we have 3 frame_damages for triple buffering */
-		pixman_region32_t damages[3];
-		pixman_region32_t *pending_damage, *curr_damage, *prev_damage;
-
-		/** the repaint status, the output repaint is driven by timer,
-		 * in the future we may be able to drive it by idle event */
-		enum {
-			TW_REPAINT_CLEAN = 0, /**< no need to repaint */
-			TW_REPAINT_DIRTY, /**< repaint required */
-			TW_REPAINT_NOT_FINISHED /**< still in repaint */
-		} repaint_state;
-	} state;
-
-	struct {
 		struct wl_listener info;
-		struct wl_listener frame;
 		struct wl_listener set_mode;
 		struct wl_listener destroy;
 	} listeners;
@@ -139,7 +122,6 @@ struct tw_engine {
 	//only way we can avoid include this many managers is using global
 	//objects
 
-	struct tw_surface_manager surface_manager;
 	struct tw_layers_manager layers_manager;
 	struct tw_compositor compositor_manager;
 	struct tw_data_device_manager data_device_manager;
@@ -148,10 +130,14 @@ struct tw_engine {
 	struct tw_viewporter viewporter;
 
 	/* listeners */
-	struct wl_listener display_destroy;
-	struct wl_listener new_output;
-	struct wl_listener new_input;
+	struct {
+		struct wl_listener display_destroy;
+		struct wl_listener new_output;
+		struct wl_listener new_input;
+		struct wl_listener backend_started;
 
+		struct wl_listener surface_dirty;
+	} listeners;
         /* signals */
 	struct {
 		struct wl_signal output_created;

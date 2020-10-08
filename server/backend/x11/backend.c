@@ -64,7 +64,8 @@ handle_new_x11_frame(void *data)
 {
 	struct tw_x11_output *output = data;
 
-	wl_signal_emit(&output->device.events.new_frame, &output->device);
+	wl_signal_emit(&output->output.device.events.new_frame,
+	               &output->output.device);
 }
 
 static void
@@ -106,8 +107,8 @@ x11_handle_events(int fd, uint32_t mask, void *data)
 				tw_x11_output_from_id(x11, ev->window);
 
 			if (output)
-				handle_x11_configure_notify(&output->device,
-				                            ev);
+				handle_x11_configure_notify(
+					&output->output.device, ev);
 			break;
 		}
 		case XCB_CLIENT_MESSAGE: {
@@ -172,29 +173,16 @@ x11_start_backend(struct tw_backend *backend,
 	struct tw_x11_output *output;
 	struct tw_x11_backend *x11 = wl_container_of(backend, x11, base);
 
-	wl_list_for_each(output, &x11->base.outputs, device.link)
+	wl_list_for_each(output, &x11->base.outputs, output.device.link)
 		tw_x11_output_start(output);
 	wl_signal_emit(&x11->base.events.new_input, &x11->keyboard);
 
 	return true;
 }
 
-static struct tw_render_presentable *
-x11_render_surface_from_output(struct tw_backend *backend,
-                               struct tw_output_device *device)
-{
-	struct tw_x11_output *output = wl_container_of(device, output, device);
-	struct tw_x11_backend *x11 = wl_container_of(backend, x11, base);
-
-	assert(x11 == output->x11);
-
-	return &output->render_surface;
-}
-
 static const struct tw_backend_impl x11_impl = {
 	.start = x11_start_backend,
 	.gen_egl_params = x11_gen_egl_params,
-	.get_render_surface = x11_render_surface_from_output,
 };
 
 /******************************************************************************
@@ -317,7 +305,8 @@ x11_backend_stop(struct tw_x11_backend *x11)
 		return;
 
         wl_signal_emit(&x11->base.events.stop, &x11->base);
-        wl_list_for_each_safe(output, tmp, &x11->base.outputs, device.link)
+        wl_list_for_each_safe(output, tmp, &x11->base.outputs,
+                              output.device.link)
 		tw_x11_remove_output(output);
 	wl_list_remove(&x11->base.render_context_destroy.link);
 	x11->base.ctx = NULL;
