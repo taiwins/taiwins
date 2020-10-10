@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <pixman.h>
 
@@ -90,7 +91,24 @@ notify_output_info(struct wl_listener *listener, void *data)
 {
 	struct tw_engine_output *output =
 		wl_container_of(listener, output, listeners.info);
-	//TODO: broadcast to tw_output
+	tw_output_set_name(output->tw_output, output->device->name);
+	tw_output_set_scale(output->tw_output, output->device->state.scale);
+	tw_output_set_coord(output->tw_output, output->device->state.gx,
+	                    output->device->state.gy);
+	tw_output_set_mode(output->tw_output, WL_OUTPUT_MODE_CURRENT |
+	                   ((output->device->state.current_mode.preferred) ?
+	                    WL_OUTPUT_MODE_PREFERRED : 0),
+	                   output->device->state.current_mode.w,
+	                   output->device->state.current_mode.h,
+	                   output->device->state.current_mode.refresh);
+	tw_output_set_geometry(output->tw_output,
+	                       output->device->phys_width,
+	                       output->device->phys_height,
+	                       output->device->make,
+	                       output->device->model,
+	                       output->device->state.subpixel,
+	                       output->device->state.transform);
+	tw_output_send_clients(output->tw_output);
 }
 
 static void

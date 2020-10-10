@@ -30,13 +30,13 @@
 #include <taiwins/objects/dmabuf.h>
 #include <taiwins/objects/compositor.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/objects/layers.h>
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
 struct tw_egl_options;
-struct tw_render_pipeline;
 struct tw_render_context;
 struct tw_render_surface;
 struct tw_render_presentable;
@@ -45,6 +45,44 @@ struct tw_render_texture;
 enum tw_renderer_type {
 	TW_RENDERER_EGL,
 	TW_RENDERER_VK,
+};
+
+struct tw_render_presentable {
+	intptr_t handle;
+	void (*destroy)(struct tw_render_presentable *surface,
+	                struct tw_render_context *ctx);
+};
+
+struct tw_render_texture {
+	uint32_t width, height;
+	int fmt;
+	bool has_alpha, inverted_y;
+	enum wl_shm_format wl_format;
+
+	void (*destroy)(struct tw_render_texture *tex,
+	                struct tw_render_context *ctx);
+};
+
+/**
+ * @brief render data for wl_surface, created
+ */
+struct tw_render_wl_surface {
+	struct tw_render_context *ctx;
+	struct tw_surface *surface;
+	pixman_region32_t clip;
+
+#ifdef TW_OVERLAY_PLANE
+	pixman_region32_t output_damage[32];
+#endif
+	/** used if surface is on layers */
+	struct wl_list layer_link;
+
+	struct {
+		struct wl_listener destroy;
+		struct wl_listener commit;
+		struct wl_listener frame;
+		struct wl_listener dirty;
+	} listeners;
 };
 
 struct tw_render_context_impl {
@@ -89,54 +127,6 @@ struct tw_render_context {
 	struct wl_list pipelines;
 };
 
-/* pipeline represents a collection of framebuffer shaders */
-struct tw_render_pipeline {
-	const char *name;
-	struct tw_render_context *ctx;
-	struct wl_list link;
-
-};
-
-/* a render surface for backend to work with */
-//TODO: rename it tw_render_presentable, and it should have a present
-struct tw_render_presentable {
-	intptr_t handle;
-	void (*destroy)(struct tw_render_presentable *surface,
-	                struct tw_render_context *ctx);
-};
-
-struct tw_render_texture {
-	uint32_t width, height;
-	int fmt;
-	bool has_alpha, inverted_y;
-	enum wl_shm_format wl_format;
-
-	void (*destroy)(struct tw_render_texture *tex,
-	                struct tw_render_context *ctx);
-};
-
-/**
- * @brief render data for wl_surface, created
- */
-struct tw_render_wl_surface {
-	struct tw_render_context *ctx;
-	struct tw_surface *surface;
-	pixman_region32_t clip;
-
-#ifdef TW_OVERLAY_PLANE
-	pixman_region32_t output_damage[32];
-#endif
-	/** used if surface is on layers */
-	struct wl_list layer_link;
-
-	struct {
-		struct wl_listener destroy;
-		struct wl_listener commit;
-		struct wl_listener frame;
-		struct wl_listener dirty;
-	} listeners;
-};
-
 struct tw_render_context *
 tw_render_context_create_egl(struct wl_display *display,
                              const struct tw_egl_options *opts);
@@ -154,6 +144,10 @@ tw_render_context_set_dma(struct tw_render_context *ctx,
 void
 tw_render_context_set_compositor(struct tw_render_context *ctx,
                                  struct tw_compositor *compositor);
+void
+tw_render_context_build_view_list(struct tw_render_context *ctx,
+                                  struct tw_layers_manager *manager);
+
 static inline bool
 tw_render_presentable_init_offscreen(struct tw_render_presentable *surface,
                                      struct tw_render_context *ctx,

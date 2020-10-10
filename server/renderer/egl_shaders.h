@@ -30,7 +30,7 @@
 extern "C" {
 #endif
 
-struct tw_quad_color_shader {
+struct tw_egl_quad_color_shader {
 	GLuint prog;
 	struct {
 		GLint proj;
@@ -39,7 +39,7 @@ struct tw_quad_color_shader {
 	} uniform;
 };
 
-struct tw_quad_tex_shader {
+struct tw_egl_quad_tex_shader {
 	GLuint prog;
 	/* used by normal alpha blending and gaussin blur shader */
 	struct {
@@ -50,31 +50,31 @@ struct tw_quad_tex_shader {
 };
 
 GLuint
-tw_renderer_create_program(const GLchar *vs_src, const GLchar *fs_src);
+tw_egl_shader_create_program(const GLchar *vs_src, const GLchar *fs_src);
 
 void
-tw_quad_color_shader_init(struct tw_quad_color_shader *shader);
+tw_egl_quad_color_shader_init(struct tw_egl_quad_color_shader *shader);
 
 void
-tw_quad_color_shader_fini(struct tw_quad_color_shader *shader);
+tw_egl_quad_color_shader_fini(struct tw_egl_quad_color_shader *shader);
 
 void
-tw_quad_tex_blend_shader_init(struct tw_quad_tex_shader *shader);
+tw_egl_quad_tex_blend_shader_init(struct tw_egl_quad_tex_shader *shader);
 
 void
-tw_quad_tex_blend_shader_fini(struct tw_quad_tex_shader *shader);
+tw_egl_quad_tex_blend_shader_fini(struct tw_egl_quad_tex_shader *shader);
 
 void
-tw_quad_tex_ext_blend_shader_init(struct tw_quad_tex_shader *shader);
+tw_egl_quad_tex_ext_blend_shader_init(struct tw_egl_quad_tex_shader *shader);
 
 void
-tw_quad_tex_ext_blend_shader_fini(struct tw_quad_tex_shader *shader);
+tw_egl_quad_tex_ext_blend_shader_fini(struct tw_egl_quad_tex_shader *shader);
 
 void
-tw_quad_tex_blur_shader_init(struct tw_quad_tex_shader *shader);
+tw_egl_quad_tex_blur_shader_init(struct tw_egl_quad_tex_shader *shader);
 
 void
-tw_quad_tex_blur_shader_fini(struct tw_quad_tex_shader *shader);
+tw_egl_quad_tex_blur_shader_fini(struct tw_egl_quad_tex_shader *shader);
 
 #ifdef  __cplusplus
 }

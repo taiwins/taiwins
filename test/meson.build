@@ -57,10 +57,12 @@ headless_test = executable(
 )
 test('test_headless', headless_test)
 
-x11_test = executable(
-  'tw-test-x11',
-  'x11-test.c',
-  c_args : ['-D_GNU_SOURCE', '-DWLR_USE_UNSTABLE'],
-  dependencies : dep_taiwins_lib,
-)
-test('test_x11', x11_test)
+if get_option('x11-backend').enabled()
+  x11_test = executable(
+    'tw-test-x11',
+    'x11-test.c',
+    c_args : ['-D_GNU_SOURCE', '-DWLR_USE_UNSTABLE'],
+    dependencies : dep_taiwins_lib,
+  )
+  test('test_x11', x11_test)
+endif

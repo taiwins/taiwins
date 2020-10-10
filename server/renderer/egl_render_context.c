@@ -38,7 +38,7 @@
 #include <taiwins/objects/surface.h>
 
 #include "egl_render_context.h"
-
+#include "render_pipeline.h"
 
 /******************************************************************************
  * render_context implementation
@@ -193,7 +193,7 @@ notify_context_display_destroy(struct wl_listener *listener, void *display)
 	struct tw_egl_render_context *ctx =
 		wl_container_of(listener, ctx, base.display_destroy);
 
-	struct tw_egl_pipeline *pipeline, *tmp;
+	struct tw_render_pipeline *pipeline, *tmp;
 
 	wl_signal_emit(&ctx->base.events.destroy, &ctx->base);
 
@@ -201,10 +201,8 @@ notify_context_display_destroy(struct wl_listener *listener, void *display)
 	wl_array_release(&ctx->pixel_formats);
 	wl_list_remove(&ctx->base.display_destroy.link);
 
-	wl_list_for_each_safe(pipeline, tmp, &ctx->base.pipelines, base.link) {
-		//tw_egl_pipeline_destroy(pipeline);
-	}
-
+	wl_list_for_each_safe(pipeline, tmp, &ctx->base.pipelines, link)
+		tw_render_pipeline_destroy(pipeline);
 
 	free(ctx);
 }
@@ -224,6 +222,7 @@ add_wl_shm_format(struct tw_egl_render_context *ctx,
 	f = wl_array_add(&ctx->pixel_formats, sizeof(format));
 	if (f) {
 		*f = format;
+		wl_display_add_shm_format(ctx->base.display, format);
 		return true;
 	}
 	return false;
@@ -232,6 +231,7 @@ add_wl_shm_format(struct tw_egl_render_context *ctx,
 static void
 init_context_formats(struct tw_egl_render_context *ctx)
 {
+	wl_display_init_shm(ctx->base.display);
 	wl_array_init(&ctx->pixel_formats);
 	add_wl_shm_format(ctx, WL_SHM_FORMAT_ABGR8888);
 	add_wl_shm_format(ctx, WL_SHM_FORMAT_XBGR8888);
@@ -355,7 +355,6 @@ tw_render_context_create_egl(struct wl_display *display,
 
 	if (!init_gles_externsions(ctx))
 		goto err_init_egl;
-	init_context_formats(ctx);
 
 	ctx->base.type = TW_RENDERER_EGL;
 	ctx->base.display = display;
@@ -367,6 +366,7 @@ tw_render_context_create_egl(struct wl_display *display,
 	wl_signal_init(&ctx->base.events.wl_surface_dirty);
 	wl_signal_init(&ctx->base.events.wl_surface_destroy);
 	wl_list_init(&ctx->base.outputs);
+	init_context_formats(ctx);
 
 	tw_set_display_destroy_listener(display, &ctx->base.display_destroy,
 	                                notify_context_display_destroy);

@@ -91,7 +91,7 @@ headless_output_start(struct tw_render_output *output,
 	uint32_t width, height;
 
 	//this will give us good resolution
-	output->ctx = headless->base.ctx;
+	tw_render_output_set_context(output, headless->base.ctx);
 	tw_output_device_commit_state(&output->device);
 
 	tw_output_device_raw_resolution(&output->device, &width, &height);

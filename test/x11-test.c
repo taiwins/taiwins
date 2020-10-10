@@ -4,11 +4,17 @@
 #include <wayland-server-core.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/egl.h>
+#include <wayland-util.h>
 
 #include "backend/backend.h"
 #include "backend/x11.h"
 #include "render_context.h"
+#include "render_pipeline.h"
 #include "engine.h"
+
+struct tw_render_pipeline *
+tw_egl_render_pipeline_create_default(struct tw_render_context *ctx,
+                                      struct tw_layers_manager *manager);
 
 static int
 tw_term_on_signal(int sig_num, void *data)
@@ -42,6 +48,8 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	loop = wl_display_get_event_loop(display);
 
+	wl_display_add_socket_auto(display);
+
 	struct wl_event_source *sigint =
 		wl_event_loop_add_signal(loop, SIGINT,
 		                         tw_term_on_signal, display);
@@ -66,6 +74,10 @@ int main(int argc, char *argv[])
 		tw_engine_create_global(display, backend);
 	if (!engine)
 		goto err;
+	struct tw_render_pipeline *pipeline =
+		tw_egl_render_pipeline_create_default(ctx,
+		                                      &engine->layers_manager);
+	wl_list_insert(ctx->pipelines.prev, &pipeline->link);
 
 	tw_backend_start(backend, ctx);
 

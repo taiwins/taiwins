@@ -36,6 +36,7 @@
 #include "internal.h"
 #include "output_device.h"
 #include "render_context.h"
+#include "render_output.h"
 #include "taiwins/objects/logger.h"
 
 #define DEFAULT_REFRESH (60 * 1000) /* 60Hz */
@@ -120,7 +121,7 @@ tw_x11_output_start(struct tw_x11_output *output)
 	};
 
 	//this step is a must
-	output->output.ctx = x11->base.ctx;
+	tw_render_output_set_context(&output->output, x11->base.ctx);
 	tw_output_device_commit_state(&output->output.device);
 	tw_output_device_raw_resolution(&output->output.device,
 	                                &width, &height);

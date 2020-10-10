@@ -38,7 +38,7 @@ struct tw_render_output {
 	struct tw_output_device device;
 	struct tw_render_presentable surface;
 
-	struct wl_list link; /**< ctx->otuputs */
+	struct wl_list link; /**< ctx->output */
 	struct wl_list views;
 	/* important to set it for surface to be renderable */
 	struct tw_render_context *ctx;

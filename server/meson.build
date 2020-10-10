@@ -22,7 +22,6 @@ pkgconfig = import('pkgconfig')
 taiwins_lib_src = [
   'bindings.c',
   'renderer/renderer.c',
-  'renderer/shaders.c',
   'renderer/layer_renderer.c',
   'shell/shell.c',
   'shell/shell_layer.c',
@@ -57,8 +56,11 @@ taiwins_lib_src = [
 
   'renderer/render_context.c',
   'renderer/render_output.c',
+  'renderer/render_pipeline.c',
   'renderer/egl_render_context.c',
   'renderer/egl_texture.c',
+  'renderer/egl_shaders.c',
+  'renderer/egl_simple_pipeline.c',
 
   'engine/engine.c',
   'engine/seat.c',

@@ -52,15 +52,7 @@ struct tw_egl_render_context {
 		PFNGLPOPDEBUGGROUPKHRPROC glPopDebugGroupKHR;
 		PFNGLPUSHDEBUGGROUPKHRPROC glPushDebugGroupKHR;
 	} funcs;
-
 };
-
-//well you need to expose this pipeline though, otherwise how would you have
-//instance work with it?
-struct tw_egl_pipeline {
-	struct tw_render_pipeline base;
-};
-
 
 struct tw_egl_render_texture {
 	struct tw_render_texture base;

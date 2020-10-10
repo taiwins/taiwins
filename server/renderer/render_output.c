@@ -32,6 +32,7 @@
 #include "render_context.h"
 #include "render_output.h"
 #include "output_device.h"
+#include "render_pipeline.h"
 
 static enum wl_output_transform
 inverse_wl_transform(enum wl_output_transform t)
@@ -179,14 +180,19 @@ notify_output_frame(struct wl_listener *listener, void *data)
 		wl_container_of(listener, output, listeners.frame);
 	struct tw_render_presentable *presentable = &output->surface;
 	struct tw_render_context *ctx = output->ctx;
+	struct tw_render_pipeline *pipeline;
+	int buffer_age;
 
 	assert(ctx);
 
-	int buffer_age = tw_render_presentable_make_current(presentable, ctx);
-	tw_logl("current buffer age: %d", buffer_age);
+	buffer_age = tw_render_presentable_make_current(presentable, ctx);
+	buffer_age = buffer_age > 2 ? 2 : buffer_age;
 
-	glClearColor(0.0, 1.0, 1.0, 1.0);
-	glClear(GL_COLOR_BUFFER_BIT);
+	wl_list_for_each(pipeline, &ctx->pipelines, link)
+		tw_render_pipeline_repaint(pipeline, output, buffer_age);
+
+	/* glClearColor(0.0, 1.0, 1.0, 1.0); */
+	/* glClear(GL_COLOR_BUFFER_BIT); */
 	tw_render_presentable_commit(presentable, ctx);
 }
 

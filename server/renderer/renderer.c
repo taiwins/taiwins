@@ -38,7 +38,7 @@
 #include <taiwins/objects/dmabuf.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/surface.h>
-#include "shaders.h"
+#include "egl_shaders.h"
 #include "renderer.h"
 
 static const EGLint gles3_config_attribs[] = {
