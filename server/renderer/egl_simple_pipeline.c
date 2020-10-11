@@ -420,6 +420,7 @@ pipeline_destroy(struct tw_render_pipeline *base)
 	struct tw_egl_layer_render_pipeline *pipeline =
 		wl_container_of(base, pipeline, base);
 
+	tw_plane_fini(&pipeline->main_plane);
 	tw_render_pipeline_fini(base);
 
 	tw_egl_quad_color_shader_fini(&pipeline->color_quad_shader);
