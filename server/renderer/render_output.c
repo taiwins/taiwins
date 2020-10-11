@@ -77,16 +77,10 @@ update_surface_mask(struct tw_surface *surface,
                     struct tw_render_output *major, uint32_t mask)
 {
 	struct tw_render_output *output;
-	struct wl_resource *res;
 	uint32_t output_bit;
 	uint32_t different = surface->output_mask ^ mask;
 	uint32_t entered = mask & different;
 	uint32_t left = surface->output_mask & different;
-	struct wl_client *client = wl_resource_get_client(surface->resource);
-	(void)entered;
-	(void)left;
-	(void)client;
-	(void)res;
 
 	assert(major->ctx);
 
@@ -98,18 +92,12 @@ update_surface_mask(struct tw_surface *surface,
 		output_bit = 1u << output->device.id;
 		if (!(output_bit & different))
 			continue;
-		//TODO:
-		// wl_resource_for_each(res, &output->wlr_output->resources) {
-		//	if (client != wl_resource_get_client(res))
-		//		continue;
-		//	if ((output_bit & entered))
-		//		wl_surface_send_enter(surface->resource, res);
-		//	if ((output_bit & left))
-		//		wl_surface_send_leave(surface->resource, res);
-		// }
+		if ((output_bit & entered))
+			wl_signal_emit(&output->events.surface_enter, surface);
+		if ((output_bit & left))
+			wl_signal_emit(&output->events.surface_leave, surface);
 	}
 }
-
 
 static void
 reassign_surface_outputs(struct tw_surface *surface,
@@ -261,6 +249,9 @@ tw_render_output_init(struct tw_render_output *output,
 	wl_list_init(&output->link);
 	wl_list_init(&output->listeners.surface_dirty.link);
 
+	wl_signal_init(&output->events.surface_enter);
+	wl_signal_init(&output->events.surface_leave);
+
 	tw_signal_setup_listener(&output->device.events.new_frame,
 	                         &output->listeners.frame,
 	                         notify_output_frame);
@@ -309,7 +300,6 @@ tw_render_output_rebuild_view_mat(struct tw_render_output *output)
 	                 &output->state.view_2d);
 	tw_mat3_multiply(&output->state.view_2d, &glproj,
 	                 &output->state.view_2d);
-
 }
 
 void

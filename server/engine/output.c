@@ -23,15 +23,14 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <time.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <pixman.h>
 
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/output.h>
 #include <taiwins/objects/utils.h>
+#include <taiwins/objects/surface.h>
 
-#include "backend/backend.h"
 #include "engine.h"
 #include "internal.h"
 #include "output_device.h"
@@ -42,7 +41,7 @@ static void
 init_engine_output_state(struct tw_engine_output *o)
 {
 	pixman_rectangle32_t rect = tw_output_device_geometry(o->device);
-	//okay, here is what we will need to fix
+
 	wl_list_init(&o->constrain.link);
 	pixman_region32_init_rect(&o->constrain.region,
 	                          rect.x, rect.y, rect.width, rect.height);
@@ -87,8 +86,11 @@ notify_output_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&output->link);
 	wl_list_remove(&output->listeners.destroy.link);
 	wl_list_remove(&output->listeners.info.link);
+	wl_list_remove(&output->listeners.present.link);
+	wl_list_remove(&output->listeners.set_mode.link);
+	wl_list_remove(&output->listeners.surface_enter.link);
+	wl_list_remove(&output->listeners.surface_leave.link);
 
-	//TODO we should have this
 	tw_output_destroy(output->tw_output);
 
 	fini_engine_output_state(output);
@@ -142,8 +144,7 @@ notify_output_present(struct wl_listener *listener, void *data)
 		wl_container_of(listener, output, listeners.present);
 	struct tw_engine *engine = output->engine;
 
-	//TODO
-
+	//TODO: add lantency?
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	wl_list_for_each_safe(feedback, tmp, &engine->presentation.feedbacks,
 	                      link) {
@@ -152,6 +153,32 @@ notify_output_present(struct wl_listener *listener, void *data)
 		struct wl_resource *wl_output =
 			engine_output_get_wl_output(output, wl_surface);
 		tw_presentation_feeback_sync(feedback, wl_output, &now);
+	}
+}
+
+static void
+notify_output_surface_enter(struct wl_listener *listener, void *data)
+{
+	struct wl_resource *wl_output;
+	struct tw_surface *surface = data;
+	struct tw_engine_output *output =
+		wl_container_of(listener, output, listeners.surface_enter);
+	wl_resource_for_each(wl_output, &output->tw_output->resources) {
+		if (tw_match_wl_resource_client(wl_output, surface->resource))
+			wl_surface_send_enter(surface->resource, wl_output);
+	}
+}
+
+static void
+notify_output_surface_leave(struct wl_listener *listener, void *data)
+{
+	struct wl_resource *wl_output;
+	struct tw_surface *surface = data;
+	struct tw_engine_output *output =
+		wl_container_of(listener, output, listeners.surface_leave);
+	wl_resource_for_each(wl_output, &output->tw_output->resources) {
+		if (tw_match_wl_resource_client(wl_output, surface->resource))
+			wl_surface_send_leave(surface->resource, wl_output);
 	}
 }
 
@@ -164,6 +191,8 @@ tw_engine_new_output(struct tw_engine *engine,
                      struct tw_output_device *device)
 {
 	struct tw_engine_output *output;
+	struct tw_render_output *render_output =
+		wl_container_of(device, render_output, device);
 	uint32_t id = ffs(~engine->output_pool)-1;
 
 	if (ffs(!engine->output_pool) <= 0)
@@ -196,6 +225,12 @@ tw_engine_new_output(struct tw_engine *engine,
 	tw_signal_setup_listener(&device->events.present,
 	                         &output->listeners.present,
 	                         notify_output_present);
+	tw_signal_setup_listener(&render_output->events.surface_enter,
+	                         &output->listeners.surface_enter,
+	                         notify_output_surface_enter);
+	tw_signal_setup_listener(&render_output->events.surface_leave,
+	                         &output->listeners.surface_leave,
+	                         notify_output_surface_leave);
         engine->output_pool |= 1 << id;
         wl_list_init(&output->link);
         wl_list_insert(&engine->heads, &output->link);

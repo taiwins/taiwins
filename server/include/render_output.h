@@ -66,6 +66,11 @@ struct tw_render_output {
 		struct wl_listener destroy;
 		struct wl_listener surface_dirty;
 	} listeners;
+
+	struct {
+		struct wl_signal surface_enter;
+		struct wl_signal surface_leave;
+	} events;
 };
 
 void

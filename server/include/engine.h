@@ -75,6 +75,8 @@ struct tw_engine_output {
 		struct wl_listener set_mode;
 		struct wl_listener destroy;
 		struct wl_listener present;
+		struct wl_listener surface_enter;
+		struct wl_listener surface_leave;
 	} listeners;
 };
 
