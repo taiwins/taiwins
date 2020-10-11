@@ -648,7 +648,6 @@ prepare_egl_dmabuf_attributes(EGLint eglattrs[50],
 			eglattrs[atti++] = attr_names[i].mod_lo;
 			eglattrs[atti++] = attrs->modifier & 0xFFFFFFFF;
 			eglattrs[atti++] = attr_names[i].mod_hi;
-			eglattrs[atti++] = attr_names[i].mod_hi;
 			eglattrs[atti++] = attrs->modifier >> 32;
 		}
 	}
