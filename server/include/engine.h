@@ -137,12 +137,12 @@ struct tw_engine {
 		struct wl_listener new_output;
 		struct wl_listener new_input;
 		struct wl_listener backend_started;
-
 		struct wl_listener surface_dirty;
 	} listeners;
         /* signals */
 	struct {
 		struct wl_signal output_created;
+		struct wl_signal output_resized;
 		struct wl_signal output_remove;
 		struct wl_signal seat_created;
 		struct wl_signal seat_remove;

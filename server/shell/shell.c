@@ -24,7 +24,6 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <wayland-taiwins-shell-server-protocol.h>
 #include <pixman.h>
@@ -38,9 +37,9 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
 #include <wayland-util.h>
-#include "backend.h"
 
-#include "shell.h"
+#include "engine.h"
+#include "output_device.h"
 #include "shell_internal.h"
 
 #define TW_SHELL_UI_ROLE "taiwins shell_ui role"
@@ -109,8 +108,8 @@ shell_ui_unset_role(struct tw_shell_ui *ui)
 }
 
 struct tw_shell_output *
-shell_output_from_backend_output(struct tw_shell *shell,
-                                 struct tw_backend_output *output)
+shell_output_from_engine_output(struct tw_shell *shell,
+                                struct tw_engine_output *output)
 {
 	struct tw_shell_output *shell_output;
 	wl_list_for_each(shell_output, &shell->heads, link)
@@ -126,10 +125,10 @@ static void
 shell_change_desktop_area(void *data)
 {
 	struct tw_shell_output *shell_output = data;
-	struct tw_backend_output *backend_output = shell_output->output;
+	struct tw_engine_output *output = shell_output->output;
 	struct tw_shell *shell = shell_output->shell;
 
-	wl_signal_emit(&shell->desktop_area_signal, backend_output);
+	wl_signal_emit(&shell->desktop_area_signal, output);
 }
 
 static void
@@ -147,15 +146,18 @@ commit_panel(struct tw_surface *surface)
 	struct tw_shell *shell = ui->shell;
 	struct tw_shell_output *output = ui->output;
 	pixman_rectangle32_t *geo = &surface->geometry.xywh;
+	pixman_rectangle32_t output_geo =
+		tw_output_device_geometry(output->output->device);
+
 	//TODO: in the future, we can use ui_configure instead of
-	//output_configure for the size. For now we are expecting the surface to
-	//hornor size.
-	assert(geo->width == (unsigned)output->output->state.w);
-	ui->x = output->output->state.x;
-	ui->y = output->output->state.y;
+	//output_configure for the size. For now we expect surfaces to hornor
+	//size.
+	assert(geo->width == output_geo.width);
+	ui->x = output_geo.x;
+	ui->y = output_geo.y;
 
 	if (shell->panel_pos == TAIWINS_SHELL_PANEL_POS_BOTTOM)
-		ui->y += (output->output->state.h - geo->height);
+		ui->y += (output_geo.height - geo->height);
 
 	tw_surface_set_position(surface, ui->x, ui->y);
 
@@ -170,10 +172,14 @@ commit_fullscreen(struct tw_surface *surface)
 	struct tw_shell_ui *ui = surface->role.commit_private;
 	struct tw_shell_output *output = ui->output;
 	pixman_rectangle32_t *geo = &surface->geometry.xywh;
-	ui->x = output->output->state.x;
-	ui->y = output->output->state.y;
-	assert(geo->width == (unsigned)output->output->state.w);
-	assert(geo->height == (unsigned)output->output->state.h);
+	pixman_rectangle32_t output_geo =
+		tw_output_device_geometry(output->output->device);
+
+	ui->x = output_geo.x;
+	ui->y = output_geo.y;
+
+	assert(geo->width == output_geo.width);
+	assert(geo->height == output_geo.height);
 	tw_surface_set_position(surface, ui->x, ui->y);
 }
 
@@ -340,9 +346,11 @@ launch_shell_widget(struct wl_client *client,
 	struct tw_shell_output *output = &shell->tw_outputs[idx];
 	struct tw_seat *seat = tw_seat_from_resource(wl_seat);
 	struct tw_keyboard *keyboard = &seat->keyboard;
+	pixman_rectangle32_t output_geo =
+		tw_output_device_geometry(output->output->device);
 
-	x += output->output->state.x;
-	y += output->output->state.y;
+	x += output_geo.x;
+	y += output_geo.y;
 	create_ui_element(client, shell, &shell->widget, tw_ui,
 	                  wl_surface, output,
 	                  x, y, TAIWINS_UI_TYPE_WIDGET);
@@ -424,14 +432,6 @@ launch_shell_client(void *data)
 	                          &shell->gid);
 }
 
-
-static inline struct tw_shell_output *
-shell_output_from_tw_backend_output(struct tw_shell *shell,
-                                    struct tw_backend_output *output)
-{
-	return &shell->tw_outputs[output->id];
-}
-
 static inline void
 shell_send_panel_pos(struct tw_shell *shell)
 {
@@ -443,23 +443,33 @@ shell_send_panel_pos(struct tw_shell *shell)
 }
 
 static void
-shell_send_default_config(struct tw_shell *shell)
+shell_send_output_config(struct tw_shell *shell,
+                         struct tw_engine_output *output,
+                         enum taiwins_shell_output_msg msg)
 {
-	struct tw_backend_output *output;
-	struct tw_backend *backend = shell->backend;
-	enum taiwins_shell_output_msg connected =
-		TAIWINS_SHELL_OUTPUT_MSG_CONNECTED;
+	pixman_rectangle32_t geo = tw_output_device_geometry(output->device);
+	int scale = output->device->state.scale;
 
-	wl_list_for_each(output, &backend->heads, link) {
-		if (output->cloning >= 0 || !output->state.activate)
-			continue;
+	if (shell->shell_resource)
 		taiwins_shell_send_output_configure(shell->shell_resource,
 		                                    output->id,
-		                                    output->state.w,
-		                                    output->state.h,
-		                                    output->state.scale,
-		                                    output->id == 0,
-		                                    connected);
+		                                    geo.width, geo.height,
+		                                    scale, output->id == 0,
+		                                    msg);
+}
+
+
+static void
+shell_send_default_config(struct tw_shell *shell)
+{
+	struct tw_engine_output *output;
+	struct tw_engine *engine = shell->engine;
+
+	wl_list_for_each(output, &engine->heads, link) {
+		if (output->cloning >= 0)
+			continue;
+		shell_send_output_config(shell, output,
+		                         TAIWINS_SHELL_OUTPUT_MSG_CONNECTED);
 	}
 	shell_send_panel_pos(shell);
 }
@@ -519,7 +529,7 @@ bind_shell(struct wl_client *client, void *data,
 void
 tw_shell_create_ui_elem(struct tw_shell *shell,
                         struct wl_client *client,
-                        struct tw_backend_output *output,
+                        struct tw_engine_output *output,
                         uint32_t tw_ui,
                         struct wl_resource *wl_surface,
                         uint32_t x, uint32_t y,
@@ -559,14 +569,12 @@ tw_shell_post_message(struct tw_shell *shell, uint32_t type, const char *msg)
 
 pixman_rectangle32_t
 tw_shell_output_available_space(struct tw_shell *shell,
-                                struct tw_backend_output *output)
+                                struct tw_engine_output *output)
 {
-	pixman_rectangle32_t geo = {
-		output->state.x, output->state.y,
-		output->state.w, output->state.h,
-	};
+	pixman_rectangle32_t geo =
+		tw_output_device_geometry(output->device);
 	struct tw_shell_output *shell_output =
-		shell_output_from_tw_backend_output(shell, output);
+		shell_output_from_engine_output(shell, output);
 
 	if (!shell_output || !shell_output->panel.binded)
 		return geo;
@@ -594,42 +602,36 @@ tw_shell_set_panel_pos(struct tw_shell *shell,
 }
 
 /******************************************************************************
- * constructor / destructor
+ * listeners
  *****************************************************************************/
 
 static void
-shell_new_output(struct wl_listener *listener, void *data)
+notify_shell_new_output(struct wl_listener *listener, void *data)
 {
-	struct tw_backend_output *output = data;
-	struct tw_shell *shell =
-		container_of(listener, struct tw_shell,
-		             output_create_listener);
+	struct tw_engine_output *output = data;
+	struct tw_shell *shell = wl_container_of(listener, shell,
+	                                         output_create_listener);
 	struct tw_shell_output *shell_output = &shell->tw_outputs[output->id];
+
 	shell_output->output = output;
 	shell_output->shell = shell;
 	shell_output->panel_height = 0;
 	shell_output->id = output->id;
 	wl_list_init(&shell_output->link);
 	wl_list_insert(shell->heads.prev, &shell_output->link);
-	if (shell->shell_resource)
-		taiwins_shell_send_output_configure(shell->shell_resource,
-		                                    output->id,
-		                                    output->state.w,
-		                                    output->state.h,
-		                                    output->state.scale,
-		                                    output->id == 0,
-		                                    TAIWINS_SHELL_OUTPUT_MSG_CONNECTED);
+	shell_send_output_config(shell, output,
+	                         TAIWINS_SHELL_OUTPUT_MSG_CONNECTED);
 }
 
 static void
-shell_rm_output(struct wl_listener *listener, void *data)
+notify_shell_remove_output(struct wl_listener *listener, void *data)
 {
-	struct tw_backend_output *output = data;
+	struct tw_engine_output *output = data;
 	struct tw_shell *shell =
 		container_of(listener, struct tw_shell,
 		             output_create_listener);
 	struct tw_shell_output *shell_output =
-		shell_output_from_backend_output(shell, output);
+		shell_output_from_engine_output(shell, output);
 
 	assert(shell_output);
 	shell_output->output = NULL;
@@ -638,16 +640,21 @@ shell_rm_output(struct wl_listener *listener, void *data)
 	shell_output->id = -1;
 	shell_ui_unset_role(&shell_output->panel);
 	shell_ui_unset_role(&shell_output->background);
-	if (shell->shell_resource)
-		taiwins_shell_send_output_configure(shell->shell_resource,
-		                                    shell_output->id,
-		                                    0, 0, 1, false,
-		                                    TAIWINS_SHELL_OUTPUT_MSG_LOST);
-
+	shell_send_output_config(shell, output, TAIWINS_SHELL_OUTPUT_MSG_LOST);
 }
 
 static void
-shell_compositor_idle(struct wl_listener *listener, UNUSED_ARG(void *data))
+notify_shell_resize_output(struct wl_listener *listener, void *data)
+{
+	struct tw_engine_output *output = data;
+	struct tw_shell *shell =
+		wl_container_of(listener, shell, output_resize_listener);
+	shell_send_output_config(shell, output,
+	                         TAIWINS_SHELL_OUTPUT_MSG_CHANGE);
+}
+
+static void
+notify_shell_idle(struct wl_listener *listener, void *data)
 {
 
 	struct tw_shell *shell =
@@ -660,60 +667,79 @@ shell_compositor_idle(struct wl_listener *listener, UNUSED_ARG(void *data))
 		tw_shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_LOCK, " ");
 }
 
-static void
-shell_resize_output(struct wl_listener *listener, void *data)
-{
-	struct tw_backend_output *output = data;
-	struct tw_shell *shell =
-		container_of(listener, struct tw_shell,
-		             output_resize_listener);
-	taiwins_shell_send_output_configure(shell->shell_resource, output->id,
-	                                    output->state.w, output->state.h,
-	                                    output->state.scale,
-	                                    output->id == 0,
-	                                    TAIWINS_SHELL_OUTPUT_MSG_CHANGE);
-}
 
 static void
-end_shell(struct wl_listener *listener, UNUSED_ARG(void *data))
+notify_shell_end(struct wl_listener *listener, void *data)
 {
 	struct tw_shell *shell =
 		container_of(listener, struct tw_shell,
 		             display_destroy_listener);
+	//listeners
+	wl_list_remove(&shell->display_destroy_listener.link);
+	wl_list_remove(&shell->output_create_listener.link);
+	wl_list_remove(&shell->output_destroy_listener.link);
+	wl_list_remove(&shell->output_resize_listener.link);
+	wl_list_remove(&shell->idle_listener.link);
+	//layers
+	tw_layer_unset_position(&shell->background_layer);
+	tw_layer_unset_position(&shell->bottom_ui_layer);
+	tw_layer_unset_position(&shell->ui_layer);
+	tw_layer_unset_position(&shell->locker_layer);
+
 	wl_global_destroy(shell->shell_global);
+	if (shell->layer_shell)
+		wl_global_destroy(shell->layer_shell);
 }
 
+
+/******************************************************************************
+ * constructor / destructor
+ *****************************************************************************/
+
 static void
-shell_add_listeners(struct tw_shell *shell, struct tw_backend *backend)
+shell_add_listeners(struct tw_shell *shell, struct tw_engine *engine)
 {
 	//global destructor
-        wl_list_init(&shell->display_destroy_listener.link);
-        shell->display_destroy_listener.notify = end_shell;
-        wl_display_add_destroy_listener(shell->display,
-                                        &shell->display_destroy_listener);
+	tw_set_display_destroy_listener(shell->display,
+	                                &shell->display_destroy_listener,
+	                                notify_shell_end);
+
+	tw_signal_setup_listener(&engine->events.output_created,
+	                         &shell->output_create_listener,
+	                         notify_shell_new_output);
+	tw_signal_setup_listener(&engine->events.output_remove,
+	                         &shell->output_destroy_listener,
+	                         notify_shell_remove_output);
+	tw_signal_setup_listener(&engine->events.output_resized,
+	                         &shell->output_resize_listener,
+	                         notify_shell_resize_output);
         //idle listener
 	wl_list_init(&shell->idle_listener.link);
-	shell->idle_listener.notify = shell_compositor_idle;
+	shell->idle_listener.notify = notify_shell_idle;
 	//TODO: idle listener
 	/* wl_signal_add(&ec->idle_signal, &shell->idle_listener); */
 
-	//output create
-	wl_list_init(&shell->output_create_listener.link);
-	shell->output_create_listener.notify = shell_new_output;
-	//output destroy
-	wl_list_init(&shell->output_destroy_listener.link);
-	shell->output_destroy_listener.notify = shell_rm_output;
-	//output resize
-	wl_list_init(&shell->output_resize_listener.link);
-	shell->output_resize_listener.notify = shell_resize_output;
-	//singals
-	wl_signal_add(&backend->output_plug_signal,
-	              &shell->output_create_listener);
-	wl_signal_add(&backend->output_unplug_signal,
-	              &shell->output_destroy_listener);
-	//TODO resize listener
-	/* wl_signal_add(&ec->output_resized_signal, */
-	/*               &shell->output_resize_listener); */
+}
+
+static void
+shell_init_layers(struct tw_shell *shell, struct tw_layers_manager *layers)
+{
+	struct tw_layer *layer;
+
+        tw_layer_init(&s_shell.background_layer);
+	tw_layer_init(&s_shell.ui_layer);
+	tw_layer_init(&s_shell.locker_layer);
+	tw_layer_init(&s_shell.bottom_ui_layer);
+	tw_layer_set_position(&s_shell.background_layer,
+	                      TW_LAYER_POS_BACKGROUND, layers);
+	tw_layer_set_position(&s_shell.bottom_ui_layer,
+	                      TW_LAYER_POS_DESKTOP_BELOW_UI, layers);
+	tw_layer_set_position(&s_shell.ui_layer,
+	                      TW_LAYER_POS_DESKTOP_UI, layers);
+	tw_layer_set_position(&s_shell.locker_layer,
+	                      TW_LAYER_POS_LOCKER, layers);
+	wl_list_for_each(layer, &layers->layers, link)
+		tw_logl("layer position %x\n", layer->position);
 }
 
 /******************************************************************************
@@ -722,12 +748,10 @@ shell_add_listeners(struct tw_shell *shell, struct tw_backend *backend)
 
 struct tw_shell *
 tw_shell_create_global(struct wl_display *display,
-                       struct tw_backend *backend, bool enable_layer_shell,
+                       struct tw_engine *engine, bool enable_layer_shell,
                        const char *path)
 {
 	struct wl_event_loop *loop;
-	struct tw_layer *layer;
-	struct tw_layers_manager *layers;
 
 	s_shell.shell_global =
 		wl_global_create(display, &taiwins_shell_interface,
@@ -747,25 +771,13 @@ tw_shell_create_global(struct wl_display *display,
 	s_shell.shell_client = NULL;
 	s_shell.panel_pos = TAIWINS_SHELL_PANEL_POS_TOP;
 	s_shell.display = display;
-	s_shell.backend = backend;
+	s_shell.engine = engine;
 	//shell_outputs
 	wl_list_init(&s_shell.heads);
 	//layers
-	layers = &s_shell.backend->layers_manager;
-        tw_layer_init(&s_shell.background_layer);
-	tw_layer_init(&s_shell.ui_layer);
-	tw_layer_init(&s_shell.locker_layer);
-	tw_layer_init(&s_shell.bottom_ui_layer);
-	tw_layer_set_position(&s_shell.background_layer,
-	                      TW_LAYER_POS_BACKGROUND, layers);
-	tw_layer_set_position(&s_shell.bottom_ui_layer,
-	                      TW_LAYER_POS_DESKTOP_BELOW_UI, layers);
-	tw_layer_set_position(&s_shell.ui_layer,
-	                      TW_LAYER_POS_DESKTOP_UI, layers);
-	tw_layer_set_position(&s_shell.locker_layer,
-	                      TW_LAYER_POS_LOCKER, layers);
-	wl_list_for_each(layer, &layers->layers, link)
-		tw_logl("layer position %x\n", layer->position);
+	shell_init_layers(&s_shell, &engine->layers_manager);
+	//listeners
+	shell_add_listeners(&s_shell, engine);
 	//signals
 	wl_signal_init(&s_shell.desktop_area_signal);
 	wl_signal_init(&s_shell.widget_create_signal);
@@ -779,7 +791,6 @@ tw_shell_create_global(struct wl_display *display,
 		loop = wl_display_get_event_loop(display);
 		wl_event_loop_add_idle(loop, launch_shell_client, &s_shell);
 	}
-	shell_add_listeners(&s_shell, backend);
 
 	return &s_shell;
 }

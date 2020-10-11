@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <time.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <pixman.h>
 
@@ -133,6 +134,7 @@ notify_output_new_mode(struct wl_listener *listener, void *data)
 	pixman_region32_fini(&output->constrain.region);
 	pixman_region32_init_rect(&output->constrain.region,
 	                          rect.x, rect.y, rect.width, rect.width);
+	wl_signal_emit(&output->engine->events.output_resized, output);
 }
 
 static void

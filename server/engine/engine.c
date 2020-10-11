@@ -187,6 +187,7 @@ tw_engine_create_global(struct wl_display *display, struct tw_backend *backend)
 	wl_signal_init(&engine->events.seat_remove);
 	wl_signal_init(&engine->events.output_created);
 	wl_signal_init(&engine->events.output_remove);
+	wl_signal_init(&engine->events.output_resized);
 
 	return engine;
 err_globals:
