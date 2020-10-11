@@ -27,7 +27,8 @@
 #include <ctypes/sequential.h>
 #include <wayland-taiwins-shell-server-protocol.h>
 
-#include "backend.h"
+#include "backend/backend.h"
+#include "output_device.h"
 
 #define TWSHELL_VERSION 1
 #define TWDESKP_VERSION 1
@@ -46,7 +47,7 @@ tw_shell_create_global(struct wl_display *display, struct tw_backend *backend,
                        bool enable_layer_shell, const char *path);
 void
 tw_shell_create_ui_elem(struct tw_shell *shell, struct wl_client *client,
-                        struct tw_backend_output *output,
+                        struct tw_output_device *output,
                         uint32_t tw_ui, struct wl_resource *wl_surface,
                         uint32_t x, uint32_t y, enum taiwins_ui_type type);
 void
@@ -57,7 +58,7 @@ tw_shell_post_message(struct tw_shell *shell, uint32_t type, const char *msg);
 
 pixman_rectangle32_t
 tw_shell_output_available_space(struct tw_shell *shell,
-                                struct tw_backend_output *output);
+                                struct tw_output_device *output);
 struct wl_signal *
 tw_shell_get_desktop_area_signal(struct tw_shell *shell);
 

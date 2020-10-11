@@ -25,13 +25,12 @@
 #include <pixman.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <backend.h>
 #include <wayland-server-core.h>
 
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/desktop.h>
 
-#include "desktop/layout.h"
+#include "layout.h"
 #include "xdg.h"
 #include "workspace.h"
 
@@ -57,7 +56,7 @@ struct tw_xdg_grab_interface {
 struct tw_xdg {
 	struct wl_display *display;
 	struct tw_shell *shell;
-	struct tw_backend *backend;
+	struct tw_engine *engine;
 
         struct tw_desktop_manager desktop_manager;
 

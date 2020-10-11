@@ -58,10 +58,9 @@ fullscreen_add(const enum tw_xdg_layout_command command,
              struct tw_xdg_view *v, struct tw_xdg_layout *l,
              struct tw_xdg_layout_op *ops)
 {
-	pixman_rectangle32_t output_geo = {
-		v->output->output->state.x, v->output->output->state.y,
-		v->output->output->state.w, v->output->output->state.h,
-	};
+	pixman_rectangle32_t output_geo =
+		tw_output_device_geometry(v->output->output->device);
+
 	ops[0].out.pos.x = output_geo.x;
 	ops[0].out.pos.y = output_geo.y;
 	ops[0].out.size.width = output_geo.width;
