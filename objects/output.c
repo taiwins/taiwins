@@ -32,12 +32,10 @@
 
 static const struct wl_output_interface output_impl;
 
-static inline struct tw_output *
-tw_output_from_resource(struct wl_resource *resource)
+static bool
+tw_output_has_config(struct tw_output *output)
 {
-	wl_resource_instance_of(resource, &wl_output_interface,
-	                        &output_impl);
-	return wl_resource_get_user_data(resource);
+	return output->geometry.make && output->geometry.model;
 }
 
 static void
@@ -58,6 +56,14 @@ tw_output_send_config(struct wl_resource *resource)
 		wl_output_send_scale(resource, output->scale);
 		wl_output_send_done(resource);
 	}
+}
+
+WL_EXPORT struct tw_output *
+tw_output_from_resource(struct wl_resource *resource)
+{
+	wl_resource_instance_of(resource, &wl_output_interface,
+	                        &output_impl);
+	return wl_resource_get_user_data(resource);
 }
 
 WL_EXPORT void
@@ -82,6 +88,7 @@ tw_output_set_coord(struct tw_output *output, int x, int y)
 	output->x = x;
 	output->y = y;
 }
+
 WL_EXPORT void
 tw_output_set_geometry(struct tw_output *output,
                        int physical_w, int physical_h,
@@ -159,7 +166,8 @@ bind_output(struct wl_client *client, void *data, uint32_t version,
 	wl_resource_set_implementation(resource, &output_impl, data,
 	                               destroy_output_resource);
 	wl_list_insert(output->resources.prev, wl_resource_get_link(resource));
-	tw_output_send_config(resource);
+	if (tw_output_has_config(output))
+		tw_output_send_config(resource);
 }
 
 static void
@@ -184,7 +192,7 @@ tw_output_create(struct wl_display *display)
 	if (!output)
 		return NULL;
 	output->global =
-		wl_global_create(display, &wl_output_interface, 1, output,
+		wl_global_create(display, &wl_output_interface, 3, output,
 		                 bind_output);
 	if (!output->global) {
 		free(output);
