@@ -343,6 +343,7 @@ tw_egl_render_texture_init(struct tw_egl_render_texture *texture,
         } else  {
 	        return false;
         }
+        return true;
 }
 
 static bool

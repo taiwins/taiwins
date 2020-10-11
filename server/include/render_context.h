@@ -139,14 +139,21 @@ void
 tw_render_context_destroy(struct tw_render_context *ctx);
 
 void
-tw_render_context_set_dma(struct tw_render_context *ctx,
-                          struct tw_linux_dmabuf *dma);
-void
-tw_render_context_set_compositor(struct tw_render_context *ctx,
-                                 struct tw_compositor *compositor);
-void
 tw_render_context_build_view_list(struct tw_render_context *ctx,
                                   struct tw_layers_manager *manager);
+static inline void
+tw_render_context_set_dma(struct tw_render_context *ctx,
+                          struct tw_linux_dmabuf *dma)
+{
+	wl_signal_emit(&ctx->events.dma_set, dma);
+}
+
+static inline void
+tw_render_context_set_compositor(struct tw_render_context *ctx,
+                                 struct tw_compositor *compositor)
+{
+	wl_signal_emit(&ctx->events.compositor_set, compositor);
+}
 
 static inline bool
 tw_render_presentable_init_offscreen(struct tw_render_presentable *surface,

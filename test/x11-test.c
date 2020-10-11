@@ -11,6 +11,7 @@
 #include "render_context.h"
 #include "render_pipeline.h"
 #include "engine.h"
+#include "xdg.h"
 
 struct tw_render_pipeline *
 tw_egl_render_pipeline_create_default(struct tw_render_context *ctx,
@@ -78,6 +79,10 @@ int main(int argc, char *argv[])
 		tw_egl_render_pipeline_create_default(ctx,
 		                                      &engine->layers_manager);
 	wl_list_insert(ctx->pipelines.prev, &pipeline->link);
+
+	struct tw_xdg *xdg =
+		tw_xdg_create_global(display, NULL, engine);
+	(void)xdg;
 
 	tw_backend_start(backend, ctx);
 

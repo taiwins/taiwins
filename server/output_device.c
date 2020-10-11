@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include <pixman.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/matrix.h>
 #include <taiwins/objects/logger.h>
@@ -61,6 +62,7 @@ tw_output_device_init(struct tw_output_device *device,
 	wl_signal_init(&device->events.info);
 	wl_signal_init(&device->events.new_frame);
 	wl_signal_init(&device->events.info);
+	wl_signal_init(&device->events.present);
 	wl_signal_init(&device->events.commit_state);
 }
 
@@ -115,6 +117,12 @@ tw_output_device_commit_state(struct tw_output_device *device)
 	wl_signal_emit(&device->events.commit_state, device);
 	//emit for sending new backend info.
 	wl_signal_emit(&device->events.info, device);
+}
+
+void
+tw_output_device_present(struct tw_output_device *device)
+{
+	wl_signal_emit(&device->events.present, device);
 }
 
 static void

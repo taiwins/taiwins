@@ -101,10 +101,14 @@ notify_engine_backend_started(struct wl_listener *listener, void *data)
 	struct tw_engine *engine =
 		wl_container_of(listener, engine, listeners.backend_started);
 	struct tw_backend *backend = data;
+	struct tw_render_context *ctx = backend->ctx;
 
+	assert(ctx);
         assert(backend == engine->backend);
-        //TODO
-        /* tw_engine_set_render(engine, backend->ctx); */
+
+        tw_render_context_set_compositor(ctx, &engine->compositor_manager);
+        tw_render_context_set_dma(ctx, &engine->dma_engine);
+
 }
 
 /******************************************************************************
@@ -149,7 +153,6 @@ tw_engine_create_global(struct wl_display *display, struct tw_backend *backend)
 	engine->output_pool = 0;
 	engine->seat_pool = 0;
 	wl_list_init(&engine->heads);
-	wl_list_init(&engine->pending_heads);
 	wl_list_init(&engine->inputs);
 
 	if (!backend)

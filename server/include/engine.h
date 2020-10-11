@@ -74,6 +74,7 @@ struct tw_engine_output {
 		struct wl_listener info;
 		struct wl_listener set_mode;
 		struct wl_listener destroy;
+		struct wl_listener present;
 	} listeners;
 };
 
@@ -104,7 +105,6 @@ struct tw_engine {
 
 	/* outputs */
 	struct wl_list heads; /* tw_backend_output:links */
-	struct wl_list pending_heads;
 	uint32_t output_pool;
 	struct tw_engine_output outputs[32];
 
@@ -156,7 +156,12 @@ tw_engine_get_focused_seat(struct tw_engine *engine);
 void
 tw_engine_seat_set_xkb_rules(struct tw_engine_seat *seat,
                              struct xkb_rule_names *rules);
+struct tw_engine_output *
+tw_engine_get_focused_output(struct tw_engine *engine);
 
+struct tw_engine_output *
+tw_engine_output_from_resource(struct tw_engine *engine,
+                               struct wl_resource *resource);
 
 #ifdef  __cplusplus
 }

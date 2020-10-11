@@ -19,19 +19,17 @@
  *
  */
 
-#include <GLES2/gl2.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <time.h>
 #include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <pixman.h>
 
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/output.h>
 #include <taiwins/objects/utils.h>
-#include <wayland-util.h>
 
 #include "backend/backend.h"
 #include "engine.h"
@@ -59,6 +57,18 @@ fini_engine_output_state(struct tw_engine_output *o)
 	tw_reset_wl_list(&o->constrain.link);
 	pixman_region32_fini(&o->constrain.region);
 
+}
+
+static struct wl_resource *
+engine_output_get_wl_output(struct tw_engine_output *output,
+                            struct wl_resource *resource)
+{
+	struct wl_resource *wl_output;
+	wl_resource_for_each(wl_output, &output->tw_output->resources)
+		if (wl_resource_get_client(wl_output) ==
+		    wl_resource_get_client(resource))
+			return wl_output;
+	return NULL;
 }
 
 /******************************************************************************
@@ -123,25 +133,27 @@ notify_output_new_mode(struct wl_listener *listener, void *data)
 	                          rect.x, rect.y, rect.width, rect.width);
 }
 
-struct tw_engine_output *
-tw_engine_pick_output_for_cursor(struct tw_engine *engine)
+static void
+notify_output_present(struct wl_listener *listener, void *data)
 {
-	pixman_region32_t *output_region;
-	struct tw_engine_output *output;
+        struct timespec now;
+	struct tw_presentation_feedback *feedback, *tmp;
+	struct tw_engine_output *output =
+		wl_container_of(listener, output, listeners.present);
+	struct tw_engine *engine = output->engine;
 
-	wl_list_for_each(output, &engine->heads, link) {
-		if (output->cloning >= 0)
-			continue;
-		output_region = &output->constrain.region;
-		if (pixman_region32_contains_point(output_region,
-		                                   engine->global_cursor.x,
-		                                   engine->global_cursor.y,
-		                                   NULL))
-			return output;
+	//TODO
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	wl_list_for_each_safe(feedback, tmp, &engine->presentation.feedbacks,
+	                      link) {
+		struct wl_resource *wl_surface =
+			feedback->surface->resource;
+		struct wl_resource *wl_output =
+			engine_output_get_wl_output(output, wl_surface);
+		tw_presentation_feeback_sync(feedback, wl_output, &now);
 	}
-	return NULL;
 }
-
 
 /******************************************************************************
  * APIs
@@ -181,14 +193,97 @@ tw_engine_new_output(struct tw_engine *engine,
 	tw_signal_setup_listener(&device->events.commit_state,
 	                         &output->listeners.set_mode,
 	                         notify_output_new_mode);
-
+	tw_signal_setup_listener(&device->events.present,
+	                         &output->listeners.present,
+	                         notify_output_present);
         engine->output_pool |= 1 << id;
         wl_list_init(&output->link);
         wl_list_insert(&engine->heads, &output->link);
-        //how this is gonna work?
-        if (engine->backend->started) {
 
-        }
+        wl_signal_emit(&engine->events.output_created, output);
 
         return true;
+}
+
+struct tw_engine_output *
+tw_engine_get_focused_output(struct tw_engine *engine)
+{
+	struct tw_seat *seat;
+	struct wl_resource *wl_surface = NULL;
+	struct tw_surface *tw_surface = NULL;
+	struct tw_engine_seat *engine_seat;
+
+	if (wl_list_length(&engine->heads) == 0)
+		return NULL;
+
+	wl_list_for_each(engine_seat, &engine->inputs, link) {
+		struct tw_pointer *pointer;
+		struct tw_keyboard *keyboard;
+		struct tw_touch *touch;
+
+		seat = engine_seat->tw_seat;
+		if (seat->capabilities & WL_SEAT_CAPABILITY_POINTER) {
+			pointer = &seat->pointer;
+			wl_surface = pointer->focused_surface;
+			tw_surface = (wl_surface) ?
+				tw_surface_from_resource(wl_surface) : NULL;
+			if (tw_surface)
+				return &engine->outputs[tw_surface->output];
+		}
+		else if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD) {
+			keyboard = &seat->keyboard;
+			wl_surface = keyboard->focused_surface;
+			tw_surface = (wl_surface) ?
+				tw_surface_from_resource(wl_surface) : NULL;
+			if (tw_surface)
+				return &engine->outputs[tw_surface->output];
+		} else if (seat->capabilities & WL_SEAT_CAPABILITY_TOUCH) {
+			touch = &seat->touch;
+			wl_surface = touch->focused_surface;
+			tw_surface = (wl_surface) ?
+				tw_surface_from_resource(wl_surface) : NULL;
+			if (tw_surface)
+				return &engine->outputs[tw_surface->output];
+		}
+	}
+
+	struct tw_engine_output *head;
+	wl_list_for_each(head, &engine->heads, link)
+		return head;
+
+	return NULL;
+}
+
+struct tw_engine_output *
+tw_engine_output_from_resource(struct tw_engine *engine,
+                               struct wl_resource *resource)
+{
+	struct tw_output *tw_output =
+		tw_output_from_resource(resource);
+	struct tw_engine_output *output;
+
+	wl_list_for_each(output, &engine->heads, link) {
+		if (output->tw_output == tw_output)
+			return output;
+	}
+	return NULL;
+}
+
+struct tw_engine_output *
+tw_engine_pick_output_for_cursor(struct tw_engine *engine)
+{
+	pixman_region32_t *output_region;
+	struct tw_engine_output *output;
+
+	wl_list_for_each(output, &engine->heads, link) {
+		if (output->cloning >= 0)
+			continue;
+		output_region = &output->constrain.region;
+		if (pixman_region32_contains_point(output_region,
+		                                   engine->global_cursor.x,
+		                                   engine->global_cursor.y,
+		                                   NULL))
+			return output;
+	}
+	return NULL;
 }

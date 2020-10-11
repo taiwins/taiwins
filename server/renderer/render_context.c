@@ -113,20 +113,6 @@ tw_render_presentable_make_current(struct tw_render_presentable *surf,
 	return ctx->impl->make_current(surf, ctx);
 }
 
-void
-tw_render_context_set_dma(struct tw_render_context *ctx,
-                          struct tw_linux_dmabuf *dma)
-{
-	wl_signal_emit(&ctx->events.dma_set, dma);
-}
-
-void
-tw_render_context_set_compositor(struct tw_render_context *ctx,
-                                 struct tw_compositor *compositor)
-{
-	wl_signal_emit(&ctx->events.compositor_set, compositor);
-}
-
 static void
 subsurface_add_to_list(struct wl_list *parent_head, struct tw_surface *surface)
 {

@@ -151,6 +151,26 @@ reassign_surface_outputs(struct tw_surface *surface,
 	update_surface_mask(surface, major, mask);
 }
 
+/**
+ * @brief manage the backend output damage state
+ */
+static void
+shuffle_output_damage(struct tw_render_output *output)
+{
+	//here we swap the damage as if it is output is triple-buffered. It is
+	//okay even if output is actually double buffered, as we only need to
+	//ensure that renderer requested the correct damage based on the age.
+	pixman_region32_t *curr = output->state.curr_damage;
+	pixman_region32_t *pending = output->state.pending_damage;
+	pixman_region32_t *previous = output->state.prev_damage;
+
+	//later on renderer will access either current or previous damage for
+	//composing buffer_damage.
+	output->state.curr_damage = pending;
+	output->state.prev_damage = curr;
+	output->state.pending_damage = previous;
+}
+
 /******************************************************************************
  * listeners
  *****************************************************************************/
@@ -185,15 +205,23 @@ notify_output_frame(struct wl_listener *listener, void *data)
 
 	assert(ctx);
 
+	if (output->state.repaint_state != TW_REPAINT_DIRTY)
+		return;
+
 	buffer_age = tw_render_presentable_make_current(presentable, ctx);
 	buffer_age = buffer_age > 2 ? 2 : buffer_age;
 
 	wl_list_for_each(pipeline, &ctx->pipelines, link)
 		tw_render_pipeline_repaint(pipeline, output, buffer_age);
 
-	/* glClearColor(0.0, 1.0, 1.0, 1.0); */
-	/* glClear(GL_COLOR_BUFFER_BIT); */
-	tw_render_presentable_commit(presentable, ctx);
+	shuffle_output_damage(output);
+
+        tw_render_presentable_commit(presentable, ctx);
+        //presenting should happen here I guess
+	tw_output_device_present(&output->device);
+
+	//clean off the repaint state
+	output->state.repaint_state = TW_REPAINT_CLEAN;
 }
 
 static void

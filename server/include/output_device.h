@@ -83,8 +83,10 @@ struct tw_output_device {
 
 	struct {
 		struct wl_signal destroy;
-		struct wl_signal present;
+		/** new frame requested */
 		struct wl_signal new_frame;
+		/** new frame just presented on the output */
+		struct wl_signal present;
 		/** emit when general wl_output information is available, or
 		 * when output state changed */
                 struct wl_signal info;
@@ -114,6 +116,9 @@ tw_output_device_set_custom_mode(struct tw_output_device *device,
                                  unsigned width, unsigned height, int refresh);
 void
 tw_output_device_commit_state(struct tw_output_device *device);
+
+void
+tw_output_device_present(struct tw_output_device *device);
 
 pixman_rectangle32_t
 tw_output_device_geometry(const struct tw_output_device *device);

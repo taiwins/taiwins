@@ -370,7 +370,6 @@ pipeline_repaint_output(struct tw_render_pipeline *base,
                         struct tw_render_output *output, int buffer_age)
 {
 	struct tw_surface *surface;
-	/* struct tw_presentation_feedback *feedback, *tmp; */
 	struct tw_egl_layer_render_pipeline *pipeline =
 		wl_container_of(base, pipeline, base);
         struct tw_layers_manager *manager = pipeline->manager;
@@ -409,15 +408,8 @@ pipeline_repaint_output(struct tw_render_pipeline *base,
 		tw_surface_flush_frame(surface, now_int);
 	}
 	//presentation feebacks
-	clock_gettime(CLOCK_MONOTONIC, &now);
-	/* wl_list_for_each_safe(feedback, tmp, &backend->presentation.feedbacks, */
-	/*                       link) { */
-	/*	struct wl_resource *wl_output = */
-	/*		tw_backend_output_get_wl_output( */
-	/*			output, feedback->surface->resource); */
-	/*	tw_presentation_feeback_sync(feedback, wl_output, &now); */
-	/* } */
-	/* pixman_region32_fini(&output_damage); */
+
+	pixman_region32_fini(&output_damage);
 
 	SCOPE_PROFILE_END();
 }
