@@ -19,15 +19,16 @@
  *
  */
 
-#ifndef TW_INPUT_H
-#define TW_INPUT_H
+#ifndef TW_SEAT_INPUT_H
+#define TW_SEAT_INPUT_H
 
 #include <wayland-server.h>
-#include <wlr/types/wlr_input_device.h>
-
+#include <xkbcommon/xkbcommon.h>
 #include <taiwins/objects/seat.h>
-#include <backend.h>
-#include <bindings.h>
+
+#include "engine.h"
+#include "bindings.h"
+#include "input_device.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -35,13 +36,10 @@ extern "C" {
 
 struct tw_seat_events {
 	struct tw_seat *seat;
-	struct tw_backend *backend;
+	struct tw_engine *engine;
 	struct tw_bindings *bindings;
-	struct wlr_keyboard *keyboard_dev;
-	struct wlr_pointer *pointer_dev;
-	struct wlr_touch *touch_dev;
+	struct xkb_state *curr_state;
 
-	struct wl_listener seat_change;
 	struct wl_listener key_input;
 	struct wl_listener mod_input;
 	struct wl_listener btn_input;
@@ -56,7 +54,7 @@ struct tw_seat_events {
 
 void
 tw_seat_events_init(struct tw_seat_events *events,
-                    struct tw_backend_seat *seat,
+                    struct tw_engine_seat *seat,
                     struct tw_bindings *bindings);
 void
 tw_seat_events_fini(struct tw_seat_events *events);

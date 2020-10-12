@@ -6,13 +6,7 @@ if cc.has_function('libinput_device_touch_get_touch_count',
 endif
 
 taiwins_lib_src += files(
-  'backend.c',
-  'libinput.c',
-  'objects_proxy.c',
-  'output.c',
-  'seat.c',
   'headless.c',
 )
-
 
 subdir('x11')

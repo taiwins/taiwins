@@ -190,39 +190,46 @@ tw_input_source_init(struct tw_input_source *source);
 
 /** keyboard event */
 struct tw_event_keyboard_key {
+	struct tw_input_device *dev;
 	uint32_t time;
 	uint32_t keycode;
 	enum wl_keyboard_key_state state;
 };
 
 struct tw_event_keyboard_modifier {
+	struct tw_input_device *dev;
 	uint32_t depressed, latched, locked, group;
 };
 
 struct tw_event_keyboard_keymap {
+	struct tw_input_device *dev;
 	const struct xkb_keymap *keymap;
 };
 
 /** pointer events */
 struct tw_event_pointer_button {
+	struct tw_input_device *dev;
 	enum wl_pointer_button_state state;
 	uint32_t button;
 	uint32_t time;
 };
 
 struct tw_event_pointer_motion {
+	struct tw_input_device *dev;
 	uint32_t time;
 	double delta_x, delta_y;
 	double unaccel_dx, unaccel_dy;
 };
 
 struct tw_event_pointer_motion_abs {
+	struct tw_input_device *dev;
 	uint32_t time_msec;
 	// From 0..1
 	double x, y;
 };
 
 struct tw_event_pointer_axis {
+	struct tw_input_device *dev;
 	uint32_t time;
 	enum wl_pointer_axis_source source;
 	enum wl_pointer_axis axis;
@@ -232,6 +239,7 @@ struct tw_event_pointer_axis {
 
 /** touch events */
 struct tw_event_touch_down {
+	struct tw_input_device *dev;
 	uint32_t time;
 	int32_t touch_id;
 	// From 0..1
@@ -239,11 +247,13 @@ struct tw_event_touch_down {
 };
 
 struct tw_event_touch_up {
+	struct tw_input_device *dev;
 	uint32_t time;
 	int32_t touch_id;
 };
 
 struct tw_event_touch_motion {
+	struct tw_input_device *dev;
 	uint32_t time;
 	int32_t touch_id;
 	// From 0..1
@@ -251,6 +261,7 @@ struct tw_event_touch_motion {
 };
 
 struct tw_event_touch_cancel {
+	struct tw_input_device *dev;
 	uint32_t time_msec;
 	int32_t touch_id;
 };

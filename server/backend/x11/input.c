@@ -22,6 +22,7 @@
 #include <wayland-server.h>
 #include <taiwins/objects/logger.h>
 #include <linux/input.h>
+#include <xkbcommon/xkbcommon.h>
 
 #include "internal.h"
 #include "output_device.h"
@@ -35,16 +36,22 @@ handle_x11_key_event(struct tw_input_device *keyboard,
 	xcb_input_key_press_event_t *ev =
 		(xcb_input_key_press_event_t *)ge;
 	struct tw_event_keyboard_key key = {
+		.dev = keyboard,
 		.time = ev->time,
 		.keycode = ev->detail - 8,
 		.state = state,
 	};
 	struct tw_event_keyboard_modifier mod = {
+		.dev = keyboard,
 		.depressed = ev->mods.base,
 		.latched = ev->mods.latched,
 		.locked = ev->mods.locked,
 		.group = ev->mods.effective,
 	};
+	xkb_state_update_mask(keyboard->input.keyboard.keystate,
+	                      mod.depressed, mod.latched, mod.locked,
+	                      0, 0, mod.group);
+
 	if (emitter) {
 		wl_signal_emit(&emitter->keyboard.key, &key);
 		wl_signal_emit(&emitter->keyboard.modifiers, &mod);
@@ -63,10 +70,12 @@ handle_x11_btn_axis(struct tw_x11_backend *x11,
 	struct tw_x11_output *output =
 		tw_x11_output_from_id(x11, ev->event);
 	struct tw_event_pointer_button btn = {
+		.dev = &output->pointer,
 		.state = state,
 		.time = ev->time,
 	};
 	struct tw_event_pointer_axis axis = {
+		.dev = &output->pointer,
 		.time = ev->time,
 		.source = WL_POINTER_AXIS_SOURCE_WHEEL,
 		.axis = WL_POINTER_AXIS_VERTICAL_SCROLL,
@@ -100,7 +109,9 @@ handle_x11_motion(struct tw_x11_backend *x11, xcb_ge_generic_event_t *ge)
 {
 	xcb_input_motion_event_t *ev = (xcb_input_motion_event_t *)ge;
 	struct tw_x11_output *output = tw_x11_output_from_id(x11, ev->event);
-	struct tw_event_pointer_motion_abs motion = {0};
+	struct tw_event_pointer_motion_abs motion = {
+		.dev = &output->pointer,
+	};
 	unsigned width, height;
 	struct tw_input_source *emitter;
 

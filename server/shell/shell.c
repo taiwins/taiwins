@@ -627,9 +627,8 @@ static void
 notify_shell_remove_output(struct wl_listener *listener, void *data)
 {
 	struct tw_engine_output *output = data;
-	struct tw_shell *shell =
-		container_of(listener, struct tw_shell,
-		             output_create_listener);
+	struct tw_shell *shell = wl_container_of(listener, shell,
+	                                         output_destroy_listener);
 	struct tw_shell_output *shell_output =
 		shell_output_from_engine_output(shell, output);
 
