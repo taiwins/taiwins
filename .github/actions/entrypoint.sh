@@ -6,4 +6,4 @@ pacman -Syu --needed --noconfirm gstreamer gst-plugins-base gst-plugins-base-lib
 pacman -Syu --needed --noconfirm cmake make gcc clang musl git meson ninja rsync pkgconfig
 # build step
 meson wrap promote subprojects/twclient/subprojects/ctypes
-rm -rf build && meson build && ninja -C build
+rm -rf build && meson -Dx11-backend=enabled build && ninja -C build
