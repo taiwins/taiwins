@@ -49,8 +49,7 @@
 #include "render_pipeline.h"
 
 #include "input.h"
-
-/* #include "config.h" */
+#include "config.h"
 
 
 struct tw_options {
@@ -70,6 +69,7 @@ struct tw_server {
 	struct tw_engine *engine;
 	struct tw_bindings *bindings;
 	struct tw_render_context *ctx;
+	struct tw_config *config;
 
 	/* seats */
 	struct tw_seat_events seat_events[8];
@@ -105,11 +105,13 @@ bind_config(struct tw_server *server)
 	server->bindings = tw_bindings_create(server->display);
 	if (!server->bindings)
 		goto err_binding;
-	/* server->config = tw_config_create(server->backend, server->bindings); */
-	/* if (!server->config) */
-	/*	goto err_config; */
+	server->config = tw_config_create(server->engine, server->bindings,
+	                                  TW_CONFIG_TYPE_LUA);
+	if (!server->config)
+		goto err_config;
 	return true;
-
+err_config:
+	tw_bindings_destroy(server->bindings);
 err_binding:
 	return false;
 }
@@ -420,26 +422,20 @@ main(int argc, char *argv[])
 	if (!drop_permissions())
 		goto err_permission;
 
-	struct tw_xdg *xdg =
-		tw_xdg_create_global(display, NULL, ec.engine);
-	(void)xdg;
-
-	struct tw_shell *shell =
-		tw_shell_create_global(display, ec.engine, false, argv[1]);
-	(void)shell;
-	/* tw_config_register_object(ec.config, TW_CONFIG_SHELL_PATH, */
-	/*                           (void *)options.shell_path); */
-	/* tw_config_register_object(ec.config, TW_CONFIG_CONSOLE_PATH, */
-	/*                           (void *)options.console_path); */
-	/* if (!tw_run_config(ec.config)) { */
-	/*	if (!tw_run_default_config(ec.config)) */
-	/*		goto err_config; */
-	/* } */
+	tw_config_register_object(ec.config, TW_CONFIG_SHELL_PATH,
+	                          (void *)options.shell_path);
+	tw_config_register_object(ec.config, TW_CONFIG_CONSOLE_PATH,
+	                          (void *)options.console_path);
+	if (!tw_run_config(ec.config)) {
+		if (!tw_run_default_config(ec.config))
+			goto err_config;
+	}
 	//run the loop
 	tw_backend_start(ec.backend, ec.ctx);
 	wl_display_run(ec.display);
 
 	//end.
+err_config:
 err_permission:
         tw_server_fini(&ec);
 err_backend:

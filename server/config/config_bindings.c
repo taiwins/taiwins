@@ -38,7 +38,7 @@ quit_compositor(struct tw_keyboard *keyboard, uint32_t time,
                 uint32_t key, uint32_t modifiers, uint32_t option, void *data)
 {
 	struct tw_config *config = data;
-	struct wl_display *wl_display = config->backend->display;
+	struct wl_display *wl_display = config->engine->display;
 
 	tw_logl("%s: quit taiwins", "taiwins");
 	wl_display_terminate(wl_display);

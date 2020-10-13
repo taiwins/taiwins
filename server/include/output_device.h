@@ -106,6 +106,12 @@ void
 tw_output_device_set_id(struct tw_output_device *device, int id);
 
 void
+tw_output_device_enable(struct tw_output_device *device, bool enable);
+
+void
+tw_output_device_set_transform(struct tw_output_device *device,
+                               enum wl_output_transform transform);
+void
 tw_output_device_set_scale(struct tw_output_device *device, float scale);
 
 void

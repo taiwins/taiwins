@@ -12,6 +12,7 @@
 #include "render_pipeline.h"
 #include "engine.h"
 #include "xdg.h"
+#include "shell.h"
 
 struct tw_render_pipeline *
 tw_egl_render_pipeline_create_default(struct tw_render_context *ctx,
@@ -83,6 +84,10 @@ int main(int argc, char *argv[])
 	struct tw_xdg *xdg =
 		tw_xdg_create_global(display, NULL, engine);
 	(void)xdg;
+
+	struct tw_shell *shell =
+		tw_shell_create_global(display, engine, false, argv[1]);
+	(void)shell;
 
 	tw_backend_start(backend, ctx);
 

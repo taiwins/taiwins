@@ -51,12 +51,12 @@ taiwins_lib_src = [
   'engine/seat.c',
   'engine/output.c',
 
-  # 'config/config.c',
-  # 'config/config_bindings.c',
-  # 'config/config_parser.c',
-  # 'config/config_lua.c',
-  # 'config/config_bus.c',
-  # 'config/theme_lua.c',
+  'config/config.c',
+  'config/config_bindings.c',
+  'config/config_parser.c',
+  'config/config_lua.c',
+  'config/config_bus.c',
+  'config/theme_lua.c',
 
   wayland_taiwins_shell_server_protocol_h,
   wayland_taiwins_shell_private_code_c,

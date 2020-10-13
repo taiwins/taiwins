@@ -20,9 +20,7 @@
  */
 
 #include <assert.h>
-#include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
-#include <wayland-util.h>
+#include <wayland-server.h>
 #include <xkbcommon/xkbcommon.h>
 #include <taiwins/objects/utils.h>
 

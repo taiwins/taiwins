@@ -110,6 +110,19 @@ tw_output_device_set_scale(struct tw_output_device *device, float scale)
 }
 
 void
+tw_output_device_set_transform(struct tw_output_device *device,
+                               enum wl_output_transform transform)
+{
+	device->pending.transform = transform;
+}
+
+void
+tw_output_device_enable(struct tw_output_device *device, bool enable)
+{
+	device->pending.enabled = enable;
+}
+
+void
 tw_output_device_commit_state(struct tw_output_device *device)
 {
 	//emit for backend
@@ -139,8 +152,6 @@ output_get_effective_resolution(const struct tw_output_device_state *state,
 	*width /= state->scale;
 	*height /= state->scale;
 }
-
-
 
 pixman_rectangle32_t
 tw_output_device_geometry(const struct tw_output_device *output)

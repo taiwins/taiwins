@@ -60,7 +60,8 @@ test('test_headless', headless_test)
 if get_option('x11-backend').enabled()
   x11_test = executable(
     'tw-test-x11',
-    'x11-test.c',
+    ['x11-test.c',
+     wayland_taiwins_shell_server_protocol_h],
     c_args : ['-D_GNU_SOURCE', '-DWLR_USE_UNSTABLE'],
     dependencies : dep_taiwins_lib,
   )
