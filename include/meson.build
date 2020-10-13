@@ -1,4 +1,4 @@
-exclude_files = ['meson.build', 'taiwins/profiling.h']
+exclude_files = ['meson.build', 'profiling.h']
 if not get_option('x11-backend').enabled()
 	exclude_files += 'taiwins/backend/x11.h'
 endif

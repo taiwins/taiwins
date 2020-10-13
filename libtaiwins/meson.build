@@ -85,6 +85,7 @@ taiwins_lib = both_libraries(
     inc_shared_config,
     inc_libtaiwins,
   ],
+  version: meson.project_version(),
   install: true,
 )
 
