@@ -308,5 +308,5 @@ tw_keyboard_notify_modifiers(struct tw_keyboard *keyboard,
 	if (keyboard->grab && keyboard->grab->impl->modifiers)
 		keyboard->grab->impl->modifiers(keyboard->grab,
 		                                mods_depressed, mods_latched,
-		                                mods_latched, group);
+		                                mods_locked, group);
 }
