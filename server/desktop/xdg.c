@@ -33,8 +33,10 @@
 #include <taiwins/objects/seat.h>
 #include <wayland-util.h>
 
-#include "backend.h"
+#include "engine.h"
 #include "layout.h"
+#include "output_device.h"
+#include "render_output.h"
 #include "xdg.h"
 #include "shell.h"
 #include "workspace.h"
@@ -42,13 +44,12 @@
 
 static struct tw_xdg s_desktop = {0};
 
-static struct tw_xdg_output *
-xdg_output_from_backend_output(struct tw_xdg *xdg,
-                               struct tw_backend_output *output)
+static inline struct tw_xdg_output *
+xdg_output_from_engine_output(struct tw_xdg *xdg,
+                              struct tw_engine_output *output)
 {
 	return &xdg->outputs[output->id];
 }
-
 
 /******************************************************************************
  * tw_desktop_surface_api
@@ -76,8 +77,8 @@ static void
 twdesk_surface_focus(struct tw_xdg *xdg, struct tw_desktop_surface *dsurf)
 {
 	struct tw_seat *tw_seat;
-	struct tw_backend_seat *seat =
-		tw_backend_get_focused_seat(xdg->backend);
+	struct tw_engine_seat *seat =
+		tw_engine_get_focused_seat(xdg->engine);
 	struct tw_workspace *ws = xdg->actived_workspace[0];
 	struct tw_xdg_view *view;
 
@@ -121,8 +122,10 @@ twdesk_surface_added(struct tw_desktop_surface *dsurf, void *user_data)
 	struct tw_xdg *xdg = user_data;
 	struct tw_workspace *ws = xdg->actived_workspace[0];
 	struct tw_xdg_view *view = tw_xdg_view_create(dsurf);
-	struct tw_backend_output *output =
-		tw_backend_focused_output(xdg->backend);
+	struct tw_engine_output *output =
+		tw_engine_get_focused_output(xdg->engine);
+	struct tw_xdg_output *xdg_output;
+
 	if (!view) {
 		tw_logl("unable to map desktop surface@%s",
 		        dsurf->title);
@@ -132,7 +135,8 @@ twdesk_surface_added(struct tw_desktop_surface *dsurf, void *user_data)
 	dsurf->user_data = view;
 	view->type = ws->current_layout;
 	if (twdesk_view_should_map_immediately(view)) {
-		view->output = xdg_output_from_backend_output(xdg, output);
+		xdg_output = xdg_output_from_engine_output(xdg, output);
+		view->output = xdg_output;
 		tw_workspace_add_view(ws, view);
 	}
 }
@@ -170,11 +174,11 @@ twdesk_surface_committed(struct tw_desktop_surface *dsurf,
 	struct tw_xdg *xdg = user_data;
 	struct tw_xdg_view *view = dsurf->user_data;
 	struct tw_workspace *ws = xdg->actived_workspace[0];
-	struct tw_backend_output *output =
-		tw_backend_focused_output(xdg->backend);
+	struct tw_engine_output *output =
+		tw_engine_get_focused_output(xdg->engine);
 
 	if (!view->added) {
-		view->output = xdg_output_from_backend_output(xdg, output);
+		view->output = xdg_output_from_engine_output(xdg, output);
 		tw_workspace_add_view(ws, view);
 	} else {
 		tw_xdg_view_set_position(view, view->x, view->y);
@@ -253,15 +257,16 @@ twdesk_fullscreen(struct tw_desktop_surface *dsurf,
                   void *user_data)
 {
 	struct tw_xdg *xdg = user_data;
-	struct tw_backend_output *backend_output = output_resource ?
-		tw_backend_output_from_resource(output_resource) : NULL;
+	struct tw_engine_output *engine_output = output_resource ?
+		tw_engine_output_from_resource(xdg->engine, output_resource) :
+		NULL;
 	struct tw_workspace *ws = xdg->actived_workspace[0];
 	struct tw_xdg_view *view = dsurf->user_data;
 	struct tw_xdg_output *xdg_output;
 
         assert(view);
-	xdg_output = backend_output ?
-		xdg_output_from_backend_output(xdg, backend_output) :
+	xdg_output = engine_output ?
+		xdg_output_from_engine_output(xdg, engine_output) :
 		view->output;
 	assert(xdg_output);
 
@@ -316,32 +321,35 @@ static const struct tw_desktop_surface_api desktop_impl =  {
  * listeners
  *****************************************************************************/
 
+
 static void
 handle_desktop_output_create(struct wl_listener *listener, void *data)
 {
-	struct tw_backend_output *output = data;
+	struct tw_engine_output *output = data;
 	struct tw_xdg *desktop =
 		container_of(listener, struct tw_xdg, output_create_listener);
 
 	struct tw_xdg_output *xdg_output = &desktop->outputs[output->id];
+	xdg_output->xdg = desktop;
 	xdg_output->output = output;
 	xdg_output->idx = output->id;
 	xdg_output->desktop_area = (desktop->shell) ?
 		tw_shell_output_available_space(desktop->shell, output) :
-		(pixman_rectangle32_t){output->state.x, output->state.y,
-		                       output->state.w, output->state.h};
+		tw_output_device_geometry(output->device);
 
 	for (int i = 0; i < MAX_WORKSPACES; i++)
 		tw_workspace_add_output(&desktop->workspaces[i], xdg_output);
+
+
 }
 
 static void
 handle_desktop_output_destroy(struct wl_listener *listener, void *data)
 {
-	struct tw_backend_output *output = data;
 	struct tw_xdg *desktop =
-		container_of(listener, struct tw_xdg, output_destroy_listener);
-	struct tw_xdg_output *xdg_output = &desktop->outputs[output->id];
+		wl_container_of(listener, desktop, output_destroy_listener);
+	struct tw_xdg_output *xdg_output =
+		xdg_output_from_engine_output(desktop, data);
 
         for (int i = 0; i < MAX_WORKSPACES; i++) {
 		struct tw_workspace *w = &desktop->workspaces[i];
@@ -349,16 +357,17 @@ handle_desktop_output_destroy(struct wl_listener *listener, void *data)
 	}
 }
 
+
 static void
 handle_desktop_area_change(struct wl_listener *listener, void *data)
 {
-	struct tw_backend_output *output = data;
+	struct tw_engine_output *output = data;
 	struct tw_xdg *desktop =
 		container_of(listener, struct tw_xdg, desktop_area_listener);
 	struct tw_xdg_output *xdg_output = &desktop->outputs[output->id];
 
-        xdg_output->desktop_area = tw_shell_output_available_space(
-		desktop->shell, output);
+        xdg_output->desktop_area =
+	        tw_shell_output_available_space(desktop->shell, output);
 	for (int i = 0; i < MAX_WORKSPACES; i++)
 		tw_workspace_resize_output(&desktop->workspaces[i],
 		                           xdg_output);
@@ -371,7 +380,6 @@ end_desktop(struct wl_listener *listener, UNUSED_ARG(void *data))
 					 display_destroy_listener);
 
 	tw_reset_wl_list(&d->output_create_listener.link);
-	tw_reset_wl_list(&d->output_destroy_listener.link);
 	tw_reset_wl_list(&d->desktop_area_listener.link);
 
 	for (int i = 0; i < MAX_WORKSPACES; i++) {
@@ -390,16 +398,15 @@ init_desktop_listeners(struct tw_xdg *xdg)
 	wl_list_init(&xdg->display_destroy_listener.link);
 	wl_list_init(&xdg->desktop_area_listener.link);
 	wl_list_init(&xdg->output_create_listener.link);
-	wl_list_init(&xdg->output_destroy_listener.link);
 
 	//install signals
 	tw_set_display_destroy_listener(xdg->display,
 	                                &xdg->display_destroy_listener,
 	                                end_desktop);
-	tw_signal_setup_listener(&xdg->backend->output_plug_signal,
+	tw_signal_setup_listener(&xdg->engine->events.output_created,
 	                         &xdg->output_create_listener,
 	                         handle_desktop_output_create);
-	tw_signal_setup_listener(&xdg->backend->output_unplug_signal,
+	tw_signal_setup_listener(&xdg->engine->events.output_remove,
 	                         &xdg->output_destroy_listener,
 	                         handle_desktop_output_destroy);
 	if (xdg->shell)
@@ -415,7 +422,7 @@ init_desktop_workspaces(struct tw_xdg *xdg)
 	struct tw_workspace *wss = xdg->workspaces;
 
 	for (int i = 0; i < MAX_WORKSPACES; i++)
-		tw_workspace_init(&wss[i], &xdg->backend->layers_manager, i);
+		tw_workspace_init(&wss[i], &xdg->engine->layers_manager, i);
 	xdg->actived_workspace[0] = &wss[0];
 	xdg->actived_workspace[1] = &wss[1];
 	tw_workspace_switch(xdg->actived_workspace[0],
@@ -494,7 +501,7 @@ tw_xdg_split_on_view(struct tw_xdg *xdg, struct tw_xdg_view *view,
 	struct tw_workspace *ws = xdg->actived_workspace[0];
         assert(tw_workspace_has_view(ws, view));
         tw_workspace_run_command(ws, vsplit ? DPSR_vsplit : DPSR_hsplit,
-                                      view);
+                                 view);
 }
 
 void
@@ -540,7 +547,8 @@ void
 tw_xdg_switch_workspace(struct tw_xdg *xdg, uint32_t to)
 {
 	struct tw_xdg_view *view;
-	struct tw_backend_output *bo;
+	struct tw_engine_output *eo;
+	struct tw_render_output *rd;
 	struct tw_xdg_output *xo;
 
 	assert(to < MAX_WORKSPACES);
@@ -550,11 +558,11 @@ tw_xdg_switch_workspace(struct tw_xdg *xdg, uint32_t to)
 	                           xdg->actived_workspace[1]);
 	//enforcing a output-resizing event here to enforce the changed
 	//xdg options like gaps.
-	wl_list_for_each(bo, &xdg->backend->heads, link) {
-		xo = xdg_output_from_backend_output(xdg, bo);
-		tw_workspace_resize_output(xdg->actived_workspace[0],
-		                           xo);
-		tw_backend_output_dirty(bo);
+	wl_list_for_each(eo, &xdg->engine->heads, link) {
+		xo = xdg_output_from_engine_output(xdg, eo);
+		tw_workspace_resize_output(xdg->actived_workspace[0], xo);
+		rd = wl_container_of(eo->device, rd, device);
+		tw_render_output_dirty(rd);
 	}
 	if (view)
 		tw_xdg_view_activate(xdg, view);
@@ -598,7 +606,7 @@ tw_xdg_layout_type_from_name(const char *name)
 void
 tw_xdg_set_desktop_gap(struct tw_xdg *xdg, uint32_t igap, uint32_t ogap)
 {
-	struct tw_backend_output *bo;
+	struct tw_engine_output *eo;
 	struct tw_xdg_output *xo;
 
 	for (int i = 0; i < 32; i++) {
@@ -607,8 +615,8 @@ tw_xdg_set_desktop_gap(struct tw_xdg *xdg, uint32_t igap, uint32_t ogap)
 	}
 	//here we only chage the apply to the current workspace, the rest
 	//workspaces applied at `tw_xdg_switch_workspace`.
-	wl_list_for_each(bo, &xdg->backend->heads, link) {
-		xo = xdg_output_from_backend_output(xdg, bo);
+	wl_list_for_each(eo, &xdg->engine->heads, link) {
+		xo = xdg_output_from_engine_output(xdg, eo);
 		tw_workspace_resize_output(xdg->actived_workspace[0], xo);
 	}
 
@@ -616,7 +624,7 @@ tw_xdg_set_desktop_gap(struct tw_xdg *xdg, uint32_t igap, uint32_t ogap)
 
 struct tw_xdg *
 tw_xdg_create_global(struct wl_display *display, struct tw_shell *shell,
-                     struct tw_backend *backend)
+                     struct tw_engine *engine)
 {
 	struct tw_xdg *desktop = &s_desktop;
 	if (desktop->display) {
@@ -626,7 +634,7 @@ tw_xdg_create_global(struct wl_display *display, struct tw_shell *shell,
 	//initialize the desktop
 	desktop->display = display;
 	desktop->shell = shell;
-	desktop->backend = backend;
+	desktop->engine = engine;
 	for (int i = 0; i < 32; i++) {
 		desktop->outputs[i].inner_gap = 10;
 		desktop->outputs[i].outer_gap = 10;

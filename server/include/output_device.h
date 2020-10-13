@@ -24,6 +24,7 @@
 
 #include <wayland-server-protocol.h>
 #include <wayland-server.h>
+#include <pixman.h>
 
 #include <taiwins/objects/matrix.h>
 
@@ -31,8 +32,10 @@
 extern "C" {
 #endif
 
+struct tw_output_device;
+
 struct tw_output_device_mode {
-	int32_t w, h;
+	int32_t w, h; /** indicate the pixel size of the output */
 	int32_t refresh; /** -1 means unavailable */
 	bool preferred;
 };
@@ -40,12 +43,16 @@ struct tw_output_device_mode {
 struct tw_output_device_state {
 	bool enabled;
 	float scale;
-	int32_t x_comp, y_comp; /**< x,y position in global space */
-	struct tw_mat3 view_2d;
+	int32_t gx, gy; /**< x,y position in global space */
 	enum wl_output_subpixel subpixel;
 	enum wl_output_transform transform;
+	/* current mode indicates the actual window size, the effective size
+	 * is actual_size / scale */
 	struct tw_output_device_mode current_mode;
+};
 
+struct tw_output_device_impl {
+	void (*commit_state) (struct tw_output_device *device);
 };
 
 /**
@@ -63,11 +70,12 @@ struct tw_output_device_state {
 struct tw_output_device {
 	char name[32], make[32], model[32];
 	char serial[16];
-	int32_t phys_width, phys_height;
+	int32_t phys_width, phys_height, id;
 
 	/** a native window for different backend, could be none */
+	/** Do I need to include render_surface here */
 	void *native_window;
-
+	const struct tw_output_device_impl *impl;
 	struct wl_list link; /** backend: list */
 	struct wl_array available_modes;
 
@@ -75,8 +83,10 @@ struct tw_output_device {
 
 	struct {
 		struct wl_signal destroy;
-		struct wl_signal present;
+		/** new frame requested */
 		struct wl_signal new_frame;
+		/** new frame just presented on the output */
+		struct wl_signal present;
 		/** emit when general wl_output information is available, or
 		 * when output state changed */
                 struct wl_signal info;
@@ -87,16 +97,51 @@ struct tw_output_device {
 };
 
 void
-tw_output_device_init(struct tw_output_device *device);
-
+tw_output_device_init(struct tw_output_device *device,
+                      const struct tw_output_device_impl *impl);
 void
 tw_output_device_fini(struct tw_output_device *device);
 
 void
+tw_output_device_set_id(struct tw_output_device *device, int id);
+
+void
+tw_output_device_enable(struct tw_output_device *device, bool enable);
+
+void
+tw_output_device_set_transform(struct tw_output_device *device,
+                               enum wl_output_transform transform);
+void
 tw_output_device_set_scale(struct tw_output_device *device, float scale);
 
 void
+tw_output_device_set_pos(struct tw_output_device *device, int gx, int gy);
+
+void
+tw_output_device_set_custom_mode(struct tw_output_device *device,
+                                 unsigned width, unsigned height, int refresh);
+void
 tw_output_device_commit_state(struct tw_output_device *device);
+
+void
+tw_output_device_present(struct tw_output_device *device);
+
+pixman_rectangle32_t
+tw_output_device_geometry(const struct tw_output_device *device);
+
+/**
+ * @brief get raw resolution, without scale or transform
+ */
+void
+tw_output_device_raw_resolution(const struct tw_output_device *device,
+                                unsigned *width, unsigned *height);
+
+/**
+ * @brief mapping (0...1) in the output to global position
+ */
+void
+tw_output_device_loc_to_global(const struct tw_output_device *device,
+                               float x, float y, float *gx, float *gy);
 
 #ifdef  __cplusplus
 }

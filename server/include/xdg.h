@@ -29,13 +29,19 @@
 
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/desktop.h>
-#include "backend.h"
+
+#include "engine.h"
+#include "output_device.h"
 
 #define MAX_WORKSPACES 9
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
+
+struct tw_shell;
+struct tw_xdg;
+struct tw_xdg_view;
 
 /**
  * @brief taiwins output information
@@ -44,8 +50,10 @@ extern "C" {
  * are not persistent. So don't store them as pointers.
  */
 struct tw_xdg_output {
-	struct tw_backend_output *output;
+	struct tw_xdg *xdg;
+	struct tw_engine_output *output;
 	pixman_rectangle32_t desktop_area;
+	struct wl_listener output_destroy;
 	int32_t idx;
 	uint32_t inner_gap;
 	uint32_t outer_gap;
@@ -67,13 +75,10 @@ enum tw_layout_type {
 /******************************************************************************
  * desktop functions
  *****************************************************************************/
-struct tw_shell;
-struct tw_xdg;
-struct tw_xdg_view;
 
 struct tw_xdg *
 tw_xdg_create_global(struct wl_display *display, struct tw_shell *shell,
-                     struct tw_backend *backend);
+                     struct tw_engine *engine);
 int
 tw_xdg_current_workspace_idx(struct tw_xdg *xdg);
 

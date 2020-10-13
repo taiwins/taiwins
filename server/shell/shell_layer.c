@@ -29,8 +29,6 @@
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/utils.h>
 
-#include "backend.h"
-#include "shell.h"
 #include "shell_internal.h"
 
 #define LAYER_SHELL_VERSION 1
@@ -49,7 +47,7 @@ calculate_geometry(void *user_data)
 {
 	struct tw_shell_ui *ui = user_data;
 	struct wl_display *display = ui->shell->display;
-	struct tw_backend_output *output = ui->output->output;
+	struct tw_engine_output *output = ui->output->output;
 	uint32_t x = ui->pending.x;
 	uint32_t y = ui->pending.y;
 	uint32_t w = ui->pending.w;
@@ -274,7 +272,7 @@ layer_shell_handle_get_layer_surface(struct wl_client *wl_client,
 {
 	struct tw_shell *shell =
 		tw_shell_from_layer_shell_resoruce(client_resource);
-	struct tw_backend_output *output;
+	struct tw_engine_output *output;
 	struct wl_resource *layer_surface_resource;
 	struct tw_shell_ui *shell_ui = calloc(1, sizeof(*shell_ui));
 	struct tw_shell_output *shell_output;
@@ -287,10 +285,11 @@ layer_shell_handle_get_layer_surface(struct wl_client *wl_client,
 		return;
 	}
 	if (!output_resource)
-		output = tw_backend_focused_output(shell->backend);
+		output = tw_engine_get_focused_output(shell->engine);
 	else
-		output = tw_backend_output_from_resource(output_resource);
-	shell_output = shell_output_from_backend_output(shell, output);
+		output = tw_engine_output_from_resource(shell->engine,
+		                                        output_resource);
+	shell_output = shell_output_from_engine_output(shell, output);
 
 	layer_surface_resource =
 		wl_resource_create(wl_client,

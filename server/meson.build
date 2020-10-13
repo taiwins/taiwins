@@ -16,26 +16,14 @@ elif get_option('rendering-debug') == 'clip'
   taiwins_cargs += '-D_TW_DEBUG_CLIP'
 endif
 
-if cc.has_function('libinput_device_touch_get_touch_count',
-		   prefix: '#include <libinput.h>',
-		  dependencies: [dep_libinput])
-  taiwins_cargs += '-D_TW_HAS_LIBINPUT_GET_TOUCH_COUNT'
-endif
-
 pkgconfig = import('pkgconfig')
 
 ####### static lib
 taiwins_lib_src = [
   'bindings.c',
-  'backend/backend.c',
-  'backend/objects_proxy.c',
-  'backend/seat.c',
-  'backend/libinput.c',
-  'backend/output.c',
-  'renderer/renderer.c',
-  'renderer/shaders.c',
-  'renderer/texture.c',
-  'renderer/layer_renderer.c',
+  'input_device.c',
+  'output_device.c',
+
   'shell/shell.c',
   'shell/shell_layer.c',
   'shell/console.c',
@@ -48,6 +36,19 @@ taiwins_lib_src = [
   'desktop/layout_maximized.c',
   'desktop/layout_fullscreen.c',
   'desktop/layout_tiling.c',
+
+  'render/render_context.c',
+  'render/render_output.c',
+  'render/render_pipeline.c',
+  'render/egl_render_context.c',
+  'render/egl_texture.c',
+  'render/egl_shaders.c',
+  'render/egl_simple_pipeline.c',
+
+  'engine/engine.c',
+  'engine/seat.c',
+  'engine/output.c',
+
   'config/config.c',
   'config/config_bindings.c',
   'config/config_parser.c',
@@ -64,18 +65,11 @@ taiwins_lib_src = [
   wayland_wlr_layer_shell_server_protocol_h,
   wayland_wlr_layer_shell_private_code_c,
   wayland_xdg_shell_private_code_c,
-
-  'renderer/egl.c',
-  'renderer/render_context_egl.c',
-  'input_device.c',
-  'output_device.c',
-  'backend/headless.c',
 ]
 taiwins_lib_dep = [
   dep_wayland_server,
   dep_twobjects,
   dep_ctypes,
-  dep_wlroots,
   dep_xkbcommon,
   dep_threads,
   dep_pixman,
@@ -87,6 +81,9 @@ taiwins_lib_dep = [
   dep_tdbus,
   dep_libinput
 ]
+
+subdir('backend')
+
 taiwins_lib = static_library(
   'taiwins',
   taiwins_lib_src,
@@ -107,13 +104,13 @@ dep_taiwins_lib = declare_dependency(
     include_directories('.'),
     include_directories('include'),
   ],
-  install : false,
 )
 
 ####### compositor
 taiwins_src = [
-  'main.c',
-  'input.c',
+  'compositor/main.c',
+  'compositor/input.c',
+  wayland_taiwins_shell_server_protocol_h,
 ]
 
 taiwins = executable(

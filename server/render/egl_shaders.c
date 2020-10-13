@@ -1,5 +1,5 @@
 /*
- * shaders.c - taiwins backend renderer shaders
+ * egl_shaders.c - taiwins egl renderer shaders
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -23,7 +23,7 @@
 #include <GLES3/gl3.h>
 
 #include <taiwins/objects/logger.h>
-#include "shaders.h"
+#include "egl_shaders.h"
 
 /******************************************************************************
  * shader collections
@@ -174,7 +174,7 @@ compile_shader(GLenum type, const GLchar *src)
  * exposed APIs
  ****************************************************************************/
 GLuint
-tw_renderer_create_program(const GLchar *vs_src, const GLchar *fs_src)
+tw_egl_shader_create_program(const GLchar *vs_src, const GLchar *fs_src)
 {
 	GLuint p;
 	GLuint vs = compile_shader(GL_VERTEX_SHADER, vs_src);
@@ -194,9 +194,9 @@ tw_renderer_create_program(const GLchar *vs_src, const GLchar *fs_src)
 }
 
 void
-tw_quad_color_shader_init(struct tw_quad_color_shader *shader)
+tw_egl_quad_color_shader_init(struct tw_egl_quad_color_shader *shader)
 {
-	shader->prog = tw_renderer_create_program(quad_vs, color_quad_fs);
+	shader->prog = tw_egl_shader_create_program(quad_vs, color_quad_fs);
 	shader->uniform.proj = glGetUniformLocation(shader->prog, "proj");
 	shader->uniform.color = glGetUniformLocation(shader->prog, "color");
 	shader->uniform.alpha = glGetUniformLocation(shader->prog, "alpha");
@@ -206,15 +206,15 @@ tw_quad_color_shader_init(struct tw_quad_color_shader *shader)
 }
 
 void
-tw_quad_color_shader_fini(struct tw_quad_color_shader *shader)
+tw_egl_quad_color_shader_fini(struct tw_egl_quad_color_shader *shader)
 {
 	glDeleteProgram(shader->prog);
 }
 
 void
-tw_quad_tex_blend_shader_init(struct tw_quad_tex_shader *shader)
+tw_egl_quad_tex_blend_shader_init(struct tw_egl_quad_tex_shader *shader)
 {
-	shader->prog = tw_renderer_create_program(quad_vs, tex_quad_fs);
+	shader->prog = tw_egl_shader_create_program(quad_vs, tex_quad_fs);
 	shader->uniform.proj = glGetUniformLocation(shader->prog, "proj");
 	shader->uniform.texture = glGetUniformLocation(shader->prog, "tex");
 	shader->uniform.alpha = glGetUniformLocation(shader->prog, "alpha");
@@ -224,15 +224,15 @@ tw_quad_tex_blend_shader_init(struct tw_quad_tex_shader *shader)
 }
 
 void
-tw_quad_tex_blend_shader_fini(struct tw_quad_tex_shader *shader)
+tw_egl_quad_tex_blend_shader_fini(struct tw_egl_quad_tex_shader *shader)
 {
 	glDeleteProgram(shader->prog);
 }
 
 void
-tw_quad_tex_ext_blend_shader_init(struct tw_quad_tex_shader *shader)
+tw_egl_quad_tex_ext_blend_shader_init(struct tw_egl_quad_tex_shader *shader)
 {
-	shader->prog = tw_renderer_create_program(quad_vs, tex_quad_ext_fs);
+	shader->prog = tw_egl_shader_create_program(quad_vs, tex_quad_ext_fs);
 	shader->uniform.proj = glGetUniformLocation(shader->prog, "proj");
 	shader->uniform.texture = glGetUniformLocation(shader->prog, "tex");
 	shader->uniform.alpha = glGetUniformLocation(shader->prog, "alpha");
@@ -242,15 +242,15 @@ tw_quad_tex_ext_blend_shader_init(struct tw_quad_tex_shader *shader)
 }
 
 void
-tw_quad_tex_ext_blend_shader_fini(struct tw_quad_tex_shader *shader)
+tw_egl_quad_tex_ext_blend_shader_fini(struct tw_egl_quad_tex_shader *shader)
 {
 	glDeleteProgram(shader->prog);
 }
 
 void
-tw_quad_tex_blur_shader_init(struct tw_quad_tex_shader *shader)
+tw_egl_quad_tex_blur_shader_init(struct tw_egl_quad_tex_shader *shader)
 {
-	shader->prog = tw_renderer_create_program(quad_vs, tex_gaussian_fs);
+	shader->prog = tw_egl_shader_create_program(quad_vs, tex_gaussian_fs);
 	shader->uniform.proj = glGetUniformLocation(shader->prog, "proj");
 	shader->uniform.texture = glGetUniformLocation(shader->prog, "tex");
 	shader->uniform.alpha = glGetUniformLocation(shader->prog, "alpha");
@@ -260,7 +260,7 @@ tw_quad_tex_blur_shader_init(struct tw_quad_tex_shader *shader)
 }
 
 void
-tw_quad_tex_blur_shader_fini(struct tw_quad_tex_shader *shader)
+tw_egl_quad_tex_blur_shader_fini(struct tw_egl_quad_tex_shader *shader)
 {
 	glDeleteProgram(shader->prog);
 }

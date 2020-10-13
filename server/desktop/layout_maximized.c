@@ -25,6 +25,7 @@
 #include <ctypes/helpers.h>
 #include <wayland-server-protocol.h>
 
+#include "output_device.h"
 #include "layout.h"
 #include "workspace.h"
 
@@ -58,10 +59,9 @@ maximized_add(const enum tw_xdg_layout_command command,
              struct tw_xdg_view *v, struct tw_xdg_layout *l,
              struct tw_xdg_layout_op *ops)
 {
-	pixman_rectangle32_t output_geo = {
-		v->output->output->state.x, v->output->output->state.y,
-		v->output->output->state.w, v->output->output->state.h,
-	};
+	pixman_rectangle32_t output_geo =
+		tw_output_device_geometry(v->output->output->device);
+
 	if (arg->in.default_geometry.width &&
 	    arg->in.default_geometry.height) {
 		ops[0].out.pos.x = arg->in.default_geometry.x;

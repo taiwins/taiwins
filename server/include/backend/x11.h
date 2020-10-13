@@ -1,5 +1,5 @@
 /*
- * headless.h - taiwins server headless backend header
+ * x11.h - taiwins server x11 backend header
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -19,25 +19,21 @@
  *
  */
 
-#ifndef TW_HEADLESS_BACKEND_H
-#define TW_HEADLESS_BACKEND_H
+#ifndef TW_X11_BACKEND_H
+#define TW_X11_BACKEND_H
 
 #include "backend.h"
-#include "input_device.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
 struct tw_backend *
-tw_headless_backend_create(struct wl_display *display);
+tw_x11_backend_create(struct wl_display *display, const char *x11_display);
 
 bool
-tw_headless_backend_add_output(struct tw_backend *backend,
-                               unsigned int width, unsigned int height);
-bool
-tw_headless_backend_add_input_device(struct tw_backend *backend,
-                                     enum tw_input_device_type type);
+tw_x11_backend_add_output(struct tw_backend *backend,
+                          unsigned int width, unsigned int height);
 
 #ifdef  __cplusplus
 }

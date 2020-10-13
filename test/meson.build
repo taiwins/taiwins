@@ -43,18 +43,9 @@ test('test_matrix_test', matrix_test)
 
 egl_test_context = executable(
   'tw-test-egl-context',
-  ['egl-context-test.c',
-  '../server/renderer/egl.c'],
+  'egl-context-test.c',
   c_args : ['-D_GNU_SOURCE'],
-  dependencies : [
-    dep_m,
-    dep_twobjects,
-    dep_glesv2,
-    dep_egl,
-  ],
-  include_directories : [
-    include_directories('../server/include'),
-  ],
+  dependencies : dep_twobjects,
 )
 test('test_egl_context', egl_test_context)
 
@@ -65,3 +56,14 @@ headless_test = executable(
   dependencies : dep_taiwins_lib,
 )
 test('test_headless', headless_test)
+
+if get_option('x11-backend').enabled()
+  x11_test = executable(
+    'tw-test-x11',
+    ['x11-test.c',
+     wayland_taiwins_shell_server_protocol_h],
+    c_args : ['-D_GNU_SOURCE', '-DWLR_USE_UNSTABLE'],
+    dependencies : dep_taiwins_lib,
+  )
+  test('test_x11', x11_test)
+endif

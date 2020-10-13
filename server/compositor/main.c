@@ -19,7 +19,6 @@
  *
  */
 
-#include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -35,15 +34,23 @@
 #include <taiwins/objects/profiler.h>
 #include <taiwins/objects/subprocess.h>
 #include <taiwins/objects/seat.h>
-
+#include <taiwins/objects/utils.h>
+#include <taiwins/objects/egl.h>
 #include <ctypes/helpers.h>
 #include <ctypes/os/file.h>
+
+#include "backend/x11.h"
+#include "shell.h"
+#include "xdg.h"
 #include "bindings.h"
-#include "renderer/renderer.h"
-#include "backend.h"
+#include "engine.h"
+#include "input_device.h"
+#include "render_context.h"
+#include "render_pipeline.h"
+
 #include "input.h"
 #include "config.h"
-#include "taiwins/objects/utils.h"
+
 
 struct tw_options {
 	const char *test_case;
@@ -59,7 +66,9 @@ struct tw_server {
 
 	/* globals */
 	struct tw_backend *backend;
+	struct tw_engine *engine;
 	struct tw_bindings *bindings;
+	struct tw_render_context *ctx;
 	struct tw_config *config;
 
 	/* seats */
@@ -68,18 +77,24 @@ struct tw_server {
 	struct wl_listener seat_remove;
 };
 
-
 static bool
 bind_backend(struct tw_server *server)
 {
 	//handle backend
-	server->backend = tw_backend_create_global(server->display,
-	                                           tw_layer_renderer_create);
+	server->backend = tw_x11_backend_create(server->display,
+	                                        getenv("DISPLAY"));
 	if (!server->backend) {
 		tw_logl("EE: failed to create backend\n");
 		return false;
 	}
-	tw_backend_defer_outputs(server->backend, true);
+
+	server->engine = tw_engine_create_global(server->display,
+	                                         server->backend);
+	if (!server->engine) {
+		tw_logl_level(TW_LOG_ERRO, "failed to create output");
+		return false;
+	}
+	tw_x11_backend_add_output(server->backend, 1000, 720);
 
 	return true;
 }
@@ -90,7 +105,8 @@ bind_config(struct tw_server *server)
 	server->bindings = tw_bindings_create(server->display);
 	if (!server->bindings)
 		goto err_binding;
-	server->config = tw_config_create(server->backend, server->bindings);
+	server->config = tw_config_create(server->engine, server->bindings,
+	                                  TW_CONFIG_TYPE_LUA);
 	if (!server->config)
 		goto err_config;
 	return true;
@@ -104,11 +120,11 @@ static void
 notify_adding_seat(struct wl_listener *listener, void *data)
 {
 	struct tw_server *server =
-		container_of(listener, struct tw_server, seat_add);
-	struct tw_backend_seat *seat = data;
-	uint32_t i = seat->idx;
-	tw_seat_events_init(&server->seat_events[i], seat,
-	                    server->bindings);
+		wl_container_of(listener, server, seat_add);
+	struct tw_engine_seat *seat = data;
+
+	tw_seat_events_init(&server->seat_events[seat->idx],
+	                          seat, server->bindings);
 }
 
 static void
@@ -116,20 +132,41 @@ notify_removing_seat(struct wl_listener *listener, void *data)
 {
 	struct tw_server *server =
 		container_of(listener, struct tw_server, seat_remove);
-	struct tw_backend_seat *seat = data;
-	uint32_t i = seat->idx;
-	tw_seat_events_fini(&server->seat_events[i]);
+	struct tw_engine_seat *seat = data;
+
+	tw_seat_events_fini(&server->seat_events[seat->idx]);
 }
 
 static void
 bind_listeners(struct tw_server *server)
 {
-	tw_signal_setup_listener(&server->backend->seat_add_signal,
+	tw_signal_setup_listener(&server->engine->events.seat_created,
 	                         &server->seat_add,
 	                         notify_adding_seat);
-	tw_signal_setup_listener(&server->backend->seat_rm_signal,
+	tw_signal_setup_listener(&server->engine->events.seat_remove,
 	                         &server->seat_remove,
 	                         notify_removing_seat);
+}
+
+static bool
+bind_render(struct tw_server *server)
+{
+	const struct tw_egl_options *opts =
+		tw_backend_get_egl_params(server->backend);
+
+	server->ctx = tw_render_context_create_egl(server->display, opts);
+
+	if (!server->ctx)
+		return false;
+
+	struct tw_render_pipeline *pipeline =
+		tw_egl_render_pipeline_create_default(
+			server->ctx, &server->engine->layers_manager);
+	if (!pipeline)
+		return false;
+
+	wl_list_insert(server->ctx->pipelines.prev, &pipeline->link);
+	return true;
 }
 
 static bool
@@ -142,6 +179,9 @@ tw_server_init(struct tw_server *server, struct wl_display *display)
 		return false;
 	if (!bind_config(server))
 		return false;
+	if (!bind_render(server))
+		return false;
+
 	bind_listeners(server);
 	return true;
 }
@@ -149,7 +189,7 @@ tw_server_init(struct tw_server *server, struct wl_display *display)
 static void
 tw_server_fini(struct tw_server *server)
 {
-	tw_config_destroy(server->config);
+	/* tw_config_destroy(server->config); */
 	tw_bindings_destroy(server->bindings);
 }
 
@@ -216,7 +256,6 @@ tw_handle_sigchld(int sig_num, void *data)
 	return 1;
 }
 
-
 static bool
 drop_permissions(void)
 {
@@ -232,7 +271,6 @@ drop_permissions(void)
 	}
 	return true;
 }
-
 
 static void
 print_help(void)
@@ -393,12 +431,12 @@ main(int argc, char *argv[])
 			goto err_config;
 	}
 	//run the loop
-	tw_backend_flush(ec.backend);
+	tw_backend_start(ec.backend, ec.ctx);
 	wl_display_run(ec.display);
 
 	//end.
-err_permission:
 err_config:
+err_permission:
         tw_server_fini(&ec);
 err_backend:
 err_signal:

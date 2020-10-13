@@ -27,7 +27,8 @@
 #include <ctypes/sequential.h>
 #include <wayland-taiwins-shell-server-protocol.h>
 
-#include "backend.h"
+#include "output_device.h"
+#include "engine.h"
 
 #define TWSHELL_VERSION 1
 #define TWDESKP_VERSION 1
@@ -42,11 +43,11 @@ struct tw_theme;
 struct tw_theme_global;
 
 struct tw_shell *
-tw_shell_create_global(struct wl_display *display, struct tw_backend *backend,
+tw_shell_create_global(struct wl_display *display, struct tw_engine *engine,
                        bool enable_layer_shell, const char *path);
 void
 tw_shell_create_ui_elem(struct tw_shell *shell, struct wl_client *client,
-                        struct tw_backend_output *output,
+                        struct tw_engine_output *output,
                         uint32_t tw_ui, struct wl_resource *wl_surface,
                         uint32_t x, uint32_t y, enum taiwins_ui_type type);
 void
@@ -57,7 +58,7 @@ tw_shell_post_message(struct tw_shell *shell, uint32_t type, const char *msg);
 
 pixman_rectangle32_t
 tw_shell_output_available_space(struct tw_shell *shell,
-                                struct tw_backend_output *output);
+                                struct tw_engine_output *output);
 struct wl_signal *
 tw_shell_get_desktop_area_signal(struct tw_shell *shell);
 
@@ -73,7 +74,7 @@ tw_theme_notify(struct tw_theme_global *global, struct tw_theme *new_theme);
 
 struct tw_console *
 tw_console_create_global(struct wl_display *display, const char *path,
-                         struct tw_backend *backend, struct tw_shell *shell);
+                         struct tw_engine *engine, struct tw_shell *shell);
 void
 tw_console_start_client(struct tw_console *console);
 

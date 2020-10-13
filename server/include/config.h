@@ -25,7 +25,7 @@
 #include <wayland-server.h>
 
 #include "bindings.h"
-#include "backend.h"
+#include "engine.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,8 +37,15 @@ extern "C" {
 struct tw_config;
 struct tw_config_table;
 
+enum
+tw_config_type {
+	TW_CONFIG_TYPE_LUA,
+	TW_CONFIG_TYPE_DBUS,
+};
+
 struct tw_config*
-tw_config_create(struct tw_backend *backend, struct tw_bindings *bindings);
+tw_config_create(struct tw_engine *engine, struct tw_bindings *bindings,
+                 enum tw_config_type type);
 
 bool
 tw_run_config(struct tw_config *config);

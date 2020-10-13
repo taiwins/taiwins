@@ -56,6 +56,7 @@ sudo apt-get -y --no-install-recommends install \
      libxcb1-dev \
      libxcb-composite0-dev \
      libxcb-xfixes0-dev \
+     libxcb-xinput-dev \
      libxcb-xkb-dev \
      libxcursor-dev \
      libxkbcommon-dev \

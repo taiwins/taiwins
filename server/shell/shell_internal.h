@@ -31,7 +31,6 @@
 #include <pixman.h>
 #include <wayland-util.h>
 
-#include "backend.h"
 #include "shell.h"
 
 #ifdef  __cplusplus
@@ -53,10 +52,7 @@ struct tw_shell_ui {
 	struct tw_shell_output *output;
 	struct wl_resource *resource;
 	struct tw_surface *binded;
-	//without weston bindings, we are struggling in retrieving focusing
-	//information. We cannot use tw_binding system anymore, tw_bindings does
-	//not work allow to remove bindings. Then you have to listen on some
-	//events, it should be coming from tw_backend.
+
 	int32_t x, y;
 	struct tw_layer *layer;
 	enum taiwins_ui_type type;
@@ -78,7 +74,7 @@ struct tw_shell_ui {
  * the resource only creates for taiwins_shell object
  */
 struct tw_shell_output {
-	struct tw_backend_output *output;
+	struct tw_engine_output *output;
 	struct tw_shell *shell;
 	struct wl_list link; /**< tw_shell:heads */
 	//ui elems
@@ -91,13 +87,14 @@ struct tw_shell_output {
 struct tw_shell {
 	uid_t uid; gid_t gid; pid_t pid;
 	char path[256];
+
+        struct wl_display *display;
 	struct wl_client *shell_client;
 	struct wl_resource *shell_resource;
 	struct wl_global *shell_global;
 	struct wl_global *layer_shell;
+	struct tw_engine *engine;
 
-	struct wl_display *display;
-	struct tw_backend *backend;
 	struct tw_layer background_layer;
 	struct tw_layer bottom_ui_layer;
 	struct tw_layer ui_layer;
@@ -143,8 +140,8 @@ shell_ui_set_role(struct tw_shell_ui *ui,
                   struct tw_surface *surface);
 
 struct tw_shell_output *
-shell_output_from_backend_output(struct tw_shell *shell,
-                                 struct tw_backend_output *output);
+shell_output_from_engine_output(struct tw_shell *shell,
+                                struct tw_engine_output *output);
 #ifdef  __cplusplus
 }
 #endif

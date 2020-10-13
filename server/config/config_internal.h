@@ -30,8 +30,8 @@
 #include <ctypes/vector.h>
 #include <taiwins/objects/logger.h>
 
+#include "engine.h"
 #include "xdg.h"
-#include "backend.h"
 #include "config.h"
 
 #ifdef __cplusplus
@@ -150,8 +150,9 @@ struct tw_config_table {
  *
  */
 struct tw_config {
-	struct tw_backend *backend;
+	struct tw_engine *engine;
 	struct tw_bindings *bindings;
+	enum tw_config_type type;
 	//this is stupid, we can simply embed the struct in
 	struct tw_config_table config_table;
 	vector_t registry;
@@ -162,7 +163,7 @@ struct tw_config {
 
 	/**< lua code may use this */
 	struct wl_listener output_created_listener;
-	struct wl_listener seat_change_listener;
+	struct wl_listener seat_created_listener;
 
 	//ideally, we would use function pointers to wrap lua code together
 	void (*init)(struct tw_config *);

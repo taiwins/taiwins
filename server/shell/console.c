@@ -19,23 +19,24 @@
  *
  */
 
+#include <assert.h>
 #include <string.h>
 #include <unistd.h>
 #include <linux/input.h>
 #include <unistd.h>
 #include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <wayland-taiwins-console-server-protocol.h>
-#include <ctypes/sequential.h>
+#include <taiwins/objects/seat.h>
 #include <taiwins/objects/subprocess.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/utils.h>
-#include <wayland-util.h>
+#include <ctypes/sequential.h>
 
-#include "backend.h"
+#include "output_device.h"
+#include "pixman.h"
 #include "shell.h"
-#include "taiwins/objects/seat.h"
+#include "engine.h"
 
 #define CONSOLE_WIDTH  600
 #define CONSOLE_HEIGHT 300
@@ -44,7 +45,7 @@
  * this struct handles the request and sends the event from
  * tw_console.
  */
-struct tw_console {
+static struct tw_console {
 	// client  info
 	char path[256];
 	struct wl_client *client;
@@ -52,7 +53,7 @@ struct tw_console {
 	pid_t pid; uid_t uid; gid_t gid;
 	struct tw_shell *shell;
 	struct wl_display *display;
-	struct tw_backend *backend;
+	struct tw_engine *engine;
 
 	struct wl_shm_buffer *decision_buffer;
 	struct tw_surface *surface;
@@ -60,9 +61,17 @@ struct tw_console {
 	struct wl_listener close_console_listener;
 	struct wl_global *global;
 	struct tw_subprocess process;
-};
+} s_console;
 
-static struct tw_console s_console;
+static struct taiwins_console_interface console_impl;
+
+static inline struct tw_console *
+tw_console_from_resource(struct wl_resource *resource)
+{
+	assert(wl_resource_instance_of(resource, &taiwins_console_interface,
+	                               &console_impl));
+	return wl_resource_get_user_data(resource);
+}
 
 static void
 notify_console_surface_destroy(struct wl_listener *listener, void *data)
@@ -96,18 +105,19 @@ set_console(struct wl_client *client,
             struct wl_resource *wl_surface,
             struct wl_resource *wl_seat)
 {
-	struct tw_console *lch = wl_resource_get_user_data(resource);
-	struct tw_backend_output *output =
-		tw_backend_focused_output(lch->backend);
+	struct tw_console *console = wl_resource_get_user_data(resource);
+	struct tw_engine_output *output =
+		tw_engine_get_focused_output(console->engine);
 	struct tw_seat *seat = tw_seat_from_resource(wl_seat);
 	struct tw_keyboard *keyboard = &seat->keyboard;
-	int32_t sx = output->state.w/2 - CONSOLE_WIDTH/2;
+	pixman_rectangle32_t geo = tw_output_device_geometry(output->device);
+	int32_t sx = geo.width/2 - CONSOLE_WIDTH/2;
 
-	tw_shell_create_ui_elem(lch->shell, client, output, ui_elem,
+	tw_shell_create_ui_elem(console->shell, client, output, ui_elem,
 	                        wl_surface, sx, 100, TAIWINS_UI_TYPE_WIDGET);
-	lch->surface = tw_surface_from_resource(wl_surface);
+	console->surface = tw_surface_from_resource(wl_surface);
 	wl_resource_add_destroy_listener(wl_surface,
-	                                 &lch->close_console_listener);
+	                                 &console->close_console_listener);
 	if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
 		tw_keyboard_set_focus(keyboard, wl_surface, NULL);
 }
@@ -200,7 +210,7 @@ end_console(struct wl_listener *listener, void *data)
 
 struct tw_console *
 tw_console_create_global(struct wl_display *display, const char *path,
-                         struct tw_backend *backend, struct tw_shell *shell)
+                         struct tw_engine *engine, struct tw_shell *shell)
 {
 	if (path && (strlen(path) +1 > NUMOF(s_console.path)))
 		return NULL;
@@ -208,7 +218,7 @@ tw_console_create_global(struct wl_display *display, const char *path,
 	s_console.surface = NULL;
 	s_console.resource = NULL;
 	s_console.display = display;
-	s_console.backend = backend;
+	s_console.engine = engine;
 	s_console.shell = shell;
 	s_console.global =
 		wl_global_create(display,
@@ -221,7 +231,8 @@ tw_console_create_global(struct wl_display *display, const char *path,
 		strcpy(s_console.path, path);
 		struct wl_event_loop *loop =
 			wl_display_get_event_loop(display);
-		wl_event_loop_add_idle(loop, launch_console_client, &s_console);
+		wl_event_loop_add_idle(loop, launch_console_client,
+		                       &s_console);
 	}
 
 	//close close

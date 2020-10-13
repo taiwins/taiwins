@@ -40,12 +40,13 @@
 #include <ctypes/helpers.h>
 #include <taiwins/objects/utils.h>
 
-#include "backend.h"
-#include "config.h"
+#include "engine.h"
+#include "output_device.h"
+#include "xdg.h"
 #include "shell.h"
 #include "bindings.h"
+#include "config.h"
 #include "config_internal.h"
-#include "xdg.h"
 
 /******************************************************************************
  * internal helpers
@@ -205,7 +206,7 @@ tw_config_wake_compositor(struct tw_config *c)
 	/* struct tw_xwayland *xwayland; */
 	struct tw_xdg *xdg;
 	struct tw_config *initialized;
-	struct wl_display *display = c->backend->display;
+	struct wl_display *display = c->engine->display;
 	uint32_t enables = c->config_table.enable_globals;
 	const char *shell_path;
 	const char *console_path;
@@ -216,10 +217,10 @@ tw_config_wake_compositor(struct tw_config *c)
 	if (initialized)
 		goto initialized;
 
-	tw_config_register_object(c, "backend", c->backend);
+	/* tw_config_register_object(c, "backend", c->backend); */
 
 	if (enables & TW_CONFIG_GLOBAL_BUS) {
-		if (!(bus = tw_bus_create_global(c->backend->display)))
+		if (!(bus = tw_bus_create_global(display)))
 			goto out;
                 tw_config_register_object(c, "bus", bus);
 	}
@@ -227,7 +228,7 @@ tw_config_wake_compositor(struct tw_config *c)
 	if (enables & TW_CONFIG_GLOBAL_TAIWINS_SHELL) {
 		bool enable_layer_shell =
 			enables & TW_CONFIG_GLOBAL_LAYER_SHELL;
-		if (!(shell = tw_shell_create_global(display, c->backend,
+		if (!(shell = tw_shell_create_global(display, c->engine,
 		                                     enable_layer_shell,
 		                                     shell_path)))
 			goto out;
@@ -237,7 +238,7 @@ tw_config_wake_compositor(struct tw_config *c)
 	if (shell && (enables & TW_CONFIG_GLOBAL_TAIWINS_CONSOLE)) {
 		if (!(console = tw_console_create_global(display,
 		                                         console_path,
-		                                         c->backend,
+		                                         c->engine,
 		                                         shell)))
 			goto out;
 		tw_config_register_object(c, "console", console);
@@ -252,7 +253,7 @@ tw_config_wake_compositor(struct tw_config *c)
 	/*	goto out; */
 	/* tw_config_register_object(c, "xwayland", xwayland); */
 	if (enables & TW_CONFIG_GLOBAL_DESKTOP) {
-		if (!(xdg = tw_xdg_create_global(display, shell, c->backend)))
+		if (!(xdg = tw_xdg_create_global(display, shell, c->engine)))
 			goto out;
 		tw_config_register_object(c, "desktop", xdg);
 	}
@@ -278,9 +279,10 @@ tw_run_config(struct tw_config *config)
 	bool safe;
 	struct tw_config *temp_config;
 	struct tw_bindings *tmp_bindings =
-		tw_bindings_create(config->backend->display);
+		tw_bindings_create(config->engine->display);
 
-	temp_config = tw_config_create(config->backend, tmp_bindings);
+	temp_config = tw_config_create(config->engine, tmp_bindings,
+	                               config->type);
 	tw_config_copy_registry(temp_config, config);
 	safe = tw_try_config(temp_config, config);
 
@@ -311,7 +313,7 @@ tw_run_default_config(struct tw_config *c)
 
 static inline struct tw_config_output *
 tw_config_output_from_backend_output(struct tw_config_table *t,
-                                     struct tw_backend_output *output)
+                                     struct tw_engine_output *output)
 {
 	for (unsigned i = 0; i < NUMOF(t->outputs); i++) {
 		if (!strcmp(output->name, t->outputs[i].name))
@@ -322,28 +324,26 @@ tw_config_output_from_backend_output(struct tw_config_table *t,
 
 static void
 tw_config_apply_output(struct tw_config_table *t,
-                       struct tw_backend_output *bo)
+                       struct tw_engine_output *bo)
 {
+	struct tw_output_device *od = bo->device;
 	struct tw_config_output *co =
 		tw_config_output_from_backend_output(t, bo);
-	if (!co)
+
+	if (!co || !od)
 		return;
 	if (co->enabled.valid)
-		tw_backend_output_enable(bo, co->enabled.enable);
+		tw_output_device_enable(od, co->enabled.enable);
 	if (co->transform.valid)
-		tw_backend_set_output_transformation(bo,
-		                                     co->transform.transform);
-	if (co->width.valid && co->height.valid) {
-		struct tw_backend_output_mode mode = {
-			co->width.uval, co->height.uval, 0
-		};
-		tw_backend_set_output_mode(bo, &mode);
-	}
+		tw_output_device_set_transform(od, co->transform.transform);
+	if (co->width.valid && co->height.valid)
+		tw_output_device_set_custom_mode(od, co->width.uval,
+		                                 co->height.uval, 0);
 	if (co->posx.valid && co->posy.valid)
-		tw_backend_set_output_position(bo, co->posx.val, co->posy.val);
+		tw_output_device_set_pos(od, co->posx.val, co->posy.val);
 	if (co->scale.valid)
-		tw_backend_set_output_scale(bo, co->scale.val);
-	tw_backend_commit_output_state(bo);
+		tw_output_device_set_scale(od, co->scale.val);
+	tw_output_device_commit_state(od);
 }
 
 static void
@@ -356,26 +356,28 @@ notify_config_output_create(struct wl_listener *listener, void *data)
 }
 
 static void
-notify_config_seat_change(struct wl_listener *listener, void *data)
+notify_config_seat_create(struct wl_listener *listener, void *data)
 {
 	struct tw_config *config =
-		container_of(listener, struct tw_config, seat_change_listener);
-	struct tw_backend_seat *seat = data;
-	//Here is HACK to retrieve the unitialized keyboard
-	if ((seat->capabilities & TW_INPUT_CAP_KEYBOARD) &&
-	    !seat->tw_seat->keyboard.keymap_string)
-		tw_backend_seat_set_xkb_rules(seat, &config->xkb_rules);
+		wl_container_of(listener, config, seat_created_listener);
+	struct tw_engine_seat *seat = data;
+
+	tw_engine_seat_set_xkb_rules(seat, &config->xkb_rules);
 }
 
 struct tw_config*
-tw_config_create(struct tw_backend *backend, struct tw_bindings *bindings)
+tw_config_create(struct tw_engine *engine, struct tw_bindings *bindings,
+                 enum tw_config_type type)
 {
+	assert(type == TW_CONFIG_TYPE_LUA);
+
 	struct tw_config *config =
 		calloc(1, sizeof(struct tw_config));
 	if (!config)
 		return NULL;
 
-	config->backend = backend;
+	config->type = type;
+	config->engine = engine;
 	config->err_msg = NULL;
 	config->user_data = NULL;
 	config->bindings = bindings;
@@ -394,12 +396,12 @@ tw_config_create(struct tw_backend *backend, struct tw_bindings *bindings)
 	                 sizeof(struct tw_binding), NULL);
 	vector_init_zero(&config->registry,
 	                 sizeof(struct tw_config_obj), NULL);
-	tw_signal_setup_listener(&backend->output_plug_signal,
+	tw_signal_setup_listener(&engine->events.output_created,
 	                         &config->output_created_listener,
 	                         notify_config_output_create);
-	tw_signal_setup_listener(&backend->seat_ch_signal,
-	                         &config->seat_change_listener,
-	                         notify_config_seat_change);
+	tw_signal_setup_listener(&engine->events.seat_created,
+	                         &config->seat_created_listener,
+	                         notify_config_seat_create);
 	return config;
 }
 
@@ -415,7 +417,7 @@ tw_config_destroy(struct tw_config *config)
 	vector_destroy(&config->registry);
 
 	wl_list_remove(&config->output_created_listener.link);
-        wl_list_remove(&config->seat_change_listener.link);
+        wl_list_remove(&config->seat_created_listener.link);
         free(config);
 }
 
@@ -439,23 +441,23 @@ tw_config_table_flush(struct tw_config_table *t)
 	struct tw_xdg *desktop;
 	struct tw_shell *shell;
 	struct tw_theme_global *theme;
-	struct tw_backend *backend;
-	struct tw_config *c = container_of(t, struct tw_config, config_table);
-	struct tw_backend_output *output;
-	struct tw_backend_seat *seat;
+	struct tw_engine *engine;
+	struct tw_engine_output *output;
+	struct tw_engine_seat *seat;
+	struct tw_config *c = wl_container_of(t, c, config_table);
 
+	engine = c->engine;
 	desktop = tw_config_request_object(c, "desktop");
 	theme = tw_config_request_object(c, "theme");
-	backend = tw_config_request_object(c, "backend");
 	shell = tw_config_request_object(c, "shell");
 	if (!t->dirty)
 		return;
 
-	wl_list_for_each(output, &backend->heads, link)
+	wl_list_for_each(output, &engine->heads, link)
 		tw_config_apply_output(t, output);
 
-	wl_list_for_each(seat, &backend->inputs, link)
-		tw_backend_seat_set_xkb_rules(seat, t->xkb_rules);
+	wl_list_for_each(seat, &engine->inputs, link)
+		tw_engine_seat_set_xkb_rules(seat, t->xkb_rules);
 
 	for (unsigned i = 0; desktop && i < MAX_WORKSPACES; i++) {
 		tw_xdg_set_workspace_layout(desktop, i,

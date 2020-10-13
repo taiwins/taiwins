@@ -31,8 +31,8 @@
 #include <taiwins/objects/logger.h>
 #include <wayland-util.h>
 
+#include "output_device.h"
 #include "xdg.h"
-#include "shell.h"
 #include "workspace.h"
 #include "layout.h"
 
@@ -408,6 +408,9 @@ void
 tw_workspace_add_view(struct tw_workspace *w, struct tw_xdg_view *view)
 {
 	pixman_rectangle32_t default_geo = {-1, -1, 0, 0};
+	pixman_rectangle32_t output_geo =
+		tw_output_device_geometry(view->output->output->device);
+
 	switch (view->type) {
 	case LAYOUT_FLOATING:
 	case LAYOUT_TILING:
@@ -416,10 +419,10 @@ tw_workspace_add_view(struct tw_workspace *w, struct tw_xdg_view *view)
 		default_geo = view->output->desktop_area;
 		break;
 	case LAYOUT_FULLSCREEN:
-		default_geo.x = view->output->output->state.x;
-		default_geo.y = view->output->output->state.y;
-		default_geo.width = view->output->output->state.w;
-		default_geo.height = view->output->output->state.h;
+		default_geo.x = output_geo.x;
+		default_geo.y = output_geo.y;
+		default_geo.width = output_geo.width;
+		default_geo.height = output_geo.height;
 		break;
 	}
 	tw_workspace_add_view_with_geometry(w, view, &default_geo);
@@ -474,10 +477,9 @@ void
 tw_workspace_fullscreen_view(struct tw_workspace *w, struct tw_xdg_view *v,
                              struct tw_xdg_output *output, bool fullscreen)
 {
-	pixman_rectangle32_t geo = {
-		output->output->state.x, output->output->state.y,
-		output->output->state.w, output->output->state.h,
-	};
+	pixman_rectangle32_t geo =
+		tw_output_device_geometry(v->output->output->device);
+
 	if (fullscreen) {
 		tw_xdg_view_backup_geometry(v);
 		v->prev_type = v->type;

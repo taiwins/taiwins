@@ -20,6 +20,7 @@
  */
 
 #include <string.h>
+#include <pixman.h>
 #include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/matrix.h>
@@ -31,7 +32,7 @@ static void
 output_device_state_init(struct tw_output_device_state *state,
                          struct tw_output_device *device)
 {
-	state->enabled = false;
+	state->enabled = true;
 	state->scale = 1.0;
 	state->current_mode.w = 0;
 	state->current_mode.h = 0;
@@ -40,16 +41,17 @@ output_device_state_init(struct tw_output_device_state *state,
 	state->subpixel = WL_OUTPUT_SUBPIXEL_NONE;
 	state->transform = WL_OUTPUT_TRANSFORM_NORMAL;
 
-        state->x_comp = 0;
-	state->y_comp = 0;
-	tw_mat3_init(&state->view_2d);
+        state->gx = 0;
+	state->gy = 0;
 }
 
 void
-tw_output_device_init(struct tw_output_device *device)
+tw_output_device_init(struct tw_output_device *device,
+                      const struct tw_output_device_impl *impl)
 {
 	device->phys_width = 0;
 	device->phys_height = 0;
+	device->impl = impl;
 	wl_array_init(&device->available_modes);
 	wl_list_init(&device->link);
 
@@ -60,6 +62,7 @@ tw_output_device_init(struct tw_output_device *device)
 	wl_signal_init(&device->events.info);
 	wl_signal_init(&device->events.new_frame);
 	wl_signal_init(&device->events.info);
+	wl_signal_init(&device->events.present);
 	wl_signal_init(&device->events.commit_state);
 }
 
@@ -70,6 +73,29 @@ tw_output_device_fini(struct tw_output_device *device)
 
 	wl_array_release(&device->available_modes);
 	wl_list_remove(&device->link);
+}
+
+void
+tw_output_device_set_id(struct tw_output_device *device, int id)
+{
+	device->id = id;
+}
+
+void
+tw_output_device_set_pos(struct tw_output_device *device, int gx, int gy)
+{
+	device->pending.gx = gx;
+	device->pending.gy = gy;
+}
+
+void
+tw_output_device_set_custom_mode(struct tw_output_device *device,
+                                 unsigned width, unsigned height, int refresh)
+{
+	device->pending.current_mode.w = width;
+	device->pending.current_mode.h = height;
+	device->pending.current_mode.preferred = false;
+	device->pending.current_mode.refresh = refresh;
 }
 
 void
@@ -84,12 +110,77 @@ tw_output_device_set_scale(struct tw_output_device *device, float scale)
 }
 
 void
+tw_output_device_set_transform(struct tw_output_device *device,
+                               enum wl_output_transform transform)
+{
+	device->pending.transform = transform;
+}
+
+void
+tw_output_device_enable(struct tw_output_device *device, bool enable)
+{
+	device->pending.enabled = enable;
+}
+
+void
 tw_output_device_commit_state(struct tw_output_device *device)
 {
-	memcpy(&device->state, &device->pending,
-	       sizeof(struct tw_output_device_state));
 	//emit for backend
+	device->impl->commit_state(device);
 	wl_signal_emit(&device->events.commit_state, device);
 	//emit for sending new backend info.
 	wl_signal_emit(&device->events.info, device);
+}
+
+void
+tw_output_device_present(struct tw_output_device *device)
+{
+	wl_signal_emit(&device->events.present, device);
+}
+
+static void
+output_get_effective_resolution(const struct tw_output_device_state *state,
+                                int *width, int *height)
+{
+	if (state->transform % WL_OUTPUT_TRANSFORM_180 == 0) {
+		*width = state->current_mode.w;
+		*height = state->current_mode.h;
+	} else {
+		*width = state->current_mode.h;
+		*height = state->current_mode.w;
+	}
+	*width /= state->scale;
+	*height /= state->scale;
+}
+
+pixman_rectangle32_t
+tw_output_device_geometry(const struct tw_output_device *output)
+{
+	int width, height;
+
+	output_get_effective_resolution(&output->state, &width, &height);
+	return (pixman_rectangle32_t){
+		output->state.gx, output->state.gy,
+		width, height
+	};
+}
+
+void
+tw_output_device_loc_to_global(const struct tw_output_device *output,
+                               float x, float y, float *gx, float *gy)
+{
+	int width, height;
+
+	output_get_effective_resolution(&output->state, &width, &height);
+
+	*gx = output->state.gx + x * width;
+	*gy = output->state.gy + y * height;
+}
+
+void
+tw_output_device_raw_resolution(const struct tw_output_device *device,
+                                unsigned *width, unsigned *height)
+{
+	*width = device->state.current_mode.w;
+	*height = device->state.current_mode.h;
 }

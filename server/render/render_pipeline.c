@@ -1,5 +1,5 @@
 /*
- * headless.h - taiwins server headless backend header
+ * render_pipeline.c - taiwins render pipeline
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -19,29 +19,29 @@
  *
  */
 
-#ifndef TW_HEADLESS_BACKEND_H
-#define TW_HEADLESS_BACKEND_H
+#include <assert.h>
+#include <wayland-server-core.h>
+#include <wayland-util.h>
 
-#include "backend.h"
-#include "input_device.h"
+#include "render_pipeline.h"
 
-#ifdef  __cplusplus
-extern "C" {
-#endif
+void
+tw_render_pipeline_init(struct tw_render_pipeline *pipeline,
+                        const char *name, struct tw_render_context *ctx)
+{
+	assert(ctx);
+	pipeline->name = name;
+	pipeline->ctx = ctx;
+	wl_list_init(&pipeline->link);
+	wl_list_init(&pipeline->ctx_destroy.link);
 
-struct tw_backend *
-tw_headless_backend_create(struct wl_display *display);
+	wl_signal_init(&pipeline->events.pre_output_repaint);
+	wl_signal_init(&pipeline->events.post_output_repaint);
 
-bool
-tw_headless_backend_add_output(struct tw_backend *backend,
-                               unsigned int width, unsigned int height);
-bool
-tw_headless_backend_add_input_device(struct tw_backend *backend,
-                                     enum tw_input_device_type type);
-
-#ifdef  __cplusplus
 }
-#endif
-
-
-#endif /* EOF */
+void
+tw_render_pipeline_fini(struct tw_render_pipeline *pipeline)
+{
+	wl_list_remove(&pipeline->link);
+	wl_list_remove(&pipeline->ctx_destroy.link);
+}
