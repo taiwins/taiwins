@@ -67,7 +67,7 @@ inc_shared_config = include_directories('.')
 dir_tp_base = join_paths(meson.source_root(), 'subprojects', 'taiwins-protocols')
 
 subdir('protocols')
-subdir('server')
+subdir('libtaiwins')
 subdir('clients')
 subdir('test')
 
