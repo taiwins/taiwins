@@ -6,13 +6,13 @@
 #include <taiwins/objects/egl.h>
 #include <wayland-util.h>
 
-#include "backend/backend.h"
-#include "backend/x11.h"
-#include "render_context.h"
-#include "render_pipeline.h"
-#include "engine.h"
-#include "xdg.h"
-#include "shell.h"
+#include <taiwins/backend/backend.h>
+#include <taiwins/backend/x11.h>
+#include <taiwins/render_context.h>
+#include <taiwins/render_pipeline.h>
+#include <taiwins/engine.h>
+#include <taiwins/xdg.h>
+#include <taiwins/shell.h>
 
 struct tw_render_pipeline *
 tw_egl_render_pipeline_create_default(struct tw_render_context *ctx,

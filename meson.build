@@ -1,5 +1,5 @@
 project('taiwins', 'c',
-	version : '0.2.0',
+	version : '0.2.1',
 	default_options: [
 	  'warning_level=2', #warn level has to be 2 to get wlroots compiles
 	  'c_std=gnu11',
@@ -64,11 +64,14 @@ if not dep_lua.found()
 endif
 
 inc_shared_config = include_directories('.')
+inc_libtaiwins = include_directories('include')
 dir_tp_base = join_paths(meson.source_root(), 'subprojects', 'taiwins-protocols')
 
 subdir('protocols')
-subdir('server')
+subdir('include')
+subdir('libtaiwins')
 subdir('clients')
+subdir('compositor')
 subdir('test')
 
 
