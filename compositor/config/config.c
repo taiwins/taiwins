@@ -44,8 +44,9 @@
 #include <taiwins/output_device.h>
 #include <taiwins/xdg.h>
 #include <taiwins/shell.h>
-#include <taiwins/bindings.h>
-#include <taiwins/config.h>
+
+#include "bindings.h"
+#include "config.h"
 #include "config_internal.h"
 
 /******************************************************************************

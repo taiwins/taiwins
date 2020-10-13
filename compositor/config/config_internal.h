@@ -32,7 +32,8 @@
 
 #include <taiwins/engine.h>
 #include <taiwins/xdg.h>
-#include <taiwins/config.h>
+
+#include "config.h"
 
 #ifdef __cplusplus
 extern "C" {

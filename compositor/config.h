@@ -23,9 +23,9 @@
 #define TW_CONFIG_H
 
 #include <wayland-server.h>
+#include <taiwins/engine.h>
 
 #include "bindings.h"
-#include "engine.h"
 
 #ifdef __cplusplus
 extern "C" {

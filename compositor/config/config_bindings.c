@@ -28,9 +28,9 @@
 #include <taiwins/objects/desktop.h>
 #include <wayland-server.h>
 
-#include <taiwins/bindings.h>
 #include <taiwins/xdg.h>
 #include <taiwins/shell.h>
+#include "bindings.h"
 #include "config_internal.h"
 
 static bool

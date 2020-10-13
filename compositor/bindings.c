@@ -37,7 +37,7 @@
 #include <ctypes/helpers.h>
 #include <taiwins/objects/utils.h>
 
-#include <taiwins/bindings.h>
+#include "bindings.h"
 
 struct tw_binding_node {
 	struct vtree_node node;

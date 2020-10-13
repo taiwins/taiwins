@@ -20,7 +20,6 @@ pkgconfig = import('pkgconfig')
 
 ####### static lib
 taiwins_lib_src = [
-  'bindings.c',
   'input_device.c',
   'output_device.c',
 
@@ -48,13 +47,6 @@ taiwins_lib_src = [
   'engine/engine.c',
   'engine/seat.c',
   'engine/output.c',
-
-  'config/config.c',
-  'config/config_bindings.c',
-  'config/config_parser.c',
-  'config/config_lua.c',
-  'config/config_bus.c',
-  'config/theme_lua.c',
 
   wayland_taiwins_shell_server_protocol_h,
   wayland_taiwins_shell_private_code_c,
@@ -84,7 +76,7 @@ taiwins_lib_dep = [
 
 subdir('backend')
 
-taiwins_lib = static_library(
+taiwins_lib = both_libraries(
   'taiwins',
   taiwins_lib_src,
   c_args : taiwins_cargs,
@@ -93,6 +85,7 @@ taiwins_lib = static_library(
     inc_shared_config,
     inc_libtaiwins,
   ],
+  install: true,
 )
 
 dep_taiwins_lib = declare_dependency(
@@ -103,19 +96,4 @@ dep_taiwins_lib = declare_dependency(
     inc_shared_config,
     inc_libtaiwins,
   ],
-)
-
-####### compositor
-taiwins_src = [
-  'compositor/main.c',
-  'compositor/input.c',
-  wayland_taiwins_shell_server_protocol_h,
-]
-
-taiwins = executable(
-  'taiwins',
-  taiwins_src,
-  c_args : taiwins_cargs,
-  dependencies : dep_taiwins_lib,
-  install : true,
 )

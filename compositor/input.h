@@ -25,10 +25,10 @@
 #include <wayland-server.h>
 #include <xkbcommon/xkbcommon.h>
 #include <taiwins/objects/seat.h>
-
 #include <taiwins/engine.h>
-#include <taiwins/bindings.h>
 #include <taiwins/input_device.h>
+
+#include "bindings.h"
 
 #ifdef  __cplusplus
 extern "C" {

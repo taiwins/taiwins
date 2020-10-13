@@ -71,6 +71,7 @@ subdir('protocols')
 subdir('include')
 subdir('libtaiwins')
 subdir('clients')
+subdir('compositor')
 subdir('test')
 
 

@@ -38,10 +38,10 @@
 #include <taiwins/objects/logger.h>
 #include <twclient/theme.h>
 
-#include <taiwins/bindings.h>
 #include <taiwins/xdg.h>
 
 #include "lua_helper.h"
+#include "bindings.h"
 #include "config_internal.h"
 
 static inline struct tw_config *
