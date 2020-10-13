@@ -20,8 +20,6 @@ pkgconfig = import('pkgconfig')
 
 ####### static lib
 taiwins_lib_src = [
-  # 'renderer/renderer.c',
-  # 'renderer/layer_renderer.c',
   'bindings.c',
   'input_device.c',
   'output_device.c',
@@ -39,13 +37,13 @@ taiwins_lib_src = [
   'desktop/layout_fullscreen.c',
   'desktop/layout_tiling.c',
 
-  'renderer/render_context.c',
-  'renderer/render_output.c',
-  'renderer/render_pipeline.c',
-  'renderer/egl_render_context.c',
-  'renderer/egl_texture.c',
-  'renderer/egl_shaders.c',
-  'renderer/egl_simple_pipeline.c',
+  'render/render_context.c',
+  'render/render_output.c',
+  'render/render_pipeline.c',
+  'render/egl_render_context.c',
+  'render/egl_texture.c',
+  'render/egl_shaders.c',
+  'render/egl_simple_pipeline.c',
 
   'engine/engine.c',
   'engine/seat.c',

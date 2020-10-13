@@ -29,12 +29,6 @@ nklua = subproject('nklua')
 tdbus = subproject('tdbus')
 ctypes = subproject('ctypes')
 twobjects = subproject('twobjects', required: false)
-wlroots = subproject('wlroots', default_options : [
-		       'c_std=c11',
-		       'warning_level=2',
-		       'werror=true',
-		       'examples=false',
-		     ], required: false)
 pixman = subproject('pixman', default_options: [
 		      'gtk=disabled',
 		      'libpng=disabled',
@@ -63,7 +57,6 @@ dep_twobjects = twobjects.get_variable('dep_twobjects')
 dep_nklua = nklua.get_variable('dep_nklua')
 dep_tdbus = tdbus.get_variable('dep_tdbus')
 dep_pixman = pixman.found() ? pixman.get_variable('idep_pixman') : dependency('pixman-1', version: '>= 0.25.2')
-dep_wlroots = wlroots.found() ? wlroots.get_variable('wlroots') : dependency('wlroots', version: '>= 0.11.0', required: true)
 dep_twobjects = twobjects.found() ? twobjects.get_variable('dep_twobjects') : dependency('twobjects', required: true)
 dep_lua = dependency('lua', version: '>= 5.3', required: false)
 if not dep_lua.found()
