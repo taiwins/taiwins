@@ -32,6 +32,7 @@
 #include "internal.h"
 #include "output_device.h"
 #include "profiling.h"
+#include "taiwins/objects/logger.h"
 #include "taiwins/objects/seat.h"
 
 static void
@@ -69,6 +70,41 @@ notify_seat_remove_device(struct wl_listener *listener, void *data)
 /******************************************************************************
  * keyboard listeners
  *****************************************************************************/
+static uint32_t
+get_modmask(struct tw_input_device *device)
+{
+	uint32_t mask = 0;
+	struct xkb_state *state = device->input.keyboard.keystate;
+
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_ALT,
+	                                 XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_MODIFIER_ALT;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_CTRL,
+	                                 XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_MODIFIER_CTRL;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_LOGO,
+	                                 XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_MODIFIER_SUPER;
+	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_SHIFT,
+	                                 XKB_STATE_MODS_EFFECTIVE))
+		mask |= TW_MODIFIER_SHIFT;
+	return mask;
+}
+
+static uint32_t
+get_ledmask(struct tw_input_device *device)
+{
+	uint32_t mask = 0;
+	struct xkb_state *state = device->input.keyboard.keystate;
+
+	if (xkb_state_led_name_is_active(state, XKB_LED_NAME_NUM))
+		mask |= TW_LED_NUM_LOCK;
+	if (xkb_state_led_name_is_active(state, XKB_LED_NAME_CAPS))
+		mask |= TW_LED_CAPS_LOCK;
+	if (xkb_state_led_name_is_active(state, XKB_LED_NAME_SCROLL))
+		mask |= TW_LED_SCROLL_LOCK;
+	return mask;
+}
 
 static void
 notify_seat_keyboard_modifiers(struct wl_listener *listener, void *data)
@@ -77,6 +113,9 @@ notify_seat_keyboard_modifiers(struct wl_listener *listener, void *data)
 		wl_container_of(listener, seat, sink.keyboard.modifiers);
 	struct tw_keyboard *seat_keyboard = &seat->tw_seat->keyboard;
 	struct tw_event_keyboard_modifier *event = data;
+
+	seat_keyboard->modifiers_state = get_modmask(event->dev);
+	seat_keyboard->led_state = get_ledmask(event->dev);
 
 	tw_keyboard_notify_modifiers(seat_keyboard,
 	                             event->depressed, event->latched,

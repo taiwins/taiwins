@@ -94,7 +94,7 @@ bind_backend(struct tw_server *server)
 		tw_logl_level(TW_LOG_ERRO, "failed to create output");
 		return false;
 	}
-	tw_x11_backend_add_output(server->backend, 1280, 720);
+	tw_x11_backend_add_output(server->backend, 1000, 720);
 
 	return true;
 }

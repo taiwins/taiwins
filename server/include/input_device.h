@@ -30,17 +30,6 @@
 extern "C" {
 #endif
 
-//TODO: remove this
-enum tw_input_device_cap {
-	TW_INPUT_CAP_KEYBOARD = 1 << 0,
-	TW_INPUT_CAP_POINTER = 1 << 1,
-	TW_INPUT_CAP_TOUCH = 1 << 2,
-	TW_INPUT_CAP_TABLET_TOOL = 1 << 3,
-	TW_INPUT_CAP_TABLET_PAD = 1 << 4,
-	TW_INPUT_CAP_SWITCH = 1 << 5,
-	TW_INPUT_CAP_ALL = 0x1f,
-};
-
 enum tw_input_device_type {
 	TW_INPUT_TYPE_KEYBOARD,
 	TW_INPUT_TYPE_POINTER,
@@ -125,8 +114,7 @@ struct tw_input_sink {
 };
 
 struct tw_keyboard_input {
-	xkb_led_mask_t led_mask;
-	xkb_mod_mask_t mod_mask;
+	xkb_led_mask_t depressed, latched, locked, group;
 
 	struct xkb_keymap *keymap;
 	struct xkb_state *keystate;
@@ -163,30 +151,6 @@ struct tw_input_device {
 	//device
 	void (*destroy)(struct tw_input_device *dev);
 };
-
-/**
- * @brief attach the given input device to an emitter.
- *
- * multiple input devices can attach to the same emitter, the emitter can also
- * be subscribed by multiple tw_input_sink. This way tw_input_device can handle
- * many-sources-to-many-dests dependency.
- */
-void
-tw_input_device_attach_emitter(struct tw_input_device *device,
-                               struct tw_input_source *emitter);
-void
-tw_input_device_init(struct tw_input_device *device,
-                     enum tw_input_device_type type,
-                     void (*destroy)(struct tw_input_device *));
-/* some backend would provide keymap themselves */
-void
-tw_input_device_set_keymap(struct tw_input_device *device,
-                           struct xkb_keymap *keymap);
-void
-tw_input_device_fini(struct tw_input_device *device);
-
-void
-tw_input_source_init(struct tw_input_source *source);
 
 /** keyboard event */
 struct tw_event_keyboard_key {
@@ -265,6 +229,37 @@ struct tw_event_touch_cancel {
 	uint32_t time_msec;
 	int32_t touch_id;
 };
+
+/**
+ * @brief attach the given input device to an emitter.
+ *
+ * multiple input devices can attach to the same emitter, the emitter can also
+ * be subscribed by multiple tw_input_sink. This way tw_input_device can handle
+ * many-sources-to-many-dests dependency.
+ */
+void
+tw_input_device_attach_emitter(struct tw_input_device *device,
+                               struct tw_input_source *emitter);
+void
+tw_input_device_init(struct tw_input_device *device,
+                     enum tw_input_device_type type,
+                     void (*destroy)(struct tw_input_device *));
+void
+tw_input_device_fini(struct tw_input_device *device);
+
+/* some backend would provide keymap themselves */
+void
+tw_input_device_set_keymap(struct tw_input_device *device,
+                           struct xkb_keymap *keymap);
+void
+tw_input_source_init(struct tw_input_source *source);
+
+void
+tw_input_device_notify_key(struct tw_input_device *dev,
+                           struct tw_event_keyboard_key *key);
+void
+tw_input_device_notify_modifiers(struct tw_input_device *dev,
+                                 struct tw_event_keyboard_modifier *mod);
 
 #ifdef  __cplusplus
 }

@@ -19,14 +19,58 @@
  *
  */
 
-#include "input_device.h"
+#include <assert.h>
 #include <wayland-server-core.h>
 #include <wayland-util.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "input_device.h"
+
+
 static void
 input_device_destroy_dummy(struct tw_input_device *device)
 {
+}
+
+static bool
+update_keyboard_modifier(struct tw_input_device *dev)
+{
+	struct tw_keyboard_input *input = &dev->input.keyboard;
+	struct xkb_state *state = dev->input.keyboard.keystate;
+	xkb_mod_mask_t depressed, latched, locked, group;
+
+	if (state == NULL) {
+		return false;
+	}
+
+	depressed = xkb_state_serialize_mods(state, XKB_STATE_MODS_DEPRESSED);
+	latched = xkb_state_serialize_mods(state, XKB_STATE_MODS_LATCHED);
+	locked = xkb_state_serialize_mods(state, XKB_STATE_MODS_LOCKED);
+	group = xkb_state_serialize_layout(state, XKB_STATE_LAYOUT_EFFECTIVE);
+
+        if (depressed == input->depressed  && latched == input->latched &&
+	    locked == input->locked && group == input->group) {
+		return false;
+	}
+
+	input->depressed = depressed;
+	input->latched = latched;
+	input->locked = locked;
+	input->group = group;
+
+	return true;
+}
+
+static inline void
+tw_keyboard_input_init(struct tw_keyboard_input *input)
+{
+	input->keymap = NULL;
+	input->keystate = NULL;
+
+	input->depressed = 0;
+	input->latched = 0;
+	input->locked = 0;
+	input->group = 0;
 }
 
 void
@@ -40,10 +84,7 @@ tw_input_device_init(struct tw_input_device *device,
 	//we need to check the code of libinput it should work the same
 	switch (type) {
 	case TW_INPUT_TYPE_KEYBOARD:
-		device->input.keyboard.keymap = NULL;
-		device->input.keyboard.keystate = NULL;
-		device->input.keyboard.led_mask = 0;
-		device->input.keyboard.mod_mask = 0;
+		tw_keyboard_input_init(&device->input.keyboard);
 		break;
 	case TW_INPUT_TYPE_POINTER:
 		break;
@@ -57,6 +98,7 @@ tw_input_device_init(struct tw_input_device *device,
 		break;
 	}
 	wl_list_init(&device->link);
+	device->type = type;
 	device->seat_id = 0;
 	device->emitter = NULL;
 	device->destroy = destroy;
@@ -124,4 +166,53 @@ tw_input_device_set_keymap(struct tw_input_device *device,
         device->input.keyboard.keymap = xkb_keymap_ref(keymap);
         device->input.keyboard.keystate =
 	        xkb_state_new(device->input.keyboard.keymap);
+}
+
+void
+tw_input_device_notify_key(struct tw_input_device *dev,
+                           struct tw_event_keyboard_key *event)
+{
+	enum xkb_key_direction direction =
+		event->state == WL_KEYBOARD_KEY_STATE_PRESSED ?
+		XKB_KEY_DOWN : XKB_KEY_UP;
+	bool updated = false;
+
+	assert(dev->type == TW_INPUT_TYPE_KEYBOARD);
+
+	if (dev->input.keyboard.keystate)
+		xkb_state_update_key(dev->input.keyboard.keystate,
+		                     event->keycode+8, direction);
+	updated = update_keyboard_modifier(dev);
+
+	if (dev->emitter)
+		wl_signal_emit(&dev->emitter->keyboard.key, event);
+	if (updated && dev->emitter) {
+		struct tw_event_keyboard_modifier mods = {
+			.dev = dev,
+			.depressed = dev->input.keyboard.depressed,
+			.latched = dev->input.keyboard.latched,
+			.locked = dev->input.keyboard.locked,
+			.group = dev->input.keyboard.group,
+		};
+
+		wl_signal_emit(&dev->emitter->keyboard.modifiers, &mods);
+	}
+
+}
+
+void
+tw_input_device_notify_modifiers(struct tw_input_device *dev,
+                                 struct tw_event_keyboard_modifier *mod)
+{
+	bool updated = false;
+
+	assert(dev->type == TW_INPUT_TYPE_KEYBOARD);
+	if (dev->input.keyboard.keystate)
+		xkb_state_update_mask(dev->input.keyboard.keystate,
+		                      mod->depressed, mod->latched,
+		                      mod->locked, 0, 0, mod->group);
+	updated = update_keyboard_modifier(dev);
+
+	if (updated && dev->emitter)
+		wl_signal_emit(&dev->emitter->keyboard.modifiers, mod);
 }

@@ -20,10 +20,12 @@
  */
 
 #include <wayland-server.h>
-#include <taiwins/objects/logger.h>
 #include <linux/input.h>
 #include <xkbcommon/xkbcommon.h>
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/seat.h>
 
+#include "input_device.h"
 #include "internal.h"
 #include "output_device.h"
 
@@ -32,7 +34,6 @@ handle_x11_key_event(struct tw_input_device *keyboard,
                      xcb_ge_generic_event_t *ge,
                      enum wl_keyboard_key_state state)
 {
-	struct tw_input_source *emitter = keyboard->emitter;
 	xcb_input_key_press_event_t *ev =
 		(xcb_input_key_press_event_t *)ge;
 	struct tw_event_keyboard_key key = {
@@ -48,14 +49,8 @@ handle_x11_key_event(struct tw_input_device *keyboard,
 		.locked = ev->mods.locked,
 		.group = ev->mods.effective,
 	};
-	xkb_state_update_mask(keyboard->input.keyboard.keystate,
-	                      mod.depressed, mod.latched, mod.locked,
-	                      0, 0, mod.group);
-
-	if (emitter) {
-		wl_signal_emit(&emitter->keyboard.key, &key);
-		wl_signal_emit(&emitter->keyboard.modifiers, &mod);
-	}
+	tw_input_device_notify_modifiers(keyboard, &mod);
+	tw_input_device_notify_key(keyboard, &key);
 }
 
 static void
@@ -98,10 +93,13 @@ handle_x11_btn_axis(struct tw_x11_backend *x11,
 
 	axis.delta = 15.0 * axis.delta_discrete;
 
-	if (emitter && btn.button != 0)
+	if (emitter && btn.button != 0) {
 		wl_signal_emit(&emitter->pointer.button, &btn);
-	else if (emitter && axis.delta_discrete != 0)
+		wl_signal_emit(&emitter->pointer.frame, &output->pointer);
+	} else if (emitter && axis.delta_discrete != 0) {
 		wl_signal_emit(&emitter->pointer.axis, &axis);
+		wl_signal_emit(&emitter->pointer.frame, &output->pointer);
+	}
 }
 
 static void
@@ -125,8 +123,10 @@ handle_x11_motion(struct tw_x11_backend *x11, xcb_ge_generic_event_t *ge)
 	motion.time_msec = ev->time;
 	motion.x = (double)(ev->event_x >> 16) / (float)width;
 	motion.y = (double)(ev->event_y >> 16) / (float)height;
-	if (emitter)
+	if (emitter) {
 		wl_signal_emit(&emitter->pointer.motion_absolute, &motion);
+		wl_signal_emit(&emitter->pointer.frame, &output->pointer);
+	}
 }
 
 static void

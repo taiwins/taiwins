@@ -333,8 +333,8 @@ handle_desktop_output_create(struct wl_listener *listener, void *data)
 	xdg_output->xdg = desktop;
 	xdg_output->output = output;
 	xdg_output->idx = output->id;
-	xdg_output->desktop_area = /* (desktop->shell) ? */
-		/* tw_shell_output_available_space(desktop->shell, output) : */
+	xdg_output->desktop_area = (desktop->shell) ?
+		tw_shell_output_available_space(desktop->shell, output) :
 		tw_output_device_geometry(output->device);
 
 	for (int i = 0; i < MAX_WORKSPACES; i++)
@@ -358,20 +358,20 @@ handle_desktop_output_destroy(struct wl_listener *listener, void *data)
 }
 
 
-/* static void */
-/* handle_desktop_area_change(struct wl_listener *listener, void *data) */
-/* { */
-/*	struct tw_output_device *output = data; */
-/*	struct tw_xdg *desktop = */
-/*		container_of(listener, struct tw_xdg, desktop_area_listener); */
-/*	struct tw_xdg_output *xdg_output = &desktop->outputs[output->id]; */
+static void
+handle_desktop_area_change(struct wl_listener *listener, void *data)
+{
+	struct tw_engine_output *output = data;
+	struct tw_xdg *desktop =
+		container_of(listener, struct tw_xdg, desktop_area_listener);
+	struct tw_xdg_output *xdg_output = &desktop->outputs[output->id];
 
-/*         xdg_output->desktop_area = tw_shell_output_available_space( */
-/*	        desktop->shell, output); */
-/*	for (int i = 0; i < MAX_WORKSPACES; i++) */
-/*		tw_workspace_resize_output(&desktop->workspaces[i], */
-/*		                           xdg_output); */
-/* } */
+        xdg_output->desktop_area =
+	        tw_shell_output_available_space(desktop->shell, output);
+	for (int i = 0; i < MAX_WORKSPACES; i++)
+		tw_workspace_resize_output(&desktop->workspaces[i],
+		                           xdg_output);
+}
 
 static void
 end_desktop(struct wl_listener *listener, UNUSED_ARG(void *data))
@@ -409,12 +409,11 @@ init_desktop_listeners(struct tw_xdg *xdg)
 	tw_signal_setup_listener(&xdg->engine->events.output_remove,
 	                         &xdg->output_destroy_listener,
 	                         handle_desktop_output_destroy);
-
-	/* if (xdg->shell) */
-	/*	tw_signal_setup_listener( */
-	/*		tw_shell_get_desktop_area_signal(xdg->shell), */
-	/*		&xdg->desktop_area_listener, */
-	/*		handle_desktop_area_change); */
+	if (xdg->shell)
+		tw_signal_setup_listener(
+			tw_shell_get_desktop_area_signal(xdg->shell),
+			&xdg->desktop_area_listener,
+			handle_desktop_area_change);
 }
 
 static void

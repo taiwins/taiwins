@@ -41,7 +41,6 @@ struct tw_seat_events {
 	struct xkb_state *curr_state;
 
 	struct wl_listener key_input;
-	struct wl_listener mod_input;
 	struct wl_listener btn_input;
 	struct wl_listener axis_input;
 	struct wl_listener tch_input;

@@ -39,42 +39,6 @@
 #include "input_device.h"
 #include "input.h"
 
-static uint32_t
-get_modmask(struct tw_input_device *device)
-{
-	uint32_t mask = 0;
-	struct xkb_state *state = device->input.keyboard.keystate;
-
-	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_ALT,
-	                                 XKB_STATE_MODS_EFFECTIVE))
-		mask |= TW_MODIFIER_ALT;
-	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_CTRL,
-	                                 XKB_STATE_MODS_EFFECTIVE))
-		mask |= TW_MODIFIER_CTRL;
-	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_LOGO,
-	                                 XKB_STATE_MODS_EFFECTIVE))
-		mask |= TW_MODIFIER_SUPER;
-	if (xkb_state_mod_name_is_active(state, XKB_MOD_NAME_SHIFT,
-	                                 XKB_STATE_MODS_EFFECTIVE))
-		mask |= TW_MODIFIER_SHIFT;
-	return mask;
-}
-
-static uint32_t
-get_ledmask(struct tw_input_device *device)
-{
-	uint32_t mask = 0;
-	struct xkb_state *state = device->input.keyboard.keystate;
-
-	if (xkb_state_led_name_is_active(state, XKB_LED_NAME_NUM))
-		mask |= TW_LED_NUM_LOCK;
-	if (xkb_state_led_name_is_active(state, XKB_LED_NAME_CAPS))
-		mask |= TW_LED_CAPS_LOCK;
-	if (xkb_state_led_name_is_active(state, XKB_LED_NAME_SCROLL))
-		mask |= TW_LED_SCROLL_LOCK;
-	return mask;
-}
-
 /******************************************************************************
  * bindings
  *
@@ -311,20 +275,6 @@ notify_key_input(struct wl_listener *listener, void *data)
 }
 
 static void
-notify_modifiers_input(struct wl_listener *listener, void *data)
-{
-	struct tw_seat_events *seat_events =
-		container_of(listener, struct tw_seat_events, mod_input);
-	struct tw_seat *seat = seat_events->seat;
-	struct tw_keyboard *keyboard = &seat->keyboard;
-	struct tw_event_keyboard_modifier *event = data;
-
-        //This is where we set the keyboard modifiers and leds.
-	keyboard->modifiers_state = get_modmask(event->dev);
-	keyboard->led_state = get_ledmask(event->dev);
-}
-
-static void
 notify_btn_input(struct wl_listener *listener, void *data)
 {
 	struct tw_binding *binding;
@@ -404,9 +354,6 @@ tw_seat_events_init(struct tw_seat_events *seat_events,
 	tw_signal_setup_listener(&seat->source.keyboard.key,
 	                         &seat_events->key_input,
 	                         notify_key_input);
-	tw_signal_setup_listener(&seat->source.keyboard.modifiers,
-	                         &seat_events->mod_input,
-	                         notify_modifiers_input);
 	tw_signal_setup_listener(&seat->source.pointer.button,
 	                         &seat_events->btn_input,
 	                         notify_btn_input);
@@ -434,7 +381,6 @@ void
 tw_seat_events_fini(struct tw_seat_events *seat_events)
 {
 	wl_list_remove(&seat_events->key_input.link);
-	wl_list_remove(&seat_events->mod_input.link);
 	wl_list_remove(&seat_events->btn_input.link);
 	wl_list_remove(&seat_events->axis_input.link);
 	wl_list_remove(&seat_events->tch_input.link);
