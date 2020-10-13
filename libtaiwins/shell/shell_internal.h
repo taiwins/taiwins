@@ -22,16 +22,15 @@
 #ifndef TW_SHELL_INTERNAL_H
 #define TW_SHELL_INTERNAL_H
 
+#include <pixman.h>
+#include <wayland-util.h>
 #include <taiwins/objects/subprocess.h>
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/popup_grab.h>
-#include <pixman.h>
-#include <wayland-util.h>
-
-#include "shell.h"
+#include <taiwins/shell.h>
 
 #ifdef  __cplusplus
 extern "C" {

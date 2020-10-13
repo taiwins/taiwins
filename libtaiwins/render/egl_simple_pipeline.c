@@ -28,18 +28,18 @@
 #include <wayland-server-core.h>
 #include <wayland-util.h>
 #include <pixman.h>
-#include <ctypes/helpers.h>
 
+#include <ctypes/helpers.h>
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/matrix.h>
 #include <taiwins/objects/plane.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/output_device.h>
+#include <taiwins/profiling.h>
+#include <taiwins/render_context.h>
+#include <taiwins/render_pipeline.h>
 
-#include "output_device.h"
-#include "profiling.h"
-#include "render_context.h"
-#include "render_pipeline.h"
 #include "egl_render_context.h"
 #include "egl_shaders.h"
 

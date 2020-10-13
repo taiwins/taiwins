@@ -25,21 +25,19 @@
 #include <GLES2/gl2ext.h>
 #include <stdlib.h>
 #include <drm_fourcc.h>
+#include <pixman.h>
+#include <string.h>
+#include <wayland-server.h>
 
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/dmabuf.h>
 #include <taiwins/objects/egl.h>
 #include <taiwins/objects/utils.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/render_context.h>
 
-#include <string.h>
-#include <wayland-server-core.h>
-#include <wayland-server.h>
-#include <wayland-util.h>
 
 #include "egl_render_context.h"
-#include "pixman.h"
-#include "render_context.h"
-#include "taiwins/objects/surface.h"
 
 static inline bool
 wl_format_supported(struct tw_egl_render_context *ctx,

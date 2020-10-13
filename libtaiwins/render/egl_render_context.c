@@ -28,17 +28,15 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <pixman.h>
-#include <taiwins/objects/utils.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
-#include <wayland-util.h>
+#include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/egl.h>
 #include <taiwins/objects/compositor.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/render_pipeline.h>
 
 #include "egl_render_context.h"
-#include "render_pipeline.h"
 
 /******************************************************************************
  * render_context implementation

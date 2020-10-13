@@ -28,8 +28,8 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
 #include <wayland-util.h>
+#include <taiwins/xdg.h>
 
-#include "xdg.h"
 #include "xdg_internal.h"
 #include "workspace.h"
 

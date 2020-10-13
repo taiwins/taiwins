@@ -22,9 +22,9 @@
 #include <assert.h>
 #include <taiwins/objects/utils.h>
 #include <wayland-util.h>
-#include "render_context.h"
-#include "render_output.h"
-#include "profiling.h"
+#include <taiwins/render_context.h>
+#include <taiwins/render_output.h>
+#include <taiwins/profiling.h>
 
 /******************************************************************************
  * tw_render_context Public APIs

@@ -45,13 +45,13 @@
 #include <taiwins/objects/profiler.h>
 #include <taiwins/objects/utils.h>
 
-#include "input_device.h"
-#include "output_device.h"
-#include "profiling.h"
-#include "backend/backend.h"
-#include "engine.h"
+#include <taiwins/input_device.h>
+#include <taiwins/output_device.h>
+#include <taiwins/profiling.h>
+#include <taiwins/render_context.h>
+#include <taiwins/backend/backend.h>
+#include <taiwins/engine.h>
 #include "internal.h"
-#include "render_context.h"
 
 static struct tw_engine s_engine = {0};
 

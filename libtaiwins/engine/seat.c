@@ -23,15 +23,16 @@
 #include <wayland-server.h>
 #include <xkbcommon/xkbcommon.h>
 #include <taiwins/objects/utils.h>
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/seat.h>
 
-#include "engine.h"
-#include "backend/backend.h"
-#include "input_device.h"
+#include <taiwins/engine.h>
+#include <taiwins/backend/backend.h>
+#include <taiwins/input_device.h>
+#include <taiwins/output_device.h>
+#include <taiwins/profiling.h>
+
 #include "internal.h"
-#include "output_device.h"
-#include "profiling.h"
-#include "taiwins/objects/logger.h"
-#include "taiwins/objects/seat.h"
 
 static void
 notify_seat_remove_device(struct wl_listener *listener, void *data)

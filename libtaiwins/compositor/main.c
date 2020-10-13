@@ -39,17 +39,17 @@
 #include <ctypes/helpers.h>
 #include <ctypes/os/file.h>
 
-#include "backend/x11.h"
-#include "shell.h"
-#include "xdg.h"
-#include "bindings.h"
-#include "engine.h"
-#include "input_device.h"
-#include "render_context.h"
-#include "render_pipeline.h"
+#include <taiwins/backend/x11.h>
+#include <taiwins/shell.h>
+#include <taiwins/xdg.h>
+#include <taiwins/bindings.h>
+#include <taiwins/engine.h>
+#include <taiwins/input_device.h>
+#include <taiwins/render_context.h>
+#include <taiwins/render_pipeline.h>
 
 #include "input.h"
-#include "config.h"
+#include "taiwins/config.h"
 
 
 struct tw_options {

@@ -30,9 +30,9 @@
 #include <ctypes/vector.h>
 #include <taiwins/objects/logger.h>
 
-#include "engine.h"
-#include "xdg.h"
-#include "config.h"
+#include <taiwins/engine.h>
+#include <taiwins/xdg.h>
+#include <taiwins/config.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -22,8 +22,8 @@
 #ifndef TW_BACKEND1_H
 #define TW_BACKEND1_H
 
-#include "render_context.h"
-#include "output_device.h"
+#include "taiwins/render_context.h"
+#include "taiwins/output_device.h"
 
 #ifdef  __cplusplus
 extern "C" {

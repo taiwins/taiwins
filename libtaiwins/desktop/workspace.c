@@ -31,8 +31,9 @@
 #include <taiwins/objects/logger.h>
 #include <wayland-util.h>
 
-#include "output_device.h"
-#include "xdg.h"
+#include <taiwins/output_device.h>
+#include <taiwins/xdg.h>
+
 #include "workspace.h"
 #include "layout.h"
 

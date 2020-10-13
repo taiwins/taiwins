@@ -29,7 +29,7 @@
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/surface.h>
 
-#include "xdg.h"
+#include <taiwins/xdg.h>
 
 #ifdef  __cplusplus
 extern "C" {

@@ -64,9 +64,11 @@ if not dep_lua.found()
 endif
 
 inc_shared_config = include_directories('.')
+inc_libtaiwins = include_directories('include')
 dir_tp_base = join_paths(meson.source_root(), 'subprojects', 'taiwins-protocols')
 
 subdir('protocols')
+subdir('include')
 subdir('libtaiwins')
 subdir('clients')
 subdir('test')

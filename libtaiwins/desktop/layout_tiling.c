@@ -25,11 +25,9 @@
 #include <ctypes/helpers.h>
 #include <ctypes/sequential.h>
 #include <ctypes/tree.h>
-#include <wayland-server-protocol.h>
 #include <wayland-server.h>
-#include <wayland-util.h>
+#include <taiwins/xdg.h>
 
-#include "xdg.h"
 #include "workspace.h"
 #include "layout.h"
 

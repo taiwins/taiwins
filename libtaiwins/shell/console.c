@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <wayland-server-core.h>
 #include <wayland-server.h>
+#include <pixman.h>
 #include <wayland-taiwins-console-server-protocol.h>
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/subprocess.h>
@@ -33,10 +34,9 @@
 #include <taiwins/objects/utils.h>
 #include <ctypes/sequential.h>
 
-#include "output_device.h"
-#include "pixman.h"
-#include "shell.h"
-#include "engine.h"
+#include <taiwins/output_device.h>
+#include <taiwins/shell.h>
+#include <taiwins/engine.h>
 
 #define CONSOLE_WIDTH  600
 #define CONSOLE_HEIGHT 300

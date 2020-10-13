@@ -22,8 +22,7 @@
 #include <assert.h>
 #include <wayland-server-core.h>
 #include <wayland-util.h>
-
-#include "render_pipeline.h"
+#include <taiwins/render_pipeline.h>
 
 void
 tw_render_pipeline_init(struct tw_render_pipeline *pipeline,

@@ -26,7 +26,7 @@
 #include <taiwins/objects/matrix.h>
 #include <taiwins/objects/logger.h>
 
-#include "output_device.h"
+#include <taiwins/output_device.h>
 
 static void
 output_device_state_init(struct tw_output_device_state *state,

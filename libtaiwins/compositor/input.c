@@ -34,9 +34,9 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
 
-#include "engine.h"
-#include "bindings.h"
-#include "input_device.h"
+#include <taiwins/engine.h>
+#include <taiwins/bindings.h>
+#include <taiwins/input_device.h>
 #include "input.h"
 
 /******************************************************************************

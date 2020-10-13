@@ -24,7 +24,7 @@
 #include <wayland-util.h>
 #include <xkbcommon/xkbcommon.h>
 
-#include "input_device.h"
+#include <taiwins/input_device.h>
 
 
 static void

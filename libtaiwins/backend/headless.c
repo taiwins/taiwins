@@ -32,12 +32,11 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/egl.h>
 
-#include "backend/backend.h"
-
-#include "input_device.h"
-#include "output_device.h"
-#include "render_context.h"
-#include "render_output.h"
+#include <taiwins/backend/backend.h>
+#include <taiwins/input_device.h>
+#include <taiwins/output_device.h>
+#include <taiwins/render_context.h>
+#include <taiwins/render_output.h>
 
 /******************************************************************************
  * headless backend implementation

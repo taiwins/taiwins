@@ -91,18 +91,17 @@ taiwins_lib = static_library(
   dependencies : taiwins_lib_dep,
   include_directories : [
     inc_shared_config,
-    include_directories('.'),
-    include_directories('include'),
+    inc_libtaiwins,
   ],
 )
+
 dep_taiwins_lib = declare_dependency(
   link_with : taiwins_lib,
   compile_args : taiwins_cargs,
   dependencies : taiwins_lib_dep,
   include_directories : [
     inc_shared_config,
-    include_directories('.'),
-    include_directories('include'),
+    inc_libtaiwins,
   ],
 )
 

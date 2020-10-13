@@ -25,9 +25,9 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/seat.h>
 
-#include "input_device.h"
+#include <taiwins/input_device.h>
+#include <taiwins/output_device.h>
 #include "internal.h"
-#include "output_device.h"
 
 static void
 handle_x11_key_event(struct tw_input_device *keyboard,

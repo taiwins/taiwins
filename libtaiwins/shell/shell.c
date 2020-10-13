@@ -38,8 +38,9 @@
 #include <taiwins/objects/utils.h>
 #include <wayland-util.h>
 
-#include "engine.h"
-#include "output_device.h"
+#include <taiwins/output_device.h>
+#include <taiwins/shell.h>
+#include <taiwins/engine.h>
 #include "shell_internal.h"
 
 #define TW_SHELL_UI_ROLE "taiwins shell_ui role"

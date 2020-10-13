@@ -29,8 +29,7 @@
 #include <GLES2/gl2ext.h>
 #include <taiwins/objects/egl.h>
 #include <taiwins/objects/surface.h>
-
-#include <render_context.h>
+#include <taiwins/render_context.h>
 
 #ifdef  __cplusplus
 extern "C" {

@@ -22,7 +22,6 @@
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <ctypes/helpers.h>
 #include <taiwins/objects/surface.h>
@@ -31,16 +30,15 @@
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/desktop.h>
 #include <taiwins/objects/seat.h>
-#include <wayland-util.h>
+#include <taiwins/engine.h>
+#include <taiwins/output_device.h>
+#include <taiwins/render_output.h>
+#include <taiwins/xdg.h>
+#include <taiwins/shell.h>
 
-#include "engine.h"
-#include "layout.h"
-#include "output_device.h"
-#include "render_output.h"
-#include "xdg.h"
-#include "shell.h"
 #include "workspace.h"
 #include "xdg_internal.h"
+#include "layout.h"
 
 static struct tw_xdg s_desktop = {0};
 

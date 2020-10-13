@@ -21,18 +21,16 @@
 
 #include <GLES2/gl2.h>
 #include <assert.h>
-#include <wayland-server-core.h>
+#include <pixman.h>
+#include <wayland-util.h>
 #include <wayland-server.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/surface.h>
-#include <pixman.h>
-#include <wayland-util.h>
-
-#include "render_context.h"
-#include "render_output.h"
-#include "output_device.h"
-#include "render_pipeline.h"
+#include <taiwins/render_context.h>
+#include <taiwins/render_output.h>
+#include <taiwins/output_device.h>
+#include <taiwins/render_pipeline.h>
 
 static enum wl_output_transform
 inverse_wl_transform(enum wl_output_transform t)

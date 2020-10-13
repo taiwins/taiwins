@@ -30,14 +30,14 @@
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
 #include <time.h>
+#include <taiwins/objects/logger.h>
 
-#include "backend/x11.h"
-#include "input_device.h"
+#include <taiwins/backend/x11.h>
+#include <taiwins/input_device.h>
+#include <taiwins/output_device.h>
+#include <taiwins/render_context.h>
+#include <taiwins/render_output.h>
 #include "internal.h"
-#include "output_device.h"
-#include "render_context.h"
-#include "render_output.h"
-#include "taiwins/objects/logger.h"
 
 #define DEFAULT_REFRESH (60 * 1000) /* 60Hz */
 #define FRAME_DELAY (1000000 / DEFAULT_REFRESH)

@@ -24,8 +24,8 @@
 
 #include <ctypes/helpers.h>
 #include <wayland-server-protocol.h>
+#include <taiwins/output_device.h>
 
-#include "output_device.h"
 #include "layout.h"
 #include "workspace.h"
 

@@ -26,9 +26,9 @@
 #include <xkbcommon/xkbcommon.h>
 #include <taiwins/objects/seat.h>
 
-#include "engine.h"
-#include "bindings.h"
-#include "input_device.h"
+#include <taiwins/engine.h>
+#include <taiwins/bindings.h>
+#include <taiwins/input_device.h>
 
 #ifdef  __cplusplus
 extern "C" {

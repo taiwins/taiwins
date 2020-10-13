@@ -29,9 +29,9 @@
 
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/desktop.h>
+#include <taiwins/xdg.h>
 
 #include "layout.h"
-#include "xdg.h"
 #include "workspace.h"
 
 #ifdef  __cplusplus

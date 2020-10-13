@@ -40,12 +40,12 @@
 #include <ctypes/helpers.h>
 #include <taiwins/objects/utils.h>
 
-#include "engine.h"
-#include "output_device.h"
-#include "xdg.h"
-#include "shell.h"
-#include "bindings.h"
-#include "config.h"
+#include <taiwins/engine.h>
+#include <taiwins/output_device.h>
+#include <taiwins/xdg.h>
+#include <taiwins/shell.h>
+#include <taiwins/bindings.h>
+#include <taiwins/config.h>
 #include "config_internal.h"
 
 /******************************************************************************

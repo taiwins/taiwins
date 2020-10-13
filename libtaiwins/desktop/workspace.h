@@ -27,9 +27,9 @@
 #include <unistd.h>
 #include <taiwins/objects/layers.h>
 #include <wayland-server-protocol.h>
+#include <taiwins/xdg.h>
 
 #include "layout.h"
-#include "xdg.h"
 
 #ifdef  __cplusplus
 extern "C" {

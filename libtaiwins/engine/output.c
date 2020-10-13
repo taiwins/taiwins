@@ -32,11 +32,11 @@
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/surface.h>
 
-#include "engine.h"
+#include <taiwins/engine.h>
+#include <taiwins/output_device.h>
+#include <taiwins/render_context.h>
+#include <taiwins/render_output.h>
 #include "internal.h"
-#include "output_device.h"
-#include "render_context.h"
-#include "render_output.h"
 
 static void
 init_engine_output_state(struct tw_engine_output *o)
