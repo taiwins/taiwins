@@ -24,6 +24,7 @@
 
 #include <stdbool.h>
 #include <stdlib.h>
+#include <time.h>
 #include <wayland-server-core.h>
 #include <wayland-util.h>
 
@@ -71,6 +72,12 @@ tw_match_wl_resource_client(struct wl_resource *a, struct wl_resource *b);
 			free(obj); \
 		ret; \
 	})
+
+uint32_t
+tw_get_time_msec(void);
+
+uint64_t
+tw_timespec_to_msec(const struct timespec *spec);
 
 #ifdef  __cplusplus
 }
