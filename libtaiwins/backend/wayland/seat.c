@@ -21,10 +21,10 @@
 
 #include <unistd.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
-#include <wayland-client-protocol.h>
-#include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
+#include <wayland-client.h>
+#include <wayland-server.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/input_device.h>
 #include <wayland-util.h>
@@ -274,7 +274,10 @@ handle_seat_capabilities(void *data, struct wl_seat *wl_seat,
 		                         seat);
 		tw_input_device_init(&seat->keyboard_dev,
 		                     TW_INPUT_TYPE_KEYBOARD, seat->name, NULL);
-		signal_new_input(seat->wl, &seat->keyboard_dev);
+		strncpy(seat->keyboard_dev.name, "wl-keyboard",
+		        sizeof(seat->keyboard_dev.name));
+		if (seat->wl->base.started)
+			signal_new_input(seat->wl, &seat->keyboard_dev);
 	}
 	//drop keyboard
 	if (!(caps & WL_SEAT_CAPABILITY_KEYBOARD) && seat->wl_keyboard) {
@@ -294,7 +297,10 @@ handle_seat_capabilities(void *data, struct wl_seat *wl_seat,
 		                        seat);
 		tw_input_device_init(&seat->pointer_dev, TW_INPUT_TYPE_POINTER,
 		                     seat->name, NULL);
-		signal_new_input(seat->wl, &seat->pointer_dev);
+		strncpy(seat->pointer_dev.name, "wl-pointer",
+		        sizeof(seat->pointer_dev.name));
+		if (seat->wl->base.started)
+			signal_new_input(seat->wl, &seat->pointer_dev);
 		//TODO creating pointer for output?
 	}
 	//drop pointer
@@ -305,8 +311,7 @@ handle_seat_capabilities(void *data, struct wl_seat *wl_seat,
 		seat->wl_pointer = NULL;
 		tw_input_device_fini(&seat->pointer_dev);
 	}
-	//For seat, we do not
-
+	seat->caps = caps;
 }
 
 static void
@@ -325,8 +330,8 @@ static const struct wl_seat_listener seat_listener = {
 };
 
 struct tw_wl_seat *
-handle_new_seat(struct tw_wl_backend *wl, struct wl_registry *reg,
-                uint32_t id, uint32_t version)
+tw_wl_handle_new_seat(struct tw_wl_backend *wl, struct wl_registry *reg,
+                      uint32_t id, uint32_t version)
 {
 	struct tw_wl_seat *seat = calloc(1, sizeof(*seat));
 	if (!seat)
@@ -342,4 +347,13 @@ handle_new_seat(struct tw_wl_backend *wl, struct wl_registry *reg,
 	wl_seat_add_listener(seat->wl_seat, &seat_listener, seat);
 
 	return seat;
+}
+
+void
+tw_wl_seat_start(struct tw_wl_seat *seat)
+{
+	if (seat->wl_pointer)
+		signal_new_input(seat->wl, &seat->pointer_dev);
+	if (seat->wl_keyboard)
+		signal_new_input(seat->wl, &seat->keyboard_dev);
 }

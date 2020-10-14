@@ -22,11 +22,12 @@
 #ifndef TW_WL_INTERNAL_H
 #define TW_WL_INTERNAL_H
 
-#include "taiwins/input_device.h"
-#include <wayland-xdg-shell-client-protocol.h>
+#include <wayland-egl.h>
 #include <wayland-client.h>
-#include <wayland-server-protocol.h>
 #include <wayland-server.h>
+#include <wayland-xdg-shell-client-protocol.h>
+#include <taiwins/input_device.h>
+#include <taiwins/render_output.h>
 
 #include <taiwins/backend/backend.h>
 
@@ -42,22 +43,29 @@ struct tw_wl_seat {
 	uint32_t caps, name; /* seat0, seat1, etc */
 	uint32_t gid; /* wl_object id */
 
-	struct tw_input_device keyboard_dev, pointer_dev, touch_dev;
+	struct tw_input_device keyboard_dev, pointer_dev;
 	struct wl_pointer *wl_pointer;
 	struct wl_keyboard *wl_keyboard;
-	struct wl_touch *wl_touch;
 };
 
 struct tw_wl_output {
-	struct wl_surface *surface;
-	struct wl_pointer *curr_pointer;
+	struct tw_render_output output;
+
+        struct wl_surface *wl_surface;
+	struct xdg_surface *xdg_surface;
+	struct xdg_toplevel *xdg_toplevel;
+	struct wl_egl_window *egl_window;
+	struct tw_wl_backend *wl;
+
+        struct wl_pointer *curr_pointer;
 };
 
 struct tw_wl_backend {
 	struct wl_display *server_display;
 	struct wl_display *remote_display; /* the display we connect to */
-
 	struct wl_registry *registry;
+	struct wl_event_source *event_src;
+
 	struct {
 		struct wl_compositor *compositor;
 		struct xdg_wm_base *wm_base;
@@ -66,13 +74,23 @@ struct tw_wl_backend {
 	struct tw_backend base;
 	struct wl_listener display_destroy;
 	/** here wl_output is represented with wl_surface */
-	struct wl_list outputs;
 	struct wl_list seats;
 };
 
 struct tw_wl_seat *
-handle_new_seat(struct tw_wl_backend *wl, struct wl_registry *reg,
-                uint32_t id, uint32_t version);
+tw_wl_handle_new_seat(struct tw_wl_backend *wl, struct wl_registry *reg,
+                      uint32_t id, uint32_t version);
+void
+tw_wl_seat_start(struct tw_wl_seat *seat);
+
+void
+tw_wl_remove_output(struct tw_wl_output *output);
+
+void
+tw_wl_output_start(struct tw_wl_output *output);
+
+void
+tw_wl_bind_wl_registry(struct tw_wl_backend *wl);
 
 #ifdef  __cplusplus
 }

@@ -28,6 +28,18 @@
 #include "internal.h"
 
 static void
+handle_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base,
+                    uint32_t serial)
+{
+	xdg_wm_base_pong(xdg_wm_base, serial);
+}
+
+static const struct xdg_wm_base_listener wm_base_listener = {
+	.ping = handle_wm_base_ping,
+};
+
+
+static void
 handle_registry_global(void *data, struct wl_registry *registry, uint32_t id,
                        const char *name, uint32_t version)
 {
@@ -39,12 +51,16 @@ handle_registry_global(void *data, struct wl_registry *registry, uint32_t id,
 			wl_registry_bind(registry, id,
 			                 &wl_compositor_interface, version);
 	} else if (strcmp(name, wl_seat_interface.name) == 0) {
-		struct tw_wl_seat *seat = handle_new_seat(wl, registry, id,
-		                                          version);
+		struct tw_wl_seat *seat = tw_wl_handle_new_seat(wl, registry,
+		                                                id, version);
 		if (seat)
 			wl_list_insert(wl->seats.prev, &seat->link);
 	} else if (strcmp(name, xdg_wm_base_interface.name) == 0) {
-
+		wl->globals.wm_base =
+			wl_registry_bind(registry, id, &xdg_wm_base_interface,
+			                 version);
+		xdg_wm_base_add_listener(wl->globals.wm_base,
+		                         &wm_base_listener, wl);
 	}
 }
 
