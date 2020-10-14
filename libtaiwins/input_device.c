@@ -76,6 +76,7 @@ tw_keyboard_input_init(struct tw_keyboard_input *input)
 void
 tw_input_device_init(struct tw_input_device *device,
                      enum tw_input_device_type type,
+                     uint32_t seat_id,
                      void (*destroy)(struct tw_input_device *))
 {
 	destroy = (destroy) ? destroy : input_device_destroy_dummy;
@@ -99,7 +100,7 @@ tw_input_device_init(struct tw_input_device *device,
 	}
 	wl_list_init(&device->link);
 	device->type = type;
-	device->seat_id = 0;
+	device->seat_id = seat_id;
 	device->emitter = NULL;
 	device->destroy = destroy;
 }

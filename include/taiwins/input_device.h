@@ -243,6 +243,7 @@ tw_input_device_attach_emitter(struct tw_input_device *device,
 void
 tw_input_device_init(struct tw_input_device *device,
                      enum tw_input_device_type type,
+                     uint32_t seat_id,
                      void (*destroy)(struct tw_input_device *));
 void
 tw_input_device_fini(struct tw_input_device *device);

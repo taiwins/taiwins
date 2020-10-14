@@ -22,8 +22,6 @@
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -253,7 +251,7 @@ tw_headless_backend_add_input_device(struct tw_backend *backend,
 	if (!device)
 		return false;
 
-	tw_input_device_init(device, type, NULL);
+	tw_input_device_init(device, type, 0, NULL);
 	sprintf(device->name, "headless %s",
 	        (type == TW_INPUT_TYPE_KEYBOARD) ? "keyboard" :
 	        ((type == TW_INPUT_TYPE_POINTER) ? "pointer" : "touch"));

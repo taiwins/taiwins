@@ -395,7 +395,7 @@ tw_x11_backend_create(struct wl_display *display, const char *x11_display)
 		goto err_dpy;
 	}
 
-	tw_input_device_init(&x11->keyboard, TW_INPUT_TYPE_KEYBOARD, NULL);
+	tw_input_device_init(&x11->keyboard, TW_INPUT_TYPE_KEYBOARD, 0, NULL);
 	strncpy(x11->keyboard.name, "X11-keyboard",
 	        sizeof(x11->keyboard.name));
 	wl_list_insert(x11->base.inputs.prev, &x11->keyboard.link);

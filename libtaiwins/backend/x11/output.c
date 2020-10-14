@@ -198,7 +198,7 @@ tw_x11_backend_add_output(struct tw_backend *backend,
 
         wl_list_insert(&x11->base.outputs, &output->output.device.link);
 
-        tw_input_device_init(&output->pointer, TW_INPUT_TYPE_POINTER, NULL);
+        tw_input_device_init(&output->pointer, TW_INPUT_TYPE_POINTER, 0, NULL);
         strncpy(output->pointer.name, "X11-pointer",
                 sizeof(output->pointer.name));
 
