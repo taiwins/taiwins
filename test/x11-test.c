@@ -6,8 +6,7 @@
 #include <taiwins/objects/egl.h>
 #include <wayland-util.h>
 
-#include <taiwins/backend/backend.h>
-#include <taiwins/backend/x11.h>
+#include <taiwins/backend-x11.h>
 #include <taiwins/render_context.h>
 #include <taiwins/render_pipeline.h>
 #include <taiwins/engine.h>

@@ -29,7 +29,7 @@
 #include <taiwins/input_device.h>
 #include <taiwins/render_output.h>
 
-#include <taiwins/backend/backend.h>
+#include <taiwins/backend.h>
 
 
 #ifdef  __cplusplus

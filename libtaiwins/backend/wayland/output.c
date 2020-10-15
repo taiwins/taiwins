@@ -23,21 +23,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <wayland-client-protocol.h>
-#include <wayland-egl-core.h>
 #include <wayland-egl.h>
 #include <wayland-client.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 
-#include <taiwins/backend/backend.h>
 #include <taiwins/output_device.h>
-#include <wayland-util.h>
+#include <taiwins/backend.h>
+#include <taiwins/objects/logger.h>
+#include <taiwins/render_context.h>
+#include <wayland-xdg-shell-client-protocol.h>
 
 #include "internal.h"
-#include "taiwins/objects/logger.h"
-#include "taiwins/render_context.h"
-#include "wayland-xdg-shell-client-protocol.h"
 
 static void
 wl_commit_output_state(struct tw_output_device *output)

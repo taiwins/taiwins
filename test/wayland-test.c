@@ -1,14 +1,13 @@
-#include "taiwins/backend/backend.h"
-#include "taiwins/render_context.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
 #include <wayland-server-core.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/egl.h>
-#include <wayland-util.h>
+#include <taiwins/render_context.h>
+#include <taiwins/backend-wayland.h>
 
-#include <taiwins/backend/wayland.h>
+#include <wayland-util.h>
 
 static int
 tw_term_on_signal(int sig_num, void *data)

@@ -27,7 +27,7 @@
 #include <taiwins/objects/seat.h>
 
 #include <taiwins/engine.h>
-#include <taiwins/backend/backend.h>
+#include <taiwins/backend.h>
 #include <taiwins/input_device.h>
 #include <taiwins/output_device.h>
 #include <taiwins/profiling.h>

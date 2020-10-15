@@ -23,8 +23,8 @@
 #include <string.h>
 #include <wayland-client-protocol.h>
 #include <wayland-util.h>
-#include <wayland-xdg-shell-client-protocol.h>
 #include <taiwins/objects/logger.h>
+#include <wayland-xdg-shell-client-protocol.h>
 #include "internal.h"
 
 static void

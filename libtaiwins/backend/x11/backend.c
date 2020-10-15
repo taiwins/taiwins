@@ -38,7 +38,7 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/egl.h>
-#include <taiwins/backend/backend.h>
+#include <taiwins/backend.h>
 #include <taiwins/input_device.h>
 #include <taiwins/output_device.h>
 #include <taiwins/render_context.h>
