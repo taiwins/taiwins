@@ -58,6 +58,7 @@ taiwins_lib_dep = [
 
 subdir('render')
 subdir('backend')
+subdir('xwayland')
 
 option_h = configure_file(
   input: 'options.h.in',

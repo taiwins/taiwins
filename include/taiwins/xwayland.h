@@ -1,0 +1,75 @@
+/*
+ * xwayland.h - taiwins xwayland header
+ *
+ * Copyright (c) 2020 Xichen Zhou
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ */
+
+#ifndef TW_XWAYLAND_H
+#define TW_XWAYLAND_H
+
+#include <wayland-server.h>
+
+#ifdef  __cplusplus
+extern "C" {
+#endif
+
+struct tw_xwm;
+
+struct tw_xserver {
+	struct wl_display *wl_display;
+	struct wl_event_loop *loop;
+
+	struct wl_event_source *abstract_source;
+
+	char name[16];
+	int unix_fd;
+	int abstract_fd; /**< only used by linux */
+	struct wl_event_source *unix_source;
+	int display;
+	pid_t pid;
+	/* */
+	struct wl_client *client;
+	struct tw_xwm *wm;
+	void *user_data;
+
+	struct {
+		struct wl_listener display_destroy;
+	} listeners;
+
+	struct {
+		struct wl_signal ready;
+		struct wl_signal destroy;
+	} events;
+
+
+};
+
+struct tw_xserver *
+tw_xserver_create_global(struct wl_display *display);
+
+bool
+tw_xserver_init(struct tw_xserver *server, struct wl_display *display);
+
+void
+tw_xserver_fini(struct tw_xserver *);
+
+#ifdef  __cplusplus
+}
+#endif
+
+#endif /* EOF */
