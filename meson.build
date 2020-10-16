@@ -1,5 +1,5 @@
 project('twobjects', 'c',
-	version : '0.1.0',
+	version : '0.1.1',
 	default_options: [
 	  'warning_level=2', #warn level has to be 2 to get wlroots compiles
 	  'c_std=gnu11',

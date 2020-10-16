@@ -71,6 +71,7 @@ lib_twobjects = both_libraries(
   c_args : twobject_cargs,
   dependencies : twobjects_deps,
   include_directories : twobjects_inc,
+  version: meson.project_version(),
   install : true,
   )
 
