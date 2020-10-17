@@ -124,7 +124,8 @@ create_wl_surface(struct wl_client *client,
 	                               &compositor_impl));
 	compositor = wl_resource_get_user_data(resource);
 
-	surface = tw_surface_create(client, SURFACE_VERSION, id);
+	surface = tw_surface_create(client, SURFACE_VERSION, id,
+	                            compositor->obj_alloc);
 	if (surface)
 		wl_signal_emit(&compositor->surface_created, surface);
 }
@@ -213,6 +214,7 @@ tw_compositor_init(struct tw_compositor *compositor,
 	}
 	wl_list_init(&compositor->destroy_listener.link);
 	compositor->destroy_listener.notify = destroy_tw_compositor;
+	compositor->obj_alloc = NULL;
 
 	wl_signal_init(&compositor->surface_created);
 	wl_signal_init(&compositor->region_created);

@@ -726,18 +726,20 @@ surface_destroy_resource(struct wl_resource *resource)
 	pixman_region32_fini(&surface->clip);
 	pixman_region32_fini(&surface->geometry.dirty);
 
-	free(surface);
+	assert(surface->alloc);
+	surface->alloc->free(surface, &wl_surface_interface);
 }
 
 WL_EXPORT struct tw_surface *
-tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id)
+tw_surface_create(struct wl_client *client, uint32_t ver, uint32_t id,
+                  const struct tw_allocator *alloc)
 {
 	struct tw_view *view;
 	struct wl_resource *resource = NULL;
 	struct tw_surface *surface = NULL;
 
-	if (!tw_create_wl_resource_for_obj(resource, surface, client, id,
-	                                   version, wl_surface_interface)) {
+	if (!tw_alloc_wl_resource_for_obj(resource, surface, client, id, ver,
+	                                  wl_surface_interface, alloc)) {
 		wl_client_post_no_memory(client);
 		return NULL;
 	}

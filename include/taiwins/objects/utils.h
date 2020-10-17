@@ -59,6 +59,17 @@ tw_match_wl_resource_client(struct wl_resource *a, struct wl_resource *b);
 		wl_list_remove(link); \
 		wl_list_init(link); })
 
+/**
+ * @brief custom allocator
+ * type that using it would need to have an alloc field for using
+ * tw_alloc_wl_resource_for_obj
+ */
+struct tw_allocator {
+	void *(*alloc)(size_t size, const struct wl_interface *interface);
+	void (*free)(void *addr, const struct wl_interface *interface);
+};
+extern const struct tw_allocator tw_default_allocator;
+
 #define tw_create_wl_resource_for_obj(res, obj, client, id, ver, iface)   \
 	({ \
 		bool ret = true; \
@@ -70,6 +81,22 @@ tw_match_wl_resource_client(struct wl_resource *a, struct wl_resource *b);
 		} \
 		if (!ret) \
 			free(obj); \
+		ret; \
+	})
+
+#define tw_alloc_wl_resource_for_obj(res, obj, client, id, ver, iface, alloc) \
+	({ \
+		bool ret = true; \
+		alloc = alloc ? alloc : &tw_default_allocator; \
+		obj = alloc->alloc(sizeof(*obj), &iface); \
+		ret = obj != NULL; \
+		if (ret) { \
+			res = wl_resource_create(client, &iface, ver, id); \
+			ret = ret && res != NULL; \
+		} \
+		if (!ret) \
+			alloc->free(obj, &iface); \
+		obj->alloc = alloc; \
 		ret; \
 	})
 

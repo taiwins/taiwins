@@ -20,9 +20,28 @@
  */
 
 #include <assert.h>
+#include <stdlib.h>
 #include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/utils.h>
+#include <wayland-util.h>
+
+static void *
+tw_default_alloc(size_t size, const struct wl_interface *interface)
+{
+	return calloc(1, size);
+}
+
+static void
+tw_default_free(void *ptr, const struct wl_interface *interface)
+{
+	free(ptr);
+}
+
+const struct tw_allocator tw_default_allocator = {
+	.alloc = tw_default_alloc,
+	.free = tw_default_free,
+};
 
 WL_EXPORT void
 tw_signal_setup_listener(struct wl_signal *signal,

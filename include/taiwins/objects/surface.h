@@ -31,6 +31,7 @@
 
 #include "matrix.h"
 #include "plane.h"
+#include "utils.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -121,7 +122,8 @@ struct tw_view {
 struct tw_subsurface;
 struct tw_surface {
 	struct wl_resource *resource;
-        /** the tw_surface::buffer is used to present; should stay available
+	const struct tw_allocator *alloc;
+	/** the tw_surface::buffer is used to present; should stay available
          * from imported to destroy of the surface
          */
 	struct tw_surface_buffer buffer;
@@ -223,7 +225,8 @@ struct tw_region {
 };
 
 struct tw_surface*
-tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id);
+tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
+                  const struct tw_allocator *alloc);
 
 struct tw_surface *
 tw_surface_from_resource(struct wl_resource *wl_surface);
