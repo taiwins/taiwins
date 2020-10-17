@@ -242,15 +242,15 @@ notify_subsurface_surface_destroy(struct wl_listener *listener, void *data)
  ******************************************************************************/
 
 WL_EXPORT struct tw_subsurface *
-tw_subsurface_create(struct wl_client *client, uint32_t version,
-                     uint32_t id, struct tw_surface *surface,
-                     struct tw_surface *parent)
+tw_subsurface_create(struct wl_client *client, uint32_t ver, uint32_t id,
+                     struct tw_surface *surface, struct tw_surface *parent,
+                     const struct tw_allocator *alloc)
 {
 	struct tw_subsurface *subsurface = NULL;
 	struct wl_resource *resource = NULL;
 
-	if (!tw_create_wl_resource_for_obj(resource, subsurface, client, id,
-	                                   version, wl_subsurface_interface)) {
+	if (!tw_alloc_wl_resource_for_obj(resource, subsurface, client, id,ver,
+	                                  wl_subsurface_interface, alloc)) {
 		wl_client_post_no_memory(client);
 		return NULL;
 	}

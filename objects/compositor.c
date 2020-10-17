@@ -66,14 +66,10 @@ get_wl_subsurface(struct wl_client *client,
 	compositor = wl_resource_get_user_data(resource);
 	subsurface = tw_subsurface_create(client, SUBSURFACE_VERSION, id,
 	                                  tw_surface_from_resource(surface),
-	                                  tw_surface_from_resource(parent));
+	                                  tw_surface_from_resource(parent),
+	                                  compositor->obj_alloc);
 	if (subsurface)
 		wl_signal_emit(&compositor->subsurface_created, subsurface);
-
-        //subcompositor is deeply linked to actual surface implementation. Here
-	//we cannot directly do anything except making a signal proxy.
-	//a subsurface resource is expected to be created in the event.
-	/* wl_signal_emit(&compositor->subsurface_get, &event); */
 }
 
 static const struct wl_subcompositor_interface subcompositor_impl = {
@@ -142,7 +138,7 @@ create_wl_region(struct wl_client *client,
 	                               &compositor_impl));
 	compositor = wl_resource_get_user_data(resource);
 	region = tw_region_create(client, wl_resource_get_version(resource),
-	                          id);
+	                          id, compositor->obj_alloc);
 	if (region)
 		wl_signal_emit(&compositor->region_created, region);
 

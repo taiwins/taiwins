@@ -90,13 +90,14 @@ tw_region_from_resource(struct wl_resource *wl_region)
 }
 
 WL_EXPORT struct tw_region *
-tw_region_create(struct wl_client *client, uint32_t version, uint32_t id)
+tw_region_create(struct wl_client *client, uint32_t ver, uint32_t id,
+                 const struct tw_allocator *alloc)
 {
 	struct wl_resource *resource = NULL;
 	struct tw_region *tw_region = NULL;
 
-	if (!tw_create_wl_resource_for_obj(resource, tw_region, client, id,
-	                                   version, wl_region_interface)) {
+	if (!tw_alloc_wl_resource_for_obj(resource, tw_region, client, id, ver,
+	                                  wl_region_interface, alloc)) {
 		wl_client_post_no_memory(client);
 		return NULL;
 	}
