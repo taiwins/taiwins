@@ -43,10 +43,6 @@
 #include "egl_render_context.h"
 #include "egl_shaders.h"
 
-#define TW_VIEW_GLOBAL_LINK 1
-#define TW_VIEW_OUTPUT_LINK 2
-
-
 struct tw_egl_layer_render_pipeline {
 	struct tw_render_pipeline base;
 	//TODO: this is still a temporary solution,

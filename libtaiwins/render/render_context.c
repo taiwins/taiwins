@@ -28,15 +28,12 @@
 #include <taiwins/render_context.h>
 #include <taiwins/render_output.h>
 #include <taiwins/render_surface.h>
+#include <taiwins/objects/logger.h>
 #include <taiwins/profiling.h>
 
 /******************************************************************************
  * tw_render_surface APIs
  *****************************************************************************/
-
-#define TW_VIEW_GLOBAL_LINK 1
-#define TW_VIEW_OUTPUT_LINK 2
-
 
 static void
 notify_tw_surface_destroy(struct wl_listener *listener, void *data)
@@ -107,6 +104,64 @@ tw_render_surface_from_resource(struct wl_resource *resource)
 	return surface;
 }
 
+
+/******************************************************************************
+ * render_context allocator
+ *****************************************************************************/
+
+static const struct tw_allocator tw_render_compositor_allocator;
+
+static void *
+handle_alloc_compositor_obj(size_t size, const struct wl_interface *interface)
+{
+	if (interface == &wl_surface_interface) {
+		struct tw_render_surface *surface = NULL;
+
+		assert(size == sizeof(struct tw_surface));
+		assert(interface == &wl_surface_interface);
+
+		surface = calloc(1, sizeof(*surface));
+		return &surface->surface;
+	} else if (interface == &wl_subsurface_interface) {
+		assert(size == sizeof(struct tw_subsurface));
+		return calloc(1, size);
+	} else if (interface == &wl_region_interface) {
+		assert(size == sizeof(struct tw_region));
+		return calloc(1, size);
+	} else {
+		tw_logl_level(TW_LOG_ERRO, "invalid interface");
+		assert(0);
+	}
+}
+
+static void
+handle_free_compositor_obj(void *ptr, const struct wl_interface *interface)
+{
+	if (interface == &wl_surface_interface) {
+		struct tw_surface *tw_surface = ptr;
+		struct tw_render_surface *surface =
+			wl_container_of(ptr, surface, surface);
+		assert(interface == &wl_surface_interface);
+		assert(tw_surface->alloc == &tw_render_compositor_allocator);
+		free(surface);
+	} else if (interface == &wl_subsurface_interface) {
+		struct tw_subsurface *subsurface = ptr;
+		assert(subsurface->alloc == &tw_render_compositor_allocator);
+		free(ptr);
+	} else if (interface == &wl_region_interface) {
+		struct tw_region *region = ptr;
+		assert(region->alloc == &tw_render_compositor_allocator);
+		free(ptr);
+	} else {
+		tw_logl_level(TW_LOG_ERRO, "invalid interface");
+		assert(0);
+	}
+}
+
+static const struct tw_allocator tw_render_compositor_allocator =  {
+	.alloc = handle_alloc_compositor_obj,
+	.free = handle_free_compositor_obj,
+};
 
 /******************************************************************************
  * tw_render_context APIs
@@ -208,44 +263,12 @@ tw_render_context_build_view_list(struct tw_render_context *ctx,
 	SCOPE_PROFILE_END();
 }
 
-static const struct tw_allocator tw_render_surface_allocator;
-
-static void *
-alloc_render_surface(size_t size, const struct wl_interface *interface)
-{
-	struct tw_render_surface *surface = NULL;
-
-	assert(size == sizeof(struct tw_surface));
-	assert(interface == &wl_surface_interface);
-
-	surface = calloc(1, sizeof(*surface));
-	return &surface->surface;
-}
-
-static void
-free_render_surface(void *ptr, const struct wl_interface *interface)
-{
-	struct tw_surface *tw_surface = ptr;
-	struct tw_render_surface *surface =
-		wl_container_of(ptr, surface, surface);
-	assert(interface == &wl_surface_interface);
-	assert(tw_surface->alloc == &tw_render_surface_allocator);
-
-	free(surface);
-}
-
-
-static const struct tw_allocator tw_render_surface_allocator =  {
-	.alloc = alloc_render_surface,
-	.free = free_render_surface,
-};
-
 void
 tw_render_context_set_compositor(struct tw_render_context *ctx,
                                  struct tw_compositor *compositor)
 {
 	wl_signal_emit(&ctx->events.compositor_set, compositor);
-	compositor->obj_alloc = &tw_render_surface_allocator;
+	compositor->obj_alloc = &tw_render_compositor_allocator;
 }
 
 void
