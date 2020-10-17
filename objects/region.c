@@ -21,6 +21,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <wayland-server-core.h>
 #include <wayland-server-protocol.h>
 #include <wayland-server.h>
 
@@ -74,10 +75,8 @@ static void
 region_destroy_resource(struct wl_resource *resource)
 {
 	struct tw_region *region = tw_region_from_resource(resource);
-	if (region->manager)
-		wl_signal_emit(&region->manager->region_destroy_signal,
-		               region);
 
+	wl_signal_emit(&region->destroy, region);
 	pixman_region32_fini(&region->region);
 	free(region);
 }
@@ -91,21 +90,21 @@ tw_region_from_resource(struct wl_resource *wl_region)
 }
 
 WL_EXPORT struct tw_region *
-tw_region_create(struct wl_client *client, uint32_t version, uint32_t id,
-                 struct tw_surface_manager *manager)
+tw_region_create(struct wl_client *client, uint32_t ver, uint32_t id,
+                 const struct tw_allocator *alloc)
 {
 	struct wl_resource *resource = NULL;
 	struct tw_region *tw_region = NULL;
 
-	if (!tw_create_wl_resource_for_obj(resource, tw_region, client, id,
-	                                   version, wl_region_interface)) {
+	if (!tw_alloc_wl_resource_for_obj(resource, tw_region, client, id, ver,
+	                                  wl_region_interface, alloc)) {
 		wl_client_post_no_memory(client);
 		return NULL;
 	}
-	tw_region->manager = manager;
 	wl_resource_set_implementation(resource, &region_impl, tw_region,
 	                               region_destroy_resource);
 	tw_region->resource = resource;
+	wl_signal_init(&tw_region->destroy);
 	pixman_region32_init(&tw_region->region);
 	return tw_region;
 }

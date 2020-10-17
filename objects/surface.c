@@ -36,18 +36,6 @@
 #define CALLBACK_VERSION 1
 #define SURFACE_VERSION 4
 
-/*
- * tasks tracking:
- * - surface set positon causes geometry dirty.
- * - subsurface implementation
- * - testing with a dummy surface
- * - subusrface as a role
- * - managing subsurface stacking order at commit
- * - managing subsurface position at commit
- * - TODO: test with subsurface
- * - TODO: `update_surface_damage` based on surface transformation.
- */
-
 /******************************************************************************
  * wl_surface implementation
  *****************************************************************************/
@@ -511,10 +499,8 @@ surface_commit_state(struct tw_surface *surface)
 	surface_update_geometry(surface);
 	surface_update_damage(surface);
 
-	if (surface->manager &&
-	    pixman_region32_not_empty(&surface->current->surface_damage))
-		wl_signal_emit(&surface->manager->surface_dirty_signal,
-		               surface);
+	if (pixman_region32_not_empty(&surface->current->surface_damage))
+		wl_signal_emit(&surface->events.dirty, surface);
 	//also commit the subsurface surface and
 	if (surface->role.commit)
 		surface->role.commit(surface);
@@ -688,9 +674,7 @@ tw_surface_dirty_geometry(struct tw_surface *surface)
 
 	wl_list_for_each(sub, &surface->subsurfaces, parent_link)
 		tw_surface_dirty_geometry(sub->surface);
-	if (surface->manager)
-		wl_signal_emit(&surface->manager->surface_dirty_signal,
-		               surface);
+	wl_signal_emit(&surface->events.dirty, surface);
 }
 
 WL_EXPORT void
@@ -718,9 +702,8 @@ surface_destroy_resource(struct wl_resource *resource)
 	struct tw_view *view;
 	struct tw_surface *surface = tw_surface_from_resource(resource);
 
-	if (surface->manager)
-		wl_signal_emit(&surface->manager->surface_destroy_signal,
-		               surface);
+	wl_signal_emit(&surface->events.destroy, surface);
+
 	for (int i = 0; i < MAX_VIEW_LINKS; i++)
 		wl_list_remove(&surface->links[i]);
 	wl_list_remove(&surface->layer_link);
@@ -740,31 +723,28 @@ surface_destroy_resource(struct wl_resource *resource)
 	if (surface->buffer.resource)
 		tw_surface_buffer_release(&surface->buffer);
 
-	pixman_region32_fini(&surface->clip);
 	pixman_region32_fini(&surface->geometry.dirty);
 
-	wl_signal_emit(&surface->events.destroy, surface);
-
-	free(surface);
+	assert(surface->alloc);
+	surface->alloc->free(surface, &wl_surface_interface);
 }
 
 WL_EXPORT struct tw_surface *
-tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
-                  struct tw_surface_manager *manager)
+tw_surface_create(struct wl_client *client, uint32_t ver, uint32_t id,
+                  const struct tw_allocator *alloc)
 {
 	struct tw_view *view;
 	struct wl_resource *resource = NULL;
 	struct tw_surface *surface = NULL;
 
-	if (!tw_create_wl_resource_for_obj(resource, surface, client, id,
-	                                   version, wl_surface_interface)) {
+	if (!tw_alloc_wl_resource_for_obj(resource, surface, client, id, ver,
+	                                  wl_surface_interface, alloc)) {
 		wl_client_post_no_memory(client);
 		return NULL;
 	}
 	wl_resource_set_implementation(resource, &surface_impl, surface,
 	                               surface_destroy_resource);
 	//initializers
-	surface->manager = manager;
 	surface->resource = resource;
 	surface->is_mapped = false;
 	surface->pending = &surface->surface_states[0];
@@ -772,8 +752,8 @@ tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
 	surface->previous = &surface->surface_states[2];
 	wl_signal_init(&surface->events.commit);
 	wl_signal_init(&surface->events.frame);
+	wl_signal_init(&surface->events.dirty);
 	wl_signal_init(&surface->events.destroy);
-	pixman_region32_init(&surface->clip);
 	pixman_region32_init(&surface->geometry.dirty);
 
 	for (int i = 0; i < MAX_VIEW_LINKS; i++)
@@ -805,20 +785,5 @@ tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
 	wl_list_init(&surface->frame_callbacks);
 	wl_list_init(&surface->layer_link);
 
-	if (manager)
-		wl_signal_emit(&manager->surface_created_signal, surface);
 	return surface;
-}
-
-WL_EXPORT void
-tw_surface_manager_init(struct tw_surface_manager *manager)
-{
-	wl_signal_init(&manager->surface_created_signal);
-	wl_signal_init(&manager->subsurface_created_signal);
-	wl_signal_init(&manager->region_created_signal);
-	wl_signal_init(&manager->surface_destroy_signal);
-	wl_signal_init(&manager->subsurface_destroy_signal);
-	wl_signal_init(&manager->region_destroy_signal);
-
-	wl_signal_init(&manager->surface_dirty_signal);
 }

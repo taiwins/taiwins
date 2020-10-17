@@ -31,6 +31,7 @@
 
 #include "matrix.h"
 #include "plane.h"
+#include "utils.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -52,7 +53,14 @@ enum tw_surface_state {
 };
 
 struct tw_surface;
-struct tw_surface_manager;
+struct tw_surface_buffer;
+
+struct tw_event_buffer_uploading {
+	struct tw_surface_buffer *buffer;
+	pixman_region32_t *damages;
+	struct wl_resource *wl_buffer;
+	bool new_upload;
+};
 
 typedef void (*tw_surface_commit_cb_t)(struct tw_surface *surface);
 /**
@@ -76,14 +84,13 @@ struct tw_surface_buffer {
 	/* if there is a texture with the surface, the listener should be
 	 * used at surface destruction. */
 	struct wl_listener surface_destroy_listener;
+	struct {
+		bool (*buffer_import)(struct tw_event_buffer_uploading *event,
+		                      void *callback);
+		void *callback;
+	} buffer_import;
 };
 
-struct tw_event_buffer_uploading {
-	struct tw_surface_buffer *buffer;
-	pixman_region32_t *damages;
-	struct wl_resource *wl_buffer;
-	bool new_upload;
-};
 
 struct tw_event_surface_frame {
 	struct tw_surface *surface;
@@ -115,14 +122,13 @@ struct tw_view {
 struct tw_subsurface;
 struct tw_surface {
 	struct wl_resource *resource;
-	struct tw_surface_manager *manager;
-        /** the tw_surface::buffer is used to present; should stay available
+	const struct tw_allocator *alloc;
+	/** the tw_surface::buffer is used to present; should stay available
          * from imported to destroy of the surface
          */
 	struct tw_surface_buffer buffer;
 
-        /* view is similar t
-         * current: commited;
+        /* current: commited;
          * pending: attached, without commit;
          * previous: last commit
          * rotating towards left.
@@ -130,29 +136,11 @@ struct tw_surface {
 	struct tw_view *pending, *current, *previous;
 	struct tw_view surface_states[3];
 
-	//TODO: make a pointer of render_data which contains all of these
-	//(damages), clip, output, created on surface creation.
-#ifdef TW_OVERLAY_PLANE
-	/* previously I solved the overlapping output damage by giving
-	 * the copy to all outputs. Not sure if there is a better
-	 * solution. If we do not do plane assignment at all. Maybe
-	 * except cursor, we can directly reduce the damages to the
-	 * output.
-	 */
-	pixman_region32_t output_damages[32];
-#endif
-	/** the part is not occluded by any other surface */
-	pixman_region32_t clip;
-
-	int32_t output; /**< the primary output for this surface */
-	uint32_t output_mask; /**< the output it touches */
-
 	/**
 	 * many types may need to use one of the links, eg: backend_ouput,
 	 * layer, compositor, input. Plane.
 	 */
 	struct wl_list links[MAX_VIEW_LINKS];
-
         struct wl_list layer_link;
 
 	struct wl_list frame_callbacks;
@@ -191,6 +179,7 @@ struct tw_surface {
 		struct wl_signal frame;
 		struct wl_signal commit;
 		struct wl_signal destroy;
+		struct wl_signal dirty;
 	} events;
 
 	void *user_data;
@@ -205,44 +194,24 @@ struct tw_subsurface {
 	struct tw_surface *parent;
 	struct wl_list parent_link; /**< reflects subsurface stacking order */
 	struct wl_list parent_pending_link; /* accummulated stacking order */
+	struct wl_signal destroy;
 	struct wl_listener surface_destroyed;
 	int32_t sx, sy;
 	bool sync;
+	const struct tw_allocator *alloc;
 };
 
 struct tw_region {
 	struct wl_resource *resource;
-	struct tw_surface_manager *manager;
 	pixman_region32_t region;
+	struct wl_signal destroy;
+	const struct tw_allocator *alloc;
 };
-
-/**
- * @brief centralized surface hub, taking care of common signals.
- */
-struct tw_surface_manager {
-	//signals generated for all surface for additional processing, for
-	//example, wp_viewporter would take advantage of commit_signal.
-	struct wl_signal surface_created_signal;
-	struct wl_signal subsurface_created_signal;
-	struct wl_signal region_created_signal;
-	struct wl_signal surface_destroy_signal;
-	struct wl_signal subsurface_destroy_signal;
-	struct wl_signal region_destroy_signal;
-	struct wl_signal surface_dirty_signal;
-
-	struct {
-		bool (*buffer_import)(struct tw_event_buffer_uploading *event,
-		                      void *);
-		void *callback;
-	} buffer_import;
-};
-
-void
-tw_surface_manager_init(struct tw_surface_manager *manager);
 
 struct tw_surface*
 tw_surface_create(struct wl_client *client, uint32_t version, uint32_t id,
-                  struct tw_surface_manager *manager);
+                  const struct tw_allocator *alloc);
+
 struct tw_surface *
 tw_surface_from_resource(struct wl_resource *wl_surface);
 
@@ -297,15 +266,16 @@ struct tw_subsurface *
 tw_surface_get_subsurface(struct tw_surface *surf);
 
 struct tw_subsurface *
-tw_subsurface_create(struct wl_client *client, uint32_t version,
-                     uint32_t id, struct tw_surface *surface,
-                     struct tw_surface *parent);
+tw_subsurface_create(struct wl_client *client, uint32_t version, uint32_t id,
+                     struct tw_surface *surface, struct tw_surface *parent,
+                     const struct tw_allocator *alloc);
 void
 tw_subsurface_update_pos(struct tw_subsurface *sub,
                          int32_t sx, int32_t sy);
 struct tw_region *
 tw_region_create(struct wl_client *client, uint32_t version, uint32_t id,
-                 struct tw_surface_manager *manager);
+                 const struct tw_allocator *alloc);
+
 struct tw_region *
 tw_region_from_resource(struct wl_resource *wl_region);
 

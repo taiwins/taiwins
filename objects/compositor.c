@@ -30,6 +30,7 @@
 
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/compositor.h>
+#include <taiwins/objects/surface.h>
 
 #define COMPOSITOR_VERSION 4
 #define SUBCOMPOSITOR_VERSION 1
@@ -58,21 +59,17 @@ get_wl_subsurface(struct wl_client *client,
                   struct wl_resource *parent)
 {
 	struct tw_compositor *compositor;
-	struct tw_event_get_wl_subsurface event = {
-		.surface = surface,
-		.parent_surface = parent,
-		.client = client,
-		.version = SUBSURFACE_VERSION,
-		.id = id,
-	};
+	struct tw_subsurface *subsurface;
+
 	assert(wl_resource_instance_of(resource, &wl_subcompositor_interface,
 	                               &subcompositor_impl));
 	compositor = wl_resource_get_user_data(resource);
-
-        //subcompositor is deeply linked to actual surface implementation. Here
-	//we cannot directly do anything except making a signal proxy.
-	//a subsurface resource is expected to be created in the event.
-	wl_signal_emit(&compositor->subsurface_get, &event);
+	subsurface = tw_subsurface_create(client, SUBSURFACE_VERSION, id,
+	                                  tw_surface_from_resource(surface),
+	                                  tw_surface_from_resource(parent),
+	                                  compositor->obj_alloc);
+	if (subsurface)
+		wl_signal_emit(&compositor->subsurface_created, subsurface);
 }
 
 static const struct wl_subcompositor_interface subcompositor_impl = {
@@ -117,16 +114,16 @@ create_wl_surface(struct wl_client *client,
                   uint32_t id)
 {
 	struct tw_compositor *compositor;
-	struct tw_event_new_wl_surface event = {
-		resource, client,
-		SURFACE_VERSION,
-		id,
-	};
+	struct tw_surface *surface;
 
 	assert(wl_resource_instance_of(resource, &wl_compositor_interface,
 	                               &compositor_impl));
 	compositor = wl_resource_get_user_data(resource);
-	wl_signal_emit(&compositor->surface_create, &event);
+
+	surface = tw_surface_create(client, SURFACE_VERSION, id,
+	                            compositor->obj_alloc);
+	if (surface)
+		wl_signal_emit(&compositor->surface_created, surface);
 }
 
 static void
@@ -135,16 +132,16 @@ create_wl_region(struct wl_client *client,
                  uint32_t id)
 {
 	struct tw_compositor *compositor;
-	struct tw_event_new_wl_region event = {
-		resource, client,
-		wl_resource_get_version(resource),
-		id,
-	};
+	struct tw_region *region;
 
 	assert(wl_resource_instance_of(resource, &wl_compositor_interface,
 	                               &compositor_impl));
 	compositor = wl_resource_get_user_data(resource);
-	wl_signal_emit(&compositor->region_create, &event);
+	region = tw_region_create(client, wl_resource_get_version(resource),
+	                          id, compositor->obj_alloc);
+	if (region)
+		wl_signal_emit(&compositor->region_created, region);
+
 }
 
 static const struct wl_compositor_interface compositor_impl = {
@@ -213,10 +210,11 @@ tw_compositor_init(struct tw_compositor *compositor,
 	}
 	wl_list_init(&compositor->destroy_listener.link);
 	compositor->destroy_listener.notify = destroy_tw_compositor;
+	compositor->obj_alloc = NULL;
 
-	wl_signal_init(&compositor->surface_create);
-	wl_signal_init(&compositor->region_create);
-	wl_signal_init(&compositor->subsurface_get);
+	wl_signal_init(&compositor->surface_created);
+	wl_signal_init(&compositor->region_created);
+	wl_signal_init(&compositor->subsurface_created);
 	wl_list_init(&compositor->clients);
 	wl_list_init(&compositor->subcomp_clients);
 

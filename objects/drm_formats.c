@@ -43,7 +43,7 @@ tw_drm_formats_fini(struct tw_drm_formats *formats)
 WL_EXPORT size_t
 tw_drm_formats_count(struct tw_drm_formats *formats)
 {
-	return formats->formats.size / sizeof(struct tw_drm_formats);
+	return formats->formats.size / sizeof(struct tw_drm_format);
 }
 
 WL_EXPORT bool

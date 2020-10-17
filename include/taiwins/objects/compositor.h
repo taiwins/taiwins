@@ -24,6 +24,7 @@
 
 #include <wayland-server-core.h>
 #include <wayland-server.h>
+#include "utils.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -35,9 +36,12 @@ struct tw_compositor {
 	struct wl_list clients;
 	struct wl_list subcomp_clients;
 
-	struct wl_signal surface_create;
-	struct wl_signal region_create;
-	struct wl_signal subsurface_get;
+	struct wl_signal surface_created;
+	struct wl_signal region_created;
+	struct wl_signal subsurface_created;
+
+        /** allocator for objects */
+	const struct tw_allocator *obj_alloc;
 
 	struct wl_listener destroy_listener;
 };

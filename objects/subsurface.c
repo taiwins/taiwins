@@ -22,6 +22,7 @@
 #include <limits.h>
 #include <assert.h>
 #include <math.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/surface.h>
@@ -201,13 +202,10 @@ subsurface_unset_role(struct tw_subsurface *subsurface)
 static void
 subsurface_destroy(struct tw_subsurface *subsurface)
 {
-	struct tw_surface_manager *manager;
 	if (!subsurface)
 		return;
-	manager = subsurface->surface->manager;
-	if (manager)
-		wl_signal_emit(&manager->subsurface_destroy_signal,
-		               subsurface);
+
+	wl_signal_emit(&subsurface->destroy, subsurface);
 
 	wl_list_remove(&subsurface->surface_destroyed.link);
 	if (subsurface->parent) {
@@ -244,15 +242,15 @@ notify_subsurface_surface_destroy(struct wl_listener *listener, void *data)
  ******************************************************************************/
 
 WL_EXPORT struct tw_subsurface *
-tw_subsurface_create(struct wl_client *client, uint32_t version,
-                     uint32_t id, struct tw_surface *surface,
-                     struct tw_surface *parent)
+tw_subsurface_create(struct wl_client *client, uint32_t ver, uint32_t id,
+                     struct tw_surface *surface, struct tw_surface *parent,
+                     const struct tw_allocator *alloc)
 {
 	struct tw_subsurface *subsurface = NULL;
 	struct wl_resource *resource = NULL;
 
-	if (!tw_create_wl_resource_for_obj(resource, subsurface, client, id,
-	                                   version, wl_subsurface_interface)) {
+	if (!tw_alloc_wl_resource_for_obj(resource, subsurface, client, id,ver,
+	                                  wl_subsurface_interface, alloc)) {
 		wl_client_post_no_memory(client);
 		return NULL;
 	}
@@ -264,6 +262,7 @@ tw_subsurface_create(struct wl_client *client, uint32_t version,
 	subsurface->parent = parent;
 	subsurface_set_role(subsurface, surface);
 	// stacking order
+	wl_signal_init(&subsurface->destroy);
 	wl_list_init(&subsurface->parent_link);
 	wl_list_init(&subsurface->parent_pending_link);
 	wl_list_insert(parent->subsurfaces_pending.prev,
@@ -274,10 +273,6 @@ tw_subsurface_create(struct wl_client *client, uint32_t version,
 		notify_subsurface_surface_destroy;
 	wl_signal_add(&surface->events.destroy,
 	              &subsurface->surface_destroyed);
-
-	if (surface->manager)
-		wl_signal_emit(&surface->manager->subsurface_created_signal,
-		               subsurface);
 
 	return subsurface;
 }

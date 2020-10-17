@@ -107,6 +107,9 @@ tw_egl_buffer_age(struct tw_egl *egl, EGLSurface surface);
 bool
 tw_egl_bind_wl_display(struct tw_egl *egl, struct wl_display *display);
 
+bool
+tw_egl_destroy_image(struct tw_egl *egl, EGLImageKHR image);
+
 EGLImageKHR
 tw_egl_import_wl_drm_image(struct tw_egl *egl, struct wl_resource *data,
                            EGLint *fmt, int *width, int *height,
