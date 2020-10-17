@@ -136,29 +136,11 @@ struct tw_surface {
 	struct tw_view *pending, *current, *previous;
 	struct tw_view surface_states[3];
 
-	//TODO: make a pointer of render_data which contains all of these
-	//(damages), clip, output, created on surface creation.
-#ifdef TW_OVERLAY_PLANE
-	/* previously I solved the overlapping output damage by giving
-	 * the copy to all outputs. Not sure if there is a better
-	 * solution. If we do not do plane assignment at all. Maybe
-	 * except cursor, we can directly reduce the damages to the
-	 * output.
-	 */
-	pixman_region32_t output_damages[32];
-#endif
-	/** the part is not occluded by any other surface */
-	pixman_region32_t clip;
-
-	int32_t output; /**< the primary output for this surface */
-	uint32_t output_mask; /**< the output it touches */
-
 	/**
 	 * many types may need to use one of the links, eg: backend_ouput,
 	 * layer, compositor, input. Plane.
 	 */
 	struct wl_list links[MAX_VIEW_LINKS];
-
         struct wl_list layer_link;
 
 	struct wl_list frame_callbacks;

@@ -723,7 +723,6 @@ surface_destroy_resource(struct wl_resource *resource)
 	if (surface->buffer.resource)
 		tw_surface_buffer_release(&surface->buffer);
 
-	pixman_region32_fini(&surface->clip);
 	pixman_region32_fini(&surface->geometry.dirty);
 
 	assert(surface->alloc);
@@ -755,7 +754,6 @@ tw_surface_create(struct wl_client *client, uint32_t ver, uint32_t id,
 	wl_signal_init(&surface->events.frame);
 	wl_signal_init(&surface->events.dirty);
 	wl_signal_init(&surface->events.destroy);
-	pixman_region32_init(&surface->clip);
 	pixman_region32_init(&surface->geometry.dirty);
 
 	for (int i = 0; i < MAX_VIEW_LINKS; i++)
