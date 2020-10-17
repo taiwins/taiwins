@@ -71,6 +71,8 @@ surface_accumulate_damage(struct tw_surface *surface,
 {
 	pixman_region32_t damage, bbox, opaque;
 	struct tw_view *current = surface->current;
+	struct tw_render_surface *render_surface =
+		wl_container_of(surface, render_surface, surface);
 
 	pixman_region32_init(&damage);
 	pixman_region32_init_rect(&bbox,
@@ -97,7 +99,7 @@ surface_accumulate_damage(struct tw_surface *surface,
 	                      &current->plane->damage, &damage);
 	//update the clip region here. but yeah, our surface region is not
 	//correct at all.
-	pixman_region32_subtract(&surface->clip, &bbox, clipped);
+	pixman_region32_subtract(&render_surface->clip, &bbox, clipped);
 	pixman_region32_copy(&opaque, &current->opaque_region);
 	pixman_region32_translate(&opaque, surface->geometry.x,
 	                          surface->geometry.y);
@@ -300,6 +302,8 @@ pipeline_paint_surface(struct tw_surface *surface,
 	struct tw_mat3 proj, tmp;
 	struct tw_egl_quad_tex_shader *shader;
 	struct tw_egl_render_texture *texture = surface->buffer.handle.ptr;
+	struct tw_render_surface *render_surface =
+		wl_container_of(surface, render_surface, surface);
 	pixman_region32_t damage;
 	unsigned int w, h;
 
@@ -340,7 +344,8 @@ pipeline_paint_surface(struct tw_surface *surface,
 
 	//extracting damages
 	pixman_region32_init(&damage);
-	pixman_region32_intersect(&damage, &surface->clip, output_damage);
+	pixman_region32_intersect(&damage, &render_surface->clip,
+	                          output_damage);
 
 #if defined (_TW_DEBUG_CLIP)
 	boxes = pixman_region32_rectangles(&surface->clip, &nrects);

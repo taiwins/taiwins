@@ -20,14 +20,18 @@
  */
 
 #include <assert.h>
+#include <stdlib.h>
 #include <taiwins/objects/utils.h>
+#include <taiwins/objects/surface.h>
+#include <wayland-server-protocol.h>
 #include <wayland-util.h>
 #include <taiwins/render_context.h>
 #include <taiwins/render_output.h>
+#include <taiwins/render_surface.h>
 #include <taiwins/profiling.h>
 
 /******************************************************************************
- * tw_render_context Public APIs
+ * tw_render_surface APIs
  *****************************************************************************/
 
 #define TW_VIEW_GLOBAL_LINK 1
@@ -37,38 +41,35 @@
 static void
 notify_tw_surface_destroy(struct wl_listener *listener, void *data)
 {
-	struct tw_render_wl_surface *surface =
+	struct tw_render_surface *surface =
 		wl_container_of(listener, surface, listeners.destroy);
-	assert(data == surface->surface);
+	assert(data == &surface->surface);
 	wl_signal_emit(&surface->ctx->events.wl_surface_destroy, data);
-	tw_render_fini_wl_surface(surface);
-
-	free(surface);
+	tw_render_surface_fini(surface);
 }
 
 static void
 notify_tw_surface_dirty(struct wl_listener *listener, void *data)
 {
-	struct tw_render_wl_surface *surface =
+	struct tw_render_surface *surface =
 		wl_container_of(listener, surface, listeners.dirty);
-	assert(data == surface->surface);
+	assert(data == &surface->surface);
 	//forwarding the dirty event.
 	wl_signal_emit(&surface->ctx->events.wl_surface_dirty, data);
 }
 
 void
-tw_render_init_wl_surface(struct tw_render_wl_surface *surface,
-                          struct tw_surface *tw_surface,
-                          struct tw_render_context *ctx)
+tw_render_surface_init(struct tw_render_surface *surface,
+                       struct tw_render_context *ctx)
 {
-	wl_list_init(&surface->layer_link);
+	struct tw_surface *tw_surface = &surface->surface;
+
 	wl_list_init(&surface->listeners.commit.link);
 	wl_list_init(&surface->listeners.destroy.link);
 	wl_list_init(&surface->listeners.dirty.link);
 	wl_list_init(&surface->listeners.frame.link);
 
 	pixman_region32_init(&surface->clip);
-	surface->surface = tw_surface;
 	surface->ctx = ctx;
 #ifdef TW_OVERLAY_PLANE
 	for (int i = 0; i < 32; i++)
@@ -83,9 +84,8 @@ tw_render_init_wl_surface(struct tw_render_wl_surface *surface,
 }
 
 void
-tw_render_fini_wl_surface(struct tw_render_wl_surface *surface)
+tw_render_surface_fini(struct tw_render_surface *surface)
 {
-	wl_list_remove(&surface->layer_link);
 	pixman_region32_fini(&surface->clip);
 #ifdef TW_OVERLAY_PLANE
 	for (int i = 0; i < 32; i++)
@@ -96,6 +96,21 @@ tw_render_fini_wl_surface(struct tw_render_wl_surface *surface)
 	wl_list_remove(&surface->listeners.frame.link);
 	wl_list_remove(&surface->listeners.commit.link);
 }
+
+struct tw_render_surface *
+tw_render_surface_from_resource(struct wl_resource *resource)
+{
+	struct tw_surface *tw_surface = (resource) ?
+		tw_surface_from_resource(resource) : NULL;
+	struct tw_render_surface *surface = (tw_surface) ?
+		wl_container_of(tw_surface, surface, surface) : NULL;
+	return surface;
+}
+
+
+/******************************************************************************
+ * tw_render_context APIs
+ *****************************************************************************/
 
 /** I think this will simply seat here even if we have a vulkan render context,
  EGL render context will be compulsory */
@@ -150,15 +165,17 @@ surface_add_to_outputs_list(struct tw_render_context *ctx,
 {
 	struct tw_subsurface *sub;
 	struct tw_render_output *tmp, *output = NULL;
+	struct tw_render_surface *render_surface =
+		wl_container_of(surface, render_surface, surface);
 
         wl_list_for_each(tmp, &ctx->outputs, link) {
-		if (tmp->device.id == surface->output) {
+		if (tmp->device.id == render_surface->output) {
 			output = tmp;
 			break;
 		}
 	}
 	assert(output);
-	assert(surface->output >= 0 && surface->output <= 31);
+	assert(render_surface->output >= 0 && render_surface->output <= 31);
 
 	wl_list_insert(output->views.prev,
 	               &surface->links[TW_VIEW_OUTPUT_LINK]);
@@ -189,4 +206,51 @@ tw_render_context_build_view_list(struct tw_render_context *ctx,
 	}
 
 	SCOPE_PROFILE_END();
+}
+
+static const struct tw_allocator tw_render_surface_allocator;
+
+static void *
+alloc_render_surface(size_t size, const struct wl_interface *interface)
+{
+	struct tw_render_surface *surface = NULL;
+
+	assert(size == sizeof(struct tw_surface));
+	assert(interface == &wl_surface_interface);
+
+	surface = calloc(1, sizeof(*surface));
+	return &surface->surface;
+}
+
+static void
+free_render_surface(void *ptr, const struct wl_interface *interface)
+{
+	struct tw_surface *tw_surface = ptr;
+	struct tw_render_surface *surface =
+		wl_container_of(ptr, surface, surface);
+	assert(interface == &wl_surface_interface);
+	assert(tw_surface->alloc == &tw_render_surface_allocator);
+
+	free(surface);
+}
+
+
+static const struct tw_allocator tw_render_surface_allocator =  {
+	.alloc = alloc_render_surface,
+	.free = free_render_surface,
+};
+
+void
+tw_render_context_set_compositor(struct tw_render_context *ctx,
+                                 struct tw_compositor *compositor)
+{
+	wl_signal_emit(&ctx->events.compositor_set, compositor);
+	compositor->obj_alloc = &tw_render_surface_allocator;
+}
+
+void
+tw_render_context_set_dma(struct tw_render_context *ctx,
+                          struct tw_linux_dmabuf *dma)
+{
+	wl_signal_emit(&ctx->events.dma_set, dma);
 }

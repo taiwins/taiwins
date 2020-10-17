@@ -35,6 +35,7 @@
 #include <taiwins/objects/compositor.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/render_pipeline.h>
+#include <wayland-util.h>
 
 #include "egl_render_context.h"
 
@@ -148,16 +149,11 @@ notify_context_surface_created(struct wl_listener *listener, void *data)
 	struct tw_surface *tw_surface = data;
 	struct tw_egl_render_context *ctx =
 		wl_container_of(listener, ctx, surface_created);
-	struct tw_render_wl_surface *surface =
-		calloc(1, sizeof(*surface));
-
-	if (!surface) {
-		wl_resource_post_no_memory(tw_surface->resource);
-		return;
-	}
+	struct tw_render_surface *surface =
+		wl_container_of(tw_surface, surface, surface);
 
 	//I think it is better if we forward the event here
-	tw_render_init_wl_surface(surface, tw_surface, &ctx->base);
+	tw_render_surface_init(surface, &ctx->base);
 	tw_surface->buffer.buffer_import.callback = ctx;
 	tw_surface->buffer.buffer_import.buffer_import =
 		tw_egl_render_context_import_buffer;
@@ -169,6 +165,7 @@ notify_context_compositor_set(struct wl_listener *listener, void *data)
 	struct tw_compositor *compositor = data;
 	struct tw_egl_render_context *ctx =
 		wl_container_of(listener, ctx, compositor_set);
+
 	tw_signal_setup_listener(&compositor->surface_created,
 	                         &ctx->surface_created,
 	                         notify_context_surface_created);

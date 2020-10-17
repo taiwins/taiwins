@@ -29,6 +29,7 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/render_context.h>
 #include <taiwins/render_output.h>
+#include <taiwins/render_surface.h>
 #include <taiwins/output_device.h>
 #include <taiwins/render_pipeline.h>
 
@@ -71,10 +72,12 @@ fini_output_state(struct tw_render_output *o)
 }
 
 static void
-update_surface_mask(struct tw_surface *surface,
+update_surface_mask(struct tw_surface *tw_surface,
                     struct tw_render_output *major, uint32_t mask)
 {
 	struct tw_render_output *output;
+	struct tw_render_surface *surface =
+		wl_container_of(tw_surface, surface, surface);
 	uint32_t output_bit;
 	uint32_t different = surface->output_mask ^ mask;
 	uint32_t entered = mask & different;
@@ -91,9 +94,11 @@ update_surface_mask(struct tw_surface *surface,
 		if (!(output_bit & different))
 			continue;
 		if ((output_bit & entered))
-			wl_signal_emit(&output->events.surface_enter, surface);
+			wl_signal_emit(&output->events.surface_enter,
+			               tw_surface);
 		if ((output_bit & left))
-			wl_signal_emit(&output->events.surface_leave, surface);
+			wl_signal_emit(&output->events.surface_leave,
+			               tw_surface);
 	}
 }
 
@@ -167,6 +172,8 @@ notify_output_surface_dirty(struct wl_listener *listener, void *data)
 	struct tw_render_output *output =
 		wl_container_of(listener, output, listeners.surface_dirty);
 	struct tw_surface *surface = data;
+	struct tw_render_surface *render_surface =
+		wl_container_of(surface, render_surface, surface);
 	struct tw_render_context *ctx = output->ctx;
 
         assert(ctx);
@@ -174,7 +181,7 @@ notify_output_surface_dirty(struct wl_listener *listener, void *data)
 		reassign_surface_outputs(surface, ctx);
 
 	wl_list_for_each(output, &ctx->outputs, link) {
-		if ((1u << output->device.id) & surface->output_mask)
+		if ((1u << output->device.id) & render_surface->output_mask)
 			tw_render_output_dirty(output);
 	}
 }

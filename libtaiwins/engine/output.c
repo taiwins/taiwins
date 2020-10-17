@@ -36,6 +36,7 @@
 #include <taiwins/output_device.h>
 #include <taiwins/render_context.h>
 #include <taiwins/render_output.h>
+#include <taiwins/render_surface.h>
 #include "internal.h"
 
 static void
@@ -247,7 +248,7 @@ tw_engine_get_focused_output(struct tw_engine *engine)
 {
 	struct tw_seat *seat;
 	struct wl_resource *wl_surface = NULL;
-	struct tw_surface *tw_surface = NULL;
+	struct tw_render_surface *surface = NULL;
 	struct tw_engine_seat *engine_seat;
 
 	if (wl_list_length(&engine->heads) == 0)
@@ -262,25 +263,22 @@ tw_engine_get_focused_output(struct tw_engine *engine)
 		if (seat->capabilities & WL_SEAT_CAPABILITY_POINTER) {
 			pointer = &seat->pointer;
 			wl_surface = pointer->focused_surface;
-			tw_surface = (wl_surface) ?
-				tw_surface_from_resource(wl_surface) : NULL;
-			if (tw_surface)
-				return &engine->outputs[tw_surface->output];
+			surface =  tw_render_surface_from_resource(wl_surface);
+			if (surface)
+				return &engine->outputs[surface->output];
 		}
 		else if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD) {
 			keyboard = &seat->keyboard;
 			wl_surface = keyboard->focused_surface;
-			tw_surface = (wl_surface) ?
-				tw_surface_from_resource(wl_surface) : NULL;
-			if (tw_surface)
-				return &engine->outputs[tw_surface->output];
+			surface = tw_render_surface_from_resource(wl_surface);
+			if (surface)
+				return &engine->outputs[surface->output];
 		} else if (seat->capabilities & WL_SEAT_CAPABILITY_TOUCH) {
 			touch = &seat->touch;
 			wl_surface = touch->focused_surface;
-			tw_surface = (wl_surface) ?
-				tw_surface_from_resource(wl_surface) : NULL;
-			if (tw_surface)
-				return &engine->outputs[tw_surface->output];
+			surface = tw_render_surface_from_resource(wl_surface);
+			if (surface)
+				return &engine->outputs[surface->output];
 		}
 	}
 
