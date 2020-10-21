@@ -101,6 +101,8 @@ struct tw_render_context {
 		//this is plain damn weird.
 		struct wl_signal wl_surface_dirty;
 		struct wl_signal wl_surface_destroy;
+		/** emit at commit_surface */
+		struct wl_signal wl_surface_commit;
 	} events;
 
 	struct wl_list pipelines;

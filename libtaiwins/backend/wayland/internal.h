@@ -26,10 +26,11 @@
 #include <wayland-client.h>
 #include <wayland-server.h>
 #include <wayland-xdg-shell-client-protocol.h>
+#include <wayland-presentation-time-client-protocol.h>
 #include <taiwins/input_device.h>
 #include <taiwins/render_output.h>
 
-#include <taiwins/backend.h>
+#include <taiwins/backend-wayland.h>
 
 
 #ifdef  __cplusplus
@@ -55,6 +56,7 @@ struct tw_wl_output {
 	struct xdg_surface *xdg_surface;
 	struct xdg_toplevel *xdg_toplevel;
 	struct wl_egl_window *egl_window;
+	struct wl_callback *frame;
 	struct tw_wl_backend *wl;
 
         struct wl_pointer *curr_pointer;
@@ -69,6 +71,7 @@ struct tw_wl_backend {
 	struct {
 		struct wl_compositor *compositor;
 		struct xdg_wm_base *wm_base;
+		struct wp_presentation *presentation;
 	} globals;
 
 	struct tw_backend base;
@@ -84,7 +87,7 @@ void
 tw_wl_seat_start(struct tw_wl_seat *seat);
 
 void
-tw_wl_remove_output(struct tw_wl_output *output);
+tw_wl_output_remove(struct tw_wl_output *output);
 
 void
 tw_wl_output_start(struct tw_wl_output *output);

@@ -32,6 +32,7 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/render_context.h>
 #include <wayland-xdg-shell-client-protocol.h>
+#include <taiwins/render_output.h>
 
 #include "internal.h"
 
@@ -40,29 +41,103 @@ wl_commit_output_state(struct tw_output_device *output)
 {
 	struct tw_wl_output *wl_output =
 		wl_container_of(output, wl_output, output.device);
-	struct wl_event_loop *loop =
-		wl_display_get_event_loop(wl_output->wl->server_display);
+	unsigned width, height;
+
 
 	assert(output->pending.scale >= 1.0);
 	assert(output->pending.current_mode.h > 0 &&
 	       output->pending.current_mode.w > 0);
-        if (!loop)
-		return;
-        //so here we actually need to recommit the event since the
-        /* wl_event_loop_add_idle(loop, wl_resize_output_idle, wl_output); */
+        memcpy(&output->state, &output->pending, sizeof(output->state));
+
+        tw_output_device_raw_resolution(output, &width, &height);
+
+        if (wl_output->egl_window)
+	        wl_egl_window_resize(wl_output->egl_window, width, height,
+	                             0, 0);
 }
 
 static const struct tw_output_device_impl wl_output_impl = {
 	.commit_state = wl_commit_output_state,
 };
 
-static const struct xdg_toplevel_listener xdg_toplevel_listener = {
+/******************************************************************************
+ * xdg toplevel listener
+ *****************************************************************************/
 
+static void
+handle_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
+                          int32_t width, int32_t height,
+                          struct wl_array *states)
+{
+	struct tw_wl_output *output = data;
+	assert(output && output->xdg_toplevel == xdg_toplevel);
+
+	if (width == 0 || height == 0)
+		return;
+	tw_output_device_set_custom_mode(&output->output.device,
+	                                 width, height, 0);
+	tw_output_device_commit_state(&output->output.device);
+}
+
+static void
+handle_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
+{
+	struct tw_wl_output *output = data;
+	assert(output && output->xdg_toplevel == xdg_toplevel);
+
+	tw_wl_output_remove(output);
+}
+
+static const struct xdg_toplevel_listener xdg_toplevel_listener = {
+	.configure = handle_toplevel_configure,
+	.close = handle_toplevel_close,
 };
+
+/******************************************************************************
+ * xdg surface listener
+ *****************************************************************************/
+
+static void
+handle_xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
+                             uint32_t serial)
+{
+	struct tw_wl_output *output = data;
+	assert(output && output->xdg_surface == xdg_surface);
+	xdg_surface_ack_configure(xdg_surface, serial);
+}
 
 static const struct xdg_surface_listener xdg_surface_listener = {
-
+	.configure = handle_xdg_surface_configure,
 };
+
+/******************************************************************************
+ * wl_callback_listener API
+ *****************************************************************************/
+static const struct wl_callback_listener callback_listener;
+
+static void
+handle_callback_done(void *data, struct wl_callback *wl_callback,
+                     uint32_t callback_data)
+
+{
+	struct tw_wl_output *output = data;
+
+	assert(output->frame == wl_callback);
+	wl_callback_destroy(wl_callback);
+	wl_signal_emit(&output->output.device.events.new_frame,
+	               &output->output.device);
+	output->frame = wl_surface_frame(output->wl_surface);
+	wl_callback_add_listener(output->frame, &callback_listener, output);
+}
+
+
+static const struct wl_callback_listener callback_listener = {
+	.done = handle_callback_done,
+};
+
+/******************************************************************************
+ * output API
+ *****************************************************************************/
 
 void
 tw_wl_output_remove(struct tw_wl_output *output)
@@ -91,6 +166,9 @@ tw_wl_output_start(struct tw_wl_output *output)
 			&xdg_surface_listener, output);
 	xdg_toplevel_add_listener(output->xdg_toplevel,
 			&xdg_toplevel_listener, output);
+	xdg_toplevel_set_app_id(output->xdg_toplevel, "taiwins");
+	xdg_toplevel_set_title(output->xdg_toplevel,
+	                       output->output.device.name);
 	wl_surface_commit(output->wl_surface);
 
 	tw_render_output_set_context(&output->output, wl->base.ctx);
@@ -114,6 +192,9 @@ tw_wl_output_start(struct tw_wl_output *output)
 	wl_signal_emit(&wl->base.events.new_output, &output->output.device);
 	wl_signal_emit(&output->output.device.events.info,
 	               &output->output.device);
+
+	output->frame = wl_surface_frame(output->wl_surface);
+	handle_callback_done(output, output->frame, 0);
 }
 
 bool
@@ -153,7 +234,7 @@ tw_wl_backend_new_output(struct tw_backend *backend,
 
 	output->curr_pointer = NULL;
 	output->wl = wl;
-	tw_output_device_init(&output->output.device, &wl_output_impl);
+	tw_render_output_init(&output->output, &wl_output_impl);
         tw_output_device_set_custom_mode(&output->output.device, width, height,
                                          0);
 

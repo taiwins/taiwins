@@ -19,6 +19,7 @@
  *
  */
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wayland-client-protocol.h>
@@ -26,6 +27,7 @@
 #include <taiwins/objects/logger.h>
 #include <wayland-xdg-shell-client-protocol.h>
 #include "internal.h"
+#include "wayland-presentation-time-client-protocol.h"
 
 static void
 handle_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base,
@@ -36,6 +38,19 @@ handle_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base,
 
 static const struct xdg_wm_base_listener wm_base_listener = {
 	.ping = handle_wm_base_ping,
+};
+
+static void
+handle_presentation_clock_id(void *data,
+                             struct wp_presentation *wp_presentation,
+                             uint32_t clk_id)
+{
+	struct tw_wl_backend *wl = data;
+	assert(wl->globals.presentation == wp_presentation);
+}
+
+static const struct wp_presentation_listener presentation_listener = {
+	.clock_id = handle_presentation_clock_id,
 };
 
 
@@ -61,7 +76,14 @@ handle_registry_global(void *data, struct wl_registry *registry, uint32_t id,
 			                 version);
 		xdg_wm_base_add_listener(wl->globals.wm_base,
 		                         &wm_base_listener, wl);
+	} else if (strcmp(name, wp_presentation_interface.name) == 0) {
+		wl->globals.presentation =
+			wl_registry_bind(registry, id,
+			                 &wp_presentation_interface, version);
+		wp_presentation_add_listener(wl->globals.presentation,
+		                             &presentation_listener, wl);
 	}
+
 }
 
 static void

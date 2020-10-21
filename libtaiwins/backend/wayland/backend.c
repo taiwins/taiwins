@@ -87,6 +87,7 @@ wl_backend_destroy(struct tw_wl_backend *wl)
 
 	if (wl->base.ctx)
 		tw_render_context_destroy(wl->base.ctx);
+	wl_event_source_remove(wl->event_src);
 
 	free(wl);
 }
@@ -146,12 +147,14 @@ wl_start_backend(struct tw_backend *backend, struct tw_render_context *ctx)
 
 	wl_display_dispatch_pending(wl->remote_display);
 
+	if (wl_list_length(&wl->base.outputs) == 0)
+		tw_wl_backend_new_output(&wl->base, 1280, 720);
+
 	wl_list_for_each(output, &wl->base.outputs, output.device.link)
 		tw_wl_output_start(output);
 
 	wl_list_for_each(seat, &wl->seats, link)
 		tw_wl_seat_start(seat);
-	//I think the seats also does not work
 
 	return true;
 }
