@@ -51,6 +51,7 @@ struct tw_wl_seat {
 
 struct tw_wl_output {
 	struct tw_render_output output;
+	struct wl_listener output_commit;
 
         struct wl_surface *wl_surface;
 	struct xdg_surface *xdg_surface;
@@ -87,13 +88,13 @@ void
 tw_wl_seat_start(struct tw_wl_seat *seat);
 
 void
+tw_wl_seat_remove(struct tw_wl_seat *seat);
+
+void
 tw_wl_output_remove(struct tw_wl_output *output);
 
 void
 tw_wl_output_start(struct tw_wl_output *output);
-
-void
-tw_wl_bind_wl_registry(struct tw_wl_backend *wl);
 
 #ifdef  __cplusplus
 }

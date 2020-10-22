@@ -357,3 +357,10 @@ tw_wl_seat_start(struct tw_wl_seat *seat)
 	if (seat->wl_keyboard)
 		signal_new_input(seat->wl, &seat->keyboard_dev);
 }
+
+void
+tw_wl_seat_remove(struct tw_wl_seat *seat)
+{
+	wl_list_remove(&seat->link);
+	free(seat);
+}

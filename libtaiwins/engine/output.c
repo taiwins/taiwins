@@ -146,15 +146,18 @@ notify_output_present(struct wl_listener *listener, void *data)
 	struct tw_engine_output *output =
 		wl_container_of(listener, output, listeners.present);
 	struct tw_engine *engine = output->engine;
+	struct tw_event_output_device_present *event = data;
 
-	//TODO: add lantency?
 	clock_gettime(CLOCK_MONOTONIC, &now);
+	now = (event) ? event->time : now;
+
 	wl_list_for_each_safe(feedback, tmp, &engine->presentation.feedbacks,
 	                      link) {
 		struct wl_resource *wl_surface =
 			feedback->surface->resource;
 		struct wl_resource *wl_output =
 			engine_output_get_wl_output(output, wl_surface);
+		//TODO: uses event data if available
 		tw_presentation_feeback_sync(feedback, wl_output, &now);
 	}
 }

@@ -22,6 +22,8 @@
 #ifndef TW_OUTPUT_DEVICE_H
 #define TW_OUTPUT_DEVICE_H
 
+#include <stdint.h>
+#include <time.h>
 #include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <pixman.h>
@@ -53,6 +55,14 @@ struct tw_output_device_state {
 
 struct tw_output_device_impl {
 	void (*commit_state) (struct tw_output_device *device);
+};
+
+struct tw_event_output_device_present {
+	struct tw_output_device *device;
+	struct timespec time;
+	uint32_t commit_seq, flags;
+	uint64_t seq;
+	int refresh;
 };
 
 /**

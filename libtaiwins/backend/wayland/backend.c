@@ -71,8 +71,17 @@ wl_backend_dispatch_events(int fd, uint32_t mask, void *data)
 static void
 wl_backend_stop(struct tw_wl_backend *wl)
 {
+	struct tw_wl_output *output, *tmp_output;
+	struct tw_wl_seat *seat, *tmp_seat;
+
 	if (!wl->base.ctx)
 		return;
+	wl_list_for_each_safe(output, tmp_output, &wl->base.outputs,
+	                      output.device.link)
+		tw_wl_output_remove(output);
+	wl_list_for_each_safe(seat, tmp_seat, &wl->seats, link)
+		tw_wl_seat_remove(seat);
+
 	wl_signal_emit(&wl->base.events.stop, &wl->base);
 	wl_list_remove(&wl->base.render_context_destroy.link);
 	wl->base.ctx = NULL;
@@ -165,6 +174,81 @@ static const struct tw_backend_impl wl_impl = {
 };
 
 /******************************************************************************
+ * protocols
+ *****************************************************************************/
+
+static void
+handle_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base,
+                    uint32_t serial)
+{
+	xdg_wm_base_pong(xdg_wm_base, serial);
+}
+
+static const struct xdg_wm_base_listener wm_base_listener = {
+	.ping = handle_wm_base_ping,
+};
+
+static void
+handle_presentation_clock_id(void *data,
+                             struct wp_presentation *wp_presentation,
+                             uint32_t clk_id)
+{
+	struct tw_wl_backend *wl = data;
+	assert(wl->globals.presentation == wp_presentation);
+}
+
+static const struct wp_presentation_listener presentation_listener = {
+	.clock_id = handle_presentation_clock_id,
+};
+
+static void
+handle_registry_global(void *data, struct wl_registry *registry, uint32_t id,
+                       const char *name, uint32_t version)
+{
+	struct tw_wl_backend *wl = data;
+
+	tw_logl("Binding wayland global: %s v%d", name, version);
+	if (strcmp(name, wl_compositor_interface.name) == 0) {
+		wl->globals.compositor =
+			wl_registry_bind(registry, id,
+			                 &wl_compositor_interface, version);
+	} else if (strcmp(name, wl_seat_interface.name) == 0) {
+		struct tw_wl_seat *seat = tw_wl_handle_new_seat(wl, registry,
+		                                                id, version);
+		if (seat)
+			wl_list_insert(wl->seats.prev, &seat->link);
+	} else if (strcmp(name, xdg_wm_base_interface.name) == 0) {
+		wl->globals.wm_base =
+			wl_registry_bind(registry, id, &xdg_wm_base_interface,
+			                 version);
+		xdg_wm_base_add_listener(wl->globals.wm_base,
+		                         &wm_base_listener, wl);
+	} else if (strcmp(name, wp_presentation_interface.name) == 0) {
+		wl->globals.presentation =
+			wl_registry_bind(registry, id,
+			                 &wp_presentation_interface, version);
+		wp_presentation_add_listener(wl->globals.presentation,
+		                             &presentation_listener, wl);
+	}
+
+}
+
+static void
+handle_registry_global_remove(void *data, struct wl_registry *registry,
+                              uint32_t name)
+{
+	//TODO
+}
+
+static const struct wl_registry_listener registry_listener = {
+	.global = handle_registry_global,
+	.global_remove = handle_registry_global_remove,
+};
+
+
+
+
+/******************************************************************************
  * initializer
  *****************************************************************************/
 
@@ -202,12 +286,14 @@ tw_wayland_backend_create(struct wl_display *display, const char *remote)
 	        tw_logl_level(TW_LOG_ERRO, "failed to connect to wl_display");
 	        goto err_remote;
         }
+
         wl->registry = wl_display_get_registry(wl->remote_display);
         if (!wl->registry) {
 	        tw_logl_level(TW_LOG_ERRO, "failed to obtain remote registry");
 	        goto err_registry;
         }
-        tw_wl_bind_wl_registry(wl);
+        wl_registry_add_listener(wl->registry, &registry_listener, wl);
+
         wl_display_roundtrip(wl->remote_display);
         if (!wl->globals.compositor || !wl->globals.wm_base)
 	        goto err_registry;

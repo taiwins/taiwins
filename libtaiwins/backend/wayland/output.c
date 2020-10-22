@@ -20,9 +20,11 @@
  */
 
 #include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 #include <wayland-egl.h>
 #include <wayland-client.h>
 #include <wayland-server.h>
@@ -32,12 +34,14 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/render_context.h>
 #include <wayland-xdg-shell-client-protocol.h>
+#include <wayland-presentation-time-client-protocol.h>
 #include <taiwins/render_output.h>
+#include <taiwins/objects/utils.h>
 
 #include "internal.h"
 
 static void
-wl_commit_output_state(struct tw_output_device *output)
+handle_commit_output_state(struct tw_output_device *output)
 {
 	struct tw_wl_output *wl_output =
 		wl_container_of(output, wl_output, output.device);
@@ -57,7 +61,7 @@ wl_commit_output_state(struct tw_output_device *output)
 }
 
 static const struct tw_output_device_impl wl_output_impl = {
-	.commit_state = wl_commit_output_state,
+	.commit_state = handle_commit_output_state,
 };
 
 /******************************************************************************
@@ -123,16 +127,70 @@ handle_callback_done(void *data, struct wl_callback *wl_callback,
 	struct tw_wl_output *output = data;
 
 	assert(output->frame == wl_callback);
-	wl_callback_destroy(wl_callback);
-	wl_signal_emit(&output->output.device.events.new_frame,
-	               &output->output.device);
+	if (wl_callback)
+		wl_callback_destroy(wl_callback);
 	output->frame = wl_surface_frame(output->wl_surface);
 	wl_callback_add_listener(output->frame, &callback_listener, output);
+
+	wl_signal_emit(&output->output.device.events.new_frame,
+	               &output->output.device);
 }
 
 
 static const struct wl_callback_listener callback_listener = {
 	.done = handle_callback_done,
+};
+
+/******************************************************************************
+ * presentation feedback listener
+ *****************************************************************************/
+
+static void
+handle_feedback_sync_output(void *data,
+			    struct wp_presentation_feedback *wp_feedback,
+			    struct wl_output *output)
+{
+	//NOT USED
+}
+
+static void
+handle_feedback_presented(void *data,
+			  struct wp_presentation_feedback *wp_feedback,
+			  uint32_t tv_sec_hi, uint32_t tv_sec_lo,
+			  uint32_t tv_nsec, uint32_t refresh,
+			  uint32_t seq_hi, uint32_t seq_lo, uint32_t flags)
+{
+	struct tw_wl_output *output = data;
+	struct timespec time = {
+		.tv_sec = ((uint64_t)tv_sec_hi << 32) | tv_sec_lo,
+		.tv_nsec = tv_nsec,
+	};
+	struct tw_event_output_device_present event = {
+		.device = &output->output.device,
+		.time = time,
+		.seq = ((uint64_t)seq_hi << 32) | seq_lo,
+		.refresh = refresh,
+		.flags = flags,
+		//TODO: missing commit_seq,
+	};
+
+	wl_signal_emit(&output->output.device.events.present, &event);
+	wp_presentation_feedback_destroy(wp_feedback);
+}
+
+static void
+handle_feedback_discarded(void *data,
+                          struct wp_presentation_feedback *wp_feedback)
+{
+	struct tw_wl_output *output = data;
+	wl_signal_emit(&output->output.device.events.present, NULL);
+	wp_presentation_feedback_destroy(wp_feedback);
+}
+
+static const struct wp_presentation_feedback_listener feedback_listener = {
+	.sync_output = handle_feedback_sync_output,
+	.presented = handle_feedback_presented,
+	.discarded = handle_feedback_discarded,
 };
 
 /******************************************************************************
@@ -154,13 +212,36 @@ tw_wl_output_remove(struct tw_wl_output *output)
 	free(output);
 }
 
+static void
+notify_output_commit(struct wl_listener *listener, void *data)
+{
+	struct tw_wl_output *output =
+		wl_container_of(listener, output, output_commit);
+	struct tw_wl_backend *wl = output->wl;
+	struct wp_presentation_feedback *feedback = NULL;
+	if (wl->globals.presentation)
+		feedback = wp_presentation_feedback(wl->globals.presentation,
+		                                    output->wl_surface);
+	if (feedback)
+		wp_presentation_feedback_add_listener(feedback,
+		                                      &feedback_listener,
+		                                      output);
+	else
+		wl_signal_emit(&output->output.device.events.present, NULL);
+}
+
 void
 tw_wl_output_start(struct tw_wl_output *output)
 {
 	struct tw_wl_backend *wl = output->wl;
+	struct tw_render_context *ctx = wl->base.ctx;
 	unsigned width, height;
 
 	assert(wl->base.ctx);
+	tw_signal_setup_listener(&ctx->events.presentable_commit,
+	                         &output->output_commit,
+	                         notify_output_commit);
+
 	xdg_toplevel_set_app_id(output->xdg_toplevel, "wlroots");
 	xdg_surface_add_listener(output->xdg_surface,
 			&xdg_surface_listener, output);
@@ -193,7 +274,7 @@ tw_wl_output_start(struct tw_wl_output *output)
 	wl_signal_emit(&output->output.device.events.info,
 	               &output->output.device);
 
-	output->frame = wl_surface_frame(output->wl_surface);
+	output->frame = NULL;
 	handle_callback_done(output, output->frame, 0);
 }
 

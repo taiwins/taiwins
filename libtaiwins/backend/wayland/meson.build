@@ -1,7 +1,6 @@
 taiwins_lib_src += files(
   'backend.c',
   'seat.c',
-  'protocol.c',
   'output.c',
 )
 taiwins_lib_src += [
