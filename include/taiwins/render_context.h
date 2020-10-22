@@ -73,8 +73,8 @@ struct tw_render_context_impl {
 	                           struct tw_render_context *ctx,
 	                           void *native_window);
 
-	bool (*commit_surface)(struct tw_render_presentable *surf,
-	                       struct tw_render_context *ctx);
+	bool (*commit_presentable)(struct tw_render_presentable *surf,
+	                           struct tw_render_context *ctx);
 
         int (*make_current)(struct tw_render_presentable *surf,
 	                    struct tw_render_context *ctx);
@@ -98,11 +98,11 @@ struct tw_render_context {
 		struct wl_signal destroy;
 		struct wl_signal dma_set;
 		struct wl_signal compositor_set;
+		/** emit at commit_surface */
+		struct wl_signal presentable_commit;
 		//this is plain damn weird.
 		struct wl_signal wl_surface_dirty;
 		struct wl_signal wl_surface_destroy;
-		/** emit at commit_surface */
-		struct wl_signal wl_surface_commit;
 	} events;
 
 	struct wl_list pipelines;
@@ -156,7 +156,7 @@ static inline bool
 tw_render_presentable_commit(struct tw_render_presentable *surface,
                              struct tw_render_context *ctx)
 {
-	return ctx->impl->commit_surface(surface, ctx);
+	return ctx->impl->commit_presentable(surface, ctx);
 }
 
 int

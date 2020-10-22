@@ -179,7 +179,7 @@ int
 tw_render_presentable_make_current(struct tw_render_presentable *surf,
                                    struct tw_render_context *ctx)
 {
-	assert(ctx->impl && ctx->impl->commit_surface);
+	assert(ctx->impl && ctx->impl->commit_presentable);
 	return ctx->impl->make_current(surf, ctx);
 }
 

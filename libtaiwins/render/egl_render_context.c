@@ -120,7 +120,7 @@ commit_egl_surface(struct tw_render_presentable *surf,
 	struct tw_egl_render_context *ctx = wl_container_of(base, ctx, base);
 
 	eglSwapBuffers(ctx->egl.display, surface);
-	wl_signal_emit(&base->events.wl_surface_commit, base);
+	wl_signal_emit(&base->events.presentable_commit, base);
 	return true;
 }
 
@@ -135,7 +135,7 @@ make_egl_surface_current(struct tw_render_presentable *surf,
 static const struct tw_render_context_impl egl_context_impl = {
 	.new_offscreen_surface = new_pbuffer_surface,
 	.new_window_surface = new_window_surface,
-	.commit_surface = commit_egl_surface,
+	.commit_presentable = commit_egl_surface,
 	.make_current = make_egl_surface_current,
 };
 
@@ -360,7 +360,7 @@ tw_render_context_create_egl(struct wl_display *display,
 	wl_signal_init(&ctx->base.events.compositor_set);
 	wl_signal_init(&ctx->base.events.wl_surface_dirty);
 	wl_signal_init(&ctx->base.events.wl_surface_destroy);
-	wl_signal_init(&ctx->base.events.wl_surface_commit);
+	wl_signal_init(&ctx->base.events.presentable_commit);
 	wl_list_init(&ctx->base.outputs);
 	init_context_formats(ctx);
 	tw_egl_bind_wl_display(&ctx->egl, display);
