@@ -18,7 +18,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
-
+#include "options.h"
 #include <assert.h>
 #include <strings.h>
 #include <stdio.h>

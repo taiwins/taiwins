@@ -18,7 +18,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
-
+#include "options.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <taiwins/objects/utils.h>

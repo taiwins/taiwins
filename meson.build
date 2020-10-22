@@ -23,6 +23,14 @@ add_global_arguments(
   language : 'c'
 )
 
+###### options
+options_data = configuration_data()
+options_data.set10('_TW_ENABLE_PROFILING', false)
+options_data.set10('_TW_DEBUG_DAMAGE', false)
+options_data.set10('_TW_DEBUG_CLIP', false)
+options_data.set10('_TW_HAS_X11_BACKEND', false)
+options_data.set10('_TW_HAS_XWAYLAND', false)
+
 ###### subprojects
 twclient = subproject('twclient')
 nklua = subproject('nklua')

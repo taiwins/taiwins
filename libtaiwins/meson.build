@@ -2,19 +2,8 @@ version = '"@0@"'.format(meson.project_version())
 
 taiwins_cargs = [
   '-D_GNU_SOURCE',
-  '-DWLR_USE_UNSTABLE',
   '-D_TW_VERSION=@0@'.format(version),
 ]
-
-if get_option('enable-profiler')
-  taiwins_cargs += '-D_TW_ENABLE_PROFILING'
-endif
-
-if get_option('rendering-debug') == 'damage'
-  taiwins_cargs += '-D_TW_DEBUG_DAMAGE'
-elif get_option('rendering-debug') == 'clip'
-  taiwins_cargs += '-D_TW_DEBUG_CLIP'
-endif
 
 pkgconfig = import('pkgconfig')
 
@@ -36,13 +25,6 @@ taiwins_lib_src = [
   'desktop/layout_fullscreen.c',
   'desktop/layout_tiling.c',
 
-  'render/render_context.c',
-  'render/render_output.c',
-  'render/render_pipeline.c',
-  'render/egl_render_context.c',
-  'render/egl_texture.c',
-  'render/egl_shaders.c',
-  'render/egl_simple_pipeline.c',
 
   'engine/engine.c',
   'engine/seat.c',
@@ -74,7 +56,15 @@ taiwins_lib_dep = [
   dep_libinput
 ]
 
+subdir('render')
 subdir('backend')
+
+option_h = configure_file(
+  input: 'options.h.in',
+  output: 'options.h',
+  configuration: options_data,
+)
+taiwins_lib_src += option_h
 
 taiwins_lib = both_libraries(
   'taiwins',
