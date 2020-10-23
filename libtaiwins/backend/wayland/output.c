@@ -171,10 +171,9 @@ handle_feedback_presented(void *data,
 		.seq = ((uint64_t)seq_hi << 32) | seq_lo,
 		.refresh = refresh,
 		.flags = flags,
-		//TODO: missing commit_seq,
 	};
 
-	wl_signal_emit(&output->output.device.events.present, &event);
+	tw_output_device_present(&output->output.device, &event);
 	wp_presentation_feedback_destroy(wp_feedback);
 }
 
@@ -183,7 +182,7 @@ handle_feedback_discarded(void *data,
                           struct wp_presentation_feedback *wp_feedback)
 {
 	struct tw_wl_output *output = data;
-	wl_signal_emit(&output->output.device.events.present, NULL);
+	tw_output_device_present(&output->output.device, NULL);
 	wp_presentation_feedback_destroy(wp_feedback);
 }
 
@@ -227,7 +226,7 @@ notify_output_commit(struct wl_listener *listener, void *data)
 		                                      &feedback_listener,
 		                                      output);
 	else
-		wl_signal_emit(&output->output.device.events.present, NULL);
+		tw_output_device_present(&output->output.device, NULL);
 }
 
 void

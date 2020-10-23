@@ -80,7 +80,7 @@ struct tw_x11_output {
 	struct wl_event_source *frame_timer;
 
 	xcb_window_t win;
-	struct wl_listener info_listener;
+	struct wl_listener output_commit_listener;
 	unsigned int frame_interval;
 
 	struct tw_input_device pointer;

@@ -223,8 +223,6 @@ notify_output_frame(struct wl_listener *listener, void *data)
 	shuffle_output_damage(output);
 
         tw_render_presentable_commit(presentable, ctx);
-        //presenting should happen here I guess
-	tw_output_device_present(&output->device);
 
 	//clean off the repaint state
 	output->state.repaint_state = TW_REPAINT_CLEAN;

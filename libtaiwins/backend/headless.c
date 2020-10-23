@@ -58,6 +58,12 @@ struct tw_headless_backend {
 
 };
 
+struct tw_headless_output {
+	struct tw_render_output output;
+	struct wl_event_source *timer;
+	struct wl_listener present_listener;
+};
+
 static const struct tw_egl_options *
 headless_gen_egl_params(struct tw_backend *backend)
 {
@@ -81,24 +87,56 @@ headless_gen_egl_params(struct tw_backend *backend)
 	return &egl_opts;
 }
 
+static int
+headless_frame(void *data)
+{
+	struct tw_headless_output *output = data;
+
+	wl_signal_emit(&output->output.device.events.new_frame,
+	               &output->output.device);
+	wl_event_source_timer_update(output->timer, 1000000 / (60 * 1000));
+	return 0;
+}
+
+static void
+notify_output_commit(struct wl_listener *listener, void *data)
+{
+	struct tw_headless_output *output =
+		wl_container_of(listener, output, present_listener);
+	tw_output_device_present(&output->output.device, NULL);
+}
+
 static bool
-headless_output_start(struct tw_render_output *output,
+headless_output_start(struct tw_headless_output *output,
                       struct tw_headless_backend *headless)
 {
 	uint32_t width, height;
+	struct wl_event_loop *loop =
+		wl_display_get_event_loop(headless->display);
+	struct tw_render_context *ctx = headless->base.ctx;
+
+	tw_signal_setup_listener(&ctx->events.presentable_commit,
+	                         &output->present_listener,
+	                         notify_output_commit);
 
 	//this will give us good resolution
-	tw_render_output_set_context(output, headless->base.ctx);
-	tw_output_device_commit_state(&output->device);
+	tw_render_output_set_context(&output->output, headless->base.ctx);
+	tw_output_device_commit_state(&output->output.device);
 
-	tw_output_device_raw_resolution(&output->device, &width, &height);
-	tw_render_presentable_init_offscreen(&output->surface,
+	tw_output_device_raw_resolution(&output->output.device,
+	                                &width, &height);
+	tw_render_presentable_init_offscreen(&output->output.surface,
 	                                     headless->base.ctx,
 	                                     width, height);
 	//announce the output.
 	wl_signal_emit(&headless->base.events.new_output, output);
 	//the wl_output events are ready.
-	wl_signal_emit(&output->device.events.info, output);
+	wl_signal_emit(&output->output.device.events.info, output);
+
+        output->timer = wl_event_loop_add_timer(loop, headless_frame,
+                                                  headless);
+	wl_event_source_timer_update(output->timer, 1000000 / (60 * 1000));
+
 
 	return false;
 }
@@ -113,13 +151,13 @@ headless_input_start(struct tw_input_device *device,
 static bool
 headless_start(struct tw_backend *backend, struct tw_render_context *ctx)
 {
-	struct tw_render_output *output;
+	struct tw_headless_output *output;
 	struct tw_input_device *input;
 	//checking the externsions
 	struct tw_headless_backend *headless =
 		wl_container_of(backend, headless, base);
 
-	wl_list_for_each(output, &headless->base.outputs, device.link)
+	wl_list_for_each(output, &headless->base.outputs, output.device.link)
 		headless_output_start(output, headless);
 
 	wl_list_for_each(input, &headless->base.inputs, link)
@@ -149,14 +187,15 @@ static const struct tw_output_device_impl headless_output_impl = {
 static void
 headless_destroy(struct tw_headless_backend *headless)
 {
-	struct tw_render_output *output, *otmp;
+	struct tw_headless_output *output, *otmp;
 	struct tw_input_device *input, *itmp;
 
 	wl_list_for_each_safe(output, otmp, &headless->base.outputs,
-	                      device.link) {
-		tw_render_presentable_fini(&output->surface,
+	                      output.device.link) {
+		tw_render_presentable_fini(&output->output.surface,
 		                           headless->base.ctx);
-		tw_output_device_fini(&output->device);
+		tw_output_device_fini(&output->output.device);
+		wl_event_source_remove(output->timer);
 		free(output);
 	}
 
@@ -206,7 +245,6 @@ tw_headless_backend_create(struct wl_display *display)
         tw_set_display_destroy_listener(headless->display,
                                         &headless->display_destroy,
                                         notify_headless_display_destroy);
-
         //in both libweston and wlroots, the backend initialize a renderer, it
         //make sense since only the backend knows about the correct renderer
         //options,
@@ -219,21 +257,23 @@ tw_headless_backend_add_output(struct tw_backend *backend,
 {
 	struct tw_headless_backend *headless =
 		wl_container_of(backend->impl, headless, base);
-	struct tw_render_output *output = calloc(1, sizeof(*output));
+	struct tw_headless_output *output = calloc(1, sizeof(*output));
+	struct tw_output_device *device;
 
         if (output == NULL) {
 		tw_logl_level(TW_LOG_ERRO, "failed to create headless output");
 		return false;
 	}
+        device = &output->output.device;
+        tw_render_output_init(&output->output, &headless_output_impl);
 
-        tw_render_output_init(output, &headless_output_impl);
-
-        tw_output_device_set_custom_mode(&output->device, width, height, 0);
-        snprintf(output->device.name, sizeof(output->device.name),
+        tw_output_device_set_custom_mode(&output->output.device,
+                                         width, height, 0);
+        snprintf(device->name, sizeof(device->name),
                  "headless-output%u", wl_list_length(&headless->base.outputs));
-        strncpy(output->device.make, "headless", sizeof(output->device.make));
-        strncpy(output->device.model, "headless",sizeof(output->device.model));
-        wl_list_insert(headless->base.outputs.prev, &output->device.link);
+        strncpy(device->make, "headless", sizeof(device->make));
+        strncpy(device->model, "headless",sizeof(device->model));
+        wl_list_insert(headless->base.outputs.prev, &device->link);
 
         if (backend->started)
 	        headless_output_start(output, headless);

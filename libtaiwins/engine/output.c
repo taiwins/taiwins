@@ -39,6 +39,7 @@
 #include <taiwins/render_surface.h>
 #include <wayland-util.h>
 #include "internal.h"
+#include "taiwins/objects/presentation_feedback.h"
 
 static void
 init_engine_output_state(struct tw_engine_output *o)
@@ -142,15 +143,11 @@ notify_output_new_mode(struct wl_listener *listener, void *data)
 static void
 notify_output_present(struct wl_listener *listener, void *data)
 {
-        struct timespec now;
 	struct tw_presentation_feedback *feedback, *tmp;
 	struct tw_engine_output *output =
 		wl_container_of(listener, output, listeners.present);
 	struct tw_engine *engine = output->engine;
 	struct tw_event_output_device_present *event = data;
-
-	clock_gettime(CLOCK_MONOTONIC, &now);
-	now = (event) ? event->time : now;
 
 	wl_list_for_each_safe(feedback, tmp, &engine->presentation.feedbacks,
 	                      link) {
@@ -158,8 +155,15 @@ notify_output_present(struct wl_listener *listener, void *data)
 			feedback->surface->resource;
 		struct wl_resource *wl_output =
 			engine_output_get_wl_output(output, wl_surface);
-		//TODO: uses event data if available
-		tw_presentation_feeback_sync(feedback, wl_output, &now);
+
+		if (event)
+			tw_presentation_feeback_sync(feedback, wl_output,
+			                             &event->time,
+			                             event->seq,
+			                             event->refresh,
+			                             event->flags);
+		else
+			tw_presentation_feedback_discard(feedback);
 	}
 }
 
