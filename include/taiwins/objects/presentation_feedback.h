@@ -50,11 +50,6 @@ struct tw_presentation_feedback {
 	struct wl_listener present_sync;
 };
 
-/* struct tw_presentation_feedback_event { */
-/*	struct wl_resource *output; */
-/*	struct timespec timestamp; */
-/* }; */
-
 bool
 tw_presentation_init(struct tw_presentation *presentation,
                      struct wl_display *display);
@@ -66,10 +61,12 @@ tw_presentation_create_global(struct wl_display *display);
  * means the given surface already presented on the given output.
  */
 void
-tw_presentation_feeback_sync(struct tw_presentation_feedback *feeback,
+tw_presentation_feeback_sync(struct tw_presentation_feedback *feedback,
                              struct wl_resource *output,
-                             struct timespec *timespec);
-
+                             struct timespec *timespec,
+                             uint64_t seq, uint32_t refresh, uint32_t flags);
+void
+tw_presentation_feedback_discard(struct tw_presentation_feedback *feedback);
 
 #ifdef  __cplusplus
 }
