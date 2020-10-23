@@ -228,16 +228,15 @@ tw_presentation_create_global(struct wl_display *display)
 WL_EXPORT void
 tw_presentation_feeback_sync(struct tw_presentation_feedback *feedback,
                              struct wl_resource *output,
-                             struct timespec *timespec)
+                             struct timespec *timespec,
+                             uint64_t seq, uint32_t refresh, uint32_t flags)
 {
 	struct wl_resource *resource, *tmp;
 	uint32_t tv_sec_hi = timespec->tv_sec >> 32;
 	uint32_t tv_sec_lo = timespec->tv_sec & 0xFFFFFFFF;
 	uint32_t tv_nsec = timespec->tv_nsec;
-	uint32_t seq_hi = 0;
-	uint32_t seq_lo = 0;
-	uint32_t refresh = 0;
-	uint32_t flags = WP_PRESENTATION_FEEDBACK_KIND_VSYNC;
+	uint32_t seq_hi = seq >> 32;
+	uint32_t seq_lo = seq & 0xFFFFFFFF;
 
 	if (!feedback->committed)
 		return;
@@ -251,5 +250,12 @@ tw_presentation_feeback_sync(struct tw_presentation_feedback *feedback,
 		                                        flags);
 	}
 	feedback->presented = true;
+	tw_presentation_feedback_destroy(feedback);
+}
+
+WL_EXPORT void
+tw_presentation_feedback_discard(struct tw_presentation_feedback *feedback)
+{
+	feedback->presented = false;
 	tw_presentation_feedback_destroy(feedback);
 }
