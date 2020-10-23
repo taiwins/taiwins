@@ -19,6 +19,7 @@
  *
  */
 #include "options.h"
+
 #include <assert.h>
 #include <stdlib.h>
 #include <taiwins/objects/utils.h>

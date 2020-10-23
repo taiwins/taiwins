@@ -22,7 +22,6 @@
 #include <GLES2/gl2.h>
 #include <assert.h>
 #include <pixman.h>
-#include <wayland-util.h>
 #include <wayland-server.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
@@ -52,13 +51,11 @@ init_output_state(struct tw_render_output *o)
 		pixman_region32_init(&o->state.damages[i]);
 
 	o->state.dirty = true;
-	o->state.repaint_state = TW_REPAINT_DIRTY;
 	o->state.pending_damage = &o->state.damages[0];
 	o->state.curr_damage = &o->state.damages[1];
 	o->state.prev_damage = &o->state.damages[2];
 	o->state.repaint_state = TW_REPAINT_DIRTY;
 	tw_mat3_init(&o->state.view_2d);
-
 }
 
 static void
@@ -160,6 +157,22 @@ shuffle_output_damage(struct tw_render_output *output)
 	output->state.curr_damage = pending;
 	output->state.prev_damage = curr;
 	output->state.pending_damage = previous;
+}
+
+static void
+output_idle_frame(void *data)
+{
+	struct tw_render_output *output = data;
+	wl_signal_emit(&output->device.events.new_frame, &output->device);
+}
+
+static inline void
+schedule_output_frame(struct tw_render_output *output)
+{
+	struct wl_display *display = output->ctx->display;
+	struct wl_event_loop *loop = wl_display_get_event_loop(display);
+
+	wl_event_loop_add_idle(loop, output_idle_frame, output);
 }
 
 /******************************************************************************
@@ -330,5 +343,5 @@ tw_render_output_dirty(struct tw_render_output *output)
 	if (output->state.repaint_state != TW_REPAINT_CLEAN)
 		return;
 	output->state.repaint_state = TW_REPAINT_DIRTY;
-	//TODO schedule repaint
+	schedule_output_frame(output);
 }
