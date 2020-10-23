@@ -313,7 +313,6 @@ tw_wl_backend_new_output(struct tw_backend *backend,
 	        goto err_toplevel;
         }
 
-	output->curr_pointer = NULL;
 	output->wl = wl;
 	tw_render_output_init(&output->output, &wl_output_impl);
         tw_output_device_set_custom_mode(&output->output.device, width, height,

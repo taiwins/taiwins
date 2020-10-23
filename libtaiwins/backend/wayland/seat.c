@@ -32,7 +32,6 @@
 #include "internal.h"
 
 
-
 static inline void
 signal_new_input(struct tw_wl_backend *backend,
                        struct tw_input_device *dev)
@@ -141,7 +140,9 @@ handle_pointer_enter(void *data, struct wl_pointer *wl_pointer,
 {
 	struct tw_wl_output *output =
 		wl_surface_get_user_data(surface);
-	output->curr_pointer = wl_pointer;
+	struct tw_wl_seat *seat = wl_pointer_get_user_data(wl_pointer);
+
+	seat->pointer_focus = output;
 	//hide the cursor, we render it internally
 	wl_pointer_set_cursor(wl_pointer, serial, NULL, 0, 0);
 }
@@ -150,24 +151,27 @@ static void
 handle_pointer_leave(void *data, struct wl_pointer *wl_pointer,
                      uint32_t serial, struct wl_surface *surface)
 {
-	struct tw_wl_output *output =
-		wl_surface_get_user_data(surface);
-	output->curr_pointer = NULL;
+	struct tw_wl_seat *seat = wl_pointer_get_user_data(wl_pointer);
+	seat->pointer_focus = NULL;
 }
 
 static void
 handle_pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time,
                       wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
+	uint32_t w, h;
 	struct tw_wl_seat *seat = wl_pointer_get_user_data(wl_pointer);
 	struct tw_input_device *pointer = &seat->pointer_dev;
+	struct tw_output_device *device = &seat->pointer_focus->output.device;
+
 	struct tw_event_pointer_motion_abs event = {
 		.dev = pointer,
+		.output = device,
 		.time_msec = time,
-		.x = wl_fixed_to_double(surface_x),
-		.y = wl_fixed_to_double(surface_y),
-
 	};
+	tw_output_device_raw_resolution(device, &w, &h);
+	event.x = wl_fixed_to_double(surface_x) / w;
+	event.y = wl_fixed_to_double(surface_y) / h;
 
 	if (pointer->emitter)
 		wl_signal_emit(&pointer->emitter->pointer.motion_absolute,

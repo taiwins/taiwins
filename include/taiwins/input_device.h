@@ -152,6 +152,8 @@ struct tw_input_device {
 	void (*destroy)(struct tw_input_device *dev);
 };
 
+struct tw_output_device;
+
 /** keyboard event */
 struct tw_event_keyboard_key {
 	struct tw_input_device *dev;
@@ -187,6 +189,7 @@ struct tw_event_pointer_motion {
 
 struct tw_event_pointer_motion_abs {
 	struct tw_input_device *dev;
+	const struct tw_output_device *output;
 	uint32_t time_msec;
 	// From 0..1
 	double x, y;
@@ -204,6 +207,7 @@ struct tw_event_pointer_axis {
 /** touch events */
 struct tw_event_touch_down {
 	struct tw_input_device *dev;
+	const struct tw_output_device *output;
 	uint32_t time;
 	int32_t touch_id;
 	// From 0..1
@@ -218,6 +222,8 @@ struct tw_event_touch_up {
 
 struct tw_event_touch_motion {
 	struct tw_input_device *dev;
+	const struct tw_output_device *output;
+
 	uint32_t time;
 	int32_t touch_id;
 	// From 0..1

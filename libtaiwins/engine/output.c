@@ -37,6 +37,7 @@
 #include <taiwins/render_context.h>
 #include <taiwins/render_output.h>
 #include <taiwins/render_surface.h>
+#include <wayland-util.h>
 #include "internal.h"
 
 static void
@@ -308,20 +309,12 @@ tw_engine_output_from_resource(struct tw_engine *engine,
 }
 
 struct tw_engine_output *
-tw_engine_pick_output_for_cursor(struct tw_engine *engine)
+tw_engine_output_from_device(struct tw_engine *engine,
+                             const struct tw_output_device *device)
 {
-	pixman_region32_t *output_region;
 	struct tw_engine_output *output;
-
-	wl_list_for_each(output, &engine->heads, link) {
-		if (output->cloning >= 0)
-			continue;
-		output_region = &output->constrain.region;
-		if (pixman_region32_contains_point(output_region,
-		                                   engine->global_cursor.x,
-		                                   engine->global_cursor.y,
-		                                   NULL))
+	wl_list_for_each(output, &engine->heads, link)
+		if (output->device == device)
 			return output;
-	}
 	return NULL;
 }

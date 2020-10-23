@@ -37,18 +37,6 @@
 extern "C" {
 #endif
 
-struct tw_wl_seat {
-	struct wl_seat *wl_seat;
-	struct tw_wl_backend *wl;
-	struct wl_list link;
-	uint32_t caps, name; /* seat0, seat1, etc */
-	uint32_t gid; /* wl_object id */
-
-	struct tw_input_device keyboard_dev, pointer_dev;
-	struct wl_pointer *wl_pointer;
-	struct wl_keyboard *wl_keyboard;
-};
-
 struct tw_wl_output {
 	struct tw_render_output output;
 	struct wl_listener output_commit;
@@ -59,9 +47,21 @@ struct tw_wl_output {
 	struct wl_egl_window *egl_window;
 	struct wl_callback *frame;
 	struct tw_wl_backend *wl;
-
-        struct wl_pointer *curr_pointer;
 };
+
+struct tw_wl_seat {
+	struct wl_seat *wl_seat;
+	struct tw_wl_backend *wl;
+	struct wl_list link;
+	uint32_t caps, name; /* seat0, seat1, etc */
+	uint32_t gid; /* wl_object id */
+
+	struct tw_input_device keyboard_dev, pointer_dev;
+	struct wl_pointer *wl_pointer;
+	struct wl_keyboard *wl_keyboard;
+	struct tw_wl_output *pointer_focus;
+};
+
 
 struct tw_wl_backend {
 	struct wl_display *server_display;
