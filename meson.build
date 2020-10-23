@@ -30,6 +30,7 @@ options_data.set10('_TW_DEBUG_DAMAGE', false)
 options_data.set10('_TW_DEBUG_CLIP', false)
 options_data.set10('_TW_HAS_X11_BACKEND', false)
 options_data.set10('_TW_HAS_XWAYLAND', false)
+options_data.set10('_TW_HAS_LIBINPUT_GET_TOUCH_COUNT', false)
 
 ###### subprojects
 twclient = subproject('twclient')

@@ -7,7 +7,9 @@ x11_required = [
 deps_x11 = []
 
 if get_option('x11-backend').enabled()
+  options_data.set10('_TW_HAS_X11_BACKEND', true)
   msg = ['@0@ not found for x11-backend']
+
   foreach lib : x11_required
     dep = dependency(lib, required: true,
 		     not_found_message: '\n'.join(msg).format(lib))

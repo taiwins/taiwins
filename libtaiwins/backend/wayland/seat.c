@@ -37,6 +37,7 @@ static inline void
 signal_new_input(struct tw_wl_backend *backend,
                        struct tw_input_device *dev)
 {
+	wl_list_insert(backend->base.inputs.prev, &dev->link);
 	wl_signal_emit(&backend->base.events.new_input, dev);
 }
 
@@ -362,5 +363,9 @@ void
 tw_wl_seat_remove(struct tw_wl_seat *seat)
 {
 	wl_list_remove(&seat->link);
+	if (seat->wl_pointer)
+		tw_input_device_fini(&seat->pointer_dev);
+	if (seat->wl_keyboard)
+		tw_input_device_fini(&seat->keyboard_dev);
 	free(seat);
 }

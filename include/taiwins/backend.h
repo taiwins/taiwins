@@ -63,6 +63,9 @@ struct tw_backend {
 	struct wl_listener render_context_destroy;
 };
 
+struct tw_backend *
+tw_backend_create_auto(struct wl_display *display);
+
 void
 tw_backend_init(struct tw_backend *backend);
 
