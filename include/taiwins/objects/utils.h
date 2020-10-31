@@ -91,12 +91,12 @@ extern const struct tw_allocator tw_default_allocator;
 		obj = alloc->alloc(sizeof(*obj), &iface); \
 		ret = obj != NULL; \
 		if (ret) { \
+			obj->alloc = alloc; \
 			res = wl_resource_create(client, &iface, ver, id); \
 			ret = ret && res != NULL; \
 		} \
 		if (!ret) \
 			alloc->free(obj, &iface); \
-		obj->alloc = alloc; \
 		ret; \
 	})
 

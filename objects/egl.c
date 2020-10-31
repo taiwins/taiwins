@@ -365,7 +365,7 @@ init_egl_dma_formats(struct tw_egl *egl)
 		return;
 
 	int formats[n_formats];
-
+	memset(formats, 0, sizeof(int)*n_formats);
 	get_dmabuf_formats(egl, formats);
 
 	for (int i = 0; i < n_formats; i++) {

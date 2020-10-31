@@ -123,10 +123,11 @@ subsurface_place_above(struct wl_client *client,
 			"wl_surface@%d",
 			wl_resource_get_id(sibling_surface->resource),
 			wl_resource_get_id(subsurface->surface->resource));
+	} else {
+		wl_list_remove(&subsurface->parent_pending_link);
+		wl_list_insert(&sibling_subsurface->parent_pending_link,
+		               &subsurface->parent_pending_link);
 	}
-	wl_list_remove(&subsurface->parent_pending_link);
-	wl_list_insert(&sibling_subsurface->parent_pending_link,
-	               &subsurface->parent_pending_link);
 }
 
 static void
@@ -148,10 +149,11 @@ subsurface_place_below(struct wl_client *client,
 			"wl_surface@%d",
 			wl_resource_get_id(sibling_surface->resource),
 			wl_resource_get_id(subsurface->surface->resource));
+	} else {
+		wl_list_remove(&subsurface->parent_pending_link);
+		wl_list_insert(sibling_subsurface->parent_pending_link.prev,
+		               &subsurface->parent_pending_link);
 	}
-	wl_list_remove(&subsurface->parent_pending_link);
-	wl_list_insert(sibling_subsurface->parent_pending_link.prev,
-	               &subsurface->parent_pending_link);
 }
 
 static void
