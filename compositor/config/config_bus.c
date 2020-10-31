@@ -27,6 +27,7 @@
 #include <ctypes/helpers.h>
 
 #include <taiwins/objects/utils.h>
+#include <taiwins/dbus_utils.h>
 
 static struct tw_bus {
 	struct wl_display *display;
@@ -40,85 +41,6 @@ static inline struct tw_bus *
 get_bus(void)
 {
 	return &s_bus;
-}
-
-static int
-tw_dbus_dispatch_watch(int fd, uint32_t mask, void *data)
-{
-	struct tw_bus *twbus = get_bus();
-	struct tdbus *bus = twbus->dbus;
-	void *watch_data = data;
-
-	tdbus_handle_watch(bus, watch_data);
-
-	return 0;
-}
-
-
-static void
-tw_bus_add_watch(void *user_data, int unix_fd, struct tdbus *bus,
-                 uint32_t mask, void *watch_data)
-{
-	struct wl_event_loop *loop;
-	struct tw_bus *twbus = user_data;
-	uint32_t flags = 0;
-	struct wl_event_source *s;
-
-	loop = wl_display_get_event_loop(twbus->display);
-	if (mask & TDBUS_ENABLED) {
-		if (mask & TDBUS_READABLE)
-			flags |= WL_EVENT_READABLE;
-		if (mask & TDBUS_WRITABLE)
-			flags |= WL_EVENT_WRITABLE;
-
-		s = wl_event_loop_add_fd(loop, unix_fd, flags,
-		                         tw_dbus_dispatch_watch,
-		                         watch_data);
-		tdbus_watch_set_user_data(watch_data, s);
-	}
-}
-
-static void
-tw_bus_ch_watch(void *user_data,int unix_fd, struct tdbus *bus, uint32_t mask,
-                void *watch_data)
-{
-	struct wl_event_source *s;
-	uint32_t flags = 0;
-
-	s = tdbus_watch_get_user_data(watch_data);
-	if (!s)
-		return;
-
-	if (mask & TDBUS_ENABLED) {
-		if (flags & TDBUS_READABLE)
-			flags |= WL_EVENT_READABLE;
-		if (flags & TDBUS_WRITABLE)
-			flags |= WL_EVENT_WRITABLE;
-	}
-	wl_event_source_fd_update(s, flags);
-}
-
-static void
-tw_bus_rm_watch(void *user_data, int unix_fd, struct tdbus *bus,
-                void *watch_data)
-{
-	struct wl_event_source *s;
-
-	s = tdbus_watch_get_user_data(watch_data);
-	if (!s)
-		return;
-
-	wl_event_source_remove(s);
-}
-
-static int
-tw_bus_dispatch(int fd, uint32_t mask, void *data)
-{
-	struct tw_bus *bus = data;
-
-	tdbus_dispatch_once(bus->dbus);
-
-	return 0;
 }
 
 static void
@@ -174,11 +96,8 @@ static struct tdbus_call_answer tw_bus_answer = {
 struct tw_bus *
 tw_bus_create_global(struct wl_display *display)
 {
-	int fd;
 	struct tw_bus *bus = get_bus();
-	struct wl_event_loop *loop;
 
-	loop = wl_display_get_event_loop(display);
 	bus->dbus = tdbus_new_server(SESSION_BUS, "org.taiwins");
 	bus->display = display;
 
@@ -188,19 +107,7 @@ tw_bus_create_global(struct wl_display *display)
 	tw_set_display_destroy_listener(display,
 	                                &bus->display_distroy_listener,
 	                                tw_bus_end);
-	/* idle events cannot reschedule themselves */
-	fd = eventfd(0, EFD_CLOEXEC);
-	if (fd < 0)
-		return NULL;
-	bus->source = wl_event_loop_add_fd(loop, fd, 0, tw_bus_dispatch, bus);
-	if (!bus->source) {
-		tw_bus_end(&bus->display_distroy_listener, bus);
-		return NULL;
-	}
-	wl_event_source_check(bus->source);
-
-	tdbus_set_nonblock(bus->dbus, bus,
-	                   tw_bus_add_watch, tw_bus_ch_watch, tw_bus_rm_watch);
+	bus->source = tw_bind_tdbus_for_wl_display(bus->dbus, display);
 
 	tdbus_server_add_methods(bus->dbus, "/org/taiwins", 1, &tw_bus_answer);
 
