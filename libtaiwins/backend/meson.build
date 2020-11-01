@@ -12,3 +12,4 @@ taiwins_lib_src += files(
 
 subdir('x11')
 subdir('wayland')
+subdir('drm')

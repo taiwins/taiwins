@@ -1,5 +1,5 @@
 /*
- * headless.h - taiwins server headless backend header
+ * login.h - taiwins login service header
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -19,29 +19,40 @@
  *
  */
 
-#ifndef TW_HEADLESS_BACKEND_H
-#define TW_HEADLESS_BACKEND_H
+#ifndef TW_LOGIN_H
+#define TW_LOGIN_H
 
-#include "backend.h"
-#include "input_device.h"
-
-#ifdef  __cplusplus
-extern "C" {
-#endif
-
-struct tw_backend *
-tw_headless_backend_create(struct wl_display *display);
+#include <stdlib.h>
+#include <string.h>
+#include <libudev.h>
+#include <sys/types.h>
+#include <wayland-server-core.h>
+#include <taiwins/backend_drm.h>
 
 bool
-tw_headless_backend_add_output(struct tw_backend *backend,
-                               unsigned int width, unsigned int height);
-bool
-tw_headless_backend_add_input_device(struct tw_backend *backend,
-                                     enum tw_input_device_type type);
+tw_login_init(struct tw_login *login, struct wl_display *display,
+              const struct tw_login_impl *impl);
 
-#ifdef  __cplusplus
-}
-#endif
+void
+tw_login_fini(struct tw_login *login);
+
+void
+tw_login_set_active(struct tw_login *login, bool active);
+
+int
+tw_login_find_primary_gpu(struct tw_login *login);
+
+struct tw_login *
+tw_login_create_logind(struct wl_display *display);
+
+void
+tw_login_destroy_logind(struct tw_login *login);
+
+struct tw_login *
+tw_login_create_direct(struct wl_display *display);
+
+void
+tw_login_destroy_direct(struct tw_login *login);
 
 
 #endif /* EOF */

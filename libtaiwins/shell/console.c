@@ -65,13 +65,13 @@ static struct tw_console {
 
 static struct taiwins_console_interface console_impl;
 
-static inline struct tw_console *
-tw_console_from_resource(struct wl_resource *resource)
-{
-	assert(wl_resource_instance_of(resource, &taiwins_console_interface,
-	                               &console_impl));
-	return wl_resource_get_user_data(resource);
-}
+/* static inline struct tw_console * */
+/* tw_console_from_resource(struct wl_resource *resource) */
+/* { */
+/*	assert(wl_resource_instance_of(resource, &taiwins_console_interface, */
+/*	                               &console_impl)); */
+/*	return wl_resource_get_user_data(resource); */
+/* } */
 
 static void
 notify_console_surface_destroy(struct wl_listener *listener, void *data)
