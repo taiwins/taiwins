@@ -7,5 +7,7 @@
 #mesondefine _TW_HAS_X11_BACKEND
 #mesondefine _TW_HAS_XWAYLAND
 #mesondefine _TW_HAS_LIBINPUT_GET_TOUCH_COUNT
+#mesondefine _TW_HAS_SYSTEMD
+#mesondefine _TW_HAS_ELOGIND
 
 #endif /* EOF */
