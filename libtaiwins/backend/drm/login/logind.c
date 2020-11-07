@@ -552,6 +552,26 @@ logind_get_bus(struct tw_logind_login *logind)
 	return true;
 }
 
+void
+tw_login_destroy_logind(struct tw_login *login)
+{
+	struct tw_logind_login *logind = tw_logind_login_from_base(login);
+
+	logind_bus_release_control(logind);
+
+        if (logind->event)
+	        wl_event_source_remove(logind->event);
+
+        free(logind->session_id);
+        free(logind->session_org_path);
+        free(logind->seat_path);
+        if (logind->bus)
+	        tdbus_delete(logind->bus);
+        tw_login_fini(login);
+
+	free(logind);
+}
+
 struct tw_login *
 tw_login_create_logind(struct wl_display *display)
 {
@@ -582,24 +602,4 @@ tw_login_create_logind(struct wl_display *display)
 err:
 	tw_login_destroy_logind(&logind->base);
 	return NULL;
-}
-
-void
-tw_login_destroy_logind(struct tw_login *login)
-{
-	struct tw_logind_login *logind = tw_logind_login_from_base(login);
-
-	logind_bus_release_control(logind);
-
-        if (logind->event)
-	        wl_event_source_remove(logind->event);
-
-        free(logind->session_id);
-        free(logind->session_org_path);
-        free(logind->seat_path);
-        if (logind->bus)
-	        tdbus_delete(logind->bus);
-        tw_login_fini(login);
-
-	free(logind);
 }
