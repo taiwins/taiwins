@@ -30,6 +30,17 @@
 
 #define DEFAULT_SEAT "seat0"
 
+struct tw_login *
+tw_login_create_logind(struct wl_display *display);
+
+void
+tw_login_destroy_logind(struct tw_login *login);
+
+struct tw_login *
+tw_login_create_direct(struct wl_display *display);
+
+void
+tw_login_destroy_direct(struct tw_login *login);
 
 static int
 handle_udev_event(int fd, uint32_t mask, void *data)
@@ -112,6 +123,32 @@ tw_login_open(struct tw_login *login, const char *path)
 {
 	return login->impl->open(login, path);
 }
+
+struct tw_login *
+tw_login_create(struct wl_display *display)
+{
+#if _TW_HAS_SYSTEMD || _TW_HAS_ELOGIND
+	return tw_login_create_logind(display);
+#else
+	return tw_login_create_direct(display);
+#endif
+
+}
+
+void
+tw_login_destroy(struct tw_login *login)
+{
+#if _TW_HAS_SYSTEMD || _TW_HAS_ELOGIND
+	tw_login_destroy_logind(login);
+#else
+	tw_login_destroy_direct(login);
+#endif
+
+}
+
+/******************************************************************************
+ * Public APIs
+ *****************************************************************************/
 
 void
 tw_login_close(struct tw_login *login, int fd)

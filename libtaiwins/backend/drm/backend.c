@@ -42,6 +42,7 @@
 struct tw_drm_backend {
 	struct tw_backend base;
 	struct tw_login *login;
+	int gpu_id;
 
 	struct wl_listener display_destroy;
 };
@@ -52,11 +53,7 @@ drm_backend_destroy(struct tw_drm_backend *drm)
 	wl_signal_emit(&drm->base.events.destroy, &drm->base);
 	if (drm->base.ctx)
 		tw_render_context_destroy(drm->base.ctx);
-#if _TW_HAS_SYSTEMD || _TW_HAS_ELOGIND
-	tw_login_destroy_logind(drm->login);
-#else
-	tw_login_destroy_direct(drm->login);
-#endif
+	tw_login_destroy(drm->login);
 	free(drm);
 }
 
@@ -83,20 +80,21 @@ tw_drm_backend_create(struct wl_display *display)
 	tw_backend_init(&drm->base);
 	drm->base.impl = &drm_impl;
 
-#if _TW_HAS_SYSTEMD || _TW_HAS_ELOGIND
-	drm->login = tw_login_create_logind(display);
-#else
-	drm->login = tw_login_create_direct(display);
-#endif
+	drm->login = tw_login_create(display);
 	if (!(drm->login))
 		goto err_login;
+
+	drm->gpu_id = tw_login_find_primary_gpu(drm->login);
+	if (drm->gpu_id < 0)
+		goto err_gpu_fd;
 
 	tw_set_display_destroy_listener(display, &drm->display_destroy,
 	                                notify_drm_display_destroy);
 
 	return &drm->base;
 
-
+err_gpu_fd:
+	tw_login_destroy(drm->login);
 err_login:
 	free(drm);
 	return NULL;

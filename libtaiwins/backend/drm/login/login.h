@@ -36,23 +36,16 @@ tw_login_init(struct tw_login *login, struct wl_display *display,
 void
 tw_login_fini(struct tw_login *login);
 
+struct tw_login *
+tw_login_create(struct wl_display *display);
+
+void
+tw_login_destroy(struct tw_login *login);
+
 void
 tw_login_set_active(struct tw_login *login, bool active);
 
 int
 tw_login_find_primary_gpu(struct tw_login *login);
-
-struct tw_login *
-tw_login_create_logind(struct wl_display *display);
-
-void
-tw_login_destroy_logind(struct tw_login *login);
-
-struct tw_login *
-tw_login_create_direct(struct wl_display *display);
-
-void
-tw_login_destroy_direct(struct tw_login *login);
-
 
 #endif /* EOF */
