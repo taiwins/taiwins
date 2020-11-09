@@ -192,9 +192,7 @@ headless_destroy(struct tw_headless_backend *headless)
 
 	wl_list_for_each_safe(output, otmp, &headless->base.outputs,
 	                      output.device.link) {
-		tw_render_presentable_fini(&output->output.surface,
-		                           headless->base.ctx);
-		tw_output_device_fini(&output->output.device);
+		tw_render_output_fini(&output->output);
 		wl_event_source_remove(output->timer);
 		free(output);
 	}
