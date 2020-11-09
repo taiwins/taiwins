@@ -97,12 +97,11 @@ tw_x11_remove_output(struct tw_x11_output *output)
 {
 	struct tw_x11_backend *x11 = output->x11;
 
-        wl_event_source_remove(output->frame_timer);
-	tw_output_device_fini(&output->output.device);
 	tw_input_device_fini(&output->pointer);
-	tw_reset_wl_list(&output->output_commit_listener.link);
+	wl_event_source_remove(output->frame_timer);
 
-	tw_render_presentable_fini(&output->output.surface, x11->base.ctx);
+	tw_reset_wl_list(&output->output_commit_listener.link);
+	tw_render_output_fini(&output->output);
 	xcb_destroy_window(x11->xcb_conn, output->win);
 	xcb_flush(x11->xcb_conn);
 	free(output);
