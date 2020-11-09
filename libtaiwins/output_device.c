@@ -39,7 +39,6 @@ output_device_state_init(struct tw_output_device_state *state,
 	state->current_mode.h = 0;
 	state->current_mode.refresh = 0;
 	state->current_mode.preferred = false;
-	state->subpixel = WL_OUTPUT_SUBPIXEL_NONE;
 	state->transform = WL_OUTPUT_TRANSFORM_NORMAL;
 
         state->gx = 0;
@@ -53,6 +52,7 @@ tw_output_device_init(struct tw_output_device *device,
 	device->phys_width = 0;
 	device->phys_height = 0;
 	device->impl = impl;
+	device->subpixel = WL_OUTPUT_SUBPIXEL_NONE;
 	wl_array_init(&device->available_modes);
 	wl_list_init(&device->link);
 

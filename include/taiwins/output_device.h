@@ -46,7 +46,6 @@ struct tw_output_device_state {
 	bool enabled;
 	float scale;
 	int32_t gx, gy; /**< x,y position in global space */
-	enum wl_output_subpixel subpixel;
 	enum wl_output_transform transform;
 	/* current mode indicates the actual window size, the effective size
 	 * is actual_size / scale */
@@ -81,6 +80,7 @@ struct tw_output_device {
 	char name[32], make[32], model[32];
 	char serial[16];
 	int32_t phys_width, phys_height, id;
+	enum wl_output_subpixel subpixel;
 
 	/** a native window for different backend, could be none */
 	/** Do I need to include render_surface here */

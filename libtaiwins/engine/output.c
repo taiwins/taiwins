@@ -122,7 +122,7 @@ notify_output_info(struct wl_listener *listener, void *data)
 	                       output->device->phys_height,
 	                       output->device->make,
 	                       output->device->model,
-	                       output->device->state.subpixel,
+	                       output->device->subpixel,
 	                       output->device->state.transform);
 	tw_output_send_clients(output->tw_output);
 }
