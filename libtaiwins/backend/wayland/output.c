@@ -199,10 +199,7 @@ static const struct wp_presentation_feedback_listener feedback_listener = {
 void
 tw_wl_output_remove(struct tw_wl_output *output)
 {
-	struct tw_wl_backend *wl = output->wl;
-
-	tw_output_device_fini(&output->output.device);
-	tw_render_presentable_fini(&output->output.surface, wl->base.ctx);
+	tw_render_output_fini(&output->output);
 	wl_egl_window_destroy(output->egl_window);
 	xdg_toplevel_destroy(output->xdg_toplevel);
 	xdg_surface_destroy(output->xdg_surface);
