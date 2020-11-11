@@ -54,11 +54,11 @@ tw_drm_formats_add_format(struct tw_drm_formats *formats, uint32_t fmt,
 
 	int cursor = formats->modifiers.size / sizeof(struct tw_drm_modifier);
 	size_t size = n_mods * sizeof(struct tw_drm_modifier);
-	struct tw_drm_modifier *mods = wl_array_add(&formats->modifiers, size);
+	struct tw_drm_modifier *mods =
+		(n_mods) ? wl_array_add(&formats->modifiers, size) : NULL;
 
-	if (!mods)
+	if (!mods && (n_mods != 0))
 		return false;
-
 	//if this allocation failed, we would left with wasted space
 	if (!(format = wl_array_add(&formats->formats,
 	                            sizeof(struct tw_drm_format))))
@@ -94,4 +94,26 @@ tw_drm_formats_is_modifier_external(struct tw_drm_formats *formats,
 		}
 	}
 	return external_only;
+}
+
+WL_EXPORT const struct tw_drm_format *
+tw_drm_format_find(const struct tw_drm_formats *formats, uint32_t fmt)
+{
+	const struct tw_drm_format *format;
+
+	wl_array_for_each(format, &formats->formats) {
+		if (format->fmt == fmt)
+			return format;
+	}
+	return NULL;
+}
+
+WL_EXPORT const struct tw_drm_modifier *
+tw_drm_modifiers_get(const struct tw_drm_formats *formats,
+                     const struct tw_drm_format *fmt)
+{
+	const struct tw_drm_modifier *mods = formats->modifiers.data;
+
+	mods += fmt->cursor;
+	return (fmt->len == 0) ? NULL : mods;
 }

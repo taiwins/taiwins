@@ -59,6 +59,12 @@ bool
 tw_drm_formats_add_format(struct tw_drm_formats *formats, uint32_t format,
                           int n_mods, uint64_t *modifiers,
                           bool *externals);
+const struct tw_drm_format *
+tw_drm_format_find(const struct tw_drm_formats *formats, uint32_t format);
+
+const struct tw_drm_modifier *
+tw_drm_modifiers_get(const struct tw_drm_formats *formats,
+                     const struct tw_drm_format *fmt);
 bool
 tw_drm_formats_is_modifier_external(struct tw_drm_formats *formats,
                                     uint32_t format, uint64_t modifier);
