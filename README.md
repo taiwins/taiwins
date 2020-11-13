@@ -14,7 +14,7 @@ project, You can refer to [contributing](CONTRIBUTING.md) for getting started.
 you will need following dependencies
 
 - Pixman
-- libweston(if you have an nvidia graphics card you may need weston-eglstream)
+- wlroots
 - xkbcommon
 - libinput
 - wayland
