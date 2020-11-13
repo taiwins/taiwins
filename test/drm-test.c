@@ -1,3 +1,5 @@
+#include "taiwins/backend.h"
+#include "taiwins/objects/egl.h"
 #include <assert.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -23,14 +25,9 @@ wait_for_debug()
 int
 tw_login_find_primary_gpu(struct tw_login *login);
 
-int main(int argc, char *argv[])
+void
+test_switch_vt(struct tw_backend *backend)
 {
-	tw_logger_use_file(stderr);
-
-	/* wait_for_debug(); */
-
-	struct wl_display *display = wl_display_create();
-	struct tw_backend *backend = tw_drm_backend_create(display);
 	struct tw_login *login = tw_drm_backend_get_login(backend);
 
 	int gpu = tw_login_find_primary_gpu(login);
@@ -40,6 +37,21 @@ int main(int argc, char *argv[])
 		assert(0);
 	}
 	tw_login_switch_vt(login, 3);
+}
+
+int main(int argc, char *argv[])
+{
+	tw_logger_use_file(stderr);
+
+	wait_for_debug();
+
+	struct wl_display *display = wl_display_create();
+	struct tw_backend *backend = tw_drm_backend_create(display);
+	const struct tw_egl_options *opt =
+		tw_backend_get_egl_params(backend);
+	struct tw_render_context *ctx =
+		tw_render_context_create_egl(display, opt);
+	tw_backend_start(backend, ctx);
 
 	wl_display_destroy(display);
 	return 0;
