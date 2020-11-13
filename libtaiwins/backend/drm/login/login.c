@@ -246,7 +246,8 @@ tw_login_find_primary_gpu(struct tw_login *login)
 }
 
 int
-tw_login_find_gpus(struct tw_login *login, struct tw_login_gpu *gpus)
+tw_login_find_gpus(struct tw_login *login, int max_gpus,
+                   struct tw_login_gpu *gpus)
 {
 	int ngpus = 0;
 	struct udev_list_entry *entry;
@@ -287,7 +288,7 @@ tw_login_find_gpus(struct tw_login *login, struct tw_login_gpu *gpus)
 	        if (!drm_device_check_kms(dev, login, &fd, &sysnum))
 		        goto next;
 	        //write to gpu fields
-	        if (gpus) {
+	        if (gpus && ngpus < max_gpus) {
 		        struct tw_login_gpu *gpu = &gpus[ngpus];
 		        gpu->fd = fd;
 		        gpu->sysnum = sysnum;
