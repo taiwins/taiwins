@@ -21,6 +21,7 @@
 
 #include "options.h"
 
+#include <libudev.h>
 #include <wayland-server-core.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
@@ -47,18 +48,11 @@ handle_udev_event(int fd, uint32_t mask, void *data)
 {
 	struct tw_login *login = data;
 	struct udev_device *dev = udev_monitor_receive_device(login->mon);
-	const char *action, *sysname;
 
 	if (!dev)
 		return 1;
-	action = udev_device_get_action(dev);
-	sysname = udev_device_get_sysname(dev);
-	(void)sysname;
+	wl_signal_emit(&login->events.udev_device, dev);
 
-	if (!action || strcmp(action, "change"))
-		goto out;
-	//handle device?
-out:
 	udev_device_unref(dev);
 	return 1;
 }
@@ -77,6 +71,7 @@ tw_login_init(struct tw_login *login, struct wl_display *display,
 		strcpy(login->seat, DEFAULT_SEAT);
 
 	wl_signal_init(&login->events.attributes_change);
+	wl_signal_init(&login->events.udev_device);
 	login->active = false;
 
 	login->udev = udev_new();
