@@ -29,6 +29,11 @@
 #include <wayland-server-core.h>
 #include <taiwins/backend_drm.h>
 
+struct tw_login_gpu {
+	int fd, sysnum;
+	bool boot_vga;
+};
+
 bool
 tw_login_init(struct tw_login *login, struct wl_display *display,
               const struct tw_login_impl *impl);
@@ -44,6 +49,9 @@ tw_login_destroy(struct tw_login *login);
 
 void
 tw_login_set_active(struct tw_login *login, bool active);
+
+int
+tw_login_find_gpus(struct tw_login *login, struct tw_login_gpu *gpus);
 
 int
 tw_login_find_primary_gpu(struct tw_login *login);
