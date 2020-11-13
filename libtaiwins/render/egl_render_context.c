@@ -51,6 +51,9 @@ handle_egl_surface_destroy(struct tw_render_presentable *surf,
 		wl_container_of(base, ctx, base);
 	EGLSurface egl_surface = (EGLSurface)surf->handle;
 
+	if (egl_surface == EGL_NO_SURFACE)
+		return;
+
 	if (eglGetCurrentContext() == ctx->egl.context &&
 	    eglGetCurrentSurface(EGL_DRAW) == egl_surface)
 		tw_egl_unset_current(&ctx->egl);
