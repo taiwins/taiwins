@@ -29,26 +29,34 @@
 #include <taiwins/render_context.h>
 
 #include "internal.h"
+#include "taiwins/render_output.h"
 
 bool
-tw_drm_init_gbm(struct tw_drm_backend *drm)
+tw_drm_init_gpu_gbm(struct tw_drm_gpu *gpu)
 {
-	drm->gbm.dev = gbm_create_device(drm->gpu_fd);
-	if (!drm->gbm.dev) {
+	gpu->gbm.dev = gbm_create_device(gpu->gpu_fd);
+	if (!gpu->gbm.dev) {
 		tw_logl_level(TW_LOG_ERRO, "Failed to create gbm device");
 		return false;
 	}
-	drm->gbm.visual_id = GBM_FORMAT_ARGB8888;
+	//now we do this
+	gpu->gbm.visual_id = DRM_FORMAT_ARGB8888;
 
 	return true;
 }
 
-static inline void
+void
+tw_drm_fini_gpu_gbm(struct tw_drm_gpu *gpu)
+{
+	gbm_device_destroy(gpu->gbm.dev);
+	gpu->gbm.visual_id = DRM_FORMAT_INVALID;
+}
+
+void
 tw_drm_display_fini_gbm(struct tw_drm_display *output)
 {
 	if (output->gbm_surface.gbm) {
-		tw_render_presentable_fini(&output->output.surface,
-		                           output->drm->base.ctx);
+		tw_render_output_fini(&output->output);
 		gbm_surface_destroy(output->gbm_surface.gbm);
 		output->gbm_surface.gbm = NULL;
 	}
@@ -61,13 +69,13 @@ tw_drm_display_fini_gbm(struct tw_drm_display *output)
 bool
 tw_drm_display_start_gbm(struct tw_drm_display *output)
 {
-	struct tw_drm_backend *drm = output->drm;
+	struct tw_drm_gpu *gpu = output->gpu;
 	unsigned w = output->status.inherited_mode.w;
 	unsigned h = output->status.inherited_mode.h;
 	uint32_t scanout_flags = GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
 	struct tw_drm_plane *plane = output->primary_plane;
 	const struct tw_drm_format *format =
-		tw_drm_format_find(&plane->formats, drm->gbm.visual_id);
+		tw_drm_format_find(&plane->formats, gpu->gbm.visual_id);
 	const struct tw_drm_modifier *mods =
 		tw_drm_modifiers_get(&plane->formats, format);
 
@@ -78,12 +86,12 @@ tw_drm_display_start_gbm(struct tw_drm_display *output)
 
 	tw_drm_display_fini_gbm(output);
 	output->gbm_surface.gbm =
-		tw_drm_create_gbm_surface(drm->gbm.dev, w, h,
-		                          drm->gbm.visual_id,
+		tw_drm_create_gbm_surface(gpu->gbm.dev, w, h,
+		                          gpu->gbm.visual_id,
 		                          format->len, modifiers,
 		                          scanout_flags);
 	tw_render_presentable_init_window(&output->output.surface,
-	                                  drm->base.ctx,
+	                                  output->drm->base.ctx,
 	                                  output->gbm_surface.gbm);
 	return true;
 }
