@@ -283,9 +283,6 @@ void
 tw_render_output_fini(struct tw_render_output *output)
 {
 	assert(output->ctx);
-
-	fini_output_state(output);
-	tw_render_presentable_fini(&output->surface, output->ctx);
 	tw_output_device_fini(&output->device);
 }
 
