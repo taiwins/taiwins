@@ -32,16 +32,34 @@
 
 #include "internal.h"
 
+static inline void
+tw_drm_crtc_init(struct tw_drm_crtc *crtc, int id, int idx)
+{
+	crtc->display = NULL;
+	crtc->id = id;
+	crtc->idx = idx;
+	wl_list_init(&crtc->link);
+}
+
+static inline void
+tw_drm_crtc_fini(struct tw_drm_crtc *crtc)
+{
+	crtc->display = NULL;
+	crtc->id = -1;
+	crtc->idx = -1;
+	wl_list_remove(&crtc->link);
+}
+
 //TODO: deal with hotplug?
 static bool
-tw_drm_add_output(struct tw_drm_backend *drm, drmModeConnector *conn)
+add_output(struct tw_drm_gpu *gpu, drmModeConnector *conn)
 {
 	if (conn->connector_type == DRM_MODE_CONNECTOR_WRITEBACK) {
 		//TODO handle writeback connector
 	} else {
 		struct tw_drm_display *output = NULL;
 
-		output = tw_drm_display_find_create(drm, conn);
+		output = tw_drm_display_find_create(gpu, conn);
 		if (output) {
 
 		}
@@ -50,8 +68,13 @@ tw_drm_add_output(struct tw_drm_backend *drm, drmModeConnector *conn)
 }
 
 static void
-collect_connectors(struct tw_drm_backend *drm, int fd, drmModeRes *res)
+collect_connectors(struct tw_drm_gpu *gpu, drmModeRes *res)
 {
+	int fd = gpu->gpu_fd;
+	//We may now skip the connected not connected
+	if (!gpu->boot_vga)
+		return;
+
 	for (int i = 0; i < res->count_connectors; i++) {
 		drmModeConnector *conn;
 		uint32_t conn_id = res->connectors[i];
@@ -59,7 +82,7 @@ collect_connectors(struct tw_drm_backend *drm, int fd, drmModeRes *res)
 		conn = drmModeGetConnector(fd, conn_id);
 		if (!conn)
 			continue;
-		tw_drm_add_output(drm, conn);
+		add_output(gpu, conn);
 
 		//add connectors
 		drmModeFreeConnector(conn);
@@ -67,29 +90,28 @@ collect_connectors(struct tw_drm_backend *drm, int fd, drmModeRes *res)
 }
 
 static void
-collect_crtcs(struct tw_drm_backend *drm, int fd, drmModeRes *res)
+collect_crtcs(struct tw_drm_gpu *gpu, drmModeRes *res)
 {
-	drm->crtc_mask = 0;
+	int fd = gpu->gpu_fd;
+	gpu->crtc_mask = 0;
 	//TODO, MAX 32
-	wl_list_init(&drm->crtc_list);
+	wl_list_init(&gpu->crtc_list);
 	for (int i = 0; i < res->count_crtcs; i++) {
 		drmModeCrtc *crtc = drmModeGetCrtc(fd, res->crtcs[i]);
 		if (!crtc)
 			continue;
-
-		drm->crtcs[i].id = crtc->crtc_id;
-		drm->crtcs[i].idx = i;
-		wl_list_init(&drm->crtcs[i].link);
-		wl_list_insert(drm->crtc_list.prev, &drm->crtcs[i].link);
-		drm->crtc_mask |= 1 << i;
+		tw_drm_crtc_init(&gpu->crtcs[i], crtc->crtc_id, i);
+		wl_list_insert(gpu->crtc_list.prev, &gpu->crtcs[i].link);
+		gpu->crtc_mask |= 1 << i;
 
 		drmModeFreeCrtc(crtc);
 	}
 }
 
 static void
-collect_planes(struct tw_drm_backend *drm, int fd)
+collect_planes(struct tw_drm_gpu *gpu)
 {
+	int fd = gpu->gpu_fd;
 	struct tw_drm_plane *p;
 	drmModePlane *plane;
 	drmModePlaneRes *planes = drmModeGetPlaneResources(fd);
@@ -98,9 +120,9 @@ collect_planes(struct tw_drm_backend *drm, int fd)
 		return;
 
         //it seems we have 3 planes for every crtc.
-        wl_list_init(&drm->plane_list);
+        wl_list_init(&gpu->plane_list);
         for (unsigned i = 0; i < planes->count_planes; i++) {
-	        p = &drm->planes[i];
+	        p = &gpu->planes[i];
 	        plane = drmModeGetPlane(fd, planes->planes[i]);
 
 	        if (!plane)
@@ -108,8 +130,8 @@ collect_planes(struct tw_drm_backend *drm, int fd)
 	        if (!tw_drm_plane_init(p, fd, plane))
 		        continue;
 
-	        drm->plane_mask |= 1 << i;
-	        wl_list_insert(drm->plane_list.prev, &p->base.link);
+	        gpu->plane_mask |= 1 << i;
+	        wl_list_insert(gpu->plane_list.prev, &p->base.link);
 	        drmModeFreePlane(plane);
         }
 
@@ -117,9 +139,9 @@ collect_planes(struct tw_drm_backend *drm, int fd)
 }
 
 bool
-tw_drm_check_resources(struct tw_drm_backend *drm)
+tw_drm_check_gpu_resources(struct tw_drm_gpu *gpu)
 {
-	int fd = drm->gpu_fd;
+	int fd = gpu->gpu_fd;
 	drmModeRes *resources;
 
 	resources = drmModeGetResources(fd);
@@ -127,14 +149,14 @@ tw_drm_check_resources(struct tw_drm_backend *drm)
 		tw_logl_level(TW_LOG_ERRO, "drmModeGetResources failed");
 		return false;
 	}
-	collect_crtcs(drm, fd, resources);
-	collect_connectors(drm, fd, resources);
-	collect_planes(drm, fd);
+	collect_crtcs(gpu, resources);
+	collect_planes(gpu);
+	collect_connectors(gpu, resources);
 
-	drm->limits.min_width = resources->min_width;
-	drm->limits.max_width = resources->max_width;
-	drm->limits.min_height = resources->min_height;
-	drm->limits.max_height = resources->max_height;
+	gpu->limits.min_width = resources->min_width;
+	gpu->limits.max_width = resources->max_width;
+	gpu->limits.min_height = resources->min_height;
+	gpu->limits.max_height = resources->max_height;
 
 	drmModeFreeResources(resources);
 
@@ -168,10 +190,10 @@ tw_drm_handle_drm_event(int fd, uint32_t mask, void *data)
 }
 
 bool
-tw_drm_check_features(struct tw_drm_backend *drm)
+tw_drm_check_gpu_features(struct tw_drm_gpu *gpu)
 {
 	uint64_t cap;
-	int fd = drm->gpu_fd;
+	int fd = gpu->gpu_fd;
 
 	if (drmSetClientCap(fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1)) {
 		tw_logl_level(TW_LOG_ERRO, "DRM planes not supported");
@@ -183,29 +205,47 @@ tw_drm_check_features(struct tw_drm_backend *drm)
 	}
 
 	if (drmSetClientCap(fd, DRM_CLIENT_CAP_ATOMIC, 1) == 0) {
-		drm->feats |= TW_DRM_CAP_ATOMIC;
-		//TODO setup interface, maybe we do not
+		gpu->feats |= TW_DRM_CAP_ATOMIC;
 	}
 
-	if (drmGetCap(drm->gpu_fd, DRM_CAP_PRIME, &cap) ||
+	if (drmGetCap(fd, DRM_CAP_PRIME, &cap) ||
 	    !(cap & DRM_PRIME_CAP_EXPORT) || !(cap & DRM_PRIME_CAP_IMPORT)) {
 		tw_logl_level(TW_LOG_ERRO, "PRIME support not complete");
 		return false;
 	} else {
-		drm->feats |= TW_DRM_CAP_PRIME;
+		gpu->feats |= TW_DRM_CAP_PRIME;
 	}
 
-	if (drmGetCap(drm->gpu_fd, DRM_CAP_ADDFB2_MODIFIERS, &cap) == 0) {
+	if (drmGetCap(fd, DRM_CAP_ADDFB2_MODIFIERS, &cap) == 0) {
 		if (cap == 1)
-			drm->feats |= TW_DRM_CAP_MODIFIERS;
+			gpu->feats |= TW_DRM_CAP_MODIFIERS;
 	}
 
         if (drmGetCap(fd, DRM_CAP_DUMB_BUFFER, &cap) == 0) {
 		if (cap == 1)
-			drm->feats |= TW_DRM_CAP_DUMPBUFFER;
+			gpu->feats |= TW_DRM_CAP_DUMPBUFFER;
 	}
 
 	return true;
+}
+
+void
+tw_drm_free_gpu_resources(struct tw_drm_gpu *gpu)
+{
+	struct tw_drm_plane *p, *ptmp;
+	struct tw_drm_display *d, *dtmp;
+	struct tw_drm_crtc *c, *ctmp;
+	struct tw_backend *backend = &gpu->drm->base;
+
+	wl_list_for_each_safe(p, ptmp, &gpu->plane_list, base.link)
+		tw_drm_plane_fini(p);
+	wl_list_for_each_safe(d, dtmp, &backend->outputs, output.device.link)
+		if (d->gpu == gpu)
+			tw_drm_display_remove(d);
+	wl_list_for_each_safe(c, ctmp, &gpu->crtc_list, link)
+		tw_drm_crtc_fini(c);
+
+	gpu->activated = false;
 }
 
 bool

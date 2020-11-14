@@ -38,6 +38,11 @@
 extern "C" {
 #endif
 
+struct tw_drm_gpu;
+struct tw_drm_plane;
+struct tw_drm_display;
+struct tw_drm_backend;
+
 enum tw_drm_features {
 	TW_DRM_CAP_ATOMIC = 1 << 0,
 	TW_DRM_CAP_PRIME = 1 << 1,
@@ -50,8 +55,6 @@ enum tw_drm_plane_type {
 	TW_DRM_PLANE_OVERLAY,
 	TW_DRM_PLANE_CURSOR,
 };
-
-struct tw_drm_display;
 
 struct tw_drm_plane {
 	struct tw_plane base;
@@ -72,6 +75,8 @@ struct tw_drm_crtc {
 struct tw_drm_display {
 	struct tw_render_output output;
 	struct tw_drm_backend *drm;
+	struct tw_drm_gpu *gpu;
+
 	int conn_id, crtc_mask;
 	uint32_t planes; /**< TODO possible planes used by display */
 	/** output has at least one primary plane */
@@ -94,24 +99,16 @@ struct tw_drm_display {
 	struct {
 		struct gbm_surface *gbm;
 	} gbm_surface;
-
 };
 
-/**
- * @brief drm backend datasheet
- *
- * We need the backend to support multiple allocation APIs(gbm or eglstream),
- * multiple rendering API (egl or vulkan).
- * commit routine (atomic or legacy)
- */
-struct tw_drm_backend {
-	struct tw_backend base;
-	struct tw_login *login;
-
-	//The data represents a GPU, what about secondary GPUs?
-	int gpu_fd;
+struct tw_drm_gpu {
+	int gpu_fd, sysnum;
+	bool boot_vga;
+	bool activated; /**< valid gpu otherwise not used */
 	enum tw_drm_features feats;
-	const struct tw_drm_interface *iface;
+	struct tw_drm_backend *drm;
+	struct wl_event_source *event;
+
 	struct {
 		int max_width, max_height;
 		int min_width, min_height;
@@ -134,6 +131,26 @@ struct tw_drm_backend {
 			EGLDeviceEXT egldev;
 		} eglstream;
 	};
+};
+
+/**
+ * @brief drm backend datasheet
+ *
+ * We need the backend to support multiple allocation APIs(gbm or eglstream),
+ * multiple rendering API (egl or vulkan).
+ * commit routine (atomic or legacy)
+ *
+ * The 3 event sources:
+ * 1): drm fd for drmHandleEvents.
+ * 2): event from login for session changes.
+ * 3): event from udev for udev_device change.
+ */
+struct tw_drm_backend {
+	struct tw_backend base;
+	struct wl_display *display;
+	struct tw_login *login;
+	struct tw_drm_gpu *boot_gpu;
+	struct wl_array gpus;
 
 	struct wl_listener display_destroy;
 	struct wl_listener login_listener;
@@ -143,16 +160,24 @@ void
 tw_drm_print_info(int fd);
 
 bool
-tw_drm_init_gbm(struct tw_drm_backend *drm);
+tw_drm_init_gpu_gbm(struct tw_drm_gpu *gpu);
+
+void
+tw_drm_fini_gpu_gbm(struct tw_drm_gpu *gpu);
 
 int
 tw_drm_handle_drm_event(int fd, uint32_t mask, void *data);
 
-bool
-tw_drm_check_features(struct tw_drm_backend *drm);
+void
+tw_drm_free_gpu_resources(struct tw_drm_gpu *gpu);
 
 bool
-tw_drm_check_resources(struct tw_drm_backend *drm);
+tw_drm_check_gpu_features(struct tw_drm_gpu *gpu);
+
+/** the function destroys the output, which is fine, since we either call
+ * this function on gpu init fail or destruction. */
+bool
+tw_drm_check_gpu_resources(struct tw_drm_gpu *gpu);
 
 bool
 tw_drm_plane_init(struct tw_drm_plane *plane, int fd,
@@ -167,10 +192,13 @@ bool
 tw_drm_display_start_gbm(struct tw_drm_display *display);
 
 void
+tw_drm_display_fini_gbm(struct tw_drm_display *output);
+
+void
 tw_drm_display_remove(struct tw_drm_display *display);
 
 struct tw_drm_display *
-tw_drm_display_find_create(struct tw_drm_backend *drm, drmModeConnector *conn);
+tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn);
 
 bool
 tw_drm_get_property(int fd, uint32_t obj_id, uint32_t obj_type,
