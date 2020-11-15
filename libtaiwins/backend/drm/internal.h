@@ -56,6 +56,43 @@ enum tw_drm_plane_type {
 	TW_DRM_PLANE_CURSOR,
 };
 
+struct tw_drm_prop_info {
+	const char *name;
+	uint32_t *ptr;
+};
+
+struct tw_drm_crtc_props {
+	//write
+	uint32_t active;
+	uint32_t mode_id; /**< dpms mode? */
+};
+
+struct tw_drm_connector_props {
+	//read
+	uint32_t edid;
+	uint32_t dpms;
+	//write
+	uint32_t crtc_id;
+};
+
+struct tw_drm_plane_props {
+	//read
+	uint32_t type;
+	uint32_t in_formats;
+
+	//write
+	uint32_t src_x;
+	uint32_t src_y;
+	uint32_t src_w;
+	uint32_t src_h;
+	uint32_t crtc_x;
+	uint32_t crtc_y;
+	uint32_t crtc_w;
+	uint32_t crtc_h;
+	uint32_t crtc_id;
+	uint32_t fb_id;
+};
+
 struct tw_drm_plane {
 	struct tw_plane base;
 	uint32_t id; /**< drm plane id */
@@ -63,6 +100,7 @@ struct tw_drm_plane {
 	enum tw_drm_plane_type type;
 
 	struct tw_drm_formats formats;
+	struct tw_drm_plane_props props;
 };
 
 struct tw_drm_crtc {
@@ -70,6 +108,8 @@ struct tw_drm_crtc {
 	/** occupied by display */
 	struct tw_drm_display *display;
 	struct wl_list link; /** drm->crtc_list */
+
+	struct tw_drm_crtc_props props;
 };
 
 struct tw_drm_display {
@@ -131,6 +171,7 @@ struct tw_drm_gpu {
 			EGLDeviceEXT egldev;
 		} eglstream;
 	};
+	struct tw_drm_connector_props props;
 };
 
 /**
@@ -200,6 +241,12 @@ tw_drm_display_remove(struct tw_drm_display *display);
 struct tw_drm_display *
 tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn);
 
+/**
+ * scan the properties by binary search, info has to be ordered
+ */
+bool
+tw_drm_read_properties(int fd, uint32_t obj_id, uint32_t obj_type,
+                       struct tw_drm_prop_info *info, size_t prop_len);
 bool
 tw_drm_get_property(int fd, uint32_t obj_id, uint32_t obj_type,
                     const char *prop_name, uint64_t *value);

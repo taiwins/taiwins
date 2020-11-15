@@ -33,12 +33,19 @@
 #include "internal.h"
 
 static inline void
-tw_drm_crtc_init(struct tw_drm_crtc *crtc, int id, int idx)
+tw_drm_crtc_init(struct tw_drm_crtc *crtc, int fd, int id, int idx)
 {
+	struct tw_drm_prop_info prop_info[] = {
+		{"ACTIVE", &crtc->props.active},
+		{"MODE_ID", &crtc->props.mode_id},
+	};
+
 	crtc->display = NULL;
 	crtc->id = id;
 	crtc->idx = idx;
 	wl_list_init(&crtc->link);
+	tw_drm_read_properties(fd, id, DRM_MODE_OBJECT_CRTC, prop_info,
+	                       sizeof(prop_info) / sizeof(prop_info[0]));
 }
 
 static inline void
@@ -100,7 +107,7 @@ collect_crtcs(struct tw_drm_gpu *gpu, drmModeRes *res)
 		drmModeCrtc *crtc = drmModeGetCrtc(fd, res->crtcs[i]);
 		if (!crtc)
 			continue;
-		tw_drm_crtc_init(&gpu->crtcs[i], crtc->crtc_id, i);
+		tw_drm_crtc_init(&gpu->crtcs[i], fd, crtc->crtc_id, i);
 		wl_list_insert(gpu->crtc_list.prev, &gpu->crtcs[i].link);
 		gpu->crtc_mask |= 1 << i;
 
@@ -276,9 +283,39 @@ tw_drm_get_property(int fd, uint32_t obj_id, uint32_t obj_type,
 	return found;
 }
 
-bool
-tw_drm_set_property(int fd, uint32_t obj_id, uint32_t objtype,
-                    const char *prop_name, uint64_t value)
+static int
+cmp_prop_info(const void *arg1, const void *arg2)
 {
-	return false;
+	const char *key = arg1;
+	const struct tw_drm_prop_info *info = arg2;
+	return strcmp(key, info->name);
+}
+
+bool
+tw_drm_read_properties(int fd, uint32_t obj_id, uint32_t obj_type,
+                       struct tw_drm_prop_info *info, size_t len)
+{
+	drmModeObjectProperties *props =
+		drmModeObjectGetProperties(fd, obj_id, obj_type);
+
+        for (unsigned i = 0; i < len; i++)
+		*info[i].ptr = 0;
+
+	if (!props)
+		return false;
+
+	for (unsigned i = 0; i < props->count_props; i++) {
+		drmModePropertyRes *prop =
+			drmModeGetProperty(fd, props->props[i]);
+		if (!prop)
+			continue;
+		struct tw_drm_prop_info *i =
+			bsearch(prop->name, info, len, sizeof(info[0]),
+			        cmp_prop_info);
+		if (i)
+			*(i->ptr) = prop->prop_id;
+		drmModeFreeProperty(prop);
+	}
+
+	return true;
 }

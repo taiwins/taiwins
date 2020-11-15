@@ -110,6 +110,29 @@ fallback:
 	}
 }
 
+static void
+read_plane_properties(int fd, int plane_id,
+                             struct tw_drm_plane_props *p)
+{
+	//the array has to be in ascend order
+	struct tw_drm_prop_info plane_info[] = {
+		{"CRTC_H", &p->crtc_h},
+		{"CRTC_ID", &p->crtc_id},
+		{"CRTC_W", &p->crtc_w},
+		{"CRTC_X", &p->crtc_x},
+		{"CRTC_Y", &p->crtc_y},
+		{"FB_ID", &p->fb_id},
+		{"IN_FORMATS", &p->in_formats},
+		{"SRC_H", &p->src_h},
+		{"SRC_W", &p->src_w},
+		{"SRC_X", &p->src_x},
+		{"SRC_Y", &p->src_y},
+		{"type", &p->type},
+	};
+	tw_drm_read_properties(fd, plane_id, DRM_MODE_OBJECT_PLANE, plane_info,
+	                       sizeof(plane_info)/sizeof(plane_info[0]));
+}
+
 bool
 tw_drm_plane_init(struct tw_drm_plane *plane, int fd, drmModePlane *drm_plane)
 {
@@ -129,6 +152,7 @@ tw_drm_plane_init(struct tw_drm_plane *plane, int fd, drmModePlane *drm_plane)
 	tw_drm_formats_init(&plane->formats);
 	plane->id = drm_plane->plane_id;
 	plane->crtc_mask = drm_plane->possible_crtcs;
+	read_plane_properties(fd, plane->id, &plane->props);
 	populate_plane_formats(plane, drm_plane, fd);
 	return true;
 }
