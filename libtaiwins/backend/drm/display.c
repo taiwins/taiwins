@@ -137,6 +137,39 @@ tw_drm_display_detach_crtc(struct tw_drm_display *display)
 }
 
 static bool
+read_display_modes(struct tw_drm_display *output, drmModeConnector *conn)
+{
+	size_t n = conn->count_modes;
+	size_t s_mode_info = n * sizeof(struct tw_drm_mode_info);
+	struct tw_drm_mode_info *mode_info = NULL;
+	struct tw_output_device *dev = &output->output.device;
+
+	wl_array_release(&output->status.modes);
+	wl_array_init(&output->status.modes);
+
+	if (!wl_array_add(&output->status.modes, s_mode_info))
+		goto err;
+
+	mode_info = output->status.modes.data;
+	for (int i = 0; i < conn->count_modes; i++) {
+		drmModeModeInfo *mode = &conn->modes[i];
+		mode_info[i].info = *mode;
+		mode_info[i].mode.w = mode->hdisplay;
+		mode_info[i].mode.h = mode->vdisplay;
+		mode_info[i].mode.refresh = mode->vrefresh;
+		mode_info[i].mode.preferred =
+			mode->type & DRM_MODE_TYPE_PREFERRED;
+		wl_list_init(&mode_info[i].mode.link);
+		wl_list_insert(dev->mode_list.prev, &mode_info[i].mode.link);
+	}
+	return true;
+err:
+	wl_array_release(&output->status.modes);
+	wl_array_init(&output->status.modes);
+	return false;
+}
+
+static bool
 tw_drm_display_read_info(struct tw_drm_display *output, drmModeConnector *conn)
 {
 	bool ret = true;
@@ -158,10 +191,7 @@ tw_drm_display_read_info(struct tw_drm_display *output, drmModeConnector *conn)
 	                goto out;
                 } else {
 	                output->status.crtc_id = crtc_id;
-	                output->status.inherited_mode.w = crtc->mode.hdisplay;
-	                output->status.inherited_mode.h = crtc->mode.vdisplay;
-	                output->status.inherited_mode.refresh =
-		                crtc->mode.vrefresh;
+	                output->status.mode = crtc->mode;
 	                drmModeFreeCrtc(crtc);
                 }
 	} else {
@@ -172,18 +202,7 @@ out:
 	output->conn_id = conn->connector_id;
 	output->status.connected = conn->connection == DRM_MODE_CONNECTED;
 	//read modes
-	wl_array_release(&dev->available_modes);
-	wl_array_init(&dev->available_modes);
-	for (int i = 0; i < conn->count_modes; i++) {
-		drmModeModeInfo *conn_mode = &conn->modes[i];
-		struct tw_output_device_mode *dev_mode =
-			wl_array_add(&dev->available_modes, sizeof(*dev_mode));
-		if (dev_mode) {
-			dev_mode->w = conn_mode->hdisplay;
-			dev_mode->h = conn_mode->vdisplay;
-			dev_mode->refresh = conn_mode->vrefresh;
-		};
-	}
+	read_display_modes(output, conn);
 	dev->phys_width = conn->mmWidth;
 	dev->phys_height = conn->mmHeight;
 	dev->subpixel = wl_subpixel_from_drm(conn->subpixel);
@@ -195,6 +214,27 @@ out:
 	return ret;
 
 }
+
+static void
+handle_display_commit_state(struct tw_output_device *device)
+{
+	struct tw_drm_display *output =
+		wl_container_of(device, output, output.device);
+	struct tw_output_device_state *pending = &device->pending;
+	struct tw_output_device_mode *mode =
+		tw_output_device_match_mode(device,
+		                            pending->current_mode.w,
+		                            pending->current_mode.h,
+		                            pending->current_mode.refresh);
+	//we will run atomic/legacy anyway.
+	if (mode) {
+
+	}
+}
+
+static const struct tw_output_device_impl output_dev_impl = {
+	handle_display_commit_state,
+};
 
 struct tw_drm_display *
 tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn)
@@ -212,7 +252,7 @@ tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn)
 		found = calloc(1, sizeof(*found));
 		if (!found)
 			return NULL;
-		tw_render_output_init(&found->output, NULL);
+		tw_render_output_init(&found->output, &output_dev_impl);
 		found->drm = drm;
 		found->gpu = gpu;
 
@@ -309,6 +349,7 @@ tw_drm_display_start(struct tw_drm_display *output)
 void
 tw_drm_display_remove(struct tw_drm_display *output)
 {
+	wl_array_release(&output->status.modes);
 	tw_drm_display_fini_gbm(output);
 	free(output);
 }
