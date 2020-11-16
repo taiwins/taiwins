@@ -37,9 +37,11 @@ extern "C" {
 struct tw_output_device;
 
 struct tw_output_device_mode {
-	int32_t w, h; /** indicate the pixel size of the output */
-	int32_t refresh; /** -1 means unavailable */
+	int32_t w, h; /**< indicate the pixel size of the output */
+	int32_t refresh; /**< -1 means unavailable */
 	bool preferred;
+
+	struct wl_list link; /**< output_device:mode_list */
 };
 
 struct tw_output_device_state {
@@ -87,7 +89,7 @@ struct tw_output_device {
 	void *native_window;
 	const struct tw_output_device_impl *impl;
 	struct wl_list link; /** backend: list */
-	struct wl_array available_modes;
+	struct wl_list mode_list;
 
 	struct tw_output_device_state state, pending;
 
@@ -130,6 +132,9 @@ tw_output_device_set_pos(struct tw_output_device *device, int gx, int gy);
 void
 tw_output_device_set_custom_mode(struct tw_output_device *device,
                                  unsigned width, unsigned height, int refresh);
+struct tw_output_device_mode *
+tw_output_device_match_mode(struct tw_output_device *device,
+                            int width, int height, int refresh);
 void
 tw_output_device_commit_state(struct tw_output_device *device);
 

@@ -112,6 +112,11 @@ struct tw_drm_crtc {
 	struct tw_drm_crtc_props props;
 };
 
+struct tw_drm_mode_info {
+	drmModeModeInfo info;
+	struct tw_output_device_mode mode;
+};
+
 struct tw_drm_display {
 	struct tw_render_output output;
 	struct tw_drm_backend *drm;
@@ -124,15 +129,11 @@ struct tw_drm_display {
 	struct tw_drm_crtc *crtc;
 
 	struct {
-		//TODO maybe we should gamma info for all channels
-		int max_brightness;
-		int brightness;
-	} backlight;
-
-	struct {
-		bool connected;
+		bool connected, active;
 		int crtc_id; /* crtc_id read from connector, may not work */
-		struct tw_output_device_mode inherited_mode;
+		int mode_id; /* mode_id submitting to server */
+		drmModeModeInfo mode;
+		struct wl_array modes;
 	} status;
 
 	/** we need a plane to create data on */

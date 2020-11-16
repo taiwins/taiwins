@@ -19,14 +19,15 @@
  *
  */
 
+#include <math.h>
+#include <stdint.h>
 #include <time.h>
 #include <string.h>
+#include <limits.h>
 #include <pixman.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/matrix.h>
 #include <taiwins/objects/logger.h>
-
 #include <taiwins/output_device.h>
 
 static void
@@ -53,7 +54,7 @@ tw_output_device_init(struct tw_output_device *device,
 	device->phys_height = 0;
 	device->impl = impl;
 	device->subpixel = WL_OUTPUT_SUBPIXEL_NONE;
-	wl_array_init(&device->available_modes);
+	wl_list_init(&device->mode_list);
 	wl_list_init(&device->link);
 
 	output_device_state_init(&device->state, device);
@@ -72,7 +73,6 @@ tw_output_device_fini(struct tw_output_device *device)
 {
 	wl_signal_emit(&device->events.destroy, device);
 
-	wl_array_release(&device->available_modes);
 	wl_list_remove(&device->link);
 }
 
@@ -97,6 +97,35 @@ tw_output_device_set_custom_mode(struct tw_output_device *device,
 	device->pending.current_mode.h = height;
 	device->pending.current_mode.preferred = false;
 	device->pending.current_mode.refresh = refresh;
+}
+
+/** used by backends to extract potential matched mode
+ *
+ * The algorithm would go through the mode_list searching for the closest mode
+ * available(unless there is no modes at all). We return on finding exact mode
+ * or the closest mode we can get.
+ *
+ */
+struct tw_output_device_mode *
+tw_output_device_match_mode(struct tw_output_device *device,
+                            int w, int h, int r)
+{
+	uint64_t min_diff = UINT64_MAX;
+	struct tw_output_device_mode *matched = NULL, *mode;
+
+	wl_list_for_each(mode, &device->mode_list, link) {
+		uint64_t diff = abs(mode->w-w) * abs(mode->h-h) * 1000 +
+			abs(mode->refresh - r);
+
+		if (w == mode->w && h == mode->h && r == mode->refresh)
+			return mode;
+
+		if (diff < min_diff) {
+			min_diff = diff;
+			matched = mode;
+		}
+	}
+	return matched;
 }
 
 void
