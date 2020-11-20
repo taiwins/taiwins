@@ -56,6 +56,12 @@ enum tw_drm_plane_type {
 	TW_DRM_PLANE_CURSOR,
 };
 
+enum tw_drm_pending_flags {
+	TW_DRM_PENDING_ACTIVE = 1 << 0,
+	TW_DRM_PENDING_MODE = 1 << 1,
+	TW_DRM_PENDING_CRTC = 1 << 2,
+};
+
 struct tw_drm_prop_info {
 	const char *name;
 	uint32_t *ptr;
@@ -93,6 +99,26 @@ struct tw_drm_plane_props {
 	uint32_t fb_id;
 };
 
+enum tw_drm_fb_type {
+	TW_DRM_FB_SURFACE,
+	TW_DRM_FB_WL_BUFFER,
+};
+
+// a framebuffer on a plane, it can be generated from gbm_surface or be a
+// surfaceless bo imported from dma or wl_buffer or other things. I may be able
+// to implement
+struct tw_drm_fb {
+	enum tw_drm_fb_type type;
+	struct {
+		struct gbm_bo *bo;
+		struct gbm_surface *surf;
+	} gbm;
+};
+
+void tw_drm_fb_release(struct tw_drm_fb *fb);
+
+void tw_drm_plane_commit_fb(struct tw_drm_plane *plane);
+
 struct tw_drm_plane {
 	struct tw_plane base;
 	uint32_t id; /**< drm plane id */
@@ -101,6 +127,8 @@ struct tw_drm_plane {
 
 	struct tw_drm_formats formats;
 	struct tw_drm_plane_props props;
+
+	struct tw_drm_fb pending, current;
 };
 
 struct tw_drm_crtc {
@@ -129,6 +157,7 @@ struct tw_drm_display {
 	struct tw_drm_crtc *crtc;
 
 	struct {
+		enum tw_drm_pending_flags pending;
 		bool connected, active;
 		int crtc_id; /* crtc_id read from connector, may not work */
 		int mode_id; /* mode_id submitting to server */
@@ -140,6 +169,10 @@ struct tw_drm_display {
 	struct {
 		struct gbm_surface *gbm;
 	} gbm_surface;
+
+	struct tw_drm_connector_props props;
+
+	struct wl_listener presentable_commit;
 };
 
 struct tw_drm_gpu {
@@ -230,6 +263,12 @@ tw_drm_plane_fini(struct tw_drm_plane *plane);
 void
 tw_drm_display_start(struct tw_drm_display *display);
 
+void
+tw_drm_display_atomic_pageflip(struct tw_drm_display *display);
+
+void
+tw_drm_display_legacy_pageflip(struct tw_drm_display *display);
+
 bool
 tw_drm_display_start_gbm(struct tw_drm_display *display);
 
@@ -255,6 +294,8 @@ struct gbm_surface *
 tw_drm_create_gbm_surface(struct gbm_device *dev, uint32_t w, uint32_t h,
                           uint32_t format, int n_mods, uint64_t *modifiers,
                           uint32_t flags);
+uint32_t
+tw_drm_gbm_get_fb(struct gbm_bo *bo);
 
 #ifdef  __cplusplus
 }

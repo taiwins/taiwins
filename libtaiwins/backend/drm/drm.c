@@ -19,6 +19,7 @@
  *
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -182,13 +183,44 @@ tw_drm_print_info(int fd)
 	drmFreeVersion(version);
 }
 
+static void
+handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
+                  unsigned crtc_id, void *data)
+{
+	struct tw_drm_gpu *gpu = data;
+	struct tw_drm_backend *drm = gpu->drm;
+	struct tw_drm_display *query, *output = NULL;
+
+	assert(gpu->gpu_fd == fd);
+	wl_list_for_each(query, &drm->base.outputs, output.device.link) {
+		if ((query->gpu == gpu) &&
+		    (query->crtc && query->crtc->id == (int)crtc_id)) {
+			output = query;
+			break;
+		}
+	}
+	if (!output) {
+		tw_logl_level(TW_LOG_WARN, "crtc %u no connector", crtc_id);
+		return;
+	}
+
+	if (!output->status.connected)
+		return;
+
+	//later on we may need to have different callbacks.
+        if (gpu->feats & TW_DRM_CAP_ATOMIC)
+		tw_drm_display_atomic_pageflip(output);
+	else
+		tw_drm_display_legacy_pageflip(output);
+}
+
 int
 tw_drm_handle_drm_event(int fd, uint32_t mask, void *data)
 {
 	drmEventContext event = {
 		.version = 3,
 		.vblank_handler = NULL,
-		.page_flip_handler2 = NULL,
+		.page_flip_handler2 = handle_page_flip2,
 		.sequence_handler = NULL,
 	};
 
