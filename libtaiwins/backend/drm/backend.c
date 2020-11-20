@@ -44,8 +44,10 @@ drm_backend_start(struct tw_backend *backend, struct tw_render_context *ctx)
 	struct tw_drm_display *output;
 	struct tw_drm_backend *drm = wl_container_of(backend, drm, base);
 
-	wl_list_for_each(output, &drm->base.outputs, output.device.link)
-		tw_drm_display_start(output);
+	wl_list_for_each(output, &drm->base.outputs, output.device.link) {
+		if (output->status.connected)
+			tw_drm_display_start(output);
+	}
 	return true;
 }
 
@@ -176,7 +178,7 @@ drm_backend_init_gpu(struct tw_drm_gpu *gpu, struct tw_login_gpu *login_gpu,
 	gpu->event = wl_event_loop_add_fd(loop, gpu->gpu_fd,
 	                                  WL_EVENT_READABLE,
 	                                  tw_drm_handle_drm_event,
-	                                  drm);
+	                                  gpu);
 	if (!gpu->event) {
 		tw_logl_level(TW_LOG_ERRO, "Failed to monitor events "
 		              "for gpu-%d", gpu->gpu_fd);

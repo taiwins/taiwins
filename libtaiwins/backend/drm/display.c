@@ -31,6 +31,7 @@
 #include <wayland-util.h>
 #include <xf86drmMode.h>
 
+#include "drm_mode.h"
 #include "internal.h"
 
 static inline enum wl_output_subpixel
@@ -169,6 +170,19 @@ err:
 	return false;
 }
 
+static inline void
+read_display_props(struct tw_drm_display *output, int fd)
+{
+	struct tw_drm_prop_info prop_info[] = {
+		{"CRTC_ID", &output->props.crtc_id},
+		{"DPMS", &output->props.dpms},
+		{"EDID", &output->props.edid},
+	};
+	tw_drm_read_properties(fd, output->conn_id, DRM_MODE_OBJECT_CONNECTOR,
+	                       prop_info,
+	                       sizeof(prop_info)/sizeof(prop_info[0]));
+}
+
 static bool
 tw_drm_display_read_info(struct tw_drm_display *output, drmModeConnector *conn)
 {
@@ -201,6 +215,7 @@ out:
 	output->crtc_mask = read_connector_possible_crtcs(fd, conn);
 	output->conn_id = conn->connector_id;
 	output->status.connected = conn->connection == DRM_MODE_CONNECTED;
+	read_display_props(output, fd);
 	//read modes
 	read_display_modes(output, conn);
 	dev->phys_width = conn->mmWidth;
@@ -218,6 +233,7 @@ out:
 static void
 handle_display_commit_state(struct tw_output_device *device)
 {
+	drmModeModeInfo *info = NULL;
 	struct tw_drm_display *output =
 		wl_container_of(device, output, output.device);
 	struct tw_output_device_state *pending = &device->pending;
@@ -226,9 +242,18 @@ handle_display_commit_state(struct tw_output_device *device)
 		                            pending->current_mode.w,
 		                            pending->current_mode.h,
 		                            pending->current_mode.refresh);
-	//we will run atomic/legacy anyway.
-	if (mode) {
 
+	if (pending->enabled ^ output->status.active) {
+		output->status.pending |= TW_DRM_PENDING_ACTIVE;
+		output->status.active = pending->enabled;
+	}
+	if (mode) {
+		struct tw_drm_mode_info *mode_info =
+			wl_container_of(mode, mode_info, mode);
+		info = &mode_info->info;
+
+		if (memcmp(info, &output->status.mode, sizeof(*info)) != 0)
+			output->status.pending |= TW_DRM_PENDING_MODE;
 	}
 }
 
@@ -337,13 +362,18 @@ tw_drm_display_start(struct tw_drm_display *output)
 	tw_render_output_set_context(&output->output, drm->base.ctx);
 	//TODO: setting the current resolution, this reminds me that maybe we
 	//should have signal the output first
-	/* tw_output_device_commit_state(&output->output.device); */
+	tw_output_device_commit_state(&output->output.device);
 
 	output->primary_plane = find_plane(output, TW_DRM_PLANE_MAJOR);
 
 	tw_drm_display_start_gbm(output);
 
 	wl_signal_emit(&drm->base.events.new_output, &output->output.device);
+
+	if (output->gpu->feats & TW_DRM_CAP_ATOMIC)
+		tw_drm_display_atomic_pageflip(output);
+	else
+		tw_drm_display_legacy_pageflip(output);
 }
 
 void

@@ -4,6 +4,7 @@ taiwins_lib_src += files(
   'display.c',
   'plane.c',
   'drm-gbm.c',
+  'kms.c',
 )
 
 taiwins_lib_dep += [

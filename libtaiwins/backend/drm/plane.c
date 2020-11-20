@@ -19,6 +19,7 @@
  *
  */
 
+#include <gbm.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -111,8 +112,7 @@ fallback:
 }
 
 static void
-read_plane_properties(int fd, int plane_id,
-                             struct tw_drm_plane_props *p)
+read_plane_properties(int fd, int plane_id, struct tw_drm_plane_props *p)
 {
 	//the array has to be in ascend order
 	struct tw_drm_prop_info plane_info[] = {
@@ -131,6 +131,13 @@ read_plane_properties(int fd, int plane_id,
 	};
 	tw_drm_read_properties(fd, plane_id, DRM_MODE_OBJECT_PLANE, plane_info,
 	                       sizeof(plane_info)/sizeof(plane_info[0]));
+}
+
+static inline void
+init_plane_fb(struct tw_drm_fb *fb)
+{
+	fb->gbm.bo = NULL;
+	fb->gbm.surf = NULL;
 }
 
 bool
@@ -154,6 +161,8 @@ tw_drm_plane_init(struct tw_drm_plane *plane, int fd, drmModePlane *drm_plane)
 	plane->crtc_mask = drm_plane->possible_crtcs;
 	read_plane_properties(fd, plane->id, &plane->props);
 	populate_plane_formats(plane, drm_plane, fd);
+	init_plane_fb(&plane->pending);
+	init_plane_fb(&plane->current);
 	return true;
 }
 
@@ -162,4 +171,20 @@ tw_drm_plane_fini(struct tw_drm_plane *plane)
 {
 	tw_drm_formats_fini(&plane->formats);
 	tw_plane_fini(&plane->base);
+}
+
+void
+tw_drm_plane_commit_fb(struct tw_drm_plane *plane)
+{
+	struct tw_drm_fb old = plane->current;
+
+	plane->current = plane->pending;
+	plane->pending = old;
+}
+
+void
+tw_drm_fb_release(struct tw_drm_fb *fb)
+{
+	if (fb->gbm.bo && fb->gbm.surf)
+		gbm_surface_release_buffer(fb->gbm.surf, fb->gbm.bo);
 }

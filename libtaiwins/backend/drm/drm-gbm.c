@@ -23,11 +23,14 @@
 #include <gbm.h>
 #include <drm_fourcc.h>
 #include <stdint.h>
+#include <sys/types.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/egl.h>
 #include <taiwins/objects/drm_formats.h>
 #include <taiwins/render_context.h>
+#include <xf86drmMode.h>
 
+#include "drm_mode.h"
 #include "internal.h"
 #include "taiwins/render_output.h"
 
@@ -108,4 +111,52 @@ tw_drm_create_gbm_surface(struct gbm_device *dev, uint32_t w, uint32_t h,
 		surf = gbm_surface_create(dev, w, h, format, flags);
 
 	return surf;
+}
+
+void
+tw_drm_gbm_free_fb(struct gbm_bo *bo)
+{
+	struct gbm_device *dev = gbm_bo_get_device(bo);
+	uint32_t fb = (uintptr_t)gbm_bo_get_user_data(bo);
+
+	if (fb)
+		drmModeRmFB(gbm_device_get_fd(dev), fb);
+}
+
+uint32_t
+tw_drm_gbm_get_fb(struct gbm_bo *bo)
+{
+	uint32_t fbid = (uintptr_t)gbm_bo_get_user_data(bo);
+
+	struct gbm_device *gbm = gbm_bo_get_device(bo);
+	int fd = gbm_device_get_fd(gbm);
+	uint32_t width = gbm_bo_get_width(bo);
+	uint32_t height = gbm_bo_get_height(bo);
+	uint32_t format = gbm_bo_get_format(bo);
+
+	uint32_t handles[4] = {0}, strides[4] = {0}, offsets[4] = {0};
+	uint64_t modifiers[4] = {0};
+
+	if (fbid)
+		return fbid;
+
+	for (int i = 0; i < gbm_bo_get_plane_count(bo); i++) {
+		handles[i] = gbm_bo_get_handle_for_plane(bo, i).u32;
+		strides[i] = gbm_bo_get_stride_for_plane(bo, i);
+		offsets[i] = gbm_bo_get_offset(bo, i);
+		modifiers[i]= gbm_bo_get_modifier(bo);
+	}
+	if (gbm_bo_get_modifier(bo) != DRM_FORMAT_MOD_INVALID) {
+		if (drmModeAddFB2WithModifiers(fd, width, height, format,
+		                               handles, strides, offsets,
+		                               modifiers, &fbid,
+		                               DRM_MODE_FB_MODIFIERS))
+			tw_logl_level(TW_LOG_WARN, "Failing add framebuffer");
+	} else {
+		if (drmModeAddFB2(fd, width, height, format, handles, strides,
+		                  offsets, &fbid, 0)) {
+			tw_logl_level(TW_LOG_ERRO, "Failing add framebuffer");
+		}
+	}
+	return fbid;
 }
