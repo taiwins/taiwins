@@ -51,6 +51,21 @@ struct tw_egl_render_context {
 		PFNGLDEBUGMESSAGECONTROLKHRPROC glDebugMessageControlKHR;
 		PFNGLPOPDEBUGGROUPKHRPROC glPopDebugGroupKHR;
 		PFNGLPUSHDEBUGGROUPKHRPROC glPushDebugGroupKHR;
+/* #if _TW_BUILD_EGLSTREAM */
+		/* eglstream functions */
+		PFNEGLGETOUTPUTLAYERSEXTPROC eglGetOutputLayers;
+		PFNEGLQUERYOUTPUTLAYERATTRIBEXTPROC eglQueryOutputLayerAttrib;
+		PFNEGLCREATESTREAMKHRPROC eglCreateStream;
+		PFNEGLDESTROYSTREAMKHRPROC eglDestroyStream;
+		PFNEGLCREATESTREAMPRODUCERSURFACEKHRPROC
+		eglCreateStreamProducerSurface;
+		PFNEGLSTREAMCONSUMEROUTPUTEXTPROC eglStreamConsumerOutput;
+		//The function used is eglStreamConsumerAcquireAttribNV
+		PFNEGLSTREAMCONSUMERACQUIREATTRIBKHRPROC
+		eglStreamConsumerAcquireAttrib;
+
+		//consume output attribute may not work
+/* #endif */
 	} funcs;
 };
 
