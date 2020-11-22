@@ -18,8 +18,14 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
+#include "options.h"
 
 #include <EGL/egl.h>
+#include <EGL/eglext.h>
+#if _TW_HAS_EGLMESAEXT
+#include <EGL/eglmesaext.h>
+#endif
+
 #include <assert.h>
 #include <GLES3/gl3.h>
 #include <GLES2/gl2ext.h>

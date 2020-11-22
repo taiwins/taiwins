@@ -1,6 +1,7 @@
 #ifndef TW_COMPILE_OPTIONS_H
 #define TW_COMPILE_OPTIONS_H
 
+#mesondefine _TW_HAS_EGLMESAEXT
 #mesondefine _TW_ENABLE_PROFILING
 #mesondefine _TW_DEBUG_DAMAGE
 #mesondefine _TW_DEBUG_CLIP
