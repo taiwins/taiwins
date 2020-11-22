@@ -48,6 +48,7 @@ struct tw_egl_options {
 	EGLint visual_id;
 
 	const EGLint *context_attribs;
+	const EGLint *platform_attribs;
 };
 
 struct tw_egl {

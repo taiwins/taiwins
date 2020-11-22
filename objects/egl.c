@@ -129,7 +129,8 @@ setup_egl_display(struct tw_egl *egl, const struct tw_egl_options *opts)
 	EGLint major, minor;
 
 	egl->display = _get_platform_display(opts->platform,
-	                                     opts->native_display, NULL);
+	                                     opts->native_display,
+	                                     opts->platform_attribs);
 	if (egl->display == EGL_NO_DISPLAY) {
 		tw_logl_level(TW_LOG_ERRO, "Failed to create EGL display");
 		return false;
