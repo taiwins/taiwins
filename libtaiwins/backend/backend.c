@@ -28,10 +28,10 @@
 #include <taiwins/objects/egl.h>
 
 #include <taiwins/backend.h>
-#include <taiwins/backend-headless.h>
-#include <taiwins/backend-wayland.h>
+#include <taiwins/backend_headless.h>
+#include <taiwins/backend_wayland.h>
 #if _TW_HAS_X11_BACKEND
-#include <taiwins/backend-x11.h>
+#include <taiwins/backend_x11.h>
 #endif
 
 void
