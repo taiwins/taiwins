@@ -24,7 +24,6 @@
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-#include <EGL/eglmesaext.h>
 
 #include <assert.h>
 #include <string.h>
@@ -63,23 +62,6 @@ struct tw_egl {
 	bool import_dmabuf, import_dmabuf_modifiers;
 	unsigned int internal_format;
 	struct tw_drm_formats drm_formats;
-
-	struct {
-		PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display;
-		PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC create_window_surface;
-		PFNEGLCREATEIMAGEKHRPROC create_image;
-		PFNEGLDESTROYIMAGEKHRPROC destroy_image;
-		PFNEGLQUERYWAYLANDBUFFERWL query_wl_buffer;
-		PFNEGLBINDWAYLANDDISPLAYWL bind_wl_display;
-		PFNEGLUNBINDWAYLANDDISPLAYWL unbind_wl_display;
-		PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC swap_buffer_with_damage;
-		PFNEGLQUERYDMABUFFORMATSEXTPROC query_dmabuf_formats;
-		PFNEGLQUERYDMABUFMODIFIERSEXTPROC query_dmabuf_modifiers;
-		PFNEGLEXPORTDMABUFIMAGEQUERYMESAPROC export_dmabuf_image_query;
-		PFNEGLEXPORTDMABUFIMAGEMESAPROC export_dmabuf_image;
-		PFNEGLDEBUGMESSAGECONTROLKHRPROC debug_message_control;
-	} funcs;
-
 };
 
 
@@ -110,6 +92,13 @@ tw_egl_bind_wl_display(struct tw_egl *egl, struct wl_display *display);
 bool
 tw_egl_destroy_image(struct tw_egl *egl, EGLImageKHR image);
 
+bool
+tw_egl_query_wl_buffer(struct tw_egl *egl, struct wl_resource *buffer,
+                       EGLint attribute, EGLint *value);
+
+EGLSurface
+tw_egl_create_window_surface(struct tw_egl *egl, void *native_surface,
+                             EGLint const * attrib_list);
 EGLImageKHR
 tw_egl_import_wl_drm_image(struct tw_egl *egl, struct wl_resource *data,
                            EGLint *fmt, int *width, int *height,

@@ -7,6 +7,10 @@ foreach f : [ 'mkostemp', 'posix_fallocate', 'memfd_create' ]
   twobject_cargs += farg
 endforeach
 
+if cc.has_header('EGL/eglmesaext.h')
+  twobject_cargs += '-DHAVE_EGLMESAEXT'
+endif
+
 pkgconfig = import('pkgconfig')
 
 taiwins_obj_srcs = [
