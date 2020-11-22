@@ -141,9 +141,7 @@ static bool
 wl_buffer_is_drm_texture(struct tw_egl *egl, struct wl_resource *buffer)
 {
 	EGLint fmt;
-	//have a function for it/
-	return egl->funcs.query_wl_buffer(egl->display, buffer,
-	                                  EGL_TEXTURE_FORMAT, &fmt);
+	return tw_egl_query_wl_buffer(egl, buffer, EGL_TEXTURE_FORMAT, &fmt);
 }
 
 static bool

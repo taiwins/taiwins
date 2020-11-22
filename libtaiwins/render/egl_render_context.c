@@ -68,11 +68,9 @@ new_window_surface(struct tw_render_presentable *surf,
 	if (!(ctx->egl.surface_type & EGL_WINDOW_BIT))
 		return false;
 
-	eglsurface =
-		ctx->egl.funcs.create_window_surface(ctx->egl.display,
-		                                     ctx->egl.config,
-		                                     native_surface,
-		                                     NULL);
+	eglsurface = tw_egl_create_window_surface(&ctx->egl, native_surface,
+	                                          NULL);
+
 	if (eglsurface == EGL_NO_SURFACE) {
 		tw_logl_level(TW_LOG_ERRO, "eglCreateWindowSurface failed");
 		return false;
