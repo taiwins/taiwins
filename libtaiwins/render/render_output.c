@@ -233,13 +233,8 @@ notify_output_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_render_output *output =
 		wl_container_of(listener, output, listeners.destroy);
-	fini_output_state(output);
-	wl_list_remove(&output->listeners.destroy.link);
-	wl_list_remove(&output->listeners.frame.link);
-	wl_list_remove(&output->listeners.set_mode.link);
-	wl_list_remove(&output->listeners.surface_dirty.link);
+	tw_render_output_fini(output);
 
-	tw_render_presentable_fini(&output->surface, output->ctx);
 }
 
 static void
@@ -259,6 +254,9 @@ void
 tw_render_output_init(struct tw_render_output *output,
                       const struct tw_output_device_impl *impl)
 {
+	output->ctx = NULL;
+	output->surface.destroy = NULL;
+	output->surface.handle = 0;
 	init_output_state(output);
 	tw_output_device_init(&output->device, impl);
 
@@ -282,7 +280,13 @@ tw_render_output_init(struct tw_render_output *output,
 void
 tw_render_output_fini(struct tw_render_output *output)
 {
-	assert(output->ctx);
+	fini_output_state(output);
+	wl_list_remove(&output->listeners.destroy.link);
+	wl_list_remove(&output->listeners.frame.link);
+	wl_list_remove(&output->listeners.set_mode.link);
+	wl_list_remove(&output->listeners.surface_dirty.link);
+	if (output->ctx && output->surface.destroy)
+		tw_render_presentable_fini(&output->surface, output->ctx);
 	tw_output_device_fini(&output->device);
 }
 
