@@ -48,6 +48,7 @@ struct tw_egl_options {
 	EGLint visual_id;
 
 	const EGLint *context_attribs;
+	const EGLint *platform_attribs;
 };
 
 struct tw_egl {
@@ -95,7 +96,6 @@ tw_egl_destroy_image(struct tw_egl *egl, EGLImageKHR image);
 bool
 tw_egl_query_wl_buffer(struct tw_egl *egl, struct wl_resource *buffer,
                        EGLint attribute, EGLint *value);
-
 EGLSurface
 tw_egl_create_window_surface(struct tw_egl *egl, void *native_surface,
                              EGLint const * attrib_list);
@@ -112,6 +112,10 @@ tw_egl_image_export_dmabuf(struct tw_egl *egl, EGLImage image,
                            struct tw_dmabuf_attributes *attrs);
 void
 tw_egl_impl_linux_dmabuf(struct tw_egl *egl, struct tw_linux_dmabuf *dma);
+
+/** EGL Stream APIs, not guarantee to exit */
+EGLDeviceEXT
+tw_egl_device_from_path(const char *path);
 
 #ifdef  __cplusplus
 }

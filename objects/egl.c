@@ -25,10 +25,11 @@
 #include <GLES3/gl3ext.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
+#include <EGL/eglplatform.h>
 #ifdef HAVE_EGLMESAEXT
 #include <EGL/eglmesaext.h>
 #endif
-#include <EGL/eglplatform.h>
+
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -36,13 +37,12 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stddef.h>
-#include <taiwins/objects/logger.h>
-#include <taiwins/objects/dmabuf.h>
-#include <wayland-server-core.h>
+#include <unistd.h>
 #include <wayland-server.h>
-#include <wayland-util.h>
 #include <drm_fourcc.h>
 
+#include <taiwins/objects/logger.h>
+#include <taiwins/objects/dmabuf.h>
 #include <taiwins/objects/drm_formats.h>
 #include <taiwins/objects/egl.h>
 
@@ -59,7 +59,6 @@ static PFNEGLQUERYDMABUFFORMATSEXTPROC _query_dmabuf_formats = NULL;
 static PFNEGLQUERYDMABUFMODIFIERSEXTPROC _query_dmabuf_modifiers = NULL;
 static PFNEGLEXPORTDMABUFIMAGEQUERYMESAPROC _export_dmabuf_image_query = NULL;
 static PFNEGLEXPORTDMABUFIMAGEMESAPROC _export_dmabuf_image = NULL;
-//TODO adding eglstream functions.
 
 const char *
 platform_to_extension(EGLenum platform)
@@ -130,7 +129,8 @@ setup_egl_display(struct tw_egl *egl, const struct tw_egl_options *opts)
 	EGLint major, minor;
 
 	egl->display = _get_platform_display(opts->platform,
-	                                     opts->native_display, NULL);
+	                                     opts->native_display,
+	                                     opts->platform_attribs);
 	if (egl->display == EGL_NO_DISPLAY) {
 		tw_logl_level(TW_LOG_ERRO, "Failed to create EGL display");
 		return false;
@@ -833,4 +833,58 @@ tw_egl_impl_linux_dmabuf(struct tw_egl *egl, struct tw_linux_dmabuf *dma)
 {
 	dma->impl = &dmabuf_impl;
 	dma->impl_userdata = egl;
+}
+
+
+WL_EXPORT EGLDeviceEXT
+tw_egl_device_from_path(const char *path)
+{
+	int ndevs;
+	const char *extensions, *pt;
+	PFNEGLQUERYDEVICESEXTPROC query_devices;
+	PFNEGLQUERYDEVICESTRINGEXTPROC query_device_string;
+	EGLDeviceEXT devices[16];
+
+	//get EGL device
+	extensions = (const char *)eglQueryString(EGL_NO_DISPLAY,
+	                                          EGL_EXTENSIONS);
+	if (!extensions) {
+		tw_logl_level(TW_LOG_WARN, "Failed to query egl externsion");
+		return EGL_NO_DEVICE_EXT;
+	}
+
+	if (!check_egl_ext(extensions, "EGL_EXT_device_base", false) &&
+	    (!check_egl_ext(extensions, "EGL_EXT_device_query", false) ||
+	     !check_egl_ext(extensions, "EGL_EXT_device_enumeration", false))){
+		tw_logl_level(TW_LOG_WARN, "no EGL_EXT_device_base");
+		return EGL_NO_DEVICE_EXT;
+	}
+
+	if (!check_egl_ext(extensions, "EGL_EXT_device_base", false) &&
+	    (!check_egl_ext(extensions, "EGL_EXT_device_query", false) ||
+	     !check_egl_ext(extensions, "EGL_EXT_device_enumeration", false))){
+		tw_logl_level(TW_LOG_WARN, "no EGL_EXT_device_base");
+		return EGL_NO_DEVICE_EXT;
+	}
+
+	if (!get_egl_proc(&query_devices, "eglQueryDevicesEXT") ||
+	    !get_egl_proc(&query_device_string, "eglQueryDeviceStringEXT"))
+		return EGL_NO_DEVICE_EXT;
+
+	if (query_devices(16, devices, &ndevs) != EGL_TRUE) {
+		tw_logl_level(TW_LOG_WARN, "Failed to query EGL Devices\n");
+		return EGL_NO_DEVICE_EXT;
+	}
+	for (int i = 0; i < ndevs; i++) {
+		extensions = query_device_string(devices[i], EGL_EXTENSIONS);
+		pt = query_device_string(devices[i], EGL_DRM_DEVICE_FILE_EXT);
+
+		if (!extensions || !pt ||
+		    !check_egl_ext(extensions, "EGL_EXT_device_drm", false))
+			continue;
+		if (strcmp(pt, path) != 0)
+			continue;
+		return devices[i];
+	}
+	return EGL_NO_DEVICE_EXT;
 }
