@@ -38,6 +38,9 @@
 #include "login/login.h"
 #include "internal.h"
 
+extern const struct tw_drm_gpu_impl tw_gpu_gbm_impl;
+extern const struct tw_drm_gpu_impl tw_gpu_stream_impl;
+
 static bool
 drm_backend_start(struct tw_backend *backend, struct tw_render_context *ctx)
 {
@@ -57,22 +60,7 @@ drm_gen_egl_params(struct tw_backend *backend)
 	struct tw_drm_backend *drm = wl_container_of(backend, drm, base);
 	struct tw_drm_gpu *boot_gpu = drm->boot_gpu;
 
-	static struct tw_egl_options egl_opts = {
-		.platform = EGL_PLATFORM_GBM_KHR,
-	};
-	static const EGLint egl_config_attribs[] = {
-		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-		EGL_BLUE_SIZE, 1,
-		EGL_GREEN_SIZE, 1,
-		EGL_RED_SIZE, 1,
-		EGL_ALPHA_SIZE, 0,
-		EGL_NONE,
-	};
-	egl_opts.context_attribs = egl_config_attribs;
-	egl_opts.visual_id = boot_gpu->gbm.visual_id;
-	egl_opts.native_display = boot_gpu->gbm.dev;
-	return &egl_opts;
+	return boot_gpu->impl->gen_egl_params(boot_gpu);
 }
 
 static const struct tw_backend_impl drm_impl = {
@@ -102,7 +90,7 @@ drm_backend_release_gpus(struct tw_drm_backend *drm)
 		// destroyed already in `drm_backend_stop`.
 		wl_event_source_remove(gpu->event);
 		tw_drm_free_gpu_resources(gpu);
-		tw_drm_fini_gpu_gbm(gpu);
+		gpu->impl->free_gpu_device(gpu);
 		tw_login_close(drm->login, gpu->gpu_fd);
 	}
 	wl_array_release(&drm->gpus);
@@ -160,6 +148,13 @@ drm_backend_init_gpu(struct tw_drm_gpu *gpu, struct tw_login_gpu *login_gpu,
 	gpu->crtc_mask = 0;
 	wl_list_init(&gpu->crtc_list);
 	wl_list_init(&gpu->plane_list);
+#if _TW_BUILD_EGLSTREAM
+	const char *platform = getenv("TW_DRM_PLATFORM");
+	if (platform && !strcmp(platform, _DRM_PLATFORM_STREAM))
+		gpu->impl = &tw_gpu_stream_impl;
+	else
+#endif
+		gpu->impl = &tw_gpu_gbm_impl;
 
 	if (!tw_drm_check_gpu_features(gpu)) {
 		tw_logl_level(TW_LOG_ERRO, "Failed to check features "
@@ -171,9 +166,8 @@ drm_backend_init_gpu(struct tw_drm_gpu *gpu, struct tw_login_gpu *login_gpu,
 		              "resources for gpu-%d", gpu->gpu_fd);
 		goto err_resources;
 	}
-	//TODO: having a general handler
-	if (!tw_drm_init_gpu_gbm(gpu))
-		goto err_allocator;
+	if (!gpu->impl->get_gpu_device(gpu, login_gpu))
+		goto err_handle;
 
 	gpu->event = wl_event_loop_add_fd(loop, gpu->gpu_fd,
 	                                  WL_EVENT_READABLE,
@@ -188,7 +182,7 @@ drm_backend_init_gpu(struct tw_drm_gpu *gpu, struct tw_login_gpu *login_gpu,
 	return true;
 
 err_event:
-err_allocator:
+err_handle:
 	tw_drm_free_gpu_resources(gpu);
 err_resources:
 err_features:

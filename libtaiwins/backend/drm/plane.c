@@ -136,8 +136,8 @@ read_plane_properties(int fd, int plane_id, struct tw_drm_plane_props *p)
 static inline void
 init_plane_fb(struct tw_drm_fb *fb)
 {
-	fb->gbm.bo = NULL;
-	fb->gbm.surf = NULL;
+	fb->fb = -1;
+	fb->handle = 0;
 }
 
 bool
@@ -174,17 +174,10 @@ tw_drm_plane_fini(struct tw_drm_plane *plane)
 }
 
 void
-tw_drm_plane_commit_fb(struct tw_drm_plane *plane)
+tw_drm_plane_swap_fb(struct tw_drm_plane *plane)
 {
 	struct tw_drm_fb old = plane->current;
 
 	plane->current = plane->pending;
 	plane->pending = old;
-}
-
-void
-tw_drm_fb_release(struct tw_drm_fb *fb)
-{
-	if (fb->gbm.bo && fb->gbm.surf)
-		gbm_surface_release_buffer(fb->gbm.surf, fb->gbm.bo);
 }

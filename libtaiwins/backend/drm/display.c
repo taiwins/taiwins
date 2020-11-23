@@ -351,6 +351,7 @@ void
 tw_drm_display_start(struct tw_drm_display *output)
 {
 	struct tw_drm_backend *drm = output->drm;
+	struct tw_drm_gpu *gpu = output->gpu;
 
 	//this may not work
 	if (!find_display_crtc(output)) {
@@ -366,20 +367,18 @@ tw_drm_display_start(struct tw_drm_display *output)
 
 	output->primary_plane = find_plane(output, TW_DRM_PLANE_MAJOR);
 
-	tw_drm_display_start_gbm(output);
+	gpu->impl->start_display(output);
 
 	wl_signal_emit(&drm->base.events.new_output, &output->output.device);
 
-	if (output->gpu->feats & TW_DRM_CAP_ATOMIC)
-		tw_drm_display_atomic_pageflip(output);
-	else
-		tw_drm_display_legacy_pageflip(output);
+	gpu->impl->page_flip(output);
 }
 
 void
 tw_drm_display_remove(struct tw_drm_display *output)
 {
 	wl_array_release(&output->status.modes);
-	tw_drm_display_fini_gbm(output);
+	tw_render_output_fini(&output->output);
+	output->gpu->impl->end_display(output);
 	free(output);
 }

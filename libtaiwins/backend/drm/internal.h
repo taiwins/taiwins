@@ -34,14 +34,25 @@
 #include <taiwins/objects/plane.h>
 #include <taiwins/objects/drm_formats.h>
 
+#include "login/login.h"
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
+struct tw_drm_fb;
 struct tw_drm_gpu;
 struct tw_drm_plane;
 struct tw_drm_display;
 struct tw_drm_backend;
+
+#define _DRM_PLATFORM_GBM "TW_DRM_PLATFORM_GBM"
+#define _DRM_PLATFORM_STREAM "TW_DRM_PLATFORM_STREAM"
+
+enum tw_drm_platform {
+	TW_DRM_PLATFORM_GBM,
+	TW_DRM_PLATFORM_STREAM,
+};
 
 enum tw_drm_features {
 	TW_DRM_CAP_ATOMIC = 1 << 0,
@@ -60,6 +71,11 @@ enum tw_drm_pending_flags {
 	TW_DRM_PENDING_ACTIVE = 1 << 0,
 	TW_DRM_PENDING_MODE = 1 << 1,
 	TW_DRM_PENDING_CRTC = 1 << 2,
+};
+
+enum tw_drm_fb_type {
+	TW_DRM_FB_SURFACE,
+	TW_DRM_FB_WL_BUFFER,
 };
 
 struct tw_drm_prop_info {
@@ -99,25 +115,14 @@ struct tw_drm_plane_props {
 	uint32_t fb_id;
 };
 
-enum tw_drm_fb_type {
-	TW_DRM_FB_SURFACE,
-	TW_DRM_FB_WL_BUFFER,
-};
-
 // a framebuffer on a plane, it can be generated from gbm_surface or be a
 // surfaceless bo imported from dma or wl_buffer or other things. I may be able
 // to implement
 struct tw_drm_fb {
 	enum tw_drm_fb_type type;
-	struct {
-		struct gbm_bo *bo;
-		struct gbm_surface *surf;
-	} gbm;
+	int fb;
+	uintptr_t handle;
 };
-
-void tw_drm_fb_release(struct tw_drm_fb *fb);
-
-void tw_drm_plane_commit_fb(struct tw_drm_plane *plane);
 
 struct tw_drm_plane {
 	struct tw_plane base;
@@ -165,20 +170,36 @@ struct tw_drm_display {
 		struct wl_array modes;
 	} status;
 
-	/** we need a plane to create data on */
-	struct {
-		struct gbm_surface *gbm;
-	} gbm_surface;
-
+	uintptr_t handle; /* platform specific handle */
 	struct tw_drm_connector_props props;
 
 	struct wl_listener presentable_commit;
 };
 
+struct tw_drm_gpu_impl {
+	enum tw_drm_platform type;
+	/** get different device handles (gbm or egl_device) */
+	bool (*get_gpu_device)(struct tw_drm_gpu *,
+	                       const struct tw_login_gpu *);
+	void (*free_gpu_device)(struct tw_drm_gpu *);
+	/** platform specific egl options */
+	const struct tw_egl_options *(*gen_egl_params)(struct tw_drm_gpu *);
+
+	bool (*start_display)(struct tw_drm_display *);
+
+	void (*end_display)(struct tw_drm_display *);
+
+	void (*page_flip)(struct tw_drm_display *);
+};
+
 struct tw_drm_gpu {
 	int gpu_fd, sysnum;
+	uintptr_t device; /**< contains platform device type */
 	bool boot_vga;
 	bool activated; /**< valid gpu otherwise not used */
+	uint32_t visual_id;
+
+	const struct tw_drm_gpu_impl *impl;
 	enum tw_drm_features feats;
 	struct tw_drm_backend *drm;
 	struct wl_event_source *event;
@@ -196,15 +217,6 @@ struct tw_drm_gpu {
 	struct tw_drm_plane planes[32];
 	struct wl_list plane_list;
 
-	union {
-		struct {
-			struct gbm_device *dev;
-			uint32_t visual_id;
-		} gbm;
-		struct {
-			EGLDeviceEXT egldev;
-		} eglstream;
-	};
 	struct tw_drm_connector_props props;
 };
 
@@ -231,14 +243,10 @@ struct tw_drm_backend {
 	struct wl_listener login_listener;
 };
 
+/******************************* resource API ********************************/
+
 void
 tw_drm_print_info(int fd);
-
-bool
-tw_drm_init_gpu_gbm(struct tw_drm_gpu *gpu);
-
-void
-tw_drm_fini_gpu_gbm(struct tw_drm_gpu *gpu);
 
 int
 tw_drm_handle_drm_event(int fd, uint32_t mask, void *data);
@@ -254,33 +262,6 @@ tw_drm_check_gpu_features(struct tw_drm_gpu *gpu);
 bool
 tw_drm_check_gpu_resources(struct tw_drm_gpu *gpu);
 
-bool
-tw_drm_plane_init(struct tw_drm_plane *plane, int fd,
-                  drmModePlane *drm_plane);
-void
-tw_drm_plane_fini(struct tw_drm_plane *plane);
-
-void
-tw_drm_display_start(struct tw_drm_display *display);
-
-void
-tw_drm_display_atomic_pageflip(struct tw_drm_display *display);
-
-void
-tw_drm_display_legacy_pageflip(struct tw_drm_display *display);
-
-bool
-tw_drm_display_start_gbm(struct tw_drm_display *display);
-
-void
-tw_drm_display_fini_gbm(struct tw_drm_display *output);
-
-void
-tw_drm_display_remove(struct tw_drm_display *display);
-
-struct tw_drm_display *
-tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn);
-
 /**
  * scan the properties by binary search, info has to be ordered
  */
@@ -290,13 +271,40 @@ tw_drm_read_properties(int fd, uint32_t obj_id, uint32_t obj_type,
 bool
 tw_drm_get_property(int fd, uint32_t obj_id, uint32_t obj_type,
                     const char *prop_name, uint64_t *value);
-struct gbm_surface *
-tw_drm_create_gbm_surface(struct gbm_device *dev, uint32_t w, uint32_t h,
-                          uint32_t format, int n_mods, uint64_t *modifiers,
-                          uint32_t flags);
-uint32_t
-tw_drm_gbm_get_fb(struct gbm_bo *bo);
 
+/********************************* plane API *********************************/
+
+bool
+tw_drm_plane_init(struct tw_drm_plane *plane, int fd,
+                  drmModePlane *drm_plane);
+void
+tw_drm_plane_fini(struct tw_drm_plane *plane);
+
+void
+tw_drm_plane_swap_fb(struct tw_drm_plane *plane);
+
+/******************************** display API ********************************/
+
+void
+tw_drm_display_start(struct tw_drm_display *display);
+
+void
+tw_drm_display_remove(struct tw_drm_display *display);
+
+struct tw_drm_display *
+tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn);
+
+/********************************** KMS API **********************************/
+
+bool
+tw_kms_atomic_set_plane_props(drmModeAtomicReq *req, bool pass,
+                              struct tw_drm_plane *plane,
+                              uint32_t crtc_id,
+                              int x, int y, int w, int h);
+bool
+tw_kms_atomic_set_connector_props(drmModeAtomicReq *req, bool pass,
+                                  struct tw_drm_display *output,
+                                  uint32_t crtc);
 #ifdef  __cplusplus
 }
 #endif
