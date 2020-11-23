@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libudev.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <wayland-server-core.h>
 #include <taiwins/backend_drm.h>
@@ -32,6 +33,7 @@
 struct tw_login_gpu {
 	int fd, sysnum;
 	bool boot_vga;
+	char path[PATH_MAX];
 };
 
 bool

@@ -21,7 +21,9 @@
 
 #include "options.h"
 
+#include <string.h>
 #include <libudev.h>
+#include <linux/limits.h>
 #include <wayland-server-core.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
@@ -293,6 +295,7 @@ tw_login_find_gpus(struct tw_login *login, int max_gpus,
 		        gpu->fd = fd;
 		        gpu->sysnum = sysnum;
 		        gpu->boot_vga = boot_vga;
+		        strcpy(gpu->path, path);
 	        } else {
 		        tw_login_close(login, fd);
 	        }
