@@ -206,12 +206,10 @@ handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
 
 	if (!output->status.connected)
 		return;
+	//we should go with display pageflip handle
+	gpu->impl->page_flip(output);
 
-	//later on we may need to have different callbacks.
-        if (gpu->feats & TW_DRM_CAP_ATOMIC)
-		tw_drm_display_atomic_pageflip(output);
-	else
-		tw_drm_display_legacy_pageflip(output);
+	//TODO: send present event
 }
 
 int
