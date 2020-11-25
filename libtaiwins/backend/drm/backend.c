@@ -20,6 +20,7 @@
  */
 
 #include <assert.h>
+#include <libudev.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -143,7 +144,7 @@ drm_backend_init_gpu(struct tw_drm_gpu *gpu, struct tw_login_gpu *login_gpu,
 
 	gpu->drm = drm;
 	gpu->gpu_fd = login_gpu->fd;
-	gpu->sysnum = login_gpu->sysnum;
+	gpu->devnum = login_gpu->devnum;
 	gpu->boot_vga = login_gpu->boot_vga;
 	gpu->crtc_mask = 0;
 	wl_list_init(&gpu->crtc_list);

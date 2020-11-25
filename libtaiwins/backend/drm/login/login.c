@@ -167,7 +167,7 @@ tw_login_get_vt(struct tw_login *login)
 
 static bool
 drm_device_check_kms(struct udev_device *dev, struct tw_login *login,
-                     int *fd, int *num)
+                     int *fd)
 {
 	const char *filename = udev_device_get_devnode(dev);
 	const char *sysnum = udev_device_get_sysname(dev);
@@ -182,7 +182,7 @@ drm_device_check_kms(struct udev_device *dev, struct tw_login *login,
 	if (res->count_crtcs <= 0 || res->count_connectors <= 0 ||
 	    res->count_encoders <= 0)
 		goto err_res;
-	if (!sysnum || ((*num = atoi(sysnum)) < 0) )
+	if (!sysnum || (atoi(sysnum) < 0))
 		goto err_res;
 
 	drmModeFreeResources(res);
@@ -197,7 +197,7 @@ err_get_res:
 int
 tw_login_find_primary_gpu(struct tw_login *login)
 {
-	int fd = -1, sysnum = -1;
+	int fd = -1;
 	struct udev_list_entry *entry;
         struct udev_enumerate *enume = udev_enumerate_new(login->udev);
 
@@ -233,7 +233,7 @@ tw_login_find_primary_gpu(struct tw_login *login)
 	        }
 	        if (!boot_vga)
 		        goto next;
-	        if (!drm_device_check_kms(dev, login, &fd, &sysnum))
+	        if (!drm_device_check_kms(dev, login, &fd))
 		        goto next;
 	        udev_device_unref(dev);
 	        break;
@@ -267,7 +267,7 @@ tw_login_find_gpus(struct tw_login *login, int max_gpus,
 	        bool boot_vga = false;
 	        struct udev_device *pci, *dev;
 	        const char *seat, *path, *id;
-	        int fd = -1, sysnum = -1;
+	        int fd = -1;
 
 	        path = udev_list_entry_get_name(entry);
 	        dev = udev_device_new_from_syspath(login->udev, path);
@@ -287,13 +287,13 @@ tw_login_find_gpus(struct tw_login *login, int max_gpus,
 		        id = udev_device_get_sysattr_value(pci, "boot_vga");
 		        boot_vga = (id && !strcmp(id, "1"));
 	        }
-	        if (!drm_device_check_kms(dev, login, &fd, &sysnum))
+	        if (!drm_device_check_kms(dev, login, &fd))
 		        goto next;
 	        //write to gpu fields
 	        if (gpus && ngpus < max_gpus) {
 		        struct tw_login_gpu *gpu = &gpus[ngpus];
 		        gpu->fd = fd;
-		        gpu->sysnum = sysnum;
+		        gpu->devnum = udev_device_get_devnum(dev);
 		        gpu->boot_vga = boot_vga;
 		        strcpy(gpu->path, path);
 	        } else {
