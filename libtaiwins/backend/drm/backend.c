@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <wayland-util.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 #include <sys/types.h>
@@ -85,16 +86,9 @@ drm_backend_stop(struct tw_drm_backend *drm)
 static inline void
 drm_backend_release_gpus(struct tw_drm_backend *drm)
 {
-	struct tw_drm_gpu *gpu;
-	wl_array_for_each(gpu, &drm->gpus) {
-		// are releasing gpu resources here but the outputs are
-		// destroyed already in `drm_backend_stop`.
-		wl_event_source_remove(gpu->event);
-		tw_drm_free_gpu_resources(gpu);
-		gpu->impl->free_gpu_device(gpu);
-		tw_login_close(drm->login, gpu->gpu_fd);
-	}
-	wl_array_release(&drm->gpus);
+	struct tw_drm_gpu *gpu, *tmp_gpu;
+	wl_list_for_each_safe(gpu, tmp_gpu, &drm->gpu_list, link)
+		tw_drm_backend_remove_gpu(gpu);
 }
 
 static void
@@ -108,34 +102,6 @@ drm_backend_destroy(struct tw_drm_backend *drm)
 	free(drm);
 }
 
-static void
-notify_drm_login_state(struct wl_listener *listener, void *data)
-{
-	struct tw_drm_backend *drm =
-		wl_container_of(listener, drm, login_listener);
-	struct tw_login *login = data;
-
-	assert(login == drm->login);
-	//TODO
-}
-
-static void
-notify_drm_render_context_destroy(struct wl_listener *listener, void *data)
-{
-	struct tw_drm_backend *drm =
-		wl_container_of(listener, drm, base.render_context_destroy);
-	drm_backend_stop(drm);
-}
-
-static void
-notify_drm_display_destroy(struct wl_listener *listener, void *data)
-{
-	struct tw_drm_backend *drm =
-		wl_container_of(listener, drm, display_destroy);
-	wl_list_remove(&listener->link);
-	drm_backend_destroy(drm);
-}
-
 static bool
 drm_backend_init_gpu(struct tw_drm_gpu *gpu, struct tw_login_gpu *login_gpu,
                      struct tw_drm_backend *drm)
@@ -147,6 +113,7 @@ drm_backend_init_gpu(struct tw_drm_gpu *gpu, struct tw_login_gpu *login_gpu,
 	gpu->devnum = login_gpu->devnum;
 	gpu->boot_vga = login_gpu->boot_vga;
 	gpu->crtc_mask = 0;
+	wl_list_init(&gpu->link);
 	wl_list_init(&gpu->crtc_list);
 	wl_list_init(&gpu->plane_list);
 #if _TW_BUILD_EGLSTREAM
@@ -183,6 +150,7 @@ drm_backend_init_gpu(struct tw_drm_gpu *gpu, struct tw_login_gpu *login_gpu,
 	return true;
 
 err_event:
+	gpu->impl->free_gpu_device(gpu);
 err_handle:
 	tw_drm_free_gpu_resources(gpu);
 err_resources:
@@ -191,34 +159,63 @@ err_features:
 	return false;
 }
 
+void
+tw_drm_backend_remove_gpu(struct tw_drm_gpu *gpu)
+{
+	struct tw_drm_backend *drm = gpu->drm;
+
+	wl_list_remove(&gpu->link);
+	wl_event_source_remove(gpu->event);
+	tw_drm_free_gpu_resources(gpu);
+	gpu->impl->free_gpu_device(gpu);
+	tw_login_close(drm->login, gpu->gpu_fd);
+	free(gpu);
+}
+
+static struct tw_drm_gpu *
+drm_gpu_find_create(struct tw_drm_backend *drm, struct tw_login_gpu *login_gpu)
+{
+	struct tw_drm_gpu *gpu = NULL;
+	wl_list_for_each(gpu, &drm->gpu_list, link)
+		if (gpu->gpu_fd == login_gpu->fd &&
+		    gpu->devnum == login_gpu->devnum)
+			return gpu;
+
+	gpu = calloc(1, sizeof(*gpu));
+	if (!gpu)
+		goto close_gpu;
+	if (!drm_backend_init_gpu(gpu, login_gpu, drm)) {
+		free(gpu);
+		goto close_gpu;
+	}
+	wl_list_insert(drm->gpu_list.prev, &gpu->link);
+	return gpu;
+close_gpu:
+	tw_login_close(drm->login, login_gpu->fd);
+	return NULL;
+}
+
 static bool
 drm_backend_collect_gpus(struct tw_drm_backend *drm)
 {
 	int ngpus = 0;
 	struct tw_login_gpu login_gpus[16] = {0};
-	struct tw_drm_gpu *gpus = NULL;
+	struct tw_drm_gpu *gpu = NULL;
 
-	wl_array_init(&drm->gpus);
+	wl_list_init(&drm->gpu_list);
 
 	ngpus = tw_login_find_gpus(drm->login, 16, login_gpus);
 	if (ngpus <= 0)
 		return false;
 
-	gpus = wl_array_add(&drm->gpus, ngpus * sizeof(struct tw_drm_gpu));
-	if (!gpus)
-		goto err_array;
+	for (int i = 0; i < ngpus; i++)
+		drm_gpu_find_create(drm, &login_gpus[i]);
 
-	for (int i = 0; i < ngpus; i++)
-		drm_backend_init_gpu(&gpus[i], &login_gpus[i], drm);
-	//check if boot_vga works
-	for (int i = 0; i < ngpus; i++)
-		if (gpus[i].boot_vga == true && gpus[i].activated == false)
-			return false;
-	return true;
-
-err_array:
-	for (int i = 0; i < ngpus; i++)
-		tw_login_close(drm->login, login_gpus[i].fd);
+	wl_list_for_each(gpu, &drm->gpu_list, link)
+		if (gpu->boot_vga && gpu->activated)
+			return true;
+	//We shall clean up the resources on failing.
+	drm_backend_release_gpus(drm);
 	return false;
 }
 
@@ -227,10 +224,79 @@ drm_backend_get_boot_gpu(struct tw_drm_backend *drm)
 {
 	struct tw_drm_gpu *gpu;
 
-	wl_array_for_each(gpu, &drm->gpus)
+	wl_list_for_each(gpu, &drm->gpu_list, link)
 		if (gpu->boot_vga)
 			return gpu;
 	return NULL;
+}
+
+/******************************************************************************
+ * listeners
+ *****************************************************************************/
+
+static void
+notify_drm_login_state(struct wl_listener *listener, void *data)
+{
+	struct tw_drm_backend *drm =
+		wl_container_of(listener, drm, login_attribute_change);
+	struct tw_login *login = data;
+
+	assert(login == drm->login);
+	//TODO
+}
+
+static void
+notify_udev_device_change(struct wl_listener *listener, void *data)
+{
+	struct tw_drm_gpu *gpu;
+	struct tw_drm_backend *drm =
+		wl_container_of(listener, drm, udev_device_change);
+	struct udev_device *dev = data;
+	dev_t devnum = udev_device_get_devnum(dev);
+	const char *action_name = udev_device_get_action(dev);
+	enum tw_drm_device_action action =
+		tw_drm_device_action_from_name(action_name);
+
+        if (action == TW_DRM_DEV_UNKNOWN)
+		return;
+        wl_list_for_each(gpu, &drm->gpu_list, link) {
+		if (gpu->devnum == devnum) {
+			tw_drm_handle_gpu_event(gpu, action);
+			return;
+		}
+	}
+	//We are adding a new GPU on demand.
+	if (action == TW_DRM_DEV_ADD) {
+		struct tw_login_gpu login_gpu = {0};
+
+		if (!tw_login_gpu_new_from_dev(&login_gpu, dev, drm->login)) {
+			tw_logl_level(TW_LOG_WARN, "Failed to add new GPU:%s",
+			              udev_device_get_devnode(dev));
+			return;
+		}
+		if (!drm_gpu_find_create(drm, &login_gpu)) {
+			tw_logl_level(TW_LOG_WARN, "Faild to add new GPU:%s",
+			              udev_device_get_devnode(dev));
+			return;
+		}
+	}
+}
+
+static void
+notify_drm_render_context_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_drm_backend *drm =
+		wl_container_of(listener, drm, base.render_context_destroy);
+	drm_backend_stop(drm);
+}
+
+static void
+notify_drm_display_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_drm_backend *drm =
+		wl_container_of(listener, drm, display_destroy);
+	wl_list_remove(&listener->link);
+	drm_backend_destroy(drm);
 }
 
 struct tw_backend *
@@ -243,7 +309,7 @@ tw_drm_backend_create(struct wl_display *display)
 	tw_backend_init(&drm->base);
 	drm->display = display;
 	drm->base.impl = &drm_impl;
-	wl_array_init(&drm->gpus);
+	wl_list_init(&drm->gpu_list);
 
 	drm->login = tw_login_create(display);
 	if (!(drm->login))
@@ -256,8 +322,11 @@ tw_drm_backend_create(struct wl_display *display)
 
 	//add listeners
 	tw_signal_setup_listener(&drm->login->events.attributes_change,
-	                         &drm->login_listener,
+	                         &drm->login_attribute_change,
 	                         notify_drm_login_state);
+	tw_signal_setup_listener(&drm->login->events.udev_device,
+	                         &drm->udev_device_change,
+	                         notify_udev_device_change);
 	tw_set_display_destroy_listener(display, &drm->display_destroy,
 	                                notify_drm_display_destroy);
 	drm->base.render_context_destroy.notify =

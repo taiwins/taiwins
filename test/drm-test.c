@@ -95,20 +95,11 @@ static struct tw_render_pipeline dummy_pipeline = {
 };
 
 
-int
-tw_login_find_primary_gpu(struct tw_login *login);
-
 void
 test_switch_vt(struct tw_backend *backend)
 {
 	struct tw_login *login = tw_drm_backend_get_login(backend);
 
-	int gpu = tw_login_find_primary_gpu(login);
-	if (gpu >= 0) {
-		close(gpu);
-	} else {
-		assert(0);
-	}
 	tw_login_switch_vt(login, 3);
 }
 

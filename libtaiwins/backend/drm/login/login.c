@@ -194,57 +194,47 @@ err_get_res:
 	return false;
 }
 
-int
-tw_login_find_primary_gpu(struct tw_login *login)
+bool
+tw_login_gpu_new_from_dev(struct tw_login_gpu *gpu, struct udev_device *dev,
+                          struct tw_login *login)
 {
 	int fd = -1;
-	struct udev_list_entry *entry;
-        struct udev_enumerate *enume = udev_enumerate_new(login->udev);
+	const char *subsystem, *name, *path;
 
-        if (!enume) {
-	        tw_logl_level(TW_LOG_WARN, "failed to get udev_enumerate");
-	        return -1;
-        }
+        subsystem = udev_device_get_subsystem(dev);
+        name = udev_device_get_sysname(dev);
+        path = udev_device_get_devnode(dev);
 
-        udev_enumerate_add_match_subsystem(enume, "drm");
-        udev_enumerate_add_match_sysname(enume, "card[0-9]*");
-        udev_enumerate_scan_devices(enume);
-
-        udev_list_entry_foreach(entry, udev_enumerate_get_list_entry(enume)) {
+        //return if not a drm device
+        if (!subsystem || strcmp(subsystem, "drm") != 0 ||
+            !name || strstr(name, "card") != name || !path)
+	        return false;
+        else {
 	        bool boot_vga = false;
-	        struct udev_device *pci, *dev;
-	        const char *seat, *path, *id;
-	        path = udev_list_entry_get_name(entry);
-	        dev = udev_device_new_from_syspath(login->udev, path);
-	        if (!dev)
-		        continue;
+	        struct udev_device *pci;
+	        const char *seat, *id;
+	        dev_t devnum;
 
+	        devnum = udev_device_get_devnum(dev);
                 seat = udev_device_get_property_value(dev, "ID_SEAT");
 	        seat = seat ? seat : DEFAULT_SEAT;
-	        if (strcmp(seat, login->seat))
-		        goto next;
 
-	        //no need to free pci
+	        if (strcmp(seat, login->seat))
+		        return false;
 	        pci = udev_device_get_parent_with_subsystem_devtype(dev, "pci",
 	                                                            NULL);
 	        if (pci) {
 		        id = udev_device_get_sysattr_value(pci, "boot_vga");
 		        boot_vga = (id && !strcmp(id, "1"));
 	        }
-	        if (!boot_vga)
-		        goto next;
 	        if (!drm_device_check_kms(dev, login, &fd))
-		        goto next;
-	        udev_device_unref(dev);
-	        break;
-
-        next:
-	        udev_device_unref(dev);
-	        continue;
+		        return false;
+	        gpu->fd = fd;
+	        gpu->boot_vga = boot_vga;
+	        gpu->devnum = devnum;
+	        strcpy(gpu->path, path);
+	        return true;
         }
-
-        udev_enumerate_unref(enume);
-        return fd;
 }
 
 int
