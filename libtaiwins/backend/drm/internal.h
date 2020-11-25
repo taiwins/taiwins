@@ -24,6 +24,7 @@
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
+#include <libudev.h>
 #include <stdint.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
@@ -193,7 +194,8 @@ struct tw_drm_gpu_impl {
 };
 
 struct tw_drm_gpu {
-	int gpu_fd, sysnum;
+	int gpu_fd;
+	dev_t devnum;
 	uintptr_t device; /**< contains platform device type */
 	bool boot_vga;
 	bool activated; /**< valid gpu otherwise not used */

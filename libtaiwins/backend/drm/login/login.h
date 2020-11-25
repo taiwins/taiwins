@@ -31,7 +31,8 @@
 #include <taiwins/backend_drm.h>
 
 struct tw_login_gpu {
-	int fd, sysnum;
+	int fd;
+	dev_t devnum;
 	bool boot_vga;
 	char path[PATH_MAX];
 };
