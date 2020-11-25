@@ -24,7 +24,6 @@
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-#include <libudev.h>
 #include <stdint.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
@@ -53,6 +52,15 @@ struct tw_drm_backend;
 enum tw_drm_platform {
 	TW_DRM_PLATFORM_GBM,
 	TW_DRM_PLATFORM_STREAM,
+};
+
+enum tw_drm_device_action {
+	TW_DRM_DEV_ADD,
+	TW_DRM_DEV_RM,
+	TW_DRM_DEV_CHANGE,
+	TW_DRM_DEV_ONLINE,
+	TW_DRM_DEV_OFFLINE,
+	TW_DRM_DEV_UNKNOWN,
 };
 
 enum tw_drm_features {
@@ -201,6 +209,8 @@ struct tw_drm_gpu {
 	bool activated; /**< valid gpu otherwise not used */
 	uint32_t visual_id;
 
+	struct wl_list link; /* backend:gpu_list */
+
 	const struct tw_drm_gpu_impl *impl;
 	enum tw_drm_features feats;
 	struct tw_drm_backend *drm;
@@ -239,10 +249,11 @@ struct tw_drm_backend {
 	struct wl_display *display;
 	struct tw_login *login;
 	struct tw_drm_gpu *boot_gpu;
-	struct wl_array gpus;
+	struct wl_list gpu_list;
 
 	struct wl_listener display_destroy;
-	struct wl_listener login_listener;
+	struct wl_listener login_attribute_change;
+	struct wl_listener udev_device_change;
 };
 
 /******************************* resource API ********************************/
@@ -250,9 +261,18 @@ struct tw_drm_backend {
 void
 tw_drm_print_info(int fd);
 
+enum tw_drm_device_action
+tw_drm_device_action_from_name(const char *name);
+
+void
+tw_drm_backend_remove_gpu(struct tw_drm_gpu *gpu);
+
 int
 tw_drm_handle_drm_event(int fd, uint32_t mask, void *data);
 
+void
+tw_drm_handle_gpu_event(struct tw_drm_gpu *gpu,
+                        enum tw_drm_device_action action);
 void
 tw_drm_free_gpu_resources(struct tw_drm_gpu *gpu);
 

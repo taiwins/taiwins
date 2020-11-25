@@ -56,7 +56,8 @@ tw_login_set_active(struct tw_login *login, bool active);
 int
 tw_login_find_gpus(struct tw_login *login, int max_gpus,
                    struct tw_login_gpu *gpus);
-int
-tw_login_find_primary_gpu(struct tw_login *login);
+bool
+tw_login_gpu_new_from_dev(struct tw_login_gpu *gpu, struct udev_device *dev,
+                          struct tw_login *login);
 
 #endif /* EOF */

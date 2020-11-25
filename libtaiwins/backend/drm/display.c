@@ -287,6 +287,8 @@ tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn)
 
 		wl_list_insert(drm->base.outputs.prev,
 		               &found->output.device.link);
+		if (found->status.connected && drm->base.started)
+			tw_drm_display_start(found);
 
 	}
 	return found;

@@ -24,7 +24,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <wayland-util.h>
+#include <wayland-server.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 #include <taiwins/objects/logger.h>
@@ -221,8 +221,10 @@ tw_drm_handle_drm_event(int fd, uint32_t mask, void *data)
 		.page_flip_handler2 = handle_page_flip2,
 		.sequence_handler = NULL,
 	};
+	struct tw_drm_gpu *gpu = data;
 
-	drmHandleEvent(fd, &event);
+	if (gpu->activated)
+		drmHandleEvent(fd, &event);
         return 1;
 }
 
@@ -283,6 +285,36 @@ tw_drm_free_gpu_resources(struct tw_drm_gpu *gpu)
 		tw_drm_crtc_fini(c);
 
 	gpu->activated = false;
+}
+
+void
+tw_drm_handle_gpu_event(struct tw_drm_gpu *gpu,
+                        enum tw_drm_device_action action)
+{
+	switch (action) {
+	case TW_DRM_DEV_UNKNOWN:
+	case TW_DRM_DEV_ADD:
+		//No need to handle these two
+		break;
+	case TW_DRM_DEV_RM:
+		//for removing, we would need to close the resources
+		tw_drm_backend_remove_gpu(gpu);
+		break;
+	case TW_DRM_DEV_OFFLINE:
+		//set inactive, we don't process gpu_fd events no more.
+		//more.
+		wl_event_source_fd_update(gpu->event, 0);
+		gpu->activated = false;
+		break;
+	case TW_DRM_DEV_ONLINE:
+	case TW_DRM_DEV_CHANGE:
+		//TODO we would need rescan the resources in these two
+		//cases. It should be as simple as calling
+		//tw_drm_check_gpu_resources if it is capable of re-entry.
+		wl_event_source_fd_update(gpu->event, WL_EVENT_READABLE);
+		gpu->activated = true;
+		break;
+	}
 }
 
 bool
@@ -348,4 +380,24 @@ tw_drm_read_properties(int fd, uint32_t obj_id, uint32_t obj_type,
 	}
 
 	return true;
+}
+
+
+enum tw_drm_device_action
+tw_drm_device_action_from_name(const char *name)
+{
+	if (!name)
+		return TW_DRM_DEV_UNKNOWN;
+	else if (strcmp(name, "add") == 0)
+		return TW_DRM_DEV_ADD;
+	else if (strcmp(name, "remove") == 0)
+		return TW_DRM_DEV_RM;
+	else if (strcmp(name, "change") == 0)
+		return TW_DRM_DEV_CHANGE;
+	else if (strcmp(name, "online") == 0)
+		return TW_DRM_DEV_ONLINE;
+	else if (strcmp(name, "offline") == 0)
+		return TW_DRM_DEV_OFFLINE;
+	else
+		return TW_DRM_DEV_UNKNOWN;
 }
