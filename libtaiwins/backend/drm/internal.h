@@ -48,6 +48,7 @@ struct tw_drm_backend;
 
 #define _DRM_PLATFORM_GBM "TW_DRM_PLATFORM_GBM"
 #define _DRM_PLATFORM_STREAM "TW_DRM_PLATFORM_STREAM"
+#define TW_DRM_CRTC_ID_INVALID -1
 
 enum tw_drm_platform {
 	TW_DRM_PLATFORM_GBM,
@@ -76,10 +77,11 @@ enum tw_drm_plane_type {
 	TW_DRM_PLANE_CURSOR,
 };
 
-enum tw_drm_pending_flags {
-	TW_DRM_PENDING_ACTIVE = 1 << 0,
-	TW_DRM_PENDING_MODE = 1 << 1,
-	TW_DRM_PENDING_CRTC = 1 << 2,
+enum tw_drm_display_pending_flags {
+	TW_DRM_PENDING_CONNECT = 1 << 0,   /**< connection status changed */
+	TW_DRM_PENDING_ACTIVE = 1 << 1, /**< connector DPMS status changed */
+	TW_DRM_PENDING_MODE = 1 << 2,
+	TW_DRM_PENDING_CRTC = 1 << 3,
 };
 
 enum tw_drm_fb_type {
@@ -164,19 +166,18 @@ struct tw_drm_display {
 	struct tw_drm_backend *drm;
 	struct tw_drm_gpu *gpu;
 
-	int conn_id, crtc_mask;
-	uint32_t planes; /**< TODO possible planes used by display */
+	int conn_id;
+	uint32_t crtc_mask, plane_mask;
 	/** output has at least one primary plane */
 	struct tw_drm_plane *primary_plane;
 	struct tw_drm_crtc *crtc;
 
 	struct {
-		enum tw_drm_pending_flags pending;
 		bool connected, active;
 		int crtc_id; /* crtc_id read from connector, may not work */
-		int mode_id; /* mode_id submitting to server */
 		drmModeModeInfo mode;
 		struct wl_array modes;
+		enum tw_drm_display_pending_flags pending;
 	} status;
 
 	uintptr_t handle; /* platform specific handle */
@@ -193,12 +194,12 @@ struct tw_drm_gpu_impl {
 	void (*free_gpu_device)(struct tw_drm_gpu *);
 	/** platform specific egl options */
 	const struct tw_egl_options *(*gen_egl_params)(struct tw_drm_gpu *);
-
-	bool (*start_display)(struct tw_drm_display *);
-
+	/** init display buffers as well as render surface */
+	bool (*allocate_fb)(struct tw_drm_display *);
+	/** destroy display buffers as well as render surface */
 	void (*end_display)(struct tw_drm_display *);
 
-	void (*page_flip)(struct tw_drm_display *);
+	void (*page_flip)(struct tw_drm_display *, uint32_t flags);
 };
 
 struct tw_drm_gpu {
@@ -311,22 +312,33 @@ void
 tw_drm_display_start(struct tw_drm_display *display);
 
 void
+tw_drm_display_stop(struct tw_drm_display *display);
+
+void
 tw_drm_display_remove(struct tw_drm_display *display);
 
 struct tw_drm_display *
 tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn);
+
+bool
+tw_drm_display_read_info(struct tw_drm_display *output,
+                         drmModeConnector *conn);
 
 /********************************** KMS API **********************************/
 
 bool
 tw_kms_atomic_set_plane_props(drmModeAtomicReq *req, bool pass,
                               struct tw_drm_plane *plane,
-                              uint32_t crtc_id,
-                              int x, int y, int w, int h);
+                              int crtc_id, int x, int y, int w, int h);
 bool
 tw_kms_atomic_set_connector_props(drmModeAtomicReq *req, bool pass,
-                                  struct tw_drm_display *output,
-                                  uint32_t crtc);
+                                  struct tw_drm_display *output);
+bool
+tw_kms_atomic_set_crtc_props(drmModeAtomicReq *req, bool pass,
+                             struct tw_drm_display *output,
+                             //return values
+                             uint32_t *mode_id);
+
 #ifdef  __cplusplus
 }
 #endif
