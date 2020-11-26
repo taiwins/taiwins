@@ -31,8 +31,23 @@
 #include <wayland-util.h>
 #include <xf86drmMode.h>
 
-#include "drm_mode.h"
 #include "internal.h"
+#include "taiwins/render_context.h"
+
+#define UPDATE_PENDING(dpy, name, newval, flags) \
+	dpy->status.pending |= (dpy->status.name != newval) ? flags : 0; \
+	dpy->status.name = newval;
+
+static inline void
+UPDATE_PENDING_MODE(struct tw_drm_display *dpy, drmModeModeInfo *new_mode)
+{
+	if (new_mode) {
+		bool nequal = memcmp(new_mode, &dpy->status.mode,
+		                     sizeof(*new_mode));
+		dpy->status.pending |= nequal ? TW_DRM_PENDING_MODE : 0;
+		dpy->status.mode = *new_mode;
+	}
+}
 
 static inline enum wl_output_subpixel
 wl_subpixel_from_drm(drmModeSubPixel drm_subpixel)
@@ -122,7 +137,7 @@ tw_drm_display_attach_crtc(struct tw_drm_display *display,
                            struct tw_drm_crtc *crtc)
 {
 	display->crtc = crtc;
-	display->status.crtc_id = crtc->id;
+	UPDATE_PENDING(display, crtc_id, crtc->id, TW_DRM_PENDING_CRTC);
 	display->crtc->display = display;
 }
 
@@ -130,11 +145,14 @@ static inline void
 tw_drm_display_detach_crtc(struct tw_drm_display *display)
 {
 	struct tw_drm_crtc *crtc = display->crtc;
+	const int id = TW_DRM_CRTC_ID_INVALID;
 
 	if (crtc)
 		crtc->display = NULL;
 	display->crtc = NULL;
-	display->status.crtc_id = -1;
+	UPDATE_PENDING(display, crtc_id, id, TW_DRM_PENDING_CRTC);
+	UPDATE_PENDING(display, active, false, TW_DRM_PENDING_ACTIVE);
+	display->status.crtc_id = TW_DRM_CRTC_ID_INVALID;
 }
 
 static bool
@@ -147,6 +165,7 @@ read_display_modes(struct tw_drm_display *output, drmModeConnector *conn)
 
 	wl_array_release(&output->status.modes);
 	wl_array_init(&output->status.modes);
+	wl_list_init(&dev->mode_list);
 
 	if (!wl_array_add(&output->status.modes, s_mode_info))
 		goto err;
@@ -167,6 +186,7 @@ read_display_modes(struct tw_drm_display *output, drmModeConnector *conn)
 err:
 	wl_array_release(&output->status.modes);
 	wl_array_init(&output->status.modes);
+	wl_list_init(&dev->mode_list);
 	return false;
 }
 
@@ -183,16 +203,19 @@ read_display_props(struct tw_drm_display *output, int fd)
 	                       sizeof(prop_info)/sizeof(prop_info[0]));
 }
 
-static bool
+bool
 tw_drm_display_read_info(struct tw_drm_display *output, drmModeConnector *conn)
 {
 	bool ret = true;
 	int crtc_id;
+	bool connected;
 	int fd = output->gpu->gpu_fd;
-	drmModeEncoder *encoder;
-	drmModeCrtc *crtc;
+	drmModeEncoder *encoder = NULL;
+	drmModeCrtc *crtc = NULL;
+	drmModeModeInfo mode = {0};
 	struct tw_output_device *dev = &output->output.device;
 
+	//we will be update display status and setup the pending.
 	encoder = drmModeGetEncoder(fd, conn->encoder_id);
 	if (encoder != NULL) {
                 crtc = drmModeGetCrtc(fd, encoder->crtc_id);
@@ -201,22 +224,17 @@ tw_drm_display_read_info(struct tw_drm_display *output, drmModeConnector *conn)
 
                 if (crtc == NULL) {
 	                ret = false;
-	                output->status.crtc_id = -1;
+	                crtc_id = TW_DRM_CRTC_ID_INVALID;
 	                goto out;
                 } else {
-	                output->status.crtc_id = crtc_id;
-	                output->status.mode = crtc->mode;
+	                mode = crtc->mode;
 	                drmModeFreeCrtc(crtc);
                 }
 	} else {
-		output->status.crtc_id = -1;
+		crtc_id = TW_DRM_CRTC_ID_INVALID;
 	}
 out:
-	output->crtc_mask = read_connector_possible_crtcs(fd, conn);
-	output->conn_id = conn->connector_id;
-	output->status.connected = conn->connection == DRM_MODE_CONNECTED;
 	read_display_props(output, fd);
-	//read modes
 	read_display_modes(output, conn);
 	dev->phys_width = conn->mmWidth;
 	dev->phys_height = conn->mmHeight;
@@ -226,14 +244,22 @@ out:
 	//TODO: parsing edid from connector properities so we can fill up the
 	//make, model
 
-	return ret;
+	//// update pending status
+	connected = conn->connection == DRM_MODE_CONNECTED;
+	output->crtc_mask = read_connector_possible_crtcs(fd, conn);
+	output->conn_id = conn->connector_id;
+	output->status.mode = mode; //note that if connector does not have a
+				    //crtc, it does not have mode either
 
+	UPDATE_PENDING(output, connected, connected, TW_DRM_PENDING_CONNECT);
+	UPDATE_PENDING(output, crtc_id, crtc_id, TW_DRM_PENDING_CRTC);
+
+	return ret;
 }
 
 static void
 handle_display_commit_state(struct tw_output_device *device)
 {
-	drmModeModeInfo *info = NULL;
 	struct tw_drm_display *output =
 		wl_container_of(device, output, output.device);
 	struct tw_output_device_state *pending = &device->pending;
@@ -242,19 +268,13 @@ handle_display_commit_state(struct tw_output_device *device)
 		                            pending->current_mode.w,
 		                            pending->current_mode.h,
 		                            pending->current_mode.refresh);
+	struct tw_drm_mode_info *mode_info = (mode) ?
+		wl_container_of(mode, mode_info, mode) : NULL;
+	drmModeModeInfo *info = mode_info ? &mode_info->info : NULL;
 
-	if (pending->enabled ^ output->status.active) {
-		output->status.pending |= TW_DRM_PENDING_ACTIVE;
-		output->status.active = pending->enabled;
-	}
-	if (mode) {
-		struct tw_drm_mode_info *mode_info =
-			wl_container_of(mode, mode_info, mode);
-		info = &mode_info->info;
-
-		if (memcmp(info, &output->status.mode, sizeof(*info)) != 0)
-			output->status.pending |= TW_DRM_PENDING_MODE;
-	}
+	UPDATE_PENDING(output, active,pending->enabled, TW_DRM_PENDING_ACTIVE);
+	UPDATE_PENDING_MODE(output, info);
+	//TODO: reallocate buffer here if mode changed?
 }
 
 static const struct tw_output_device_impl output_dev_impl = {
@@ -280,16 +300,11 @@ tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn)
 		tw_render_output_init(&found->output, &output_dev_impl);
 		found->drm = drm;
 		found->gpu = gpu;
-
-		if (!tw_drm_display_read_info(found, conn))
-			tw_logl_level(TW_LOG_WARN, "failed to read current"
-			              " mode from output");
+		found->conn_id = conn->connector_id;
 
 		wl_list_insert(drm->base.outputs.prev,
 		               &found->output.device.link);
-		if (found->status.connected && drm->base.started)
-			tw_drm_display_start(found);
-
+		return found;
 	}
 	return found;
 }
@@ -301,7 +316,7 @@ crtc_idx_from_id(struct tw_drm_gpu *gpu, int id)
 		if (((1 << i) & gpu->crtc_mask) && id == gpu->crtcs[i].id)
 			return i;
 	assert(0);
-	return -1;
+	return TW_DRM_CRTC_ID_INVALID;
 }
 
 static inline struct tw_drm_crtc *
@@ -363,24 +378,42 @@ tw_drm_display_start(struct tw_drm_display *output)
 	}
 
 	tw_render_output_set_context(&output->output, drm->base.ctx);
-	//TODO: setting the current resolution, this reminds me that maybe we
+
+        //TODO: setting the current resolution, this reminds me that maybe we
 	//should have signal the output first
+	//For the first time we should issue this. Or it should not be here?
+	wl_signal_emit(&drm->base.events.new_output, &output->output.device);
 	tw_output_device_commit_state(&output->output.device);
 
 	output->primary_plane = find_plane(output, TW_DRM_PLANE_MAJOR);
+	//TODO maybe we could simply allocate buffer in the commit state, since
+	//it will need to reallocate buffer anyway.
+	gpu->impl->allocate_fb(output);
 
-	gpu->impl->start_display(output);
+	//TODO: this is not the correct move. As we should listen on
+	//render_presentable_commit and pageflip after that, but currently we
+	//do not have this facility, afterwards, we should just dirty the
+	//output here
+	gpu->impl->page_flip(output, DRM_MODE_PAGE_FLIP_EVENT);
 
-	wl_signal_emit(&drm->base.events.new_output, &output->output.device);
+}
 
-	gpu->impl->page_flip(output);
+void
+tw_drm_display_stop(struct tw_drm_display *output)
+{
+	struct tw_drm_gpu *gpu = output->gpu;
+	//stop display means we need to ensentially set crtc into 0 and
+	tw_drm_display_detach_crtc(output);
+	output->gpu->impl->end_display(output);
+	//the pageflip should reset connector crtc to 0
+	gpu->impl->page_flip(output, 0);
 }
 
 void
 tw_drm_display_remove(struct tw_drm_display *output)
 {
+	tw_drm_display_stop(output);
 	wl_array_release(&output->status.modes);
 	tw_render_output_fini(&output->output);
-	output->gpu->impl->end_display(output);
 	free(output);
 }

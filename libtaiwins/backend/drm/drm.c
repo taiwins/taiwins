@@ -31,6 +31,7 @@
 #include <taiwins/objects/utils.h>
 #include <taiwins/render_output.h>
 
+#include "drm_mode.h"
 #include "internal.h"
 
 static inline void
@@ -58,21 +59,36 @@ tw_drm_crtc_fini(struct tw_drm_crtc *crtc)
 	wl_list_remove(&crtc->link);
 }
 
-//TODO: deal with hotplug?
-static bool
+static void
 add_output(struct tw_drm_gpu *gpu, drmModeConnector *conn)
 {
+	struct tw_drm_backend *drm = gpu->drm;
+	struct tw_drm_display *output = NULL;
+	bool need_start = false, need_stop = false, pending_connect = false;
+
 	if (conn->connector_type == DRM_MODE_CONNECTOR_WRITEBACK) {
 		//TODO handle writeback connector
 	} else {
-		struct tw_drm_display *output = NULL;
-
 		output = tw_drm_display_find_create(gpu, conn);
 		if (output) {
+			if (!tw_drm_display_read_info(output, conn))
+				tw_logl_level(TW_LOG_WARN, "failed to read "
+				              "current mode from output");
 
+			pending_connect = (output->status.pending &
+			                   TW_DRM_PENDING_CONNECT);
+			need_start = output->status.connected &&
+				pending_connect && drm->base.started;
+			need_stop = (!output->status.connected ||
+			             !output->status.active) &&
+				pending_connect && drm->base.started;
+
+			if (need_start)
+				tw_drm_display_start(output);
+			else if (need_stop)
+				tw_drm_display_stop(output);
 		}
 	}
-	return true;
 }
 
 static void
@@ -207,7 +223,7 @@ handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
 	if (!output->status.connected)
 		return;
 	//we should go with display pageflip handle
-	gpu->impl->page_flip(output);
+	gpu->impl->page_flip(output, DRM_MODE_PAGE_FLIP_EVENT);
 
 	//TODO: send present event
 }
@@ -308,11 +324,9 @@ tw_drm_handle_gpu_event(struct tw_drm_gpu *gpu,
 		break;
 	case TW_DRM_DEV_ONLINE:
 	case TW_DRM_DEV_CHANGE:
-		//TODO we would need rescan the resources in these two
-		//cases. It should be as simple as calling
-		//tw_drm_check_gpu_resources if it is capable of re-entry.
 		wl_event_source_fd_update(gpu->event, WL_EVENT_READABLE);
 		gpu->activated = true;
+		tw_drm_check_gpu_resources(gpu);
 		break;
 	}
 }

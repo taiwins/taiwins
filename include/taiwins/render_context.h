@@ -150,6 +150,8 @@ tw_render_presentable_fini(struct tw_render_presentable *surface,
                            struct tw_render_context *ctx)
 {
 	surface->destroy(surface, ctx);
+	surface->destroy = NULL;
+	surface->handle = (intptr_t)NULL;
 }
 
 static inline bool

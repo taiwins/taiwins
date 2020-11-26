@@ -24,11 +24,11 @@
 #include <drm_fourcc.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <xf86drmMode.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/egl.h>
 #include <taiwins/objects/drm_formats.h>
 #include <taiwins/render_context.h>
-#include <xf86drmMode.h>
 
 #include "internal.h"
 
@@ -106,15 +106,22 @@ tw_drm_gbm_get_fb(struct gbm_bo *bo)
 	return fbid;
 }
 
-//TODO< this should be used later for removing surface.
-void
-tw_drm_gbm_free_fb(struct gbm_bo *bo)
+static void
+tw_drm_gbm_free_fb(struct tw_drm_fb *drm_fb, struct tw_drm_display *output)
 {
-	struct gbm_device *dev = gbm_bo_get_device(bo);
-	uint32_t fb = (uintptr_t)gbm_bo_get_user_data(bo);
+	struct gbm_bo *bo = tw_drm_fb_get_gbm_bo(drm_fb);
+	struct gbm_surface *surface = tw_drm_output_get_gbm_surface(output);
 
-	if (fb)
-		drmModeRmFB(gbm_device_get_fd(dev), fb);
+	if (bo) {
+		struct gbm_device *dev = gbm_bo_get_device(bo);
+		uint32_t fb = (uintptr_t)gbm_bo_get_user_data(bo);
+
+		if (fb)
+			drmModeRmFB(gbm_device_get_fd(dev), fb);
+		gbm_surface_release_buffer(surface, bo);
+	}
+	drm_fb->fb = 0;
+	drm_fb->handle = (uintptr_t)NULL;
 }
 
 /******************************************************************************
@@ -146,55 +153,67 @@ atomic_write_fb(struct tw_drm_fb *fb, struct gbm_bo *bo, int fb_id)
  * committed bo is now used and pending bo is freeing again for us to use.
  */
 static void
-atomic_pageflip(struct tw_drm_display *output)
+atomic_pageflip(struct tw_drm_display *output, uint32_t flags)
 {
 	bool pass = true;
+	unsigned w = 0, h = 0;
+	int fd = output->gpu->gpu_fd;
+	uint32_t mode_id = 0;
+	int crtc_id = output->status.crtc_id;
+
 	drmModeAtomicReq *req = NULL;
 	struct tw_output_device *dev = &output->output.device;
-	int fd = output->gpu->gpu_fd;
-	unsigned w, h;
 	struct tw_drm_plane *main_plane = output->primary_plane;
-	struct tw_drm_crtc *crtc = output->crtc;
 	struct gbm_surface *gbm_surface =
 		tw_drm_output_get_gbm_surface(output);
 	struct gbm_bo *next_bo = NULL;
 
-	//TODO: this is totally not correct, we are facing different commit, as
-	//we could face different commit event. Here we operate like we just do
-	//page flip.
-	uint32_t flags = DRM_MODE_PAGE_FLIP_EVENT | DRM_MODE_ATOMIC_NONBLOCK;
+	if (output->status.pending & TW_DRM_PENDING_MODE)
+		flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
+	else
+		flags |= DRM_MODE_ATOMIC_NONBLOCK;
 
-	if (!main_plane || !crtc)
+	if (!main_plane)
 		return;
 	if (!(req = drmModeAtomicAlloc()))
 		return;
+	//TODO, the drawing should not be done here, it should be rather called
+	//after the swapbuffer
+	if (output->status.active) {
+		//Now it is safe to release the bo to be used by renderer
+		//again, we could have either double buffering or tripple
+		//buffering.
+		atomic_release_fb(&main_plane->pending, gbm_surface);
 
-	//Now it is safe to release the bo to be used by renderer again, we
-	//could have either double buffering or tripple buffering.
-	atomic_release_fb(&main_plane->pending, gbm_surface);
+		wl_signal_emit(&dev->events.new_frame, dev);
+		//after the frame event, we want to lock a front(queued) buffer
+		//to present.
+		next_bo = gbm_surface_lock_front_buffer(gbm_surface);
+		if (!next_bo) {
+			tw_log_level(TW_LOG_ERRO, "Failed to lock the "
+				"front buffer");
+			return;
+		}
+		w = gbm_bo_get_width(next_bo);
+		h = gbm_bo_get_height(next_bo);
 
-	wl_signal_emit(&dev->events.new_frame, dev);
-	//after the frame event, we want to lock a front(queued) buffer to
-	//present.
-	next_bo = gbm_surface_lock_front_buffer(gbm_surface);
-	if (!next_bo) {
-		tw_log_level(TW_LOG_ERRO, "Failed to lock the front buffer");
-		return;
+		atomic_write_fb(&main_plane->pending, next_bo,
+		                tw_drm_gbm_get_fb(next_bo));
 	}
-	w = gbm_bo_get_width(next_bo);
-	h = gbm_bo_get_height(next_bo);
-
-	atomic_write_fb(&main_plane->pending, next_bo,
-	                tw_drm_gbm_get_fb(next_bo));
 	//write the properties
-	pass = tw_kms_atomic_set_plane_props(req, pass, main_plane, crtc->id,
+	pass = tw_kms_atomic_set_plane_props(req, pass, main_plane, crtc_id,
 	                                     0, 0, w, h);
-	pass = tw_kms_atomic_set_connector_props(req, pass, output, crtc->id);
+	pass = tw_kms_atomic_set_connector_props(req, pass, output);
+	pass = tw_kms_atomic_set_crtc_props(req, pass, output, &mode_id);
 
 	if (pass) {
 		drmModeAtomicCommit(fd, req, flags, output->gpu);
-		tw_drm_plane_swap_fb(main_plane);
+		if (output->status.active)
+			tw_drm_plane_swap_fb(main_plane);
 	}
+	if (mode_id != 0)
+		drmModeDestroyPropertyBlob(fd, mode_id);
+	output->status.pending = 0;
 	drmModeAtomicFree(req);
 }
 
@@ -203,7 +222,7 @@ atomic_pageflip(struct tw_drm_display *output)
  *****************************************************************************/
 
 static void
-legacy_pageflip(struct tw_drm_display *output)
+legacy_pageflip(struct tw_drm_display *output, uint32_t flags)
 {
 
 }
@@ -216,7 +235,16 @@ static void
 handle_end_gbm_display(struct tw_drm_display *output)
 {
 	struct gbm_surface *surface = tw_drm_output_get_gbm_surface(output);
+	struct tw_drm_plane *plane = output->primary_plane;
+
+	if (plane) {
+		tw_drm_gbm_free_fb(&plane->current, output);
+		tw_drm_gbm_free_fb(&plane->pending, output);
+	}
+
 	if (surface != NULL) {
+		tw_render_presentable_fini(&output->output.surface,
+		                           output->drm->base.ctx);
 		gbm_surface_destroy(surface);
 		output->handle = (uintptr_t)NULL;
 	}
@@ -227,7 +255,7 @@ handle_end_gbm_display(struct tw_drm_display *output)
  * as the selected mode. In general, we allocate this buffer for a given plane.
  */
 static bool
-handle_start_gbm_display(struct tw_drm_display *output)
+handle_allocate_display_gbm_surface(struct tw_drm_display *output)
 {
 	struct gbm_surface *surface;
 	struct tw_drm_gpu *gpu = output->gpu;
@@ -246,7 +274,7 @@ handle_start_gbm_display(struct tw_drm_display *output)
 	for (int i = 0; i < format->len; i++)
 		modifiers[i] = mods[i].modifier;
 
-	//TODO reentry display (destroy it first)
+	handle_end_gbm_display(output);
 	surface = tw_drm_create_gbm_surface(gbm, w, h, gpu->visual_id,
 	                                     format->len, modifiers,
 	                                     scanout_flags);
@@ -257,15 +285,14 @@ handle_start_gbm_display(struct tw_drm_display *output)
 	return true;
 }
 
-
 static void
-handle_pageflip_gbm_display(struct tw_drm_display *output)
+handle_pageflip_gbm_display(struct tw_drm_display *output, uint32_t flags)
 {
 	struct tw_drm_gpu *gpu = output->gpu;
 	if (gpu->feats & TW_DRM_CAP_ATOMIC)
-		atomic_pageflip(output);
+		atomic_pageflip(output, flags);
 	else
-		legacy_pageflip(output);
+		legacy_pageflip(output, flags);
 }
 
 static bool
@@ -316,7 +343,7 @@ const struct tw_drm_gpu_impl tw_gpu_gbm_impl = {
     .get_gpu_device = handle_get_gpu_device,
     .free_gpu_device = handle_free_gpu_device,
     .gen_egl_params = handle_gen_egl_params,
-    .start_display = handle_start_gbm_display,
+    .allocate_fb = handle_allocate_display_gbm_surface,
     .end_display = handle_end_gbm_display,
     .page_flip = handle_pageflip_gbm_display,
 };
