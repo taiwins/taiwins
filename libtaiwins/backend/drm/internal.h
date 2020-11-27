@@ -143,7 +143,8 @@ struct tw_drm_plane {
 
 	struct tw_drm_formats formats;
 	struct tw_drm_plane_props props;
-
+	//the fb is the rendering data, should not be here, or rather we should
+	//have pointer? //init plane would cause us to lose them.
 	struct tw_drm_fb pending, current;
 };
 
@@ -312,7 +313,10 @@ void
 tw_drm_display_start(struct tw_drm_display *display);
 
 void
-tw_drm_display_stop(struct tw_drm_display *display);
+tw_drm_display_continue(struct tw_drm_display *display);
+
+void
+tw_drm_display_stop(struct tw_drm_display *output);
 
 void
 tw_drm_display_remove(struct tw_drm_display *display);
@@ -323,7 +327,10 @@ tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn);
 bool
 tw_drm_display_read_info(struct tw_drm_display *output,
                          drmModeConnector *conn);
-
+void
+tw_drm_display_check_start_stop(struct tw_drm_display *output,
+                                bool *need_start, bool *need_stop,
+                                bool *need_continue);
 /********************************** KMS API **********************************/
 
 bool
