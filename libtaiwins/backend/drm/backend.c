@@ -50,7 +50,7 @@ drm_backend_start(struct tw_backend *backend, struct tw_render_context *ctx)
 	struct tw_drm_backend *drm = wl_container_of(backend, drm, base);
 
 	wl_list_for_each(output, &drm->base.outputs, output.device.link) {
-		if (output->status.connected)
+		if (output->status.connected && output->status.active)
 			tw_drm_display_start(output);
 	}
 	return true;

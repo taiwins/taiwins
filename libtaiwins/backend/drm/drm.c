@@ -60,31 +60,27 @@ tw_drm_crtc_fini(struct tw_drm_crtc *crtc)
 }
 
 static void
-add_output(struct tw_drm_gpu *gpu, drmModeConnector *conn)
+add_display(struct tw_drm_gpu *gpu, drmModeConnector *conn)
 {
-	struct tw_drm_backend *drm = gpu->drm;
 	struct tw_drm_display *output = NULL;
-	bool need_start = false, need_stop = false, pending_connect = false;
 
 	if (conn->connector_type == DRM_MODE_CONNECTOR_WRITEBACK) {
 		//TODO handle writeback connector
 	} else {
 		output = tw_drm_display_find_create(gpu, conn);
 		if (output) {
+			bool need_start, need_stop, need_continue;
+
 			if (!tw_drm_display_read_info(output, conn))
 				tw_logl_level(TW_LOG_WARN, "failed to read "
 				              "current mode from output");
-
-			pending_connect = (output->status.pending &
-			                   TW_DRM_PENDING_CONNECT);
-			need_start = output->status.connected &&
-				pending_connect && drm->base.started;
-			need_stop = (!output->status.connected ||
-			             !output->status.active) &&
-				pending_connect && drm->base.started;
-
+			tw_drm_display_check_start_stop(output, &need_start,
+			                                &need_stop,
+			                                &need_continue);
 			if (need_start)
 				tw_drm_display_start(output);
+			else if (need_continue)
+				tw_drm_display_continue(output);
 			else if (need_stop)
 				tw_drm_display_stop(output);
 		}
@@ -106,7 +102,7 @@ collect_connectors(struct tw_drm_gpu *gpu, drmModeRes *res)
 		conn = drmModeGetConnector(fd, conn_id);
 		if (!conn)
 			continue;
-		add_output(gpu, conn);
+		add_display(gpu, conn);
 
 		//add connectors
 		drmModeFreeConnector(conn);
@@ -140,9 +136,9 @@ collect_planes(struct tw_drm_gpu *gpu)
 	drmModePlane *plane;
 	drmModePlaneRes *planes = drmModeGetPlaneResources(fd);
 
+        gpu->plane_mask = 0;
         if (!planes)
 		return;
-
         //it seems we have 3 planes for every crtc.
         wl_list_init(&gpu->plane_list);
         for (unsigned i = 0; i < planes->count_planes; i++) {
@@ -203,28 +199,18 @@ static void
 handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
                   unsigned crtc_id, void *data)
 {
-	struct tw_drm_gpu *gpu = data;
-	struct tw_drm_backend *drm = gpu->drm;
-	struct tw_drm_display *query, *output = NULL;
+	struct tw_drm_display *output = data;
+	struct tw_drm_gpu *gpu = output ? output->gpu : NULL;
 
-	assert(gpu->gpu_fd == fd);
-	wl_list_for_each(query, &drm->base.outputs, output.device.link) {
-		if ((query->gpu == gpu) &&
-		    (query->crtc && query->crtc->id == (int)crtc_id)) {
-			output = query;
-			break;
+	if (output) {
+		assert(gpu->gpu_fd == fd);
+		if (output->status.crtc_id == TW_DRM_CRTC_ID_INVALID) {
+			return;
+		} else {
+			assert(output->status.crtc_id == (int)crtc_id);
+			gpu->impl->page_flip(output, DRM_MODE_PAGE_FLIP_EVENT);
 		}
 	}
-	if (!output) {
-		tw_logl_level(TW_LOG_WARN, "crtc %u no connector", crtc_id);
-		return;
-	}
-
-	if (!output->status.connected)
-		return;
-	//we should go with display pageflip handle
-	gpu->impl->page_flip(output, DRM_MODE_PAGE_FLIP_EVENT);
-
 	//TODO: send present event
 }
 

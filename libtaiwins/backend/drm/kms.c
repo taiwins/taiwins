@@ -20,6 +20,7 @@
  */
 
 #include <gbm.h>
+#include <assert.h>
 #include <stdint.h>
 #include <wayland-server-core.h>
 #include <xf86drmMode.h>
@@ -79,6 +80,8 @@ tw_kms_atomic_set_connector_props(drmModeAtomicReq *req, bool pass,
 
 {
 	int32_t crtc = output->status.crtc_id;
+
+	assert((output->crtc != NULL) == (crtc != TW_DRM_CRTC_ID_INVALID));
 	if (crtc != TW_DRM_CRTC_ID_INVALID)
 		atomic_add(req, &pass, output->conn_id, output->props.crtc_id,
 		           crtc);
@@ -99,16 +102,18 @@ tw_kms_atomic_set_crtc_props(drmModeAtomicReq *req, bool pass,
 	struct tw_drm_crtc *crtc = output->crtc;
 	const size_t mode_size = sizeof(drmModeModeInfo);
 
-	if (!active) {
+	if (!active || !crtc) {
 		*modeid = 0;
-	} else if (output->status.pending & TW_DRM_PENDING_MODE) {
+		return pass;
+	}
+
+	if (output->status.pending & TW_DRM_PENDING_MODE) {
 		pass = pass && drmModeCreatePropertyBlob(fd,
 		                                         &output->status.mode,
 		                                         mode_size,
 		                                         modeid) >= 0;
 		atomic_add(req, &pass, crtc->id, crtc->props.mode_id, *modeid);
 	}
-
 	atomic_add(req, &pass, crtc->id, crtc->props.active, active);
 
 	return pass;

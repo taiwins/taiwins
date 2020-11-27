@@ -207,7 +207,7 @@ atomic_pageflip(struct tw_drm_display *output, uint32_t flags)
 	pass = tw_kms_atomic_set_crtc_props(req, pass, output, &mode_id);
 
 	if (pass) {
-		drmModeAtomicCommit(fd, req, flags, output->gpu);
+		drmModeAtomicCommit(fd, req, flags, output);
 		if (output->status.active)
 			tw_drm_plane_swap_fb(main_plane);
 	}
