@@ -1,5 +1,5 @@
 /*
- * backend.c - taiwins server drm functions
+ * drm.c - taiwins server drm functions
  *
  * Copyright (c) 2020 Xichen Zhou
  *
