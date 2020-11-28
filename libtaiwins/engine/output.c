@@ -23,7 +23,6 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <time.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <pixman.h>
 
@@ -74,6 +73,24 @@ engine_output_get_wl_output(struct tw_engine_output *output,
 	return NULL;
 }
 
+static inline void
+start_engine_output(struct tw_engine_output *output)
+{
+	if (!output->tw_output)
+		output->tw_output = tw_output_create(output->engine->display);
+	wl_signal_emit(&output->engine->events.output_created, output);
+}
+
+static inline void
+stop_engine_output(struct tw_engine_output *output)
+{
+	if (output->tw_output) {
+		tw_output_destroy(output->tw_output);
+		output->tw_output = NULL;
+	}
+	wl_signal_emit(&output->engine->events.output_remove, output);
+}
+
 /******************************************************************************
  * listeners
  *****************************************************************************/
@@ -95,11 +112,9 @@ notify_output_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&output->listeners.surface_enter.link);
 	wl_list_remove(&output->listeners.surface_leave.link);
 
-	tw_output_destroy(output->tw_output);
-
 	fini_engine_output_state(output);
 	engine->output_pool &= unset;
-	wl_signal_emit(&engine->events.output_remove, output);
+	stop_engine_output(output);
 }
 
 static void
@@ -134,10 +149,20 @@ notify_output_new_mode(struct wl_listener *listener, void *data)
 		wl_container_of(listener, output, listeners.set_mode);
 	pixman_rectangle32_t rect = tw_output_device_geometry(output->device);
 
-	pixman_region32_fini(&output->constrain.region);
-	pixman_region32_init_rect(&output->constrain.region,
-	                          rect.x, rect.y, rect.width, rect.width);
-	wl_signal_emit(&output->engine->events.output_resized, output);
+	//updating output active state
+	if (output->active && !output->device->state.enabled)
+		stop_engine_output(output);
+	else if (!output->active && output->device->state.enabled)
+		start_engine_output(output);
+	output->active = output->device->state.enabled;
+
+	//update only on active.
+        if (output->active) {
+		pixman_region32_fini(&output->constrain.region);
+		pixman_region32_init_rect(&output->constrain.region, rect.x,
+		                          rect.y, rect.width, rect.height);
+		wl_signal_emit(&output->engine->events.output_resized, output);
+	}
 }
 
 static void
@@ -213,15 +238,10 @@ tw_engine_new_output(struct tw_engine *engine,
 	output->cloning = -1;
 	output->engine = engine;
 	output->device = device;
-	output->tw_output = tw_output_create(engine->display);
+	output->active = device->state.enabled;
 	tw_output_device_set_id(device, id);
 
 	wl_list_init(&output->link);
-	if (!output->tw_output) {
-		tw_logl_level(TW_LOG_ERRO, "failed to create wl_output");
-		return false;
-	}
-
 	init_engine_output_state(output);
 
 	tw_signal_setup_listener(&device->events.info,
@@ -246,7 +266,8 @@ tw_engine_new_output(struct tw_engine *engine,
         wl_list_init(&output->link);
         wl_list_insert(&engine->heads, &output->link);
 
-        wl_signal_emit(&engine->events.output_created, output);
+        if (output->active)
+	        start_engine_output(output);
 
         return true;
 }
