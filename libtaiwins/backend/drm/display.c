@@ -400,6 +400,7 @@ tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn)
 		found->drm = drm;
 		found->gpu = gpu;
 		found->conn_id = conn->connector_id;
+		found->status.annouced = false;
 
 		wl_list_insert(drm->base.outputs.prev,
 		               &found->output.device.link);
@@ -415,8 +416,11 @@ tw_drm_display_start(struct tw_drm_display *output)
 
 	tw_render_output_set_context(&output->output, drm->base.ctx);
 
-	//TODO: avoid call this twice!
-	wl_signal_emit(&drm->base.events.new_output, &output->output.device);
+	if (!output->status.annouced) {
+		wl_signal_emit(&drm->base.events.new_output,
+		               &output->output.device);
+		output->status.annouced = true;
+	}
 
 	//commit state would now handle most of the logics
 	tw_output_device_commit_state(&output->output.device);

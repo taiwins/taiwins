@@ -174,7 +174,7 @@ struct tw_drm_display {
 	struct tw_drm_crtc *crtc;
 
 	struct {
-		bool connected, active;
+		bool connected, active, annouced;
 		int crtc_id; /* crtc_id read from connector, may not work */
 		drmModeModeInfo mode;
 		struct wl_array modes;
