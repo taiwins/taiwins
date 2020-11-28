@@ -1,5 +1,5 @@
 /*
- * backend.c - taiwins server drm plane functions
+ * plane.c - taiwins server drm plane functions
  *
  * Copyright (c) 2020 Xichen Zhou
  *

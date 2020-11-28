@@ -1,5 +1,5 @@
 /*
- * backend.c - taiwins server drm KMS functions
+ * kms.c - taiwins server drm KMS functions
  *
  * Copyright (c) 2020 Xichen Zhou
  *
