@@ -85,12 +85,7 @@ tw_kms_atomic_set_connector_props(drmModeAtomicReq *req, bool pass,
 	int32_t crtc = output->status.crtc_id;
 
 	assert((output->crtc != NULL) == (crtc != TW_DRM_CRTC_ID_INVALID));
-	if (crtc != TW_DRM_CRTC_ID_INVALID)
-		atomic_add(req, &pass, output->conn_id, output->props.crtc_id,
-		           crtc);
-	else
-		atomic_add(req, &pass, output->conn_id, output->props.crtc_id,
-		           0);
+	atomic_add(req, &pass, output->conn_id, output->props.crtc_id, crtc);
 	return pass;
 }
 
