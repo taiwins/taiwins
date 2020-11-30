@@ -48,7 +48,7 @@ struct tw_drm_backend;
 
 #define _DRM_PLATFORM_GBM "TW_DRM_PLATFORM_GBM"
 #define _DRM_PLATFORM_STREAM "TW_DRM_PLATFORM_STREAM"
-#define TW_DRM_CRTC_ID_INVALID -1
+#define TW_DRM_CRTC_ID_INVALID 0
 #define TW_DRM_MAX_SWAP_IMGS 3
 
 enum tw_drm_platform {

@@ -255,8 +255,7 @@ legacy_pageflip(struct tw_drm_display *output, uint32_t flags)
 	uint32_t fb = 0;
 	int fd = output->gpu->gpu_fd;
 	struct gbm_bo *next_bo = NULL;
-	uint32_t crtc_id = output->status.crtc_id == TW_DRM_CRTC_ID_INVALID ?
-		0 : output->status.crtc_id;
+	uint32_t crtc_id = output->status.crtc_id;
 	const char *name = output->output.device.name;
 
 	if (tw_drm_output_invalid_active_state(output)) {
