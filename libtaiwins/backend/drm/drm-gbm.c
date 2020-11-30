@@ -20,6 +20,7 @@
  */
 
 #include <assert.h>
+#include <string.h>
 #include <gbm.h>
 #include <drm_fourcc.h>
 #include <stdint.h>
@@ -135,8 +136,10 @@ static inline void
 tw_drm_gbm_release_fb(struct tw_drm_fb *fb, struct gbm_surface *surf)
 {
 	struct gbm_bo *bo = tw_drm_fb_get_gbm_bo(fb);
-	if (bo && surf)
+	if (bo && surf) {
 		gbm_surface_release_buffer(surf, bo);
+		fb->locked = false;
+	}
 }
 
 static inline void
@@ -144,6 +147,7 @@ tw_drm_gbm_write_fb(struct tw_drm_fb *fb, struct gbm_bo *bo, int fb_id)
 {
 	fb->fb = fb_id;
 	fb->handle = (uintptr_t)(void *)bo;
+	fb->locked = true;
 }
 
 static struct gbm_bo *
@@ -155,25 +159,28 @@ tw_drm_gbm_render_pending(struct tw_drm_display *output)
 	struct gbm_bo *next_bo = NULL;
 	struct tw_output_device *dev = &output->output.device;
 
-	//expected to be invoked from a pageflip event, so it good time to swap
-	tw_drm_plane_swap_fb(main_plane);
-
+	main_plane->pending = tw_drm_swapchain_pop(&output->sc);
 	//Now it is safe to release the bo to be used by renderer
 	//again, we could have either double buffering or tripple
 	//buffering.
-	tw_drm_gbm_release_fb(&main_plane->pending, gbm_surface);
+	tw_drm_gbm_release_fb(main_plane->pending, gbm_surface);
 
 	wl_signal_emit(&dev->events.new_frame, dev);
 	//after the frame event, we want to lock a front(queued) buffer
 	//to present.
 	next_bo = gbm_surface_lock_front_buffer(gbm_surface);
 	if (!next_bo) {
-		tw_log_level(TW_LOG_ERRO, "Failed to lock the "
-		             "front buffer");
-		return NULL;
+		//TODO: We encounter on manuall pageflip, if we failed to lock
+		//a buffer, we should use the current buffer and use the one in
+		//front.
+		next_bo = (struct gbm_bo *)main_plane->pending->handle;
+		/* tw_log_level(TW_LOG_ERRO, "Failed to lock the " */
+		/*              "front buffer"); */
+		/* return NULL; */
 	}
-	tw_drm_gbm_write_fb(&main_plane->pending, next_bo,
+	tw_drm_gbm_write_fb(main_plane->pending, next_bo,
 	                    tw_drm_gbm_get_fb(next_bo));
+	tw_drm_swapchain_push(&output->sc, main_plane->pending);
 	return next_bo;
 }
 
@@ -303,13 +310,9 @@ static void
 handle_end_gbm_display(struct tw_drm_display *output)
 {
 	struct gbm_surface *surface = tw_drm_output_get_gbm_surface(output);
-	struct tw_drm_plane *plane = output->primary_plane;
 
-	if (plane) {
-		tw_drm_gbm_free_fb(&plane->current, output);
-		tw_drm_gbm_free_fb(&plane->pending, output);
-	}
-
+	for (unsigned i = 0; i < output->sc.cnt; i++)
+		tw_drm_gbm_free_fb(&output->sc.imgs[i], output);
 	if (surface != NULL) {
 		tw_render_presentable_fini(&output->output.surface,
 		                           output->drm->base.ctx);
@@ -350,6 +353,8 @@ handle_allocate_display_gbm_surface(struct tw_drm_display *output)
 	                                  output->drm->base.ctx,
 	                                  surface);
 	output->handle = (uintptr_t)(void *)surface;
+	//collecting fbs
+	tw_drm_swapchain_init(&output->sc, TW_DRM_MAX_SWAP_IMGS);
 	return true;
 }
 

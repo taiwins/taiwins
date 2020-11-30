@@ -41,14 +41,14 @@
 	dpy->status.name = newval;
 
 static inline void
-UPDATE_PENDING_MODE(struct tw_drm_display *dpy, drmModeModeInfo *new_mode)
+UPDATE_PENDING_MODE(struct tw_drm_display *dpy, drmModeModeInfo *new_mode,
+                    bool force)
 {
-	if (new_mode) {
-		bool nequal = memcmp(new_mode, &dpy->status.mode,
-		                     sizeof(*new_mode));
-		dpy->status.pending |= nequal ? TW_DRM_PENDING_MODE : 0;
+	bool nequal = new_mode ? memcmp(new_mode, &dpy->status.mode,
+	                                sizeof(*new_mode)) : false;
+	dpy->status.pending |= (nequal || force) ? TW_DRM_PENDING_MODE : 0;
+	if (new_mode)
 		dpy->status.mode = *new_mode;
-	}
 }
 
 static inline enum wl_output_subpixel
@@ -244,10 +244,19 @@ find_plane(struct tw_drm_display *output, enum tw_drm_plane_type t)
 	struct tw_drm_gpu *gpu = output->gpu;
 	int crtc_idx = crtc_idx_from_id(gpu, output->status.crtc_id);
 
-        wl_list_for_each(p, &gpu->plane_list, base.link)
-		if (((1 << crtc_idx) & p->crtc_mask) && p->type == t)
-			return p;
-        return NULL;
+	wl_list_for_each(p, &gpu->plane_list, base.link)
+	        if (((1 << crtc_idx) & p->crtc_mask) && p->type == t)
+		        return p;
+	return NULL;
+}
+
+static inline void
+prepare_plane_fbs(struct tw_drm_plane *plane, struct tw_drm_display *output)
+{
+	if (plane) {
+		plane->pending = NULL;
+		plane->current = NULL;
+	}
 }
 
 static bool
@@ -290,11 +299,12 @@ handle_display_commit_state(struct tw_output_device *device)
 	uint32_t flags = 0;
 
 	//ensure valid active state.
-	pending->enabled = pending->enabled && output->status.connected;
+	bool enabled = pending->enabled && output->status.connected;
 	//update the pending.
-	UPDATE_PENDING(output, active,pending->enabled, TW_DRM_PENDING_ACTIVE);
-	UPDATE_PENDING_MODE(output, info);
+	UPDATE_PENDING(output, active, enabled, TW_DRM_PENDING_ACTIVE);
+	UPDATE_PENDING_MODE(output, info, false);
 	memcpy(&device->state, &device->pending, sizeof(device->state));
+	device->state.enabled = enabled;
 
 	//flushing the pending states
 	if (display_enable(output)) {
@@ -307,6 +317,7 @@ handle_display_commit_state(struct tw_output_device *device)
 
 		if ((output->status.pending & TW_DRM_PENDING_MODE))
 			output->gpu->impl->allocate_fb(output);
+		prepare_plane_fbs(output->primary_plane, output);
 		flags = DRM_MODE_PAGE_FLIP_EVENT;
 	} else {
 		tw_drm_display_detach_crtc(output);
@@ -421,7 +432,8 @@ tw_drm_display_start(struct tw_drm_display *output)
 		               &output->output.device);
 		output->status.annouced = true;
 	}
-
+	//force updating display mode to allocate buffers.
+	UPDATE_PENDING_MODE(output, &output->status.mode, true);
 	//commit state would now handle most of the logics
 	tw_output_device_commit_state(&output->output.device);
 }
@@ -435,7 +447,11 @@ tw_drm_display_continue(struct tw_drm_display *output)
 void
 tw_drm_display_stop(struct tw_drm_display *output)
 {
+	output->status.unset_crtc =
+		crtc_from_id(output->gpu, output->status.crtc_id);
 	tw_output_device_commit_state(&output->output.device);
+	tw_render_output_unset_context(&output->output);
+	output->status.unset_crtc = NULL;
 }
 
 void

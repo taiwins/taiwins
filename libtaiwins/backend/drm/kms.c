@@ -61,7 +61,7 @@ tw_kms_atomic_set_plane_props(drmModeAtomicReq *req, bool pass,
 	} else {
 		uint32_t id = plane->id;
 		struct tw_drm_plane_props *props = &plane->props;
-		struct tw_drm_fb *fb = &plane->pending;
+		struct tw_drm_fb *fb = plane->pending;
 
 		atomic_add(req, &pass, id, props->src_x, 0);
 		atomic_add(req, &pass, id, props->src_y, 0);
@@ -102,14 +102,15 @@ tw_kms_atomic_set_crtc_props(drmModeAtomicReq *req, bool pass,
 {
 	int fd = output->gpu->gpu_fd;
 	bool active = output->status.active;
-	struct tw_drm_crtc *crtc = output->crtc;
+	struct tw_drm_crtc *crtc = output->crtc ?
+		output->crtc : output->status.unset_crtc;
 	const size_t mode_size = sizeof(drmModeModeInfo);
 
-	if (!active || !crtc) {
+	assert(active == (output->crtc != NULL));
+	if (!active) {
 		*modeid = 0;
-		return pass;
+		goto out;
 	}
-
 	if (output->status.pending & TW_DRM_PENDING_MODE) {
 		pass = pass && drmModeCreatePropertyBlob(fd,
 		                                         &output->status.mode,
@@ -117,7 +118,9 @@ tw_kms_atomic_set_crtc_props(drmModeAtomicReq *req, bool pass,
 		                                         modeid) >= 0;
 		atomic_add(req, &pass, crtc->id, crtc->props.mode_id, *modeid);
 	}
-	atomic_add(req, &pass, crtc->id, crtc->props.active, active);
+out:
+	if (crtc)
+		atomic_add(req, &pass, crtc->id, crtc->props.active, active);
 
 	return pass;
 }
