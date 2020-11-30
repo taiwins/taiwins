@@ -133,13 +133,6 @@ read_plane_properties(int fd, int plane_id, struct tw_drm_plane_props *p)
 	                       sizeof(plane_info)/sizeof(plane_info[0]));
 }
 
-static inline void
-init_plane_fb(struct tw_drm_fb *fb)
-{
-	fb->fb = -1;
-	fb->handle = 0;
-}
-
 bool
 tw_drm_plane_init(struct tw_drm_plane *plane, int fd, drmModePlane *drm_plane)
 {
@@ -161,8 +154,7 @@ tw_drm_plane_init(struct tw_drm_plane *plane, int fd, drmModePlane *drm_plane)
 	plane->crtc_mask = drm_plane->possible_crtcs;
 	read_plane_properties(fd, plane->id, &plane->props);
 	populate_plane_formats(plane, drm_plane, fd);
-	init_plane_fb(&plane->pending);
-	init_plane_fb(&plane->current);
+	plane->pending = plane->current = NULL;
 	return true;
 }
 
@@ -171,13 +163,4 @@ tw_drm_plane_fini(struct tw_drm_plane *plane)
 {
 	tw_drm_formats_fini(&plane->formats);
 	tw_plane_fini(&plane->base);
-}
-
-void
-tw_drm_plane_swap_fb(struct tw_drm_plane *plane)
-{
-	struct tw_drm_fb old = plane->current;
-
-	plane->current = plane->pending;
-	plane->pending = old;
 }

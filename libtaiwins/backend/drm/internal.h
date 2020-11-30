@@ -49,6 +49,7 @@ struct tw_drm_backend;
 #define _DRM_PLATFORM_GBM "TW_DRM_PLATFORM_GBM"
 #define _DRM_PLATFORM_STREAM "TW_DRM_PLATFORM_STREAM"
 #define TW_DRM_CRTC_ID_INVALID -1
+#define TW_DRM_MAX_SWAP_IMGS 3
 
 enum tw_drm_platform {
 	TW_DRM_PLATFORM_GBM,
@@ -97,7 +98,7 @@ struct tw_drm_prop_info {
 struct tw_drm_crtc_props {
 	//write
 	uint32_t active;
-	uint32_t mode_id; /**< dpms mode? */
+	uint32_t mode_id;
 };
 
 struct tw_drm_connector_props {
@@ -126,13 +127,24 @@ struct tw_drm_plane_props {
 	uint32_t fb_id;
 };
 
-// a framebuffer on a plane, it can be generated from gbm_surface or be a
-// surfaceless bo imported from dma or wl_buffer or other things. I may be able
-// to implement
 struct tw_drm_fb {
 	enum tw_drm_fb_type type;
+	bool locked;
 	int fb;
 	uintptr_t handle;
+	struct wl_list link; /* swapchain:fbs */
+};
+
+/**
+ * swapchain is designed to be a queue to work with function
+ * gbm_surface_lock_front_face. The queue supports push and pop function to
+ * extract new fb from the queue. The swapchain of size of 1 could be used for
+ * eglstream as well.
+ */
+struct tw_drm_swapchain {
+	unsigned cnt;
+	struct wl_list fbs;
+	struct tw_drm_fb imgs[TW_DRM_MAX_SWAP_IMGS];
 };
 
 struct tw_drm_plane {
@@ -143,9 +155,7 @@ struct tw_drm_plane {
 
 	struct tw_drm_formats formats;
 	struct tw_drm_plane_props props;
-	//the fb is the rendering data, should not be here, or rather we should
-	//have pointer? //init plane would cause us to lose them.
-	struct tw_drm_fb pending, current;
+	struct tw_drm_fb *pending, *current;
 };
 
 struct tw_drm_crtc {
@@ -169,19 +179,22 @@ struct tw_drm_display {
 
 	int conn_id;
 	uint32_t crtc_mask, plane_mask;
+	uintptr_t handle; /* platform specific handle */
+
 	/** output has at least one primary plane */
 	struct tw_drm_plane *primary_plane;
 	struct tw_drm_crtc *crtc;
 
 	struct {
 		bool connected, active, annouced;
-		int crtc_id; /* crtc_id read from connector, may not work */
+		int crtc_id; /**< crtc_id read from connector, may not work */
+		/* crtc for unset, used once in display_stop */
+		struct tw_drm_crtc *unset_crtc;
 		drmModeModeInfo mode;
 		struct wl_array modes;
 		enum tw_drm_display_pending_flags pending;
 	} status;
-
-	uintptr_t handle; /* platform specific handle */
+	struct tw_drm_swapchain sc;
 	struct tw_drm_connector_props props;
 
 	struct wl_listener presentable_commit;
@@ -304,8 +317,18 @@ tw_drm_plane_init(struct tw_drm_plane *plane, int fd,
 void
 tw_drm_plane_fini(struct tw_drm_plane *plane);
 
+/******************************* swapchain API *******************************/
 void
-tw_drm_plane_swap_fb(struct tw_drm_plane *plane);
+tw_drm_swapchain_init(struct tw_drm_swapchain *sc, unsigned int cnt);
+
+void
+tw_drm_swapchain_fini(struct tw_drm_swapchain *sc);
+
+void
+tw_drm_swapchain_push(struct tw_drm_swapchain *sc, struct tw_drm_fb *fb);
+
+struct tw_drm_fb *
+tw_drm_swapchain_pop(struct tw_drm_swapchain *sc);
 
 /******************************** display API ********************************/
 
