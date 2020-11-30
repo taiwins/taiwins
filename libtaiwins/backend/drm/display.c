@@ -32,6 +32,9 @@
 
 #include "internal.h"
 
+bool
+drm_display_read_edid(int fd, drmModeConnector *conn, uint32_t prop_edid,
+                      char make[32], char model[32], char serial[16]);
 /******************************************************************************
  * pending
  *****************************************************************************/
@@ -372,11 +375,15 @@ out:
 	dev->phys_height = conn->mmHeight;
 	dev->subpixel = wl_subpixel_from_drm(conn->subpixel);
 	snprintf(dev->name, sizeof(dev->name), "%s-%d",
-	         name_from_type(conn->connector_type), conn->connector_id);
+	         name_from_type(conn->connector_type),
+	         conn->connector_type_id);
+	drm_display_read_edid(fd, conn, output->props.edid,
+	                      output->output.device.make,
+	                      output->output.device.model,
+	                      output->output.device.serial);
 	output->crtc_mask = read_connector_possible_crtcs(fd, conn);
 	output->conn_id = conn->connector_id;
 	output->crtc = NULL;
-	//TODO: parsing edid from connector properities so we can fill up the
 	//make, model
 
 	//// update pending status
