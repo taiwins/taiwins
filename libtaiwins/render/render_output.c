@@ -337,6 +337,16 @@ tw_render_output_set_context(struct tw_render_output *output,
 }
 
 void
+tw_render_output_unset_context(struct tw_render_output *output)
+{
+	//should be safe to call multiple times
+	assert(!output->surface.handle);
+	output->ctx = NULL;
+	tw_reset_wl_list(&output->link);
+	tw_reset_wl_list(&output->listeners.surface_dirty.link);
+}
+
+void
 tw_render_output_dirty(struct tw_render_output *output)
 {
 	if (output->state.repaint_state != TW_REPAINT_CLEAN)

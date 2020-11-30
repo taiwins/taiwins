@@ -83,6 +83,9 @@ void
 tw_render_output_set_context(struct tw_render_output *output,
                              struct tw_render_context *ctx);
 void
+tw_render_output_unset_context(struct tw_render_output *output);
+
+void
 tw_render_output_rebuild_view_mat(struct tw_render_output *output);
 
 void
