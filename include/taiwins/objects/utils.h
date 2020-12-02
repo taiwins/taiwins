@@ -54,6 +54,9 @@ tw_set_display_destroy_listener(struct wl_display *display,
 bool
 tw_match_wl_resource_client(struct wl_resource *a, struct wl_resource *b);
 
+void
+tw_resource_destroy_common(struct wl_client *c, struct wl_resource *r);
+
 #define  tw_reset_wl_list(link) \
 	({ \
 		wl_list_remove(link); \
