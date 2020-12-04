@@ -40,6 +40,7 @@
 #include <taiwins/objects/presentation_feedback.h>
 #include <taiwins/objects/viewporter.h>
 #include <taiwins/objects/gestures.h>
+#include <xkbcommon/xkbcommon.h>
 
 #include "input_device.h"
 #include "output_device.h"
@@ -91,6 +92,7 @@ struct tw_engine_seat {
 	struct wl_list link; /* tw_engine.inputs */
 
 	struct xkb_rule_names keyboard_rule_names;
+	struct xkb_keymap *keymap;
 };
 
 /**
