@@ -20,11 +20,11 @@
  */
 
 #include <assert.h>
+#include <libinput.h>
 #include <libudev.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <wayland-util.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 #include <sys/types.h>
@@ -47,12 +47,16 @@ static bool
 drm_backend_start(struct tw_backend *backend, struct tw_render_context *ctx)
 {
 	struct tw_drm_display *output;
+	struct tw_libinput_device *input;
 	struct tw_drm_backend *drm = wl_container_of(backend, drm, base);
 
 	wl_list_for_each(output, &drm->base.outputs, output.device.link) {
 		if (output->status.connected && output->status.active)
 			tw_drm_display_start(output);
 	}
+	wl_list_for_each(input, &drm->base.inputs, base.link)
+		wl_signal_emit(&drm->base.events.new_input, &input->base);
+
 	return true;
 }
 
@@ -94,10 +98,13 @@ drm_backend_release_gpus(struct tw_drm_backend *drm)
 static void
 drm_backend_destroy(struct tw_drm_backend *drm)
 {
+	struct libinput *libinput = drm->input.libinput;
 	wl_signal_emit(&drm->base.events.destroy, &drm->base);
 	if (drm->base.ctx)
 		tw_render_context_destroy(drm->base.ctx);
 	drm_backend_release_gpus(drm);
+	tw_libinput_input_fini(&drm->input);
+	libinput_unref(libinput);
 	tw_login_destroy(drm->login);
 	free(drm);
 }
@@ -231,6 +238,54 @@ drm_backend_get_boot_gpu(struct tw_drm_backend *drm)
 }
 
 /******************************************************************************
+ * libinput handlers
+ *****************************************************************************/
+
+static int
+handle_open_restricted(const char *path, int flags, void *user_data)
+{
+	struct tw_libinput_input *input = user_data;
+	struct tw_drm_backend *drm = wl_container_of(input, drm, input);
+	struct tw_login *login = drm->login;
+
+	return tw_login_open(login, path);
+}
+
+static void
+handle_close_restricted(int fd, void *user_data)
+{
+	struct tw_libinput_input *input = user_data;
+	struct tw_drm_backend *drm = wl_container_of(input, drm, input);
+	struct tw_login *login = drm->login;
+
+	tw_login_close(login, fd);
+}
+
+static const struct libinput_interface drm_libinput_impl = {
+	handle_open_restricted,
+	handle_close_restricted,
+};
+
+static bool
+drm_backend_open_libinput(struct tw_drm_backend *drm)
+{
+	struct wl_display *dpy = drm->display;
+	struct udev *udev = drm->login->udev;
+	struct libinput *libinput =
+		libinput_udev_create_context(&drm_libinput_impl, &drm->input,
+		                             udev);
+	if (!libinput)
+		return false;
+
+	tw_libinput_input_init(&drm->input, &drm->base, dpy, libinput);
+	if (!tw_libinput_input_enable(&drm->input, drm->login->seat)) {
+		libinput_unref(libinput);
+		return false;
+	}
+	return true;
+}
+
+/******************************************************************************
  * listeners
  *****************************************************************************/
 
@@ -314,6 +369,8 @@ tw_drm_backend_create(struct wl_display *display)
 	drm->login = tw_login_create(display);
 	if (!(drm->login))
 		goto err_login;
+	if (!drm_backend_open_libinput(drm))
+		goto err_libinput;
 	if (!drm_backend_collect_gpus(drm))
 		goto err_collect_gpus;
 	drm->boot_gpu = drm_backend_get_boot_gpu(drm);
@@ -336,6 +393,7 @@ tw_drm_backend_create(struct wl_display *display)
 
 err_boot_gpu:
 err_collect_gpus:
+err_libinput:
 err_login:
 	drm_backend_destroy(drm);
 	return NULL;

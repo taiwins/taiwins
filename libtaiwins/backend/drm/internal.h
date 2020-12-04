@@ -30,6 +30,7 @@
 #include <gbm.h>
 #include <wayland-server.h>
 #include <taiwins/backend_drm.h>
+#include <taiwins/backend_libinput.h>
 #include <taiwins/render_output.h>
 #include <taiwins/objects/plane.h>
 #include <taiwins/objects/drm_formats.h>
@@ -265,6 +266,7 @@ struct tw_drm_backend {
 	struct tw_login *login;
 	struct tw_drm_gpu *boot_gpu;
 	struct wl_list gpu_list;
+	struct tw_libinput_input input;
 
 	struct wl_listener display_destroy;
 	struct wl_listener login_attribute_change;
