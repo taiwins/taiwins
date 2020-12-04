@@ -24,27 +24,16 @@
 #include <wayland-xdg-output-server-protocol.h>
 
 #include <taiwins/objects/xdg_output.h>
+#include <taiwins/objects/utils.h>
 
 
 #define XDG_OUTPUT_MAN_VERSION 1
 #define XDG_OUTPUT_VERSION 3
 
-static void
-handle_output_destroy(struct wl_client *client,
-                      struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
 
 static const struct zxdg_output_v1_interface xdg_output_impl = {
-	.destroy = handle_output_destroy,
+	.destroy = tw_resource_destroy_common,
 };
-
-static void
-handle_manager_destroy(struct wl_client *client, struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
 
 static void
 handle_get_xdg_output(struct wl_client *client,
@@ -82,7 +71,7 @@ handle_get_xdg_output(struct wl_client *client,
 }
 
 static const struct zxdg_output_manager_v1_interface xdg_output_man_impl = {
-	.destroy = handle_manager_destroy,
+	.destroy = tw_resource_destroy_common,
 	.get_xdg_output = handle_get_xdg_output,
 };
 

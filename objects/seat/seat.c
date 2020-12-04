@@ -61,14 +61,9 @@ tw_seat_client_from_resource(struct wl_resource *resource)
 }
 
 //// listeners
-static void
-release_device(struct wl_client *client, struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
 
 static const struct wl_keyboard_interface keyboard_impl = {
-	.release = release_device,
+	.release = tw_resource_destroy_common,
 };
 
 static void
@@ -128,7 +123,7 @@ set_pointer_cursor(struct wl_client *client,
 
 static const struct wl_pointer_interface pointer_impl = {
 	.set_cursor = set_pointer_cursor,
-	.release = release_device,
+	.release = tw_resource_destroy_common,
 };
 
 static void
@@ -153,7 +148,7 @@ seat_client_create_pointer(struct tw_seat_client *client,
 }
 
 static const struct wl_touch_interface touch_impl = {
-	.release = release_device,
+	.release = tw_resource_destroy_common,
 };
 
 static void
@@ -228,18 +223,11 @@ seat_get_touch(struct wl_client *client, struct wl_resource *seat_resource,
 		                       id);
 }
 
-static void
-seat_client_release(struct wl_client *client,
-                    struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
 static const struct wl_seat_interface seat_impl = {
 	.get_pointer = seat_get_pointer,
 	.get_keyboard = seat_get_keyboard,
 	.get_touch = seat_get_touch,
-	.release = seat_client_release,
+	.release = tw_resource_destroy_common,
 };
 
 static void

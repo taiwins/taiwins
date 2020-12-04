@@ -38,15 +38,8 @@ static struct tw_linux_dmabuf s_tw_linux_dmabuf = {0};
 
 static void tw_dmabuf_buffer_destroy(struct tw_dmabuf_buffer *buffer);
 
-static void
-buffer_destroy(struct wl_client *client,
-               struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
 static const struct  wl_buffer_interface  wl_buffer_impl = {
-	.destroy = buffer_destroy,
+	.destroy = tw_resource_destroy_common,
 };
 
 static void
@@ -123,13 +116,6 @@ tw_dmabuf_buffer_destroy(struct tw_dmabuf_buffer *buffer)
 	}
 	tw_dmabuf_attributes_init(&buffer->attributes);
 	free(buffer);
-}
-
-static void
-buffer_params_destroy_resource(struct wl_client *client,
-                               struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
 }
 
 static void
@@ -349,7 +335,7 @@ buffer_params_destroy(struct wl_resource *resource)
 }
 
 static const struct zwp_linux_buffer_params_v1_interface buffer_params_impl = {
-	.destroy = buffer_params_destroy_resource,
+	.destroy = tw_resource_destroy_common,
 	.add = buffer_params_add,
 	.create = buffer_params_create,
 	.create_immed = buffer_params_create_immed,
@@ -358,13 +344,6 @@ static const struct zwp_linux_buffer_params_v1_interface buffer_params_impl = {
 /******************************************************************************
  * linux_dmabuf implementation
  *****************************************************************************/
-
-static void
-linux_dmabuf_destroy(struct wl_client *client,
-                     struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
 
 static void
 linux_dmabuf_create_params(struct wl_client *client,
@@ -395,7 +374,7 @@ err_buffer:
 }
 
 static const struct zwp_linux_dmabuf_v1_interface dmabuf_v1_impl = {
-	.destroy = linux_dmabuf_destroy,
+	.destroy = tw_resource_destroy_common,
 	.create_params = linux_dmabuf_create_params,
 };
 

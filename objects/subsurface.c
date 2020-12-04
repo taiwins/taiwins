@@ -87,13 +87,6 @@ find_sibling_subsurface(struct tw_subsurface *subsurface,
 }
 
 static void
-subsurface_handle_destroy(struct wl_client *client,
-                          struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
-static void
 subsurface_set_position(struct wl_client *client,
                         struct wl_resource *resource,
                         int32_t x,
@@ -177,7 +170,7 @@ subsurface_set_desync(struct wl_client *client, struct wl_resource *resource)
 }
 
 static const struct wl_subsurface_interface subsurface_impl = {
-	.destroy = subsurface_handle_destroy,
+	.destroy = tw_resource_destroy_common,
 	.set_position = subsurface_set_position,
 	.place_above = subsurface_place_above,
 	.place_below = subsurface_place_below,

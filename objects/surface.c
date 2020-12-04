@@ -41,12 +41,6 @@
  *****************************************************************************/
 
 static void
-surface_destroy(struct wl_client *client, struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
-static void
 surface_attach(struct wl_client *client,
                struct wl_resource *resource,
                struct wl_resource *buffer,
@@ -568,7 +562,7 @@ surface_commit(struct wl_client *client,
 }
 
 static const struct wl_surface_interface surface_impl = {
-	.destroy = surface_destroy,
+	.destroy = tw_resource_destroy_common,
 	.attach = surface_attach,
 	.frame = surface_frame,
 	.damage = surface_damage,

@@ -73,15 +73,9 @@ data_source_set_actions(struct wl_client *client,
 	tw_data_offer_set_source_actions(&data_source->offer, dnd_actions);
 }
 
-static void
-data_source_destroy(struct wl_client *client, struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
 static const struct wl_data_source_interface data_source_impl = {
 	.offer = data_source_offer,
-	.destroy = data_source_destroy,
+	.destroy = tw_resource_destroy_common,
 	.set_actions = data_source_set_actions,
 };
 
