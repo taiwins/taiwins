@@ -19,6 +19,7 @@ taiwins_obj_srcs = [
   'seat/seat_keyboard.c',
   'seat/seat_pointer.c',
   'seat/seat_touch.c',
+  'serial_engine.c',
   'dmabuf.c',
   'output.c',
   'compositor.c',
@@ -46,6 +47,7 @@ taiwins_obj_srcs = [
   'os-compatibility.c',
   'drm_formats.c',
   'egl.c',
+  'gestures.c',
 
   wayland_linux_dmabuf_server_protocol_h,
   wayland_linux_dmabuf_private_code_c,
@@ -57,6 +59,8 @@ taiwins_obj_srcs = [
   wayland_xdg_shell_private_code_c,
   wayland_xdg_output_server_protocol_h,
   wayland_xdg_output_private_code_c,
+  wayland_pointer_gestures_server_protocol_h,
+  wayland_pointer_gestures_private_code_c,
 ]
 
 twobjects_deps = [

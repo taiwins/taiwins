@@ -35,17 +35,6 @@
 
 static const struct wl_seat_interface seat_impl;
 
-WL_EXPORT struct tw_seat_client *
-tw_seat_client_find(struct tw_seat *seat, struct wl_client *client)
-{
-	struct tw_seat_client *seat_client = NULL;
-	wl_list_for_each(seat_client, &seat->clients, link) {
-		if (seat_client->client == client)
-			return seat_client;
-	}
-	return NULL;
-}
-
 static struct tw_seat_client *
 tw_seat_client_new(struct tw_seat *seat, struct wl_client *client)
 {
@@ -416,4 +405,27 @@ tw_seat_valid_serial(struct tw_seat *seat, uint32_t serial)
 	return serial == seat->last_pointer_serial ||
 		serial == seat->last_touch_serial ||
 		serial == seat->last_keyboard_serial;
+}
+
+WL_EXPORT struct tw_seat_client *
+tw_seat_client_from_device(struct wl_resource *resource)
+{
+	assert(wl_resource_instance_of(resource, &wl_pointer_interface,
+	                               &pointer_impl) ||
+	       wl_resource_instance_of(resource, &wl_keyboard_interface,
+	                               &keyboard_impl) ||
+	       wl_resource_instance_of(resource, &wl_touch_interface,
+	                               &touch_impl));
+	return wl_resource_get_user_data(resource);
+}
+
+WL_EXPORT struct tw_seat_client *
+tw_seat_client_find(struct tw_seat *seat, struct wl_client *client)
+{
+	struct tw_seat_client *seat_client = NULL;
+	wl_list_for_each(seat_client, &seat->clients, link) {
+		if (seat_client->client == client)
+			return seat_client;
+	}
+	return NULL;
 }
