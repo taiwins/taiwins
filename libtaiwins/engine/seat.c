@@ -498,20 +498,19 @@ static void
 seat_add_keyboard(struct tw_engine_seat *seat,
                   struct tw_input_device *keyboard)
 {
-	struct xkb_keymap *keymap;
 	struct xkb_context *context = seat->engine->xkb_context;
 
-	keymap = xkb_keymap_new_from_names(context,
-	                                   &seat->keyboard_rule_names,
-	                                   XKB_KEYMAP_COMPILE_NO_FLAGS);
-	tw_input_device_set_keymap(keyboard, keymap);
-	xkb_keymap_unref(keymap);
+	if (!seat->keymap)
+		seat->keymap = xkb_keymap_new_from_names(
+			context, &seat->keyboard_rule_names,
+			XKB_KEYMAP_COMPILE_NO_FLAGS);
+	tw_input_device_set_keymap(keyboard, seat->keymap);
 
 	//setup tw_seat, keymap will provide later.
 	if (!(seat->tw_seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD))
 		tw_seat_new_keyboard(seat->tw_seat);
 	//Here we pretty much giveup the keymap directly from backend.
-	tw_keyboard_set_keymap(&seat->tw_seat->keyboard, keymap);
+	tw_keyboard_set_keymap(&seat->tw_seat->keyboard, seat->keymap);
 }
 
 struct tw_engine_seat *
@@ -553,6 +552,7 @@ tw_engine_seat_release(struct tw_engine_seat *seat)
 	seat->idx = -1;
 	tw_seat_destroy(seat->tw_seat);
 	seat->tw_seat = NULL;
+	xkb_keymap_unref(seat->keymap);
 
 	seat->engine->seat_pool &= unset;
 }
@@ -601,6 +601,7 @@ tw_engine_seat_set_xkb_rules(struct tw_engine_seat *seat,
 {
 	struct tw_engine *engine = seat->engine;
 	struct xkb_keymap *keymap;
+	struct tw_input_device *dev;
 
 	seat->keyboard_rule_names = *rules;
 	if (!seat->keyboard_rule_names.rules)
@@ -618,11 +619,12 @@ tw_engine_seat_set_xkb_rules(struct tw_engine_seat *seat,
 	                                XKB_KEYMAP_COMPILE_NO_FLAGS);
 	if (!keymap)
 		return;
-	//TODO: set keymap for all the keyboards?
-	/* wlr_keyboard_set_keymap(seat->keyboard.device->keyboard, keymap); */
-	xkb_keymap_unref(keymap);
+	wl_list_for_each(dev, &engine->backend->inputs, link)
+		tw_input_device_set_keymap(dev, keymap);
 
-	/* tw_keyboard_set_keymap(&seat->tw_seat->keyboard, keymap); */
+	xkb_keymap_unref(seat->keymap);
+	seat->keymap = xkb_keymap_ref(keymap);
+	xkb_keymap_unref(keymap);
 }
 
 struct tw_engine_seat *
