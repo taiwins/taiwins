@@ -44,6 +44,7 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/profiler.h>
 #include <taiwins/objects/utils.h>
+#include <taiwins/objects/gestures.h>
 
 #include <taiwins/input_device.h>
 #include <taiwins/output_device.h>
@@ -108,7 +109,6 @@ notify_engine_backend_started(struct wl_listener *listener, void *data)
 
         tw_render_context_set_compositor(ctx, &engine->compositor_manager);
         tw_render_context_set_dma(ctx, &engine->dma_engine);
-
 }
 
 /******************************************************************************
@@ -130,8 +130,12 @@ engine_init_globals(struct tw_engine *engine)
 		return false;
 	if (!tw_viewporter_init(&engine->viewporter, engine->display))
 		return false;
+	if (!tw_gestures_manager_init(&engine->gestures_manager,
+	                              engine->display))
+		return false;
 
 	tw_layers_manager_init(&engine->layers_manager, engine->display);
+
 
 	return true;
 }

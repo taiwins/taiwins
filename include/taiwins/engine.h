@@ -39,6 +39,7 @@
 #include <taiwins/objects/cursor.h>
 #include <taiwins/objects/presentation_feedback.h>
 #include <taiwins/objects/viewporter.h>
+#include <taiwins/objects/gestures.h>
 
 #include "input_device.h"
 #include "output_device.h"
@@ -130,6 +131,7 @@ struct tw_engine {
 	struct tw_linux_dmabuf dma_engine;
 	struct tw_presentation presentation;
 	struct tw_viewporter viewporter;
+	struct tw_gestures_manager gestures_manager;
 
 	/* listeners */
 	struct {
