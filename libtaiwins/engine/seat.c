@@ -53,18 +53,18 @@ notify_seat_remove_device(struct wl_listener *listener, void *data)
 			}
 		}
 	}
-        //this is a bit unplesant
-        if (!device_type_left) {
-	        if (current->type == TW_INPUT_TYPE_KEYBOARD)
-		        tw_seat_remove_keyboard(seat->tw_seat);
-	        else if (current->type == TW_INPUT_TYPE_POINTER)
-		        tw_seat_remove_pointer(seat->tw_seat);
-	        else if (current->type == TW_INPUT_TYPE_TOUCH)
-		        tw_seat_remove_touch(seat->tw_seat);
-        }
-        //TODO: what if we still have switch or tablet deivces?
-        if (has_device == false)
-	        tw_engine_seat_release(seat);
+	//this is a bit unplesant
+	if (!device_type_left) {
+		if (current->type == TW_INPUT_TYPE_KEYBOARD)
+			tw_seat_remove_keyboard(seat->tw_seat);
+		else if (current->type == TW_INPUT_TYPE_POINTER)
+			tw_seat_remove_pointer(seat->tw_seat);
+		else if (current->type == TW_INPUT_TYPE_TOUCH)
+			tw_seat_remove_touch(seat->tw_seat);
+	}
+	//TODO: what if we still have switch or tablet deivces?
+	if (has_device == false)
+		tw_engine_seat_release(seat);
 }
 
 /******************************************************************************
@@ -274,7 +274,7 @@ notify_seat_pointer_pinch_end(struct wl_listener *listener, void *data)
 	struct tw_gestures_manager *gs_manager =
 		&seat->engine->gestures_manager;
 
-        tw_gestures_pinch_end(gs_manager, pointer, event->time,
+	tw_gestures_pinch_end(gs_manager, pointer, event->time,
 	                      event->cancelled);
 }
 
@@ -318,7 +318,7 @@ notify_seat_pointer_swipe_end(struct wl_listener *listener, void *data)
 	struct tw_gestures_manager *gs_manager =
 		&seat->engine->gestures_manager;
 
-        tw_gestures_swipe_end(gs_manager, pointer, event->time,
+	tw_gestures_swipe_end(gs_manager, pointer, event->time,
 	                      event->cancelled);
 }
 
@@ -435,20 +435,20 @@ seat_install_pointer_listeners(struct tw_engine_seat *seat)
 	tw_signal_setup_listener(&seat->source.pointer.swipe_begin,
 	                         &seat->sink.pointer.swipe_begin,
 	                         notify_seat_pointer_swipe_begin);
-        tw_signal_setup_listener(&seat->source.pointer.swipe_update,
-                                 &seat->sink.pointer.swipe_update,
-                                 notify_seat_pointer_swipe_update);
-        tw_signal_setup_listener(&seat->source.pointer.swipe_end,
+	tw_signal_setup_listener(&seat->source.pointer.swipe_update,
+	                         &seat->sink.pointer.swipe_update,
+	                         notify_seat_pointer_swipe_update);
+	tw_signal_setup_listener(&seat->source.pointer.swipe_end,
 	                         &seat->sink.pointer.swipe_end,
 	                         notify_seat_pointer_swipe_end);
 
 	tw_signal_setup_listener(&seat->source.pointer.pinch_begin,
 	                         &seat->sink.pointer.pinch_begin,
 	                         notify_seat_pointer_pinch_begin);
-        tw_signal_setup_listener(&seat->source.pointer.pinch_update,
-                                 &seat->sink.pointer.pinch_update,
-                                 notify_seat_pointer_pinch_update);
-        tw_signal_setup_listener(&seat->source.pointer.pinch_end,
+	tw_signal_setup_listener(&seat->source.pointer.pinch_update,
+	                         &seat->sink.pointer.pinch_update,
+	                         notify_seat_pointer_pinch_update);
+	tw_signal_setup_listener(&seat->source.pointer.pinch_end,
 	                         &seat->sink.pointer.pinch_end,
 	                         notify_seat_pointer_pinch_end);
 }
@@ -508,10 +508,10 @@ seat_add_keyboard(struct tw_engine_seat *seat,
 	xkb_keymap_unref(keymap);
 
 	//setup tw_seat, keymap will provide later.
-        if (!(seat->tw_seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD))
-	        tw_seat_new_keyboard(seat->tw_seat);
-        //Here we pretty much giveup the keymap directly from backend.
-        tw_keyboard_set_keymap(&seat->tw_seat->keyboard, keymap);
+	if (!(seat->tw_seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD))
+		tw_seat_new_keyboard(seat->tw_seat);
+	//Here we pretty much giveup the keymap directly from backend.
+	tw_keyboard_set_keymap(&seat->tw_seat->keyboard, keymap);
 }
 
 struct tw_engine_seat *

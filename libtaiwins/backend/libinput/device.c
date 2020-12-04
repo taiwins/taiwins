@@ -392,17 +392,6 @@ handle_device_event(struct libinput_event *event)
 		handle_device_touch_up_event(
 			dev, libinput_event_get_touch_event(event));
 		break;
-	case LIBINPUT_EVENT_TABLET_TOOL_AXIS:
-	case LIBINPUT_EVENT_TABLET_TOOL_PROXIMITY:
-	case LIBINPUT_EVENT_TABLET_TOOL_TIP:
-	case LIBINPUT_EVENT_TABLET_TOOL_BUTTON:
-		break;
-	case LIBINPUT_EVENT_TABLET_PAD_BUTTON:
-	case LIBINPUT_EVENT_TABLET_PAD_RING:
-	case LIBINPUT_EVENT_TABLET_PAD_STRIP:
-	case LIBINPUT_EVENT_TABLET_PAD_KEY:
-		break;
-		//gestures need to be supported as it is in wayland protocol
 	case LIBINPUT_EVENT_GESTURE_SWIPE_BEGIN:
 		handle_device_swipe_gesture_begin(
 			dev, libinput_event_get_gesture_event(event));
@@ -427,8 +416,6 @@ handle_device_event(struct libinput_event *event)
 		handle_device_pinch_gesture_end(
 			dev, libinput_event_get_gesture_event(event));
 		break;
-        case LIBINPUT_EVENT_SWITCH_TOGGLE:
-	        break;
 	default:
 		return;
 	}
