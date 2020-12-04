@@ -152,16 +152,9 @@ handle_presentation_feedback(struct wl_client *client,
 	}
 }
 
-static void
-handle_presentation_destroy(struct wl_client *client,
-                            struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
 static const struct wp_presentation_interface presentation_impl = {
 	.feedback = handle_presentation_feedback,
-	.destroy = handle_presentation_destroy,
+	.destroy = tw_resource_destroy_common,
 };
 
 

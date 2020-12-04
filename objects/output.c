@@ -133,15 +133,8 @@ tw_output_send_clients(struct tw_output *output)
 
 }
 
-static void
-handle_output_release(struct wl_client *client, struct wl_resource *resource)
-{
-	wl_list_remove(wl_resource_get_link(resource));
-	wl_resource_destroy(resource);
-}
-
 static const struct wl_output_interface output_impl = {
-	.release = handle_output_release,
+	.release = tw_resource_destroy_common,
 };
 
 static void

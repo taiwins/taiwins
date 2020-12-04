@@ -39,13 +39,6 @@ static struct tw_viewport *
 tw_viewport_from_resource(struct wl_resource *resource);
 
 static void
-viewport_handle_destroy(struct wl_client *client,
-                        struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
-static void
 viewport_set_source(struct wl_client *client,
                     struct wl_resource *resource,
                     wl_fixed_t x,
@@ -120,7 +113,7 @@ viewport_set_destination(struct wl_client *client,
 }
 
 static const struct wp_viewport_interface viewport_impl = {
-	.destroy = viewport_handle_destroy,
+	.destroy = tw_resource_destroy_common,
 	.set_source = viewport_set_source,
 	.set_destination = viewport_set_destination,
 };
@@ -217,15 +210,8 @@ viewporter_get_viewport(struct wl_client *client,
 	tw_viewport_init(viewport, viewport_res, surface);
 }
 
-static void
-viewporter_handle_destroy_viewporter(struct wl_client *client,
-                                     struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
 static struct wp_viewporter_interface viewporter_impl = {
-	.destroy = viewporter_handle_destroy_viewporter,
+	.destroy = tw_resource_destroy_common,
 	.get_viewport = viewporter_get_viewport,
 };
 

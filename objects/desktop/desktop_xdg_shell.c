@@ -374,12 +374,6 @@ xdg_surface_from_toplevel(struct wl_resource *resource)
 	return wl_resource_get_user_data(resource);
 }
 
-static void
-handle_toplevel_destroy(struct wl_client *client, struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
 /* desktop.set_parent */
 static void
 handle_toplevel_set_parent(struct wl_client *client,
@@ -530,7 +524,7 @@ handle_toplevel_minimize(struct wl_client *client, struct wl_resource *res)
 }
 
 static const struct xdg_toplevel_interface toplevel_impl = {
-	.destroy = handle_toplevel_destroy,
+	.destroy = tw_resource_destroy_common,
 	.set_parent = handle_toplevel_set_parent,
 	.set_title = handle_toplevel_set_title,
 	.set_app_id = handle_toplevel_set_app_id,
@@ -685,12 +679,6 @@ popup_reposition(struct tw_xdg_surface *surf,
 }
 
 static void
-handle_popup_destroy(struct wl_client *client, struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
-static void
 notify_close_popup(struct wl_listener *listener, void *data)
 {
 	struct tw_xdg_surface *surface =
@@ -736,7 +724,7 @@ handle_popup_reposition(struct wl_client *client,
 }
 
 static const struct xdg_popup_interface popup_impl = {
-	.destroy = handle_popup_destroy,
+	.destroy = tw_resource_destroy_common,
 	.grab = handle_popup_grab,
 	.reposition = handle_popup_reposition,
 };
@@ -757,13 +745,6 @@ destroy_popup_resource(struct wl_resource *resource)
 /******************************************************************************
  * xdg_surface interface
  *****************************************************************************/
-
-static void
-handle_destroy_xdg_surface(struct wl_client *client,
-                           struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
 
 static void
 popup_init(struct tw_xdg_surface *popup, struct wl_resource *popup_resource,
@@ -860,7 +841,7 @@ handle_ack_configure(struct wl_client *client,
 }
 
 static const struct xdg_surface_interface xdg_surface_impl = {
-	.destroy = handle_destroy_xdg_surface,
+	.destroy = tw_resource_destroy_common,
 	.get_toplevel = handle_get_toplevel,
 	.get_popup = handle_get_popup,
 	.set_window_geometry = handle_set_window_geometry,
@@ -900,13 +881,6 @@ positioner_from_resource(struct wl_resource *resource)
 	assert(wl_resource_instance_of(resource, &xdg_positioner_interface,
 	                               &xdg_positioner_impl));
 	return wl_resource_get_user_data(resource);
-}
-
-static void
-handle_positioner_destroy(struct wl_client *client,
-                          struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
 }
 
 static void
@@ -1035,7 +1009,7 @@ handle_positioner_set_parent_configure(struct wl_client *client,
 {}
 
 static const struct xdg_positioner_interface xdg_positioner_impl = {
-	.destroy = handle_positioner_destroy,
+	.destroy = tw_resource_destroy_common,
 	.set_size = handle_positioner_set_size,
 	.set_anchor_rect = handle_positioner_set_anchor_rect,
 	.set_anchor = handle_positioner_set_anchor,
@@ -1058,12 +1032,6 @@ destroy_positioner_res(struct wl_resource *resource)
 /******************************************************************************
  * xdg_wm_base interface
  *****************************************************************************/
-
-static void
-handle_destroy_wm_base(struct wl_client *client, struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
 
 static void
 handle_create_positioner(struct wl_client *client,
@@ -1113,7 +1081,7 @@ handle_pong(struct wl_client *client, struct wl_resource *resource,
 }
 
 static struct xdg_wm_base_interface xdg_wm_base_impl = {
-	.destroy = handle_destroy_wm_base,
+	.destroy = tw_resource_destroy_common,
 	.create_positioner = handle_create_positioner,
 	.get_xdg_surface = handle_create_xdg_surface,
 	.pong = handle_pong,

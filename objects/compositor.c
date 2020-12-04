@@ -45,13 +45,6 @@ static struct tw_compositor s_tw_compositor = {0};
 static const struct wl_subcompositor_interface subcompositor_impl;
 
 static void
-destroy_wl_subcompositor(struct wl_client *wl_client,
-                         struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
-static void
 get_wl_subsurface(struct wl_client *client,
                   struct wl_resource *resource,
                   uint32_t id,
@@ -73,7 +66,7 @@ get_wl_subsurface(struct wl_client *client,
 }
 
 static const struct wl_subcompositor_interface subcompositor_impl = {
-	.destroy = destroy_wl_subcompositor,
+	.destroy = tw_resource_destroy_common,
 	.get_subsurface = get_wl_subsurface,
 };
 

@@ -29,14 +29,6 @@
 #include <taiwins/objects/utils.h>
 
 static void
-region_destroy(struct wl_client *client,
-               struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
-
-static void
 region_add(struct wl_client *client,
            struct wl_resource *resource,
            int32_t x,
@@ -66,7 +58,7 @@ region_subtract(struct wl_client *client,
 }
 
 static const struct wl_region_interface region_impl = {
-	.destroy = region_destroy,
+	.destroy = tw_resource_destroy_common,
 	.add = region_add,
 	.subtract = region_subtract,
 };

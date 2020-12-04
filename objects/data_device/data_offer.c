@@ -95,13 +95,6 @@ data_offer_receive(struct wl_client *client,
 }
 
 static void
-data_offer_handle_destroy(struct wl_client *client,
-                          struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
-static void
 data_offer_finish(struct wl_client *client, struct wl_resource *resource)
 {
 	struct tw_data_offer *offer = tw_data_offer_from_resource(resource);
@@ -190,7 +183,7 @@ data_offer_set_actions(struct wl_client *client,
 static const struct wl_data_offer_interface data_offer_impl = {
 	.accept = data_offer_accept,
 	.receive = data_offer_receive,
-	.destroy = data_offer_handle_destroy,
+	.destroy = tw_resource_destroy_common,
 	.finish = data_offer_finish,
 	.set_actions = data_offer_set_actions,
 };
