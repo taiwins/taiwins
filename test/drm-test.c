@@ -12,6 +12,7 @@
 #include <taiwins/render_context.h>
 #include <taiwins/render_pipeline.h>
 #include <taiwins/objects/logger.h>
+#include <taiwins/engine.h>
 #include <wayland-server-core.h>
 
 static inline void
@@ -116,6 +117,9 @@ int main(int argc, char *argv[])
 		tw_backend_get_egl_params(backend);
 	struct tw_render_context *ctx =
 		tw_render_context_create_egl(display, opt);
+	struct tw_engine *engine =
+		tw_engine_create_global(display, backend);
+	(void)engine;
 
 	struct wl_event_source *sigint =
 		wl_event_loop_add_signal(loop, SIGINT,
