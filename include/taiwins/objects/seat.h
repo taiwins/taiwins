@@ -222,6 +222,9 @@ tw_seat_send_capabilities(struct tw_seat *seat);
 struct tw_seat_client *
 tw_seat_client_find(struct tw_seat *seat, struct wl_client *client);
 
+struct tw_seat_client *
+tw_seat_client_from_device(struct wl_resource *resource);
+
 bool
 tw_seat_valid_serial(struct tw_seat *seat, uint32_t serial);
 

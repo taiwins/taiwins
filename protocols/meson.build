@@ -8,6 +8,7 @@ protocols = [['linux-dmabuf', 'v1'],
 	     ['presentation-time', 'stable'],
 	     ['xdg-shell', 'stable'],
 	     ['xdg-output', 'v1'],
+	     ['pointer-gestures', 'v1'],
 	    ]
 
 foreach proto : protocols
