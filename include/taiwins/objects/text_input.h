@@ -61,6 +61,7 @@ struct tw_text_input_event {
 
 struct tw_text_input_state {
 	bool enabled;
+	struct wl_resource *focused; /**< text-input active on this surface */
 
 	struct {
 		char *text;
@@ -69,7 +70,6 @@ struct tw_text_input_state {
 	} surrounding;
 
 	pixman_rectangle32_t cursor_rect;
-
 
 	uint32_t change_cause, content_hint, content_purpose;
 	uint32_t requests;
@@ -93,7 +93,7 @@ struct tw_text_input_manager {
 void
 tw_text_input_commit_event(struct tw_text_input *text_input,
                            struct tw_text_input_event *event);
-
+/* get current focused text input from the seat */
 struct tw_text_input *
 tw_text_input_find_from_seat(struct tw_seat *seat);
 

@@ -43,13 +43,6 @@ text_input_from_resource(struct wl_resource *resource)
 }
 
 static void
-handle_text_input_destroy(struct wl_client *client,
-                          struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
-
-static void
 handle_text_input_enable(struct wl_client *client,
                          struct wl_resource *resource)
 {
@@ -62,6 +55,7 @@ handle_text_input_enable(struct wl_client *client,
 	ti->pending = reset;
 	ti->pending.enabled = true;
 	ti->pending.requests |= TW_TEXT_INPUT_TOGGLE;
+	ti->pending.focused = ti->focused;
 }
 
 static void
@@ -156,8 +150,7 @@ handle_text_input_commit(struct wl_client *client,
 	if (im) {
 		struct tw_input_method_event e = {0};
 
-		if ((ti->pending.enabled ^ ti->current.enabled) &&
-		    ti->pending.requests & TW_TEXT_INPUT_TOGGLE) {
+		if (ti->pending.requests & TW_TEXT_INPUT_TOGGLE) {
 			e.events |= TW_INPUT_METHOD_TOGGLE;
 			e.enabled = ti->pending.enabled;
 		}
@@ -195,7 +188,7 @@ handle_text_input_commit(struct wl_client *client,
 }
 
 static const struct zwp_text_input_v3_interface text_input_impl = {
-	.destroy = handle_text_input_destroy,
+	.destroy = tw_resource_destroy_common,
 	.enable = handle_text_input_enable,
 	.disable = handle_text_input_disable,
 	.set_surrounding_text = handle_text_input_set_surrounding_text,
@@ -216,11 +209,13 @@ notify_text_input_focus(struct wl_listener *listener, void *data)
 	//skip if there is no input method.
 	if (!im)
 		return;
-
 	if (ti->focused && ti->focused != focused) {
 		zwp_text_input_v3_send_leave(ti->resource, ti->focused);
 		ti->focused = NULL;
 	}
+	// the focused surface of text input should be from text_input
+	if (!tw_match_wl_resource_client(focused, ti->resource))
+		return;
 	if (tw_match_wl_resource_client(ti->resource, focused)) {
 		zwp_text_input_v3_send_enter(ti->resource, focused);
 		ti->focused = focused;
@@ -244,22 +239,6 @@ destroy_text_input_resource(struct wl_resource *resource)
 /******************************************************************************
  * text_input_manager implemenation
  *****************************************************************************/
-
-static void
-destroy_text_input_manager(struct tw_text_input_manager *manager)
-{
-	wl_global_destroy(manager->global);
-	wl_list_remove(&manager->display_destroy_listener.link);
-	manager->global = NULL;
-	manager->display = NULL;
-}
-
-static void
-handle_text_input_manager_destroy(struct wl_client *client,
-                                  struct wl_resource *resource)
-{
-	wl_resource_destroy(resource);
-}
 
 static void
 handle_text_input_manager_get_text_input(struct wl_client *client,
@@ -291,26 +270,14 @@ handle_text_input_manager_get_text_input(struct wl_client *client,
 }
 
 static const struct zwp_text_input_manager_v3_interface text_input_man_impl = {
-	.destroy = handle_text_input_manager_destroy,
+	.destroy = tw_resource_destroy_common,
 	.get_text_input = handle_text_input_manager_get_text_input,
 };
-
-static inline struct tw_text_input_manager *
-manager_from_resource(struct wl_resource *resource)
-{
-	assert(wl_resource_instance_of(resource,
-	                               &zwp_text_input_manager_v3_interface,
-	                               &text_input_man_impl));
-	return wl_resource_get_user_data(resource);
-}
 
 static void
 destroy_text_input_manager_resource(struct wl_resource *resource)
 {
-	struct tw_text_input_manager *manager =
-		manager_from_resource(resource);
-	if (manager)
-		destroy_text_input_manager(manager);
+	wl_resource_set_user_data(resource, NULL);
 }
 
 static void
@@ -329,6 +296,14 @@ bind_text_input_manager(struct wl_client *client, void *data,
 	                               destroy_text_input_manager_resource);
 }
 
+static inline void
+destroy_text_input_manager(struct tw_text_input_manager *manager)
+{
+	wl_global_destroy(manager->global);
+	wl_list_remove(&manager->display_destroy_listener.link);
+	manager->global = NULL;
+	manager->display = NULL;
+}
 
 static void
 notify_text_input_display_destroy(struct wl_listener *listener, void *data)
