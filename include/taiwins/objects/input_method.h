@@ -47,6 +47,10 @@ enum tw_input_method_event_type {
 
 struct tw_input_method_event {
 	bool enabled;
+	/** activated text input on this surface, this will drive us to set im
+	 * popup active as well. */
+	struct wl_resource *focused;
+
 	struct {
 		uint32_t cursor, anchor;
 		const char *text;
@@ -71,6 +75,7 @@ struct tw_input_method_state {
 
 struct tw_input_method {
 	struct wl_resource *resource;
+
 	/**< tw_input_method_manager:resources */
 	struct wl_list link;
 	struct tw_seat *seat;
