@@ -29,6 +29,7 @@
 #include <taiwins/objects/matrix.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/output_device.h>
+#include <wayland-util.h>
 
 static void
 output_device_state_init(struct tw_output_device_state *state,
@@ -90,6 +91,16 @@ tw_output_device_set_pos(struct tw_output_device *device, int gx, int gy)
 }
 
 void
+tw_output_device_set_mode(struct tw_output_device *device,
+                          const struct tw_output_device_mode *mode)
+{
+	device->pending.current_mode.h = mode->h;
+	device->pending.current_mode.w = mode->w;
+	device->pending.current_mode.refresh = mode->refresh;
+	device->pending.current_mode.preferred = mode->preferred;
+}
+
+void
 tw_output_device_set_custom_mode(struct tw_output_device *device,
                                  unsigned width, unsigned height, int refresh)
 {
@@ -112,6 +123,16 @@ tw_output_device_match_mode(struct tw_output_device *device,
 {
 	uint64_t min_diff = UINT64_MAX;
 	struct tw_output_device_mode *matched = NULL, *mode;
+
+	//return preferred if invalid
+	if (!w || !h || !r) {
+		wl_list_for_each(mode, &device->mode_list, link)
+			if (mode->preferred)
+				return mode;
+		return !wl_list_empty(&device->mode_list) ?
+			wl_container_of(device->mode_list.next, mode, link) :
+			NULL;
+	}
 
 	wl_list_for_each(mode, &device->mode_list, link) {
 		uint64_t diff = abs(mode->w-w) * abs(mode->h-h) * 1000 +

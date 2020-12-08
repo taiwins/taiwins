@@ -130,6 +130,9 @@ void
 tw_output_device_set_pos(struct tw_output_device *device, int gx, int gy);
 
 void
+tw_output_device_set_mode(struct tw_output_device *dev,
+                          const struct tw_output_device_mode *mode);
+void
 tw_output_device_set_custom_mode(struct tw_output_device *device,
                                  unsigned width, unsigned height, int refresh);
 struct tw_output_device_mode *
