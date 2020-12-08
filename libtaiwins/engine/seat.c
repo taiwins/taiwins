@@ -197,14 +197,13 @@ notify_seat_pointer_motion_abs(struct wl_listener *listener, void *data)
 	struct tw_engine_seat *seat =
 		wl_container_of(listener, seat, sink.pointer.motion_absolute);
 	struct tw_event_pointer_motion_abs *event = data;
-	struct tw_engine *engine = seat->engine;
 	struct tw_engine_output *output =
-		tw_engine_output_from_device(engine, event->output);
+		tw_engine_output_from_device(seat->engine, event->output);
 	tw_output_device_loc_to_global(output->device, event->x, event->y,
 	                               &x, &y);
 	SCOPE_PROFILE_BEG();
 
-	tw_cursor_set_pos(&engine->global_cursor, x, y);
+	tw_cursor_set_pos(&seat->engine->global_cursor, x, y);
 	pointer_focus_motion(seat, event->time_msec);
 
 	SCOPE_PROFILE_END();
