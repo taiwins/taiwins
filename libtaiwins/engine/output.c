@@ -316,9 +316,10 @@ struct tw_engine_output *
 tw_engine_output_from_device(struct tw_engine *engine,
                              const struct tw_output_device *device)
 {
-	struct tw_engine_output *output;
+	struct tw_engine_output *output = NULL;
 	wl_list_for_each(output, &engine->heads, link)
 		if (output->device == device)
 			return output;
-	return NULL;
+	//this may not be a good idea?
+	return tw_engine_get_focused_output(engine);
 }
