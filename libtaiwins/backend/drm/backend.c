@@ -276,8 +276,8 @@ drm_backend_open_libinput(struct tw_drm_backend *drm)
 		                             udev);
 	if (!libinput)
 		return false;
-
-	tw_libinput_input_init(&drm->input, &drm->base, dpy, libinput);
+	//TODO getting output device from udev
+	tw_libinput_input_init(&drm->input, &drm->base, dpy, libinput, NULL);
 	if (!tw_libinput_input_enable(&drm->input, drm->login->seat)) {
 		libinput_unref(libinput);
 		return false;

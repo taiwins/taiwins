@@ -22,10 +22,11 @@
 #ifndef TW_BACKEND_LIBINPUT_H
 #define TW_BACKEND_LIBINPUT_H
 
-#include <wayland-server-core.h>
+#include <libudev.h>
 #include <wayland-server.h>
 
 #include "input_device.h"
+#include "output_device.h"
 #include "backend.h"
 
 #ifdef  __cplusplus
@@ -40,6 +41,11 @@ struct tw_libinput_device {
 	struct wl_list link; /* tw_libinput_input: devices */
 };
 
+/** implement by backend for complete libinput functions */
+struct tw_libinput_impl {
+	struct tw_output_device *(*get_output_device)(struct udev_device *);
+};
+
 /**
  * this input hub uses by backend, designed to be autonomous, adding new input
  * devices by itself.
@@ -51,13 +57,15 @@ struct tw_libinput_input {
 	struct wl_event_source *event;
 	bool disabled;
 
+	const struct tw_libinput_impl *impl;
 	struct wl_list devices;
 };
 
 void
 tw_libinput_input_init(struct tw_libinput_input *input,
                        struct tw_backend *backend, struct wl_display *display,
-                       struct libinput *libinput);
+                       struct libinput *libinput,
+                       const struct tw_libinput_impl *impl);
 bool
 tw_libinput_input_enable(struct tw_libinput_input *input,
                          const char *seat_name);
