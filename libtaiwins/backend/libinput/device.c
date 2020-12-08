@@ -32,6 +32,19 @@
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
 
+static inline struct tw_output_device *
+request_output_device_from_libinput(struct tw_libinput_device *dev)
+{
+	struct tw_output_device *output_dev = NULL;
+	struct udev_device *udev =
+		libinput_device_get_udev_device(dev->libinput);
+
+	if (dev->input->impl->get_output_device && udev)
+		output_dev = dev->input->impl->get_output_device(udev);
+	if (udev)
+		udev_device_unref(udev);
+	return output_dev;
+}
 
 /******************************************************************************
  * keyboard event
@@ -93,6 +106,7 @@ handle_device_pointer_motion_abs_event(struct tw_libinput_device *dev,
 		struct tw_event_pointer_motion_abs motion = {
 			.dev = &dev->base,
 			.time_msec = libinput_event_pointer_get_time(event),
+			.output = request_output_device_from_libinput(dev),
 			.x = libinput_event_pointer_get_absolute_x_transformed(
 				event, 1),
 			.y = libinput_event_pointer_get_absolute_y_transformed(
@@ -297,11 +311,11 @@ handle_device_touch_down_event(struct tw_libinput_device *dev,
 	struct tw_input_source *emitter = dev->base.emitter;
 
 	if (emitter && event) {
-		//TODO: no monitor infomation, need to query from backend.
 		struct tw_event_touch_down down = {
 			.dev = &dev->base,
 			.time = libinput_event_touch_get_time(event),
 			.touch_id = libinput_event_touch_get_seat_slot(event),
+			.output = request_output_device_from_libinput(dev),
 			.x = libinput_event_touch_get_x_transformed(event, 1),
 			.y = libinput_event_touch_get_y_transformed(event, 1),
 		};
@@ -310,17 +324,17 @@ handle_device_touch_down_event(struct tw_libinput_device *dev,
 }
 
 static void
-handle_device_touch_up_event(struct tw_libinput_device *dev,
-                             struct libinput_event_touch *event)
+handle_device_touch_motion_event(struct tw_libinput_device *dev,
+                                 struct libinput_event_touch *event)
 {
 	struct tw_input_source *emitter = dev->base.emitter;
 
 	if (emitter && event) {
-		//TODO: no monitor infomation, need to query from backend.
 		struct tw_event_touch_motion motion = {
 			.dev = &dev->base,
 			.time = libinput_event_touch_get_time(event),
 			.touch_id = libinput_event_touch_get_seat_slot(event),
+			.output = request_output_device_from_libinput(dev),
 			.x = libinput_event_touch_get_x_transformed(event, 1),
 			.y = libinput_event_touch_get_y_transformed(event, 1),
 		};
@@ -329,8 +343,8 @@ handle_device_touch_up_event(struct tw_libinput_device *dev,
 }
 
 static void
-handle_device_touch_motion_event(struct tw_libinput_device *dev,
-                                 struct libinput_event_touch *event)
+handle_device_touch_up_event(struct tw_libinput_device *dev,
+                             struct libinput_event_touch *event)
 {
 	struct tw_input_source *emitter = dev->base.emitter;
 	if (emitter && event) {

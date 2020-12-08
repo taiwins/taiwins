@@ -202,12 +202,14 @@ handle_dispatch_libinput(int fd, uint32_t mask, void *data)
 WL_EXPORT void
 tw_libinput_input_init(struct tw_libinput_input *input,
                        struct tw_backend *backend, struct wl_display *display,
-                       struct libinput *libinput)
+                       struct libinput *libinput,
+                       const struct tw_libinput_impl *impl)
 {
 	wl_list_init(&input->devices);
 	input->display = display;
 	input->libinput = libinput;
 	input->backend = backend;
+	input->impl = impl;
 	libinput_set_user_data(libinput, input);
 
 	return;
