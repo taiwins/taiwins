@@ -20,6 +20,7 @@
  */
 
 #include <assert.h>
+#include <time.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -255,6 +256,12 @@ tw_drm_check_gpu_features(struct tw_drm_gpu *gpu)
 		return false;
 	} else {
 		gpu->feats |= TW_DRM_CAP_PRIME;
+	}
+	if (drmGetCap(fd, DRM_CAP_TIMESTAMP_MONOTONIC, &cap) == 0) {
+		if (cap == 1)
+			gpu->clk_id = CLOCK_MONOTONIC;
+	} else {
+		gpu->clk_id = CLOCK_REALTIME;
 	}
 
 	if (drmGetCap(fd, DRM_CAP_ADDFB2_MODIFIERS, &cap) == 0) {
