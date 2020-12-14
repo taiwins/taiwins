@@ -176,14 +176,6 @@ tw_render_context_destroy(struct tw_render_context *ctx)
 	ctx->display_destroy.notify(&ctx->display_destroy, ctx->display);
 }
 
-int
-tw_render_presentable_make_current(struct tw_render_presentable *surf,
-                                   struct tw_render_context *ctx)
-{
-	assert(ctx->impl && ctx->impl->commit_presentable);
-	return ctx->impl->make_current(surf, ctx);
-}
-
 static void
 subsurface_add_to_list(struct wl_list *parent_head, struct tw_surface *surface)
 {

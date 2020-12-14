@@ -47,10 +47,18 @@ enum tw_renderer_type {
 	TW_RENDERER_VK,
 };
 
-struct tw_render_presentable {
-	intptr_t handle;
+struct tw_render_presentable_impl {
 	void (*destroy)(struct tw_render_presentable *surface,
 	                struct tw_render_context *ctx);
+	bool (*commit)(struct tw_render_presentable *surf,
+	               struct tw_render_context *ctx);
+        int (*make_current)(struct tw_render_presentable *surf,
+	                    struct tw_render_context *ctx);
+};
+
+struct tw_render_presentable {
+	intptr_t handle;
+	const struct tw_render_presentable_impl *impl;
 };
 
 struct tw_render_texture {
@@ -73,11 +81,6 @@ struct tw_render_context_impl {
 	                           struct tw_render_context *ctx,
 	                           void *native_window);
 
-	bool (*commit_presentable)(struct tw_render_presentable *surf,
-	                           struct tw_render_context *ctx);
-
-        int (*make_current)(struct tw_render_presentable *surf,
-	                    struct tw_render_context *ctx);
 };
 
 /* we create this render context from scratch so we don't break everything, the
@@ -149,8 +152,7 @@ static inline void
 tw_render_presentable_fini(struct tw_render_presentable *surface,
                            struct tw_render_context *ctx)
 {
-	surface->destroy(surface, ctx);
-	surface->destroy = NULL;
+	surface->impl->destroy(surface, ctx);
 	surface->handle = (intptr_t)NULL;
 }
 
@@ -158,7 +160,14 @@ static inline bool
 tw_render_presentable_commit(struct tw_render_presentable *surface,
                              struct tw_render_context *ctx)
 {
-	return ctx->impl->commit_presentable(surface, ctx);
+	return surface->impl->commit(surface, ctx);
+}
+
+static inline int
+tw_render_presentable_make_current(struct tw_render_presentable *surf,
+                                   struct tw_render_context *ctx)
+{
+	return surf->impl->make_current(surf, ctx);
 }
 
 int
