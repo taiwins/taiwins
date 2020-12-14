@@ -33,6 +33,7 @@
 #include <taiwins/objects/layers.h>
 
 #include "render_presentable.h"
+#include "render_wsi.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -67,6 +68,10 @@ struct tw_render_context_impl {
 	bool (*new_window_surface)(struct tw_render_presentable *surf,
 	                           struct tw_render_context *ctx,
 	                           void *native_window);
+	bool (*new_wsi_surface)(struct tw_render_presentable *surf,
+	                        struct tw_render_context *ctx, int nimgs,
+	                        enum tw_render_wsi_type type,
+	                        struct tw_render_allocator *allocator);
 };
 
 struct tw_render_context {
