@@ -37,6 +37,8 @@ extern "C" {
 
 #define TW_FRAME_TIME_CNT 10
 
+struct tw_render_context;
+
 struct tw_render_output {
 	struct tw_output_device device;
 	struct tw_render_presentable surface;
@@ -58,9 +60,10 @@ struct tw_render_output {
 		/** the repaint status, the output repaint is driven by timer,
 		 * in the future we may be able to drive it by idle event */
 		enum {
-			TW_REPAINT_CLEAN = 0, /**< no need to repaint */
+			TW_REPAINT_CLEAN = 0, /**< repainted */
 			TW_REPAINT_DIRTY, /**< repaint required */
-			TW_REPAINT_NOT_FINISHED /**< still in repaint */
+			TW_REPAINT_SCHEDULED, /**< repaint scheduled */
+			TW_REPAINT_COMMITTED /**< after calling swapbuffer */
 		} repaint_state;
 
                 /** average frame time is ft_sum / ft_cnt */

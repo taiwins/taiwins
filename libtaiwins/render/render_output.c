@@ -145,7 +145,7 @@ reassign_surface_outputs(struct tw_surface *surface,
 /**
  * @brief manage the backend output damage state
  */
-static void
+static inline void
 shuffle_output_damage(struct tw_render_output *output)
 {
 	//here we swap the damage as if it is output is triple-buffered. It is
@@ -184,8 +184,8 @@ schedule_output_frame(struct tw_render_output *output)
  */
 static void
 update_output_frame_time(struct tw_render_output *output,
-                      const struct timespec *strt,
-                      const struct timespec *end)
+                         const struct timespec *strt,
+                         const struct timespec *end)
 {
 	uint32_t ft;
 	uint64_t tstart = ((strt->tv_sec * 1000000) + (strt->tv_nsec / 1000));
@@ -257,10 +257,8 @@ notify_output_frame(struct wl_listener *listener, void *data)
 	/* tw_logl("The render time is %u", */
 	/*         tw_render_output_calc_frametime(output)); */
 
-        tw_render_presentable_commit(presentable, ctx);
-
-	//clean off the repaint state
-	output->state.repaint_state = TW_REPAINT_CLEAN;
+	output->state.repaint_state = TW_REPAINT_COMMITTED;
+	tw_render_presentable_commit(&output->surface, output->ctx);
 }
 
 static void
