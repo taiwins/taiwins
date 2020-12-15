@@ -8,7 +8,7 @@
 #include <wayland-server.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/egl.h>
-#include <taiwins/backend/headless.h>
+#include <taiwins/backend_headless.h>
 #include <taiwins/render_context.h>
 
 int main(int argc, char *argv[])

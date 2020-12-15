@@ -38,7 +38,7 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/egl.h>
-#include <taiwins/backend/backend.h>
+#include <taiwins/backend.h>
 #include <taiwins/input_device.h>
 #include <taiwins/output_device.h>
 #include <taiwins/render_context.h>
@@ -172,6 +172,9 @@ x11_start_backend(struct tw_backend *backend,
 {
 	struct tw_x11_output *output;
 	struct tw_x11_backend *x11 = wl_container_of(backend, x11, base);
+
+	if (wl_list_length(&x11->base.outputs) == 0)
+		tw_x11_backend_add_output(&x11->base, 1000, 720);
 
 	wl_list_for_each(output, &x11->base.outputs, output.device.link)
 		tw_x11_output_start(output);
@@ -395,7 +398,7 @@ tw_x11_backend_create(struct wl_display *display, const char *x11_display)
 		goto err_dpy;
 	}
 
-	tw_input_device_init(&x11->keyboard, TW_INPUT_TYPE_KEYBOARD, NULL);
+	tw_input_device_init(&x11->keyboard, TW_INPUT_TYPE_KEYBOARD, 0, NULL);
 	strncpy(x11->keyboard.name, "X11-keyboard",
 	        sizeof(x11->keyboard.name));
 	wl_list_insert(x11->base.inputs.prev, &x11->keyboard.link);

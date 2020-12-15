@@ -123,6 +123,7 @@ handle_x11_motion(struct tw_x11_backend *x11, xcb_ge_generic_event_t *ge)
 	motion.time_msec = ev->time;
 	motion.x = (double)(ev->event_x >> 16) / (float)width;
 	motion.y = (double)(ev->event_y >> 16) / (float)height;
+	motion.output = &output->output.device;
 	if (emitter) {
 		wl_signal_emit(&emitter->pointer.motion_absolute, &motion);
 		wl_signal_emit(&emitter->pointer.frame, &output->pointer);

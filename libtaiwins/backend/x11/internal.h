@@ -30,7 +30,7 @@
 #include <xcb/xinput.h>
 #include <xcb/xproto.h>
 
-#include <taiwins/backend/backend.h>
+#include <taiwins/backend_x11.h>
 #include <taiwins/input_device.h>
 #include <taiwins/output_device.h>
 #include <taiwins/render_context.h>
@@ -80,7 +80,7 @@ struct tw_x11_output {
 	struct wl_event_source *frame_timer;
 
 	xcb_window_t win;
-	struct wl_listener info_listener;
+	struct wl_listener output_commit_listener;
 	unsigned int frame_interval;
 
 	struct tw_input_device pointer;

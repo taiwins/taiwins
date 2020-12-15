@@ -39,7 +39,7 @@
 #include <ctypes/helpers.h>
 #include <ctypes/os/file.h>
 
-#include <taiwins/backend/x11.h>
+#include <taiwins/backend.h>
 #include <taiwins/shell.h>
 #include <taiwins/xdg.h>
 #include <taiwins/engine.h>
@@ -81,8 +81,8 @@ static bool
 bind_backend(struct tw_server *server)
 {
 	//handle backend
-	server->backend = tw_x11_backend_create(server->display,
-	                                        getenv("DISPLAY"));
+	server->backend = tw_backend_create_auto(server->display);
+
 	if (!server->backend) {
 		tw_logl("EE: failed to create backend\n");
 		return false;
@@ -94,7 +94,6 @@ bind_backend(struct tw_server *server)
 		tw_logl_level(TW_LOG_ERRO, "failed to create output");
 		return false;
 	}
-	tw_x11_backend_add_output(server->backend, 1000, 720);
 
 	return true;
 }

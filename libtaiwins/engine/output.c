@@ -36,7 +36,10 @@
 #include <taiwins/output_device.h>
 #include <taiwins/render_context.h>
 #include <taiwins/render_output.h>
+#include <taiwins/render_surface.h>
+#include <wayland-util.h>
 #include "internal.h"
+#include "taiwins/objects/presentation_feedback.h"
 
 static void
 init_engine_output_state(struct tw_engine_output *o)
@@ -140,21 +143,27 @@ notify_output_new_mode(struct wl_listener *listener, void *data)
 static void
 notify_output_present(struct wl_listener *listener, void *data)
 {
-        struct timespec now;
 	struct tw_presentation_feedback *feedback, *tmp;
 	struct tw_engine_output *output =
 		wl_container_of(listener, output, listeners.present);
 	struct tw_engine *engine = output->engine;
+	struct tw_event_output_device_present *event = data;
 
-	//TODO: add lantency?
-	clock_gettime(CLOCK_MONOTONIC, &now);
 	wl_list_for_each_safe(feedback, tmp, &engine->presentation.feedbacks,
 	                      link) {
 		struct wl_resource *wl_surface =
 			feedback->surface->resource;
 		struct wl_resource *wl_output =
 			engine_output_get_wl_output(output, wl_surface);
-		tw_presentation_feeback_sync(feedback, wl_output, &now);
+
+		if (event)
+			tw_presentation_feeback_sync(feedback, wl_output,
+			                             &event->time,
+			                             event->seq,
+			                             event->refresh,
+			                             event->flags);
+		else
+			tw_presentation_feedback_discard(feedback);
 	}
 }
 
@@ -247,7 +256,7 @@ tw_engine_get_focused_output(struct tw_engine *engine)
 {
 	struct tw_seat *seat;
 	struct wl_resource *wl_surface = NULL;
-	struct tw_surface *tw_surface = NULL;
+	struct tw_render_surface *surface = NULL;
 	struct tw_engine_seat *engine_seat;
 
 	if (wl_list_length(&engine->heads) == 0)
@@ -262,25 +271,22 @@ tw_engine_get_focused_output(struct tw_engine *engine)
 		if (seat->capabilities & WL_SEAT_CAPABILITY_POINTER) {
 			pointer = &seat->pointer;
 			wl_surface = pointer->focused_surface;
-			tw_surface = (wl_surface) ?
-				tw_surface_from_resource(wl_surface) : NULL;
-			if (tw_surface)
-				return &engine->outputs[tw_surface->output];
+			surface =  tw_render_surface_from_resource(wl_surface);
+			if (surface)
+				return &engine->outputs[surface->output];
 		}
 		else if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD) {
 			keyboard = &seat->keyboard;
 			wl_surface = keyboard->focused_surface;
-			tw_surface = (wl_surface) ?
-				tw_surface_from_resource(wl_surface) : NULL;
-			if (tw_surface)
-				return &engine->outputs[tw_surface->output];
+			surface = tw_render_surface_from_resource(wl_surface);
+			if (surface)
+				return &engine->outputs[surface->output];
 		} else if (seat->capabilities & WL_SEAT_CAPABILITY_TOUCH) {
 			touch = &seat->touch;
 			wl_surface = touch->focused_surface;
-			tw_surface = (wl_surface) ?
-				tw_surface_from_resource(wl_surface) : NULL;
-			if (tw_surface)
-				return &engine->outputs[tw_surface->output];
+			surface = tw_render_surface_from_resource(wl_surface);
+			if (surface)
+				return &engine->outputs[surface->output];
 		}
 	}
 
@@ -307,20 +313,12 @@ tw_engine_output_from_resource(struct tw_engine *engine,
 }
 
 struct tw_engine_output *
-tw_engine_pick_output_for_cursor(struct tw_engine *engine)
+tw_engine_output_from_device(struct tw_engine *engine,
+                             const struct tw_output_device *device)
 {
-	pixman_region32_t *output_region;
 	struct tw_engine_output *output;
-
-	wl_list_for_each(output, &engine->heads, link) {
-		if (output->cloning >= 0)
-			continue;
-		output_region = &output->constrain.region;
-		if (pixman_region32_contains_point(output_region,
-		                                   engine->global_cursor.x,
-		                                   engine->global_cursor.y,
-		                                   NULL))
+	wl_list_for_each(output, &engine->heads, link)
+		if (output->device == device)
 			return output;
-	}
 	return NULL;
 }

@@ -22,13 +22,13 @@
 #include <GLES2/gl2.h>
 #include <assert.h>
 #include <pixman.h>
-#include <wayland-util.h>
 #include <wayland-server.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/render_context.h>
 #include <taiwins/render_output.h>
+#include <taiwins/render_surface.h>
 #include <taiwins/output_device.h>
 #include <taiwins/render_pipeline.h>
 
@@ -51,13 +51,11 @@ init_output_state(struct tw_render_output *o)
 		pixman_region32_init(&o->state.damages[i]);
 
 	o->state.dirty = true;
-	o->state.repaint_state = TW_REPAINT_DIRTY;
 	o->state.pending_damage = &o->state.damages[0];
 	o->state.curr_damage = &o->state.damages[1];
 	o->state.prev_damage = &o->state.damages[2];
 	o->state.repaint_state = TW_REPAINT_DIRTY;
 	tw_mat3_init(&o->state.view_2d);
-
 }
 
 static void
@@ -71,10 +69,12 @@ fini_output_state(struct tw_render_output *o)
 }
 
 static void
-update_surface_mask(struct tw_surface *surface,
+update_surface_mask(struct tw_surface *tw_surface,
                     struct tw_render_output *major, uint32_t mask)
 {
 	struct tw_render_output *output;
+	struct tw_render_surface *surface =
+		wl_container_of(tw_surface, surface, surface);
 	uint32_t output_bit;
 	uint32_t different = surface->output_mask ^ mask;
 	uint32_t entered = mask & different;
@@ -91,9 +91,11 @@ update_surface_mask(struct tw_surface *surface,
 		if (!(output_bit & different))
 			continue;
 		if ((output_bit & entered))
-			wl_signal_emit(&output->events.surface_enter, surface);
+			wl_signal_emit(&output->events.surface_enter,
+			               tw_surface);
 		if ((output_bit & left))
-			wl_signal_emit(&output->events.surface_leave, surface);
+			wl_signal_emit(&output->events.surface_leave,
+			               tw_surface);
 	}
 }
 
@@ -157,6 +159,22 @@ shuffle_output_damage(struct tw_render_output *output)
 	output->state.pending_damage = previous;
 }
 
+static void
+output_idle_frame(void *data)
+{
+	struct tw_render_output *output = data;
+	wl_signal_emit(&output->device.events.new_frame, &output->device);
+}
+
+static inline void
+schedule_output_frame(struct tw_render_output *output)
+{
+	struct wl_display *display = output->ctx->display;
+	struct wl_event_loop *loop = wl_display_get_event_loop(display);
+
+	wl_event_loop_add_idle(loop, output_idle_frame, output);
+}
+
 /******************************************************************************
  * listeners
  *****************************************************************************/
@@ -167,6 +185,8 @@ notify_output_surface_dirty(struct wl_listener *listener, void *data)
 	struct tw_render_output *output =
 		wl_container_of(listener, output, listeners.surface_dirty);
 	struct tw_surface *surface = data;
+	struct tw_render_surface *render_surface =
+		wl_container_of(surface, render_surface, surface);
 	struct tw_render_context *ctx = output->ctx;
 
         assert(ctx);
@@ -174,7 +194,7 @@ notify_output_surface_dirty(struct wl_listener *listener, void *data)
 		reassign_surface_outputs(surface, ctx);
 
 	wl_list_for_each(output, &ctx->outputs, link) {
-		if ((1u << output->device.id) & surface->output_mask)
+		if ((1u << output->device.id) & render_surface->output_mask)
 			tw_render_output_dirty(output);
 	}
 }
@@ -203,8 +223,6 @@ notify_output_frame(struct wl_listener *listener, void *data)
 	shuffle_output_damage(output);
 
         tw_render_presentable_commit(presentable, ctx);
-        //presenting should happen here I guess
-	tw_output_device_present(&output->device);
 
 	//clean off the repaint state
 	output->state.repaint_state = TW_REPAINT_CLEAN;
@@ -323,5 +341,5 @@ tw_render_output_dirty(struct tw_render_output *output)
 	if (output->state.repaint_state != TW_REPAINT_CLEAN)
 		return;
 	output->state.repaint_state = TW_REPAINT_DIRTY;
-	//TODO schedule repaint
+	schedule_output_frame(output);
 }

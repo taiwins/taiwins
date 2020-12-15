@@ -31,8 +31,8 @@
 #include <xcb/xproto.h>
 #include <time.h>
 #include <taiwins/objects/logger.h>
+#include <taiwins/objects/utils.h>
 
-#include <taiwins/backend/x11.h>
 #include <taiwins/input_device.h>
 #include <taiwins/output_device.h>
 #include <taiwins/render_context.h>
@@ -100,11 +100,20 @@ tw_x11_remove_output(struct tw_x11_output *output)
         wl_event_source_remove(output->frame_timer);
 	tw_output_device_fini(&output->output.device);
 	tw_input_device_fini(&output->pointer);
+	tw_reset_wl_list(&output->output_commit_listener.link);
 
 	tw_render_presentable_fini(&output->output.surface, x11->base.ctx);
 	xcb_destroy_window(x11->xcb_conn, output->win);
 	xcb_flush(x11->xcb_conn);
 	free(output);
+}
+
+static void
+notify_output_commit(struct wl_listener *listener, void *data)
+{
+	struct tw_x11_output *output =
+		wl_container_of(listener, output, output_commit_listener);
+	tw_output_device_present(&output->output.device, NULL);
 }
 
 bool
@@ -120,7 +129,10 @@ tw_x11_output_start(struct tw_x11_output *output)
 		XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_STRUCTURE_NOTIFY
 	};
 
-	//this step is a must
+	tw_signal_setup_listener(&x11->base.ctx->events.presentable_commit,
+	                         &output->output_commit_listener,
+	                         notify_output_commit);
+
 	tw_render_output_set_context(&output->output, x11->base.ctx);
 	tw_output_device_commit_state(&output->output.device);
 	tw_output_device_raw_resolution(&output->output.device,
@@ -198,7 +210,7 @@ tw_x11_backend_add_output(struct tw_backend *backend,
 
         wl_list_insert(&x11->base.outputs, &output->output.device.link);
 
-        tw_input_device_init(&output->pointer, TW_INPUT_TYPE_POINTER, NULL);
+        tw_input_device_init(&output->pointer, TW_INPUT_TYPE_POINTER, 0, NULL);
         strncpy(output->pointer.name, "X11-pointer",
                 sizeof(output->pointer.name));
 

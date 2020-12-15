@@ -19,6 +19,7 @@
  *
  */
 
+#include <time.h>
 #include <string.h>
 #include <pixman.h>
 #include <wayland-server-core.h>
@@ -133,9 +134,19 @@ tw_output_device_commit_state(struct tw_output_device *device)
 }
 
 void
-tw_output_device_present(struct tw_output_device *device)
+tw_output_device_present(struct tw_output_device *device,
+                         struct tw_event_output_device_present *event)
 {
-	wl_signal_emit(&device->events.present, device);
+	struct tw_event_output_device_present _event = {
+		.device = device,
+	};
+	struct timespec now;
+	if (event == NULL) {
+		event = &_event;
+		clock_gettime(CLOCK_MONOTONIC, &now);
+		event->time = now;
+	}
+	wl_signal_emit(&device->events.present, event);
 }
 
 static void

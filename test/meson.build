@@ -67,3 +67,13 @@ if get_option('x11-backend').enabled()
   )
   test('test_x11', x11_test)
 endif
+
+
+wayland_test = executable(
+  'tw-test-wayland',
+  ['wayland-test.c',
+   wayland_taiwins_shell_server_protocol_h],
+  c_args : ['-D_GNU_SOURCE', '-DWLR_USE_UNSTABLE'],
+  dependencies : dep_taiwins_lib,
+)
+test('test_wayland', wayland_test)

@@ -1,5 +1,5 @@
 /*
- * profiler.h - taiwins server profiler handler
+ * wayland.h - taiwins server x11 backend header
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -19,31 +19,25 @@
  *
  */
 
-#ifndef TW_PROFILING_H
-#define TW_PROFILING_H
+#ifndef TW_WAYLAND_BACKEND_H
+#define TW_WAYLAND_BACKEND_H
 
-#include <stdbool.h>
-#include <wayland-server-core.h>
-#include <taiwins/objects/profiler.h>
+#include "backend.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-#if _TW_ENABLE_PROFILING
+struct tw_backend *
+tw_wayland_backend_create(struct wl_display *display, const char *remote);
 
-#define SCOPE_PROFILE_BEG() tw_profiler_start_timer(__func__)
-#define SCOPE_PROFILE_END() tw_profiler_stop_timer(__func__)
-
-#else
-
-#define SCOPE_PROFILE_BEG()
-#define SCOPE_PROFILE_END()
-
-#endif
+bool
+tw_wl_backend_new_output(struct tw_backend *backend, unsigned width,
+                         unsigned height);
 
 #ifdef  __cplusplus
 }
 #endif
+
 
 #endif /* EOF */

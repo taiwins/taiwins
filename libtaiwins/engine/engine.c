@@ -18,7 +18,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
-
+#include "options.h"
 #include <assert.h>
 #include <strings.h>
 #include <stdio.h>
@@ -49,7 +49,7 @@
 #include <taiwins/output_device.h>
 #include <taiwins/profiling.h>
 #include <taiwins/render_context.h>
-#include <taiwins/backend/backend.h>
+#include <taiwins/backend.h>
 #include <taiwins/engine.h>
 #include "internal.h"
 

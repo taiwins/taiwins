@@ -164,6 +164,9 @@ tw_engine_get_focused_output(struct tw_engine *engine);
 struct tw_engine_output *
 tw_engine_output_from_resource(struct tw_engine *engine,
                                struct wl_resource *resource);
+struct tw_engine_output *
+tw_engine_output_from_device(struct tw_engine *engine,
+                             const struct tw_output_device *device);
 
 #ifdef  __cplusplus
 }

@@ -22,8 +22,8 @@
 #ifndef TW_BACKEND1_H
 #define TW_BACKEND1_H
 
-#include "taiwins/render_context.h"
-#include "taiwins/output_device.h"
+#include "render_context.h"
+#include "output_device.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -62,6 +62,9 @@ struct tw_backend {
 	bool started;
 	struct wl_listener render_context_destroy;
 };
+
+struct tw_backend *
+tw_backend_create_auto(struct wl_display *display);
 
 void
 tw_backend_init(struct tw_backend *backend);

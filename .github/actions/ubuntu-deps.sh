@@ -108,10 +108,4 @@ mkdir build
 ./autogen.sh
 sudo make install
 
-#instal an upstream libweston
-git clone -b 8.0 https://gitlab.freedesktop.org/wayland/weston /tmp/weston
-cd /tmp/weston
-meson build -Dsimple-dmabuf-drm= -Dbackend-rdp=false
-sudo ninja -C build install
-
 cd $(CURDIR)

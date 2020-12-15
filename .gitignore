@@ -4,4 +4,4 @@ compile_commands.json
 .clangd
 .dir-locals.el
 .gdb_history
-
+subprojects/pixman*

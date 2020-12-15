@@ -35,6 +35,7 @@
 #include <taiwins/objects/compositor.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/render_pipeline.h>
+#include <wayland-util.h>
 
 #include "egl_render_context.h"
 
@@ -67,11 +68,9 @@ new_window_surface(struct tw_render_presentable *surf,
 	if (!(ctx->egl.surface_type & EGL_WINDOW_BIT))
 		return false;
 
-	eglsurface =
-		ctx->egl.funcs.create_window_surface(ctx->egl.display,
-		                                     ctx->egl.config,
-		                                     native_surface,
-		                                     NULL);
+	eglsurface = tw_egl_create_window_surface(&ctx->egl, native_surface,
+	                                          NULL);
+
 	if (eglsurface == EGL_NO_SURFACE) {
 		tw_logl_level(TW_LOG_ERRO, "eglCreateWindowSurface failed");
 		return false;
@@ -119,7 +118,7 @@ commit_egl_surface(struct tw_render_presentable *surf,
 	struct tw_egl_render_context *ctx = wl_container_of(base, ctx, base);
 
 	eglSwapBuffers(ctx->egl.display, surface);
-
+	wl_signal_emit(&base->events.presentable_commit, base);
 	return true;
 }
 
@@ -134,7 +133,7 @@ make_egl_surface_current(struct tw_render_presentable *surf,
 static const struct tw_render_context_impl egl_context_impl = {
 	.new_offscreen_surface = new_pbuffer_surface,
 	.new_window_surface = new_window_surface,
-	.commit_surface = commit_egl_surface,
+	.commit_presentable = commit_egl_surface,
 	.make_current = make_egl_surface_current,
 };
 
@@ -148,16 +147,11 @@ notify_context_surface_created(struct wl_listener *listener, void *data)
 	struct tw_surface *tw_surface = data;
 	struct tw_egl_render_context *ctx =
 		wl_container_of(listener, ctx, surface_created);
-	struct tw_render_wl_surface *surface =
-		calloc(1, sizeof(*surface));
-
-	if (!surface) {
-		wl_resource_post_no_memory(tw_surface->resource);
-		return;
-	}
+	struct tw_render_surface *surface =
+		wl_container_of(tw_surface, surface, surface);
 
 	//I think it is better if we forward the event here
-	tw_render_init_wl_surface(surface, tw_surface, &ctx->base);
+	tw_render_surface_init(surface, &ctx->base);
 	tw_surface->buffer.buffer_import.callback = ctx;
 	tw_surface->buffer.buffer_import.buffer_import =
 		tw_egl_render_context_import_buffer;
@@ -169,6 +163,7 @@ notify_context_compositor_set(struct wl_listener *listener, void *data)
 	struct tw_compositor *compositor = data;
 	struct tw_egl_render_context *ctx =
 		wl_container_of(listener, ctx, compositor_set);
+
 	tw_signal_setup_listener(&compositor->surface_created,
 	                         &ctx->surface_created,
 	                         notify_context_surface_created);
@@ -363,6 +358,7 @@ tw_render_context_create_egl(struct wl_display *display,
 	wl_signal_init(&ctx->base.events.compositor_set);
 	wl_signal_init(&ctx->base.events.wl_surface_dirty);
 	wl_signal_init(&ctx->base.events.wl_surface_destroy);
+	wl_signal_init(&ctx->base.events.presentable_commit);
 	wl_list_init(&ctx->base.outputs);
 	init_context_formats(ctx);
 	tw_egl_bind_wl_display(&ctx->egl, display);

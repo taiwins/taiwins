@@ -63,27 +63,6 @@ struct tw_render_texture {
 	                struct tw_render_context *ctx);
 };
 
-/**
- * @brief render data for wl_surface, created
- */
-struct tw_render_wl_surface {
-	struct tw_render_context *ctx;
-	struct tw_surface *surface;
-	pixman_region32_t clip;
-
-#ifdef TW_OVERLAY_PLANE
-	pixman_region32_t output_damage[32];
-#endif
-	/** used if surface is on layers */
-	struct wl_list layer_link;
-
-	struct {
-		struct wl_listener destroy;
-		struct wl_listener commit;
-		struct wl_listener frame;
-		struct wl_listener dirty;
-	} listeners;
-};
 
 struct tw_render_context_impl {
 	bool (*new_offscreen_surface)(struct tw_render_presentable *surf,
@@ -94,8 +73,8 @@ struct tw_render_context_impl {
 	                           struct tw_render_context *ctx,
 	                           void *native_window);
 
-	bool (*commit_surface)(struct tw_render_presentable *surf,
-	                       struct tw_render_context *ctx);
+	bool (*commit_presentable)(struct tw_render_presentable *surf,
+	                           struct tw_render_context *ctx);
 
         int (*make_current)(struct tw_render_presentable *surf,
 	                    struct tw_render_context *ctx);
@@ -119,6 +98,8 @@ struct tw_render_context {
 		struct wl_signal destroy;
 		struct wl_signal dma_set;
 		struct wl_signal compositor_set;
+		/** emit at commit_surface */
+		struct wl_signal presentable_commit;
 		//this is plain damn weird.
 		struct wl_signal wl_surface_dirty;
 		struct wl_signal wl_surface_destroy;
@@ -141,19 +122,12 @@ tw_render_context_destroy(struct tw_render_context *ctx);
 void
 tw_render_context_build_view_list(struct tw_render_context *ctx,
                                   struct tw_layers_manager *manager);
-static inline void
+void
 tw_render_context_set_dma(struct tw_render_context *ctx,
-                          struct tw_linux_dmabuf *dma)
-{
-	wl_signal_emit(&ctx->events.dma_set, dma);
-}
-
-static inline void
+                          struct tw_linux_dmabuf *dma);
+void
 tw_render_context_set_compositor(struct tw_render_context *ctx,
-                                 struct tw_compositor *compositor)
-{
-	wl_signal_emit(&ctx->events.compositor_set, compositor);
-}
+                                 struct tw_compositor *compositor);
 
 static inline bool
 tw_render_presentable_init_offscreen(struct tw_render_presentable *surface,
@@ -182,19 +156,12 @@ static inline bool
 tw_render_presentable_commit(struct tw_render_presentable *surface,
                              struct tw_render_context *ctx)
 {
-	return ctx->impl->commit_surface(surface, ctx);
+	return ctx->impl->commit_presentable(surface, ctx);
 }
 
 int
 tw_render_presentable_make_current(struct tw_render_presentable *surf,
                                    struct tw_render_context *ctx);
-
-void
-tw_render_init_wl_surface(struct tw_render_wl_surface *surface,
-                          struct tw_surface *tw_surface,
-                          struct tw_render_context *ctx);
-void
-tw_render_fini_wl_surface(struct tw_render_wl_surface *surface);
 
 #ifdef  __cplusplus
 }

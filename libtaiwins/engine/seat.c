@@ -18,6 +18,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
+#include "options.h"
 
 #include <assert.h>
 #include <wayland-server.h>
@@ -27,7 +28,7 @@
 #include <taiwins/objects/seat.h>
 
 #include <taiwins/engine.h>
-#include <taiwins/backend/backend.h>
+#include <taiwins/backend.h>
 #include <taiwins/input_device.h>
 #include <taiwins/output_device.h>
 #include <taiwins/profiling.h>
@@ -198,7 +199,7 @@ notify_seat_pointer_motion_abs(struct wl_listener *listener, void *data)
 	struct tw_event_pointer_motion_abs *event = data;
 	struct tw_engine *engine = seat->engine;
 	struct tw_engine_output *output =
-		tw_engine_pick_output_for_cursor(engine);
+		tw_engine_output_from_device(engine, event->output);
 	tw_output_device_loc_to_global(output->device, event->x, event->y,
 	                               &x, &y);
 	SCOPE_PROFILE_BEG();
@@ -246,7 +247,7 @@ notify_seat_touch_down(struct wl_listener *listener, void *data)
 	struct tw_touch *touch = &seat->tw_seat->touch;
 	struct tw_event_touch_down *event = data;
 	struct tw_engine_output *output =
-		tw_engine_pick_output_for_cursor(seat->engine);
+		tw_engine_output_from_device(seat->engine, event->output);
 
         tw_output_device_loc_to_global(output->device, event->x, event->y,
 	                               &x, &y);
@@ -285,7 +286,7 @@ notify_seat_touch_motion(struct wl_listener *listener, void *data)
 	struct tw_touch *touch = &seat->tw_seat->touch;
 	struct tw_surface *focused;
 	struct tw_engine_output *output =
-		tw_engine_pick_output_for_cursor(seat->engine);
+		tw_engine_output_from_device(seat->engine, event->output);
 
 	tw_output_device_loc_to_global(output->device, event->x, event->y,
 	                               &x, &y);

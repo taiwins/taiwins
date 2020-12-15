@@ -30,6 +30,7 @@
 #include <taiwins/objects/egl.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/render_context.h>
+#include <taiwins/render_surface.h>
 
 #ifdef  __cplusplus
 extern "C" {

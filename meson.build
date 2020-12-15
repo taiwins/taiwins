@@ -23,6 +23,16 @@ add_global_arguments(
   language : 'c'
 )
 
+###### options
+options_data = configuration_data()
+options_data.set10('_TW_HAS_EGLMESAEXT', cc.has_header('EGL/eglmesaext.h'))
+options_data.set10('_TW_ENABLE_PROFILING', false)
+options_data.set10('_TW_DEBUG_DAMAGE', false)
+options_data.set10('_TW_DEBUG_CLIP', false)
+options_data.set10('_TW_HAS_X11_BACKEND', false)
+options_data.set10('_TW_HAS_XWAYLAND', false)
+options_data.set10('_TW_HAS_LIBINPUT_GET_TOUCH_COUNT', false)
+
 ###### subprojects
 twclient = subproject('twclient')
 nklua = subproject('nklua')
@@ -40,6 +50,7 @@ pixman = subproject('pixman', default_options: [
 dep_xkbcommon = dependency('xkbcommon', version: '>= 0.3.0')
 dep_wayland_server = dependency('wayland-server', version: '>= 1.12.0')
 dep_wayland_client = dependency('wayland-client', version: '>= 1.12.0')
+dep_wayland_egl = dependency('wayland-egl', version: '>= 1.12.0')
 dep_threads = dependency('threads')
 dep_glesv2 = dependency('glesv2')
 dep_egl = dependency('egl')
