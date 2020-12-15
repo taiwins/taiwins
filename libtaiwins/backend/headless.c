@@ -104,6 +104,7 @@ notify_output_commit(struct wl_listener *listener, void *data)
 	struct tw_headless_output *output =
 		wl_container_of(listener, output, present_listener);
 	tw_output_device_present(&output->output.device, NULL);
+	tw_render_output_clean_maybe(&output->output);
 }
 
 static bool
