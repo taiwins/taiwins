@@ -182,8 +182,10 @@ struct tw_drm_display {
 		struct wl_array modes;
 		enum tw_drm_display_pending_flags pending;
 	} status;
+
 	//TODO remove the swapchain here
 	//struct tw_drm_swapchain sc;
+	struct tw_render_allocator allocator;
 	struct tw_drm_connector_props props;
 
 	struct wl_listener presentable_commit;

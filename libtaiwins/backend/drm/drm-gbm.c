@@ -21,15 +21,20 @@
 
 #include <assert.h>
 #include <string.h>
+#include <stdint.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <fcntl.h>
 #include <gbm.h>
 #include <drm_fourcc.h>
-#include <stdint.h>
-#include <sys/types.h>
+#include <wayland-util.h>
+#include <xf86drm.h>
 #include <xf86drmMode.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/egl.h>
 #include <taiwins/objects/drm_formats.h>
 #include <taiwins/render_context.h>
+#include <taiwins/objects/dmabuf.h>
 
 #include "internal.h"
 
@@ -270,6 +275,127 @@ legacy_pageflip(struct tw_drm_display *output, uint32_t flags)
 /******************************************************************************
  * tw_gpu_gbm_impl
  *****************************************************************************/
+
+static bool
+gbm_bo_to_dmabuf(struct gbm_bo *bo, struct tw_dmabuf_attributes *attr)
+{
+	struct gbm_device *gbm = gbm_bo_get_device(bo);
+	int i = 0, ret;
+	int fd = gbm_device_get_fd(gbm);
+
+	attr->width = gbm_bo_get_width(bo);
+	attr->height = gbm_bo_get_height(bo);
+	attr->format = gbm_bo_get_format(bo);
+	attr->modifier = gbm_bo_get_modifier(bo);
+	attr->n_planes = gbm_bo_get_plane_count(bo);
+
+	for (i = 0; i < attr->n_planes; i++) {
+		union gbm_bo_handle handle = gbm_bo_get_handle_for_plane(bo, i);
+		if (handle.s32 < 0) {
+			tw_logl_level(TW_LOG_ERRO, "failed to get bo plane");
+			goto err_fd;
+		}
+		ret = drmPrimeHandleToFD(fd, handle.s32, DRM_CLOEXEC,
+		                         &attr->fds[i]);
+		if (ret < 0 || attr->fds[i] < 0) {
+			tw_logl_level(TW_LOG_ERRO, "failed to get bo plane");
+			goto err_fd;
+		}
+		attr->offsets[i] = gbm_bo_get_offset(bo, i);
+		attr->strides[i] = gbm_bo_get_stride_for_plane(bo, i);
+	}
+
+err_fd:
+	for (int j = 0; j < i; j++)
+		close(attr->fds[i]);
+	return false;
+}
+
+//use it somewhere later
+struct gbm_bo *
+gbm_bo_from_dmabuf(struct gbm_device *gbm,
+                   const struct tw_dmabuf_attributes *attr)
+{
+	struct gbm_bo *bo = NULL;
+
+	if (attr->modifier != DRM_FORMAT_MOD_INVALID ||
+	    attr->n_planes > 1 || attr->offsets[0] != 0) {
+		struct gbm_import_fd_modifier_data data = {
+			.width = attr->width,
+			.height = attr->height,
+			.format = attr->format,
+			.num_fds = attr->n_planes,
+			.modifier = attr->modifier,
+		};
+
+		for (int i = 0; i < attr->n_planes; i++) {
+			data.fds[i] = attr->fds[i];
+			data.strides[i] = attr->strides[i];
+			data.offsets[i] = attr->offsets[i];
+		}
+		bo = gbm_bo_import(gbm, GBM_BO_IMPORT_FD_MODIFIER, &data,
+		                   GBM_BO_USE_SCANOUT);
+	} else {
+		struct gbm_import_fd_data data = {
+			.width = attr->width,
+			.height = attr->height,
+			.format = attr->format,
+			.fd =  attr->fds[0],
+			.stride = attr->strides[0],
+		};
+		bo = gbm_bo_import(gbm, GBM_BO_IMPORT_FD, &data,
+		                   GBM_BO_USE_SCANOUT);
+	}
+	return bo;
+}
+
+static bool
+handle_allocate_gbm_bo(struct tw_render_allocator *allocator,
+                      struct tw_render_swap_img *img)
+{
+	struct tw_drm_display *output =
+		wl_container_of(allocator, output, allocator);
+	struct tw_drm_gpu *gpu = output->gpu;
+	struct tw_drm_plane *plane = output->primary_plane;
+	const struct tw_drm_format *format =
+		tw_drm_format_find(&plane->formats, gpu->visual_id);
+	const struct tw_drm_modifier *mods =
+		tw_drm_modifiers_get(&plane->formats, format);
+
+	struct gbm_device *gbm = (struct gbm_device *)gpu->device;
+	unsigned w = output->status.mode.hdisplay;
+	unsigned h = output->status.mode.vdisplay;
+	uint32_t usage = GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
+
+	//ensure we have at least one mods
+	uint64_t modifiers[format->len+1];
+	for (int i = 0; i < format->len; i++)
+		modifiers[i] = mods[i].modifier;
+	struct gbm_bo *bo = gbm_bo_create_with_modifiers(gbm, w, h,
+	                                                 format->fmt,
+	                                                 modifiers,
+	                                                 format->len);
+	if (!bo)
+		bo = gbm_bo_create(gbm, w, h, format->fmt, usage);
+	if (!gbm_bo_to_dmabuf(bo, &img->attrs))
+		gbm_bo_destroy(bo);
+	return true;
+}
+
+static void
+handle_free_gbm_bo(struct tw_render_allocator *allocator,
+                   struct tw_render_swap_img *img)
+{
+	struct gbm_bo *bo = (struct gbm_bo *)img->handle;
+	gbm_bo_destroy(bo);
+}
+
+const struct tw_render_allocator_impl gbm_allocator = {
+	.allocate = handle_allocate_gbm_bo,
+	.free = handle_free_gbm_bo,
+};
+
+/** lets write the allocator */
 
 static void
 handle_release_gbm_bo(struct tw_drm_display *output, struct tw_drm_fb *fb)
