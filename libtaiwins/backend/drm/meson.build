@@ -6,7 +6,6 @@ taiwins_lib_src += files(
   'drm-gbm.c',
   'kms.c',
   'edid.c',
-  'swapchain.c',
 )
 
 taiwins_lib_dep += [

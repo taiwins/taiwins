@@ -61,7 +61,7 @@ tw_kms_atomic_set_plane_props(drmModeAtomicReq *req, bool pass,
 	} else {
 		uint32_t id = plane->id;
 		struct tw_drm_plane_props *props = &plane->props;
-		struct tw_drm_fb *fb = plane->pending;
+		struct tw_drm_fb *fb = &plane->pending;
 
 		atomic_add(req, &pass, id, props->src_x, 0);
 		atomic_add(req, &pass, id, props->src_y, 0);

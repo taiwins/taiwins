@@ -256,10 +256,9 @@ find_plane(struct tw_drm_display *output, enum tw_drm_plane_type t)
 static inline void
 prepare_plane_fbs(struct tw_drm_plane *plane, struct tw_drm_display *output)
 {
-	if (plane) {
-		plane->pending = NULL;
-		plane->current = NULL;
-	}
+	//TODO: used in display start, originally was designed for clearing the
+	//plane state, there is problem with this though, if we stopped output
+	//we may lose the chance to free unlock the buffer in page-flipped.
 }
 
 static bool
@@ -308,7 +307,6 @@ select_display_mode(struct tw_drm_display *output)
 static void
 handle_display_commit_state(struct tw_output_device *device)
 {
-	uint32_t flags = 0;
 	struct tw_drm_display *output =
 		wl_container_of(device, output, output.device);
 	//ensure valid active state.
@@ -331,18 +329,28 @@ handle_display_commit_state(struct tw_output_device *device)
 		if ((output->status.pending & TW_DRM_PENDING_MODE))
 			output->gpu->impl->allocate_fb(output);
 		prepare_plane_fbs(output->primary_plane, output);
-		flags = DRM_MODE_PAGE_FLIP_EVENT;
+		wl_signal_emit(&device->events.new_frame, &device);
 	} else {
 		tw_drm_display_detach_crtc(output);
 		output->gpu->impl->end_display(output);
-		flags = 0;
+		//the pageflip should turn off display
+		output->gpu->impl->page_flip(output, 0);
+
 	}
-	output->gpu->impl->page_flip(output, flags);
 }
 
 static const struct tw_output_device_impl output_dev_impl = {
 	handle_display_commit_state,
 };
+
+static void
+notify_display_presentable_commit(struct wl_listener *listener, void *data)
+{
+	struct tw_drm_display *output =
+		wl_container_of(listener, output, presentable_commit);
+	assert(data == output->output.ctx);
+	output->gpu->impl->page_flip(output, DRM_MODE_PAGE_FLIP_EVENT);
+}
 
 /******************************************************************************
  * output API
@@ -429,7 +437,7 @@ tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn)
 		found->gpu = gpu;
 		found->conn_id = conn->connector_id;
 		found->status.annouced = false;
-
+		wl_list_init(&found->presentable_commit.link);
 		wl_list_insert(drm->base.outputs.prev,
 		               &found->output.device.link);
 		return found;
@@ -443,6 +451,9 @@ tw_drm_display_start(struct tw_drm_display *output)
 	struct tw_drm_backend *drm = output->drm;
 
 	tw_render_output_set_context(&output->output, drm->base.ctx);
+	tw_signal_setup_listener(&drm->base.ctx->events.presentable_commit,
+	                         &output->presentable_commit,
+	                         notify_display_presentable_commit);
 
 	if (!output->status.annouced) {
 		wl_signal_emit(&drm->base.events.new_output,
@@ -466,6 +477,7 @@ tw_drm_display_stop(struct tw_drm_display *output)
 {
 	output->status.unset_crtc =
 		crtc_from_id(output->gpu, output->status.crtc_id);
+	tw_reset_wl_list(&output->presentable_commit.link);
 	tw_output_device_commit_state(&output->output.device);
 	tw_render_output_unset_context(&output->output);
 	output->status.unset_crtc = NULL;
