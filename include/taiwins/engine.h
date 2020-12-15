@@ -64,6 +64,7 @@ struct tw_engine_output {
 	struct tw_output_device *device;
 	struct tw_output *tw_output;
 
+	bool active;
 	int id, cloning;
 	struct wl_list link; /* tw_engine:heads */
 	char name[24];
