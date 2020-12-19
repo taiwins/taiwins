@@ -22,15 +22,20 @@
 #include "options.h"
 
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#include <wayland-util.h>
+#include <xf86drm.h>
 #if defined (__linux__)
 #include <linux/kd.h>
 #include <linux/vt.h>
@@ -51,6 +56,8 @@
 
 #include "login.h"
 
+#define DRM_MAJOR 226
+
 struct tw_direct_login {
 	struct tw_login base;
 	struct wl_display *display;
@@ -61,9 +68,8 @@ struct tw_direct_login {
 	int orig_kbmode;
 };
 
-static const struct tw_login_impl direct_impl = {
 
-};
+#if defined ( __linux__ )
 
 static int
 handle_vt_change(int signo, void *data)
@@ -72,13 +78,12 @@ handle_vt_change(int signo, void *data)
 	bool active = !direct->base.active;
 
 	if (direct->base.active) {
-		//drop the session;
-		//TODO setmaster
-		ioctl(direct->tty_fd, VT_RELDISP, 1);
+		//TODO setmaster, but man which fd, all fds?
+		ioctl(direct->tty_fd, VT_RELDISP, VT_ACKACQ);
 	} else {
 		//restore the session
 		//TODO dropmaster
-		ioctl(direct->tty_fd, VT_RELDISP, VT_ACKACQ);
+		ioctl(direct->tty_fd, VT_RELDISP, 1);
 	}
 
 	tw_login_set_active(&direct->base, active);
@@ -150,6 +155,101 @@ err:
 	return false;
 }
 
+static void
+close_tty(struct tw_direct_login *direct)
+{
+	struct vt_mode mode = {
+		.mode = VT_AUTO,
+	};
+
+	errno = 0;
+	ioctl(direct->tty_fd, KDSKBMODE, direct->orig_kbmode);
+	ioctl(direct->tty_fd, KDSETMODE, KD_TEXT);
+	ioctl(direct->tty_fd, VT_SETMODE, &mode);
+	if (errno)
+		tw_logl_level(TW_LOG_ERRO, "Failed to restore tty");
+	wl_event_source_remove(direct->vt_source);
+	close(direct->tty_fd);
+}
+
+static int
+handle_direct_open(struct tw_login *base, const char *path)
+{
+	struct tw_direct_login *direct = wl_container_of(base, direct, base);
+	//TODO adding flags!
+	struct stat st;
+	int fd = -1;
+
+	if ((fd = open(path, O_CLOEXEC)) == -1)
+		return -1;
+	if (fstat(fd, &st) == -1) {
+		close(fd);
+		return -1;
+	}
+	if (major(st.st_rdev) != DRM_MAJOR) {
+		tw_logl_level(TW_LOG_WARN, "%s not drm device", path);
+		close(fd);
+		return -1;
+	}
+	//TODO auth magic?
+	return fd;
+}
+
+static void
+handle_direct_close(struct tw_login *base, int fd)
+{
+	close(fd);
+}
+
+static int
+handle_direct_get_vt(struct tw_login *login)
+{
+	struct tw_direct_login *direct = wl_container_of(login, direct, base);
+	struct vt_stat vt_stat;
+
+	if (ioctl(direct->tty_fd, VT_GETSTATE, &vt_stat) != 0)
+		return -1;
+
+	return vt_stat.v_active;
+}
+
+static bool
+handle_direct_switch_vt(struct tw_login *login, unsigned int vt)
+{
+	struct tw_direct_login *direct = wl_container_of(login, direct, base);
+
+	return ioctl(direct->tty_fd, VT_ACTIVATE, vt) == 0;
+}
+
+#elif defined(__FreeBSD__)
+
+static int
+handle_direct_get_vt(struct tw_login *login)
+{
+	struct tw_direct_login *direct = wl_container_of(login, direct, base);
+	int tty0_fd, old_tty = 0;
+
+	if ((tty0_fd = open("/dev/ttyv0", O_RDWR | O_CLOEXEC)) < 0)
+		return -1;
+	if (ioctl(direct->tty_fd, VT_GETACTIVE, &old_tty) != 0) {
+		close(tty0_fd);
+		return -1;
+	}
+	close(tty0_fd);
+	return old_tty;;
+}
+
+//TODO
+
+#endif
+
+static const struct tw_login_impl direct_impl = {
+	.open = handle_direct_open,
+	.close = handle_direct_close,
+	.get_vt = handle_direct_get_vt,
+	.switch_vt = handle_direct_switch_vt,
+};
+
 struct tw_login *
 tw_login_create_direct(struct wl_display *display)
 {
@@ -158,10 +258,8 @@ tw_login_create_direct(struct wl_display *display)
 
 	if (!direct)
 		return NULL;
-	if (!tw_login_init(&direct->base, display, &direct_impl)) {
-		free(direct);
-		return NULL;
-	}
+	if (!tw_login_init(&direct->base, display, &direct_impl))
+		goto err_init;
 	direct->display = display;
 
 	if (strcmp(seat, "seat0") == 0) {
@@ -170,4 +268,21 @@ tw_login_create_direct(struct wl_display *display)
 	}
 
 	return &direct->base;
+err_ipc:
+	tw_login_fini(&direct->base);
+err_init:
+	free(direct);
+	return NULL;
+}
+
+void
+tw_login_destroy_direct(struct tw_login *login)
+{
+	struct tw_direct_login *direct = wl_container_of(login, direct, base);
+
+	close_tty(direct);
+	close(direct->socket_fd);
+	tw_login_fini(login);
+	free(direct);
+
 }

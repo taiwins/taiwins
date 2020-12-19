@@ -22,5 +22,5 @@ if logind_found
     dep_tdbus]
 endif
 
-taiwins_lib_src += files('login.c')
+taiwins_lib_src += files('login.c', 'direct.c')
 taiwins_lib_dep += dep_login
