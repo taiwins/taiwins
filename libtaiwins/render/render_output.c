@@ -21,7 +21,10 @@
 
 #include <GLES2/gl2.h>
 #include <assert.h>
+#include <time.h>
 #include <pixman.h>
+#include <stdint.h>
+#include <string.h>
 #include <wayland-server.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
@@ -163,6 +166,7 @@ static void
 output_idle_frame(void *data)
 {
 	struct tw_render_output *output = data;
+	//TODO we should reset clock here
 	wl_signal_emit(&output->device.events.new_frame, &output->device);
 }
 
@@ -173,6 +177,30 @@ schedule_output_frame(struct tw_render_output *output)
 	struct wl_event_loop *loop = wl_display_get_event_loop(display);
 
 	wl_event_loop_add_idle(loop, output_idle_frame, output);
+}
+
+/**
+ * update the frame time for the output.
+ */
+static void
+update_output_frame_time(struct tw_render_output *output,
+                      const struct timespec *strt,
+                      const struct timespec *end)
+{
+	uint32_t ft;
+	uint64_t tstart = ((strt->tv_sec * 1000000) + (strt->tv_nsec / 1000));
+	uint64_t tend = ((end->tv_sec * 1000000) + (end->tv_nsec / 1000));
+
+	/* assert(tend >= tstart); */
+	ft = (uint32_t)(tend - tstart);
+	output->state.ft_sum -= output->state.fts[output->state.ft_idx];
+	output->state.ft_sum += ft;
+	//override the ft slot
+	output->state.fts[output->state.ft_idx] = ft;
+	//move forward the indices
+	output->state.ft_cnt = output->state.ft_cnt >= TW_FRAME_TIME_CNT ?
+		TW_FRAME_TIME_CNT : output->state.ft_cnt + 1;
+	output->state.ft_idx = (output->state.ft_idx + 1) % TW_FRAME_TIME_CNT;
 }
 
 /******************************************************************************
@@ -207,12 +235,14 @@ notify_output_frame(struct wl_listener *listener, void *data)
 	struct tw_render_presentable *presentable = &output->surface;
 	struct tw_render_context *ctx = output->ctx;
 	struct tw_render_pipeline *pipeline;
+	struct timespec tstart, tend;
 	int buffer_age;
 
 	assert(ctx);
 
 	if (output->state.repaint_state != TW_REPAINT_DIRTY)
 		return;
+	clock_gettime(output->clk_id, &tstart);
 
 	buffer_age = tw_render_presentable_make_current(presentable, ctx);
 	buffer_age = buffer_age > 2 ? 2 : buffer_age;
@@ -221,6 +251,11 @@ notify_output_frame(struct wl_listener *listener, void *data)
 		tw_render_pipeline_repaint(pipeline, output, buffer_age);
 
 	shuffle_output_damage(output);
+
+	clock_gettime(output->clk_id, &tend);
+	update_output_frame_time(output, &tstart, &tend);
+	/* tw_logl("The render time is %u", */
+	/*         tw_render_output_calc_frametime(output)); */
 
         tw_render_presentable_commit(presentable, ctx);
 
@@ -259,6 +294,7 @@ tw_render_output_init(struct tw_render_output *output,
 	output->surface.handle = 0;
 	init_output_state(output);
 	tw_output_device_init(&output->device, impl);
+	tw_render_output_reset_clock(output, CLOCK_MONOTONIC);
 
 	wl_list_init(&output->link);
 	wl_list_init(&output->listeners.surface_dirty.link);
@@ -353,4 +389,21 @@ tw_render_output_dirty(struct tw_render_output *output)
 		return;
 	output->state.repaint_state = TW_REPAINT_DIRTY;
 	schedule_output_frame(output);
+}
+
+void
+tw_render_output_reset_clock(struct tw_render_output *output, clockid_t clk)
+{
+	output->clk_id = clk;
+	output->state.ft_sum = 0;
+	output->state.ft_idx = 0;
+	output->state.ft_cnt = 0;
+	memset(output->state.fts, 0, sizeof(output->state.fts));
+}
+
+uint32_t
+tw_render_output_calc_frametime(struct tw_render_output *output)
+{
+	return output->state.ft_cnt ?
+		(output->state.ft_sum / output->state.ft_cnt) + 1 : 0;
 }

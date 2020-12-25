@@ -1,3 +1,4 @@
+#include "taiwins/objects/profiler.h"
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
@@ -14,6 +15,7 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/engine.h>
 #include <wayland-server-core.h>
+#include <taiwins/xdg.h>
 
 static inline void
 wait_for_debug()
@@ -90,7 +92,7 @@ dummy_repaint(struct tw_render_pipeline *pipeline,
 	h = (h + 1) % 256;
 }
 
-static struct tw_render_pipeline dummy_pipeline = {
+struct tw_render_pipeline dummy_pipeline = {
 	.impl.repaint_output = dummy_repaint,
 	.impl.destroy = dummy_destroy,
 };
@@ -106,7 +108,7 @@ test_switch_vt(struct tw_backend *backend)
 
 int main(int argc, char *argv[])
 {
-	tw_logger_use_file(stderr);
+	tw_logger_open("/tmp/drm-debug");
 
 	wait_for_debug();
 
@@ -119,17 +121,32 @@ int main(int argc, char *argv[])
 		tw_render_context_create_egl(display, opt);
 	struct tw_engine *engine =
 		tw_engine_create_global(display, backend);
+
+	wl_display_add_socket_auto(display);
+
 	(void)engine;
+	struct tw_xdg *xdg =
+		tw_xdg_create_global(display, NULL, engine);
+	(void)xdg;
+
+	struct tw_render_pipeline *pipeline =
+		tw_egl_render_pipeline_create_default(ctx,
+		                                      &engine->layers_manager);
 
 	struct wl_event_source *sigint =
 		wl_event_loop_add_signal(loop, SIGINT,
 		                         tw_term_on_signal, display);
-	tw_render_pipeline_init(&dummy_pipeline, "dummy_pipeline", ctx);
-	wl_list_insert(ctx->pipelines.next, &dummy_pipeline.link);
+	tw_profiler_open(display, "/tmp/drm-profiler.json");
+
+	/* tw_render_pipeline_init(&dummy_pipeline, "dummy_pipeline", ctx); */
+	wl_list_insert(ctx->pipelines.next, &pipeline->link);
 
 	tw_backend_start(backend, ctx);
 
 	wl_display_run(display);
+
+	tw_logger_close();
+	tw_profiler_close();
 
 	wl_event_source_remove(sigint);
 	wl_display_destroy(display);
