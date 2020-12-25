@@ -290,7 +290,7 @@ tw_render_output_init(struct tw_render_output *output,
                       const struct tw_output_device_impl *impl)
 {
 	output->ctx = NULL;
-	output->surface.destroy = NULL;
+	output->surface.impl = NULL;
 	output->surface.handle = 0;
 	init_output_state(output);
 	tw_output_device_init(&output->device, impl);
@@ -321,7 +321,7 @@ tw_render_output_fini(struct tw_render_output *output)
 	wl_list_remove(&output->listeners.frame.link);
 	wl_list_remove(&output->listeners.set_mode.link);
 	wl_list_remove(&output->listeners.surface_dirty.link);
-	if (output->ctx && output->surface.destroy)
+	if (output->ctx && output->surface.impl)
 		tw_render_presentable_fini(&output->surface, output->ctx);
 	tw_output_device_fini(&output->device);
 }
