@@ -285,11 +285,12 @@ find_display_crtc(struct tw_drm_display *output)
 	return false;
 }
 
-static void
-handle_display_commit_state(struct tw_output_device *device)
+/* handles the selection of display mode from available candidates, NOTE
+ * that if display is not connected, nothing happens here */
+static inline void
+select_display_mode(struct tw_drm_display *output)
 {
-	struct tw_drm_display *output =
-		wl_container_of(device, output, output.device);
+	struct tw_output_device *device = &output->output.device;
 	struct tw_output_device_state *pending = &device->pending;
 	struct tw_output_device_mode *mode =
 		tw_output_device_match_mode(device,
@@ -299,13 +300,22 @@ handle_display_commit_state(struct tw_output_device *device)
 	struct tw_drm_mode_info *mode_info = (mode) ?
 		wl_container_of(mode, mode_info, mode) : NULL;
 	drmModeModeInfo *info = mode_info ? &mode_info->info : NULL;
-	uint32_t flags = 0;
-
-	//ensure valid active state.
-	bool enabled = pending->enabled && output->status.connected;
-	//update the pending.
-	UPDATE_PENDING(output, active, enabled, TW_DRM_PENDING_ACTIVE);
 	UPDATE_PENDING_MODE(output, info, false);
+	if (mode_info)
+		tw_output_device_set_mode(device, &mode_info->mode);
+}
+
+static void
+handle_display_commit_state(struct tw_output_device *device)
+{
+	uint32_t flags = 0;
+	struct tw_drm_display *output =
+		wl_container_of(device, output, output.device);
+	//ensure valid active state.
+	bool enabled = device->pending.enabled && output->status.connected;
+
+	select_display_mode(output);
+	UPDATE_PENDING(output, active, enabled, TW_DRM_PENDING_ACTIVE);
 	memcpy(&device->state, &device->pending, sizeof(device->state));
 	device->state.enabled = enabled;
 
