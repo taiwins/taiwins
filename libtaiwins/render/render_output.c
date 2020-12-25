@@ -237,10 +237,11 @@ notify_output_frame(struct wl_listener *listener, void *data)
 	struct tw_render_pipeline *pipeline;
 	struct timespec tstart, tend;
 	int buffer_age;
+	uint32_t should_repaint = TW_REPAINT_DIRTY | TW_REPAINT_SCHEDULED;
 
 	assert(ctx);
 
-	if (output->state.repaint_state != TW_REPAINT_DIRTY)
+	if (!(output->state.repaint_state & should_repaint))
 		return;
 	clock_gettime(output->clk_id, &tstart);
 
@@ -257,8 +258,7 @@ notify_output_frame(struct wl_listener *listener, void *data)
 	/* tw_logl("The render time is %u", */
 	/*         tw_render_output_calc_frametime(output)); */
 
-	output->state.repaint_state = TW_REPAINT_COMMITTED;
-	tw_render_presentable_commit(&output->surface, output->ctx);
+	tw_render_output_commit(output);
 }
 
 static void
@@ -381,15 +381,6 @@ tw_render_output_unset_context(struct tw_render_output *output)
 }
 
 void
-tw_render_output_dirty(struct tw_render_output *output)
-{
-	if (output->state.repaint_state != TW_REPAINT_CLEAN)
-		return;
-	output->state.repaint_state = TW_REPAINT_DIRTY;
-	schedule_output_frame(output);
-}
-
-void
 tw_render_output_reset_clock(struct tw_render_output *output, clockid_t clk)
 {
 	output->clk_id = clk;
@@ -404,4 +395,39 @@ tw_render_output_calc_frametime(struct tw_render_output *output)
 {
 	return output->state.ft_cnt ?
 		(output->state.ft_sum / output->state.ft_cnt) + 1 : 0;
+}
+
+void
+tw_render_output_dirty(struct tw_render_output *output)
+{
+	output->state.repaint_state |= TW_REPAINT_DIRTY;
+	if (!(output->state.repaint_state & TW_REPAINT_SCHEDULED)) {
+		schedule_output_frame(output);
+		output->state.repaint_state |= TW_REPAINT_SCHEDULED;
+	}
+}
+
+/*
+ * after commit, the output should not dirty anymore, but the schedule state
+ * should not change, it shield us from committing another frame before the
+ * pageflip/swapbuffer happens.
+*/
+void
+tw_render_output_commit(struct tw_render_output *output)
+{
+	output->state.repaint_state = TW_REPAINT_COMMITTED;
+	tw_render_presentable_commit(&output->surface, output->ctx);
+}
+
+/*
+ * backends ought call this on swapbuffer/pageflip, it checks if the output is
+ * still dirty and reset the TW_REPAINT_SCHEDULED bit so we can commit another
+ * frame frame again.
+ */
+void
+tw_render_output_clean_maybe(struct tw_render_output *output)
+{
+	output->state.repaint_state &= ~TW_REPAINT_COMMITTED;
+	if (output->state.repaint_state & TW_REPAINT_DIRTY)
+		tw_render_output_dirty(output);
 }

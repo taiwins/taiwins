@@ -39,6 +39,13 @@ extern "C" {
 
 struct tw_render_context;
 
+enum tw_render_output_repaint_state {
+	TW_REPAINT_CLEAN = 0, /**< repainted */
+	TW_REPAINT_DIRTY = 1, /**< repaint required */
+	TW_REPAINT_SCHEDULED = 2, /**< repaint scheduled */
+	TW_REPAINT_COMMITTED = 6, /**< repaint done, need swap */
+};
+
 struct tw_render_output {
 	struct tw_output_device device;
 	struct tw_render_presentable surface;
@@ -57,15 +64,7 @@ struct tw_render_output {
 		pixman_region32_t *pending_damage, *curr_damage, *prev_damage;
 		struct tw_mat3 view_2d; /* global to output space */
 
-		/** the repaint status, the output repaint is driven by timer,
-		 * in the future we may be able to drive it by idle event */
-		enum {
-			TW_REPAINT_CLEAN = 0, /**< repainted */
-			TW_REPAINT_DIRTY, /**< repaint required */
-			TW_REPAINT_SCHEDULED, /**< repaint scheduled */
-			TW_REPAINT_COMMITTED /**< after calling swapbuffer */
-		} repaint_state;
-
+		uint32_t repaint_state;
                 /** average frame time is ft_sum / ft_cnt */
 		unsigned long ft_sum, ft_cnt;
 		/** average frame time in microseconds */
@@ -109,6 +108,11 @@ tw_render_output_rebuild_view_mat(struct tw_render_output *output);
 void
 tw_render_output_dirty(struct tw_render_output *output);
 
+void
+tw_render_output_commit(struct tw_render_output *output);
+
+void
+tw_render_output_clean_maybe(struct tw_render_output *output);
 
 #ifdef  __cplusplus
 }
