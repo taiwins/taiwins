@@ -37,7 +37,7 @@
 extern "C" {
 #endif
 
-struct tw_wl_output {
+struct tw_wl_surface {
 	struct tw_render_output output;
 	struct wl_listener output_commit;
 
@@ -59,9 +59,8 @@ struct tw_wl_seat {
 	struct tw_input_device keyboard_dev, pointer_dev;
 	struct wl_pointer *wl_pointer;
 	struct wl_keyboard *wl_keyboard;
-	struct tw_wl_output *pointer_focus;
+	struct tw_wl_surface *pointer_focus;
 };
-
 
 struct tw_wl_backend {
 	struct wl_display *server_display;
@@ -77,7 +76,7 @@ struct tw_wl_backend {
 
 	struct tw_backend base;
 	struct wl_listener display_destroy;
-	/** here wl_output is represented with wl_surface */
+
 	struct wl_list seats;
 };
 
@@ -91,10 +90,10 @@ void
 tw_wl_seat_remove(struct tw_wl_seat *seat);
 
 void
-tw_wl_output_remove(struct tw_wl_output *output);
+tw_wl_surface_remove(struct tw_wl_surface *output);
 
 void
-tw_wl_output_start(struct tw_wl_output *output);
+tw_wl_surface_start(struct tw_wl_surface *output);
 
 #ifdef  __cplusplus
 }

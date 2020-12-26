@@ -138,7 +138,7 @@ handle_pointer_enter(void *data, struct wl_pointer *wl_pointer,
                      uint32_t serial, struct wl_surface *surface,
                      wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
-	struct tw_wl_output *output =
+	struct tw_wl_surface *output =
 		wl_surface_get_user_data(surface);
 	struct tw_wl_seat *seat = wl_pointer_get_user_data(wl_pointer);
 

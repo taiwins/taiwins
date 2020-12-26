@@ -43,8 +43,8 @@
 static void
 handle_commit_output_state(struct tw_output_device *output)
 {
-	struct tw_wl_output *wl_output =
-		wl_container_of(output, wl_output, output.device);
+	struct tw_wl_surface *wl_surface =
+		wl_container_of(output, wl_surface, output.device);
 	unsigned width, height;
 
 
@@ -55,12 +55,12 @@ handle_commit_output_state(struct tw_output_device *output)
 
         tw_output_device_raw_resolution(output, &width, &height);
 
-        if (wl_output->egl_window)
-	        wl_egl_window_resize(wl_output->egl_window, width, height,
+        if (wl_surface->egl_window)
+	        wl_egl_window_resize(wl_surface->egl_window, width, height,
 	                             0, 0);
 }
 
-static const struct tw_output_device_impl wl_output_impl = {
+static const struct tw_output_device_impl wl_surface_impl = {
 	.commit_state = handle_commit_output_state,
 };
 
@@ -73,7 +73,7 @@ handle_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
                           int32_t width, int32_t height,
                           struct wl_array *states)
 {
-	struct tw_wl_output *output = data;
+	struct tw_wl_surface *output = data;
 	assert(output && output->xdg_toplevel == xdg_toplevel);
 
 	if (width == 0 || height == 0)
@@ -86,10 +86,10 @@ handle_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
 static void
 handle_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
 {
-	struct tw_wl_output *output = data;
+	struct tw_wl_surface *output = data;
 	assert(output && output->xdg_toplevel == xdg_toplevel);
 
-	tw_wl_output_remove(output);
+	tw_wl_surface_remove(output);
 }
 
 static const struct xdg_toplevel_listener xdg_toplevel_listener = {
@@ -105,7 +105,7 @@ static void
 handle_xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
                              uint32_t serial)
 {
-	struct tw_wl_output *output = data;
+	struct tw_wl_surface *output = data;
 	assert(output && output->xdg_surface == xdg_surface);
 	xdg_surface_ack_configure(xdg_surface, serial);
 }
@@ -124,7 +124,7 @@ handle_callback_done(void *data, struct wl_callback *wl_callback,
                      uint32_t callback_data)
 
 {
-	struct tw_wl_output *output = data;
+	struct tw_wl_surface *output = data;
 
 	assert(output->frame == wl_callback);
 	if (wl_callback)
@@ -160,7 +160,7 @@ handle_feedback_presented(void *data,
 			  uint32_t tv_nsec, uint32_t refresh,
 			  uint32_t seq_hi, uint32_t seq_lo, uint32_t flags)
 {
-	struct tw_wl_output *output = data;
+	struct tw_wl_surface *output = data;
 	struct timespec time = {
 		.tv_sec = ((uint64_t)tv_sec_hi << 32) | tv_sec_lo,
 		.tv_nsec = tv_nsec,
@@ -181,7 +181,7 @@ static void
 handle_feedback_discarded(void *data,
                           struct wp_presentation_feedback *wp_feedback)
 {
-	struct tw_wl_output *output = data;
+	struct tw_wl_surface *output = data;
 	tw_output_device_present(&output->output.device, NULL);
 	wp_presentation_feedback_destroy(wp_feedback);
 }
@@ -197,7 +197,7 @@ static const struct wp_presentation_feedback_listener feedback_listener = {
  *****************************************************************************/
 
 void
-tw_wl_output_remove(struct tw_wl_output *output)
+tw_wl_surface_remove(struct tw_wl_surface *output)
 {
 	tw_render_output_fini(&output->output);
 	wl_egl_window_destroy(output->egl_window);
@@ -211,7 +211,7 @@ tw_wl_output_remove(struct tw_wl_output *output)
 static void
 notify_output_commit(struct wl_listener *listener, void *data)
 {
-	struct tw_wl_output *output =
+	struct tw_wl_surface *output =
 		wl_container_of(listener, output, output_commit);
 	struct tw_wl_backend *wl = output->wl;
 	struct wp_presentation_feedback *feedback = NULL;
@@ -228,7 +228,7 @@ notify_output_commit(struct wl_listener *listener, void *data)
 }
 
 void
-tw_wl_output_start(struct tw_wl_output *output)
+tw_wl_surface_start(struct tw_wl_surface *output)
 {
 	struct tw_wl_backend *wl = output->wl;
 	struct tw_render_context *ctx = wl->base.ctx;
@@ -261,7 +261,7 @@ tw_wl_output_start(struct tw_wl_output *output)
 	                                       output->egl_window)) {
 		tw_logl_level(TW_LOG_WARN, "Failed to create render surface "
 		              "for wayland output");
-		tw_wl_output_remove(output);
+		tw_wl_surface_remove(output);
 	}
 
 	wl_display_roundtrip(wl->remote_display);
@@ -279,7 +279,7 @@ bool
 tw_wl_backend_new_output(struct tw_backend *backend,
                          unsigned width, unsigned height)
 {
-	struct tw_wl_output *output;
+	struct tw_wl_surface *output;
 	struct tw_wl_backend *wl = wl_container_of(backend, wl, base);
 
 	if (!wl->globals.compositor || !wl->globals.wm_base)
@@ -311,7 +311,7 @@ tw_wl_backend_new_output(struct tw_backend *backend,
         }
 
 	output->wl = wl;
-	tw_render_output_init(&output->output, &wl_output_impl);
+	tw_render_output_init(&output->output, &wl_surface_impl);
         tw_output_device_set_custom_mode(&output->output.device, width, height,
                                          0);
 
@@ -326,8 +326,7 @@ tw_wl_backend_new_output(struct tw_backend *backend,
 	wl_list_insert(backend->outputs.prev, &output->output.device.link);
 
 	if (backend->started)
-		tw_wl_output_start(output);
-
+		tw_wl_surface_start(output);
 
 	return true;
 err_toplevel:

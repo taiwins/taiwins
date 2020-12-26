@@ -71,14 +71,14 @@ wl_backend_dispatch_events(int fd, uint32_t mask, void *data)
 static void
 wl_backend_stop(struct tw_wl_backend *wl)
 {
-	struct tw_wl_output *output, *tmp_output;
+	struct tw_wl_surface *output, *tmp_output;
 	struct tw_wl_seat *seat, *tmp_seat;
 
 	if (!wl->base.ctx)
 		return;
 	wl_list_for_each_safe(output, tmp_output, &wl->base.outputs,
 	                      output.device.link)
-		tw_wl_output_remove(output);
+		tw_wl_surface_remove(output);
 	wl_list_for_each_safe(seat, tmp_seat, &wl->seats, link)
 		tw_wl_seat_remove(seat);
 
@@ -150,7 +150,7 @@ wl_gen_egl_params(struct tw_backend *backend)
 static bool
 wl_start_backend(struct tw_backend *backend, struct tw_render_context *ctx)
 {
-	struct tw_wl_output *output;
+	struct tw_wl_surface *output;
 	struct tw_wl_seat *seat;
 	struct tw_wl_backend *wl = wl_container_of(backend, wl, base);
 
@@ -160,7 +160,7 @@ wl_start_backend(struct tw_backend *backend, struct tw_render_context *ctx)
 		tw_wl_backend_new_output(&wl->base, 1280, 720);
 
 	wl_list_for_each(output, &wl->base.outputs, output.device.link)
-		tw_wl_output_start(output);
+		tw_wl_surface_start(output);
 
 	wl_list_for_each(seat, &wl->seats, link)
 		tw_wl_seat_start(seat);
