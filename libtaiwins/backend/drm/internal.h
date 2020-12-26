@@ -133,19 +133,6 @@ struct tw_drm_fb {
 	bool locked;
 	int fb;
 	uintptr_t handle;
-	struct wl_list link; /* swapchain:fbs */
-};
-
-/**
- * swapchain is designed to be a queue to work with function
- * gbm_surface_lock_front_face. The queue supports push and pop function to
- * extract new fb from the queue. The swapchain of size of 1 could be used for
- * eglstream as well.
- */
-struct tw_drm_swapchain {
-	unsigned cnt;
-	struct wl_list fbs;
-	struct tw_drm_fb imgs[TW_DRM_MAX_SWAP_IMGS];
 };
 
 struct tw_drm_plane {
@@ -156,7 +143,7 @@ struct tw_drm_plane {
 
 	struct tw_drm_formats formats;
 	struct tw_drm_plane_props props;
-	struct tw_drm_fb *pending, *current;
+	struct tw_drm_fb pending, current;
 };
 
 struct tw_drm_crtc {
@@ -195,7 +182,8 @@ struct tw_drm_display {
 		struct wl_array modes;
 		enum tw_drm_display_pending_flags pending;
 	} status;
-	struct tw_drm_swapchain sc;
+	//TODO remove the swapchain here
+	//struct tw_drm_swapchain sc;
 	struct tw_drm_connector_props props;
 
 	struct wl_listener presentable_commit;
@@ -210,11 +198,14 @@ struct tw_drm_gpu_impl {
 	/** platform specific egl options */
 	const struct tw_egl_options *(*gen_egl_params)(struct tw_drm_gpu *);
 	/** init display buffers as well as render surface */
-	bool (*allocate_fb)(struct tw_drm_display *);
+	bool (*allocate_fb)(struct tw_drm_display *output);
 	/** destroy display buffers as well as render surface */
-	void (*end_display)(struct tw_drm_display *);
+	void (*end_display)(struct tw_drm_display *output);
 
-	void (*page_flip)(struct tw_drm_display *, uint32_t flags);
+	void (*vsynced)(struct tw_drm_display *output,
+	                     struct tw_drm_fb *fb);
+
+	void (*page_flip)(struct tw_drm_display *output, uint32_t flags);
 };
 
 struct tw_drm_gpu {
@@ -315,23 +306,10 @@ tw_drm_get_property(int fd, uint32_t obj_id, uint32_t obj_type,
 /********************************* plane API *********************************/
 
 bool
-tw_drm_plane_init(struct tw_drm_plane *plane, int fd,
-                  drmModePlane *drm_plane);
+tw_drm_plane_init(struct tw_drm_plane *plane, int fd, drmModePlane *drm_plane);
+
 void
 tw_drm_plane_fini(struct tw_drm_plane *plane);
-
-/******************************* swapchain API *******************************/
-void
-tw_drm_swapchain_init(struct tw_drm_swapchain *sc, unsigned int cnt);
-
-void
-tw_drm_swapchain_fini(struct tw_drm_swapchain *sc);
-
-void
-tw_drm_swapchain_push(struct tw_drm_swapchain *sc, struct tw_drm_fb *fb);
-
-struct tw_drm_fb *
-tw_drm_swapchain_pop(struct tw_drm_swapchain *sc);
 
 /******************************** display API ********************************/
 

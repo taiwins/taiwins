@@ -32,7 +32,6 @@
 #include <taiwins/objects/utils.h>
 #include <taiwins/render_output.h>
 
-#include "drm_mode.h"
 #include "internal.h"
 
 static inline void
@@ -202,17 +201,41 @@ handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
 {
 	struct tw_drm_display *output = data;
 	struct tw_drm_gpu *gpu = output ? output->gpu : NULL;
+	struct tw_drm_plane *main_plane = output ?
+		output->primary_plane : NULL;
+	struct tw_output_device *device = output ?
+		&output->output.device : NULL;
+
+	struct tw_event_output_device_present present = {
+		.device = device,
+		.time = {
+			.tv_sec = tv_sec,
+			.tv_nsec = tv_usec * 1000,
+		},
+		.seq = seq,
+		.flags = 3,
+	};
 
 	if (output) {
-		assert(gpu->gpu_fd == fd);
+
+                assert(gpu->gpu_fd == fd);
 		if (output->status.crtc_id == TW_DRM_CRTC_ID_INVALID) {
+			//happens when we close the crtc
 			return;
 		} else {
+			//the pending buffer is now used as front buffer, at
+			//this point, render_output is clean, ready to repaint
+			//if still dirty. For gbm, it is a good time for
+			//release_buffer, maybe we gives a current buffer
+			//pointer?
 			assert(output->status.crtc_id == (int)crtc_id);
-			gpu->impl->page_flip(output, DRM_MODE_PAGE_FLIP_EVENT);
+
+			gpu->impl->vsynced(output, &main_plane->current);
+			main_plane->current = main_plane->pending;
+			tw_render_output_clean_maybe(&output->output);
+			wl_signal_emit(&device->events.present, &present);
 		}
 	}
-	//TODO: send present event
 }
 
 int
