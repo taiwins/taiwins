@@ -32,6 +32,9 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/layers.h>
 
+#include "render_presentable.h"
+#include "render_wsi.h"
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -47,20 +50,6 @@ enum tw_renderer_type {
 	TW_RENDERER_VK,
 };
 
-struct tw_render_presentable_impl {
-	void (*destroy)(struct tw_render_presentable *surface,
-	                struct tw_render_context *ctx);
-	bool (*commit)(struct tw_render_presentable *surf,
-	               struct tw_render_context *ctx);
-        int (*make_current)(struct tw_render_presentable *surf,
-	                    struct tw_render_context *ctx);
-};
-
-struct tw_render_presentable {
-	intptr_t handle;
-	const struct tw_render_presentable_impl *impl;
-};
-
 struct tw_render_texture {
 	uint32_t width, height;
 	int fmt;
@@ -71,7 +60,6 @@ struct tw_render_texture {
 	                struct tw_render_context *ctx);
 };
 
-
 struct tw_render_context_impl {
 	bool (*new_offscreen_surface)(struct tw_render_presentable *surf,
 	                              struct tw_render_context *ctx,
@@ -80,14 +68,12 @@ struct tw_render_context_impl {
 	bool (*new_window_surface)(struct tw_render_presentable *surf,
 	                           struct tw_render_context *ctx,
 	                           void *native_window);
-
+	bool (*new_wsi_surface)(struct tw_render_presentable *surf,
+	                        struct tw_render_context *ctx, int nimgs,
+	                        enum tw_render_wsi_type type,
+	                        struct tw_render_allocator *allocator);
 };
 
-/* we create this render context from scratch so we don't break everything, the
- * backends are still hooking to wlroots for now, they are created with a
- * tw_renderer, we will move backend on to this when we have our first backend.
- *
- */
 struct tw_render_context {
 	enum tw_renderer_type type;
 
@@ -115,7 +101,7 @@ struct tw_render_context *
 tw_render_context_create_egl(struct wl_display *display,
                              const struct tw_egl_options *opts);
 
-//TODO implement this later when vulkan is enough to work with
+//TODO implement this later
 struct tw_render_context *
 tw_render_context_create_vk(struct wl_display *display);
 
@@ -147,32 +133,6 @@ tw_render_presentable_init_window(struct tw_render_presentable *surf,
 {
 	return ctx->impl->new_window_surface(surf, ctx, native_window);
 }
-
-static inline void
-tw_render_presentable_fini(struct tw_render_presentable *surface,
-                           struct tw_render_context *ctx)
-{
-	surface->impl->destroy(surface, ctx);
-	surface->handle = (intptr_t)NULL;
-}
-
-static inline bool
-tw_render_presentable_commit(struct tw_render_presentable *surface,
-                             struct tw_render_context *ctx)
-{
-	return surface->impl->commit(surface, ctx);
-}
-
-static inline int
-tw_render_presentable_make_current(struct tw_render_presentable *surf,
-                                   struct tw_render_context *ctx)
-{
-	return surf->impl->make_current(surf, ctx);
-}
-
-int
-tw_render_presentable_make_current(struct tw_render_presentable *surf,
-                                   struct tw_render_context *ctx);
 
 #ifdef  __cplusplus
 }

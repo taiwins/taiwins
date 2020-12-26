@@ -35,7 +35,7 @@
 #include <taiwins/objects/compositor.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/render_pipeline.h>
-#include <wayland-util.h>
+#include <taiwins/render_wsi.h>
 
 #include "egl_render_context.h"
 
@@ -61,8 +61,8 @@ handle_egl_surface_destroy(struct tw_render_presentable *surf,
 }
 
 static bool
-commit_egl_surface(struct tw_render_presentable *surf,
-                   struct tw_render_context *base)
+handle_commit_egl_surface(struct tw_render_presentable *surf,
+                          struct tw_render_context *base)
 {
 	EGLSurface surface = (EGLSurface)surf->handle;
 	struct tw_egl_render_context *ctx = wl_container_of(base, ctx, base);
@@ -73,8 +73,8 @@ commit_egl_surface(struct tw_render_presentable *surf,
 }
 
 static int
-make_egl_surface_current(struct tw_render_presentable *surf,
-                         struct tw_render_context *base)
+handle_make_egl_surface_current(struct tw_render_presentable *surf,
+                                struct tw_render_context *base)
 {
 	struct tw_egl_render_context *ctx = wl_container_of(base, ctx, base);
 	return tw_egl_buffer_age(&ctx->egl, (EGLSurface)surf->handle);
@@ -82,8 +82,144 @@ make_egl_surface_current(struct tw_render_presentable *surf,
 
 static const struct tw_render_presentable_impl eglsurface_impl = {
 	.destroy = handle_egl_surface_destroy,
-	.commit = commit_egl_surface,
-	.make_current = make_egl_surface_current,
+	.commit = handle_commit_egl_surface,
+	.make_current = handle_make_egl_surface_current,
+};
+
+/******************************************************************************
+ * egl wsi implementation
+ *****************************************************************************/
+
+static bool
+load_wsi_image(struct tw_render_swap_img *img,
+               struct tw_render_allocator *allocator,
+               struct tw_egl_render_context *ctx)
+{
+	EGLImage image = EGL_NO_IMAGE;
+	GLuint fb = 0;
+	GLuint tex = 0;
+	GLenum status;
+
+	if (!allocator->impl->allocate(allocator, img))
+		return false;
+	//import image
+	image = tw_egl_import_dmabuf_image(&ctx->egl, &img->attrs,
+	                                   NULL);
+	if (!image)
+		goto err_img;
+
+        TW_GLES_DEBUG_PUSH(ctx);
+
+	//import texture
+	glGenTextures(1, &tex);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, tex);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	//it is either this or EGLImageTargetRenderbufferStorageOES
+	ctx->funcs.image_get_texture2d_oes(GL_TEXTURE_2D, image);
+
+	//get framebuffer
+	glGenFramebuffers(1, &fb);
+	glBindFramebuffer(GL_FRAMEBUFFER, fb);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+	                       GL_TEXTURE_2D, tex, 0);
+	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	TW_GLES_DEBUG_POP(ctx);
+
+        if (status != GL_FRAMEBUFFER_COMPLETE)
+	        goto err_fb;
+        img->handle1 = fb;
+        img->handle2 = tex;
+        img->handle3 = (uintptr_t)image;
+
+        return true;
+err_fb:
+        glDeleteFramebuffers(1, &fb);
+        glDeleteTextures(1, &tex);
+        tw_egl_destroy_image(&ctx->egl, image);
+err_img:
+	allocator->impl->free(allocator, img);
+	return false;
+}
+
+static void
+free_wsi_img(struct tw_render_swap_img *img,
+             struct tw_render_allocator *allocator,
+             struct tw_egl_render_context *ctx)
+{
+	GLuint fb = img->handle1;
+	GLuint tex = img->handle2;
+	EGLImage image = (EGLImage)img->handle3;
+
+	glDeleteFramebuffers(1, &fb);
+	glDeleteTextures(1, &tex);
+	tw_egl_destroy_image(&ctx->egl, image);
+	if (img->handle)
+		allocator->impl->free(allocator, img);
+}
+
+static void
+notify_wsi_allocator_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_render_wsi *wsi =
+		wl_container_of(listener, wsi, allocator_destroy);
+	for (unsigned i = 0; i < wsi->cnt; i++) {
+		wsi->allocator->impl->free(wsi->allocator, &wsi->imgs[i]);
+		wsi->imgs[i].handle = 0;
+	}
+}
+
+static int
+handle_make_wsi_surface_current(struct tw_render_presentable *surf,
+                                struct tw_render_context *base)
+{
+	struct tw_render_wsi *wsi = (struct tw_render_wsi *)surf->handle;
+
+	if (!tw_render_wsi_aquire_img(wsi))
+		return -1;
+
+	return wl_list_length(&wsi->back) + ((wsi->front) ? 1 : 0);
+
+}
+
+static bool
+handle_commit_wsi_surface(struct tw_render_presentable *surf,
+                          struct tw_render_context *base)
+{
+	struct tw_render_wsi *wsi = (struct tw_render_wsi *)surf->handle;
+
+	tw_render_wsi_push(wsi);
+	wl_signal_emit(&base->events.presentable_commit, base);
+	return true;
+}
+
+static void
+handle_wsi_surface_destroy(struct tw_render_presentable *surf,
+                           struct tw_render_context *base)
+{
+	struct tw_render_wsi *wsi = (struct tw_render_wsi *)surf->handle;
+	struct tw_render_allocator *allocator = wsi->allocator;
+	struct tw_egl_render_context *ctx =
+		wl_container_of(base, ctx, base);
+
+	tw_egl_make_current(&ctx->egl, EGL_NO_SURFACE);
+
+	for (unsigned i = 0; i < wsi->cnt; i++)
+		free_wsi_img(&wsi->imgs[i], allocator, ctx);
+}
+
+
+
+static const struct tw_render_presentable_impl eglwsi_impl = {
+	.make_current = handle_make_wsi_surface_current,
+	.commit = handle_commit_wsi_surface,
+	.destroy = handle_wsi_surface_destroy,
 };
 
 /******************************************************************************
@@ -143,10 +279,48 @@ new_pbuffer_surface(struct tw_render_presentable *surf,
 	return true;
 }
 
+static bool
+new_wsi_surface(struct tw_render_presentable *surf,
+                struct tw_render_context *base, int nimgs,
+                enum tw_render_wsi_type type,
+                struct tw_render_allocator *allocator)
+{
+	int idx;
+	struct tw_egl_render_context *ctx =
+		wl_container_of(base, ctx, base);
+	struct tw_render_wsi *wsi = calloc(1, sizeof(*wsi));
+
+	if (!wsi)
+		goto err;
+	if (!tw_render_wsi_init(wsi, type, nimgs, allocator))
+		goto err_init;
+
+
+	tw_egl_make_current(&ctx->egl, EGL_NO_SURFACE);
+	for (idx = 0; idx < nimgs; idx++)
+		if (load_wsi_image(&wsi->imgs[idx], allocator, ctx))
+			goto err_allocate;
+
+	wsi->surface = surf;
+	surf->handle = (uintptr_t)wsi;
+	surf->impl = &eglwsi_impl;
+	tw_signal_setup_listener(&allocator->destroy,
+	                         &wsi->allocator_destroy,
+	                         notify_wsi_allocator_destroy);
+
+err_allocate:
+	for (int i = 0; i < idx; i++)
+		free_wsi_img(&wsi->imgs[i], allocator, ctx);
+err_init:
+	free(wsi);
+err:
+	return false;
+}
 
 static const struct tw_render_context_impl egl_context_impl = {
 	.new_offscreen_surface = new_pbuffer_surface,
 	.new_window_surface = new_window_surface,
+	.new_wsi_surface = new_wsi_surface,
 };
 
 /******************************************************************************
