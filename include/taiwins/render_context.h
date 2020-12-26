@@ -57,7 +57,7 @@ struct tw_render_presentable_impl {
 };
 
 struct tw_render_presentable {
-	intptr_t handle;
+	intptr_t handle, handle1, handle2;
 	const struct tw_render_presentable_impl *impl;
 };
 

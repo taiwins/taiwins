@@ -19,10 +19,11 @@
  *
  */
 
-#include <EGL/eglplatform.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <EGL/egl.h>
+#include <EGL/eglext.h>
+#include <EGL/eglplatform.h>
 
 #include <assert.h>
 #include <stdint.h>
@@ -38,6 +39,7 @@
 #include <wayland-util.h>
 
 #include "egl_render_context.h"
+#include "taiwins/render_context.h"
 
 /******************************************************************************
  * eglsurface presentable implementation
@@ -80,10 +82,30 @@ make_egl_surface_current(struct tw_render_presentable *surf,
 	return tw_egl_buffer_age(&ctx->egl, (EGLSurface)surf->handle);
 }
 
+static void
+handle_egl_stream_surface_destroy(struct tw_render_presentable *surface,
+                                  struct tw_render_context *base)
+{
+	struct tw_egl_render_context *ctx =
+		wl_container_of(base, ctx, base);
+	EGLStreamKHR stream = (EGLStreamKHR)surface->handle1;
+
+	assert(ctx->funcs.eglDestroyStream);
+	handle_egl_surface_destroy(surface, base);
+	ctx->funcs.eglDestroyStream(ctx->egl.display, stream);
+}
+
+
 static const struct tw_render_presentable_impl eglsurface_impl = {
 	.destroy = handle_egl_surface_destroy,
 	.commit = commit_egl_surface,
 	.make_current = make_egl_surface_current,
+};
+
+static const struct tw_render_presentable_impl eglstreamsurface_impl = {
+	.commit = commit_egl_surface,
+	.make_current = make_egl_surface_current,
+	.destroy = handle_egl_stream_surface_destroy,
 };
 
 /******************************************************************************
@@ -344,6 +366,150 @@ tw_gles_debug_pop(struct tw_egl_render_context *ctx)
 }
 
 /******************************************************************************
+ * EGLStream functions
+ *****************************************************************************/
+
+#ifndef EGL_EXT_stream_acquire_mode
+#define EGL_EXT_stream_acquire_mode 1
+#define EGL_CONSUMER_AUTO_ACQUIRE_EXT 0x332B
+#endif
+
+#ifndef EGL_NV_output_drm_flip_event
+#define EGL_NV_output_drm_flip_event 1
+#define EGL_DRM_FLIP_EVENT_DATA_NV 0x333E
+#endif
+
+static inline bool
+tw_egl_context_has_eglstream(struct tw_egl_render_context *ctx)
+{
+	return ctx->funcs.eglGetOutputLayers &&
+		ctx->funcs.eglQueryOutputLayerAttrib &&
+		ctx->funcs.eglCreateStream &&
+		ctx->funcs.eglDestroyStream &&
+		ctx->funcs.eglCreateStreamProducerSurface &&
+		ctx->funcs.eglStreamConsumerOutput &&
+		ctx->funcs.eglStreamConsumerAcquireAttrib;
+}
+
+static bool
+init_eglstream_extensions(struct tw_egl_render_context *ctx)
+{
+	ctx->funcs.eglGetOutputLayers =
+		(void *)eglGetProcAddress("eglGetOutputLayersEXT");
+	ctx->funcs.eglQueryOutputLayerAttrib =
+		(void *)eglGetProcAddress("eglQueryOutputLayerAttribEXT");
+	ctx->funcs.eglCreateStream =
+		(void *)eglGetProcAddress("eglCreateStreamKHR");
+	ctx->funcs.eglDestroyStream =
+		(void *)eglGetProcAddress("eglDestroyStreamKHR");
+	ctx->funcs.eglCreateStreamProducerSurface =
+		(void *)eglGetProcAddress("eglCreateStreamProducerSurfaceKHR");
+	ctx->funcs.eglStreamConsumerOutput =
+		(void *)eglGetProcAddress("eglStreamConsumerOutputEXT");
+	//glext has eglStreamConsumerAcquireAttribKHR but its not what we need
+	ctx->funcs.eglStreamConsumerAcquireAttrib =
+		(void *)eglGetProcAddress("eglStreamConsumerAcquireAttribNV");
+
+	return true;
+}
+
+bool
+tw_egl_render_init_stream_surface(struct tw_render_presentable *surf,
+                                  struct tw_render_context *base,
+                                  uint32_t plane_id, uint32_t crtc_id,
+                                  uint32_t width, uint32_t height)
+{
+	EGLint nlayer = 0;
+	EGLOutputLayerEXT layer = EGL_NO_OUTPUT_LAYER_EXT;
+        EGLStreamKHR stream = EGL_NO_STREAM_KHR;
+        EGLSurface surface = EGL_NO_SURFACE;
+
+	EGLint surface_attrib[] = {
+		EGL_WIDTH, width,
+		EGL_HEIGHT, height,
+		EGL_NONE,
+	};
+	EGLint stream_attribs[] = {
+		EGL_STREAM_FIFO_LENGTH_KHR, 1,
+		EGL_CONSUMER_AUTO_ACQUIRE_EXT, EGL_FALSE,
+		EGL_NONE
+	};
+	EGLAttrib layer_attribs[3];
+	if (plane_id) {
+		layer_attribs[0] = EGL_DRM_PLANE_EXT;
+		layer_attribs[1] = plane_id;
+	} else {
+		layer_attribs[0] = EGL_DRM_CRTC_EXT;
+		layer_attribs[1] = crtc_id;
+	}
+	layer_attribs[2] = EGL_NONE;
+
+	struct tw_egl_render_context *ctx =
+		wl_container_of(base, ctx, base);
+	if (!tw_egl_context_has_eglstream(ctx)) {
+		tw_logl_level(TW_LOG_WARN, "eglstream extensions not found");
+		return false;
+	}
+
+	//stream
+	stream = ctx->funcs.eglCreateStream(ctx->egl.display, stream_attribs);
+	if (stream == EGL_NO_STREAM_KHR) {
+		tw_logl_level(TW_LOG_WARN, "Failed to create EGLStreamKHR");
+		return false;
+	}
+	//output layer
+	ctx->funcs.eglGetOutputLayers(ctx->egl.display, layer_attribs,
+	                              &layer, 1, &nlayer);
+	if (nlayer == 0 || layer == EGL_NO_OUTPUT_LAYER_EXT) {
+		tw_logl_level(TW_LOG_WARN, "Failed to create EGLOutputLayer");
+		goto err_layer;
+	}
+	ctx->funcs.eglStreamConsumerOutput(ctx->egl.display, stream, layer);
+	//surface
+	surface = ctx->funcs.eglCreateStreamProducerSurface(ctx->egl.display,
+	                                                    ctx->egl.config,
+	                                                    stream,
+	                                                    surface_attrib);
+	if (surface == EGL_NO_SURFACE) {
+		tw_logl_level(TW_LOG_WARN, "Failed to create Stream Producer");
+		goto err_surface;
+	}
+
+	surf->handle = (intptr_t)surface;
+	surf->handle1 = (intptr_t)stream;
+	surf->handle2 = (intptr_t)layer;
+	surf->impl = &eglstreamsurface_impl;
+	return true;
+err_surface:
+err_layer:
+	ctx->funcs.eglDestroyStream(ctx->egl.display, stream);
+
+	return false;
+}
+
+bool
+tw_egl_stream_flip(struct tw_render_presentable *surf,
+                   struct tw_render_context *base, void *data)
+{
+	struct tw_egl_render_context *ctx =
+		wl_container_of(base, ctx, base);
+	EGLAttrib attribs[3] = {
+		EGL_DRM_FLIP_EVENT_DATA_NV, (EGLAttrib)data,
+		EGL_NONE,
+	};
+	EGLStreamKHR stream = (EGLStreamKHR)surf->handle1;
+
+	if (!ctx->funcs.eglStreamConsumerAcquireAttrib)
+		return false;
+	if (!ctx->funcs.eglStreamConsumerAcquireAttrib(ctx->egl.display,
+	                                               stream, attribs)) {
+		tw_logl_level(TW_LOG_WARN, "Failed to post EGL stream frame");
+		return false;
+	}
+	return true;
+}
+
+/******************************************************************************
  * initializers
  *****************************************************************************/
 
@@ -359,6 +525,8 @@ tw_render_context_create_egl(struct wl_display *display,
 		goto err_init_egl;
 
 	if (!init_gles_externsions(ctx))
+		goto err_init_egl;
+	if (!init_eglstream_extensions(ctx))
 		goto err_init_egl;
 
 	ctx->base.type = TW_RENDERER_EGL;
