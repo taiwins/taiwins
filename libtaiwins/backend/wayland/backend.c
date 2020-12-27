@@ -71,16 +71,19 @@ wl_backend_dispatch_events(int fd, uint32_t mask, void *data)
 static void
 wl_backend_stop(struct tw_wl_backend *wl)
 {
-	struct tw_wl_surface *output, *tmp_output;
+	struct tw_wl_surface *surface, *tmp_surface;
 	struct tw_wl_seat *seat, *tmp_seat;
+	struct tw_wl_output *output, *tmp_output;
 
 	if (!wl->base.ctx)
 		return;
-	wl_list_for_each_safe(output, tmp_output, &wl->base.outputs,
+	wl_list_for_each_safe(surface, tmp_surface, &wl->base.outputs,
 	                      output.device.link)
-		tw_wl_surface_remove(output);
+		tw_wl_surface_remove(surface);
 	wl_list_for_each_safe(seat, tmp_seat, &wl->seats, link)
 		tw_wl_seat_remove(seat);
+	wl_list_for_each_safe(output, tmp_output, &wl->outputs, link)
+		tw_wl_output_remove(output);
 
 	wl_signal_emit(&wl->base.events.stop, &wl->base);
 	wl_list_remove(&wl->base.render_context_destroy.link);
@@ -195,6 +198,7 @@ handle_presentation_clock_id(void *data,
 {
 	struct tw_wl_backend *wl = data;
 	assert(wl->globals.presentation == wp_presentation);
+	wl->clk_id = clk_id;
 }
 
 static const struct wp_presentation_listener presentation_listener = {
@@ -217,6 +221,11 @@ handle_registry_global(void *data, struct wl_registry *registry, uint32_t id,
 		                                                id, version);
 		if (seat)
 			wl_list_insert(wl->seats.prev, &seat->link);
+	} else if (strcmp(name, wl_output_interface.name) == 0) {
+		struct tw_wl_output *output =
+			tw_wl_handle_new_output(wl, registry, id, version);
+		if (output)
+			wl_list_insert(wl->outputs.prev, &output->link);
 	} else if (strcmp(name, xdg_wm_base_interface.name) == 0) {
 		wl->globals.wm_base =
 			wl_registry_bind(registry, id, &xdg_wm_base_interface,
@@ -230,7 +239,6 @@ handle_registry_global(void *data, struct wl_registry *registry, uint32_t id,
 		wp_presentation_add_listener(wl->globals.presentation,
 		                             &presentation_listener, wl);
 	}
-
 }
 
 static void
@@ -244,9 +252,6 @@ static const struct wl_registry_listener registry_listener = {
 	.global = handle_registry_global,
 	.global_remove = handle_registry_global_remove,
 };
-
-
-
 
 /******************************************************************************
  * initializer
@@ -281,6 +286,7 @@ tw_wayland_backend_create(struct wl_display *display, const char *remote)
         wl->server_display = display;
         wl->base.impl = &wl_impl;
         wl_list_init(&wl->seats);
+        wl_list_init(&wl->outputs);
 
         if (!wl->remote_display) {
 	        tw_logl_level(TW_LOG_ERRO, "failed to connect to wl_display");
