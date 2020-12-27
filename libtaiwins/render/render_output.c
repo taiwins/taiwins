@@ -243,7 +243,7 @@ notify_output_frame(struct wl_listener *listener, void *data)
 
 	if (!(output->state.repaint_state & should_repaint))
 		return;
-	clock_gettime(output->clk_id, &tstart);
+	clock_gettime(output->device.clk_id, &tstart);
 
 	buffer_age = tw_render_presentable_make_current(presentable, ctx);
 	buffer_age = buffer_age > 2 ? 2 : buffer_age;
@@ -253,7 +253,7 @@ notify_output_frame(struct wl_listener *listener, void *data)
 
 	shuffle_output_damage(output);
 
-	clock_gettime(output->clk_id, &tend);
+	clock_gettime(output->device.clk_id, &tend);
 	update_output_frame_time(output, &tstart, &tend);
 	/* tw_logl("The render time is %u", */
 	/*         tw_render_output_calc_frametime(output)); */
@@ -383,7 +383,7 @@ tw_render_output_unset_context(struct tw_render_output *output)
 void
 tw_render_output_reset_clock(struct tw_render_output *output, clockid_t clk)
 {
-	output->clk_id = clk;
+	output->device.clk_id = clk;
 	output->state.ft_sum = 0;
 	output->state.ft_idx = 0;
 	output->state.ft_cnt = 0;

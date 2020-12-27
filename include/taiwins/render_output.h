@@ -50,7 +50,6 @@ struct tw_render_output {
 	struct tw_output_device device;
 	struct tw_render_presentable surface;
 
-	clockid_t clk_id; /**< the clock driving this output */
 	struct wl_list link; /**< ctx->output */
 	struct wl_list views;
 	/* important to set it for surface to be renderable */

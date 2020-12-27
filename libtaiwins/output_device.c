@@ -29,6 +29,7 @@
 #include <taiwins/objects/matrix.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/output_device.h>
+#include <taiwins/objects/utils.h>
 #include <wayland-util.h>
 
 static void
@@ -55,6 +56,7 @@ tw_output_device_init(struct tw_output_device *device,
 	device->phys_height = 0;
 	device->impl = impl;
 	device->subpixel = WL_OUTPUT_SUBPIXEL_NONE;
+	device->clk_id = CLOCK_MONOTONIC;
 	wl_list_init(&device->mode_list);
 	wl_list_init(&device->link);
 
@@ -187,15 +189,17 @@ void
 tw_output_device_present(struct tw_output_device *device,
                          struct tw_event_output_device_present *event)
 {
+	uint32_t mhz = device->state.current_mode.refresh;
 	struct tw_event_output_device_present _event = {
 		.device = device,
 	};
 	struct timespec now;
 	if (event == NULL) {
 		event = &_event;
-		clock_gettime(CLOCK_MONOTONIC, &now);
+		clock_gettime(device->clk_id, &now);
 		event->time = now;
 	}
+	event->refresh = tw_millihertz_to_ns(mhz);
 	wl_signal_emit(&device->events.present, event);
 }
 
