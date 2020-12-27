@@ -31,6 +31,13 @@
 #include <taiwins/output_device.h>
 #include <wayland-util.h>
 
+static inline uint32_t
+mhz2ns(unsigned mHz)
+{
+	//mHz means how many cycles per 1000s, to get max precesion
+	return mHz ? (1000000000000LL / mHz) : 0;
+}
+
 static void
 output_device_state_init(struct tw_output_device_state *state,
                          struct tw_output_device *device)
@@ -55,6 +62,7 @@ tw_output_device_init(struct tw_output_device *device,
 	device->phys_height = 0;
 	device->impl = impl;
 	device->subpixel = WL_OUTPUT_SUBPIXEL_NONE;
+	device->clk_id = CLOCK_MONOTONIC;
 	wl_list_init(&device->mode_list);
 	wl_list_init(&device->link);
 
@@ -193,9 +201,10 @@ tw_output_device_present(struct tw_output_device *device,
 	struct timespec now;
 	if (event == NULL) {
 		event = &_event;
-		clock_gettime(CLOCK_MONOTONIC, &now);
+		clock_gettime(device->clk_id, &now);
 		event->time = now;
 	}
+	event->refresh = mhz2ns(device->state.current_mode.refresh);
 	wl_signal_emit(&device->events.present, event);
 }
 

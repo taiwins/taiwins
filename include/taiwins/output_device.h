@@ -38,7 +38,7 @@ struct tw_output_device;
 
 struct tw_output_device_mode {
 	int32_t w, h; /**< indicate the pixel size of the output */
-	int32_t refresh; /**< -1 means unavailable */
+	int32_t refresh; /**< in mHz, 0 means unavailable */
 	bool preferred;
 
 	struct wl_list link; /**< output_device:mode_list */
@@ -61,7 +61,7 @@ struct tw_output_device_impl {
 struct tw_event_output_device_present {
 	struct tw_output_device *device;
 	struct timespec time;
-	uint32_t commit_seq, flags;
+	uint32_t flags;
 	uint64_t seq;
 	int refresh;
 };
@@ -81,6 +81,7 @@ struct tw_event_output_device_present {
 struct tw_output_device {
 	char name[32], make[32], model[32];
 	char serial[16];
+	clockid_t clk_id; /**< the clock driving this output */
 	int32_t phys_width, phys_height, id;
 	enum wl_output_subpixel subpixel;
 
