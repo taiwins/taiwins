@@ -59,7 +59,7 @@ handle_keyboard_enter(void *data, struct wl_keyboard *wl_keyboard,
 {
 	struct tw_wl_seat *seat = wl_keyboard_get_user_data(wl_keyboard);
 	struct tw_input_device *keyboard = &seat->keyboard_dev;
-	uint32_t time = tw_get_time_msec();
+	uint32_t time = tw_get_time_msec(seat->wl->clk_id);
 	uint32_t *keycode;
 
 	wl_array_for_each(keycode, keys) {
