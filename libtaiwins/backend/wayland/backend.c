@@ -197,8 +197,13 @@ handle_presentation_clock_id(void *data,
                              uint32_t clk_id)
 {
 	struct tw_wl_backend *wl = data;
+	struct tw_wl_surface *surface;
+
 	assert(wl->globals.presentation == wp_presentation);
 	wl->clk_id = clk_id;
+
+	wl_list_for_each(surface, &wl->base.outputs, output.device.link)
+		tw_render_output_reset_clock(&surface->output, clk_id);
 }
 
 static const struct wp_presentation_listener presentation_listener = {
@@ -245,7 +250,7 @@ static void
 handle_registry_global_remove(void *data, struct wl_registry *registry,
                               uint32_t name)
 {
-	//TODO
+	//TODO remove wl_output for wl_seat
 }
 
 static const struct wl_registry_listener registry_listener = {
@@ -285,6 +290,7 @@ tw_wayland_backend_create(struct wl_display *display, const char *remote)
         wl->remote_display = wl_display_connect(remote);
         wl->server_display = display;
         wl->base.impl = &wl_impl;
+        wl->clk_id = CLOCK_MONOTONIC;
         wl_list_init(&wl->seats);
         wl_list_init(&wl->outputs);
 
