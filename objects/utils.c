@@ -133,21 +133,6 @@ tw_signal_emit_safe(struct wl_signal *signal, void *data)
 
 }
 
-WL_EXPORT uint64_t
-tw_timespec_to_msec(const struct timespec *spec)
-{
-	return (int64_t)spec->tv_sec * 1000 + spec->tv_nsec / 1000000;
-}
-
-WL_EXPORT uint32_t
-tw_get_time_msec(void)
-{
-	struct timespec now;
-
-	clock_gettime(CLOCK_MONOTONIC, &now);
-	return tw_timespec_to_msec(&now);
-}
-
 WL_EXPORT void
 tw_resource_destroy_common(struct wl_client *c, struct wl_resource *r)
 {

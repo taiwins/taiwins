@@ -103,11 +103,28 @@ extern const struct tw_allocator tw_default_allocator;
 		ret; \
 	})
 
-uint32_t
-tw_get_time_msec(void);
+static inline uint32_t
+tw_millihertz_to_ns(unsigned mHz)
+{
+	//mHz means how many cycles per 1000s, to get max precesion
+	return mHz ? (1000000000000LL / mHz) : 0;
+}
 
-uint64_t
-tw_timespec_to_msec(const struct timespec *spec);
+static inline uint64_t
+tw_timespec_to_msec(const struct timespec *spec)
+{
+	return (int64_t)spec->tv_sec * 1000 + spec->tv_nsec / 1000000;
+}
+
+static inline uint32_t
+tw_get_time_msec(clockid_t clk)
+{
+	struct timespec now;
+
+	clock_gettime(clk, &now);
+	return tw_timespec_to_msec(&now);
+}
+
 
 #ifdef  __cplusplus
 }
