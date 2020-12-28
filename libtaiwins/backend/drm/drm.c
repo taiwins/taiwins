@@ -233,7 +233,7 @@ handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
 			gpu->impl->vsynced(output, &main_plane->current);
 			main_plane->current = main_plane->pending;
 			tw_render_output_clean_maybe(&output->output);
-			wl_signal_emit(&device->events.present, &present);
+			tw_output_device_present(device, &present);
 		}
 	}
 }

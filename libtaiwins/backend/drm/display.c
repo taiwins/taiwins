@@ -184,7 +184,7 @@ read_display_modes(struct tw_drm_display *output, drmModeConnector *conn)
 		mode_info[i].info = *mode;
 		mode_info[i].mode.w = mode->hdisplay;
 		mode_info[i].mode.h = mode->vdisplay;
-		mode_info[i].mode.refresh = mode->vrefresh;
+		mode_info[i].mode.refresh = mode->vrefresh * 1000; /* mHz */
 		mode_info[i].mode.preferred =
 			mode->type & DRM_MODE_TYPE_PREFERRED;
 		wl_list_init(&mode_info[i].mode.link);
