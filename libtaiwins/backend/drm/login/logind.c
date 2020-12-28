@@ -394,7 +394,7 @@ handle_logind_switch_vt(struct tw_login *base, unsigned int vt)
 }
 
 static int
-handle_logind_open(struct tw_login *base, const char *path)
+handle_logind_open(struct tw_login *base, const char *path, uint32_t flags)
 {
 	int fd = -1, fl;
 	bool paused;
@@ -423,7 +423,10 @@ handle_logind_open(struct tw_login *base, const char *path)
 	fl = fcntl(fd, F_GETFL);
 	if (fl < 0)
 		goto err_fd;
-	fl |= O_NONBLOCK;
+	//we have whatever the logind return to us, changing accessing mode is
+	//not possible
+	if (flags & O_NONBLOCK)
+		fl |= O_NONBLOCK;
 	if (fcntl(fd, F_SETFL, fl) < 0)
 		goto err_fd;
 out:

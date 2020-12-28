@@ -22,7 +22,7 @@
 #ifndef TW_DRM_BACKEND_H
 #define TW_DRM_BACKEND_H
 
-#include <wayland-server-core.h>
+#include <wayland-server.h>
 #include <libudev.h>
 #include <sys/types.h>
 
@@ -36,7 +36,7 @@ extern "C" {
 struct tw_login;
 
 struct tw_login_impl {
-	int (*open)(struct tw_login *login, const char *path);
+	int (*open)(struct tw_login *login, const char *path, uint32_t flags);
 	void (*close)(struct tw_login *login, int fd);
 	bool (*switch_vt)(struct tw_login *login, unsigned int vt);
 	int (*get_vt)(struct tw_login *login);
@@ -69,7 +69,7 @@ struct tw_login *
 tw_drm_backend_get_login(struct tw_backend *backend);
 
 int
-tw_login_open(struct tw_login *login, const char *path);
+tw_login_open(struct tw_login *login, const char *path, uint32_t flags);
 
 void
 tw_login_close(struct tw_login *login, int fd);

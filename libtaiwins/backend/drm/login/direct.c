@@ -59,7 +59,7 @@
 #define DRM_MAJOR 226
 #define MAX_GPUS 16
 
-struct tw_login_fd {
+struct tw_direct_gpu {
 	struct wl_list link;
 	int fd;
 };
@@ -73,7 +73,7 @@ struct tw_direct_login {
 	int vtnr;
 	int orig_kbmode;
 
-	struct tw_login_fd gpus[MAX_GPUS];
+	struct tw_direct_gpu gpus[MAX_GPUS];
 	struct wl_list used_fds;
 	struct wl_list avail_fds;
 };
@@ -81,7 +81,7 @@ struct tw_direct_login {
 static inline void
 set_masters(struct tw_direct_login *direct)
 {
-	struct tw_login_fd *gpu;
+	struct tw_direct_gpu *gpu;
 	wl_list_for_each(gpu, &direct->used_fds, link)
 		drmSetMaster(gpu->fd);
 }
@@ -89,7 +89,7 @@ set_masters(struct tw_direct_login *direct)
 static inline void
 drop_masters(struct tw_direct_login *direct)
 {
-	struct tw_login_fd *gpu;
+	struct tw_direct_gpu *gpu;
 	wl_list_for_each(gpu, &direct->used_fds, link)
 		drmDropMaster(gpu->fd);
 }
@@ -97,7 +97,7 @@ drop_masters(struct tw_direct_login *direct)
 static inline void
 close_gpus(struct tw_direct_login *direct)
 {
-	struct tw_login_fd *gpu, *tmp;
+	struct tw_direct_gpu *gpu, *tmp;
 	wl_list_for_each_safe(gpu, tmp, &direct->used_fds, link) {
 		close(gpu->fd);
 		wl_list_remove(&gpu->link);
@@ -219,41 +219,41 @@ close_tty(struct tw_direct_login *direct)
 }
 
 static int
-handle_direct_open(struct tw_login *base, const char *path)
+handle_direct_open(struct tw_login *base, const char *path, uint32_t flags)
 {
 	struct tw_direct_login *direct = wl_container_of(base, direct, base);
-	struct tw_login_fd *gpu = NULL;
-	//TODO adding flags!
+	struct tw_direct_gpu *gpu = NULL;
 	struct stat st;
+	int fd = -1;
 
 	if (wl_list_empty(&direct->avail_fds))
 		return -1;
-	gpu = wl_container_of(direct->avail_fds.next, gpu, link);
-	wl_list_remove(&gpu->link);
+	if ((fd = open(path, flags | O_CLOEXEC)) == -1)
+		return -1;
+	if (fstat(fd, &st) == -1) {
+		close(fd);
+		return -1;
+	}
 
-	if ((gpu->fd = open(path, O_CLOEXEC)) == -1)
-		goto err_open;
-	if (fstat(gpu->fd, &st) == -1)
-		goto err_stat;
-
-	if (major(st.st_rdev) != DRM_MAJOR)
-		goto err_stat;
-	if (!check_master(gpu->fd))
-		goto err_stat;
-	wl_list_insert(direct->used_fds.prev, &gpu->link);
-
-	return gpu->fd;
-err_stat:
-	close(gpu->fd);
-err_open:
-	wl_list_insert(direct->avail_fds.prev, &gpu->link);
-	return -1;
+	//besides drm fds, we could also open libinput devices, don't bother
+	//insert them to the gpu list
+	if (major(st.st_rdev) == DRM_MAJOR) {
+		if (!check_master(fd)) {
+			close(fd);
+			return -1;
+		}
+		gpu = wl_container_of(direct->avail_fds.next, gpu, link);
+		gpu->fd = fd;
+		wl_list_remove(&gpu->link);
+		wl_list_insert(direct->used_fds.prev, &gpu->link);
+	}
+	return fd;
 }
 
 static void
 handle_direct_close(struct tw_login *base, int fd)
 {
-	struct tw_login_fd *gpu, *tmp;
+	struct tw_direct_gpu *gpu, *tmp;
 	struct tw_direct_login *direct = wl_container_of(base, direct, base);
 
 	wl_list_for_each_safe(gpu, tmp, &direct->used_fds, link) {

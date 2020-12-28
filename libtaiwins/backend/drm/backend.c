@@ -248,7 +248,7 @@ handle_open_restricted(const char *path, int flags, void *user_data)
 	struct tw_drm_backend *drm = wl_container_of(input, drm, input);
 	struct tw_login *login = drm->login;
 
-	return tw_login_open(login, path);
+	return tw_login_open(login, path, flags);
 }
 
 static void

@@ -23,7 +23,7 @@
 
 #include <string.h>
 #include <libudev.h>
-#include <linux/limits.h>
+#include <fcntl.h>
 #include <wayland-server-core.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
@@ -116,9 +116,9 @@ tw_login_fini(struct tw_login *login)
 }
 
 int
-tw_login_open(struct tw_login *login, const char *path)
+tw_login_open(struct tw_login *login, const char *path, uint32_t flags)
 {
-	return login->impl->open(login, path);
+	return login->impl->open(login, path, flags);
 }
 
 struct tw_login *
@@ -175,7 +175,7 @@ drm_device_check_kms(struct udev_device *dev, struct tw_login *login,
 
 	if (!filename)
 		return false;
-	if ((*fd = tw_login_open(login, filename)) < 0)
+	if ((*fd = tw_login_open(login, filename, O_RDWR)) < 0)
 		return false;
 	if (!(res = drmModeGetResources(*fd)))
 		goto err_get_res;
