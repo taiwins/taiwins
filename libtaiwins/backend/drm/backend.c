@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <wayland-util.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 #include <sys/types.h>
@@ -39,6 +40,7 @@
 
 #include "login/login.h"
 #include "internal.h"
+#include "taiwins/backend_libinput.h"
 
 extern const struct tw_drm_gpu_impl tw_gpu_gbm_impl;
 extern const struct tw_drm_gpu_impl tw_gpu_stream_impl;
@@ -277,8 +279,8 @@ drm_backend_open_libinput(struct tw_drm_backend *drm)
 	if (!libinput)
 		return false;
 	//TODO getting output device from udev
-	tw_libinput_input_init(&drm->input, &drm->base, dpy, libinput, NULL);
-	if (!tw_libinput_input_enable(&drm->input, drm->login->seat)) {
+	if (!tw_libinput_input_init(&drm->input, &drm->base, dpy, libinput,
+	                            drm->login->seat, NULL)) {
 		libinput_unref(libinput);
 		return false;
 	}
@@ -295,9 +297,18 @@ notify_drm_login_state(struct wl_listener *listener, void *data)
 	struct tw_drm_backend *drm =
 		wl_container_of(listener, drm, login_attribute_change);
 	struct tw_login *login = data;
+	struct tw_drm_gpu *gpu;
 
-	assert(login == drm->login);
-	//TODO
+	//TODO: supposed to dirty all the output and handle planes
+	if (login->active) {
+		tw_libinput_input_enable(&drm->input);
+		wl_list_for_each(gpu, &drm->gpu_list, link)
+			tw_drm_handle_gpu_event(gpu, TW_DRM_DEV_ONLINE);
+	} else {
+		tw_libinput_input_disable(&drm->input);
+		wl_list_for_each(gpu, &drm->gpu_list, link)
+			tw_drm_handle_gpu_event(gpu, TW_DRM_DEV_OFFLINE);
+	}
 }
 
 static void

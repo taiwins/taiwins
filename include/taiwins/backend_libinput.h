@@ -61,14 +61,14 @@ struct tw_libinput_input {
 	struct wl_list devices;
 };
 
-void
+bool
 tw_libinput_input_init(struct tw_libinput_input *input,
                        struct tw_backend *backend, struct wl_display *display,
-                       struct libinput *libinput,
+                       struct libinput *libinput, const char *seat,
                        const struct tw_libinput_impl *impl);
 bool
-tw_libinput_input_enable(struct tw_libinput_input *input,
-                         const char *seat_name);
+tw_libinput_input_enable(struct tw_libinput_input *input);
+
 void
 tw_libinput_input_disable(struct tw_libinput_input *input);
 

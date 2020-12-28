@@ -138,8 +138,9 @@ tw_libinput_device_destroy(struct tw_libinput_device *dev)
 }
 
 /******************************************************************************
- * wayland event
+ * handlers
  *****************************************************************************/
+
 extern bool
 handle_device_event(struct libinput_event *event);
 
@@ -199,35 +200,38 @@ handle_dispatch_libinput(int fd, uint32_t mask, void *data)
  * public API
  *****************************************************************************/
 
-WL_EXPORT void
+WL_EXPORT bool
 tw_libinput_input_init(struct tw_libinput_input *input,
                        struct tw_backend *backend, struct wl_display *display,
-                       struct libinput *libinput,
+                       struct libinput *libinput, const char *seat,
                        const struct tw_libinput_impl *impl)
 {
 	wl_list_init(&input->devices);
 	input->display = display;
 	input->libinput = libinput;
 	input->backend = backend;
+	input->disabled = false;
 	input->impl = impl;
 	libinput_set_user_data(libinput, input);
-
-	return;
-}
-
-WL_EXPORT bool
-tw_libinput_input_enable(struct tw_libinput_input *input, const char *seat)
-{
-	struct wl_event_loop *loop = wl_display_get_event_loop(input->display);
-	int fd = libinput_get_fd(input->libinput);
 
         if (libinput_udev_assign_seat(input->libinput, seat) != 0)
 		return false;
         handle_events(input);
 
-	input->event = wl_event_loop_add_fd(loop, fd, WL_EVENT_READABLE,
-	                                    handle_dispatch_libinput,
-	                                    input);
+	return tw_libinput_input_enable(input);
+}
+
+WL_EXPORT bool
+tw_libinput_input_enable(struct tw_libinput_input *input)
+{
+	struct wl_event_loop *loop = wl_display_get_event_loop(input->display);
+	int fd = libinput_get_fd(input->libinput);
+
+	if (!input->event)
+		input->event = wl_event_loop_add_fd(loop, fd,
+		                                    WL_EVENT_READABLE,
+		                                    handle_dispatch_libinput,
+		                                    input);
 	if (!input->event)
 		return false;
 	if (input->disabled) {
