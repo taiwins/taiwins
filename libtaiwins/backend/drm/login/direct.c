@@ -22,15 +22,20 @@
 #include "options.h"
 
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#include <wayland-util.h>
+#include <xf86drm.h>
 #if defined (__linux__)
 #include <linux/kd.h>
 #include <linux/vt.h>
@@ -51,6 +56,14 @@
 
 #include "login.h"
 
+#define DRM_MAJOR 226
+#define MAX_GPUS 16
+
+struct tw_direct_gpu {
+	struct wl_list link;
+	int fd;
+};
+
 struct tw_direct_login {
 	struct tw_login base;
 	struct wl_display *display;
@@ -59,11 +72,50 @@ struct tw_direct_login {
 	int socket_fd;
 	int vtnr;
 	int orig_kbmode;
+
+	struct tw_direct_gpu gpus[MAX_GPUS];
+	struct wl_list used_fds;
+	struct wl_list avail_fds;
 };
 
-static const struct tw_login_impl direct_impl = {
+static inline void
+set_masters(struct tw_direct_login *direct)
+{
+	struct tw_direct_gpu *gpu;
+	wl_list_for_each(gpu, &direct->used_fds, link)
+		drmSetMaster(gpu->fd);
+}
 
-};
+static inline void
+drop_masters(struct tw_direct_login *direct)
+{
+	struct tw_direct_gpu *gpu;
+	wl_list_for_each(gpu, &direct->used_fds, link)
+		drmDropMaster(gpu->fd);
+}
+
+static inline void
+close_gpus(struct tw_direct_login *direct)
+{
+	struct tw_direct_gpu *gpu, *tmp;
+	wl_list_for_each_safe(gpu, tmp, &direct->used_fds, link) {
+		close(gpu->fd);
+		wl_list_remove(&gpu->link);
+		wl_list_insert(direct->avail_fds.prev, &gpu->link);
+	}
+
+}
+
+static inline bool
+check_master(int fd)
+{
+	drm_magic_t magic;
+
+	return drmGetMagic(fd, &magic) == 0 &&
+		drmAuthMagic(fd, magic) == 0;
+}
+
+#if defined ( __linux__ )
 
 static int
 handle_vt_change(int signo, void *data)
@@ -72,13 +124,12 @@ handle_vt_change(int signo, void *data)
 	bool active = !direct->base.active;
 
 	if (direct->base.active) {
-		//drop the session;
-		//TODO setmaster
-		ioctl(direct->tty_fd, VT_RELDISP, 1);
+		ioctl(direct->tty_fd, VT_RELDISP, VT_ACKACQ);
+		set_masters(direct);
 	} else {
 		//restore the session
-		//TODO dropmaster
-		ioctl(direct->tty_fd, VT_RELDISP, VT_ACKACQ);
+		drop_masters(direct);
+		ioctl(direct->tty_fd, VT_RELDISP, 1);
 	}
 
 	tw_login_set_active(&direct->base, active);
@@ -118,7 +169,7 @@ setup_tty(struct tw_direct_login *direct, struct wl_display *display)
 		tw_logl_level(TW_LOG_ERRO, "TTY is not in text mode");
 		goto err;
 	}
-	if (ioctl(fd, KDGETMODE, &orig_kbmode)) {
+	if (ioctl(fd, KDGKBMODE, &orig_kbmode)) {
 		tw_logl_level(TW_LOG_ERRO, "Failed to get keyboard mode");
 		goto err;
 	}
@@ -150,6 +201,121 @@ err:
 	return false;
 }
 
+static void
+close_tty(struct tw_direct_login *direct)
+{
+	struct vt_mode mode = {
+		.mode = VT_AUTO,
+	};
+	errno = 0;
+	ioctl(direct->tty_fd, KDSKBMODE, direct->orig_kbmode);
+	ioctl(direct->tty_fd, KDSETMODE, KD_TEXT);
+	drop_masters(direct);
+	ioctl(direct->tty_fd, VT_SETMODE, &mode);
+	if (errno)
+		tw_logl_level(TW_LOG_ERRO, "Failed to restore tty");
+	wl_event_source_remove(direct->vt_source);
+	close(direct->tty_fd);
+}
+
+static int
+handle_direct_open(struct tw_login *base, const char *path, uint32_t flags)
+{
+	struct tw_direct_login *direct = wl_container_of(base, direct, base);
+	struct tw_direct_gpu *gpu = NULL;
+	struct stat st;
+	int fd = -1;
+
+	if (wl_list_empty(&direct->avail_fds))
+		return -1;
+	if ((fd = open(path, flags | O_CLOEXEC)) == -1)
+		return -1;
+	if (fstat(fd, &st) == -1) {
+		close(fd);
+		return -1;
+	}
+
+	//besides drm fds, we could also open libinput devices, don't bother
+	//insert them to the gpu list
+	if (major(st.st_rdev) == DRM_MAJOR) {
+		if (!check_master(fd)) {
+			close(fd);
+			return -1;
+		}
+		gpu = wl_container_of(direct->avail_fds.next, gpu, link);
+		gpu->fd = fd;
+		wl_list_remove(&gpu->link);
+		wl_list_insert(direct->used_fds.prev, &gpu->link);
+	}
+	return fd;
+}
+
+static void
+handle_direct_close(struct tw_login *base, int fd)
+{
+	struct tw_direct_gpu *gpu, *tmp;
+	struct tw_direct_login *direct = wl_container_of(base, direct, base);
+
+	wl_list_for_each_safe(gpu, tmp, &direct->used_fds, link) {
+		if (gpu->fd == fd) {
+			close(fd);
+			wl_list_remove(&gpu->link);
+			wl_list_insert(direct->avail_fds.prev, &gpu->link);
+			return;
+		}
+	}
+	close(fd);
+}
+
+static int
+handle_direct_get_vt(struct tw_login *login)
+{
+	struct tw_direct_login *direct = wl_container_of(login, direct, base);
+	struct vt_stat vt_stat;
+
+	if (ioctl(direct->tty_fd, VT_GETSTATE, &vt_stat) != 0)
+		return -1;
+
+	return vt_stat.v_active;
+}
+
+static bool
+handle_direct_switch_vt(struct tw_login *login, unsigned int vt)
+{
+	struct tw_direct_login *direct = wl_container_of(login, direct, base);
+
+	return ioctl(direct->tty_fd, VT_ACTIVATE, vt) == 0;
+}
+
+#elif defined(__FreeBSD__)
+
+static int
+handle_direct_get_vt(struct tw_login *login)
+{
+	struct tw_direct_login *direct = wl_container_of(login, direct, base);
+	int tty0_fd, old_tty = 0;
+
+	if ((tty0_fd = open("/dev/ttyv0", O_RDWR | O_CLOEXEC)) < 0)
+		return -1;
+	if (ioctl(direct->tty_fd, VT_GETACTIVE, &old_tty) != 0) {
+		close(tty0_fd);
+		return -1;
+	}
+	close(tty0_fd);
+	return old_tty;;
+}
+
+//TODO
+
+#endif
+
+static const struct tw_login_impl direct_impl = {
+	.open = handle_direct_open,
+	.close = handle_direct_close,
+	.get_vt = handle_direct_get_vt,
+	.switch_vt = handle_direct_switch_vt,
+};
+
 struct tw_login *
 tw_login_create_direct(struct wl_display *display)
 {
@@ -158,16 +324,39 @@ tw_login_create_direct(struct wl_display *display)
 
 	if (!direct)
 		return NULL;
-	if (!tw_login_init(&direct->base, display, &direct_impl)) {
-		free(direct);
-		return NULL;
-	}
+	if (!tw_login_init(&direct->base, display, &direct_impl))
+		goto err_init;
 	direct->display = display;
 
 	if (strcmp(seat, "seat0") == 0) {
 		if (!setup_tty(direct, display))
 			goto err_ipc;
 	}
+	//create enough GPUS to open
+	wl_list_init(&direct->avail_fds);
+	wl_list_init(&direct->used_fds);
+	for (int i = 0; i < MAX_GPUS; i++) {
+		direct->gpus[i].fd = -1;
+		wl_list_init(&direct->gpus[i].link);
+		wl_list_insert(direct->avail_fds.prev, &direct->gpus[i].link);
+	}
 
 	return &direct->base;
+err_ipc:
+	tw_login_fini(&direct->base);
+err_init:
+	free(direct);
+	return NULL;
+}
+
+void
+tw_login_destroy_direct(struct tw_login *login)
+{
+	struct tw_direct_login *direct = wl_container_of(login, direct, base);
+
+	close_tty(direct);
+	close_gpus(direct);
+	close(direct->socket_fd);
+	tw_login_fini(login);
+	free(direct);
 }
