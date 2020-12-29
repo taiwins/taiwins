@@ -122,7 +122,7 @@ tw_libinput_device_new(struct libinput_device *libinput_dev,
 	wl_list_insert(input->devices.prev, &dev->link);
 	wl_list_insert(input->backend->inputs.prev, &dev->base.link);
 	if (input->backend->started)
-		wl_signal_emit(&input->backend->events.new_input, &dev->base);
+		wl_signal_emit(&input->backend->signals.new_input, &dev->base);
 
 	return dev;
 }

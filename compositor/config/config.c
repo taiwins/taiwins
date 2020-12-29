@@ -397,10 +397,10 @@ tw_config_create(struct tw_engine *engine, struct tw_bindings *bindings,
 	                 sizeof(struct tw_binding), NULL);
 	vector_init_zero(&config->registry,
 	                 sizeof(struct tw_config_obj), NULL);
-	tw_signal_setup_listener(&engine->events.output_created,
+	tw_signal_setup_listener(&engine->signals.output_created,
 	                         &config->output_created_listener,
 	                         notify_config_output_create);
-	tw_signal_setup_listener(&engine->events.seat_created,
+	tw_signal_setup_listener(&engine->signals.seat_created,
 	                         &config->seat_created_listener,
 	                         notify_config_seat_create);
 	return config;

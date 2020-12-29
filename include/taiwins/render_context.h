@@ -106,7 +106,7 @@ struct tw_render_context {
 		struct wl_signal output_lost;
 		struct wl_signal wl_surface_dirty;
 		struct wl_signal wl_surface_destroy;
-	} events;
+	} signals;
 
 	struct wl_list pipelines;
 };

@@ -41,7 +41,7 @@ notify_tw_surface_destroy(struct wl_listener *listener, void *data)
 	struct tw_render_surface *surface =
 		wl_container_of(listener, surface, listeners.destroy);
 	assert(data == &surface->surface);
-	wl_signal_emit(&surface->ctx->events.wl_surface_destroy, data);
+	wl_signal_emit(&surface->ctx->signals.wl_surface_destroy, data);
 	tw_render_surface_fini(surface);
 }
 
@@ -52,7 +52,7 @@ notify_tw_surface_dirty(struct wl_listener *listener, void *data)
 		wl_container_of(listener, surface, listeners.dirty);
 	assert(data == &surface->surface);
 	//forwarding the dirty event.
-	wl_signal_emit(&surface->ctx->events.wl_surface_dirty, data);
+	wl_signal_emit(&surface->ctx->signals.wl_surface_dirty, data);
 }
 
 static void
@@ -81,13 +81,13 @@ tw_render_surface_init(struct tw_render_surface *surface,
 	for (int i = 0; i < 32; i++)
 		pixman_region32_init(&surface->output_damage[i]);
 #endif
-	tw_signal_setup_listener(&tw_surface->events.destroy,
+	tw_signal_setup_listener(&tw_surface->signals.destroy,
 	                         &surface->listeners.destroy,
 	                         notify_tw_surface_destroy);
-	tw_signal_setup_listener(&tw_surface->events.dirty,
+	tw_signal_setup_listener(&tw_surface->signals.dirty,
 	                         &surface->listeners.dirty,
 	                         notify_tw_surface_dirty);
-	tw_signal_setup_listener(&ctx->events.output_lost,
+	tw_signal_setup_listener(&ctx->signals.output_lost,
 	                         &surface->listeners.output_lost,
 	                         notify_tw_surface_output_lost);
 }
@@ -290,10 +290,10 @@ update_surface_mask(struct tw_surface *tw_surface,
 		if (!(output_bit & different))
 			continue;
 		if ((output_bit & entered))
-			wl_signal_emit(&output->events.surface_enter,
+			wl_signal_emit(&output->signals.surface_enter,
 			               tw_surface);
 		if ((output_bit & left))
-			wl_signal_emit(&output->events.surface_leave,
+			wl_signal_emit(&output->signals.surface_leave,
 			               tw_surface);
 	}
 }
@@ -343,7 +343,7 @@ WL_EXPORT void
 tw_render_context_set_compositor(struct tw_render_context *ctx,
                                  struct tw_compositor *compositor)
 {
-	wl_signal_emit(&ctx->events.compositor_set, compositor);
+	wl_signal_emit(&ctx->signals.compositor_set, compositor);
 	compositor->obj_alloc = &tw_render_compositor_allocator;
 }
 
@@ -351,5 +351,5 @@ WL_EXPORT void
 tw_render_context_set_dma(struct tw_render_context *ctx,
                           struct tw_linux_dmabuf *dma)
 {
-	wl_signal_emit(&ctx->events.dma_set, dma);
+	wl_signal_emit(&ctx->signals.dma_set, dma);
 }

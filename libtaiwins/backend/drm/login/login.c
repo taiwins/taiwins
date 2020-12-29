@@ -53,7 +53,7 @@ handle_udev_event(int fd, uint32_t mask, void *data)
 
 	if (!dev)
 		return 1;
-	wl_signal_emit(&login->events.udev_device, dev);
+	wl_signal_emit(&login->signals.udev_device, dev);
 
 	udev_device_unref(dev);
 	return 1;
@@ -72,8 +72,8 @@ tw_login_init(struct tw_login *login, struct wl_display *display,
 	else
 		strcpy(login->seat, DEFAULT_SEAT);
 
-	wl_signal_init(&login->events.attributes_change);
-	wl_signal_init(&login->events.udev_device);
+	wl_signal_init(&login->signals.attributes_change);
+	wl_signal_init(&login->signals.udev_device);
 	login->active = false;
 
 	login->udev = udev_new();
@@ -281,7 +281,7 @@ tw_login_set_active(struct tw_login *login, bool active)
 {
 	if (login->active != active) {
 		login->active = active;
-		wl_signal_emit(&login->events.attributes_change, login);
+		wl_signal_emit(&login->signals.attributes_change, login);
 	}
 
 }

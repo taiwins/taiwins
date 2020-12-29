@@ -85,7 +85,7 @@ wl_backend_stop(struct tw_wl_backend *wl)
 	wl_list_for_each_safe(output, tmp_output, &wl->outputs, link)
 		tw_wl_output_remove(output);
 
-	wl_signal_emit(&wl->base.events.stop, &wl->base);
+	wl_signal_emit(&wl->base.signals.stop, &wl->base);
 	wl_list_remove(&wl->base.render_context_destroy.link);
 	wl->base.ctx = NULL;
 }
@@ -93,7 +93,7 @@ wl_backend_stop(struct tw_wl_backend *wl)
 static void
 wl_backend_destroy(struct tw_wl_backend *wl)
 {
-	wl_signal_emit(&wl->base.events.destroy, &wl->base);
+	wl_signal_emit(&wl->base.signals.destroy, &wl->base);
 
         wl_list_remove(&wl->display_destroy.link);
 

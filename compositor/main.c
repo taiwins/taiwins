@@ -139,10 +139,10 @@ notify_removing_seat(struct wl_listener *listener, void *data)
 static void
 bind_listeners(struct tw_server *server)
 {
-	tw_signal_setup_listener(&server->engine->events.seat_created,
+	tw_signal_setup_listener(&server->engine->signals.seat_created,
 	                         &server->seat_add,
 	                         notify_adding_seat);
-	tw_signal_setup_listener(&server->engine->events.seat_remove,
+	tw_signal_setup_listener(&server->engine->signals.seat_remove,
 	                         &server->seat_remove,
 	                         notify_removing_seat);
 }

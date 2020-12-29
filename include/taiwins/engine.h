@@ -150,7 +150,7 @@ struct tw_engine {
 		struct wl_signal output_remove;
 		struct wl_signal seat_created;
 		struct wl_signal seat_remove;
-	} events;
+	} signals;
 };
 
 struct tw_engine *

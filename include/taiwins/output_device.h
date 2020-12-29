@@ -106,7 +106,7 @@ struct tw_output_device {
 		/** emit right after applying pending state, backend could
 		 * listen on this for applying the states to the hardware */
 		struct wl_signal commit_state;
-	} events;
+	} signals;
 };
 
 void

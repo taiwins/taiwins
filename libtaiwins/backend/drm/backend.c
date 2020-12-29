@@ -57,7 +57,7 @@ drm_backend_start(struct tw_backend *backend, struct tw_render_context *ctx)
 			tw_drm_display_start(output);
 	}
 	wl_list_for_each(input, &drm->base.inputs, base.link)
-		wl_signal_emit(&drm->base.events.new_input, &input->base);
+		wl_signal_emit(&drm->base.signals.new_input, &input->base);
 
 	return true;
 }
@@ -84,7 +84,7 @@ drm_backend_stop(struct tw_drm_backend *drm)
 	wl_list_for_each_safe(output, tmp_output, &drm->base.outputs,
 	                      output.device.link)
 		tw_drm_display_remove(output);
-	wl_signal_emit(&drm->base.events.stop, &drm->base);
+	wl_signal_emit(&drm->base.signals.stop, &drm->base);
 	wl_list_remove(&drm->base.render_context_destroy.link);
 	drm->base.ctx = NULL;
 }
@@ -101,7 +101,7 @@ static void
 drm_backend_destroy(struct tw_drm_backend *drm)
 {
 	struct libinput *libinput = drm->input.libinput;
-	wl_signal_emit(&drm->base.events.destroy, &drm->base);
+	wl_signal_emit(&drm->base.signals.destroy, &drm->base);
 	if (drm->base.ctx)
 		tw_render_context_destroy(drm->base.ctx);
 	drm_backend_release_gpus(drm);
@@ -389,10 +389,10 @@ tw_drm_backend_create(struct wl_display *display)
 		goto err_boot_gpu;
 
 	//add listeners
-	tw_signal_setup_listener(&drm->login->events.attributes_change,
+	tw_signal_setup_listener(&drm->login->signals.attributes_change,
 	                         &drm->login_attribute_change,
 	                         notify_drm_login_state);
-	tw_signal_setup_listener(&drm->login->events.udev_device,
+	tw_signal_setup_listener(&drm->login->signals.udev_device,
 	                         &drm->udev_device_change,
 	                         notify_udev_device_change);
 	tw_set_display_destroy_listener(display, &drm->display_destroy,

@@ -103,7 +103,7 @@ output_idle_frame(void *data)
 {
 	struct tw_render_output *output = data;
 	//TODO we should reset clock here
-	wl_signal_emit(&output->device.events.new_frame, &output->device);
+	wl_signal_emit(&output->device.signals.new_frame, &output->device);
 }
 
 static inline void
@@ -236,16 +236,16 @@ tw_render_output_init(struct tw_render_output *output,
 	wl_list_init(&output->listeners.surface_dirty.link);
 
 	wl_signal_init(&output->surface.commit);
-	wl_signal_init(&output->events.surface_enter);
-	wl_signal_init(&output->events.surface_leave);
+	wl_signal_init(&output->signals.surface_enter);
+	wl_signal_init(&output->signals.surface_leave);
 
-	tw_signal_setup_listener(&output->device.events.new_frame,
+	tw_signal_setup_listener(&output->device.signals.new_frame,
 	                         &output->listeners.frame,
 	                         notify_output_frame);
-	tw_signal_setup_listener(&output->device.events.destroy,
+	tw_signal_setup_listener(&output->device.signals.destroy,
 	                         &output->listeners.destroy,
 	                         notify_output_destroy);
-	tw_signal_setup_listener(&output->device.events.commit_state,
+	tw_signal_setup_listener(&output->device.signals.commit_state,
 	                         &output->listeners.set_mode,
 	                         notify_output_new_mode);
 }
@@ -304,7 +304,7 @@ tw_render_output_set_context(struct tw_render_output *output,
 	wl_list_insert(ctx->outputs.prev, &output->link);
 
 	tw_reset_wl_list(&output->listeners.surface_dirty.link);
-	tw_signal_setup_listener(&ctx->events.wl_surface_dirty,
+	tw_signal_setup_listener(&ctx->signals.wl_surface_dirty,
 	                         &output->listeners.surface_dirty,
 	                         notify_output_surface_dirty);
 }
@@ -318,7 +318,7 @@ tw_render_output_unset_context(struct tw_render_output *output)
 	output->ctx = NULL;
 	tw_reset_wl_list(&output->link);
 	tw_reset_wl_list(&output->listeners.surface_dirty.link);
-	wl_signal_emit(&ctx->events.output_lost, output);
+	wl_signal_emit(&ctx->signals.output_lost, output);
 }
 
 WL_EXPORT void

@@ -99,7 +99,7 @@ notify_output_destroy(struct wl_listener *listener, void *data)
 
 	fini_engine_output_state(output);
 	engine->output_pool &= unset;
-	wl_signal_emit(&engine->events.output_remove, output);
+	wl_signal_emit(&engine->signals.output_remove, output);
 }
 
 static void
@@ -137,7 +137,7 @@ notify_output_new_mode(struct wl_listener *listener, void *data)
 	pixman_region32_fini(&output->constrain.region);
 	pixman_region32_init_rect(&output->constrain.region,
 	                          rect.x, rect.y, rect.width, rect.width);
-	wl_signal_emit(&output->engine->events.output_resized, output);
+	wl_signal_emit(&output->engine->signals.output_resized, output);
 }
 
 static void
@@ -224,29 +224,29 @@ tw_engine_new_output(struct tw_engine *engine,
 
 	init_engine_output_state(output);
 
-	tw_signal_setup_listener(&device->events.info,
+	tw_signal_setup_listener(&device->signals.info,
 	                         &output->listeners.info,
 	                         notify_output_info);
-	tw_signal_setup_listener(&device->events.destroy,
+	tw_signal_setup_listener(&device->signals.destroy,
 	                         &output->listeners.destroy,
 	                         notify_output_destroy);
-	tw_signal_setup_listener(&device->events.commit_state,
+	tw_signal_setup_listener(&device->signals.commit_state,
 	                         &output->listeners.set_mode,
 	                         notify_output_new_mode);
-	tw_signal_setup_listener(&device->events.present,
+	tw_signal_setup_listener(&device->signals.present,
 	                         &output->listeners.present,
 	                         notify_output_present);
-	tw_signal_setup_listener(&render_output->events.surface_enter,
+	tw_signal_setup_listener(&render_output->signals.surface_enter,
 	                         &output->listeners.surface_enter,
 	                         notify_output_surface_enter);
-	tw_signal_setup_listener(&render_output->events.surface_leave,
+	tw_signal_setup_listener(&render_output->signals.surface_leave,
 	                         &output->listeners.surface_leave,
 	                         notify_output_surface_leave);
         engine->output_pool |= 1 << id;
         wl_list_init(&output->link);
         wl_list_insert(&engine->heads, &output->link);
 
-        wl_signal_emit(&engine->events.output_created, output);
+        wl_signal_emit(&engine->signals.output_created, output);
 
         return true;
 }

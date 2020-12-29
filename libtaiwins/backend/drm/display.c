@@ -332,7 +332,7 @@ handle_display_commit_state(struct tw_output_device *device)
 		if ((output->status.pending & TW_DRM_PENDING_MODE))
 			output->gpu->impl->allocate_fb(output);
 		prepare_plane_fbs(output->primary_plane, output);
-		wl_signal_emit(&device->events.new_frame, device);
+		wl_signal_emit(&device->signals.new_frame, device);
 	} else {
 		tw_drm_display_detach_crtc(output);
 		output->gpu->impl->end_display(output);
@@ -458,7 +458,7 @@ tw_drm_display_start(struct tw_drm_display *output)
 	                         &output->presentable_commit,
 	                         notify_display_presentable_commit);
 	if (!output->status.annouced) {
-		wl_signal_emit(&drm->base.events.new_output,
+		wl_signal_emit(&drm->base.signals.new_output,
 		               &output->output.device);
 		output->status.annouced = true;
 	}

@@ -34,8 +34,8 @@ tw_render_pipeline_init(struct tw_render_pipeline *pipeline,
 	wl_list_init(&pipeline->link);
 	wl_list_init(&pipeline->ctx_destroy.link);
 
-	wl_signal_init(&pipeline->events.pre_output_repaint);
-	wl_signal_init(&pipeline->events.post_output_repaint);
+	wl_signal_init(&pipeline->signals.pre_output_repaint);
+	wl_signal_init(&pipeline->signals.post_output_repaint);
 
 }
 
