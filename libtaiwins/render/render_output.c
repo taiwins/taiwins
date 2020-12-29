@@ -21,7 +21,11 @@
 
 #include <GLES2/gl2.h>
 #include <assert.h>
+#include <time.h>
 #include <pixman.h>
+#include <stdint.h>
+#include <string.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
@@ -31,6 +35,12 @@
 #include <taiwins/render_surface.h>
 #include <taiwins/output_device.h>
 #include <taiwins/render_pipeline.h>
+
+static inline bool
+check_bits(uint32_t data, uint32_t mask)
+{
+	return ((data ^ mask) & mask) == 0;
+}
 
 static enum wl_output_transform
 inverse_wl_transform(enum wl_output_transform t)
@@ -68,81 +78,10 @@ fini_output_state(struct tw_render_output *o)
 		pixman_region32_fini(&o->state.damages[i]);
 }
 
-static void
-update_surface_mask(struct tw_surface *tw_surface,
-                    struct tw_render_output *major, uint32_t mask)
-{
-	struct tw_render_output *output;
-	struct tw_render_surface *surface =
-		wl_container_of(tw_surface, surface, surface);
-	uint32_t output_bit;
-	uint32_t different = surface->output_mask ^ mask;
-	uint32_t entered = mask & different;
-	uint32_t left = surface->output_mask & different;
-
-	assert(major->ctx);
-
-	//update the surface_mask and
-	surface->output_mask = mask;
-	surface->output = major->device.id;
-
-	wl_list_for_each(output, &major->ctx->outputs, link) {
-		output_bit = 1u << output->device.id;
-		if (!(output_bit & different))
-			continue;
-		if ((output_bit & entered))
-			wl_signal_emit(&output->events.surface_enter,
-			               tw_surface);
-		if ((output_bit & left))
-			wl_signal_emit(&output->events.surface_leave,
-			               tw_surface);
-	}
-}
-
-static void
-reassign_surface_outputs(struct tw_surface *surface,
-                         struct tw_render_context *ctx)
-{
-	uint32_t area = 0, max = 0, mask = 0;
-	struct tw_render_output *output, *major = NULL;
-	pixman_region32_t surface_region;
-	pixman_box32_t *e;
-
-	pixman_region32_init_rect(&surface_region,
-	                          surface->geometry.xywh.x,
-	                          surface->geometry.xywh.y,
-	                          surface->geometry.xywh.width,
-	                          surface->geometry.xywh.height);
-	wl_list_for_each(output, &ctx->outputs, link) {
-		pixman_region32_t clip;
-		struct tw_output_device *device = &output->device;
-		pixman_rectangle32_t rect =
-			tw_output_device_geometry(device);
-		//TODO dealing with cloning output
-		// if (output->cloning >= 0)
-		//	continue;
-		pixman_region32_init_rect(&clip, rect.x, rect.y,
-		                          rect.width, rect.height);
-		pixman_region32_intersect(&clip, &clip, &surface_region);
-		e = pixman_region32_extents(&clip);
-		area = (e->x2 - e->x1) * (e->y2 - e->y1);
-		if (pixman_region32_not_empty(&clip))
-			mask |= (1u << device->id);
-		if (area >= max) {
-			major = output;
-			max = area;
-		}
-		pixman_region32_fini(&clip);
-	}
-	pixman_region32_fini(&surface_region);
-
-	update_surface_mask(surface, major, mask);
-}
-
 /**
  * @brief manage the backend output damage state
  */
-static void
+static inline void
 shuffle_output_damage(struct tw_render_output *output)
 {
 	//here we swap the damage as if it is output is triple-buffered. It is
@@ -163,6 +102,7 @@ static void
 output_idle_frame(void *data)
 {
 	struct tw_render_output *output = data;
+	//TODO we should reset clock here
 	wl_signal_emit(&output->device.events.new_frame, &output->device);
 }
 
@@ -173,6 +113,30 @@ schedule_output_frame(struct tw_render_output *output)
 	struct wl_event_loop *loop = wl_display_get_event_loop(display);
 
 	wl_event_loop_add_idle(loop, output_idle_frame, output);
+}
+
+/**
+ * update the frame time for the output.
+ */
+static void
+update_output_frame_time(struct tw_render_output *output,
+                         const struct timespec *strt,
+                         const struct timespec *end)
+{
+	uint32_t ft;
+	uint64_t tstart = ((strt->tv_sec * 1000000) + (strt->tv_nsec / 1000));
+	uint64_t tend = ((end->tv_sec * 1000000) + (end->tv_nsec / 1000));
+
+	/* assert(tend >= tstart); */
+	ft = (uint32_t)(tend - tstart);
+	output->state.ft_sum -= output->state.fts[output->state.ft_idx];
+	output->state.ft_sum += ft;
+	//override the ft slot
+	output->state.fts[output->state.ft_idx] = ft;
+	//move forward the indices
+	output->state.ft_cnt = output->state.ft_cnt >= TW_FRAME_TIME_CNT ?
+		TW_FRAME_TIME_CNT : output->state.ft_cnt + 1;
+	output->state.ft_idx = (output->state.ft_idx + 1) % TW_FRAME_TIME_CNT;
 }
 
 /******************************************************************************
@@ -191,7 +155,7 @@ notify_output_surface_dirty(struct wl_listener *listener, void *data)
 
         assert(ctx);
 	if (pixman_region32_not_empty(&surface->geometry.dirty))
-		reassign_surface_outputs(surface, ctx);
+		tw_render_surface_reassign_outputs(render_surface, ctx);
 
 	wl_list_for_each(output, &ctx->outputs, link) {
 		if ((1u << output->device.id) & render_surface->output_mask)
@@ -207,12 +171,17 @@ notify_output_frame(struct wl_listener *listener, void *data)
 	struct tw_render_presentable *presentable = &output->surface;
 	struct tw_render_context *ctx = output->ctx;
 	struct tw_render_pipeline *pipeline;
+	struct timespec tstart, tend;
 	int buffer_age;
+	uint32_t should_repaint = TW_REPAINT_DIRTY | TW_REPAINT_SCHEDULED;
 
 	assert(ctx);
 
-	if (output->state.repaint_state != TW_REPAINT_DIRTY)
+	if (!check_bits(output->state.repaint_state, should_repaint))
 		return;
+	if (check_bits(output->state.repaint_state, TW_REPAINT_COMMITTED))
+		return;
+	clock_gettime(output->device.clk_id, &tstart);
 
 	buffer_age = tw_render_presentable_make_current(presentable, ctx);
 	buffer_age = buffer_age > 2 ? 2 : buffer_age;
@@ -222,10 +191,12 @@ notify_output_frame(struct wl_listener *listener, void *data)
 
 	shuffle_output_damage(output);
 
-        tw_render_presentable_commit(presentable, ctx);
+	clock_gettime(output->device.clk_id, &tend);
+	update_output_frame_time(output, &tstart, &tend);
+	/* tw_logl("The render time is %u", */
+	/*         tw_render_output_calc_frametime(output)); */
 
-	//clean off the repaint state
-	output->state.repaint_state = TW_REPAINT_CLEAN;
+	tw_render_output_commit(output);
 }
 
 static void
@@ -233,13 +204,8 @@ notify_output_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_render_output *output =
 		wl_container_of(listener, output, listeners.destroy);
-	fini_output_state(output);
-	wl_list_remove(&output->listeners.destroy.link);
-	wl_list_remove(&output->listeners.frame.link);
-	wl_list_remove(&output->listeners.set_mode.link);
-	wl_list_remove(&output->listeners.surface_dirty.link);
+	tw_render_output_fini(output);
 
-	tw_render_presentable_fini(&output->surface, output->ctx);
 }
 
 static void
@@ -259,12 +225,17 @@ void
 tw_render_output_init(struct tw_render_output *output,
                       const struct tw_output_device_impl *impl)
 {
+	output->ctx = NULL;
+	output->surface.impl = NULL;
+	output->surface.handle = 0;
 	init_output_state(output);
 	tw_output_device_init(&output->device, impl);
+	tw_render_output_reset_clock(output, CLOCK_MONOTONIC);
 
 	wl_list_init(&output->link);
 	wl_list_init(&output->listeners.surface_dirty.link);
 
+	wl_signal_init(&output->surface.commit);
 	wl_signal_init(&output->events.surface_enter);
 	wl_signal_init(&output->events.surface_leave);
 
@@ -282,10 +253,13 @@ tw_render_output_init(struct tw_render_output *output,
 void
 tw_render_output_fini(struct tw_render_output *output)
 {
-	assert(output->ctx);
-
 	fini_output_state(output);
-	tw_render_presentable_fini(&output->surface, output->ctx);
+	wl_list_remove(&output->listeners.destroy.link);
+	wl_list_remove(&output->listeners.frame.link);
+	wl_list_remove(&output->listeners.set_mode.link);
+	wl_list_remove(&output->listeners.surface_dirty.link);
+	if (output->ctx && output->surface.impl)
+		tw_render_presentable_fini(&output->surface, output->ctx);
 	tw_output_device_fini(&output->device);
 }
 
@@ -336,10 +310,65 @@ tw_render_output_set_context(struct tw_render_output *output,
 }
 
 void
+tw_render_output_unset_context(struct tw_render_output *output)
+{
+	struct tw_render_context *ctx = output->ctx;
+	//should be safe to call multiple times
+	assert(!output->surface.handle);
+	output->ctx = NULL;
+	tw_reset_wl_list(&output->link);
+	tw_reset_wl_list(&output->listeners.surface_dirty.link);
+	wl_signal_emit(&ctx->events.output_lost, output);
+}
+
+void
+tw_render_output_reset_clock(struct tw_render_output *output, clockid_t clk)
+{
+	output->device.clk_id = clk;
+	output->state.ft_sum = 0;
+	output->state.ft_idx = 0;
+	output->state.ft_cnt = 0;
+	memset(output->state.fts, 0, sizeof(output->state.fts));
+}
+
+uint32_t
+tw_render_output_calc_frametime(struct tw_render_output *output)
+{
+	return output->state.ft_cnt ?
+		(output->state.ft_sum / output->state.ft_cnt) + 1 : 0;
+}
+
+void
 tw_render_output_dirty(struct tw_render_output *output)
 {
-	if (output->state.repaint_state != TW_REPAINT_CLEAN)
-		return;
-	output->state.repaint_state = TW_REPAINT_DIRTY;
-	schedule_output_frame(output);
+	output->state.repaint_state |= TW_REPAINT_DIRTY;
+	if (!(output->state.repaint_state & TW_REPAINT_SCHEDULED)) {
+		schedule_output_frame(output);
+		output->state.repaint_state |= TW_REPAINT_SCHEDULED;
+	}
+}
+
+/*
+ * after commit, the output should not dirty anymore, but the schedule state
+ * should not change, it shield us from committing another frame before the
+ * pageflip/swapbuffer happens.
+*/
+void
+tw_render_output_commit(struct tw_render_output *output)
+{
+	output->state.repaint_state = TW_REPAINT_COMMITTED;
+	tw_render_presentable_commit(&output->surface, output->ctx);
+}
+
+/*
+ * backends ought call this on swapbuffer/pageflip, it checks if the output is
+ * still dirty and reset the TW_REPAINT_SCHEDULED bit so we can commit another
+ * frame frame again.
+ */
+void
+tw_render_output_clean_maybe(struct tw_render_output *output)
+{
+	output->state.repaint_state &= ~TW_REPAINT_COMMITTED;
+	if (output->state.repaint_state & TW_REPAINT_DIRTY)
+		tw_render_output_dirty(output);
 }

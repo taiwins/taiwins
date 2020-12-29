@@ -122,7 +122,7 @@ notify_output_info(struct wl_listener *listener, void *data)
 	                       output->device->phys_height,
 	                       output->device->make,
 	                       output->device->model,
-	                       output->device->state.subpixel,
+	                       output->device->subpixel,
 	                       output->device->state.transform);
 	tw_output_send_clients(output->tw_output);
 }
@@ -206,7 +206,7 @@ tw_engine_new_output(struct tw_engine *engine,
 		wl_container_of(device, render_output, device);
 	uint32_t id = ffs(~engine->output_pool)-1;
 
-	if (ffs(!engine->output_pool) <= 0)
+	if (ffs(~engine->output_pool) <= 0)
 		tw_logl_level(TW_LOG_ERRO, "too many displays");
 	output = &engine->outputs[id];
 	output->id = id;
@@ -316,9 +316,10 @@ struct tw_engine_output *
 tw_engine_output_from_device(struct tw_engine *engine,
                              const struct tw_output_device *device)
 {
-	struct tw_engine_output *output;
+	struct tw_engine_output *output = NULL;
 	wl_list_for_each(output, &engine->heads, link)
 		if (output->device == device)
 			return output;
-	return NULL;
+	//this may not be a good idea?
+	return tw_engine_get_focused_output(engine);
 }

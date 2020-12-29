@@ -1,5 +1,5 @@
 /*
- * headless.h - taiwins server headless backend header
+ * dbus_utils.h - taiwins server dbus utils
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -19,25 +19,20 @@
  *
  */
 
-#ifndef TW_HEADLESS_BACKEND_H
-#define TW_HEADLESS_BACKEND_H
+#ifndef TW_DBUS_UTILS_H
+#define TW_DBUS_UTILS_H
 
-#include "backend.h"
-#include "input_device.h"
+#include <unistd.h>
+#include <sys/eventfd.h>
+#include <tdbus.h>
+#include <wayland-server-core.h>
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-struct tw_backend *
-tw_headless_backend_create(struct wl_display *display);
-
-bool
-tw_headless_backend_add_output(struct tw_backend *backend,
-                               unsigned int width, unsigned int height);
-bool
-tw_headless_backend_add_input_device(struct tw_backend *backend,
-                                     enum tw_input_device_type type);
+struct wl_event_source *
+tw_bind_tdbus_for_wl_display(struct tdbus *bus, struct wl_display *display);
 
 #ifdef  __cplusplus
 }

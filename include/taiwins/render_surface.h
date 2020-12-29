@@ -54,6 +54,7 @@ struct tw_render_surface {
 #endif
 
 	struct {
+		struct wl_listener output_lost;
 		struct wl_listener destroy;
 		struct wl_listener commit;
 		struct wl_listener frame;

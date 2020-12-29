@@ -37,16 +37,17 @@ extern "C" {
 struct tw_output_device;
 
 struct tw_output_device_mode {
-	int32_t w, h; /** indicate the pixel size of the output */
-	int32_t refresh; /** -1 means unavailable */
+	int32_t w, h; /**< indicate the pixel size of the output */
+	int32_t refresh; /**< in mHz, 0 means unavailable */
 	bool preferred;
+
+	struct wl_list link; /**< output_device:mode_list */
 };
 
 struct tw_output_device_state {
 	bool enabled;
 	float scale;
 	int32_t gx, gy; /**< x,y position in global space */
-	enum wl_output_subpixel subpixel;
 	enum wl_output_transform transform;
 	/* current mode indicates the actual window size, the effective size
 	 * is actual_size / scale */
@@ -60,7 +61,7 @@ struct tw_output_device_impl {
 struct tw_event_output_device_present {
 	struct tw_output_device *device;
 	struct timespec time;
-	uint32_t commit_seq, flags;
+	uint32_t flags;
 	uint64_t seq;
 	int refresh;
 };
@@ -80,14 +81,16 @@ struct tw_event_output_device_present {
 struct tw_output_device {
 	char name[32], make[32], model[32];
 	char serial[16];
+	clockid_t clk_id; /**< the clock driving this output */
 	int32_t phys_width, phys_height, id;
+	enum wl_output_subpixel subpixel;
 
 	/** a native window for different backend, could be none */
 	/** Do I need to include render_surface here */
 	void *native_window;
 	const struct tw_output_device_impl *impl;
 	struct wl_list link; /** backend: list */
-	struct wl_array available_modes;
+	struct wl_list mode_list;
 
 	struct tw_output_device_state state, pending;
 
@@ -128,8 +131,14 @@ void
 tw_output_device_set_pos(struct tw_output_device *device, int gx, int gy);
 
 void
+tw_output_device_set_mode(struct tw_output_device *dev,
+                          const struct tw_output_device_mode *mode);
+void
 tw_output_device_set_custom_mode(struct tw_output_device *device,
                                  unsigned width, unsigned height, int refresh);
+struct tw_output_device_mode *
+tw_output_device_match_mode(struct tw_output_device *device,
+                            int width, int height, int refresh);
 void
 tw_output_device_commit_state(struct tw_output_device *device);
 

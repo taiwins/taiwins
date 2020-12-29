@@ -39,6 +39,8 @@ enum tw_input_device_type {
 	TW_INPUT_TYPE_SWITCH,
 };
 
+struct tw_input_device;
+
 /**
  * @brief input event bus provides the many-sources-to-many-dests events
  * forwarding.
@@ -124,6 +126,10 @@ struct tw_tablet_pad_input {
 	size_t btn_count, ring_count, strip_count;
 };
 
+struct tw_input_device_impl {
+	void (*destroy)(struct tw_input_device *dev);
+};
+
 /**
  * @brief a input device represents abstract input devices drives the input
  * events
@@ -146,10 +152,7 @@ struct tw_input_device {
 
 	struct tw_input_source *emitter;
 	struct wl_list link; /* backend:inputs */
-
-	//TODO maybe making it into a impl? so we can guess the type of input
-	//device
-	void (*destroy)(struct tw_input_device *dev);
+	const struct tw_input_device_impl *impl;
 };
 
 struct tw_output_device;
@@ -204,6 +207,20 @@ struct tw_event_pointer_axis {
 	int32_t delta_discrete;
 };
 
+struct tw_event_pointer_gesture {
+	struct tw_input_device *dev;
+	uint32_t time, fingers;
+
+	enum {
+		TW_POINTER_GESTURE_BEGIN = 0,
+		TW_POINTER_GESTURE_UPDATE,
+		TW_POINTER_GESTURE_END,
+	} state;
+
+	double dx, dy, rotation, scale;
+	bool cancelled;
+};
+
 /** touch events */
 struct tw_event_touch_down {
 	struct tw_input_device *dev;
@@ -250,7 +267,7 @@ void
 tw_input_device_init(struct tw_input_device *device,
                      enum tw_input_device_type type,
                      uint32_t seat_id,
-                     void (*destroy)(struct tw_input_device *));
+                     const struct tw_input_device_impl *impl);
 void
 tw_input_device_fini(struct tw_input_device *device);
 
