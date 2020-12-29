@@ -134,7 +134,7 @@ handle_callback_done(void *data, struct wl_callback *wl_callback,
 		wl_callback_destroy(wl_callback);
 	output->frame = wl_surface_frame(output->wl_surface);
 	wl_callback_add_listener(output->frame, &callback_listener, output);
-	wl_signal_emit(&output->output.device.events.new_frame,
+	wl_signal_emit(&output->output.device.signals.new_frame,
 	               &output->output.device);
 }
 
@@ -346,8 +346,8 @@ tw_wl_surface_start(struct tw_wl_surface *output)
 	wl_display_roundtrip(wl->remote_display);
 
 	//finally
-	wl_signal_emit(&wl->base.events.new_output, &output->output.device);
-	wl_signal_emit(&output->output.device.events.info,
+	wl_signal_emit(&wl->base.signals.new_output, &output->output.device);
+	wl_signal_emit(&output->output.device.signals.info,
 	               &output->output.device);
 
 	output->frame = NULL;

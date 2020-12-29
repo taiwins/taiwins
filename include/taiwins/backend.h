@@ -54,7 +54,7 @@ struct tw_backend {
 		struct wl_signal new_output;
 		struct wl_signal start;
 		struct wl_signal stop; /* emit on render context lost */
-	} events;
+	} signals;
 
 	struct wl_list inputs;
 	struct wl_list outputs;

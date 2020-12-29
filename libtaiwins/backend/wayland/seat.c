@@ -37,7 +37,7 @@ signal_new_input(struct tw_wl_backend *backend,
                        struct tw_input_device *dev)
 {
 	wl_list_insert(backend->base.inputs.prev, &dev->link);
-	wl_signal_emit(&backend->base.events.new_input, dev);
+	wl_signal_emit(&backend->base.signals.new_input, dev);
 }
 
 /******************************************************************************

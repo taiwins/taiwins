@@ -80,7 +80,7 @@ struct tw_render_output {
 	struct {
 		struct wl_signal surface_enter;
 		struct wl_signal surface_leave;
-	} events;
+	} signals;
 };
 
 void

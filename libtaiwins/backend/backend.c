@@ -39,11 +39,11 @@ WL_EXPORT void
 tw_backend_init(struct tw_backend *backend)
 {
 	backend->started = false;
-	wl_signal_init(&backend->events.new_input);
-	wl_signal_init(&backend->events.new_output);
-	wl_signal_init(&backend->events.destroy);
-	wl_signal_init(&backend->events.start);
-	wl_signal_init(&backend->events.stop);
+	wl_signal_init(&backend->signals.new_input);
+	wl_signal_init(&backend->signals.new_output);
+	wl_signal_init(&backend->signals.destroy);
+	wl_signal_init(&backend->signals.start);
+	wl_signal_init(&backend->signals.stop);
 
 	wl_list_init(&backend->inputs);
 	wl_list_init(&backend->outputs);
@@ -65,8 +65,8 @@ tw_backend_start(struct tw_backend *backend, struct tw_render_context *ctx)
 	backend->ctx = ctx;
 	backend->impl->start(backend, ctx);
 	backend->started = true;
-	wl_signal_add(&ctx->events.destroy, &backend->render_context_destroy);
-	wl_signal_emit(&backend->events.start, backend);
+	wl_signal_add(&ctx->signals.destroy, &backend->render_context_destroy);
+	wl_signal_emit(&backend->signals.start, backend);
 }
 
 WL_EXPORT struct tw_backend *

@@ -64,7 +64,7 @@ handle_new_x11_frame(void *data)
 {
 	struct tw_x11_output *output = data;
 
-	wl_signal_emit(&output->output.device.events.new_frame,
+	wl_signal_emit(&output->output.device.signals.new_frame,
 	               &output->output.device);
 }
 
@@ -178,7 +178,7 @@ x11_start_backend(struct tw_backend *backend,
 
 	wl_list_for_each(output, &x11->base.outputs, output.device.link)
 		tw_x11_output_start(output);
-	wl_signal_emit(&x11->base.events.new_input, &x11->keyboard);
+	wl_signal_emit(&x11->base.signals.new_input, &x11->keyboard);
 
 	return true;
 }
@@ -307,7 +307,7 @@ x11_backend_stop(struct tw_x11_backend *x11)
 	if (!x11->base.ctx)
 		return;
 
-        wl_signal_emit(&x11->base.events.stop, &x11->base);
+        wl_signal_emit(&x11->base.signals.stop, &x11->base);
         wl_list_for_each_safe(output, tmp, &x11->base.outputs,
                               output.device.link)
 		tw_x11_remove_output(output);
@@ -318,7 +318,7 @@ x11_backend_stop(struct tw_x11_backend *x11)
 static void
 x11_backend_destroy(struct tw_x11_backend *x11)
 {
-	wl_signal_emit(&x11->base.events.destroy, &x11->base);
+	wl_signal_emit(&x11->base.signals.destroy, &x11->base);
 
 	if (x11->event_source)
 		wl_event_source_remove(x11->event_source);

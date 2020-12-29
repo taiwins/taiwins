@@ -65,7 +65,7 @@ frame_handler(void *data)
 	/* static long long oldtime = 0, newtime; */
 	/* struct timespec spec; */
 	struct tw_x11_output *output = data;
-	wl_signal_emit(&output->output.device.events.new_frame,
+	wl_signal_emit(&output->output.device.signals.new_frame,
 	               &output->output.device);
 	wl_event_source_timer_update(output->frame_timer,
 	                             FRAME_DELAY);
@@ -182,10 +182,10 @@ tw_x11_output_start(struct tw_x11_output *output)
 	wl_event_source_timer_update(output->frame_timer, FRAME_DELAY);
 
 	//finally
-	wl_signal_emit(&x11->base.events.new_output, &output->output.device);
-	wl_signal_emit(&output->output.device.events.info,
+	wl_signal_emit(&x11->base.signals.new_output, &output->output.device);
+	wl_signal_emit(&output->output.device.signals.info,
 	               &output->output.device);
-	wl_signal_emit(&x11->base.events.new_input, &output->pointer);
+	wl_signal_emit(&x11->base.signals.new_input, &output->pointer);
 
 	return true;
 }

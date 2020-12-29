@@ -177,21 +177,21 @@ tw_engine_create_global(struct wl_display *display, struct tw_backend *backend)
 	tw_set_display_destroy_listener(display,
 	                                &engine->listeners.display_destroy,
 	                                notify_engine_release);
-	tw_signal_setup_listener(&backend->events.new_output,
+	tw_signal_setup_listener(&backend->signals.new_output,
 	                         &engine->listeners.new_output,
 	                         notify_new_output);
-	tw_signal_setup_listener(&backend->events.new_input,
+	tw_signal_setup_listener(&backend->signals.new_input,
 	                         &engine->listeners.new_input,
 	                         notify_new_input);
-	tw_signal_setup_listener(&backend->events.start,
+	tw_signal_setup_listener(&backend->signals.start,
 	                         &engine->listeners.backend_started,
 	                         notify_engine_backend_started);
 	//signals
-	wl_signal_init(&engine->events.seat_created);
-	wl_signal_init(&engine->events.seat_remove);
-	wl_signal_init(&engine->events.output_created);
-	wl_signal_init(&engine->events.output_remove);
-	wl_signal_init(&engine->events.output_resized);
+	wl_signal_init(&engine->signals.seat_created);
+	wl_signal_init(&engine->signals.seat_remove);
+	wl_signal_init(&engine->signals.output_created);
+	wl_signal_init(&engine->signals.output_remove);
+	wl_signal_init(&engine->signals.output_resized);
 
 	return engine;
 err_globals:

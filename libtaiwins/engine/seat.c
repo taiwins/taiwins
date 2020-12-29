@@ -533,7 +533,7 @@ tw_engine_new_seat(struct tw_engine *engine, unsigned int id)
 	engine->seat_pool |= (1 << id);
 	wl_list_insert(engine->inputs.prev, &seat->link);
 
-	wl_signal_emit(&engine->events.seat_created, seat);
+	wl_signal_emit(&engine->signals.seat_created, seat);
 	//now we are safely installing the listeners
 	seat_install_default_listeners(seat);
 
@@ -545,7 +545,7 @@ tw_engine_seat_release(struct tw_engine_seat *seat)
 {
 	uint32_t unset = ~(1 << seat->idx);
 
-	wl_signal_emit(&seat->engine->events.seat_remove, seat);
+	wl_signal_emit(&seat->engine->signals.seat_remove, seat);
 
 	wl_list_remove(&seat->link);
 	seat->idx = -1;

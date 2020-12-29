@@ -472,7 +472,7 @@ tw_egl_render_context_import_buffer(struct tw_event_buffer_uploading *event,
 	if (old_texture)
 		tw_egl_render_texture_destroy(&old_texture->base, &ctx->base);
         tw_reset_wl_list(&buffer->surface_destroy_listener.link);
-        tw_signal_setup_listener(&surface->events.destroy,
+        tw_signal_setup_listener(&surface->signals.destroy,
                                  &buffer->surface_destroy_listener,
                                  notify_buffer_surface_destroy);
         return true;

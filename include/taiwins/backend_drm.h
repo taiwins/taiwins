@@ -58,7 +58,7 @@ struct tw_login {
 	struct {
 		struct wl_signal attributes_change;
 		struct wl_signal udev_device;
-	} events;
+	} signals;
 
 };
 

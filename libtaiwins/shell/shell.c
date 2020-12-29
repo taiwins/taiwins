@@ -81,7 +81,7 @@ shell_create_ui_element(struct tw_shell *shell,
 	wl_list_insert(layer->views.prev, &surface->layer_link);
 	shell_ui_set_role(elem, commit_cb, surface);
 	wl_list_init(&elem->grab_close.link);
-	tw_signal_setup_listener(&surface->events.destroy,
+	tw_signal_setup_listener(&surface->signals.destroy,
 	                         &elem->surface_destroy,
 	                         notify_shell_ui_surface_destroy);
 
@@ -704,13 +704,13 @@ shell_add_listeners(struct tw_shell *shell, struct tw_engine *engine)
 	                                &shell->display_destroy_listener,
 	                                notify_shell_end);
 
-	tw_signal_setup_listener(&engine->events.output_created,
+	tw_signal_setup_listener(&engine->signals.output_created,
 	                         &shell->output_create_listener,
 	                         notify_shell_new_output);
-	tw_signal_setup_listener(&engine->events.output_remove,
+	tw_signal_setup_listener(&engine->signals.output_remove,
 	                         &shell->output_destroy_listener,
 	                         notify_shell_remove_output);
-	tw_signal_setup_listener(&engine->events.output_resized,
+	tw_signal_setup_listener(&engine->signals.output_resized,
 	                         &shell->output_resize_listener,
 	                         notify_shell_resize_output);
         //idle listener

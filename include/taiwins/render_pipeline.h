@@ -43,7 +43,7 @@ struct tw_render_pipeline {
 	struct {
 		struct wl_signal pre_output_repaint;
 		struct wl_signal post_output_repaint;
-	} events;
+	} signals;
 
 	struct {
 		void (*repaint_output)(struct tw_render_pipeline *pipeline,

@@ -401,10 +401,10 @@ init_desktop_listeners(struct tw_xdg *xdg)
 	tw_set_display_destroy_listener(xdg->display,
 	                                &xdg->display_destroy_listener,
 	                                end_desktop);
-	tw_signal_setup_listener(&xdg->engine->events.output_created,
+	tw_signal_setup_listener(&xdg->engine->signals.output_created,
 	                         &xdg->output_create_listener,
 	                         handle_desktop_output_create);
-	tw_signal_setup_listener(&xdg->engine->events.output_remove,
+	tw_signal_setup_listener(&xdg->engine->signals.output_remove,
 	                         &xdg->output_destroy_listener,
 	                         handle_desktop_output_destroy);
 	if (xdg->shell)

@@ -196,7 +196,7 @@ notify_context_display_destroy(struct wl_listener *listener, void *display)
 
 	struct tw_render_pipeline *pipeline, *tmp;
 
-	wl_signal_emit(&ctx->base.events.destroy, &ctx->base);
+	wl_signal_emit(&ctx->base.signals.destroy, &ctx->base);
 
 	tw_egl_fini(&ctx->egl);
 	wl_array_release(&ctx->pixel_formats);
@@ -364,21 +364,21 @@ tw_render_context_create_egl(struct wl_display *display,
 	ctx->base.display = display;
 	ctx->base.impl = &egl_context_impl;
 	wl_list_init(&ctx->base.pipelines);
-	wl_signal_init(&ctx->base.events.destroy);
-	wl_signal_init(&ctx->base.events.dma_set);
-	wl_signal_init(&ctx->base.events.compositor_set);
-	wl_signal_init(&ctx->base.events.output_lost);
-	wl_signal_init(&ctx->base.events.wl_surface_dirty);
-	wl_signal_init(&ctx->base.events.wl_surface_destroy);
+	wl_signal_init(&ctx->base.signals.destroy);
+	wl_signal_init(&ctx->base.signals.dma_set);
+	wl_signal_init(&ctx->base.signals.compositor_set);
+	wl_signal_init(&ctx->base.signals.output_lost);
+	wl_signal_init(&ctx->base.signals.wl_surface_dirty);
+	wl_signal_init(&ctx->base.signals.wl_surface_destroy);
 	wl_list_init(&ctx->base.outputs);
 	init_context_formats(ctx);
 	tw_egl_bind_wl_display(&ctx->egl, display);
 
 	tw_set_display_destroy_listener(display, &ctx->base.display_destroy,
 	                                notify_context_display_destroy);
-	tw_signal_setup_listener(&ctx->base.events.dma_set, &ctx->dma_set,
+	tw_signal_setup_listener(&ctx->base.signals.dma_set, &ctx->dma_set,
 	                         notify_context_dma_set);
-	tw_signal_setup_listener(&ctx->base.events.compositor_set,
+	tw_signal_setup_listener(&ctx->base.signals.compositor_set,
 	                         &ctx->compositor_set,
 	                         notify_context_compositor_set);
 

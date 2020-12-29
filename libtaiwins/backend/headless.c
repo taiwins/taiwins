@@ -92,7 +92,7 @@ headless_frame(void *data)
 {
 	struct tw_headless_output *output = data;
 
-	wl_signal_emit(&output->output.device.events.new_frame,
+	wl_signal_emit(&output->output.device.signals.new_frame,
 	               &output->output.device);
 	wl_event_source_timer_update(output->timer, 1000000 / (60 * 1000));
 	return 0;
@@ -129,9 +129,9 @@ headless_output_start(struct tw_headless_output *output,
 	                                     headless->base.ctx,
 	                                     width, height);
 	//announce the output.
-	wl_signal_emit(&headless->base.events.new_output, output);
-	//the wl_output events are ready.
-	wl_signal_emit(&output->output.device.events.info, output);
+	wl_signal_emit(&headless->base.signals.new_output, output);
+	//the wl_output signals are ready.
+	wl_signal_emit(&output->output.device.signals.info, output);
 
         output->timer = wl_event_loop_add_timer(loop, headless_frame,
                                                   headless);
@@ -145,7 +145,7 @@ static inline void
 headless_input_start(struct tw_input_device *device,
                      struct tw_headless_backend *headless)
 {
-	wl_signal_emit(&headless->base.events.new_input, device);
+	wl_signal_emit(&headless->base.signals.new_input, device);
 }
 
 static bool
@@ -202,7 +202,7 @@ headless_destroy(struct tw_headless_backend *headless)
 		free(input);
 	}
 
-	wl_signal_emit(&headless->base.events.destroy, &headless->base);
+	wl_signal_emit(&headless->base.signals.destroy, &headless->base);
 	free(headless);
 }
 

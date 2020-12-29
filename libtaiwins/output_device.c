@@ -63,18 +63,18 @@ tw_output_device_init(struct tw_output_device *device,
 	output_device_state_init(&device->state, device);
 	output_device_state_init(&device->pending, device);
 
-	wl_signal_init(&device->events.destroy);
-	wl_signal_init(&device->events.info);
-	wl_signal_init(&device->events.new_frame);
-	wl_signal_init(&device->events.info);
-	wl_signal_init(&device->events.present);
-	wl_signal_init(&device->events.commit_state);
+	wl_signal_init(&device->signals.destroy);
+	wl_signal_init(&device->signals.info);
+	wl_signal_init(&device->signals.new_frame);
+	wl_signal_init(&device->signals.info);
+	wl_signal_init(&device->signals.present);
+	wl_signal_init(&device->signals.commit_state);
 }
 
 WL_EXPORT void
 tw_output_device_fini(struct tw_output_device *device)
 {
-	wl_signal_emit(&device->events.destroy, device);
+	wl_signal_emit(&device->signals.destroy, device);
 
 	wl_list_remove(&device->link);
 }
@@ -180,9 +180,9 @@ tw_output_device_commit_state(struct tw_output_device *device)
 {
 	//emit for backend
 	device->impl->commit_state(device);
-	wl_signal_emit(&device->events.commit_state, device);
+	wl_signal_emit(&device->signals.commit_state, device);
 	//emit for sending new backend info.
-	wl_signal_emit(&device->events.info, device);
+	wl_signal_emit(&device->signals.info, device);
 }
 
 WL_EXPORT void
@@ -200,7 +200,7 @@ tw_output_device_present(struct tw_output_device *device,
 		event->time = now;
 	}
 	event->refresh = tw_millihertz_to_ns(mhz);
-	wl_signal_emit(&device->events.present, event);
+	wl_signal_emit(&device->signals.present, event);
 }
 
 static void
