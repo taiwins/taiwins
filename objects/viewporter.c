@@ -165,7 +165,7 @@ tw_viewport_init(struct tw_viewport *viewport, struct wl_resource *resource,
 	wl_list_init(&viewport->surface_destroy_listener.link);
 	viewport->surface_destroy_listener.notify =
 		notify_viewport_surface_destroy;
-	wl_signal_add(&surface->events.destroy,
+	wl_signal_add(&surface->signals.destroy,
 	              &viewport->surface_destroy_listener);
 }
 
@@ -185,7 +185,7 @@ viewporter_get_viewport(struct wl_client *client,
 	uint32_t surface_id = wl_resource_get_id(surface_res);
 	uint32_t version  = wl_resource_get_version(viewporter_res);
 
-	if (wl_signal_get(&surface->events.destroy,
+	if (wl_signal_get(&surface->signals.destroy,
 	                  notify_viewport_surface_destroy)) {
 		wl_resource_post_error(viewporter_res,
 		                       WP_VIEWPORTER_ERROR_VIEWPORT_EXISTS,

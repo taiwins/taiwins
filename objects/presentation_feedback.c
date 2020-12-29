@@ -115,7 +115,7 @@ presentation_feedback_find_create(struct tw_presentation *presentation,
 		tw_set_resource_destroy_listener(
 			surface->resource, &feedback->surface_destroy,
 			notify_feedback_surface_destroy);
-		tw_signal_setup_listener(&surface->events.commit,
+		tw_signal_setup_listener(&surface->signals.commit,
 		                         &feedback->surface_commit,
 		                         notify_feedback_surface_commit);
 	}

@@ -266,7 +266,7 @@ tw_subsurface_create(struct wl_client *client, uint32_t ver, uint32_t id,
 	wl_list_init(&subsurface->surface_destroyed.link);
 	subsurface->surface_destroyed.notify =
 		notify_subsurface_surface_destroy;
-	wl_signal_add(&surface->events.destroy,
+	wl_signal_add(&surface->signals.destroy,
 	              &subsurface->surface_destroyed);
 
 	return subsurface;

@@ -112,7 +112,7 @@ tw_cursor_set_surface(struct tw_cursor *cursor,
 	surface->role.commit = commit_cursor_surface;
 	surface->role.commit_private = cursor;
 	surface->role.name = TW_CURSOR_ROLE;
-	wl_signal_add(&surface->events.destroy,
+	wl_signal_add(&surface->signals.destroy,
 	              &cursor->surface_destroy);
 	cursor->hotspot_x = hotspot_x;
 	cursor->hotspot_y = hotspot_y;

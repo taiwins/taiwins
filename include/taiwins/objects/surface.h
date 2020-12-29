@@ -180,7 +180,7 @@ struct tw_surface {
 		struct wl_signal commit;
 		struct wl_signal destroy;
 		struct wl_signal dirty;
-	} events;
+	} signals;
 
 	void *user_data;
 };

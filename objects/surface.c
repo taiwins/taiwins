@@ -494,7 +494,7 @@ surface_commit_state(struct tw_surface *surface)
 	surface_update_damage(surface);
 
 	if (pixman_region32_not_empty(&surface->current->surface_damage))
-		wl_signal_emit(&surface->events.dirty, surface);
+		wl_signal_emit(&surface->signals.dirty, surface);
 	//also commit the subsurface surface and
 	if (surface->role.commit)
 		surface->role.commit(surface);
@@ -558,7 +558,7 @@ surface_commit(struct wl_client *client,
 	wl_list_for_each(subsurface, &surface->subsurfaces, parent_link)
 		subsurface_commit_for_parent(subsurface, committed);
 
-	wl_signal_emit(&surface->events.commit, surface);
+	wl_signal_emit(&surface->signals.commit, surface);
 }
 
 static const struct wl_surface_interface surface_impl = {
@@ -668,7 +668,7 @@ tw_surface_dirty_geometry(struct tw_surface *surface)
 
 	wl_list_for_each(sub, &surface->subsurfaces, parent_link)
 		tw_surface_dirty_geometry(sub->surface);
-	wl_signal_emit(&surface->events.dirty, surface);
+	wl_signal_emit(&surface->signals.dirty, surface);
 }
 
 WL_EXPORT void
@@ -687,7 +687,7 @@ tw_surface_flush_frame(struct tw_surface *surface, uint32_t time)
 	}
 	pixman_region32_clear(&surface->geometry.dirty);
 	//handlers like presentation feedback may happen here.
-	wl_signal_emit(&surface->events.frame, &event);
+	wl_signal_emit(&surface->signals.frame, &event);
 }
 
 static void
@@ -696,7 +696,7 @@ surface_destroy_resource(struct wl_resource *resource)
 	struct tw_view *view;
 	struct tw_surface *surface = tw_surface_from_resource(resource);
 
-	wl_signal_emit(&surface->events.destroy, surface);
+	wl_signal_emit(&surface->signals.destroy, surface);
 
 	for (int i = 0; i < MAX_VIEW_LINKS; i++)
 		wl_list_remove(&surface->links[i]);
@@ -744,10 +744,10 @@ tw_surface_create(struct wl_client *client, uint32_t ver, uint32_t id,
 	surface->pending = &surface->surface_states[0];
 	surface->current = &surface->surface_states[1];
 	surface->previous = &surface->surface_states[2];
-	wl_signal_init(&surface->events.commit);
-	wl_signal_init(&surface->events.frame);
-	wl_signal_init(&surface->events.dirty);
-	wl_signal_init(&surface->events.destroy);
+	wl_signal_init(&surface->signals.commit);
+	wl_signal_init(&surface->signals.frame);
+	wl_signal_init(&surface->signals.dirty);
+	wl_signal_init(&surface->signals.destroy);
 	pixman_region32_init(&surface->geometry.dirty);
 
 	for (int i = 0; i < MAX_VIEW_LINKS; i++)
