@@ -24,7 +24,8 @@
 #include <stdlib.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/surface.h>
-#include <wayland-server.h>
+#include <wayland-server-protocol.h>
+#include <wayland-util.h>
 #include <taiwins/render_context.h>
 #include <taiwins/render_output.h>
 #include <taiwins/render_surface.h>
@@ -55,14 +56,6 @@ notify_tw_surface_dirty(struct wl_listener *listener, void *data)
 	wl_signal_emit(&surface->ctx->events.wl_surface_dirty, data);
 }
 
-static void
-notify_tw_surface_output_lost(struct wl_listener *listener, void *data)
-{
-	struct tw_render_surface *surface =
-		wl_container_of(listener, surface, listeners.output_lost);
-	tw_render_surface_reassign_outputs(surface, surface->ctx);
-}
-
 void
 tw_render_surface_init(struct tw_render_surface *surface,
                        struct tw_render_context *ctx)
@@ -73,7 +66,6 @@ tw_render_surface_init(struct tw_render_surface *surface,
 	wl_list_init(&surface->listeners.destroy.link);
 	wl_list_init(&surface->listeners.dirty.link);
 	wl_list_init(&surface->listeners.frame.link);
-	wl_list_init(&surface->listeners.output_lost.link);
 
 	pixman_region32_init(&surface->clip);
 	surface->ctx = ctx;
@@ -87,9 +79,6 @@ tw_render_surface_init(struct tw_render_surface *surface,
 	tw_signal_setup_listener(&tw_surface->events.dirty,
 	                         &surface->listeners.dirty,
 	                         notify_tw_surface_dirty);
-	tw_signal_setup_listener(&ctx->events.output_lost,
-	                         &surface->listeners.output_lost,
-	                         notify_tw_surface_output_lost);
 }
 
 void
@@ -187,6 +176,14 @@ tw_render_context_destroy(struct tw_render_context *ctx)
 	ctx->display_destroy.notify(&ctx->display_destroy, ctx->display);
 }
 
+int
+tw_render_presentable_make_current(struct tw_render_presentable *surf,
+                                   struct tw_render_context *ctx)
+{
+	assert(ctx->impl && ctx->impl->commit_presentable);
+	return ctx->impl->make_current(surf, ctx);
+}
+
 static void
 subsurface_add_to_list(struct wl_list *parent_head, struct tw_surface *surface)
 {
@@ -265,78 +262,6 @@ tw_render_context_build_view_list(struct tw_render_context *ctx,
 	}
 
 	SCOPE_PROFILE_END();
-}
-
-static void
-update_surface_mask(struct tw_surface *tw_surface,
-                    struct tw_render_output *major, uint32_t mask)
-{
-	struct tw_render_output *output;
-	struct tw_render_surface *surface =
-		wl_container_of(tw_surface, surface, surface);
-	uint32_t output_bit;
-	uint32_t different = surface->output_mask ^ mask;
-	uint32_t entered = mask & different;
-	uint32_t left = surface->output_mask & different;
-
-	assert(major->ctx);
-
-	//update the surface_mask and
-	surface->output_mask = mask;
-	surface->output = major->device.id;
-
-	wl_list_for_each(output, &major->ctx->outputs, link) {
-		output_bit = 1u << output->device.id;
-		if (!(output_bit & different))
-			continue;
-		if ((output_bit & entered))
-			wl_signal_emit(&output->events.surface_enter,
-			               tw_surface);
-		if ((output_bit & left))
-			wl_signal_emit(&output->events.surface_leave,
-			               tw_surface);
-	}
-}
-
-void
-tw_render_surface_reassign_outputs(struct tw_render_surface *render_surface,
-                                   struct tw_render_context *ctx)
-{
-	uint32_t area = 0, max = 0, mask = 0;
-	struct tw_render_output *output, *major = NULL;
-	pixman_region32_t surface_region;
-	pixman_box32_t *e;
-	struct tw_surface *surface = &render_surface->surface;
-
-	pixman_region32_init_rect(&surface_region,
-	                          surface->geometry.xywh.x,
-	                          surface->geometry.xywh.y,
-	                          surface->geometry.xywh.width,
-	                          surface->geometry.xywh.height);
-	wl_list_for_each(output, &ctx->outputs, link) {
-		pixman_region32_t clip;
-		struct tw_output_device *device = &output->device;
-		pixman_rectangle32_t rect =
-			tw_output_device_geometry(device);
-		//TODO dealing with cloning output
-		// if (output->cloning >= 0)
-		//	continue;
-		pixman_region32_init_rect(&clip, rect.x, rect.y,
-		                          rect.width, rect.height);
-		pixman_region32_intersect(&clip, &clip, &surface_region);
-		e = pixman_region32_extents(&clip);
-		area = (e->x2 - e->x1) * (e->y2 - e->y1);
-		if (pixman_region32_not_empty(&clip))
-			mask |= (1u << device->id);
-		if (area >= max) {
-			major = output;
-			max = area;
-		}
-		pixman_region32_fini(&clip);
-	}
-	pixman_region32_fini(&surface_region);
-
-	update_surface_mask(surface, major, mask);
 }
 
 void

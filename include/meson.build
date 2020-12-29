@@ -1,4 +1,4 @@
-exclude_files = ['meson.build', 'profiling.h', 'dbus_utils.h']
+exclude_files = ['meson.build', 'profiling.h']
 
 if get_option('enable-profiler')
   options_data.set10('_TW_ENABLE_PROFILING', true)

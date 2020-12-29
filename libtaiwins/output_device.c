@@ -19,18 +19,15 @@
  *
  */
 
-#include <math.h>
-#include <stdint.h>
 #include <time.h>
 #include <string.h>
-#include <limits.h>
 #include <pixman.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/matrix.h>
 #include <taiwins/objects/logger.h>
+
 #include <taiwins/output_device.h>
-#include <taiwins/objects/utils.h>
-#include <wayland-util.h>
 
 static void
 output_device_state_init(struct tw_output_device_state *state,
@@ -42,6 +39,7 @@ output_device_state_init(struct tw_output_device_state *state,
 	state->current_mode.h = 0;
 	state->current_mode.refresh = 0;
 	state->current_mode.preferred = false;
+	state->subpixel = WL_OUTPUT_SUBPIXEL_NONE;
 	state->transform = WL_OUTPUT_TRANSFORM_NORMAL;
 
         state->gx = 0;
@@ -55,9 +53,7 @@ tw_output_device_init(struct tw_output_device *device,
 	device->phys_width = 0;
 	device->phys_height = 0;
 	device->impl = impl;
-	device->subpixel = WL_OUTPUT_SUBPIXEL_NONE;
-	device->clk_id = CLOCK_MONOTONIC;
-	wl_list_init(&device->mode_list);
+	wl_array_init(&device->available_modes);
 	wl_list_init(&device->link);
 
 	output_device_state_init(&device->state, device);
@@ -76,6 +72,7 @@ tw_output_device_fini(struct tw_output_device *device)
 {
 	wl_signal_emit(&device->events.destroy, device);
 
+	wl_array_release(&device->available_modes);
 	wl_list_remove(&device->link);
 }
 
@@ -93,16 +90,6 @@ tw_output_device_set_pos(struct tw_output_device *device, int gx, int gy)
 }
 
 void
-tw_output_device_set_mode(struct tw_output_device *device,
-                          const struct tw_output_device_mode *mode)
-{
-	device->pending.current_mode.h = mode->h;
-	device->pending.current_mode.w = mode->w;
-	device->pending.current_mode.refresh = mode->refresh;
-	device->pending.current_mode.preferred = mode->preferred;
-}
-
-void
 tw_output_device_set_custom_mode(struct tw_output_device *device,
                                  unsigned width, unsigned height, int refresh)
 {
@@ -110,45 +97,6 @@ tw_output_device_set_custom_mode(struct tw_output_device *device,
 	device->pending.current_mode.h = height;
 	device->pending.current_mode.preferred = false;
 	device->pending.current_mode.refresh = refresh;
-}
-
-/** used by backends to extract potential matched mode
- *
- * The algorithm would go through the mode_list searching for the closest mode
- * available(unless there is no modes at all). We return on finding exact mode
- * or the closest mode we can get.
- *
- */
-struct tw_output_device_mode *
-tw_output_device_match_mode(struct tw_output_device *device,
-                            int w, int h, int r)
-{
-	uint64_t min_diff = UINT64_MAX;
-	struct tw_output_device_mode *matched = NULL, *mode;
-
-	//return preferred if invalid
-	if (!w || !h || !r) {
-		wl_list_for_each(mode, &device->mode_list, link)
-			if (mode->preferred)
-				return mode;
-		return !wl_list_empty(&device->mode_list) ?
-			wl_container_of(device->mode_list.next, mode, link) :
-			NULL;
-	}
-
-	wl_list_for_each(mode, &device->mode_list, link) {
-		uint64_t diff = abs(mode->w-w) * abs(mode->h-h) * 1000 +
-			abs(mode->refresh - r);
-
-		if (w == mode->w && h == mode->h && r == mode->refresh)
-			return mode;
-
-		if (diff < min_diff) {
-			min_diff = diff;
-			matched = mode;
-		}
-	}
-	return matched;
 }
 
 void
@@ -189,17 +137,15 @@ void
 tw_output_device_present(struct tw_output_device *device,
                          struct tw_event_output_device_present *event)
 {
-	uint32_t mhz = device->state.current_mode.refresh;
 	struct tw_event_output_device_present _event = {
 		.device = device,
 	};
 	struct timespec now;
 	if (event == NULL) {
 		event = &_event;
-		clock_gettime(device->clk_id, &now);
+		clock_gettime(CLOCK_MONOTONIC, &now);
 		event->time = now;
 	}
-	event->refresh = tw_millihertz_to_ns(mhz);
 	wl_signal_emit(&device->events.present, event);
 }
 

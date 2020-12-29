@@ -62,7 +62,7 @@ if get_option('x11-backend').enabled()
     'tw-test-x11',
     ['x11-test.c',
      wayland_taiwins_shell_server_protocol_h],
-    c_args : ['-D_GNU_SOURCE'],
+    c_args : ['-D_GNU_SOURCE', '-DWLR_USE_UNSTABLE'],
     dependencies : dep_taiwins_lib,
   )
   test('test_x11', x11_test)
@@ -73,14 +73,7 @@ wayland_test = executable(
   'tw-test-wayland',
   ['wayland-test.c',
    wayland_taiwins_shell_server_protocol_h],
-  c_args : ['-D_GNU_SOURCE'],
+  c_args : ['-D_GNU_SOURCE', '-DWLR_USE_UNSTABLE'],
   dependencies : dep_taiwins_lib,
 )
 test('test_wayland', wayland_test)
-
-drm_test = executable(
-  'tw-test-drm',
-  ['drm-test.c'],
-  c_args : ['-D_GNU_SOURCE'],
-  dependencies : dep_taiwins_lib,
-)

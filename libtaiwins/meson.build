@@ -11,7 +11,6 @@ pkgconfig = import('pkgconfig')
 taiwins_lib_src = [
   'input_device.c',
   'output_device.c',
-  'dbus_utils.c',
 
   'shell/shell.c',
   'shell/shell_layer.c',
@@ -25,6 +24,7 @@ taiwins_lib_src = [
   'desktop/layout_maximized.c',
   'desktop/layout_fullscreen.c',
   'desktop/layout_tiling.c',
+
 
   'engine/engine.c',
   'engine/seat.c',

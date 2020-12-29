@@ -104,7 +104,6 @@ notify_output_commit(struct wl_listener *listener, void *data)
 	struct tw_headless_output *output =
 		wl_container_of(listener, output, present_listener);
 	tw_output_device_present(&output->output.device, NULL);
-	tw_render_output_clean_maybe(&output->output);
 }
 
 static bool
@@ -114,8 +113,9 @@ headless_output_start(struct tw_headless_output *output,
 	uint32_t width, height;
 	struct wl_event_loop *loop =
 		wl_display_get_event_loop(headless->display);
+	struct tw_render_context *ctx = headless->base.ctx;
 
-	tw_signal_setup_listener(&output->output.surface.commit,
+	tw_signal_setup_listener(&ctx->events.presentable_commit,
 	                         &output->present_listener,
 	                         notify_output_commit);
 
@@ -192,7 +192,9 @@ headless_destroy(struct tw_headless_backend *headless)
 
 	wl_list_for_each_safe(output, otmp, &headless->base.outputs,
 	                      output.device.link) {
-		tw_render_output_fini(&output->output);
+		tw_render_presentable_fini(&output->output.surface,
+		                           headless->base.ctx);
+		tw_output_device_fini(&output->output.device);
 		wl_event_source_remove(output->timer);
 		free(output);
 	}

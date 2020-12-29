@@ -109,6 +109,3 @@ mkdir build
 sudo make install
 
 cd $(CURDIR)
-
-#adding user to the input group for testing
-sudo usermod -a -G input $(echo ${USER})

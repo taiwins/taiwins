@@ -40,7 +40,7 @@
 #include "egl_render_context.h"
 
 /******************************************************************************
- * eglsurface presentable implementation
+ * render_context implementation
  *****************************************************************************/
 
 static void
@@ -51,43 +51,11 @@ handle_egl_surface_destroy(struct tw_render_presentable *surf,
 		wl_container_of(base, ctx, base);
 	EGLSurface egl_surface = (EGLSurface)surf->handle;
 
-	if (egl_surface == EGL_NO_SURFACE)
-		return;
-
 	if (eglGetCurrentContext() == ctx->egl.context &&
 	    eglGetCurrentSurface(EGL_DRAW) == egl_surface)
 		tw_egl_unset_current(&ctx->egl);
 	eglDestroySurface(ctx->egl.display, egl_surface);
 }
-
-static bool
-commit_egl_surface(struct tw_render_presentable *surf,
-                   struct tw_render_context *base)
-{
-	EGLSurface surface = (EGLSurface)surf->handle;
-	struct tw_egl_render_context *ctx = wl_container_of(base, ctx, base);
-
-	eglSwapBuffers(ctx->egl.display, surface);
-	return true;
-}
-
-static int
-make_egl_surface_current(struct tw_render_presentable *surf,
-                         struct tw_render_context *base)
-{
-	struct tw_egl_render_context *ctx = wl_container_of(base, ctx, base);
-	return tw_egl_buffer_age(&ctx->egl, (EGLSurface)surf->handle);
-}
-
-static const struct tw_render_presentable_impl eglsurface_impl = {
-	.destroy = handle_egl_surface_destroy,
-	.commit = commit_egl_surface,
-	.make_current = make_egl_surface_current,
-};
-
-/******************************************************************************
- * render context implementation
- *****************************************************************************/
 
 /* use this if you created egl context with window surface type */
 static bool
@@ -108,7 +76,7 @@ new_window_surface(struct tw_render_presentable *surf,
 		return false;
 	}
 	surf->handle = (intptr_t)eglsurface;
-	surf->impl = &eglsurface_impl;
+	surf->destroy = handle_egl_surface_destroy;
 
 	return true;
 }
@@ -137,15 +105,36 @@ new_pbuffer_surface(struct tw_render_presentable *surf,
 		tw_logl_level(TW_LOG_ERRO, "eglCreatePbufferSurface failed");
 		return false;
 	}
-	surf->handle = (intptr_t)eglsurface; //maybe not
-	surf->impl = &eglsurface_impl;
+	surf->handle =  (intptr_t)eglsurface; //maybe not
+	surf->destroy = handle_egl_surface_destroy;
 	return true;
 }
 
+static bool
+commit_egl_surface(struct tw_render_presentable *surf,
+                   struct tw_render_context *base)
+{
+	EGLSurface surface = (EGLSurface)surf->handle;
+	struct tw_egl_render_context *ctx = wl_container_of(base, ctx, base);
+
+	eglSwapBuffers(ctx->egl.display, surface);
+	wl_signal_emit(&base->events.presentable_commit, base);
+	return true;
+}
+
+static int
+make_egl_surface_current(struct tw_render_presentable *surf,
+                         struct tw_render_context *base)
+{
+	struct tw_egl_render_context *ctx = wl_container_of(base, ctx, base);
+	return tw_egl_buffer_age(&ctx->egl, (EGLSurface)surf->handle);
+}
 
 static const struct tw_render_context_impl egl_context_impl = {
 	.new_offscreen_surface = new_pbuffer_surface,
 	.new_window_surface = new_window_surface,
+	.commit_presentable = commit_egl_surface,
+	.make_current = make_egl_surface_current,
 };
 
 /******************************************************************************
@@ -367,9 +356,9 @@ tw_render_context_create_egl(struct wl_display *display,
 	wl_signal_init(&ctx->base.events.destroy);
 	wl_signal_init(&ctx->base.events.dma_set);
 	wl_signal_init(&ctx->base.events.compositor_set);
-	wl_signal_init(&ctx->base.events.output_lost);
 	wl_signal_init(&ctx->base.events.wl_surface_dirty);
 	wl_signal_init(&ctx->base.events.wl_surface_destroy);
+	wl_signal_init(&ctx->base.events.presentable_commit);
 	wl_list_init(&ctx->base.outputs);
 	init_context_formats(ctx);
 	tw_egl_bind_wl_display(&ctx->egl, display);

@@ -53,18 +53,18 @@ notify_seat_remove_device(struct wl_listener *listener, void *data)
 			}
 		}
 	}
-	//this is a bit unplesant
-	if (!device_type_left) {
-		if (current->type == TW_INPUT_TYPE_KEYBOARD)
-			tw_seat_remove_keyboard(seat->tw_seat);
-		else if (current->type == TW_INPUT_TYPE_POINTER)
-			tw_seat_remove_pointer(seat->tw_seat);
-		else if (current->type == TW_INPUT_TYPE_TOUCH)
-			tw_seat_remove_touch(seat->tw_seat);
-	}
-	//TODO: what if we still have switch or tablet deivces?
-	if (has_device == false)
-		tw_engine_seat_release(seat);
+        //this is a bit unplesant
+        if (!device_type_left) {
+	        if (current->type == TW_INPUT_TYPE_KEYBOARD)
+		        tw_seat_remove_keyboard(seat->tw_seat);
+	        else if (current->type == TW_INPUT_TYPE_POINTER)
+		        tw_seat_remove_pointer(seat->tw_seat);
+	        else if (current->type == TW_INPUT_TYPE_TOUCH)
+		        tw_seat_remove_touch(seat->tw_seat);
+        }
+        //TODO: what if we still have switch or tablet deivces?
+        if (has_device == false)
+	        tw_engine_seat_release(seat);
 }
 
 /******************************************************************************
@@ -197,13 +197,14 @@ notify_seat_pointer_motion_abs(struct wl_listener *listener, void *data)
 	struct tw_engine_seat *seat =
 		wl_container_of(listener, seat, sink.pointer.motion_absolute);
 	struct tw_event_pointer_motion_abs *event = data;
+	struct tw_engine *engine = seat->engine;
 	struct tw_engine_output *output =
-		tw_engine_output_from_device(seat->engine, event->output);
+		tw_engine_output_from_device(engine, event->output);
 	tw_output_device_loc_to_global(output->device, event->x, event->y,
 	                               &x, &y);
 	SCOPE_PROFILE_BEG();
 
-	tw_cursor_set_pos(&seat->engine->global_cursor, x, y);
+	tw_cursor_set_pos(&engine->global_cursor, x, y);
 	pointer_focus_motion(seat, event->time_msec);
 
 	SCOPE_PROFILE_END();
@@ -231,96 +232,6 @@ notify_seat_pointer_frame(struct wl_listener *listener, void *data)
 	struct tw_pointer *seat_pointer = &seat->tw_seat->pointer;
 	tw_pointer_notify_frame(seat_pointer);
 }
-
-static void
-notify_seat_pointer_pinch_begin(struct wl_listener *listener, void *data)
-{
-	struct tw_engine_seat *seat =
-		wl_container_of(listener, seat, sink.pointer.pinch_begin);
-	struct tw_event_pointer_gesture *event = data;
-	struct tw_pointer *pointer = &seat->tw_seat->pointer;
-	struct tw_gestures_manager *gs_manager =
-		&seat->engine->gestures_manager;
-	struct wl_resource *wl_surface =
-		seat->tw_seat->pointer.focused_surface;
-
-	tw_gestures_pinch_begin(gs_manager, pointer, event->time, wl_surface,
-	                        event->fingers);
-}
-
-static void
-notify_seat_pointer_pinch_update(struct wl_listener *listener, void *data)
-{
-	struct tw_engine_seat *seat =
-		wl_container_of(listener, seat, sink.pointer.pinch_update);
-	struct tw_event_pointer_gesture *event = data;
-	struct tw_pointer *pointer = &seat->tw_seat->pointer;
-	struct tw_gestures_manager *gs_manager =
-		&seat->engine->gestures_manager;
-
-	tw_gestures_pinch_update(gs_manager, pointer, event->time,
-	                         event->dx, event->dy, event->scale,
-	                         event->rotation);
-}
-
-static void
-notify_seat_pointer_pinch_end(struct wl_listener *listener, void *data)
-{
-	struct tw_engine_seat *seat =
-		wl_container_of(listener, seat, sink.pointer.pinch_end);
-	struct tw_event_pointer_gesture *event = data;
-	struct tw_pointer *pointer = &seat->tw_seat->pointer;
-	struct tw_gestures_manager *gs_manager =
-		&seat->engine->gestures_manager;
-
-	tw_gestures_pinch_end(gs_manager, pointer, event->time,
-	                      event->cancelled);
-}
-
-static void
-notify_seat_pointer_swipe_begin(struct wl_listener *listener, void *data)
-{
-	struct tw_engine_seat *seat =
-		wl_container_of(listener, seat, sink.pointer.swipe_begin);
-	struct tw_event_pointer_gesture *event = data;
-	struct tw_pointer *pointer = &seat->tw_seat->pointer;
-	struct tw_gestures_manager *gs_manager =
-		&seat->engine->gestures_manager;
-	struct wl_resource *wl_surface =
-		seat->tw_seat->pointer.focused_surface;
-
-	tw_gestures_swipe_begin(gs_manager, pointer, event->time, wl_surface,
-	                        event->fingers);
-}
-
-static void
-notify_seat_pointer_swipe_update(struct wl_listener *listener, void *data)
-{
-	struct tw_engine_seat *seat =
-		wl_container_of(listener, seat, sink.pointer.swipe_update);
-	struct tw_event_pointer_gesture *event = data;
-	struct tw_pointer *pointer = &seat->tw_seat->pointer;
-	struct tw_gestures_manager *gs_manager =
-		&seat->engine->gestures_manager;
-
-	tw_gestures_swipe_update(gs_manager, pointer, event->time,
-	                         event->dx, event->dy);
-}
-
-static void
-notify_seat_pointer_swipe_end(struct wl_listener *listener, void *data)
-{
-	struct tw_engine_seat *seat =
-		wl_container_of(listener, seat, sink.pointer.swipe_end);
-	struct tw_event_pointer_gesture *event = data;
-	struct tw_pointer *pointer = &seat->tw_seat->pointer;
-	struct tw_gestures_manager *gs_manager =
-		&seat->engine->gestures_manager;
-
-	tw_gestures_swipe_end(gs_manager, pointer, event->time,
-	                      event->cancelled);
-}
-
 
 /******************************************************************************
  * touch listeners
@@ -401,20 +312,19 @@ notify_seat_touch_cancel(struct wl_listener *listener, void *data)
  * internal APIs
  *****************************************************************************/
 
-static inline void
-seat_install_keyboard_listeners(struct tw_engine_seat *seat)
+static void
+seat_install_default_listeners(struct tw_engine_seat *seat)
 {
+	tw_signal_setup_listener(&seat->source.remove, &seat->sink.remove,
+	                         notify_seat_remove_device);
+	//keyboard
 	tw_signal_setup_listener(&seat->source.keyboard.key,
 	                         &seat->sink.keyboard.key,
 	                         notify_seat_keyboard_key);
 	tw_signal_setup_listener(&seat->source.keyboard.modifiers,
 	                         &seat->sink.keyboard.modifiers,
 	                         notify_seat_keyboard_modifiers);
-}
-
-static void
-seat_install_pointer_listeners(struct tw_engine_seat *seat)
-{
+	//pointer
 	tw_signal_setup_listener(&seat->source.pointer.button,
 	                         &seat->sink.pointer.button,
 	                         notify_seat_pointer_button);
@@ -430,31 +340,7 @@ seat_install_pointer_listeners(struct tw_engine_seat *seat)
 	tw_signal_setup_listener(&seat->source.pointer.frame,
 	                         &seat->sink.pointer.frame,
 	                         notify_seat_pointer_frame);
-
-	tw_signal_setup_listener(&seat->source.pointer.swipe_begin,
-	                         &seat->sink.pointer.swipe_begin,
-	                         notify_seat_pointer_swipe_begin);
-	tw_signal_setup_listener(&seat->source.pointer.swipe_update,
-	                         &seat->sink.pointer.swipe_update,
-	                         notify_seat_pointer_swipe_update);
-	tw_signal_setup_listener(&seat->source.pointer.swipe_end,
-	                         &seat->sink.pointer.swipe_end,
-	                         notify_seat_pointer_swipe_end);
-
-	tw_signal_setup_listener(&seat->source.pointer.pinch_begin,
-	                         &seat->sink.pointer.pinch_begin,
-	                         notify_seat_pointer_pinch_begin);
-	tw_signal_setup_listener(&seat->source.pointer.pinch_update,
-	                         &seat->sink.pointer.pinch_update,
-	                         notify_seat_pointer_pinch_update);
-	tw_signal_setup_listener(&seat->source.pointer.pinch_end,
-	                         &seat->sink.pointer.pinch_end,
-	                         notify_seat_pointer_pinch_end);
-}
-
-static inline void
-seat_install_touch_listeners(struct tw_engine_seat *seat)
-{
+	//touch
 	tw_signal_setup_listener(&seat->source.touch.down,
 	                         &seat->sink.touch.down,
 	                         notify_seat_touch_down);
@@ -467,16 +353,6 @@ seat_install_touch_listeners(struct tw_engine_seat *seat)
 	tw_signal_setup_listener(&seat->source.touch.cancel,
 	                         &seat->sink.touch.cancel,
 	                         notify_seat_touch_cancel);
-}
-
-static void
-seat_install_default_listeners(struct tw_engine_seat *seat)
-{
-	tw_signal_setup_listener(&seat->source.remove, &seat->sink.remove,
-	                         notify_seat_remove_device);
-	seat_install_keyboard_listeners(seat);
-	seat_install_pointer_listeners(seat);
-	seat_install_touch_listeners(seat);
 }
 
 static void
@@ -497,19 +373,20 @@ static void
 seat_add_keyboard(struct tw_engine_seat *seat,
                   struct tw_input_device *keyboard)
 {
+	struct xkb_keymap *keymap;
 	struct xkb_context *context = seat->engine->xkb_context;
 
-	if (!seat->keymap)
-		seat->keymap = xkb_keymap_new_from_names(
-			context, &seat->keyboard_rule_names,
-			XKB_KEYMAP_COMPILE_NO_FLAGS);
-	tw_input_device_set_keymap(keyboard, seat->keymap);
+	keymap = xkb_keymap_new_from_names(context,
+	                                   &seat->keyboard_rule_names,
+	                                   XKB_KEYMAP_COMPILE_NO_FLAGS);
+	tw_input_device_set_keymap(keyboard, keymap);
+	xkb_keymap_unref(keymap);
 
 	//setup tw_seat, keymap will provide later.
-	if (!(seat->tw_seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD))
-		tw_seat_new_keyboard(seat->tw_seat);
-	//Here we pretty much giveup the keymap directly from backend.
-	tw_keyboard_set_keymap(&seat->tw_seat->keyboard, seat->keymap);
+        if (!(seat->tw_seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD))
+	        tw_seat_new_keyboard(seat->tw_seat);
+        //Here we pretty much giveup the keymap directly from backend.
+        tw_keyboard_set_keymap(&seat->tw_seat->keyboard, keymap);
 }
 
 struct tw_engine_seat *
@@ -551,7 +428,6 @@ tw_engine_seat_release(struct tw_engine_seat *seat)
 	seat->idx = -1;
 	tw_seat_destroy(seat->tw_seat);
 	seat->tw_seat = NULL;
-	xkb_keymap_unref(seat->keymap);
 
 	seat->engine->seat_pool &= unset;
 }
@@ -600,7 +476,6 @@ tw_engine_seat_set_xkb_rules(struct tw_engine_seat *seat,
 {
 	struct tw_engine *engine = seat->engine;
 	struct xkb_keymap *keymap;
-	struct tw_input_device *dev;
 
 	seat->keyboard_rule_names = *rules;
 	if (!seat->keyboard_rule_names.rules)
@@ -618,12 +493,11 @@ tw_engine_seat_set_xkb_rules(struct tw_engine_seat *seat,
 	                                XKB_KEYMAP_COMPILE_NO_FLAGS);
 	if (!keymap)
 		return;
-	wl_list_for_each(dev, &engine->backend->inputs, link)
-		tw_input_device_set_keymap(dev, keymap);
-
-	xkb_keymap_unref(seat->keymap);
-	seat->keymap = xkb_keymap_ref(keymap);
+	//TODO: set keymap for all the keyboards?
+	/* wlr_keyboard_set_keymap(seat->keyboard.device->keyboard, keymap); */
 	xkb_keymap_unref(keymap);
+
+	/* tw_keyboard_set_keymap(&seat->tw_seat->keyboard, keymap); */
 }
 
 struct tw_engine_seat *

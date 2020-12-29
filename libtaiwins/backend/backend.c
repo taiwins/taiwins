@@ -30,7 +30,6 @@
 #include <taiwins/backend.h>
 #include <taiwins/backend_headless.h>
 #include <taiwins/backend_wayland.h>
-#include <taiwins/backend_drm.h>
 #if _TW_HAS_X11_BACKEND
 #include <taiwins/backend_x11.h>
 #endif
@@ -69,6 +68,7 @@ tw_backend_start(struct tw_backend *backend, struct tw_render_context *ctx)
 	wl_signal_emit(&backend->events.start, backend);
 }
 
+
 struct tw_backend *
 tw_backend_create_auto(struct wl_display *display)
 {
@@ -81,8 +81,7 @@ tw_backend_create_auto(struct wl_display *display)
 		backend = tw_x11_backend_create(display,
 		                                getenv("DISPLAY"));
 #endif
-	else //drm backend
-		backend = tw_drm_backend_create(display);
-
+	else
+		assert(0);
 	return backend;
 }

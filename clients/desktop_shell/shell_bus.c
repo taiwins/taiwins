@@ -19,19 +19,17 @@
  *
  */
 
-#include <stdint.h>
 #include <sys/epoll.h>
+
 #include <twclient/event_queue.h>
 #include <ctypes/helpers.h>
-#include <unistd.h>
-#include <tdbus.h>
-
 #include "shell.h"
+#include "tdbus.h"
 
 static int
 dispatch_watch(struct tw_event *event, UNUSED_ARG(int fd))
 {
-	tdbus_handle_watch(event->data);
+	tdbus_handle_watch((struct tdbus *)event->arg.o, event->data);
 	return TW_EVENT_NOOP;
 }
 
@@ -92,62 +90,6 @@ shell_bus_remove_watch(void *user_data, int fd, struct tdbus *bus,
 }
 
 static int
-dispatch_timeout(struct tw_event *event, int fd)
-{
-	//timeout only happen once
-	tdbus_handle_timeout(event->data);
-	return TW_EVENT_DEL;
-}
-
-static void
-shell_bus_add_timeout(void *user_data, int interval, bool enabled,
-                      struct tdbus *bus, void *timeout)
-{
-	struct tw_event event;
-	struct desktop_shell *shell = user_data;
-        struct tw_event_queue *queue = &shell->globals.event_queue;
-        struct itimerspec timespec = {
-	        .it_value = {
-		        .tv_sec = 0,
-		        .tv_nsec = interval * 1000,
-	        },
-	        .it_interval = {
-		        .tv_sec = 0,
-		        .tv_nsec = interval * 1000,
-	        },
-        };
-        intptr_t timerfd;
-
-        event.data = timeout;
-        event.cb = dispatch_timeout;
-        event.arg.o = (void *)bus;
-
-        if (enabled) {
-	        timerfd = tw_event_queue_add_timer(queue, &timespec, &event);
-	        tdbus_timeout_set_user_data(timeout, (void *)timerfd);
-        }
-}
-
-static void
-shell_bus_change_timeout(void *user_data, int interval, struct tdbus *bus,
-                         void *timeout)
-{
-	intptr_t timerfd = (intptr_t)tdbus_timeout_get_user_data(timeout);
-	//this would work?
-	tdbus_timeout_reset_timer(timeout, timerfd);
-}
-
-static void
-shell_bus_close_timeout(void *user_data, struct tdbus *bus, void *timeout)
-{
-	intptr_t timerfd = (intptr_t)tdbus_timeout_get_user_data(timeout);
-	struct desktop_shell *shell = user_data;
-        struct tw_event_queue *queue = &shell->globals.event_queue;
-
-        tw_event_queue_remove_source(queue, timerfd);
-}
-
-static int
 dispatch_tdbus(struct tw_event *event, int fd)
 {
 	tdbus_dispatch_once(event->data);
@@ -164,15 +106,11 @@ shell_tdbus_init(struct desktop_shell *shell)
 
 	tdbus_set_nonblock(shell->system_bus, shell,
 	                   shell_bus_add_watch, shell_bus_change_watch,
-	                   shell_bus_remove_watch,
-	                   shell_bus_add_timeout, shell_bus_change_timeout,
-	                   shell_bus_close_timeout);
+	                   shell_bus_remove_watch);
 
 	tdbus_set_nonblock(shell->session_bus, shell,
 	                   shell_bus_add_watch, shell_bus_change_watch,
-	                   shell_bus_remove_watch,
-	                   shell_bus_add_timeout, shell_bus_change_timeout,
-	                   shell_bus_close_timeout);
+	                   shell_bus_remove_watch);
 
 	session_event.data = shell->session_bus;
 	system_event.data = shell->system_bus;
@@ -183,8 +121,7 @@ shell_tdbus_init(struct desktop_shell *shell)
 	tw_event_queue_add_idle(&shell->globals.event_queue, &system_event);
 }
 
-void
-shell_tdbus_end(struct desktop_shell *shell)
+void shell_tdbus_end(struct desktop_shell *shell)
 {
 	tdbus_delete(shell->system_bus);
 	tdbus_delete(shell->session_bus);
