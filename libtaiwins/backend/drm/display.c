@@ -312,6 +312,9 @@ handle_display_commit_state(struct tw_output_device *device)
 	//ensure valid active state.
 	bool enabled = device->pending.enabled && output->status.connected;
 
+	//skip before first commit, man this is ugly
+	if (!output->status.annouced)
+		return;
 	select_display_mode(output);
 	UPDATE_PENDING(output, active, enabled, TW_DRM_PENDING_ACTIVE);
 	memcpy(&device->state, &device->pending, sizeof(device->state));
@@ -329,7 +332,7 @@ handle_display_commit_state(struct tw_output_device *device)
 		if ((output->status.pending & TW_DRM_PENDING_MODE))
 			output->gpu->impl->allocate_fb(output);
 		prepare_plane_fbs(output->primary_plane, output);
-		wl_signal_emit(&device->events.new_frame, &device);
+		wl_signal_emit(&device->events.new_frame, device);
 	} else {
 		tw_drm_display_detach_crtc(output);
 		output->gpu->impl->end_display(output);
@@ -348,7 +351,7 @@ notify_display_presentable_commit(struct wl_listener *listener, void *data)
 {
 	struct tw_drm_display *output =
 		wl_container_of(listener, output, presentable_commit);
-	assert(data == output->output.ctx);
+	assert(data == &output->output.surface);
 	output->gpu->impl->page_flip(output, DRM_MODE_PAGE_FLIP_EVENT);
 }
 
@@ -451,10 +454,9 @@ tw_drm_display_start(struct tw_drm_display *output)
 	struct tw_drm_backend *drm = output->drm;
 
 	tw_render_output_set_context(&output->output, drm->base.ctx);
-	tw_signal_setup_listener(&drm->base.ctx->events.presentable_commit,
+	tw_signal_setup_listener(&output->output.surface.commit,
 	                         &output->presentable_commit,
 	                         notify_display_presentable_commit);
-
 	if (!output->status.annouced) {
 		wl_signal_emit(&drm->base.events.new_output,
 		               &output->output.device);
@@ -462,6 +464,7 @@ tw_drm_display_start(struct tw_drm_display *output)
 	}
 	//force updating display mode to allocate buffers.
 	UPDATE_PENDING_MODE(output, &output->status.mode, true);
+
 	//commit state would now handle most of the logics
 	tw_output_device_commit_state(&output->output.device);
 }

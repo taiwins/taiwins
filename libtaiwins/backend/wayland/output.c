@@ -313,11 +313,10 @@ void
 tw_wl_surface_start(struct tw_wl_surface *output)
 {
 	struct tw_wl_backend *wl = output->wl;
-	struct tw_render_context *ctx = wl->base.ctx;
 	unsigned width, height;
 
 	assert(wl->base.ctx);
-	tw_signal_setup_listener(&ctx->events.presentable_commit,
+	tw_signal_setup_listener(&output->output.surface.commit,
 	                         &output->output_commit,
 	                         notify_output_commit);
 

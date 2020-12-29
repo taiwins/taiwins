@@ -58,6 +58,7 @@ struct tw_render_presentable_impl {
 
 struct tw_render_presentable {
 	intptr_t handle;
+	struct wl_signal commit;
 	const struct tw_render_presentable_impl *impl;
 };
 
@@ -101,8 +102,6 @@ struct tw_render_context {
 		struct wl_signal destroy;
 		struct wl_signal dma_set;
 		struct wl_signal compositor_set;
-		/** emit at commit_surface */
-		struct wl_signal presentable_commit;
 		//this is plain damn weird.
 		struct wl_signal wl_surface_dirty;
 		struct wl_signal wl_surface_destroy;
@@ -160,7 +159,11 @@ static inline bool
 tw_render_presentable_commit(struct tw_render_presentable *surface,
                              struct tw_render_context *ctx)
 {
-	return surface->impl->commit(surface, ctx);
+	bool ret = true;
+
+	if ((ret = surface->impl->commit(surface, ctx)))
+		wl_signal_emit(&surface->commit, surface);
+	return ret;
 }
 
 static inline int

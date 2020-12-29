@@ -114,9 +114,8 @@ headless_output_start(struct tw_headless_output *output,
 	uint32_t width, height;
 	struct wl_event_loop *loop =
 		wl_display_get_event_loop(headless->display);
-	struct tw_render_context *ctx = headless->base.ctx;
 
-	tw_signal_setup_listener(&ctx->events.presentable_commit,
+	tw_signal_setup_listener(&output->output.surface.commit,
 	                         &output->present_listener,
 	                         notify_output_commit);
 

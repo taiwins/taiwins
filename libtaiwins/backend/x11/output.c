@@ -129,7 +129,7 @@ tw_x11_output_start(struct tw_x11_output *output)
 		XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_STRUCTURE_NOTIFY
 	};
 
-	tw_signal_setup_listener(&x11->base.ctx->events.presentable_commit,
+	tw_signal_setup_listener(&output->output.surface.commit,
 	                         &output->output_commit_listener,
 	                         notify_output_commit);
 

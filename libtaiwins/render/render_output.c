@@ -25,6 +25,7 @@
 #include <pixman.h>
 #include <stdint.h>
 #include <string.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
@@ -34,6 +35,12 @@
 #include <taiwins/render_surface.h>
 #include <taiwins/output_device.h>
 #include <taiwins/render_pipeline.h>
+
+static inline bool
+check_bits(uint32_t data, uint32_t mask)
+{
+	return ((data ^ mask) & mask) == 0;
+}
 
 static enum wl_output_transform
 inverse_wl_transform(enum wl_output_transform t)
@@ -241,7 +248,9 @@ notify_output_frame(struct wl_listener *listener, void *data)
 
 	assert(ctx);
 
-	if (!(output->state.repaint_state & should_repaint))
+	if (!check_bits(output->state.repaint_state, should_repaint))
+		return;
+	if (check_bits(output->state.repaint_state, TW_REPAINT_COMMITTED))
 		return;
 	clock_gettime(output->device.clk_id, &tstart);
 
@@ -297,6 +306,7 @@ tw_render_output_init(struct tw_render_output *output,
 	wl_list_init(&output->link);
 	wl_list_init(&output->listeners.surface_dirty.link);
 
+	wl_signal_init(&output->surface.commit);
 	wl_signal_init(&output->events.surface_enter);
 	wl_signal_init(&output->events.surface_leave);
 
