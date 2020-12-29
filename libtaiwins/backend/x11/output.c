@@ -52,6 +52,7 @@ x11_commit_output_state(struct tw_output_device *output)
 	//the x11 backend will simply resize the output for us so we only need
 	//to update the view matrix
 	memcpy(&output->state, &output->pending, sizeof(output->state));
+	output->state.current_mode.refresh = DEFAULT_REFRESH;
 }
 
 static const struct tw_output_device_impl x11_output_impl = {
