@@ -141,7 +141,7 @@ engine_init_globals(struct tw_engine *engine)
 }
 
 
-struct tw_engine *
+WL_EXPORT struct tw_engine *
 tw_engine_create_global(struct wl_display *display, struct tw_backend *backend)
 {
 	struct tw_engine *engine = &s_engine;

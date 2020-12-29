@@ -350,7 +350,7 @@ notify_x11_render_context_destroy(struct wl_listener *listener, void *data)
         x11_backend_stop(x11);
 }
 
-struct tw_backend *
+WL_EXPORT struct tw_backend *
 tw_x11_backend_create(struct wl_display *display, const char *x11_display)
 {
 	struct tw_x11_backend *x11 = calloc(1, sizeof(*x11));

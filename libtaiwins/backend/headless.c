@@ -225,7 +225,7 @@ notify_headless_display_destroy(struct wl_listener *listener,
 	headless_destroy(headless);
 }
 
-struct tw_backend *
+WL_EXPORT struct tw_backend *
 tw_headless_backend_create(struct wl_display *display)
 {
 	struct tw_headless_backend *headless = calloc(1, sizeof(*headless));
@@ -249,7 +249,7 @@ tw_headless_backend_create(struct wl_display *display)
         return &headless->base;
 }
 
-bool
+WL_EXPORT bool
 tw_headless_backend_add_output(struct tw_backend *backend,
                                unsigned int width, unsigned int height)
 {
@@ -279,7 +279,7 @@ tw_headless_backend_add_output(struct tw_backend *backend,
         return true;
 }
 
-bool
+WL_EXPORT bool
 tw_headless_backend_add_input_device(struct tw_backend *backend,
                                      enum tw_input_device_type type)
 {

@@ -527,7 +527,7 @@ bind_shell(struct wl_client *client, void *data,
  * exposed API
  *****************************************************************************/
 
-void
+WL_EXPORT void
 tw_shell_create_ui_elem(struct tw_shell *shell,
                         struct wl_client *client,
                         struct tw_engine_output *output,
@@ -544,7 +544,7 @@ tw_shell_create_ui_elem(struct tw_shell *shell,
 	}
 }
 
-void
+WL_EXPORT void
 tw_shell_post_data(struct tw_shell *shell, uint32_t type,
 		struct wl_array *msg)
 {
@@ -554,7 +554,7 @@ tw_shell_post_data(struct tw_shell *shell, uint32_t type,
 				type, msg);
 }
 
-void
+WL_EXPORT void
 tw_shell_post_message(struct tw_shell *shell, uint32_t type, const char *msg)
 {
 	struct wl_array arr;
@@ -568,7 +568,7 @@ tw_shell_post_message(struct tw_shell *shell, uint32_t type, const char *msg)
 	taiwins_shell_send_client_msg(shell->shell_resource, type, &arr);
 }
 
-pixman_rectangle32_t
+WL_EXPORT pixman_rectangle32_t
 tw_shell_output_available_space(struct tw_shell *shell,
                                 struct tw_engine_output *output)
 {
@@ -586,13 +586,13 @@ tw_shell_output_available_space(struct tw_shell *shell,
 	return geo;
 }
 
-struct wl_signal *
+WL_EXPORT struct wl_signal *
 tw_shell_get_desktop_area_signal(struct tw_shell *shell)
 {
 	return &shell->desktop_area_signal;
 }
 
-void
+WL_EXPORT void
 tw_shell_set_panel_pos(struct tw_shell *shell,
                        enum taiwins_shell_panel_pos pos)
 {
@@ -746,7 +746,7 @@ shell_init_layers(struct tw_shell *shell, struct tw_layers_manager *layers)
  * public APIS
  *****************************************************************************/
 
-struct tw_shell *
+WL_EXPORT struct tw_shell *
 tw_shell_create_global(struct wl_display *display,
                        struct tw_engine *engine, bool enable_layer_shell,
                        const char *path)

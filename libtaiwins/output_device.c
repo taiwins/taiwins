@@ -48,7 +48,7 @@ output_device_state_init(struct tw_output_device_state *state,
 	state->gy = 0;
 }
 
-void
+WL_EXPORT void
 tw_output_device_init(struct tw_output_device *device,
                       const struct tw_output_device_impl *impl)
 {
@@ -71,7 +71,7 @@ tw_output_device_init(struct tw_output_device *device,
 	wl_signal_init(&device->events.commit_state);
 }
 
-void
+WL_EXPORT void
 tw_output_device_fini(struct tw_output_device *device)
 {
 	wl_signal_emit(&device->events.destroy, device);
@@ -79,20 +79,20 @@ tw_output_device_fini(struct tw_output_device *device)
 	wl_list_remove(&device->link);
 }
 
-void
+WL_EXPORT void
 tw_output_device_set_id(struct tw_output_device *device, int id)
 {
 	device->id = id;
 }
 
-void
+WL_EXPORT void
 tw_output_device_set_pos(struct tw_output_device *device, int gx, int gy)
 {
 	device->pending.gx = gx;
 	device->pending.gy = gy;
 }
 
-void
+WL_EXPORT void
 tw_output_device_set_mode(struct tw_output_device *device,
                           const struct tw_output_device_mode *mode)
 {
@@ -102,7 +102,7 @@ tw_output_device_set_mode(struct tw_output_device *device,
 	device->pending.current_mode.preferred = mode->preferred;
 }
 
-void
+WL_EXPORT void
 tw_output_device_set_custom_mode(struct tw_output_device *device,
                                  unsigned width, unsigned height, int refresh)
 {
@@ -119,7 +119,7 @@ tw_output_device_set_custom_mode(struct tw_output_device *device,
  * or the closest mode we can get.
  *
  */
-struct tw_output_device_mode *
+WL_EXPORT struct tw_output_device_mode *
 tw_output_device_match_mode(struct tw_output_device *device,
                             int w, int h, int r)
 {
@@ -151,7 +151,7 @@ tw_output_device_match_mode(struct tw_output_device *device,
 	return matched;
 }
 
-void
+WL_EXPORT void
 tw_output_device_set_scale(struct tw_output_device *device, float scale)
 {
 	if (scale <= 0) {
@@ -162,20 +162,20 @@ tw_output_device_set_scale(struct tw_output_device *device, float scale)
 	device->pending.scale = scale;
 }
 
-void
+WL_EXPORT void
 tw_output_device_set_transform(struct tw_output_device *device,
                                enum wl_output_transform transform)
 {
 	device->pending.transform = transform;
 }
 
-void
+WL_EXPORT void
 tw_output_device_enable(struct tw_output_device *device, bool enable)
 {
 	device->pending.enabled = enable;
 }
 
-void
+WL_EXPORT void
 tw_output_device_commit_state(struct tw_output_device *device)
 {
 	//emit for backend
@@ -185,7 +185,7 @@ tw_output_device_commit_state(struct tw_output_device *device)
 	wl_signal_emit(&device->events.info, device);
 }
 
-void
+WL_EXPORT void
 tw_output_device_present(struct tw_output_device *device,
                          struct tw_event_output_device_present *event)
 {
@@ -218,7 +218,7 @@ output_get_effective_resolution(const struct tw_output_device_state *state,
 	*height /= state->scale;
 }
 
-pixman_rectangle32_t
+WL_EXPORT pixman_rectangle32_t
 tw_output_device_geometry(const struct tw_output_device *output)
 {
 	int width, height;
@@ -230,7 +230,7 @@ tw_output_device_geometry(const struct tw_output_device *output)
 	};
 }
 
-void
+WL_EXPORT void
 tw_output_device_loc_to_global(const struct tw_output_device *output,
                                float x, float y, float *gx, float *gy)
 {
@@ -242,7 +242,7 @@ tw_output_device_loc_to_global(const struct tw_output_device *output,
 	*gy = output->state.gy + y * height;
 }
 
-void
+WL_EXPORT void
 tw_output_device_raw_resolution(const struct tw_output_device *device,
                                 unsigned *width, unsigned *height)
 {

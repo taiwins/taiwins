@@ -594,7 +594,7 @@ tw_engine_seat_add_input_device(struct tw_engine_seat *seat,
 	tw_input_device_attach_emitter(device, &seat->source);
 }
 
-void
+WL_EXPORT void
 tw_engine_seat_set_xkb_rules(struct tw_engine_seat *seat,
                              struct xkb_rule_names *rules)
 {
@@ -626,7 +626,7 @@ tw_engine_seat_set_xkb_rules(struct tw_engine_seat *seat,
 	xkb_keymap_unref(keymap);
 }
 
-struct tw_engine_seat *
+WL_EXPORT struct tw_engine_seat *
 tw_engine_get_focused_seat(struct tw_engine *engine)
 {
 	//compare the last serial, the biggest win.

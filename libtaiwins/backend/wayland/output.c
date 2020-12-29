@@ -355,7 +355,7 @@ tw_wl_surface_start(struct tw_wl_surface *output)
 	handle_callback_done(output, output->frame, 0);
 }
 
-bool
+WL_EXPORT bool
 tw_wl_backend_new_output(struct tw_backend *backend,
                          unsigned width, unsigned height)
 {

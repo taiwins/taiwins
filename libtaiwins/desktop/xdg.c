@@ -452,7 +452,7 @@ init_desktop_layouts(struct tw_xdg *xdg)
 /******************************************************************************
  * APIs
  *****************************************************************************/
-void
+WL_EXPORT void
 tw_xdg_view_activate(struct tw_xdg *xdg, struct tw_xdg_view *view)
 {
 	struct tw_workspace *ws = xdg->actived_workspace[0];
@@ -461,7 +461,7 @@ tw_xdg_view_activate(struct tw_xdg *xdg, struct tw_xdg_view *view)
 	twdesk_surface_focus(xdg, view->dsurf);
 }
 
-void
+WL_EXPORT void
 tw_xdg_toggle_view_split(struct tw_xdg *xdg, struct tw_xdg_view *view)
 {
 	struct tw_workspace *ws = xdg->actived_workspace[0];
@@ -470,7 +470,7 @@ tw_xdg_toggle_view_split(struct tw_xdg *xdg, struct tw_xdg_view *view)
         tw_workspace_run_command(ws, DPSR_toggle, view);
 }
 
-void
+WL_EXPORT void
 tw_xdg_toggle_view_layout(struct tw_xdg *xdg, struct tw_xdg_view *view)
 {
 	struct tw_workspace *ws = xdg->actived_workspace[0];
@@ -492,7 +492,7 @@ tw_xdg_toggle_view_layout(struct tw_xdg *xdg, struct tw_xdg_view *view)
 	tw_workspace_add_view(ws, view);
 }
 
-void
+WL_EXPORT void
 tw_xdg_split_on_view(struct tw_xdg *xdg, struct tw_xdg_view *view,
                      bool vsplit)
 {
@@ -502,7 +502,7 @@ tw_xdg_split_on_view(struct tw_xdg *xdg, struct tw_xdg_view *view,
                                  view);
 }
 
-void
+WL_EXPORT void
 tw_xdg_merge_view(struct tw_xdg *xdg, struct tw_xdg_view *view)
 {
 	struct tw_workspace *ws = xdg->actived_workspace[0];
@@ -511,7 +511,7 @@ tw_xdg_merge_view(struct tw_xdg *xdg, struct tw_xdg_view *view)
         tw_workspace_run_command(ws, DPSR_merge, view);
 }
 
-void
+WL_EXPORT void
 tw_xdg_resize_view(struct tw_xdg *xdg, struct tw_xdg_view *view,
                    int32_t dx, int32_t dy, enum wl_shell_surface_resize edge)
 {
@@ -521,19 +521,19 @@ tw_xdg_resize_view(struct tw_xdg *xdg, struct tw_xdg_view *view,
         tw_workspace_resize_view(ws, view, dx, dy, edge);
 }
 
-int
+WL_EXPORT int
 tw_xdg_current_workspace_idx(struct tw_xdg *xdg)
 {
 	return xdg->actived_workspace[0]->idx;
 }
 
-int
+WL_EXPORT int
 tw_xdg_last_workspace_idx(struct tw_xdg *xdg)
 {
 	return xdg->actived_workspace[1]->idx;
 }
 
-void
+WL_EXPORT void
 tw_xdg_set_workspace_layout(struct tw_xdg *xdg, int32_t idx,
                             enum tw_layout_type layout)
 {
@@ -541,7 +541,7 @@ tw_xdg_set_workspace_layout(struct tw_xdg *xdg, int32_t idx,
 		tw_workspace_switch_layout(&xdg->workspaces[idx], layout);
 }
 
-void
+WL_EXPORT void
 tw_xdg_switch_workspace(struct tw_xdg *xdg, uint32_t to)
 {
 	struct tw_xdg_view *view;
@@ -566,7 +566,7 @@ tw_xdg_switch_workspace(struct tw_xdg *xdg, uint32_t to)
 		tw_xdg_view_activate(xdg, view);
 }
 
-const char *
+WL_EXPORT const char *
 tw_xdg_workspace_layout_name(struct tw_xdg *xdg, uint32_t i)
 {
 	struct tw_workspace *ws;
@@ -587,7 +587,7 @@ tw_xdg_workspace_layout_name(struct tw_xdg *xdg, uint32_t i)
 	return NULL;
 }
 
-int
+WL_EXPORT int
 tw_xdg_layout_type_from_name(const char *name)
 {
 	if (name && !strcmp(name, "floating"))
@@ -601,7 +601,7 @@ tw_xdg_layout_type_from_name(const char *name)
 	return -1;
 }
 
-void
+WL_EXPORT void
 tw_xdg_set_desktop_gap(struct tw_xdg *xdg, uint32_t igap, uint32_t ogap)
 {
 	struct tw_engine_output *eo;
@@ -620,7 +620,7 @@ tw_xdg_set_desktop_gap(struct tw_xdg *xdg, uint32_t igap, uint32_t ogap)
 
 }
 
-struct tw_xdg *
+WL_EXPORT struct tw_xdg *
 tw_xdg_create_global(struct wl_display *display, struct tw_shell *shell,
                      struct tw_engine *engine)
 {

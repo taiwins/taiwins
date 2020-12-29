@@ -115,12 +115,6 @@ tw_login_fini(struct tw_login *login)
 	udev_unref(login->udev);
 }
 
-int
-tw_login_open(struct tw_login *login, const char *path, uint32_t flags)
-{
-	return login->impl->open(login, path, flags);
-}
-
 struct tw_login *
 tw_login_create(struct wl_display *display)
 {
@@ -146,24 +140,6 @@ tw_login_destroy(struct tw_login *login)
 /******************************************************************************
  * Public APIs
  *****************************************************************************/
-
-void
-tw_login_close(struct tw_login *login, int fd)
-{
-	login->impl->close(login, fd);
-}
-
-bool
-tw_login_switch_vt(struct tw_login *login, unsigned vt)
-{
-	return login->impl->switch_vt(login, vt);
-}
-
-int
-tw_login_get_vt(struct tw_login *login)
-{
-	return login->impl->get_vt(login);
-}
 
 static bool
 drm_device_check_kms(struct udev_device *dev, struct tw_login *login,

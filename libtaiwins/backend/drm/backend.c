@@ -365,7 +365,7 @@ notify_drm_display_destroy(struct wl_listener *listener, void *data)
 	drm_backend_destroy(drm);
 }
 
-struct tw_backend *
+WL_EXPORT struct tw_backend *
 tw_drm_backend_create(struct wl_display *display)
 {
 	struct tw_drm_backend *drm = calloc(1, sizeof(*drm));
@@ -410,7 +410,7 @@ err_login:
 	return NULL;
 }
 
-struct tw_login *
+WL_EXPORT struct tw_login *
 tw_drm_backend_get_login(struct tw_backend *base)
 {
 	struct tw_drm_backend *drm = NULL;

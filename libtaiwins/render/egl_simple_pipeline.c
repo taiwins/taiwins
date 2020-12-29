@@ -431,7 +431,7 @@ pipeline_destroy(struct tw_render_pipeline *base)
         free(pipeline);
 }
 
-struct tw_render_pipeline *
+WL_EXPORT struct tw_render_pipeline *
 tw_egl_render_pipeline_create_default(struct tw_render_context *ctx,
                                       struct tw_layers_manager *manager)
 {
