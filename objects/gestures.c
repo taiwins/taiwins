@@ -33,7 +33,7 @@ static const struct zwp_pointer_gesture_pinch_v1_interface pinch_impl = {
 	.destroy = tw_resource_destroy_common,
 };
 
-void
+WL_EXPORT void
 tw_gestures_pinch_begin(struct tw_gestures_manager *manager,
                         struct tw_pointer *pointer, uint32_t time,
                         struct wl_resource *surface, uint32_t fingers)
@@ -50,7 +50,7 @@ tw_gestures_pinch_begin(struct tw_gestures_manager *manager,
 	}
 }
 
-void
+WL_EXPORT void
 tw_gestures_pinch_update(struct tw_gestures_manager *manager,
                          struct tw_pointer *pointer, uint32_t time,
                          double dx, double dy, double scale, double rotation)
@@ -70,7 +70,7 @@ tw_gestures_pinch_update(struct tw_gestures_manager *manager,
 	}
 }
 
-void
+WL_EXPORT void
 tw_gestures_pinch_end(struct tw_gestures_manager *manager,
                       struct tw_pointer *pointer, uint32_t time, bool cancel)
 {
@@ -94,7 +94,7 @@ static const struct zwp_pointer_gesture_swipe_v1_interface swipe_impl = {
 	.destroy = tw_resource_destroy_common,
 };
 
-void
+WL_EXPORT void
 tw_gestures_swipe_begin(struct tw_gestures_manager *manager,
                         struct tw_pointer *pointer, uint32_t time,
                         struct wl_resource *surface, uint32_t fingers)
@@ -111,7 +111,7 @@ tw_gestures_swipe_begin(struct tw_gestures_manager *manager,
 	}
 }
 
-void
+WL_EXPORT void
 tw_gestures_swipe_update(struct tw_gestures_manager *manager,
                          struct tw_pointer *pointer, uint32_t time,
                          double dx, double dy)
@@ -129,7 +129,7 @@ tw_gestures_swipe_update(struct tw_gestures_manager *manager,
 	}
 }
 
-void
+WL_EXPORT void
 tw_gestures_swipe_end(struct tw_gestures_manager *manager,
                       struct tw_pointer *pointer, uint32_t time, bool cancel)
 {
