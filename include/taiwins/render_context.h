@@ -47,10 +47,19 @@ enum tw_renderer_type {
 	TW_RENDERER_VK,
 };
 
-struct tw_render_presentable {
-	intptr_t handle;
+struct tw_render_presentable_impl {
 	void (*destroy)(struct tw_render_presentable *surface,
 	                struct tw_render_context *ctx);
+	bool (*commit)(struct tw_render_presentable *surf,
+	               struct tw_render_context *ctx);
+        int (*make_current)(struct tw_render_presentable *surf,
+	                    struct tw_render_context *ctx);
+};
+
+struct tw_render_presentable {
+	intptr_t handle;
+	struct wl_signal commit;
+	const struct tw_render_presentable_impl *impl;
 };
 
 struct tw_render_texture {
@@ -73,11 +82,6 @@ struct tw_render_context_impl {
 	                           struct tw_render_context *ctx,
 	                           void *native_window);
 
-	bool (*commit_presentable)(struct tw_render_presentable *surf,
-	                           struct tw_render_context *ctx);
-
-        int (*make_current)(struct tw_render_presentable *surf,
-	                    struct tw_render_context *ctx);
 };
 
 /* we create this render context from scratch so we don't break everything, the
@@ -98,9 +102,8 @@ struct tw_render_context {
 		struct wl_signal destroy;
 		struct wl_signal dma_set;
 		struct wl_signal compositor_set;
-		/** emit at commit_surface */
-		struct wl_signal presentable_commit;
 		//this is plain damn weird.
+		struct wl_signal output_lost;
 		struct wl_signal wl_surface_dirty;
 		struct wl_signal wl_surface_destroy;
 	} events;
@@ -122,6 +125,9 @@ tw_render_context_destroy(struct tw_render_context *ctx);
 void
 tw_render_context_build_view_list(struct tw_render_context *ctx,
                                   struct tw_layers_manager *manager);
+void
+tw_render_surface_reassign_outputs(struct tw_render_surface *render_surface,
+                                   struct tw_render_context *ctx);
 void
 tw_render_context_set_dma(struct tw_render_context *ctx,
                           struct tw_linux_dmabuf *dma);
@@ -149,14 +155,26 @@ static inline void
 tw_render_presentable_fini(struct tw_render_presentable *surface,
                            struct tw_render_context *ctx)
 {
-	surface->destroy(surface, ctx);
+	surface->impl->destroy(surface, ctx);
+	surface->handle = (intptr_t)NULL;
 }
 
 static inline bool
 tw_render_presentable_commit(struct tw_render_presentable *surface,
                              struct tw_render_context *ctx)
 {
-	return ctx->impl->commit_presentable(surface, ctx);
+	bool ret = true;
+
+	if ((ret = surface->impl->commit(surface, ctx)))
+		wl_signal_emit(&surface->commit, surface);
+	return ret;
+}
+
+static inline int
+tw_render_presentable_make_current(struct tw_render_presentable *surf,
+                                   struct tw_render_context *ctx)
+{
+	return surf->impl->make_current(surf, ctx);
 }
 
 int

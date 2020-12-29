@@ -26,11 +26,14 @@
 
 #include <taiwins/input_device.h>
 
-
 static void
 input_device_destroy_dummy(struct tw_input_device *device)
 {
 }
+
+static const struct tw_input_device_impl dummy_impl = {
+	.destroy = input_device_destroy_dummy,
+};
 
 static bool
 update_keyboard_modifier(struct tw_input_device *dev)
@@ -77,10 +80,10 @@ void
 tw_input_device_init(struct tw_input_device *device,
                      enum tw_input_device_type type,
                      uint32_t seat_id,
-                     void (*destroy)(struct tw_input_device *))
+                     const struct tw_input_device_impl *impl)
 {
-	destroy = (destroy) ? destroy : input_device_destroy_dummy;
-
+	if (!impl)
+		impl = &dummy_impl;
 	//does keyboard here need to have the keymaps, keystate anyway?
 	//we need to check the code of libinput it should work the same
 	switch (type) {
@@ -102,7 +105,7 @@ tw_input_device_init(struct tw_input_device *device,
 	device->type = type;
 	device->seat_id = seat_id;
 	device->emitter = NULL;
-	device->destroy = destroy;
+	device->impl = impl;
 }
 
 void
@@ -118,7 +121,7 @@ tw_input_device_fini(struct tw_input_device *device)
 	wl_list_remove(&device->link);
 	if (device->emitter)
 		wl_signal_emit(&device->emitter->remove, device);
-	device->destroy(device);
+	device->impl->destroy(device);
 }
 
 void

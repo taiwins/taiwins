@@ -16,6 +16,8 @@ global_args_maybe = [
 	'-Wno-unused-parameter',
 	'-Wno-missing-field-initializers',
 	'-Wno-pedantic',
+	'-Wunsequenced', #for clang
+	'-Wsequence-point', #for gcc
 ]
 
 add_global_arguments(
@@ -32,6 +34,8 @@ options_data.set10('_TW_DEBUG_CLIP', false)
 options_data.set10('_TW_HAS_X11_BACKEND', false)
 options_data.set10('_TW_HAS_XWAYLAND', false)
 options_data.set10('_TW_HAS_LIBINPUT_GET_TOUCH_COUNT', false)
+options_data.set10('_TW_HAS_SYSTEMD', false)
+options_data.set10('_TW_HAS_ELOGIND', false)
 
 ###### subprojects
 twclient = subproject('twclient')
@@ -56,6 +60,7 @@ dep_glesv2 = dependency('glesv2')
 dep_egl = dependency('egl')
 dep_libdrm = dependency('libdrm', version: '>= 2.4.68')
 dep_libinput = dependency('libinput', version: '>=1.9.0')
+dep_gbm = dependency('gbm')
 dep_pam = cc.find_library('pam')
 dep_m = cc.find_library('m')
 dep_dl = cc.find_library('dl')
