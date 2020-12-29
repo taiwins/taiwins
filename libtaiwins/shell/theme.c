@@ -53,7 +53,7 @@ tw_theme_get_global(void)
 }
 
 
-void
+WL_EXPORT void
 tw_theme_notify(struct tw_theme_global *theme, struct tw_theme *new_theme)
 {
 	struct wl_resource *client;
@@ -128,7 +128,7 @@ end_theme(struct wl_listener *listener, void *data)
  * public APIs
  ******************************************************************************/
 
-struct tw_theme_global *
+WL_EXPORT struct tw_theme_global *
 tw_theme_create_global(struct wl_display *display)
 {
 	THEME.display = display;

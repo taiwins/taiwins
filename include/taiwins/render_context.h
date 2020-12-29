@@ -177,10 +177,6 @@ tw_render_presentable_make_current(struct tw_render_presentable *surf,
 	return surf->impl->make_current(surf, ctx);
 }
 
-int
-tw_render_presentable_make_current(struct tw_render_presentable *surf,
-                                   struct tw_render_context *ctx);
-
 #ifdef  __cplusplus
 }
 #endif

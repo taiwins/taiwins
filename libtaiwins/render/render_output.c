@@ -221,7 +221,7 @@ notify_output_new_mode(struct wl_listener *listener, void *data)
  * APIs
  *****************************************************************************/
 
-void
+WL_EXPORT void
 tw_render_output_init(struct tw_render_output *output,
                       const struct tw_output_device_impl *impl)
 {
@@ -250,7 +250,7 @@ tw_render_output_init(struct tw_render_output *output,
 	                         notify_output_new_mode);
 }
 
-void
+WL_EXPORT void
 tw_render_output_fini(struct tw_render_output *output)
 {
 	fini_output_state(output);
@@ -263,7 +263,7 @@ tw_render_output_fini(struct tw_render_output *output)
 	tw_output_device_fini(&output->device);
 }
 
-void
+WL_EXPORT void
 tw_render_output_rebuild_view_mat(struct tw_render_output *output)
 {
 	struct tw_mat3 glproj, tmp;
@@ -292,7 +292,7 @@ tw_render_output_rebuild_view_mat(struct tw_render_output *output)
 	                 &output->state.view_2d);
 }
 
-void
+WL_EXPORT void
 tw_render_output_set_context(struct tw_render_output *output,
                              struct tw_render_context *ctx)
 {
@@ -309,7 +309,7 @@ tw_render_output_set_context(struct tw_render_output *output,
 	                         notify_output_surface_dirty);
 }
 
-void
+WL_EXPORT void
 tw_render_output_unset_context(struct tw_render_output *output)
 {
 	struct tw_render_context *ctx = output->ctx;
@@ -321,7 +321,7 @@ tw_render_output_unset_context(struct tw_render_output *output)
 	wl_signal_emit(&ctx->events.output_lost, output);
 }
 
-void
+WL_EXPORT void
 tw_render_output_reset_clock(struct tw_render_output *output, clockid_t clk)
 {
 	output->device.clk_id = clk;
@@ -331,14 +331,14 @@ tw_render_output_reset_clock(struct tw_render_output *output, clockid_t clk)
 	memset(output->state.fts, 0, sizeof(output->state.fts));
 }
 
-uint32_t
+WL_EXPORT uint32_t
 tw_render_output_calc_frametime(struct tw_render_output *output)
 {
 	return output->state.ft_cnt ?
 		(output->state.ft_sum / output->state.ft_cnt) + 1 : 0;
 }
 
-void
+WL_EXPORT void
 tw_render_output_dirty(struct tw_render_output *output)
 {
 	output->state.repaint_state |= TW_REPAINT_DIRTY;
@@ -353,7 +353,7 @@ tw_render_output_dirty(struct tw_render_output *output)
  * should not change, it shield us from committing another frame before the
  * pageflip/swapbuffer happens.
 */
-void
+WL_EXPORT void
 tw_render_output_commit(struct tw_render_output *output)
 {
 	output->state.repaint_state = TW_REPAINT_COMMITTED;
@@ -365,7 +365,7 @@ tw_render_output_commit(struct tw_render_output *output)
  * still dirty and reset the TW_REPAINT_SCHEDULED bit so we can commit another
  * frame frame again.
  */
-void
+WL_EXPORT void
 tw_render_output_clean_maybe(struct tw_render_output *output)
 {
 	output->state.repaint_state &= ~TW_REPAINT_COMMITTED;

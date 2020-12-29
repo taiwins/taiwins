@@ -184,7 +184,7 @@ launch_console_client(void *data)
 	                          &console->gid);
 }
 
-void
+WL_EXPORT void
 tw_console_start_client(struct tw_console *console)
 {
 	if (!console || !console->client) //we do not have a console
@@ -208,7 +208,7 @@ end_console(struct wl_listener *listener, void *data)
 }
 
 
-struct tw_console *
+WL_EXPORT struct tw_console *
 tw_console_create_global(struct wl_display *display, const char *path,
                          struct tw_engine *engine, struct tw_shell *shell)
 {

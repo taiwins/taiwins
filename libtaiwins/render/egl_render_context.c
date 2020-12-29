@@ -346,7 +346,7 @@ tw_gles_debug_pop(struct tw_egl_render_context *ctx)
  * initializers
  *****************************************************************************/
 
-struct tw_render_context *
+WL_EXPORT struct tw_render_context *
 tw_render_context_create_egl(struct wl_display *display,
                              const struct tw_egl_options *opts)
 {

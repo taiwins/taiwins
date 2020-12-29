@@ -35,7 +35,7 @@
 #include <taiwins/backend_x11.h>
 #endif
 
-void
+WL_EXPORT void
 tw_backend_init(struct tw_backend *backend)
 {
 	backend->started = false;
@@ -51,13 +51,13 @@ tw_backend_init(struct tw_backend *backend)
 	wl_list_init(&backend->render_context_destroy.link);
 }
 
-const struct tw_egl_options *
+WL_EXPORT const struct tw_egl_options *
 tw_backend_get_egl_params(struct tw_backend *backend)
 {
 	return backend->impl->gen_egl_params(backend);
 }
 
-void
+WL_EXPORT void
 tw_backend_start(struct tw_backend *backend, struct tw_render_context *ctx)
 {
 	assert(backend->impl->start);
@@ -69,7 +69,7 @@ tw_backend_start(struct tw_backend *backend, struct tw_render_context *ctx)
 	wl_signal_emit(&backend->events.start, backend);
 }
 
-struct tw_backend *
+WL_EXPORT struct tw_backend *
 tw_backend_create_auto(struct wl_display *display)
 {
 	struct tw_backend *backend = NULL;

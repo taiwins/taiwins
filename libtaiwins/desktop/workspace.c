@@ -107,7 +107,7 @@ tw_xdg_view_backup_geometry(struct tw_xdg_view *v)
 	v->old_geometry.height = v->dsurf->window_geometry.h;
 }
 
-struct tw_xdg_view *
+WL_EXPORT struct tw_xdg_view *
 tw_xdg_view_from_tw_surface(struct tw_surface *surface)
 {
 	struct tw_desktop_surface *dsurf =

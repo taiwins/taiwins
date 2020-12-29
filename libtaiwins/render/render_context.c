@@ -181,7 +181,7 @@ static const struct tw_allocator tw_render_compositor_allocator =  {
 
 /** I think this will simply seat here even if we have a vulkan render context,
  EGL render context will be compulsory */
-void
+WL_EXPORT void
 tw_render_context_destroy(struct tw_render_context *ctx)
 {
 	ctx->display_destroy.notify(&ctx->display_destroy, ctx->display);
@@ -243,7 +243,7 @@ surface_add_to_outputs_list(struct tw_render_context *ctx,
 		surface_add_to_outputs_list(ctx, sub->surface);
 }
 
-void
+WL_EXPORT void
 tw_render_context_build_view_list(struct tw_render_context *ctx,
                                   struct tw_layers_manager *manager)
 {
@@ -298,7 +298,7 @@ update_surface_mask(struct tw_surface *tw_surface,
 	}
 }
 
-void
+WL_EXPORT void
 tw_render_surface_reassign_outputs(struct tw_render_surface *render_surface,
                                    struct tw_render_context *ctx)
 {
@@ -339,7 +339,7 @@ tw_render_surface_reassign_outputs(struct tw_render_surface *render_surface,
 	update_surface_mask(surface, major, mask);
 }
 
-void
+WL_EXPORT void
 tw_render_context_set_compositor(struct tw_render_context *ctx,
                                  struct tw_compositor *compositor)
 {
@@ -347,7 +347,7 @@ tw_render_context_set_compositor(struct tw_render_context *ctx,
 	compositor->obj_alloc = &tw_render_compositor_allocator;
 }
 
-void
+WL_EXPORT void
 tw_render_context_set_dma(struct tw_render_context *ctx,
                           struct tw_linux_dmabuf *dma)
 {

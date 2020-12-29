@@ -24,7 +24,7 @@
 #include <wayland-util.h>
 #include <taiwins/render_pipeline.h>
 
-void
+WL_EXPORT void
 tw_render_pipeline_init(struct tw_render_pipeline *pipeline,
                         const char *name, struct tw_render_context *ctx)
 {
@@ -38,7 +38,8 @@ tw_render_pipeline_init(struct tw_render_pipeline *pipeline,
 	wl_signal_init(&pipeline->events.post_output_repaint);
 
 }
-void
+
+WL_EXPORT void
 tw_render_pipeline_fini(struct tw_render_pipeline *pipeline)
 {
 	wl_list_remove(&pipeline->link);

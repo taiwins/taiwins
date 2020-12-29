@@ -190,7 +190,7 @@ tw_x11_output_start(struct tw_x11_output *output)
 	return true;
 }
 
-bool
+WL_EXPORT bool
 tw_x11_backend_add_output(struct tw_backend *backend,
                           unsigned int width, unsigned int height)
 {
