@@ -78,77 +78,6 @@ fini_output_state(struct tw_render_output *o)
 		pixman_region32_fini(&o->state.damages[i]);
 }
 
-static void
-update_surface_mask(struct tw_surface *tw_surface,
-                    struct tw_render_output *major, uint32_t mask)
-{
-	struct tw_render_output *output;
-	struct tw_render_surface *surface =
-		wl_container_of(tw_surface, surface, surface);
-	uint32_t output_bit;
-	uint32_t different = surface->output_mask ^ mask;
-	uint32_t entered = mask & different;
-	uint32_t left = surface->output_mask & different;
-
-	assert(major->ctx);
-
-	//update the surface_mask and
-	surface->output_mask = mask;
-	surface->output = major->device.id;
-
-	wl_list_for_each(output, &major->ctx->outputs, link) {
-		output_bit = 1u << output->device.id;
-		if (!(output_bit & different))
-			continue;
-		if ((output_bit & entered))
-			wl_signal_emit(&output->events.surface_enter,
-			               tw_surface);
-		if ((output_bit & left))
-			wl_signal_emit(&output->events.surface_leave,
-			               tw_surface);
-	}
-}
-
-static void
-reassign_surface_outputs(struct tw_surface *surface,
-                         struct tw_render_context *ctx)
-{
-	uint32_t area = 0, max = 0, mask = 0;
-	struct tw_render_output *output, *major = NULL;
-	pixman_region32_t surface_region;
-	pixman_box32_t *e;
-
-	pixman_region32_init_rect(&surface_region,
-	                          surface->geometry.xywh.x,
-	                          surface->geometry.xywh.y,
-	                          surface->geometry.xywh.width,
-	                          surface->geometry.xywh.height);
-	wl_list_for_each(output, &ctx->outputs, link) {
-		pixman_region32_t clip;
-		struct tw_output_device *device = &output->device;
-		pixman_rectangle32_t rect =
-			tw_output_device_geometry(device);
-		//TODO dealing with cloning output
-		// if (output->cloning >= 0)
-		//	continue;
-		pixman_region32_init_rect(&clip, rect.x, rect.y,
-		                          rect.width, rect.height);
-		pixman_region32_intersect(&clip, &clip, &surface_region);
-		e = pixman_region32_extents(&clip);
-		area = (e->x2 - e->x1) * (e->y2 - e->y1);
-		if (pixman_region32_not_empty(&clip))
-			mask |= (1u << device->id);
-		if (area >= max) {
-			major = output;
-			max = area;
-		}
-		pixman_region32_fini(&clip);
-	}
-	pixman_region32_fini(&surface_region);
-
-	update_surface_mask(surface, major, mask);
-}
-
 /**
  * @brief manage the backend output damage state
  */
@@ -226,7 +155,7 @@ notify_output_surface_dirty(struct wl_listener *listener, void *data)
 
         assert(ctx);
 	if (pixman_region32_not_empty(&surface->geometry.dirty))
-		reassign_surface_outputs(surface, ctx);
+		tw_render_surface_reassign_outputs(render_surface, ctx);
 
 	wl_list_for_each(output, &ctx->outputs, link) {
 		if ((1u << output->device.id) & render_surface->output_mask)
@@ -383,11 +312,13 @@ tw_render_output_set_context(struct tw_render_output *output,
 void
 tw_render_output_unset_context(struct tw_render_output *output)
 {
+	struct tw_render_context *ctx = output->ctx;
 	//should be safe to call multiple times
 	assert(!output->surface.handle);
 	output->ctx = NULL;
 	tw_reset_wl_list(&output->link);
 	tw_reset_wl_list(&output->listeners.surface_dirty.link);
+	wl_signal_emit(&ctx->events.output_lost, output);
 }
 
 void

@@ -367,6 +367,7 @@ tw_render_context_create_egl(struct wl_display *display,
 	wl_signal_init(&ctx->base.events.destroy);
 	wl_signal_init(&ctx->base.events.dma_set);
 	wl_signal_init(&ctx->base.events.compositor_set);
+	wl_signal_init(&ctx->base.events.output_lost);
 	wl_signal_init(&ctx->base.events.wl_surface_dirty);
 	wl_signal_init(&ctx->base.events.wl_surface_destroy);
 	wl_list_init(&ctx->base.outputs);
