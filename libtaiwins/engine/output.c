@@ -206,7 +206,7 @@ tw_engine_new_output(struct tw_engine *engine,
 		wl_container_of(device, render_output, device);
 	uint32_t id = ffs(~engine->output_pool)-1;
 
-	if (ffs(!engine->output_pool) <= 0)
+	if (ffs(~engine->output_pool) <= 0)
 		tw_logl_level(TW_LOG_ERRO, "too many displays");
 	output = &engine->outputs[id];
 	output->id = id;
