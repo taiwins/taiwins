@@ -281,7 +281,7 @@ wl_backend_set_events(struct tw_wl_backend *wl)
 }
 
 WL_EXPORT struct tw_backend *
-tw_wayland_backend_create(struct wl_display *display, const char *remote)
+tw_wl_backend_create(struct wl_display *display, const char *remote)
 {
 	struct tw_wl_backend *wl = calloc(1, sizeof(*wl));
 

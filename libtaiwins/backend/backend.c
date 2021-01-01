@@ -74,8 +74,8 @@ tw_backend_create_auto(struct wl_display *display)
 {
 	struct tw_backend *backend = NULL;
 	if (getenv("WAYLAND_DISPLAY") != NULL)
-		backend = tw_wayland_backend_create(display,
-		                                    getenv("WAYLAND_DISPLAy"));
+		backend = tw_wl_backend_create(display,
+		                               getenv("WAYLAND_DISPLAy"));
 #if _TW_HAS_X11_BACKEND
 	else if(getenv("DISPLAY") != NULL)
 		backend = tw_x11_backend_create(display,

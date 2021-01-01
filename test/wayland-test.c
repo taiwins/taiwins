@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 		                         tw_term_on_signal, display);
 
 	struct tw_backend *backend =
-		tw_wayland_backend_create(display, getenv("WAYLAND_DISPLAY"));
+		tw_wl_backend_create(display, getenv("WAYLAND_DISPLAY"));
 	if (!backend)
 		goto err;
 	const struct tw_egl_options *opts =

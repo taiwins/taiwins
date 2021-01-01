@@ -29,7 +29,7 @@ extern "C" {
 #endif
 
 struct tw_backend *
-tw_wayland_backend_create(struct wl_display *display, const char *remote);
+tw_wl_backend_create(struct wl_display *display, const char *remote);
 
 bool
 tw_wl_backend_new_output(struct tw_backend *backend, unsigned width,
