@@ -134,8 +134,6 @@ handle_callback_done(void *data, struct wl_callback *wl_callback,
 		wl_callback_destroy(wl_callback);
 	output->frame = wl_surface_frame(output->wl_surface);
 	wl_callback_add_listener(output->frame, &callback_listener, output);
-	wl_signal_emit(&output->output.device.signals.new_frame,
-	               &output->output.device);
 }
 
 
@@ -351,8 +349,8 @@ tw_wl_surface_start(struct tw_wl_surface *output)
 	               &output->output.device);
 
 	output->frame = NULL;
-	output->output.state.repaint_state |= TW_REPAINT_SCHEDULED;
 	handle_callback_done(output, output->frame, 0);
+	tw_render_output_dirty(&output->output);
 }
 
 WL_EXPORT bool
