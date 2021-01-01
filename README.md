@@ -14,8 +14,9 @@ project, You can refer to [contributing](CONTRIBUTING.md) for getting started.
 you will need following dependencies
 
 - Pixman
-- libweston(if you have an nvidia graphics card you may need weston-eglstream)
 - xkbcommon
+- xwayland
+- libx11, libxcb (if you want X11 backen support)
 - libinput
 - wayland
 - wayland protocols
@@ -82,6 +83,8 @@ Currently documentation is generated through doxygen. enable `build_doc` option
 to enable building documentation. We also host a online themed
 [documentation](https://taiwins.org/page_doc.html) which you can access.
 
+There is also a [feature list](docs/progress.md) available as well if you want
+to know more about what taiwins can do.
 
 ### Screenshots
 There are some example screen shots of taiwins, check out the [screenshot
