@@ -86,6 +86,8 @@ notify_output_destroy(struct wl_listener *listener, void *data)
 	struct tw_engine *engine = output->engine;
 	uint32_t unset = ~(1 << output->id);
 
+	wl_signal_emit(&engine->signals.output_remove, output);
+
 	output->id = -1;
 	wl_list_remove(&output->link);
 	wl_list_remove(&output->listeners.destroy.link);
@@ -99,7 +101,6 @@ notify_output_destroy(struct wl_listener *listener, void *data)
 
 	fini_engine_output_state(output);
 	engine->output_pool &= unset;
-	wl_signal_emit(&engine->signals.output_remove, output);
 }
 
 static void
