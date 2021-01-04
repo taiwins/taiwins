@@ -20,11 +20,27 @@
  */
 
 #include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <taiwins/objects/logger.h>
 #include <wayland-util.h>
 
 static FILE *tw_logfile = NULL;
+
+static const char *log_headers[] = {
+	[TW_LOG_INFO] = "INFO: ",
+	[TW_LOG_DBUG] = "DBUG: ",
+	[TW_LOG_WARN] = "WARN: ",
+	[TW_LOG_ERRO] = "ERRO: ",
+};
+
+static const char *log_colors[] = {
+	[TW_LOG_INFO] = "\x1B[1;37m",
+	[TW_LOG_DBUG] = "\x1B[1;35m",
+	[TW_LOG_WARN] = "\x1B[1;33m",
+	[TW_LOG_ERRO] = "\x1B[1;31m",
+};
 
 WL_EXPORT void
 tw_logger_open(const char *path)
@@ -51,37 +67,21 @@ tw_logger_use_file(FILE *file)
 	tw_logfile = file;
 }
 
-static const char *
-level_to_string(enum TW_LOG_LEVEL level)
-{
-	switch (level) {
-	case TW_LOG_INFO: return "INFO";
-		break;
-	case TW_LOG_DBUG: return "DBUG";
-		break;
-	case TW_LOG_WARN: return "WARN";
-		break;
-	case TW_LOG_ERRO: return "EE";
-		break;
-	}
-	return "";
-}
-
-//TODO: if we can disable logger at release
 WL_EXPORT int
-tw_log_level(enum TW_LOG_LEVEL level, const char *format, ...)
+tw_logv_level(enum TW_LOG_LEVEL level, const char *format, va_list ap)
 {
 	int ret = -1;
 
 	assert(level < TW_LOG_ERRO);
 	if (tw_logfile) {
-		fprintf(tw_logfile, "%s: ", level_to_string(level));
+		bool color_log = isatty(fileno(tw_logfile));
 
-		va_list ap;
-		va_start(ap, format);
+		fprintf(tw_logfile, "%s", color_log ?
+		        log_colors[level] : log_headers[level]);
+
 		ret = vfprintf(tw_logfile, format, ap);
-		fprintf(tw_logfile, "\n");
-		va_end(ap);
+		fprintf(tw_logfile, "%s\n",  color_log ? "\x1B[0m" : "");
+
 	}
 	return ret;
 }

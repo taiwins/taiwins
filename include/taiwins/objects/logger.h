@@ -45,11 +45,23 @@ tw_logger_use_file(FILE *file);
 void
 tw_logger_close(void);
 
+int
+tw_logv_level(enum TW_LOG_LEVEL level, const char *format, va_list ap);
+
 /**
  * @brief logging at info level.
  */
-int
-tw_log_level(enum TW_LOG_LEVEL level, const char *format, ...);
+static inline int
+tw_log_level(enum TW_LOG_LEVEL level, const char *format, ...)
+{
+	int ret = 0;
+	va_list args;
+
+	va_start(args, format);
+	ret = tw_logv_level(level, format, args);
+	va_end(args);
+	return ret;
+}
 
 #define tw_logl(format, ...) \
 	tw_log_level(TW_LOG_INFO, "%s:%d " format, __FILE__, __LINE__, ##__VA_ARGS__)
