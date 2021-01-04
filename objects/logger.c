@@ -69,7 +69,7 @@ level_to_string(enum TW_LOG_LEVEL level)
 
 //TODO: if we can disable logger at release
 WL_EXPORT int
-tw_log_level(enum TW_LOG_LEVEL level, const char *format, ...)
+tw_logv_level(enum TW_LOG_LEVEL level, const char *format, va_list ap)
 {
 	int ret = -1;
 
@@ -77,11 +77,8 @@ tw_log_level(enum TW_LOG_LEVEL level, const char *format, ...)
 	if (tw_logfile) {
 		fprintf(tw_logfile, "%s: ", level_to_string(level));
 
-		va_list ap;
-		va_start(ap, format);
 		ret = vfprintf(tw_logfile, format, ap);
 		fprintf(tw_logfile, "\n");
-		va_end(ap);
 	}
 	return ret;
 }
