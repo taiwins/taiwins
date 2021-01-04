@@ -196,6 +196,29 @@ handle_dispatch_libinput(int fd, uint32_t mask, void *data)
 	return 0;
 }
 
+static void
+libinput_log_func(struct libinput *libinput,
+		  enum libinput_log_priority priority,
+		  const char *format, va_list args)
+{
+	enum TW_LOG_LEVEL level = TW_LOG_INFO;
+
+	switch (priority) {
+	case LIBINPUT_LOG_PRIORITY_DEBUG:
+		level = TW_LOG_DBUG;
+		break;
+	case LIBINPUT_LOG_PRIORITY_INFO:
+		level = TW_LOG_INFO;
+		break;
+	case LIBINPUT_LOG_PRIORITY_ERROR:
+		level = TW_LOG_WARN;
+		break;
+	}
+
+	tw_logv_level(level, format, args);
+}
+
+
 /******************************************************************************
  * public API
  *****************************************************************************/
@@ -213,6 +236,8 @@ tw_libinput_input_init(struct tw_libinput_input *input,
 	input->disabled = false;
 	input->impl = impl;
 	libinput_set_user_data(libinput, input);
+
+	libinput_log_set_handler(libinput, &libinput_log_func);
 
         if (libinput_udev_assign_seat(input->libinput, seat) != 0)
 		return false;
