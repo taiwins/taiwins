@@ -19,7 +19,6 @@
  *
  */
 
-#include "options.h"
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <GLES3/gl3.h>
@@ -38,22 +37,20 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/output_device.h>
 #include <taiwins/profiling.h>
-#include <taiwins/render_context.h>
+#include <taiwins/render_context_egl.h>
+#include <taiwins/render_surface.h>
 #include <taiwins/render_pipeline.h>
-
-#include "egl_render_context.h"
-#include "egl_shaders.h"
 
 struct tw_egl_layer_render_pipeline {
 	struct tw_render_pipeline base;
 	//TODO: this is still a temporary solution,
 	struct tw_plane main_plane;
 
-	struct tw_egl_quad_tex_shader quad_shader;
+	struct tw_egl_quad_shader quad_shader;
 	/* for debug rendering */
-	struct tw_egl_quad_color_shader color_quad_shader;
+	struct tw_egl_quad_shader color_quad_shader;
 	/* for external sampler */
-	struct tw_egl_quad_tex_shader ext_quad_shader;
+	struct tw_egl_quad_shader ext_quad_shader;
 
 	struct tw_layers_manager *manager;
 };
@@ -253,13 +250,13 @@ pipeline_cleanup_buffer(struct tw_render_output *output)
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 	//now we cannot use clear buffer to clean up the damages anymore
-#if _TW_DEBUG_DAMAGE || _TW_DEBUG_CLIP
+#if defined( _TW_DEBUG_DAMAGE ) || defined( _TW_DEBUG_CLIP )
 	glClear(GL_COLOR_BUFFER_BIT);
 	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
 #endif
 }
 
-#if _TW_DEBUG_CLIP
+#if defined ( _TW_DEBUG_CLIP )
 
 static void
 pipeline_paint_surface_clip(struct tw_surface *surface,
@@ -271,11 +268,11 @@ pipeline_paint_surface_clip(struct tw_surface *surface,
 	pixman_box32_t *boxes;
 	//purple color for clip
 	GLfloat debug_colors[4] = {1.0, 0.0, 1.0, 1.0};
-	struct tw_egl_quad_color_shader *shader = &pipeline->color_quad_shader;
+	struct tw_egl_quad_shader *shader = &pipeline->color_quad_shader;
 
 	glUseProgram(shader->prog);
 	glUniformMatrix3fv(shader->uniform.proj, 1, GL_FALSE, proj->d);
-	glUniform4f(shader->uniform.color, debug_colors[0], debug_colors[1],
+	glUniform4f(shader->uniform.target, debug_colors[0], debug_colors[1],
 	            debug_colors[2], debug_colors[3]);
 	glUniform1f(shader->uniform.alpha, 0.5);
 
@@ -297,8 +294,9 @@ pipeline_paint_surface(struct tw_surface *surface,
 	int nrects;
 	pixman_box32_t *boxes;
 	struct tw_mat3 proj, tmp;
-	struct tw_egl_quad_tex_shader *shader;
-	struct tw_egl_render_texture *texture = surface->buffer.handle.ptr;
+	struct tw_egl_quad_shader *shader;
+	struct tw_egl_render_texture *texture =
+		wl_container_of(surface->buffer.handle.ptr, texture, base);
 	struct tw_render_surface *render_surface =
 		wl_container_of(surface, render_surface, surface);
 	pixman_region32_t damage;
@@ -336,7 +334,7 @@ pipeline_paint_surface(struct tw_surface *surface,
 
 	glUseProgram(shader->prog);
 	glUniformMatrix3fv(shader->uniform.proj, 1, GL_FALSE, proj.d);
-	glUniform1i(shader->uniform.texture, 0);
+	glUniform1i(shader->uniform.target, 0);
 	glUniform1f(shader->uniform.alpha, 1.0f);
 
 	//extracting damages
@@ -344,7 +342,7 @@ pipeline_paint_surface(struct tw_surface *surface,
 	pixman_region32_intersect(&damage, &render_surface->clip,
 	                          output_damage);
 
-#if _TW_DEBUG_CLIP
+#if defined( _TW_DEBUG_CLIP )
 	boxes = pixman_region32_rectangles(&surface->clip, &nrects);
 #else
 	boxes = pixman_region32_rectangles(&damage, &nrects);
@@ -357,7 +355,7 @@ pipeline_paint_surface(struct tw_surface *surface,
 
 	pixman_region32_fini(&damage);
 
-#if _TW_DEBUG_CLIP
+#if defined ( _TW_DEBUG_CLIP )
 	layer_render_paint_surface_clip(surface, rdr, o, &proj);
 #endif
 	SCOPE_PROFILE_END();
@@ -426,12 +424,12 @@ pipeline_destroy(struct tw_render_pipeline *base)
 	tw_render_pipeline_fini(base);
 
 	tw_egl_quad_color_shader_fini(&pipeline->color_quad_shader);
-	tw_egl_quad_tex_blend_shader_fini(&pipeline->quad_shader);
-	tw_egl_quad_tex_ext_blend_shader_fini(&pipeline->ext_quad_shader);
+	tw_egl_quad_tex_shader_fini(&pipeline->quad_shader);
+	tw_egl_quad_texext_shader_fini(&pipeline->ext_quad_shader);
         free(pipeline);
 }
 
-WL_EXPORT struct tw_render_pipeline *
+struct tw_render_pipeline *
 tw_egl_render_pipeline_create_default(struct tw_render_context *ctx,
                                       struct tw_layers_manager *manager)
 {
@@ -442,8 +440,8 @@ tw_egl_render_pipeline_create_default(struct tw_render_context *ctx,
         tw_render_pipeline_init(&pipeline->base, "EGL Sample", ctx);
 
 	tw_egl_quad_color_shader_init(&pipeline->color_quad_shader);
-	tw_egl_quad_tex_blend_shader_init(&pipeline->quad_shader);
-	tw_egl_quad_tex_ext_blend_shader_init(&pipeline->ext_quad_shader);
+	tw_egl_quad_tex_shader_init(&pipeline->quad_shader);
+	tw_egl_quad_texext_shader_init(&pipeline->ext_quad_shader);
 	tw_plane_init(&pipeline->main_plane);
 	pipeline->base.impl.destroy = pipeline_destroy;
 	pipeline->base.impl.repaint_output = pipeline_repaint_output;

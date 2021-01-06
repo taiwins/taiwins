@@ -29,8 +29,6 @@ add_global_arguments(
 options_data = configuration_data()
 options_data.set10('_TW_HAS_EGLMESAEXT', cc.has_header('EGL/eglmesaext.h'))
 options_data.set10('_TW_ENABLE_PROFILING', false)
-options_data.set10('_TW_DEBUG_DAMAGE', false)
-options_data.set10('_TW_DEBUG_CLIP', false)
 options_data.set10('_TW_HAS_X11_BACKEND', false)
 options_data.set10('_TW_HAS_XWAYLAND', false)
 options_data.set10('_TW_HAS_LIBINPUT_GET_TOUCH_COUNT', false)

@@ -23,7 +23,7 @@
 #include <GLES3/gl3.h>
 
 #include <taiwins/objects/logger.h>
-#include "egl_shaders.h"
+#include <taiwins/render_context_egl.h>
 
 /******************************************************************************
  * shader collections
@@ -90,37 +90,6 @@ const GLchar tex_quad_ext_fs[] =
 	"void main() {\n"
 	"	gl_FragColor = texture2D(tex, o_texcoord) * alpha;\n"
 	"}\n";
-
-static const GLchar tex_gaussian_fs[] =
-	"precision mediump float;\n"
-	"uniform float alpha;\n"
-	"uniform sampler2D tex;\n"
-	"uniform vec2 texsize;\n"
-	"varying vec4 o_color;\n"
-	"varying vec2 o_texcoord;\n"
-	"\n"
-	"float gaussian_kernel(int x, int y) {\n"
-	"	mat3 kernel = mat3(\n"
-	"			1.0/16.0, 1.0/8.0, 1.0/16.0,\n"
-	"			1.0/8.0, 1.0/4.0, 1.0/8.0,\n"
-	"			1.0/16.0, 1.0/8.0, 1.0/16.0);\n"
-	"	return kernel[x+1][y+1];\n"
-	"}\n"
-	"\n"
-	"void main() {\n"
-	"	vec2 step = vec2(1.0/texsize.x, 1.0/texsize.y);\n"
-	"	vec4 color = vec4(0.0f);\n"
-	"	for (int i = -1; i <= 1; i++) {\n"
-	"		for (int j = -1; j <= 1; j++) {\n"
-	"			vec2 coord = vec2(o_texcoord.x+i*step.x, \n"
-	"			                  o_texcoord.y+j*step.y);\n"
-	"			color += gaussian_kernel(i,j) * \n"
-	"				texture2D(tex, coord);\n"
-	"		}\n"
-	"	}\n"
-	"	gl_FragColor = color * alpha;\n"
-	"}\n"
-	"\n";
 
 static inline void
 diagnose_shader(GLuint shader, GLenum type)
@@ -194,73 +163,55 @@ tw_egl_shader_create_program(const GLchar *vs_src, const GLchar *fs_src)
 }
 
 void
-tw_egl_quad_color_shader_init(struct tw_egl_quad_color_shader *shader)
+tw_egl_quad_color_shader_init(struct tw_egl_quad_shader *shader)
 {
 	shader->prog = tw_egl_shader_create_program(quad_vs, color_quad_fs);
 	shader->uniform.proj = glGetUniformLocation(shader->prog, "proj");
-	shader->uniform.color = glGetUniformLocation(shader->prog, "color");
+	shader->uniform.target = glGetUniformLocation(shader->prog, "color");
 	shader->uniform.alpha = glGetUniformLocation(shader->prog, "alpha");
 	assert(shader->uniform.proj >= 0);
-	assert(shader->uniform.color >= 0);
+	assert(shader->uniform.target >= 0);
 	assert(shader->uniform.alpha >= 0);
 }
 
 void
-tw_egl_quad_color_shader_fini(struct tw_egl_quad_color_shader *shader)
+tw_egl_quad_color_shader_fini(struct tw_egl_quad_shader *shader)
 {
 	glDeleteProgram(shader->prog);
 }
 
 void
-tw_egl_quad_tex_blend_shader_init(struct tw_egl_quad_tex_shader *shader)
+tw_egl_quad_tex_shader_init(struct tw_egl_quad_shader *shader)
 {
 	shader->prog = tw_egl_shader_create_program(quad_vs, tex_quad_fs);
 	shader->uniform.proj = glGetUniformLocation(shader->prog, "proj");
-	shader->uniform.texture = glGetUniformLocation(shader->prog, "tex");
+	shader->uniform.target = glGetUniformLocation(shader->prog, "tex");
 	shader->uniform.alpha = glGetUniformLocation(shader->prog, "alpha");
 	assert(shader->uniform.proj >= 0);
-	assert(shader->uniform.texture >= 0);
+	assert(shader->uniform.target >= 0);
 	assert(shader->uniform.alpha >= 0);
 }
 
 void
-tw_egl_quad_tex_blend_shader_fini(struct tw_egl_quad_tex_shader *shader)
+tw_egl_quad_tex_shader_fini(struct tw_egl_quad_shader *shader)
 {
 	glDeleteProgram(shader->prog);
 }
 
 void
-tw_egl_quad_tex_ext_blend_shader_init(struct tw_egl_quad_tex_shader *shader)
+tw_egl_quad_texext_shader_init(struct tw_egl_quad_shader *shader)
 {
 	shader->prog = tw_egl_shader_create_program(quad_vs, tex_quad_ext_fs);
 	shader->uniform.proj = glGetUniformLocation(shader->prog, "proj");
-	shader->uniform.texture = glGetUniformLocation(shader->prog, "tex");
+	shader->uniform.target = glGetUniformLocation(shader->prog, "tex");
 	shader->uniform.alpha = glGetUniformLocation(shader->prog, "alpha");
 	assert(shader->uniform.proj >= 0);
-	assert(shader->uniform.texture >= 0);
+	assert(shader->uniform.target >= 0);
 	assert(shader->uniform.alpha >= 0);
 }
 
 void
-tw_egl_quad_tex_ext_blend_shader_fini(struct tw_egl_quad_tex_shader *shader)
-{
-	glDeleteProgram(shader->prog);
-}
-
-void
-tw_egl_quad_tex_blur_shader_init(struct tw_egl_quad_tex_shader *shader)
-{
-	shader->prog = tw_egl_shader_create_program(quad_vs, tex_gaussian_fs);
-	shader->uniform.proj = glGetUniformLocation(shader->prog, "proj");
-	shader->uniform.texture = glGetUniformLocation(shader->prog, "tex");
-	shader->uniform.alpha = glGetUniformLocation(shader->prog, "alpha");
-	assert(shader->uniform.proj >= 0);
-	assert(shader->uniform.texture >= 0);
-	assert(shader->uniform.alpha >= 0);
-}
-
-void
-tw_egl_quad_tex_blur_shader_fini(struct tw_egl_quad_tex_shader *shader)
+tw_egl_quad_texext_shader_fini(struct tw_egl_quad_shader *shader)
 {
 	glDeleteProgram(shader->prog);
 }
