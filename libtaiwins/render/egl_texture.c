@@ -22,6 +22,7 @@
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
+#include <wayland-util.h>
 #if _TW_HAS_EGLMESAEXT
 #include <EGL/eglmesaext.h>
 #endif
@@ -411,7 +412,7 @@ tw_egl_render_texture_destroy(struct tw_render_texture *texture,
         free(egl_texture);
 }
 
-struct tw_egl_render_texture *
+static struct tw_egl_render_texture *
 tw_egl_render_texture_new(struct tw_render_context *base,
                           struct wl_resource *res)
 {
@@ -424,9 +425,8 @@ tw_egl_render_texture_new(struct tw_render_context *base,
 		free(texture);
 		return NULL;
 	}
-
+	texture->base.ctx = base;
 	texture->base.destroy = tw_egl_render_texture_destroy;
-	texture->ctx = ctx;
 	return texture;
 }
 
@@ -437,11 +437,13 @@ notify_buffer_surface_destroy(struct wl_listener *listener, void *data)
 		wl_container_of(listener, buffer, surface_destroy_listener);
 	struct tw_surface *surface =
 		wl_container_of(buffer, surface, buffer);
-	struct tw_egl_render_texture *texture;
-	if (tw_surface_has_texture(surface)) {
-		texture = buffer->handle.ptr;
+
+        if (tw_surface_has_texture(surface)) {
+		struct tw_egl_render_texture *texture;
+
+		texture = wl_container_of(buffer->handle.ptr, texture, base);
 		tw_egl_render_texture_destroy(&texture->base,
-		                              &texture->ctx->base);
+		                              texture->base.ctx);
 	}
 }
 
@@ -465,7 +467,7 @@ tw_egl_render_context_import_buffer(struct tw_event_buffer_uploading *event,
 		tw_logl_level(TW_LOG_WARN, "EE: failed to update the texture");
 		return false;
 	}
-	event->buffer->handle.ptr = texture;
+	event->buffer->handle.ptr = &texture->base;
 	event->buffer->width = texture->base.width;
 	event->buffer->height = texture->base.height;
 

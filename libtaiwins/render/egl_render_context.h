@@ -29,7 +29,7 @@
 #include <GLES2/gl2ext.h>
 #include <taiwins/objects/egl.h>
 #include <taiwins/objects/surface.h>
-#include <taiwins/render_context.h>
+#include <taiwins/render_context_egl.h>
 #include <taiwins/render_surface.h>
 
 #ifdef  __cplusplus
@@ -54,17 +54,6 @@ struct tw_egl_render_context {
 	} funcs;
 };
 
-struct tw_egl_render_texture {
-	struct tw_render_texture base;
-	GLenum target;  /**< GL_TEXTURE_2D or GL_TEXTURE_EXTERNAL_OES */
-	EGLImageKHR image;
-	GLuint gltex;
-	struct tw_egl_render_context *ctx;
-};
-
-struct tw_egl_render_texture *
-tw_egl_render_texture_new(struct tw_render_context *base,
-                          struct wl_resource *res);
 bool
 tw_egl_render_context_import_buffer(struct tw_event_buffer_uploading *event,
                                     void *callback);

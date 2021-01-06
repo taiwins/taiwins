@@ -67,6 +67,7 @@ struct tw_render_texture {
 	int fmt;
 	bool has_alpha, inverted_y;
 	enum wl_shm_format wl_format;
+	struct tw_render_context *ctx;
 
 	void (*destroy)(struct tw_render_texture *tex,
 	                struct tw_render_context *ctx);
