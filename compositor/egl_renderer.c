@@ -19,7 +19,6 @@
  *
  */
 
-#include "options.h"
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <GLES3/gl3.h>
@@ -38,10 +37,9 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/output_device.h>
 #include <taiwins/profiling.h>
-#include <taiwins/render_context.h>
+#include <taiwins/render_context_egl.h>
+#include <taiwins/render_surface.h>
 #include <taiwins/render_pipeline.h>
-
-#include "egl_render_context.h"
 
 struct tw_egl_layer_render_pipeline {
 	struct tw_render_pipeline base;
@@ -252,13 +250,13 @@ pipeline_cleanup_buffer(struct tw_render_output *output)
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 	//now we cannot use clear buffer to clean up the damages anymore
-#if _TW_DEBUG_DAMAGE || _TW_DEBUG_CLIP
+#if defined( _TW_DEBUG_DAMAGE ) || defined( _TW_DEBUG_CLIP )
 	glClear(GL_COLOR_BUFFER_BIT);
 	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
 #endif
 }
 
-#if _TW_DEBUG_CLIP
+#if defined ( _TW_DEBUG_CLIP )
 
 static void
 pipeline_paint_surface_clip(struct tw_surface *surface,
@@ -344,7 +342,7 @@ pipeline_paint_surface(struct tw_surface *surface,
 	pixman_region32_intersect(&damage, &render_surface->clip,
 	                          output_damage);
 
-#if _TW_DEBUG_CLIP
+#if defined( _TW_DEBUG_CLIP )
 	boxes = pixman_region32_rectangles(&surface->clip, &nrects);
 #else
 	boxes = pixman_region32_rectangles(&damage, &nrects);
@@ -357,7 +355,7 @@ pipeline_paint_surface(struct tw_surface *surface,
 
 	pixman_region32_fini(&damage);
 
-#if _TW_DEBUG_CLIP
+#if defined ( _TW_DEBUG_CLIP )
 	layer_render_paint_surface_clip(surface, rdr, o, &proj);
 #endif
 	SCOPE_PROFILE_END();
@@ -431,7 +429,7 @@ pipeline_destroy(struct tw_render_pipeline *base)
         free(pipeline);
 }
 
-WL_EXPORT struct tw_render_pipeline *
+struct tw_render_pipeline *
 tw_egl_render_pipeline_create_default(struct tw_render_context *ctx,
                                       struct tw_layers_manager *manager)
 {

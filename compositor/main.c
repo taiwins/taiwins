@@ -50,7 +50,7 @@
 #include "input.h"
 #include "bindings.h"
 #include "config.h"
-
+#include "render.h"
 
 struct tw_options {
 	const char *test_case;

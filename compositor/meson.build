@@ -1,7 +1,15 @@
+taiwins_cargs = []
+if get_option('rendering-debug') == 'damage'
+  taiwins_cargs += '-D_TW_DEBUG_DAMAGE'
+elif get_option('rendering-debug') == 'clip'
+  taiwins_cargs += '-D_TW_DEBUG_CLIP'
+endif
+
 taiwins_src = [
   'main.c',
   'input.c',
   'bindings.c',
+  'egl_renderer.c',
 
   'config/config.c',
   'config/config_bindings.c',

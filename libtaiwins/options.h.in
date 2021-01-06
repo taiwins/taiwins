@@ -3,8 +3,6 @@
 
 #mesondefine _TW_HAS_EGLMESAEXT
 #mesondefine _TW_ENABLE_PROFILING
-#mesondefine _TW_DEBUG_DAMAGE
-#mesondefine _TW_DEBUG_CLIP
 #mesondefine _TW_HAS_X11_BACKEND
 #mesondefine _TW_HAS_XWAYLAND
 #mesondefine _TW_HAS_LIBINPUT_GET_TOUCH_COUNT

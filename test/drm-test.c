@@ -17,6 +17,9 @@
 #include <wayland-server-core.h>
 #include <taiwins/xdg.h>
 
+struct tw_render_pipeline *
+tw_egl_render_pipeline_create_default(struct tw_render_context *ctx,
+                                      struct tw_layers_manager *manager);
 static inline void
 wait_for_debug()
 {
