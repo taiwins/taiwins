@@ -176,9 +176,12 @@ WL_EXPORT void
 tw_desktop_surface_set_title(struct tw_desktop_surface *surf,
                              const char *title, size_t maxlen)
 {
-	char *tmp = maxlen ? strndup(title, maxlen) : strdup(title);
-	if (!tmp)
-		return;
+	char *tmp = NULL;
+	if (title) {
+		tmp = maxlen ? strndup(title, maxlen) : strdup(title);
+		if (!tmp)
+			return;
+	}
 	free(surf->title);
 	surf->title = tmp;
 }
@@ -187,9 +190,12 @@ WL_EXPORT void
 tw_desktop_surface_set_class(struct tw_desktop_surface *surf,
                              const char *class, size_t maxlen)
 {
-	char *tmp = maxlen ? strndup(class, maxlen) : strdup(class);
-	if (!tmp)
-		return;
+	char *tmp = NULL;
+	if (class) {
+		tmp = maxlen ? strndup(class, maxlen) : strdup(class);
+		if (!tmp)
+			return;
+	}
 	free(surf->class);
 	surf->class = tmp;
 }
