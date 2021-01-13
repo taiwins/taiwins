@@ -49,43 +49,6 @@ static const char *TW_DESKTOP_TOPLEVEL_WL_SHELL_NAME = "wl_shell_toplevel";
 static const char *TW_DESKTOP_POPUP_WL_SHELL_NAME = "wl_shell_popup";
 static const char *TW_DESKTOP_TRANSIENT_WL_SHELL_NAME = "wl_shell_transient";
 
-void
-tw_desktop_surface_init(struct tw_desktop_surface *surf,
-                        struct wl_resource *wl_surface,
-                        struct wl_resource *resource,
-                        struct tw_desktop_manager *desktop);
-void
-tw_desktop_surface_fini(struct tw_desktop_surface *surf);
-
-void
-tw_desktop_surface_add(struct tw_desktop_surface *surf);
-
-void
-tw_desktop_surface_rm(struct tw_desktop_surface *surf);
-
-void
-tw_desktop_surface_set_fullscreen(struct tw_desktop_surface *surf,
-                                  struct wl_resource *output,
-                                  bool fullscreen);
-void
-tw_desktop_surface_set_maximized(struct tw_desktop_surface *surf,
-                                 bool maximized);
-void
-tw_desktop_surface_set_title(struct tw_desktop_surface *surf,
-                             const char *title);
-void
-tw_desktop_surface_set_class(struct tw_desktop_surface *surf,
-                             const char *class);
-void
-tw_desktop_surface_move(struct tw_desktop_surface *surf,
-                        struct wl_resource *seat, uint32_t serial);
-void
-tw_desktop_surface_resize(struct tw_desktop_surface *surf,
-                          struct wl_resource *seat, uint32_t edge,
-                          uint32_t serial);
-void
-tw_desktop_surface_calc_window_geometry(struct tw_surface *surface,
-                                        pixman_region32_t *geometry);
 /******************************************************************************
  * wl_shell_surface implementation
  *****************************************************************************/
@@ -365,7 +328,7 @@ handle_set_title(struct wl_client *client, struct wl_resource *resource,
 {
 	struct tw_desktop_surface *dsurf =
 		tw_desktop_surface_from_wl_shell_surface(resource);
-	tw_desktop_surface_set_title(dsurf, title);
+	tw_desktop_surface_set_title(dsurf, title, 0);
 }
 
 static void
@@ -374,7 +337,7 @@ handle_set_class(struct wl_client *client, struct wl_resource *resource,
 {
 	struct tw_desktop_surface *dsurf =
 		tw_desktop_surface_from_wl_shell_surface(resource);
-	tw_desktop_surface_set_class(dsurf, class);
+	tw_desktop_surface_set_class(dsurf, class, 0);
 }
 
 static const struct wl_shell_surface_interface wl_shell_surf_impl = {

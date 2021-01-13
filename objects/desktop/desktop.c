@@ -100,7 +100,7 @@ tw_desktop_create_global(struct wl_display *display,
 	return &s_desktop_manager;
 }
 
-void
+WL_EXPORT void
 tw_desktop_surface_init(struct tw_desktop_surface *surf,
                         struct wl_resource *wl_surface,
                         struct wl_resource *resource,
@@ -117,16 +117,20 @@ tw_desktop_surface_init(struct tw_desktop_surface *surf,
 	surf->class = NULL;
 }
 
-void
+WL_EXPORT void
 tw_desktop_surface_fini(struct tw_desktop_surface *surf)
 {
-	if (surf->title)
+	if (surf->title) {
 		free(surf->title);
-	if (surf->class)
+		surf->title = NULL;
+	}
+	if (surf->class) {
 		free(surf->class);
+		surf->class = NULL;
+	}
 }
 
-void
+WL_EXPORT void
 tw_desktop_surface_add(struct tw_desktop_surface *surf)
 {
 	void *user_data = surf->desktop->user_data;
@@ -137,7 +141,7 @@ tw_desktop_surface_add(struct tw_desktop_surface *surf)
 	}
 }
 
-void
+WL_EXPORT void
 tw_desktop_surface_rm(struct tw_desktop_surface *surf)
 {
 	void *user_data = surf->desktop->user_data;
@@ -147,7 +151,7 @@ tw_desktop_surface_rm(struct tw_desktop_surface *surf)
 	}
 }
 
-void
+WL_EXPORT void
 tw_desktop_surface_set_fullscreen(struct tw_desktop_surface *surf,
                                   struct wl_resource *output,
                                   bool fullscreen)
@@ -158,7 +162,7 @@ tw_desktop_surface_set_fullscreen(struct tw_desktop_surface *surf,
 		                                        fullscreen, user_data);
 }
 
-void
+WL_EXPORT void
 tw_desktop_surface_set_maximized(struct tw_desktop_surface *surf,
                                  bool maximized)
 {
@@ -168,29 +172,29 @@ tw_desktop_surface_set_maximized(struct tw_desktop_surface *surf,
 		                                       user_data);
 }
 
-void
+WL_EXPORT void
 tw_desktop_surface_set_title(struct tw_desktop_surface *surf,
-                             const char *title)
+                             const char *title, size_t maxlen)
 {
-	char *tmp = strdup(title);
+	char *tmp = maxlen ? strndup(title, maxlen) : strdup(title);
 	if (!tmp)
 		return;
 	free(surf->title);
 	surf->title = tmp;
 }
 
-void
+WL_EXPORT void
 tw_desktop_surface_set_class(struct tw_desktop_surface *surf,
-                             const char *class)
+                             const char *class, size_t maxlen)
 {
-	char *tmp = strdup(class);
+	char *tmp = maxlen ? strndup(class, maxlen) : strdup(class);
 	if (!tmp)
 		return;
 	free(surf->class);
 	surf->class = tmp;
 }
 
-void
+WL_EXPORT void
 tw_desktop_surface_move(struct tw_desktop_surface *surf,
                         struct wl_resource *seat, uint32_t serial)
 {
@@ -204,7 +208,7 @@ tw_desktop_surface_move(struct tw_desktop_surface *surf,
 	surf->desktop->api.move(surf, seat, serial, user_data);
 }
 
-void
+WL_EXPORT void
 tw_desktop_surface_resize(struct tw_desktop_surface *surf,
                           struct wl_resource *seat, uint32_t edge,
                           uint32_t serial)
@@ -219,7 +223,7 @@ tw_desktop_surface_resize(struct tw_desktop_surface *surf,
 	surf->desktop->api.resize(surf, seat, serial, edge, user_data);
 }
 
-void
+WL_EXPORT void
 tw_desktop_surface_calc_window_geometry(struct tw_surface *surface,
                                         pixman_region32_t *geometry)
 {

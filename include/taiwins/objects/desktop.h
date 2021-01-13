@@ -148,6 +148,44 @@ tw_desktop_create_global(struct wl_display *display,
 struct tw_desktop_surface *
 tw_desktop_surface_from_tw_surface(struct tw_surface *surface);
 
+void
+tw_desktop_surface_init(struct tw_desktop_surface *surf,
+                        struct wl_resource *wl_surface,
+                        struct wl_resource *resource,
+                        struct tw_desktop_manager *desktop);
+void
+tw_desktop_surface_fini(struct tw_desktop_surface *surf);
+
+void
+tw_desktop_surface_add(struct tw_desktop_surface *surf);
+
+void
+tw_desktop_surface_rm(struct tw_desktop_surface *surf);
+
+void
+tw_desktop_surface_set_fullscreen(struct tw_desktop_surface *surf,
+                                  struct wl_resource *output,
+                                  bool fullscreen);
+void
+tw_desktop_surface_set_maximized(struct tw_desktop_surface *surf,
+                                 bool maximized);
+void
+tw_desktop_surface_set_title(struct tw_desktop_surface *surf,
+                             const char *title, size_t maxlen);
+void
+tw_desktop_surface_set_class(struct tw_desktop_surface *surf,
+                             const char *class, size_t maxlen);
+void
+tw_desktop_surface_move(struct tw_desktop_surface *surf,
+                        struct wl_resource *seat, uint32_t serial);
+void
+tw_desktop_surface_resize(struct tw_desktop_surface *surf,
+                          struct wl_resource *seat, uint32_t edge,
+                          uint32_t serial);
+void
+tw_desktop_surface_calc_window_geometry(struct tw_surface *surface,
+                                        pixman_region32_t *geometry);
+
 #ifdef  __cplusplus
 }
 #endif

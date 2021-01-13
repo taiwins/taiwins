@@ -89,44 +89,6 @@ static const struct xdg_surface_interface xdg_surface_impl;
 static const char *XDG_TOPLEVEL_ROLE_NAME = "XDG_TOPLEVEL";
 static const char *XDG_POPUP_ROLE_NAME = "XDG_POPUP";
 
-void
-tw_desktop_surface_init(struct tw_desktop_surface *surf,
-                        struct wl_resource *wl_surface,
-                        struct wl_resource *resource,
-                        struct tw_desktop_manager *desktop);
-void
-tw_desktop_surface_fini(struct tw_desktop_surface *surf);
-
-void
-tw_desktop_surface_add(struct tw_desktop_surface *surf);
-
-void
-tw_desktop_surface_rm(struct tw_desktop_surface *surf);
-
-void
-tw_desktop_surface_set_fullscreen(struct tw_desktop_surface *surf,
-                                  struct wl_resource *output,
-                                  bool fullscreen);
-void
-tw_desktop_surface_set_maximized(struct tw_desktop_surface *surf,
-                                 bool maximized);
-void
-tw_desktop_surface_set_title(struct tw_desktop_surface *surf,
-                             const char *title);
-void
-tw_desktop_surface_set_class(struct tw_desktop_surface *surf,
-                             const char *class);
-void
-tw_desktop_surface_move(struct tw_desktop_surface *surf,
-                        struct wl_resource *seat, uint32_t serial);
-void
-tw_desktop_surface_resize(struct tw_desktop_surface *surf,
-                          struct wl_resource *seat, uint32_t edge,
-                          uint32_t serial);
-void
-tw_desktop_surface_calc_window_geometry(struct tw_surface *surface,
-                                        pixman_region32_t *geometry);
-
 /******************************************************************************
  * xdg_shell_surface implementation
  *****************************************************************************/
@@ -398,7 +360,7 @@ handle_toplevel_set_title(struct wl_client *client,
 {
 	struct tw_xdg_surface *xdg_surf =
 		xdg_surface_from_toplevel(resource);
-	tw_desktop_surface_set_title(&xdg_surf->base, title);
+	tw_desktop_surface_set_title(&xdg_surf->base, title, 0);
 }
 
 static void
@@ -408,7 +370,7 @@ handle_toplevel_set_app_id(struct wl_client *client,
 {
 	struct tw_xdg_surface *xdg_surf =
 		xdg_surface_from_toplevel(resource);
-	tw_desktop_surface_set_class(&xdg_surf->base, app_id);
+	tw_desktop_surface_set_class(&xdg_surf->base, app_id, 0);
 }
 
 /* desktop.show_window_menu */
