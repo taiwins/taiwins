@@ -242,6 +242,9 @@ tw_desktop_surface_calc_window_geometry(struct tw_surface *surface,
 	wl_list_for_each(sub, &surface->subsurfaces, parent_link) {
 		pixman_region32_t subregion;
 
+		//avoid exotic subsurfaces
+		if (!tw_surface_is_subsurface(sub->surface))
+			continue;
 		pixman_region32_init(&subregion);
 		tw_desktop_surface_calc_window_geometry(sub->surface,
 		                                        &subregion);
