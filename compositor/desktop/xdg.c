@@ -653,3 +653,9 @@ tw_xdg_create_global(struct wl_display *display, struct tw_shell *shell,
 	/* desktop->xwayland_api = weston_xwayland_surface_get_api(ec); */
 	return &s_desktop;
 }
+
+WL_EXPORT struct tw_desktop_manager *
+tw_xdg_access_desktop_manager(struct tw_xdg *xdg)
+{
+	return &xdg->desktop_manager;
+}

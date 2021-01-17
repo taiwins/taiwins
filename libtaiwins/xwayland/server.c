@@ -23,6 +23,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <signal.h>
 #include <sys/socket.h>
@@ -46,9 +47,6 @@
 #define SOCKET_FMT_ABS "%c/tmp/.X11-unix/X%d"
 #define XSERVER_PATH "Xwayland"
 
-static void
-xserver_finish_display(struct tw_xserver *xserver);
-
 static inline
 void secure_close(int *fd)
 {
@@ -59,14 +57,13 @@ void secure_close(int *fd)
 }
 
 static int
-handle_sigusr(int signumber, void *data)
+handle_ready(int signumber, void *data)
 {
 	struct tw_xserver *xserver = data;
 
 	wl_event_source_remove(xserver->sigusr1_source);
 	xserver->sigusr1_source = NULL;
-	//TODO now the server is ready, we would want to start the window
-	//manager
+	wl_signal_emit(&xserver->signals.ready, &xserver);
 	return 1;
 }
 
@@ -170,10 +167,12 @@ xserver_start(struct tw_xserver *xserver)
 	struct wl_client *client = NULL;
 	struct wl_event_loop *loop =
 		wl_display_get_event_loop(xserver->wl_display);
-	const char *path = XSERVER_PATH; //default path, we may be able to
-					 //change it
+	const char *path = getenv("TW_XWAYLAND_PATH");
+	if (!path)
+		path = XSERVER_PATH; //default path, we may be able to
+
 	if (!(xserver->sigusr1_source = wl_event_loop_add_signal(loop, SIGUSR1,
-	                                                         handle_sigusr,
+	                                                         handle_ready,
 	                                                         xserver))) {
 		tw_logl_level(TW_LOG_WARN, "Failed to watch signal SIGUSR1");
 		return false;
@@ -484,7 +483,6 @@ WL_EXPORT struct tw_xserver *
 tw_xserver_create_global(struct wl_display *display, bool lazy)
 {
 	static struct tw_xserver s_server = {0};
-
 
 	if (tw_xserver_init(&s_server, display, lazy))
 		return &s_server;

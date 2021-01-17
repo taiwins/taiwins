@@ -1,9 +1,15 @@
 xwayland_required = [
-	'xcb',
-	'xcb-composite',
-	'xcb-render',
-	'xcb-xfixes',
+  'xcb',
+  'xcb-composite',
+  'xcb-render',
+  'xcb-xfixes',
 ]
+
+xwayland_required_optional = [
+  'xcb-icccm',
+  'xcb-errors',
+]
+
 deps_xwayland = []
 
 if get_option('xwayland').enabled()
@@ -19,6 +25,15 @@ if get_option('xwayland').enabled()
     deps_xwayland += dep
   endforeach
 
-  taiwins_lib_src += files('server.c')
+  foreach lib : xwayland_required_optional
+    dep = dependency(lib, required: false,
+		    not_found_message: '\n'.join(msg).format(lib))
+    if dep.found()
+      deps_xwayland += dep
+      options_data.set10('_TW_HAS_' + lib.underscorify().to_upper(), true)
+    endif
+  endforeach
+
+  taiwins_lib_src += files('server.c', 'xwm.c', 'window.c')
   taiwins_lib_dep += deps_xwayland
 endif

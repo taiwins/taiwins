@@ -24,12 +24,16 @@
 
 #include <wayland-server.h>
 #include <taiwins/objects/subprocess.h>
+#include <taiwins/objects/desktop.h>
+#include <taiwins/objects/surface.h>
+#include <taiwins/objects/compositor.h>
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
 struct tw_xwm;
+struct tw_desktop_surface;
 
 struct tw_xserver {
 	struct wl_display *wl_display;
@@ -70,6 +74,18 @@ tw_xserver_init(struct tw_xserver *server, struct wl_display *display,
                 bool lazy);
 void
 tw_xserver_fini(struct tw_xserver *);
+
+struct tw_xwm *
+tw_xserver_create_xwindow_manager(struct tw_xserver *server,
+                                  struct tw_desktop_manager *desktop_manager,
+                                  struct tw_compositor *compositor);
+
+/**
+ * xwayland surface is disgusted as a desktop surface for providing unified
+ * APIs,
+ */
+struct tw_desktop_surface *
+tw_xwayland_desktop_surface_from_tw_surface(struct tw_surface *surface);
 
 #ifdef  __cplusplus
 }
