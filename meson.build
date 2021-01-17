@@ -34,6 +34,8 @@ options_data.set10('_TW_HAS_XWAYLAND', false)
 options_data.set10('_TW_HAS_LIBINPUT_GET_TOUCH_COUNT', false)
 options_data.set10('_TW_HAS_SYSTEMD', false)
 options_data.set10('_TW_HAS_ELOGIND', false)
+options_data.set10('_TW_HAS_XCB_ICCCM', false)
+options_data.set10('_TW_HAS_XCB_ERRORS', false)
 
 ###### subprojects
 twclient = subproject('twclient')

@@ -79,6 +79,9 @@ enum tw_layout_type {
 struct tw_xdg *
 tw_xdg_create_global(struct wl_display *display, struct tw_shell *shell,
                      struct tw_engine *engine);
+struct tw_desktop_manager *
+tw_xdg_access_desktop_manager(struct tw_xdg *xdg);
+
 int
 tw_xdg_current_workspace_idx(struct tw_xdg *xdg);
 
