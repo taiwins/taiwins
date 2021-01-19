@@ -231,10 +231,22 @@ buffer_params_create_common(struct wl_client *client,
 	buffer->attributes.flags = flags;
 
 	for (int i = 0; i < buffer->attributes.n_planes; i++) {
-		off_t size = buffer->attributes.strides[i] * height;
-		if ((uint64_t)buffer->attributes.offsets[i] + size
-		    > UINT32_MAX) {
-			wl_resource_post_error(param_resource,
+		off_t size;
+
+		if ((uint64_t)buffer->attributes.offsets[i] +
+		    buffer->attributes.strides[i] > UINT32_MAX) {
+			wl_resource_post_error(
+				param_resource,
+				ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_OUT_OF_BOUNDS,
+				"size overflow for plane %d", i);
+			goto err_out;
+		}
+		if (i == 0 &&
+		   (uint64_t) buffer->attributes.offsets[i] +
+		   (uint64_t) buffer->attributes.strides[i] * height >
+		    UINT32_MAX) {
+			wl_resource_post_error(
+				param_resource,
 				ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_OUT_OF_BOUNDS,
 				"size overflow for plane %d", i);
 			goto err_out;
@@ -242,23 +254,33 @@ buffer_params_create_common(struct wl_client *client,
 		size = lseek(buffer->attributes.fds[i], 0, SEEK_END);
 		if (size == -1)
 			continue;
-		// here we have error on either offsets[i] > size;
-		//offsets[i]+strides[i] > size; offsets[i] + strides[i] * h
-		//> size. the last one the the most strict case.
-		if (buffer->attributes.offsets[i] +
-		    buffer->attributes.strides[i] * height > size) {
-			wl_resource_post_error(param_resource,
+
+		if (buffer->attributes.offsets[i] > size) {
+			wl_resource_post_error(
+				param_resource,
 				ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_OUT_OF_BOUNDS,
-				"size overflow for plane %d", i);
+				"invalid offset %i for plane %i",
+				buffer->attributes.offsets[i], i);
 			goto err_out;
 		}
-		// planes > 0 might be subsampled according to fourcc format
+		if (buffer->attributes.offsets[i] +
+		    buffer->attributes.strides[i] > size) {
+			wl_resource_post_error(
+				param_resource,
+				ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_OUT_OF_BOUNDS,
+				"invalid stride %i for plane %i",
+				buffer->attributes.strides[i], i);
+			goto err_out;
+		}
+		//Only valid for first plane as other planes might be
+		//sub-sampled according to fourcc format
 		if (i == 0 && buffer->attributes.offsets[i] +
 				buffer->attributes.strides[i]*height > size) {
-			wl_resource_post_error(param_resource,
+			wl_resource_post_error(
+				param_resource,
 				ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_OUT_OF_BOUNDS,
 				"invalid buffer stride or height for plane %d",
-			                       i);
+				i);
 			goto err_out;
 		}
 	}
