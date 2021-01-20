@@ -51,6 +51,7 @@ struct tw_xserver {
 
 	struct {
 		struct wl_listener display_destroy;
+		struct wl_listener client_destroy;
 	} listeners;
 
 	struct {
