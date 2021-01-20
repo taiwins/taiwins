@@ -147,13 +147,14 @@ xserver_finish_process(struct tw_xserver *xserver)
 		xserver->sigusr1_source = NULL;
 	}
 	if (xserver->client) {
-		wl_list_remove(&xserver->process.link);
+		tw_reset_wl_list(&xserver->process.link);
 		wl_client_destroy(xserver->client);
 	}
 
 	secure_close(&xserver->wms[0]);
 	secure_close(&xserver->wms[1]);
 }
+
 
 static bool
 xserver_start(struct tw_xserver *xserver)
@@ -182,10 +183,13 @@ xserver_start(struct tw_xserver *xserver)
 	                                  &xserver->process,
 	                                  handle_xwayland_fork,
 	                                  handle_xwayland_exec);
-	xserver->client = client;
-	//TODO deal with client start failed
-
-	return true;
+	if (client) {
+		xserver->client = client;
+		tw_reset_wl_list(&xserver->listeners.client_destroy.link);
+		wl_client_add_destroy_listener(client,
+		                               &xserver->listeners.client_destroy);
+	}
+	return client != NULL;
 }
 
 static int
@@ -198,6 +202,7 @@ handle_xwayland_socket_connected(int fd, uint32_t mask, void *data)
 	xserver->unix_source = NULL;
 	xserver->abstract_source = NULL;
 
+	//TODO deal with server start failed
 	xserver_start(xserver);
 	return 0;
 }
@@ -412,6 +417,20 @@ xserver_finish_display(struct tw_xserver *xserver)
 }
 
 static void
+notify_xserver_stop(struct wl_listener *listener, void *data)
+{
+	struct tw_xserver *xserver =
+		wl_container_of(listener, xserver, listeners.client_destroy);
+
+	wl_list_remove(&xserver->listeners.client_destroy.link);
+	tw_reset_wl_list(&xserver->process.link);
+	xserver->client = NULL;
+	//TODO we should maybe restart xserver, but lets just purge the
+	//resource first
+	xserver_finish_process(xserver);
+}
+
+static void
 notify_xserver_display_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_xserver *server =
@@ -429,6 +448,8 @@ tw_xserver_init(struct tw_xserver *server, struct wl_display *display,
 
 	wl_signal_init(&server->signals.destroy);
 	wl_signal_init(&server->signals.ready);
+	wl_list_init(&server->listeners.display_destroy.link);
+	wl_list_init(&server->listeners.client_destroy.link);
 
 	if (!xserver_connect_display(server, display))
 		return false;
@@ -436,6 +457,7 @@ tw_xserver_init(struct tw_xserver *server, struct wl_display *display,
 	tw_set_display_destroy_listener(display,
 	                                &server->listeners.display_destroy,
 	                                notify_xserver_display_destroy);
+	server->listeners.client_destroy.notify = notify_xserver_stop;
 
 	if (lazy) {
 		if (!xserver_start_lazy(server))
