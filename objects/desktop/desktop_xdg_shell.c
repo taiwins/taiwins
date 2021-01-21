@@ -480,9 +480,7 @@ static void
 handle_toplevel_minimize(struct wl_client *client, struct wl_resource *res)
 {
 	struct tw_xdg_surface *xdg_surf = xdg_surface_from_toplevel(res);
-	struct tw_desktop_manager *desktop = xdg_surf->base.desktop;
-
-	desktop->api.minimized_requested(&xdg_surf->base, desktop->user_data);
+	tw_desktop_surface_set_minimized(&xdg_surf->base);
 }
 
 static const struct xdg_toplevel_interface toplevel_impl = {

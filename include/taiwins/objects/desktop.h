@@ -92,7 +92,7 @@ struct tw_desktop_surface {
 	struct tw_surface *tw_surface;
 	struct tw_desktop_manager *desktop;
 	enum tw_desktop_surface_type type;
-	bool fullscreened, maximized, focused, surface_added;
+	bool fullscreened, maximized, minimized, focused, surface_added;
 	uint32_t tiled_state;
 	char *title, *class;
         /**
@@ -169,6 +169,9 @@ tw_desktop_surface_set_fullscreen(struct tw_desktop_surface *surf,
 void
 tw_desktop_surface_set_maximized(struct tw_desktop_surface *surf,
                                  bool maximized);
+void
+tw_desktop_surface_set_minimized(struct tw_desktop_surface *surf);
+
 void
 tw_desktop_surface_set_title(struct tw_desktop_surface *surf,
                              const char *title, size_t maxlen);
