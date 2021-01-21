@@ -455,6 +455,7 @@ change_window_attributes(struct tw_xwm *xwm)
 		xwm->atoms.net_wm_moveresize,
 		xwm->atoms.net_wm_state_focused,
 		xwm->atoms.net_wm_state_fullscreen,
+		xwm->atoms.net_wm_state_hidden,
 		xwm->atoms.net_wm_state_maximized_horz,
 		xwm->atoms.net_wm_state_maximized_vert,
 	};

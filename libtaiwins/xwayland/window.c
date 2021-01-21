@@ -81,7 +81,9 @@ set_xsurface_net_wm_state(struct tw_xsurface *surface)
 	} else if (dsurf->maximized) {
 		property[i++] = xwm->atoms.net_wm_state_maximized_horz;
 		property[i++] = xwm->atoms.net_wm_state_maximized_vert;
-	} //TODO else if hidden
+	} else if (dsurf->minimized) {
+		property[i++] = xwm->atoms.net_wm_state_hidden;
+	}
 
 	if (surface == xwm->focus_window)
 		property[i++] = xwm->atoms.net_wm_state_focused;
@@ -199,6 +201,7 @@ read_surface_net_wm_state(struct tw_xwm *xwm, struct tw_xsurface *surface,
 	bool fullscreend = false;
 	bool max_vert = false;
 	bool max_horz = false;
+	bool hidden = false;
 	struct tw_desktop_surface *dsurf = &surface->dsurf;
 	xcb_atom_t *atom = xcb_get_property_value(reply);
 
@@ -209,13 +212,16 @@ read_surface_net_wm_state(struct tw_xwm *xwm, struct tw_xsurface *surface,
 			max_horz = true;
 		else if (atom[i] == xwm->atoms.net_wm_state_maximized_vert)
 			max_vert = true;
-		//TODO minimized with net_wm_state_hidden
+		else if (atom[i] == xwm->atoms.net_wm_state_hidden)
+			hidden = true;
 	}
 	if (dsurf->surface_added) {
 		if (fullscreend)
 			tw_desktop_surface_set_fullscreen(dsurf, NULL, true);
 		else if (max_vert && max_horz)
 			tw_desktop_surface_set_maximized(dsurf, true);
+		else if (hidden)
+			tw_desktop_surface_set_minimized(dsurf);
 	}
 }
 
@@ -314,7 +320,6 @@ read_wl_surface_id_msg(struct tw_xsurface *surface, struct tw_xwm *xwm,
 	}
 }
 
-//TODO need updating wm state
 static void
 read_net_wm_state_msg(struct tw_xsurface *surface, struct tw_xwm *xwm,
                       xcb_client_message_event_t *ev)
@@ -322,6 +327,7 @@ read_net_wm_state_msg(struct tw_xsurface *surface, struct tw_xwm *xwm,
 	struct tw_desktop_surface *dsurf = &surface->dsurf;
 	bool fullscreend = dsurf->fullscreened;
 	bool maximized = dsurf->maximized;
+	bool hidden = dsurf->minimized;
         uint32_t action = ev->data.data32[0];
 
         uint32_t property1 = ev->data.data32[1];
@@ -331,17 +337,21 @@ read_net_wm_state_msg(struct tw_xsurface *surface, struct tw_xwm *xwm,
         case _NET_WM_STATE_REMOVE:
 	        fullscreend = false;
 	        maximized = false;
+	        hidden = false;
 	        break;
         case _NET_WM_STATE_ADD:
 	        fullscreend = true;
 	        maximized = true;
+	        hidden = true;
 	        break;
         case _NET_WM_STATE_TOGGLE:
 	        fullscreend = !fullscreend;
 	        maximized = !maximized;
+	        hidden = !hidden;
 	        break;
         }
 
+        //request the state to the implemenation.
         if ((property1 == xwm->atoms.net_wm_state_fullscreen) ||
             (property2 == xwm->atoms.net_wm_state_fullscreen))
 	        tw_desktop_surface_set_fullscreen(dsurf, NULL, fullscreend);
@@ -351,7 +361,9 @@ read_net_wm_state_msg(struct tw_xsurface *surface, struct tw_xwm *xwm,
         else if ((property1 == xwm->atoms.net_wm_state_maximized_horz) &&
                  (property2 == xwm->atoms.net_wm_state_maximized_vert))
 	        tw_desktop_surface_set_maximized(dsurf, maximized);
-        //TODO: deal with hidden message
+        else if (((property1 == xwm->atoms.net_wm_state_hidden) ||
+                  (property2 == xwm->atoms.net_wm_state_hidden)) && hidden)
+	        tw_desktop_surface_set_minimized(dsurf);
 }
 
 static void
