@@ -127,6 +127,7 @@ struct tw_xwm_atoms {
 	xcb_atom_t net_wm_state_fullscreen;
 	xcb_atom_t net_wm_state_focused; /* whether window decoration drawing
 	                                  * in the active state */
+	xcb_atom_t net_wm_state_hidden;
 	xcb_atom_t net_wm_user_time;
 	xcb_atom_t net_wm_icon_name;
 	xcb_atom_t net_wm_desktop;
