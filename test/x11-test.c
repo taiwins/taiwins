@@ -12,7 +12,6 @@
 #include <taiwins/engine.h>
 #include "test_desktop.h"
 
-
 struct data {
 	struct wl_display *display;
 	struct tw_engine *engine;
@@ -90,7 +89,6 @@ int main(int argc, char *argv[])
 		tw_egl_render_pipeline_create_default(ctx,
 		                                      &engine->layers_manager);
 	wl_list_insert(ctx->pipelines.prev, &pipeline->link);
-
         tw_test_desktop_init(&desktop, engine);
 
 	tw_backend_start(backend, ctx);
@@ -103,6 +101,7 @@ int main(int argc, char *argv[])
 	wl_display_run(display);
 	wl_event_source_remove(sigint);
 	wl_event_source_remove(timeout);
+
 	tw_test_desktop_fini(&desktop);
 	tw_render_context_destroy(ctx);
 	wl_display_destroy(display);
