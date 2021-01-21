@@ -1,4 +1,7 @@
 debug_cargs = ['-D_GNU_SOURCE']
+if get_option('xwayland').enabled()
+  debug_cargs += '-D_TW_HAS_XWAYLAND'
+endif
 if get_option('rendering-debug') == 'damage'
   debug_cargs += '-D_TW_DEBUG_DAMAGE'
 elif get_option('rendering-debug') == 'clip'
