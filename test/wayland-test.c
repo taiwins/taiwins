@@ -13,8 +13,7 @@
 #include <taiwins/render_output.h>
 #include <taiwins/backend_wayland.h>
 #include <taiwins/engine.h>
-#include <taiwins/xdg.h>
-
+#include "test_desktop.h"
 #include <wayland-util.h>
 
 struct tw_render_pipeline *
@@ -64,6 +63,7 @@ int main(int argc, char *argv[])
 {
 	struct wl_display *display;
 	struct wl_event_loop *loop;
+	struct tw_test_desktop desktop;
 
 	tw_logger_use_file(stderr);
 	display = wl_display_create();
@@ -79,8 +79,8 @@ int main(int argc, char *argv[])
 		tw_wl_backend_create(display, getenv("WAYLAND_DISPLAY"));
 	struct tw_engine *engine =
 		tw_engine_create_global(display, backend);
-	struct tw_xdg *xdg =
-		tw_xdg_create_global(display, NULL, engine);
+	tw_test_desktop_init(&desktop, engine);
+
 	if (!backend)
 		goto err;
 	const struct tw_egl_options *opts =
@@ -91,7 +91,6 @@ int main(int argc, char *argv[])
 		goto err;
 	if (!tw_wl_backend_new_output(backend, 900, 900))
 		goto err;
-	(void)xdg;
 
 	wl_display_add_socket_auto(display);
 
@@ -107,6 +106,7 @@ int main(int argc, char *argv[])
 
 err:
 	tw_profiler_close();
+	tw_test_desktop_fini(&desktop);
 	wl_display_destroy(display);
 	return EXIT_FAILURE;
 }
