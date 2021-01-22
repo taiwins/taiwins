@@ -10,8 +10,21 @@
 #include <taiwins/render_context.h>
 #include <taiwins/render_pipeline.h>
 #include <taiwins/engine.h>
-#include <taiwins/xdg.h>
-#include <taiwins/shell.h>
+#include "test_desktop.h"
+
+
+struct data {
+	struct wl_display *display;
+	struct tw_engine *engine;
+#ifdef _TW_HAS_XWAYLAND
+	struct tw_xserver *xserver;
+#endif
+	struct tw_test_desktop *desktop;
+
+	struct {
+		struct wl_listener xserver_ready;
+	} listeners;
+};
 
 struct tw_render_pipeline *
 tw_egl_render_pipeline_create_default(struct tw_render_context *ctx,
@@ -42,6 +55,7 @@ int main(int argc, char *argv[])
 	struct wl_display *display;
 	struct wl_event_loop *loop;
 	struct tw_backend *backend;
+	struct tw_test_desktop desktop;
 
 	tw_logger_use_file(stderr);
 	display = wl_display_create();
@@ -80,13 +94,7 @@ int main(int argc, char *argv[])
 		                                      &engine->layers_manager);
 	wl_list_insert(ctx->pipelines.prev, &pipeline->link);
 
-	struct tw_xdg *xdg =
-		tw_xdg_create_global(display, NULL, engine);
-	(void)xdg;
-
-	struct tw_shell *shell =
-		tw_shell_create_global(display, engine, false, argv[1]);
-	(void)shell;
+        tw_test_desktop_init(&desktop, engine);
 
 	tw_backend_start(backend, ctx);
 
@@ -98,7 +106,7 @@ int main(int argc, char *argv[])
 	wl_display_run(display);
 	wl_event_source_remove(sigint);
 	wl_event_source_remove(timeout);
-
+	tw_test_desktop_fini(&desktop);
 	tw_render_context_destroy(ctx);
 	wl_display_destroy(display);
 

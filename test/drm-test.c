@@ -1,4 +1,5 @@
 #include "taiwins/objects/profiler.h"
+#include "test_desktop.h"
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
@@ -15,7 +16,6 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/engine.h>
 #include <wayland-server-core.h>
-#include <taiwins/xdg.h>
 
 struct tw_render_pipeline *
 tw_egl_render_pipeline_create_default(struct tw_render_context *ctx,
@@ -111,6 +111,7 @@ test_switch_vt(struct tw_backend *backend)
 
 int main(int argc, char *argv[])
 {
+	struct tw_test_desktop desktop;
 	tw_logger_open("/tmp/drm-debug");
 
 	wait_for_debug();
@@ -126,11 +127,7 @@ int main(int argc, char *argv[])
 		tw_engine_create_global(display, backend);
 
 	wl_display_add_socket_auto(display);
-
-	(void)engine;
-	struct tw_xdg *xdg =
-		tw_xdg_create_global(display, NULL, engine);
-	(void)xdg;
+	tw_test_desktop_init(&desktop, engine);
 
 	struct tw_render_pipeline *pipeline =
 		tw_egl_render_pipeline_create_default(ctx,
@@ -150,7 +147,7 @@ int main(int argc, char *argv[])
 
 	tw_logger_close();
 	tw_profiler_close();
-
+	tw_test_desktop_fini(&desktop);
 	wl_event_source_remove(sigint);
 	wl_display_destroy(display);
 	return 0;

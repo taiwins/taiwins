@@ -68,7 +68,7 @@ test('test_headless', headless_test)
 if get_option('x11-backend').enabled()
   x11_test = executable(
     'tw-test-x11',
-    ['x11-test.c', '../compositor/egl_renderer.c',
+    ['x11-test.c', '../compositor/egl_renderer.c', 'test_desktop.c',
      wayland_taiwins_shell_server_protocol_h],
     c_args : debug_cargs,
     dependencies : dep_taiwins_lib,
@@ -79,7 +79,7 @@ endif
 
 wayland_test = executable(
   'tw-test-wayland',
-  ['wayland-test.c', '../compositor/egl_renderer.c',
+  ['wayland-test.c', '../compositor/egl_renderer.c', 'test_desktop.c',
    wayland_taiwins_shell_server_protocol_h],
   c_args : debug_cargs,
   dependencies : dep_taiwins_lib,
@@ -88,7 +88,7 @@ test('test_wayland', wayland_test)
 
 drm_test = executable(
   'tw-test-drm',
-  ['drm-test.c', '../compositor/egl_renderer.c'],
+  ['drm-test.c', '../compositor/egl_renderer.c', 'test_desktop.c' ],
   c_args : debug_cargs,
   dependencies : dep_taiwins_lib,
 )
