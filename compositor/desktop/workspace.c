@@ -32,8 +32,8 @@
 #include <wayland-util.h>
 
 #include <taiwins/output_device.h>
-#include <taiwins/xdg.h>
 
+#include "xdg.h"
 #include "workspace.h"
 #include "layout.h"
 

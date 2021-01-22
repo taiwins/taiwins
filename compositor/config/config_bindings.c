@@ -26,10 +26,10 @@
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/desktop.h>
+#include <taiwins/shell.h>
 #include <wayland-server.h>
 
-#include <taiwins/xdg.h>
-#include <taiwins/shell.h>
+#include "xdg.h"
 #include "bindings.h"
 #include "config_internal.h"
 

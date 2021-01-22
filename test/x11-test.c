@@ -16,9 +16,6 @@
 struct data {
 	struct wl_display *display;
 	struct tw_engine *engine;
-#ifdef _TW_HAS_XWAYLAND
-	struct tw_xserver *xserver;
-#endif
 	struct tw_test_desktop *desktop;
 
 	struct {

@@ -41,12 +41,12 @@
 
 #include <taiwins/backend.h>
 #include <taiwins/shell.h>
-#include <taiwins/xdg.h>
 #include <taiwins/engine.h>
 #include <taiwins/input_device.h>
 #include <taiwins/render_context.h>
 #include <taiwins/render_pipeline.h>
 
+#include "xdg.h"
 #include "input.h"
 #include "bindings.h"
 #include "config.h"

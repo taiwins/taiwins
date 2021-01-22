@@ -33,9 +33,9 @@
 #include <taiwins/engine.h>
 #include <taiwins/output_device.h>
 #include <taiwins/render_output.h>
-#include <taiwins/xdg.h>
 #include <taiwins/shell.h>
 
+#include "xdg.h"
 #include "workspace.h"
 #include "xdg_internal.h"
 #include "layout.h"

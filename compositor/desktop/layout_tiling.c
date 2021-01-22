@@ -26,7 +26,7 @@
 #include <ctypes/sequential.h>
 #include <ctypes/tree.h>
 #include <wayland-server.h>
-#include <taiwins/xdg.h>
+#include "xdg.h"
 
 #include "workspace.h"
 #include "layout.h"
