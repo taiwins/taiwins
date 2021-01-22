@@ -30,8 +30,8 @@
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/desktop.h>
 
-#include "engine.h"
-#include "output_device.h"
+#include <taiwins/engine.h>
+#include <taiwins/output_device.h>
 
 #define MAX_WORKSPACES 9
 

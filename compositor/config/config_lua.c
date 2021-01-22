@@ -38,8 +38,7 @@
 #include <taiwins/objects/logger.h>
 #include <twclient/theme.h>
 
-#include <taiwins/xdg.h>
-
+#include "xdg.h"
 #include "lua_helper.h"
 #include "bindings.h"
 #include "config_internal.h"

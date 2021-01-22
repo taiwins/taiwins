@@ -26,7 +26,7 @@
 #include <wayland-util.h>
 #include <pixman.h>
 
-#include <taiwins/xdg.h>
+#include "xdg.h"
 #include "layout.h"
 
 

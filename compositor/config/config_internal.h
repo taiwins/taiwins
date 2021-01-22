@@ -31,7 +31,7 @@
 #include <taiwins/objects/logger.h>
 
 #include <taiwins/engine.h>
-#include <taiwins/xdg.h>
+#include "xdg.h"
 
 #include "config.h"
 

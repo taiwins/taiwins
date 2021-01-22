@@ -42,9 +42,9 @@
 
 #include <taiwins/engine.h>
 #include <taiwins/output_device.h>
-#include <taiwins/xdg.h>
 #include <taiwins/shell.h>
 
+#include "xdg.h"
 #include "bindings.h"
 #include "config.h"
 #include "config_internal.h"
