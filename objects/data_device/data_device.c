@@ -49,7 +49,6 @@ tw_data_device_find_client(struct tw_data_device *device,
 		if (wl_resource_get_client(dev_res) ==
 		    wl_resource_get_client(r))
 			return dev_res;
-	assert(0);
 	return NULL;
 }
 
@@ -78,12 +77,11 @@ tw_data_device_create_data_offer(struct wl_resource *device_resource,
 static void
 notify_device_selection_data_offer(struct wl_listener *listener, void *data)
 {
+	struct wl_resource *resource;
 	struct wl_resource *offer;
 	struct wl_resource *surface = data;
 	struct tw_data_device *device =
 		wl_container_of(listener, device, create_data_offer);
-	struct wl_resource *resource =
-		tw_data_device_find_client(device, surface);
 
 	if (!device->source_set || !device->source_set->selection_source)
 		return;
