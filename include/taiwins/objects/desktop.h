@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <pixman.h>
 #include <wayland-server.h>
+#include "utils.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -34,7 +35,6 @@ enum tw_desktop_init_option {
 	TW_DESKTOP_INIT_INCLUDE_WL_SHELL = 1 << 0,
 	TW_DESKTOP_INIT_INCLUDE_XDG_SHELL_STABEL = 1 << 1,
 };
-
 
 struct tw_desktop_surface;
 
@@ -73,7 +73,6 @@ struct tw_desktop_surface_api {
 				    void *user_data);
 };
 
-
 enum tw_desktop_surface_type {
 	TW_DESKTOP_TOPLEVEL_SURFACE = 1,
 	TW_DESKTOP_TRANSIENT_SURFACE = 2,
@@ -94,15 +93,13 @@ struct tw_desktop_surface {
 	enum tw_desktop_surface_type type;
 	bool fullscreened, maximized, minimized, focused, surface_added;
 	uint32_t tiled_state;
-	char *title, *class;
+	struct tw_size_2d max_size, min_size;
         /**
          * the window geometry for this given desktop surface, always available
          * after every commit. The value before the initial commit is 0.
          */
-        struct {
-	        int x, y;
-	        unsigned int w, h;
-	} window_geometry;
+	struct tw_geometry_2d window_geometry;
+	char *title, *class;
 
 	//API is required to call this function for additional size change. Xdg
 	//API also send configure for popup, which sets the position as well.

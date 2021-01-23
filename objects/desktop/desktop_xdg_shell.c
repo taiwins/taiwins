@@ -51,9 +51,7 @@ struct tw_xdg_surface {
 
         union {
 		struct {
-			struct {
-				struct {uint32_t w, h; } min_size, max_size;
-			} pending, current;
+			struct tw_size_2d pending_min_size, pending_max_size;
 			struct wl_resource *fullscreen_output;
 			struct wl_resource *resource;
 		} toplevel;
@@ -145,10 +143,8 @@ commit_xdg_toplevel(struct tw_surface *surface)
 	}
 	commit_update_window_geometry(xdg_surf);
 
-	xdg_surf->toplevel.current.max_size =
-		xdg_surf->toplevel.pending.max_size;
-	xdg_surf->toplevel.current.min_size =
-		xdg_surf->toplevel.pending.min_size;
+	xdg_surf->base.max_size = xdg_surf->toplevel.pending_max_size;
+	xdg_surf->base.min_size = xdg_surf->toplevel.pending_min_size;
 
 	desktop->api.committed(dsurf, desktop->user_data);
 }
@@ -423,8 +419,8 @@ handle_toplevel_set_max_size(struct wl_client *client,
 			     int32_t height)
 {
 	struct tw_xdg_surface *xdg_surf = xdg_surface_from_toplevel(resource);
-	xdg_surf->toplevel.pending.max_size.w = width;
-	xdg_surf->toplevel.pending.max_size.h = height;
+	xdg_surf->toplevel.pending_max_size.w = width;
+	xdg_surf->toplevel.pending_max_size.h = height;
 }
 
 static void
@@ -434,8 +430,8 @@ handle_toplevel_set_min_size(struct wl_client *client,
 			     int32_t height)
 {
 	struct tw_xdg_surface *xdg_surf = xdg_surface_from_toplevel(resource);
-	xdg_surf->toplevel.pending.min_size.w = width;
-	xdg_surf->toplevel.pending.max_size.h = height;
+	xdg_surf->toplevel.pending_min_size.w = width;
+	xdg_surf->toplevel.pending_max_size.h = height;
 }
 
 /* desktop.maximized_requested */
@@ -535,10 +531,9 @@ handle_get_toplevel(struct wl_client *client,
 	                               xdg_surf, destroy_toplevel_resource);
 
 	xdg_surf->toplevel.resource = toplevel_res;
-	xdg_surf->toplevel.current.max_size.w = UINT32_MAX;
-	xdg_surf->toplevel.current.max_size.h = UINT32_MAX;
-	xdg_surf->toplevel.current.min_size.w = 0;
-	xdg_surf->toplevel.current.min_size.h = 0;
+
+	xdg_surf->toplevel.pending_min_size = xdg_surf->base.min_size;
+	xdg_surf->toplevel.pending_max_size = xdg_surf->base.max_size;
 	xdg_surface_set_role(surf, TW_DESKTOP_TOPLEVEL_SURFACE);
 	tw_desktop_surface_add(surf);
 }

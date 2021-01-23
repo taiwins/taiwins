@@ -20,6 +20,7 @@
  */
 
 #include <assert.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
@@ -116,6 +117,10 @@ tw_desktop_surface_init(struct tw_desktop_surface *surf,
 	surf->focused = false;
 	surf->title = NULL;
 	surf->class = NULL;
+	surf->max_size.w = UINT32_MAX;
+	surf->max_size.h = UINT32_MAX;
+	surf->min_size.w = 0;
+	surf->min_size.h = 0;
 }
 
 WL_EXPORT void

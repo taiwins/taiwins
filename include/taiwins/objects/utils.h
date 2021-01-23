@@ -36,6 +36,19 @@
 extern "C" {
 #endif
 
+struct tw_size_2d {
+	uint32_t w, h;
+};
+
+struct tw_postion_2d {
+	int32_t x, y;
+};
+
+struct tw_geometry_2d {
+	int32_t x, y;
+	uint32_t w, h;
+};
+
 void
 tw_signal_emit_safe(struct wl_signal *signal, void *data);
 
