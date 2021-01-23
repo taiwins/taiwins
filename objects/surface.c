@@ -597,6 +597,19 @@ tw_surface_has_role(struct tw_surface *surface)
 	return surface->role.commit != NULL;
 }
 
+WL_EXPORT bool
+tw_surface_assign_role(struct tw_surface *surface, tw_surface_commit_cb_t cmt,
+                       void *user_data, const char *name)
+{
+	if (surface->role.commit != NULL &&
+	    surface->role.commit != cmt)
+		return false;
+	surface->role.commit = cmt;
+	surface->role.commit_private = user_data;
+	surface->role.name = name;
+	return true;
+}
+
 WL_EXPORT void
 tw_surface_set_position(struct tw_surface *surface, float x, float y)
 {

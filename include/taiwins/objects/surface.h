@@ -221,6 +221,10 @@ tw_surface_has_texture(struct tw_surface *surface);
 bool
 tw_surface_has_role(struct tw_surface *surface);
 
+bool
+tw_surface_assign_role(struct tw_surface *surface, tw_surface_commit_cb_t cmt,
+                       void *user_data, const char *name);
+
 /**
  * @brief dirty the geometry of the surface and subsurfaces.
  *
