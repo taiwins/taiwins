@@ -167,12 +167,18 @@ struct tw_xwm {
 struct tw_xsurface {
 	xcb_window_t id;
 
+	/* The override-redirect specifies whether map and configure requests
+	 * on this window should override a SubstructureRedirect on the parent,
+	 * typically to inform a window manager not to tamper with the
+	 * window. */
 	bool override_redirect, pending_mapping;
 	bool has_alpha, support_delete;
 	bool decor_title, decor_border; /* TODO NEED support */
+	bool fullscreen, maximize, hidden; /* pending state */
 
 	pid_t pid;
 	xcb_atom_t win_type;
+	int x, y, w, h;
         /* we should either have a surface (mapped) or a surface_id
          * (unmapped). */
 	uint32_t surface_id;
@@ -181,12 +187,11 @@ struct tw_xsurface {
 	struct tw_xwm *xwm;
 
 	struct wl_list link; /* xwm:surfaces */
-	struct wl_list parent_link;
 	struct wl_list children;
 	struct wl_listener surface_destroy;
 
 	struct tw_desktop_surface dsurf;
-	//TODO subsurface here
+	struct tw_subsurface subsurface;
 };
 
 struct tw_xsurface *
