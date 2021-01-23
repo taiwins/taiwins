@@ -252,7 +252,6 @@ struct tw_xsurface {
 	struct wl_list children;
 	struct wl_listener surface_destroy;
 
-	struct tw_xnormal_hints normal_hints;
 	struct tw_desktop_surface dsurf;
 	//TODO subsurface here
 };

@@ -229,7 +229,8 @@ static void
 read_surface_normal_hints(struct tw_xwm *xwm, struct tw_xsurface *surface,
                           xcb_get_property_reply_t *reply)
 {
-	bool has_min_size, has_max_size, has_base_size;
+	struct tw_desktop_surface *dsurf = &surface->dsurf;
+	bool has_min_size, has_max_size;
 #if _TW_HAS_XCB_ICCCM
 	xcb_size_hints_t hints;
 
@@ -238,7 +239,6 @@ read_surface_normal_hints(struct tw_xwm *xwm, struct tw_xsurface *surface,
 	xcb_icccm_get_wm_size_hints_from_reply(&hints, reply);
 	has_min_size = (hints.flags & XCB_ICCCM_SIZE_HINT_P_MIN_SIZE) != 0;
 	has_max_size = (hints.flags & XCB_ICCCM_SIZE_HINT_P_MAX_SIZE) != 0;
-	has_base_size = (hints.flags & XCB_ICCCM_SIZE_HINT_BASE_SIZE) != 0;
 #else
 	struct tw_xnormal_hints hints;
 
@@ -248,27 +248,13 @@ read_surface_normal_hints(struct tw_xwm *xwm, struct tw_xsurface *surface,
 	       sizeof(surface->normal_hints));
 	has_min_size = (hints.flags & PMinSize) != 0;
 	has_max_size = (hints.flags & PMaxSize) != 0;
-	has_base_size = (hints.flags & PBaseSize) != 0;
 #endif
-	surface->normal_hints.min_aspect_den = hints.min_aspect_den;
-	surface->normal_hints.min_aspect_num = hints.min_aspect_num;
-	surface->normal_hints.min_height =
-		(has_min_size) ? hints.min_height : 0;
-	surface->normal_hints.min_width =
-		(has_min_size) ? hints.min_width : 0;
-
-        surface->normal_hints.max_aspect_den = hints.max_aspect_den;
-	surface->normal_hints.max_aspect_num = hints.max_aspect_num;
-	surface->normal_hints.max_height =
-		(has_max_size) ? hints.max_height : INT_MAX;
-	surface->normal_hints.max_width =
-		(has_max_size) ? hints.max_width : INT_MAX;
-
-	surface->normal_hints.base_height =
-		(has_base_size) ? hints.base_height : hints.min_height;
-	surface->normal_hints.base_width =
-		(has_base_size) ? hints.base_width : hints.min_width;
-
+	dsurf->min_size.h = (has_min_size) ? (unsigned)hints.min_height : 0;
+	dsurf->min_size.w = (has_min_size) ? (unsigned)hints.min_width : 0;
+	dsurf->max_size.h = (has_max_size) ?
+		(unsigned)hints.max_height : UINT32_MAX;
+	dsurf->max_size.w = (has_max_size) ?
+		(unsigned)hints.max_width : UINT32_MAX;
 }
 
 static void
