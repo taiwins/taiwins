@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pixman.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <wayland-util.h>
 #include <xcb/xcb.h>
@@ -16,20 +17,6 @@
 #include <taiwins/objects/utils.h>
 
 #include "internal.h"
-
-/* check if surface has parent */
-static inline bool
-check_parent(struct tw_xsurface *surface, struct tw_xsurface *parent)
-{
-	while (surface) {
-		if (parent == surface)
-			return true;
-
-		surface = surface->parent;
-	}
-
-	return false;
-}
 
 static void
 send_surface_wm_msg(struct tw_xsurface *surface,
@@ -96,6 +83,87 @@ set_xsurface_net_wm_state(struct tw_xsurface *surface)
 }
 
 /******************************************************************************
+ * subsurface
+ *****************************************************************************/
+
+static inline bool
+surface_has_parent(struct tw_xsurface *surface, struct tw_xsurface *parent)
+{
+	while (surface) {
+		if (parent == surface)
+			return true;
+		surface = surface->parent;
+	}
+	return false;
+}
+
+static inline void
+unset_xsurface_subsurface(struct tw_subsurface *sub)
+{
+	struct tw_xsurface *xsurface =
+		wl_container_of(sub, xsurface, subsurface);
+	tw_reset_wl_list(&sub->surface_destroyed.link);
+	tw_reset_wl_list(&sub->parent_link);
+	tw_reset_wl_list(&sub->parent_pending_link);
+	sub->surface = NULL;
+	sub->parent = NULL;
+}
+
+static void
+notify_subxsurface_surface_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_subsurface *sub =
+		wl_container_of(listener, sub, surface_destroyed);
+	unset_xsurface_subsurface(sub);
+}
+
+static void
+init_xsurface_subsurface(struct tw_xsurface *xsurface,
+                         struct tw_xsurface *parent)
+{
+	struct tw_subsurface *sub = &xsurface->subsurface;
+
+	if (sub->surface)
+		unset_xsurface_subsurface(sub);
+	sub->sx = xsurface->x - parent->x;
+	sub->sy = xsurface->y - parent->y;
+	sub->resource = NULL;
+	sub->surface = xsurface->surface;
+	sub->parent = parent->surface;
+	wl_list_init(&sub->parent_link);
+	wl_list_init(&sub->parent_pending_link);
+	wl_signal_init(&sub->destroy);
+	tw_set_resource_destroy_listener(sub->surface->resource,
+	                                 &sub->surface_destroyed,
+	                                 notify_subxsurface_surface_destroy);
+	wl_list_insert(parent->surface->subsurfaces.prev,
+	               &sub->parent_link);
+}
+
+static inline bool
+has_xsurface_parent(struct tw_xsurface *surface)
+{
+	//here we make sure the parent surface is mapped
+	return surface->parent && surface->parent->surface &&
+		surface->parent->dsurf.surface_added;
+}
+
+static inline bool
+is_xsurface_subsurface(struct tw_xsurface *surface)
+{
+	struct tw_xwm *xwm = surface->xwm;
+	xcb_atom_t type = surface->win_type;
+	//if parent is root_window, we do not have surface
+	return has_xsurface_parent(surface) &&
+		(type == xwm->atoms.net_wm_window_type_tooltip ||
+		 type == xwm->atoms.net_wm_window_type_dropdown ||
+		 type == xwm->atoms.net_wm_window_type_dnd ||
+		 type == xwm->atoms.net_wm_window_type_combo ||
+		 type == xwm->atoms.net_wm_window_type_popup ||
+		 type == xwm->atoms.net_wm_window_type_utility);
+}
+
+/******************************************************************************
  * xsurface property atom readers
  *****************************************************************************/
 
@@ -141,20 +209,15 @@ read_surface_parent(struct tw_xwm *xwm, struct tw_xsurface *surface,
 		return;
 	if (xid != NULL) {
 		parent_found = tw_xsurface_from_id(xwm, *xid);
-		//check if parent_found has us as the parent, which would
-		//createa a loop
-		if (!check_parent(parent_found, surface))
-			surface->parent = parent_found;
-		else
+		if (surface_has_parent(parent_found, surface)) {
 			tw_log_level(TW_LOG_WARN, "%d with %d would be in "
 			             " a loop", surface->id, parent_found->id);
-
-	} else
-		surface->parent = NULL;
-	tw_reset_wl_list(&surface->parent_link);
-	if (surface->parent)
-		wl_list_insert(&surface->parent->children,
-		               &surface->parent_link);
+			parent_found = NULL;
+		}
+	}
+	if (parent_found) {
+		surface->parent = parent_found;
+	}
 }
 
 static void
@@ -413,8 +476,10 @@ read_wm_protocols_msg(struct tw_xsurface *surface, struct tw_xwm *xwm,
 static void
 handle_commit_tw_xsurface(struct tw_surface *tw_surface)
 {
-	struct tw_xsurface *surface = tw_surface->role.commit_private;
-	struct tw_desktop_surface *dsurf = &surface->dsurf;
+	struct tw_desktop_surface *dsurf =
+		tw_surface->role.commit_private;
+	struct tw_xsurface *surface =
+		wl_container_of(dsurf, surface, dsurf);
 	struct tw_desktop_manager *desktop = dsurf->desktop;
 	pixman_region32_t surf_region;
 	pixman_box32_t *r;
@@ -584,18 +649,13 @@ tw_xsurface_map_tw_surface(struct tw_xsurface *surface,
 		xwm->atoms.net_wm_pid,
 	};
 
-	//setting roles
-	if (tw_surface_has_role(tw_surface) &&
-	    tw_surface->role.commit != handle_commit_tw_xsurface) {
+	if (!tw_surface_assign_role(tw_surface, handle_commit_tw_xsurface,
+	                            dsurf, "xwayland surface")) {
 		wl_resource_post_error(tw_surface->resource, 0,
 		                       "wl_surface@d already has role");
 		return;
 	}
-	tw_surface->role.commit = handle_commit_tw_xsurface;
-	tw_surface->role.commit_private = surface;
-	tw_surface->role.name = "xwayland surface";
-
-	//remove last desktop surface if any.
+	//An xsurface can have different wl_surface during its lifetime.
 	if (dsurf->surface_added)
 		tw_xsurface_unmap_requested(surface);
 	//reinitialize surface
@@ -613,7 +673,13 @@ tw_xsurface_map_tw_surface(struct tw_xsurface *surface,
 	surface->surface = tw_surface;
 	surface->surface_id = 0;
 	surface->pending_mapping = false;
-	tw_desktop_surface_add(dsurf);
+	//This is not toplevel surface
+	if (is_xsurface_subsurface(surface)) {
+		init_xsurface_subsurface(surface, surface->parent);
+	} else {
+		tw_desktop_surface_add(dsurf);
+		//TODO: adding other states
+	}
 }
 
 void
@@ -709,18 +775,18 @@ tw_xsurface_create(struct tw_xwm *xwm, xcb_window_t win_id,
 
 	if (!surface)
 		return NULL;
+	//surface property
 	surface->id = win_id;
-	//have to set desktop here so surface never mapped wont crash
-	surface->dsurf.desktop = xwm->manager;
-	surface->dsurf.window_geometry.x = x;
-	surface->dsurf.window_geometry.y = y;
-	surface->dsurf.window_geometry.w = w;
-	surface->dsurf.window_geometry.h = h;
-	surface->override_redirect = override_redirect;
 	surface->xwm = xwm;
+	surface->x = x;
+	surface->y = y;
+	surface->w = w;
+	surface->h = h;
+	surface->override_redirect = override_redirect;
+	surface->dsurf.desktop = xwm->manager;
+
 	wl_list_init(&surface->link);
 	wl_list_init(&surface->children);
-	wl_list_init(&surface->parent_link);
 	wl_list_init(&surface->surface_destroy.link);
 
 	geometry_cookie = xcb_get_geometry(xwm->xcb_conn, win_id);
@@ -744,4 +810,12 @@ tw_xsurface_destroy(struct tw_xsurface *surface)
 	tw_reset_wl_list(&surface->surface_destroy.link);
 	//there are other things.
 	free(surface);
+}
+
+WL_EXPORT struct tw_desktop_surface *
+tw_xwayland_desktop_surface_from_tw_surface(struct tw_surface *surface)
+{
+	if (surface->role.commit == handle_commit_tw_xsurface)
+		return surface->role.commit_private;
+	return NULL;
 }

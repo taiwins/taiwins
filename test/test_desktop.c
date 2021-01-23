@@ -51,7 +51,7 @@ dsurf_from_view(struct tw_surface *surface)
 		tw_desktop_surface_from_tw_surface(surface);
 #ifdef _TW_HAS_XWAYLAND
 	if (!dsurf)
-		dsurf = tw_desktop_surface_from_tw_surface(surface);
+		dsurf = tw_xwayland_desktop_surface_from_tw_surface(surface);
 #endif
 	return dsurf;
 }
