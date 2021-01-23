@@ -241,7 +241,6 @@ struct tw_xsurface {
 	bool override_redirect, pending_mapping;
 	bool has_alpha, support_delete;
 	bool decor_title, decor_border; /* TODO NEED support */
-	bool fullscreen, maximize, hidden; /* pending state */
 
 	pid_t pid;
 	xcb_atom_t win_type;

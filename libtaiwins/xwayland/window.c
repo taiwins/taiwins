@@ -1,6 +1,5 @@
 #include "options.h"
 
-#include <assert.h>
 #include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -43,8 +42,25 @@ send_surface_wm_msg(struct tw_xsurface *surface,
 #define ICCCM_NORMAL_STATE	1
 #define ICCCM_ICONIC_STATE	3
 
+static inline bool
+set_state(uint32_t action, bool state)
+{
+        switch (action) {
+        case _NET_WM_STATE_REMOVE:
+	        state = false;
+	        break;
+        case _NET_WM_STATE_ADD:
+	        state = true;
+	        break;
+        case _NET_WM_STATE_TOGGLE:
+	        state = !state;
+	        break;
+        }
+        return state;
+}
+
 static void
-set_xsurface_wm_state(struct tw_xsurface *surface, int32_t state)
+send_xsurface_wm_state(struct tw_xsurface *surface, int32_t state)
 {
 	struct tw_xwm *xwm = surface->xwm;
 	uint32_t property[2] = {state, XCB_WINDOW_NONE};
@@ -56,7 +72,7 @@ set_xsurface_wm_state(struct tw_xsurface *surface, int32_t state)
 }
 
 static void
-set_xsurface_net_wm_state(struct tw_xsurface *surface)
+send_xsurface_net_wm_state(struct tw_xsurface *surface)
 {
 	struct tw_xwm *xwm = surface->xwm;
 	uint32_t property[6];
@@ -80,6 +96,23 @@ set_xsurface_net_wm_state(struct tw_xsurface *surface)
 		                    xwm->atoms.net_wm_state, XCB_ATOM_ATOM,
 		                    32, // format
 		                    i, property);
+}
+
+static void
+set_xsurface_net_wm_state(struct tw_xsurface *surface,
+                          bool fullscreen, bool maximize, bool hidden)
+{
+	struct tw_desktop_surface *dsurf = &surface->dsurf;
+
+	if (dsurf->surface_added) {
+		if (fullscreen != dsurf->fullscreened)
+			tw_desktop_surface_set_fullscreen(dsurf, NULL,
+			                                  fullscreen);
+		else if (maximize != dsurf->maximized)
+			tw_desktop_surface_set_maximized(dsurf, maximize);
+		else if (hidden && !dsurf->minimized)
+			tw_desktop_surface_set_minimized(dsurf);
+	}
 }
 
 /******************************************************************************
@@ -197,8 +230,6 @@ read_surface_title(struct tw_xwm *xwm, struct tw_xsurface *surface,
 	tw_desktop_surface_set_title(&surface->dsurf, title, len);
 }
 
-//TODO: this is probably not right. transient for is for surfaces like drop
-//down mene, they should be the subsurfaces for tw_surface
 static void
 read_surface_parent(struct tw_xwm *xwm, struct tw_xsurface *surface,
                     xcb_get_property_reply_t *reply)
@@ -265,7 +296,6 @@ read_surface_net_wm_state(struct tw_xwm *xwm, struct tw_xsurface *surface,
 	bool max_vert = false;
 	bool max_horz = false;
 	bool hidden = false;
-	struct tw_desktop_surface *dsurf = &surface->dsurf;
 	xcb_atom_t *atom = xcb_get_property_value(reply);
 
 	for (unsigned i = 0; i < reply->value_len; i++) {
@@ -278,14 +308,8 @@ read_surface_net_wm_state(struct tw_xwm *xwm, struct tw_xsurface *surface,
 		else if (atom[i] == xwm->atoms.net_wm_state_hidden)
 			hidden = true;
 	}
-	if (dsurf->surface_added) {
-		if (fullscreend)
-			tw_desktop_surface_set_fullscreen(dsurf, NULL, true);
-		else if (max_vert && max_horz)
-			tw_desktop_surface_set_maximized(dsurf, true);
-		else if (hidden)
-			tw_desktop_surface_set_minimized(dsurf);
-	}
+	set_xsurface_net_wm_state(surface, fullscreend, max_horz && max_vert,
+	                          hidden);
 }
 
 static void
@@ -378,41 +402,23 @@ read_net_wm_state_msg(struct tw_xsurface *surface, struct tw_xwm *xwm,
 	bool maximized = dsurf->maximized;
 	bool hidden = dsurf->minimized;
         uint32_t action = ev->data.data32[0];
-
         uint32_t property1 = ev->data.data32[1];
         uint32_t property2 = ev->data.data32[2];
-
-        switch (action) {
-        case _NET_WM_STATE_REMOVE:
-	        fullscreend = false;
-	        maximized = false;
-	        hidden = false;
-	        break;
-        case _NET_WM_STATE_ADD:
-	        fullscreend = true;
-	        maximized = true;
-	        hidden = true;
-	        break;
-        case _NET_WM_STATE_TOGGLE:
-	        fullscreend = !fullscreend;
-	        maximized = !maximized;
-	        hidden = !hidden;
-	        break;
-        }
 
         //request the state to the implemenation.
         if ((property1 == xwm->atoms.net_wm_state_fullscreen) ||
             (property2 == xwm->atoms.net_wm_state_fullscreen))
-	        tw_desktop_surface_set_fullscreen(dsurf, NULL, fullscreend);
+	        fullscreend = set_state(action, fullscreend);
         else if ((property1 == xwm->atoms.net_wm_state_maximized_vert) &&
                  (property2 == xwm->atoms.net_wm_state_maximized_horz))
-	        tw_desktop_surface_set_maximized(dsurf, maximized);
+	        maximized = set_state(action, maximized);
         else if ((property1 == xwm->atoms.net_wm_state_maximized_horz) &&
                  (property2 == xwm->atoms.net_wm_state_maximized_vert))
-	        tw_desktop_surface_set_maximized(dsurf, maximized);
+	        maximized = set_state(action, maximized);
         else if (((property1 == xwm->atoms.net_wm_state_hidden) ||
                   (property2 == xwm->atoms.net_wm_state_hidden)) && hidden)
-	        tw_desktop_surface_set_minimized(dsurf);
+	        hidden = set_state(action, hidden);
+        set_xsurface_net_wm_state(surface, fullscreend, maximized, hidden);
 }
 
 static void
@@ -516,7 +522,6 @@ handle_configure_tw_xsurface(struct tw_desktop_surface *dsurf,
 	//updating net_wm_stae
 	if (dsurf->focused)
 		tw_xsurface_set_focus(surface, xwm);
-	set_xsurface_net_wm_state(surface);
 
 	//updating the size. In tw_xdg_view_set_position we have (x->gx,
 	//y->gy), so here we need to revert it, as the client is expecting a
@@ -687,7 +692,7 @@ tw_xsurface_unmap_requested(struct tw_xsurface *surface)
 {
 	struct tw_desktop_surface *dsurf = &surface->dsurf;
 
-	set_xsurface_wm_state(surface, ICCCM_WITHDRAWN_STATE);
+	send_xsurface_wm_state(surface, ICCCM_WITHDRAWN_STATE);
 
 	surface->pending_mapping = false;
 	tw_desktop_surface_rm(dsurf);
@@ -700,8 +705,8 @@ tw_xsurface_map_requested(struct tw_xsurface *xsurface)
 	struct tw_xwm *xwm = xsurface->xwm;
 	uint32_t values = XCB_STACK_MODE_BELOW;
 
-	set_xsurface_wm_state(xsurface, ICCCM_NORMAL_STATE);
-	set_xsurface_net_wm_state(xsurface);
+	send_xsurface_wm_state(xsurface, ICCCM_NORMAL_STATE);
+	send_xsurface_net_wm_state(xsurface);
 
         //from weston documentation. The MapRequest happens before the
 	//wl_surface.id is available. Here we Simply acknowledge the xwindow
@@ -751,7 +756,7 @@ tw_xsurface_set_focus(struct tw_xsurface *surface, struct tw_xwm *xwm)
 		values[0] = XCB_STACK_MODE_ABOVE;
 		xcb_configure_window(xwm->xcb_conn, surface->id,
 		                     XCB_CONFIG_WINDOW_STACK_MODE, values);
-		set_xsurface_net_wm_state(surface);
+		send_xsurface_net_wm_state(surface);
 
 	} else {
 		xcb_set_input_focus(xwm->xcb_conn,
