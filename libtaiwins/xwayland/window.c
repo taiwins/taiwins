@@ -512,32 +512,16 @@ handle_configure_tw_xsurface(struct tw_desktop_surface *dsurf,
 	struct tw_xsurface *surface =
 		wl_container_of(dsurf, surface, dsurf);
 	struct tw_xwm *xwm = surface->xwm;
-	struct tw_surface *tw_surface = surface->surface;
-	uint16_t mask = 0;
+	//we have to set the mask to match the values.
+	uint16_t mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y |
+		XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
 	uint32_t values[] = {x, y, width, height, 0};
-	pixman_rectangle32_t geo = {
-		dsurf->window_geometry.x, dsurf->window_geometry.y,
-		dsurf->window_geometry.w, dsurf->window_geometry.h,
-	};
-	//updating net_wm_stae
+
 	if (dsurf->focused)
 		tw_xsurface_set_focus(surface, xwm);
 
-	//updating the size. In tw_xdg_view_set_position we have (x->gx,
-	//y->gy), so here we need to revert it, as the client is expecting a
-	//window geometry parameter.
-	geo.x += tw_surface->geometry.x;
-	geo.y += tw_surface->geometry.y;
-
-	mask |= (geo.x != x) ? XCB_CONFIG_WINDOW_X : 0;
-	mask |= (geo.y != y) ? XCB_CONFIG_WINDOW_Y : 0;
-	mask |= (geo.width != width) ? XCB_CONFIG_WINDOW_WIDTH : 0;
-	mask |= (geo.height != height) ? XCB_CONFIG_WINDOW_HEIGHT : 0;
-
-	if (mask) {
-		xcb_configure_window(xwm->xcb_conn, surface->id, mask, values);
-		xcb_flush(xwm->xcb_conn);
-	}
+	xcb_configure_window(xwm->xcb_conn, surface->id, mask, values);
+	xcb_flush(xwm->xcb_conn);
 }
 
 static void
