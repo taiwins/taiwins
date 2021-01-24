@@ -519,7 +519,10 @@ handle_configure_tw_xsurface(struct tw_desktop_surface *dsurf,
 
 	if (dsurf->focused)
 		tw_xsurface_set_focus(surface, xwm);
-
+	surface->x = x;
+	surface->y = y;
+	surface->w = width;
+	surface->h = height;
 	xcb_configure_window(xwm->xcb_conn, surface->id, mask, values);
 	xcb_flush(xwm->xcb_conn);
 }

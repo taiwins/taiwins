@@ -82,7 +82,7 @@ handle_xwm_destroy_surface(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 
 	if (!surface)
 		return;
-	tw_logl("Received DestroyNotify:%d for %d",
+	tw_logl("Received DestroyNotify:%d for xcb_window@%d",
 	        XCB_DESTROY_NOTIFY, ev->window);
 	wl_list_remove(&surface->link);
 	tw_xsurface_destroy(surface);
@@ -96,13 +96,13 @@ handle_xwm_map_request(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 
 	if (!surface)
 		return;
-	tw_logl("Recived MapRequest:%d from xcb_window@d",
+	tw_logl("Recived MapRequest:%d from xcb_window@%d",
 	        XCB_MAP_REQUEST, ev->window);
 	// it is likely that we do not have a wl_surface yet
 	tw_xsurface_map_requested(surface);
 }
 
-static void
+static inline void
 handle_xwm_map_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 {
 	xcb_map_notify_event_t *ev = (xcb_map_notify_event_t *)ge;
@@ -113,7 +113,7 @@ handle_xwm_map_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 		        XCB_MAP_NOTIFY, ev->window);
 }
 
-static void
+static inline void
 handle_xwm_unmap_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 {
 	xcb_unmap_notify_event_t *ev = (xcb_unmap_notify_event_t *)ge;
@@ -121,7 +121,7 @@ handle_xwm_unmap_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 
 	if (!surface)
 		return;
-	tw_logl("Recived UnmapNotify:%d from xcb_window",
+	tw_logl("Recived UnmapNotify:%d from xcb_window@%d",
 	        XCB_UNMAP_NOTIFY, ev->window);
 	tw_xsurface_unmap_requested(surface);
 }
@@ -137,28 +137,39 @@ handle_xwm_configure_request(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 		(xcb_configure_request_event_t *)ge;
 
 	struct tw_xsurface *surface = tw_xsurface_from_id(xwm, ev->window);
-	uint32_t mask = ev->value_mask;
 	uint16_t geo_mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y |
 		XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
+	//TODO: have we have to grant the wish of the clients for the frame to
+	//show
+	uint32_t values[5] = {
+		surface->x, surface->h, ev->width, ev->height, 0
+	};
 
-	if (!surface || !surface->surface || ((geo_mask & mask) == 0))
+	if (!surface)
 		return;
-	//TODO, we probably need to send a desktop request.
+	tw_logl("Recived Configure request:%d from xcb_window@%d",
+	        XCB_CONFIGURE_REQUEST, surface->id);
+
+	xcb_configure_window(xwm->xcb_conn, surface->id, geo_mask, values);
 }
 
 /*
  * xserver/xwayland send this event to us(root window) whenever the configure
  * request made by other clients actually completes.
  */
-static void
+static inline void
 handle_xwm_configure_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 {
-	//xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t *)ge;
-        //we would need to care if the geometry is different than what we
-        //expect.
+	xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t *)ge;
+	struct tw_xsurface *surface = tw_xsurface_from_id(xwm, ev->window);
+
+	if (!surface)
+		return;
+	tw_logl("Recived Configure notify:%d from xcb_window@%d",
+	        XCB_CONFIGURE_NOTIFY, ev->window);
 }
 
-static void
+static inline void
 handle_xwm_client_msg(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 {
 	xcb_client_message_event_t *ev = (xcb_client_message_event_t *)ge;
@@ -172,7 +183,7 @@ handle_xwm_client_msg(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 	tw_xsurface_read_client_msg(surface, ev);
 }
 
-static void
+static inline void
 handle_xwm_property_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 {
 	xcb_property_notify_event_t *ev = (xcb_property_notify_event_t *)ge;
@@ -185,7 +196,7 @@ handle_xwm_property_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 	tw_xsurface_read_property(surface, ev->atom);
 }
 
-static void
+static inline void
 handle_xwm_focus_in(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 {
 	xcb_focus_in_event_t *ev = (xcb_focus_in_event_t *)ge;
