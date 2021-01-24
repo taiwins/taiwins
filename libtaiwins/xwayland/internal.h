@@ -111,6 +111,8 @@ struct tw_xmotif_wm_hints {
 #define _NET_WM_MOVERESIZE_MOVE_KEYBOARD 10  /* move via keyboard */
 #define _NET_WM_MOVERESIZE_CANCEL 11  /* cancel operation */
 
+#define XCB_EVENT_TYPE_MASK (0x7f)
+
 /** @brief the window manager for xwayland.
  *
  * The xwm works like any other normal X window manager by creating a root
@@ -140,6 +142,8 @@ struct tw_xwm {
 	xcb_connection_t *xcb_conn;
 	xcb_screen_t *screen;
 	xcb_window_t window; //root window
+	xcb_window_t selection_win;
+	xcb_window_t dnd_win;
 #if _TW_HAS_XCB_ERRORS
 	xcb_errors_context_t *errors_context;
 #endif

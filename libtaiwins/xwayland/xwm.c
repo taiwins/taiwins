@@ -47,8 +47,6 @@
 
 #include "internal.h"
 
-#define XCB_EVENT_TYPE_MASK (0x7f)
-
 /******************************************************************************
  * handlers
  *****************************************************************************/
@@ -62,7 +60,8 @@ handle_xwm_create_surface(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 	struct tw_xsurface *surface = NULL;
 	xcb_create_notify_event_t *ev = (xcb_create_notify_event_t *)ge;
 
-	if (ev->window == xwm->window) //or DND or selection window
+	if (ev->window == xwm->window || ev->window == xwm->selection_win ||
+	    ev->window == xwm->dnd_win)
 		return;
 	tw_logl("Received CreateNotify:%d for %d",
 	        XCB_CREATE_NOTIFY, ev->window);
