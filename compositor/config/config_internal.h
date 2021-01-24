@@ -165,6 +165,7 @@ struct tw_config {
 	/**< lua code may use this */
 	struct wl_listener output_created_listener;
 	struct wl_listener seat_created_listener;
+	struct wl_listener xserver_ready_listener;
 
 	//ideally, we would use function pointers to wrap lua code together
 	void (*init)(struct tw_config *);

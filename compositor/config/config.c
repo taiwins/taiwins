@@ -43,8 +43,11 @@
 #include <taiwins/engine.h>
 #include <taiwins/output_device.h>
 #include <taiwins/shell.h>
+#ifdef _TW_HAS_XWAYLAND
+#include <taiwins/xwayland.h>
+#endif
 
-#include "xdg.h"
+#include "desktop/xdg_internal.h"
 #include "bindings.h"
 #include "config.h"
 #include "config_internal.h"
@@ -52,6 +55,7 @@
 /******************************************************************************
  * internal helpers
  *****************************************************************************/
+static void notify_config_xserver_ready(struct wl_listener *, void *data);
 
 static const uint32_t TW_CONFIG_GLOBAL_DEFAULT =
 	TW_CONFIG_GLOBAL_BUS |
@@ -204,7 +208,9 @@ tw_config_wake_compositor(struct tw_config *c)
 	struct tw_console *console;
 	struct tw_bus *bus;
 	struct tw_theme_global *theme;
-	/* struct tw_xwayland *xwayland; */
+#ifdef _TW_HAS_XWAYLAND
+	struct tw_xserver *xserver;
+#endif
 	struct tw_xdg *xdg;
 	struct tw_config *initialized;
 	struct wl_display *display = c->engine->display;
@@ -217,8 +223,6 @@ tw_config_wake_compositor(struct tw_config *c)
 	console_path = tw_config_request_object(c, TW_CONFIG_CONSOLE_PATH);
 	if (initialized)
 		goto initialized;
-
-	/* tw_config_register_object(c, "backend", c->backend); */
 
 	if (enables & TW_CONFIG_GLOBAL_BUS) {
 		if (!(bus = tw_bus_create_global(display)))
@@ -250,9 +254,13 @@ tw_config_wake_compositor(struct tw_config *c)
 			goto out;
 		tw_config_register_object(c, "theme", theme);
 	}
-	/* if (!(xwayland = tw_setup_xwayland(ec))) */
-	/*	goto out; */
-	/* tw_config_register_object(c, "xwayland", xwayland); */
+#ifdef _TW_HAS_XWAYLAND
+	if (enables & TW_CONFIG_GLOBAL_XWAYLAND) {
+		if (!(xserver = tw_xserver_create_global(display, true)))
+			goto out;
+		tw_config_register_object(c, "xwayland", xserver);
+	}
+#endif
 	if (enables & TW_CONFIG_GLOBAL_DESKTOP) {
 		if (!(xdg = tw_xdg_create_global(display, shell, c->engine)))
 			goto out;
@@ -265,6 +273,21 @@ initialized:
 	return true;
 out:
 	return false;
+}
+
+static inline void
+register_xserver_listener(struct tw_config *c)
+{
+#ifdef _TW_HAS_XWAYLAND
+	struct tw_xserver *xserver = NULL;
+
+	tw_reset_wl_list(&c->xserver_ready_listener.link);
+	xserver = tw_config_request_object(c, "xwayland");
+	if (xserver)
+		tw_signal_setup_listener(&xserver->signals.ready,
+		                         &c->xserver_ready_listener,
+		                         notify_config_xserver_ready);
+#endif
 }
 
 /**
@@ -298,6 +321,7 @@ tw_run_config(struct tw_config *config)
 	//in either case, we would want to purge the temp config
 	tw_config_destroy(temp_config);
 	tw_bindings_destroy(tmp_bindings);
+	register_xserver_listener(config);
 
 	return safe;
 }
@@ -309,6 +333,7 @@ tw_run_default_config(struct tw_config *c)
 	c->config_table.enable_globals = TW_CONFIG_GLOBAL_DEFAULT;
 	safe = tw_config_wake_compositor(c);
 	safe = safe && tw_config_install_bindings(c, c->bindings);
+	register_xserver_listener(c);
 	return safe;
 }
 
@@ -366,6 +391,24 @@ notify_config_seat_create(struct wl_listener *listener, void *data)
 	tw_engine_seat_set_xkb_rules(seat, &config->xkb_rules);
 }
 
+#ifdef _TW_HAS_XWAYLAND
+
+static void
+notify_config_xserver_ready(struct wl_listener *listener, void *data)
+{
+	struct tw_config *config =
+		wl_container_of(listener, config, xserver_ready_listener);
+	struct tw_xserver *xserver =
+		tw_config_request_object(config, "xwayland");
+	struct tw_xdg *xdg =
+		tw_config_request_object(config, "desktop");
+	struct tw_engine *engine = config->engine;
+	tw_xserver_create_xwindow_manager(xserver, &xdg->desktop_manager,
+	                                  &engine->compositor_manager);
+}
+
+#endif
+
 struct tw_config*
 tw_config_create(struct tw_engine *engine, struct tw_bindings *bindings,
                  enum tw_config_type type)
@@ -403,6 +446,7 @@ tw_config_create(struct tw_engine *engine, struct tw_bindings *bindings,
 	tw_signal_setup_listener(&engine->signals.seat_created,
 	                         &config->seat_created_listener,
 	                         notify_config_seat_create);
+	wl_list_init(&config->xserver_ready_listener.link);
 	return config;
 }
 
@@ -419,6 +463,7 @@ tw_config_destroy(struct tw_config *config)
 
 	wl_list_remove(&config->output_created_listener.link);
         wl_list_remove(&config->seat_created_listener.link);
+        wl_list_remove(&config->xserver_ready_listener.link);
         free(config);
 }
 

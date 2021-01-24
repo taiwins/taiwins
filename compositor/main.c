@@ -46,7 +46,6 @@
 #include <taiwins/render_context.h>
 #include <taiwins/render_pipeline.h>
 
-#include "xdg.h"
 #include "input.h"
 #include "bindings.h"
 #include "config.h"
