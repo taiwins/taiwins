@@ -356,124 +356,6 @@ destroy_xwm(struct tw_xwm *xwm)
 }
 
 static bool
-collect_xwm_atoms(struct tw_xwm *xwm)
-{
-	struct {
-		const char *name;
-		xcb_atom_t *atom;
-		xcb_intern_atom_cookie_t cookie;
-	} atoms[] = {
-		{ "WM_PROTOCOLS",	&xwm->atoms.wm_protocols },
-		{ "WM_NORMAL_HINTS",	&xwm->atoms.wm_normal_hints },
-		{ "WM_TAKE_FOCUS",	&xwm->atoms.wm_take_focus },
-		{ "WM_DELETE_WINDOW",	&xwm->atoms.wm_delete_window },
-		{ "WM_STATE",		&xwm->atoms.wm_state },
-		{ "WM_S0",		&xwm->atoms.wm_s0 },
-		{ "WM_CLIENT_MACHINE",	&xwm->atoms.wm_client_machine },
-		{ "_NET_WM_CM_S0",	&xwm->atoms.net_wm_cm_s0 },
-		{ "_NET_WM_NAME",	&xwm->atoms.net_wm_name },
-		{ "_NET_WM_PID",	&xwm->atoms.net_wm_pid },
-		{ "_NET_WM_ICON",	&xwm->atoms.net_wm_icon },
-		{ "_NET_WM_STATE",	&xwm->atoms.net_wm_state },
-		{ "_NET_WM_STATE_FOCUSED", &xwm->atoms.net_wm_state_focused },
-		{ "_NET_WM_STATE_MAXIMIZED_VERT",
-		  &xwm->atoms.net_wm_state_maximized_vert },
-		{ "_NET_WM_STATE_MAXIMIZED_HORZ",
-		  &xwm->atoms.net_wm_state_maximized_horz },
-		{ "_NET_WM_STATE_FULLSCREEN",
-		  &xwm->atoms.net_wm_state_fullscreen },
-		{ "_NET_WM_USER_TIME", &xwm->atoms.net_wm_user_time },
-		{ "_NET_WM_ICON_NAME", &xwm->atoms.net_wm_icon_name },
-		{ "_NET_WM_DESKTOP", &xwm->atoms.net_wm_desktop },
-		{ "_NET_WM_WINDOW_TYPE", &xwm->atoms.net_wm_window_type },
-
-		{ "_NET_WM_WINDOW_TYPE_DESKTOP",
-		  &xwm->atoms.net_wm_window_type_desktop },
-		{ "_NET_WM_WINDOW_TYPE_DOCK",
-		  &xwm->atoms.net_wm_window_type_dock },
-		{ "_NET_WM_WINDOW_TYPE_TOOLBAR",
-		  &xwm->atoms.net_wm_window_type_toolbar },
-		{ "_NET_WM_WINDOW_TYPE_MENU",
-		  &xwm->atoms.net_wm_window_type_menu },
-		{ "_NET_WM_WINDOW_TYPE_UTILITY",
-		  &xwm->atoms.net_wm_window_type_utility },
-		{ "_NET_WM_WINDOW_TYPE_SPLASH",
-		  &xwm->atoms.net_wm_window_type_splash },
-		{ "_NET_WM_WINDOW_TYPE_DIALOG",
-		  &xwm->atoms.net_wm_window_type_dialog },
-		{ "_NET_WM_WINDOW_TYPE_DROPDOWN_MENU",
-		  &xwm->atoms.net_wm_window_type_dropdown },
-		{ "_NET_WM_WINDOW_TYPE_POPUP_MENU",
-		  &xwm->atoms.net_wm_window_type_popup },
-		{ "_NET_WM_WINDOW_TYPE_TOOLTIP",
-		  &xwm->atoms.net_wm_window_type_tooltip },
-		{ "_NET_WM_WINDOW_TYPE_NOTIFICATION",
-		  &xwm->atoms.net_wm_window_type_notification },
-		{ "_NET_WM_WINDOW_TYPE_COMBO",
-		  &xwm->atoms.net_wm_window_type_combo },
-		{ "_NET_WM_WINDOW_TYPE_DND",
-		  &xwm->atoms.net_wm_window_type_dnd },
-		{ "_NET_WM_WINDOW_TYPE_NORMAL",
-		  &xwm->atoms.net_wm_window_type_normal },
-
-		{ "_NET_WM_MOVERESIZE", &xwm->atoms.net_wm_moveresize },
-		{ "_NET_SUPPORTING_WM_CHECK",
-					&xwm->atoms.net_supporting_wm_check },
-		{ "_NET_SUPPORTED",     &xwm->atoms.net_supported },
-		{ "_NET_ACTIVE_WINDOW",     &xwm->atoms.net_active_window },
-		{ "_MOTIF_WM_HINTS",	&xwm->atoms.motif_wm_hints },
-		{ "CLIPBOARD",		&xwm->atoms.clipboard },
-		{ "CLIPBOARD_MANAGER",	&xwm->atoms.clipboard_manager },
-		{ "TARGETS",		&xwm->atoms.targets },
-		{ "UTF8_STRING",	&xwm->atoms.utf8_string },
-		{ "_WL_SELECTION",	&xwm->atoms.wl_selection },
-		{ "INCR",		&xwm->atoms.incr },
-		{ "TIMESTAMP",		&xwm->atoms.timestamp },
-		{ "MULTIPLE",		&xwm->atoms.multiple },
-		{ "UTF8_STRING"	,	&xwm->atoms.utf8_string },
-		{ "COMPOUND_TEXT",	&xwm->atoms.compound_text },
-		{ "TEXT",		&xwm->atoms.text },
-		{ "STRING",		&xwm->atoms.string },
-		{ "WINDOW",		&xwm->atoms.window },
-		{ "text/plain;charset=utf-8",	&xwm->atoms.text_plain_utf8 },
-		{ "text/plain",		&xwm->atoms.text_plain },
-		{ "XdndSelection",	&xwm->atoms.xdnd_selection },
-		{ "XdndAware",		&xwm->atoms.xdnd_aware },
-		{ "XdndEnter",		&xwm->atoms.xdnd_enter },
-		{ "XdndLeave",		&xwm->atoms.xdnd_leave },
-		{ "XdndDrop",		&xwm->atoms.xdnd_drop },
-		{ "XdndStatus",		&xwm->atoms.xdnd_status },
-		{ "XdndFinished",	&xwm->atoms.xdnd_finished },
-		{ "XdndTypeList",	&xwm->atoms.xdnd_type_list },
-		{ "XdndActionCopy",	&xwm->atoms.xdnd_action_copy },
-		{ "_XWAYLAND_ALLOW_COMMITS",	&xwm->atoms.allow_commits },
-		{ "WL_SURFACE_ID",	&xwm->atoms.wl_surface_id }
-	};
-	const int n_atoms = sizeof(atoms) / sizeof(atoms[0]);
-	xcb_intern_atom_reply_t *reply;
-	xcb_generic_error_t *error;
-
-	for (int i = 0; i < n_atoms; i++)
-		atoms[i].cookie = xcb_intern_atom(xwm->xcb_conn, 0,
-		                                  strlen(atoms[i].name),
-		                                  atoms[i].name);
-	for (int i = 0; i < n_atoms; i++) {
-		reply = xcb_intern_atom_reply(xwm->xcb_conn, atoms[i].cookie,
-		                              &error);
-		if (reply && !error)
-			*atoms[i].atom = reply->atom;
-		free(reply);
-		if (error) {
-			tw_logl_level(TW_LOG_WARN, "Could not get xcb_atom %s",
-			              atoms[i].name);
-			free(error);
-			return false;
-		}
-	}
-	return true;
-}
-
-static bool
 collect_xwm_xfixes(struct tw_xwm *xwm)
 {
 	xcb_xfixes_query_version_cookie_t xfixes_cookie;
@@ -713,7 +595,7 @@ tw_xserver_create_xwindow_manager(struct tw_xserver *server,
 
         //TODO need new wl_surface event for unmapped surface, this makes us
         //request wl_compositor object
-        if (!collect_xwm_atoms(xwm))
+        if (!collect_xwm_atoms(xwm->xcb_conn, &xwm->atoms))
 	        goto err;
         if (!collect_xwm_xfixes(xwm))
 	        goto err;

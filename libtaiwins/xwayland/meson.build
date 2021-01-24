@@ -34,6 +34,6 @@ if get_option('xwayland').enabled()
     endif
   endforeach
 
-  taiwins_lib_src += files('server.c', 'xwm.c', 'window.c')
+  taiwins_lib_src += files('server.c', 'xwm.c', 'window.c', 'atoms.c')
   taiwins_lib_dep += deps_xwayland
 endif
