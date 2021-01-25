@@ -1,6 +1,7 @@
 #include "taiwins/engine.h"
 #include "taiwins/objects/layers.h"
 #include "taiwins/objects/seat.h"
+#include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <pixman.h>
@@ -98,7 +99,7 @@ send_view_configure(struct tw_desktop_surface *dsurf,
 	dsurf->tiled_state = 0;
 	//first one on the list
 	dsurf->focused = view_focused(dsurf->tw_surface, desktop);
-
+	tw_surface_set_position(dsurf->tw_surface, conf->rect.x, conf->rect.y);
 	dsurf->configure(dsurf, 0, //edge
 	                 conf->rect.x, conf->rect.y,
 	                 conf->rect.width, conf->rect.height);
@@ -138,6 +139,123 @@ handle_refocus(void *data)
 }
 
 //TODO: missing moving and resizing grab
+
+/******************************************************************************
+ * grab
+ *****************************************************************************/
+static struct test_desktop_grab {
+	struct tw_seat_pointer_grab pointer_grab;
+	struct wl_listener surface_remove;
+	struct tw_desktop_surface *curr;
+	double gx, gy;
+	enum wl_shell_surface_resize edge;
+} TEST_GRAB = {0};
+
+static void
+test_grab_start(struct test_desktop_grab *tg, struct tw_desktop_surface *dsurf,
+                struct tw_test_desktop *desktop, struct tw_pointer *pointer,
+                const struct tw_pointer_grab_interface *gi,
+                enum wl_shell_surface_resize edge)
+{
+	if (pointer->grab != &pointer->default_grab)
+		return;
+	tg->edge = edge;
+	tg->curr = dsurf;
+	tg->gx = nan("");
+	tg->gy = nan("");
+	tg->pointer_grab.impl = gi;
+	tg->pointer_grab.data = desktop;
+	tw_pointer_start_grab(pointer, &tg->pointer_grab);
+}
+
+static void
+handle_pointer_grab_cancel(struct tw_seat_pointer_grab *grab)
+{
+	struct test_desktop_grab *tg =
+		wl_container_of(grab, tg, pointer_grab);
+	tg->curr = NULL;
+	tg->gx = nan("");
+	tg->gy = nan("");
+}
+
+static void
+handle_move_pointer_grab_motion(struct tw_seat_pointer_grab *grab,
+                                uint32_t time_msec, double sx, double sy)
+{
+	struct test_desktop_grab *tg =
+		wl_container_of(grab, tg, pointer_grab);
+	struct tw_desktop_surface *dsurf = tg->curr;
+	struct tw_surface *surf = NULL;
+	float gx, gy;
+
+	if (!dsurf)
+		return;
+	surf = dsurf->tw_surface;
+	tw_surface_to_global_pos(surf, sx, sy, &gx, &gy);
+	if (!isnan(tg->gx) && !isnan(tg->gy))
+		tw_surface_set_position(surf, surf->geometry.x + (gx-tg->gx),
+		                        surf->geometry.y + gy-tg->gy);
+
+	tg->gx = gx;
+	tg->gy = gy;
+}
+
+static void
+handle_pointer_grab_button(struct tw_seat_pointer_grab *grab,
+	                   uint32_t time_msec, uint32_t button,
+	                   enum wl_pointer_button_state state)
+{
+	struct tw_pointer *pointer = &grab->seat->pointer;
+	if (state == WL_POINTER_BUTTON_STATE_RELEASED &&
+	    pointer->btn_count == 0)
+		tw_pointer_end_grab(pointer);
+}
+
+static const struct tw_pointer_grab_interface move_pointer_grab_impl = {
+	.motion = handle_move_pointer_grab_motion,
+	.button = handle_pointer_grab_button,
+	.cancel = handle_pointer_grab_cancel,
+};
+
+static void
+handle_resize_pointer_grab_motion(struct tw_seat_pointer_grab *grab,
+                                uint32_t time_msec, double sx, double sy)
+{
+	struct test_desktop_grab *tg =
+		wl_container_of(grab, tg, pointer_grab);
+	struct tw_surface *surf;
+	struct tw_test_desktop *desktop = grab->data;
+	float gx, gy;
+	//would change position, bail
+	if ((tg->edge & WL_SHELL_SURFACE_RESIZE_TOP_LEFT))
+		return;
+	if (!tg->curr)
+		return;
+	surf = tg->curr->tw_surface;
+	tw_surface_to_global_pos(surf, sx, sy, &gx, &gy);
+
+	if (!isnan(tg->gx) && !isnan(tg->gy)) {
+		float dw = (gx-tg->gx);
+		float dh = (gy-tg->gy);
+		struct view_configure conf = {
+			.rect.x = surf->geometry.x, //keep the same pos
+			.rect.y = surf->geometry.y, //keep the same pos
+			.rect.width = tg->curr->window_geometry.w + dw,
+			.rect.height = tg->curr->window_geometry.h + dh,
+		};
+		send_view_configure(tg->curr, desktop, &conf);
+	}
+	tg->gx = gx;
+	tg->gy = gy;
+
+}
+
+static const struct tw_pointer_grab_interface resize_pointer_grab_impl = {
+	.motion = handle_resize_pointer_grab_motion,
+	.button = handle_pointer_grab_button, // same as move grab
+	.cancel = handle_pointer_grab_cancel, // same as move grab
+};
+
 
 /******************************************************************************
  * handles
@@ -244,13 +362,17 @@ handle_surface_move(struct tw_desktop_surface *dsurf,
                     void *user_data)
 {
 	struct tw_seat *seat = tw_seat_from_resource(seat_resource);
+	struct tw_desktop_manager *manager = dsurf->desktop;
+	struct tw_test_desktop *desktop =
+		wl_container_of(manager, desktop, manager);
 
 	if (!tw_seat_valid_serial(seat, serial)) {
-		tw_logl("serial not matched for desktop moving grab.");
+		tw_logl_level(TW_LOG_WARN,
+		              "serial not matched for desktop moving grab.");
 		return;
 	}
-	tw_logl("Should start moving grab for surface@%d!",
-		wl_resource_get_id(dsurf->tw_surface->resource));
+	test_grab_start(&TEST_GRAB, dsurf, desktop, &seat->pointer,
+	                &move_pointer_grab_impl, 0);
 }
 
 static void
@@ -259,13 +381,17 @@ handle_surface_resize(struct tw_desktop_surface *dsurf,
                       enum wl_shell_surface_resize edge, void *user_data)
 {
 	struct tw_seat *seat = tw_seat_from_resource(seat_resource);
+	struct tw_desktop_manager *manager = dsurf->desktop;
+	struct tw_test_desktop *desktop =
+		wl_container_of(manager, desktop, manager);
 
 	if (!tw_seat_valid_serial(seat, serial)) {
-		tw_logl("serial not matched for desktop moving grab.");
+		tw_logl_level(TW_LOG_WARN,
+		              "serial not matched for desktop moving grab.");
 		return;
 	}
-	tw_logl("Should start resizing grab for surface@%d!",
-		wl_resource_get_id(dsurf->tw_surface->resource));
+	test_grab_start(&TEST_GRAB, dsurf, desktop, &seat->pointer,
+	                &resize_pointer_grab_impl, edge);
 }
 
 static void
