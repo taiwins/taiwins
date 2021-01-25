@@ -39,23 +39,6 @@
 
 #include "bindings.h"
 
-struct tw_binding_node {
-	struct vtree_node node;
-	uint32_t keycode;
-	uint32_t modifier;
-	//this is a private option you need to have for
-	bool end;
-	struct tw_binding binding;
-};
-
-struct tw_bindings {
-	//root node for keyboard
-	struct wl_display *display;
-	struct tw_binding_node root_node;
-	struct wl_listener destroy_listener;
-	vector_t apply_list;
-};
-
 
 static struct tw_binding_node *
 make_binding_node(uint32_t code, uint32_t mod, uint32_t option,
@@ -93,37 +76,56 @@ static void
 notify_bindings_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_bindings *bindings =
-		container_of(listener, struct tw_bindings, destroy_listener);
+		wl_container_of(listener, bindings, destroy_listener);
 	tw_bindings_destroy(bindings);
 }
 
 static void
-tw_bindings_release(struct tw_bindings *bindings)
+notify_bindings_release(struct wl_listener *listener, void *data)
 {
-	tw_reset_wl_list(&bindings->destroy_listener.link);
-	vtree_destroy_children(&bindings->root_node.node, free);
-	if (bindings->apply_list.elems)
-		vector_destroy(&bindings->apply_list);
+	struct tw_bindings *bindings =
+		wl_container_of(listener, bindings, destroy_listener);
+	tw_bindings_release(bindings);
 }
 
 /******************************************************************************
  * exposed API
  *****************************************************************************/
 
+void
+tw_bindings_init(struct tw_bindings *root, struct wl_display *display)
+{
+	root->display = display;
+	vtree_node_init(&root->root_node.node,
+	                offsetof(struct tw_binding_node, node));
+	vector_init_zero(&root->apply_list,
+	                 sizeof(struct tw_binding), NULL);
+	tw_set_display_destroy_listener(display, &root->destroy_listener,
+	                                notify_bindings_release);
+}
+
 struct tw_bindings *
 tw_bindings_create(struct wl_display *display)
 {
 	struct tw_bindings *root = calloc(1, sizeof(struct tw_bindings));
+
 	if (root) {
-		root->display = display;
-		vtree_node_init(&root->root_node.node,
-				offsetof(struct tw_binding_node, node));
+		tw_bindings_init(root, display);
+		wl_list_remove(&root->destroy_listener.link);
+		tw_set_display_destroy_listener(display,
+		                                &root->destroy_listener,
+		                                notify_bindings_destroy);
 	}
-	vector_init_zero(&root->apply_list,
-	                 sizeof(struct tw_binding), NULL);
-	tw_set_display_destroy_listener(display, &root->destroy_listener,
-	                                notify_bindings_destroy);
 	return root;
+}
+
+void
+tw_bindings_release(struct tw_bindings *bindings)
+{
+	tw_reset_wl_list(&bindings->destroy_listener.link);
+	vtree_destroy_children(&bindings->root_node.node, free);
+	if (bindings->apply_list.elems)
+		vector_destroy(&bindings->apply_list);
 }
 
 void
@@ -218,7 +220,6 @@ tw_bindings_find_axis(struct tw_bindings *bindings,
 			return binding;
 	}
 	return NULL;
-
 }
 
 struct tw_binding *
@@ -231,10 +232,7 @@ tw_bindings_find_touch(struct tw_bindings *bindings, uint32_t mod_mask)
 			return binding;
 	}
 	return NULL;
-
 }
-
-
 
 bool tw_bindings_add_axis(struct tw_bindings *root,
 			  const struct tw_axis_motion *motion,
@@ -345,8 +343,7 @@ tw_bindings_add_key(struct tw_bindings *root,
 static void
 print_node(const struct vtree_node *n)
 {
-	const struct tw_binding_node *node =
-		container_of(n, const struct tw_binding_node, node);
+	const struct tw_binding_node *node = wl_container_of(n, node, node);
 	fprintf(stderr, "%d, %d\n", node->keycode-8, node->modifier);
 }
 

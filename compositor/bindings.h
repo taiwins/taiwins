@@ -29,6 +29,8 @@
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <taiwins/objects/seat.h>
+#include <ctypes/tree.h>
+#include <ctypes/vector.h>
 
 #ifdef  __cplusplus
 extern "C" {
@@ -107,6 +109,23 @@ struct tw_binding {
 	uint32_t option;
 };
 
+struct tw_binding_node {
+	struct vtree_node node;
+	uint32_t keycode;
+	uint32_t modifier;
+	//this is a private option you need to have for
+	bool end;
+	struct tw_binding binding;
+};
+
+struct tw_bindings {
+	//root node for keyboard
+	struct wl_display *display;
+	struct tw_binding_node root_node;
+	struct wl_listener destroy_listener;
+	vector_t apply_list;
+};
+
 /**
  * tw_bindings is used in configurations, used by configuration. User would swap
  * to new binding system in run-time.
@@ -114,15 +133,21 @@ struct tw_binding {
 struct tw_bindings *
 tw_bindings_create(struct wl_display *);
 
+void
+tw_bindings_init(struct tw_bindings *root, struct wl_display *display);
+
+void
+tw_bindings_release(struct tw_bindings *bindings);
+
+void
+tw_bindings_destroy(struct tw_bindings *);
+
 /**
  * @brief ability to move assign src bindings to dst, so we can avoid deleting
  * all the bindings.
  */
 void
 tw_bindings_move(struct tw_bindings *dst, struct tw_bindings *src);
-
-void
-tw_bindings_destroy(struct tw_bindings *);
 
 bool
 tw_bindings_add_key(struct tw_bindings *root,
