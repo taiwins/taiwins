@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef CONFIG_INTERNAL_H
-#define CONFIG_INTERNAL_H
+#ifndef CONFIG_H
+#define CONFIG_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -33,11 +33,18 @@
 #include <taiwins/engine.h>
 #include "xdg.h"
 
-#include "config.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+//TODO: using enum instead of names
+#define TW_CONFIG_SHELL_PATH "shell_path"
+#define TW_CONFIG_CONSOLE_PATH "console_path"
+
+enum tw_config_type {
+	TW_CONFIG_TYPE_LUA,
+	TW_CONFIG_TYPE_DBUS,
+};
 
 enum tw_builtin_binding_t {
 	TW_QUIT_BINDING = 0,
@@ -175,6 +182,24 @@ struct tw_config {
 	char *err_msg;
 };
 
+struct tw_config*
+tw_config_create(struct tw_engine *engine, struct tw_bindings *bindings,
+                 enum tw_config_type type);
+bool
+tw_run_config(struct tw_config *config);
+
+bool
+tw_run_default_config(struct tw_config *c);
+
+void
+tw_config_destroy(struct tw_config *config);
+
+void
+tw_config_register_object(struct tw_config *config,
+                          const char *name, void *obj);
+void *
+tw_config_request_object(struct tw_config *config,
+                         const char *name);
 void
 tw_config_default_bindings(struct tw_config *c);
 

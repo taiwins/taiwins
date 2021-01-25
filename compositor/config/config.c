@@ -47,7 +47,6 @@
 #include "xdg.h"
 #include "bindings.h"
 #include "config.h"
-#include "config_internal.h"
 
 /******************************************************************************
  * internal helpers

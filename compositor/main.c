@@ -49,8 +49,8 @@
 #include "xdg.h"
 #include "input.h"
 #include "bindings.h"
-#include "config.h"
 #include "render.h"
+#include "config/config.h"
 
 struct tw_options {
 	const char *test_case;

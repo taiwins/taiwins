@@ -31,7 +31,7 @@
 
 #include "xdg.h"
 #include "bindings.h"
-#include "config_internal.h"
+#include "config.h"
 
 static bool
 quit_compositor(struct tw_keyboard *keyboard, uint32_t time,
