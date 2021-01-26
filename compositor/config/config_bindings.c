@@ -1,5 +1,5 @@
 /*
- * theme_lua.c - taiwins config bindings implementation
+ * config_bindings.c - taiwins config bindings implementation
  *
  * Copyright (c) 2020 Xichen Zhou
  *
