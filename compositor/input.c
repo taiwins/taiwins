@@ -140,12 +140,12 @@ binding_axis(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
 	struct tw_seat *seat = grab->seat;
 	uint32_t mod_mask = seat->keyboard.modifiers_state;
 
-        if (!binding || binding->type != TW_BINDING_axis) {
+	if (!binding || binding->type != TW_BINDING_axis) {
 		tw_pointer_end_grab(&grab->seat->pointer);
 		return;
 	}
-        binding->axis_func(&seat->pointer, time_msec, value, orientation,
-                           mod_mask, binding->user_data);
+	binding->axis_func(&seat->pointer, time_msec, value, orientation,
+	                   mod_mask, binding->user_data);
 	grab->data = NULL;
 	//if the binding does not change the grab, we can actually quit the
 	//binding grab.
@@ -213,12 +213,12 @@ static void
 session_switch_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
                    uint32_t key, uint32_t state)
 {
-	struct tw_seat_events *seat_events =
-		wl_container_of(grab, seat_events, session_switch_grab);
+	struct tw_seat_listeners *seat_listeners =
+		wl_container_of(grab, seat_listeners, session_switch_grab);
 	int sid = *(int *)grab->data;
 	(void)sid;
 
-	/* struct tw_engine *engine = seat_events->engine; */
+	/* struct tw_engine *engine = seat_listeners->engine; */
 	/* tw_backend_switch_session(backend, sid); */
 }
 
@@ -246,31 +246,31 @@ notify_key_input(struct wl_listener *listener, void *data)
 {
 	static int sid = -1;
 	struct tw_binding_node *state;
-	struct tw_seat_events *seat_events =
-		container_of(listener, struct tw_seat_events, key_input);
+	struct tw_seat_listeners *seat_listeners =
+		wl_container_of(listener, seat_listeners, key_input);
 
 	struct tw_event_keyboard_key *event = data;
-	struct tw_keyboard *seat_keyboard = &seat_events->seat->keyboard;
+	struct tw_keyboard *seat_keyboard = &seat_listeners->seat->keyboard;
 
-	seat_events->curr_state = event->dev->input.keyboard.keystate;
-        if (seat_keyboard->grab != &seat_keyboard->default_grab ||
-            event->state != WL_KEYBOARD_KEY_STATE_PRESSED)
+	seat_listeners->curr_state = event->dev->input.keyboard.keystate;
+	if (seat_keyboard->grab != &seat_keyboard->default_grab ||
+	    event->state != WL_KEYBOARD_KEY_STATE_PRESSED)
 		return;
 
-        if ((sid = session_switch_get_idx(event->keycode, event->dev)) >= 0) {
-	        seat_events->session_switch_grab.data = &sid;
-	        tw_keyboard_start_grab(seat_keyboard,
-	                               &seat_events->session_switch_grab);
-	        return;
-        }
+	if ((sid = session_switch_get_idx(event->keycode, event->dev)) >= 0) {
+		seat_listeners->session_switch_grab.data = &sid;
+		tw_keyboard_start_grab(seat_keyboard,
+		                       &seat_listeners->session_switch_grab);
+		return;
+	}
 
-	state = tw_bindings_find_key(seat_events->bindings,
+	state = tw_bindings_find_key(seat_listeners->bindings,
 	                             event->keycode,
 	                             seat_keyboard->modifiers_state);
 	if (state) {
-		seat_events->binding_key_grab.data = state;
+		seat_listeners->binding_key_grab.data = state;
 		tw_keyboard_start_grab(seat_keyboard,
-		                       &seat_events->binding_key_grab);
+		                       &seat_listeners->binding_key_grab);
 	}
 }
 
@@ -278,22 +278,22 @@ static void
 notify_btn_input(struct wl_listener *listener, void *data)
 {
 	struct tw_binding *binding;
-	struct tw_seat_events *seat_events =
-		container_of(listener, struct tw_seat_events, btn_input);
+	struct tw_seat_listeners *seat_listeners =
+		wl_container_of(listener, seat_listeners, btn_input);
 	struct tw_event_pointer_button *event = data;
-	struct tw_pointer *seat_pointer = &seat_events->seat->pointer;
-	struct tw_keyboard *seat_keyboard = &seat_events->seat->keyboard;
+	struct tw_pointer *seat_pointer = &seat_listeners->seat->pointer;
+	struct tw_keyboard *seat_keyboard = &seat_listeners->seat->keyboard;
 
-        if (seat_pointer->grab != &seat_pointer->default_grab ||
-            event->state != WL_POINTER_BUTTON_STATE_PRESSED)
+	if (seat_pointer->grab != &seat_pointer->default_grab ||
+	    event->state != WL_POINTER_BUTTON_STATE_PRESSED)
 		return;
-	binding = tw_bindings_find_btn(seat_events->bindings,
+	binding = tw_bindings_find_btn(seat_listeners->bindings,
 	                               event->button,
 	                               seat_keyboard->modifiers_state);
 	if (binding) {
-		seat_events->binding_pointer_grab.data = binding;
+		seat_listeners->binding_pointer_grab.data = binding;
 		tw_pointer_start_grab(seat_pointer,
-		                      &seat_events->binding_pointer_grab);
+		                      &seat_listeners->binding_pointer_grab);
 	}
 	//if we are to move part of backend code here, we simply have
 	//seat_pointer->grab->impl->button();
@@ -303,85 +303,85 @@ static void
 notify_axis_input(struct wl_listener *listener, void *data)
 {
 	struct tw_binding *binding;
-	struct tw_seat_events *seat_events =
-		container_of(listener, struct tw_seat_events, axis_input);
-	struct tw_pointer *seat_pointer = &seat_events->seat->pointer;
-	struct tw_keyboard *seat_keyboard = &seat_events->seat->keyboard;
+	struct tw_seat_listeners *seat_listeners =
+		wl_container_of(listener, seat_listeners, axis_input);
+	struct tw_pointer *seat_pointer = &seat_listeners->seat->pointer;
+	struct tw_keyboard *seat_keyboard = &seat_listeners->seat->keyboard;
 
 	struct tw_event_pointer_axis *event = data;
 
-        if (seat_pointer->grab != &seat_pointer->default_grab)
+	if (seat_pointer->grab != &seat_pointer->default_grab)
 		return;
-        binding = tw_bindings_find_axis(seat_events->bindings,
-                                        event->axis,
-                                        seat_keyboard->modifiers_state);
-        if (binding) {
-	        seat_events->binding_pointer_grab.data = binding;
-	        tw_pointer_start_grab(seat_pointer,
-	                              &seat_events->binding_pointer_grab);
-        }
+	binding = tw_bindings_find_axis(seat_listeners->bindings,
+	                                event->axis,
+	                                seat_keyboard->modifiers_state);
+	if (binding) {
+		seat_listeners->binding_pointer_grab.data = binding;
+		tw_pointer_start_grab(seat_pointer,
+		                      &seat_listeners->binding_pointer_grab);
+	}
 }
 
 static void
 notify_touch_input(struct wl_listener *listener, void *data)
 {
 	struct tw_binding *binding;
-	struct tw_seat_events *seat_events =
-		container_of(listener, struct tw_seat_events, tch_input);
-	struct tw_touch *seat_touch = &seat_events->seat->touch;
-	struct tw_keyboard *seat_keyboard = &seat_events->seat->keyboard;
+	struct tw_seat_listeners *seat_listeners =
+		wl_container_of(listener, seat_listeners, tch_input);
+	struct tw_touch *seat_touch = &seat_listeners->seat->touch;
+	struct tw_keyboard *seat_keyboard = &seat_listeners->seat->keyboard;
 
-        if (seat_touch->grab != &seat_touch->default_grab)
+	if (seat_touch->grab != &seat_touch->default_grab)
 		return;
-	binding = tw_bindings_find_touch(seat_events->bindings,
+	binding = tw_bindings_find_touch(seat_listeners->bindings,
 	                                 seat_keyboard->modifiers_state);
 	if (binding) {
-		seat_events->binding_touch_grab.data = binding;
+		seat_listeners->binding_touch_grab.data = binding;
 		tw_touch_start_grab(seat_touch,
-		                    &seat_events->binding_touch_grab);
+		                    &seat_listeners->binding_touch_grab);
 	}
 }
 
 void
-tw_seat_events_init(struct tw_seat_events *seat_events,
-                    struct tw_engine_seat *seat, struct tw_bindings *bindings)
+tw_seat_listeners_init(struct tw_seat_listeners *seat_listeners,
+                       struct tw_engine_seat *seat, struct tw_bindings *bindings)
 {
-	seat_events->seat = seat->tw_seat;
-	seat_events->engine = seat->engine;
-	seat_events->bindings = bindings;
+	seat_listeners->seat = seat->tw_seat;
+	seat_listeners->engine = seat->engine;
+	seat_listeners->bindings = bindings;
 
 	//setup listeners
 	tw_signal_setup_listener(&seat->source.keyboard.key,
-	                         &seat_events->key_input,
+	                         &seat_listeners->key_input,
 	                         notify_key_input);
 	tw_signal_setup_listener(&seat->source.pointer.button,
-	                         &seat_events->btn_input,
+	                         &seat_listeners->btn_input,
 	                         notify_btn_input);
 	tw_signal_setup_listener(&seat->source.pointer.axis,
-	                         &seat_events->axis_input,
+	                         &seat_listeners->axis_input,
 	                         notify_axis_input);
 	tw_signal_setup_listener(&seat->source.touch.down,
-	                         &seat_events->tch_input,
+	                         &seat_listeners->tch_input,
 	                         notify_touch_input);
 	//grabs
-	seat_events->binding_key_grab.impl = &keybinding_impl;
-	seat_events->binding_key_grab.data = NULL;
+	seat_listeners->binding_key_grab.impl = &keybinding_impl;
+	seat_listeners->binding_key_grab.data = NULL;
 
-	seat_events->session_switch_grab.impl = &session_switch_impl;
-	seat_events->session_switch_grab.data = NULL;
+	seat_listeners->session_switch_grab.impl = &session_switch_impl;
+	seat_listeners->session_switch_grab.data = NULL;
 
-	seat_events->binding_pointer_grab.impl = &pointer_impl;
-	seat_events->binding_pointer_grab.data = NULL;
+	seat_listeners->binding_pointer_grab.impl = &pointer_impl;
+	seat_listeners->binding_pointer_grab.data = NULL;
 
-	seat_events->binding_touch_grab.impl = &touch_impl;
-	seat_events->binding_touch_grab.data = NULL;
+	seat_listeners->binding_touch_grab.impl = &touch_impl;
+	seat_listeners->binding_touch_grab.data = NULL;
 }
 
 void
-tw_seat_events_fini(struct tw_seat_events *seat_events)
+tw_seat_listeners_fini(struct tw_seat_listeners *seat_listeners)
 {
-	wl_list_remove(&seat_events->key_input.link);
-	wl_list_remove(&seat_events->btn_input.link);
-	wl_list_remove(&seat_events->axis_input.link);
-	wl_list_remove(&seat_events->tch_input.link);
+	wl_list_remove(&seat_listeners->key_input.link);
+	wl_list_remove(&seat_listeners->btn_input.link);
+	wl_list_remove(&seat_listeners->axis_input.link);
+	wl_list_remove(&seat_listeners->tch_input.link);
 }

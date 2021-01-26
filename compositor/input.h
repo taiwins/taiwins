@@ -29,12 +29,13 @@
 #include <taiwins/input_device.h>
 
 #include "bindings.h"
+#include "config/config.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-struct tw_seat_events {
+struct tw_seat_listeners {
 	struct tw_seat *seat;
 	struct tw_engine *engine;
 	struct tw_bindings *bindings;
@@ -52,11 +53,11 @@ struct tw_seat_events {
 };
 
 void
-tw_seat_events_init(struct tw_seat_events *events,
-                    struct tw_engine_seat *seat,
-                    struct tw_bindings *bindings);
+tw_seat_listeners_init(struct tw_seat_listeners *events,
+                       struct tw_engine_seat *seat,
+                       struct tw_bindings *bindings);
 void
-tw_seat_events_fini(struct tw_seat_events *events);
+tw_seat_listeners_fini(struct tw_seat_listeners *events);
 
 void
 tw_bindings_add_dummy(struct tw_bindings *bindings);

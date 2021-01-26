@@ -72,7 +72,7 @@ struct tw_server {
 	struct tw_config *config;
 
 	/* seats */
-	struct tw_seat_events seat_events[8];
+	struct tw_seat_listeners seat_listeners[8];
 	struct wl_listener seat_add;
 	struct wl_listener seat_remove;
 };
@@ -122,8 +122,8 @@ notify_adding_seat(struct wl_listener *listener, void *data)
 		wl_container_of(listener, server, seat_add);
 	struct tw_engine_seat *seat = data;
 
-	tw_seat_events_init(&server->seat_events[seat->idx],
-	                          seat, server->bindings);
+	tw_seat_listeners_init(&server->seat_listeners[seat->idx],
+	                       seat, server->bindings);
 }
 
 static void
@@ -133,7 +133,7 @@ notify_removing_seat(struct wl_listener *listener, void *data)
 		container_of(listener, struct tw_server, seat_remove);
 	struct tw_engine_seat *seat = data;
 
-	tw_seat_events_fini(&server->seat_events[seat->idx]);
+	tw_seat_listeners_fini(&server->seat_listeners[seat->idx]);
 }
 
 static void
