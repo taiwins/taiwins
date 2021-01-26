@@ -410,6 +410,25 @@ tw_config_create(struct tw_engine *engine, struct tw_bindings *bindings,
 	return config;
 }
 
+//this should be renamed as tw_config_lua
+void
+tw_config_init(struct tw_config *config, struct tw_engine *engine)
+{
+	config->type = TW_CONFIG_TYPE_LUA;
+	config->engine = engine;
+	config->err_msg = NULL;
+	for (int i = 0; i < 2; i++) {
+		struct tw_config_table *table = &config->tables[i];
+
+		tw_bindings_init(&table->bindings, engine->display);
+		table->config = config;
+		table->enable_globals = TW_CONFIG_GLOBAL_DEFAULT;
+		table->dirty = false;
+		table->user_data = NULL;
+	}
+
+}
+
 void
 tw_config_destroy(struct tw_config *config)
 {

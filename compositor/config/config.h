@@ -31,6 +31,7 @@
 #include <taiwins/objects/logger.h>
 
 #include <taiwins/engine.h>
+#include "bindings.h"
 #include "xdg.h"
 #include "config_types.h"
 #include "config_bindings.h"
@@ -83,6 +84,14 @@ struct tw_config_table {
 	struct xkb_rule_names *xkb_rules;
 	pending_intval_t kb_repeat; /**< invalid: -1 */
 	pending_intval_t kb_delay; /**< invalid: -1 */
+
+	//TODO New data here, what we archive? One config
+	vector_t registry;
+	vector_t config_bindings;
+	struct tw_binding builtin_bindings[TW_BUILTIN_BINDING_SIZE];
+	struct tw_bindings bindings;
+	struct tw_config *config;
+	void *user_data; //lua state
 };
 
 /**
@@ -94,12 +103,18 @@ struct tw_config_table {
  */
 struct tw_config {
 	struct tw_engine *engine;
+	//TODO: remove
 	struct tw_bindings *bindings;
 	enum tw_config_type type;
 	//this is stupid, we can simply embed the struct in
 	struct tw_config_table config_table;
+	struct tw_config_table tables[2];
+	//when running config, they need to run on the pending, users would be
+	//on current.
+	struct tw_config_table *current, *pending;
 	vector_t registry;
 
+	//TODO: remove
 	vector_t config_bindings;
 	struct tw_binding builtin_bindings[TW_BUILTIN_BINDING_SIZE];
 	struct xkb_rule_names xkb_rules;
