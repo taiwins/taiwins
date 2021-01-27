@@ -136,11 +136,10 @@ tw_bindings_destroy(struct tw_bindings *bindings)
 }
 
 void
-tw_bindings_move(struct tw_bindings *dst, struct tw_bindings *src)
+tw_bindings_copy(struct tw_bindings *dst, struct tw_bindings *src)
 {
 	struct vtree_node **pnode;
 
-	tw_bindings_release(dst);
 	vtree_node_init(&dst->root_node.node,
 	                offsetof(struct tw_binding_node, node));
 	//a shallow copy
@@ -149,7 +148,13 @@ tw_bindings_move(struct tw_bindings *dst, struct tw_bindings *src)
 		(*pnode)->parent = &dst->root_node.node;
 	dst->root_node = src->root_node;
 	dst->apply_list = src->apply_list;
+}
 
+void
+tw_bindings_move(struct tw_bindings *dst, struct tw_bindings *src)
+{
+	tw_bindings_release(dst);
+	tw_bindings_copy(dst, src);
 	//purge the src list
 	vector_init_zero(&src->apply_list, sizeof(struct tw_binding), NULL);
 	vtree_node_init(&src->root_node.node,

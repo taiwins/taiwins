@@ -149,6 +149,9 @@ tw_bindings_destroy(struct tw_bindings *);
 void
 tw_bindings_move(struct tw_bindings *dst, struct tw_bindings *src);
 
+void
+tw_bindings_copy(struct tw_bindings *dst, struct tw_bindings *src);
+
 bool
 tw_bindings_add_key(struct tw_bindings *root,
                     const struct tw_key_press presses[MAX_KEY_SEQ_LEN],
