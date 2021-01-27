@@ -26,6 +26,7 @@
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/desktop.h>
+#include <taiwins/objects/logger.h>
 #include <taiwins/shell.h>
 #include <wayland-server.h>
 
@@ -66,13 +67,10 @@ reload_config(struct tw_keyboard *keyboard, uint32_t time,
 {
 	struct tw_config *config = data;
 	struct tw_shell *shell = tw_config_request_object(config, "shell");
-	const char *err_msg = NULL;
 
 	if (!tw_run_config(config))
-		err_msg = tw_config_retrieve_error(config);
-	if (err_msg)
 		tw_shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_CONFIG_ERR,
-		                      err_msg);
+		                      config->config_table.err_msg);
 	return true;
 }
 
@@ -319,7 +317,7 @@ desktop_recent_view(struct tw_keyboard *keyboard, uint32_t time,
 }
 
 void
-tw_config_default_bindings(struct tw_config *c)
+tw_config_default_bindings(struct tw_binding *bindings)
 {
 	static struct tw_binding default_bindings[TW_BUILTIN_BINDING_SIZE] = {
 		[TW_QUIT_BINDING] = {
@@ -481,37 +479,35 @@ tw_config_default_bindings(struct tw_config *c)
 		},
 	};
 
-	_Static_assert(sizeof(default_bindings) == sizeof(c->builtin_bindings),
-	               "invalid size of bindings");
-	memcpy(c->builtin_bindings, default_bindings,
-	       sizeof(default_bindings));
-
+	memcpy(bindings, default_bindings, sizeof(default_bindings));
 }
 
 bool
-tw_config_install_bindings(struct tw_config *c, struct tw_bindings *root)
+tw_config_install_bindings(struct tw_config_table *table)
 {
 	bool safe = true;
 	struct tw_binding *ub;
 	const struct tw_binding *b;
+	struct tw_config *conf = table->config;
+	struct tw_bindings *root = &table->bindings;
 
 	for (int i = 0; i < TW_BUILTIN_BINDING_SIZE; i++) {
-		b = &c->builtin_bindings[i];
+		b = &table->builtin_bindings[i];
 		switch (b->type) {
 		case TW_BINDING_key:
 			safe = safe && tw_bindings_add_key(root, b->keypress,
 			                                   b->key_func,
-			                                   b->option, c);
+			                                   b->option, conf);
 			break;
 		case TW_BINDING_btn:
 			safe = safe && tw_bindings_add_btn(root, &b->btnpress,
-			                                   b->btn_func, c);
+			                                   b->btn_func, conf);
 			break;
 		case TW_BINDING_axis:
 			safe = safe && tw_bindings_add_axis(root,
 			                                    &b->axisaction,
 			                                    b->axis_func,
-			                                    c);
+			                                    conf);
 			break;
 		default:
 			break;
@@ -520,7 +516,7 @@ tw_config_install_bindings(struct tw_config *c, struct tw_bindings *root)
 			break;
 	}
 
-	vector_for_each(ub, &c->config_bindings) {
+	vector_for_each(ub, &table->config_bindings) {
 		switch (ub->type) {
 		case TW_BINDING_key:
 			safe = safe && tw_bindings_add_key(root, ub->keypress,

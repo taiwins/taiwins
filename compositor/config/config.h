@@ -25,12 +25,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <wayland-server.h>
+#include <xkbcommon/xkbcommon.h>
 #include <wayland-taiwins-shell-server-protocol.h>
 #include <shared_config.h>
 #include <ctypes/vector.h>
-#include <taiwins/objects/logger.h>
-
 #include <taiwins/engine.h>
+
 #include "bindings.h"
 #include "xdg.h"
 #include "config_types.h"
@@ -81,17 +81,18 @@ struct tw_config_table {
 	pending_intval_t lock_timer;
 	pending_theme_t theme;
 
-	struct xkb_rule_names *xkb_rules;
 	pending_intval_t kb_repeat; /**< invalid: -1 */
 	pending_intval_t kb_delay; /**< invalid: -1 */
 
 	//TODO New data here, what we archive? One config
+	struct xkb_rule_names xkb_rules;
 	vector_t registry;
 	vector_t config_bindings;
 	struct tw_binding builtin_bindings[TW_BUILTIN_BINDING_SIZE];
 	struct tw_bindings bindings;
 	struct tw_config *config;
 	void *user_data; //lua state
+	char *err_msg;
 };
 
 /**
@@ -103,38 +104,31 @@ struct tw_config_table {
  */
 struct tw_config {
 	struct tw_engine *engine;
-	//TODO: remove
-	struct tw_bindings *bindings;
-	enum tw_config_type type;
-	//this is stupid, we can simply embed the struct in
-	struct tw_config_table config_table;
-	struct tw_config_table tables[2];
-	//when running config, they need to run on the pending, users would be
-	//on current.
-	struct tw_config_table *current, *pending;
-	vector_t registry;
 
-	//TODO: remove
-	vector_t config_bindings;
-	struct tw_binding builtin_bindings[TW_BUILTIN_BINDING_SIZE];
-	struct xkb_rule_names xkb_rules;
+	enum tw_config_type type;
+        /* current mostly points to config_table excpet when we runs a config
+         * file, it points to a temporary config_table it would be moved back
+         * later
+         */
+	struct tw_config_table config_table, *current;
+
 
 	/**< lua code may use this */
 	struct wl_listener output_created_listener;
 	struct wl_listener seat_created_listener;
 
 	//ideally, we would use function pointers to wrap lua code together
-	void (*init)(struct tw_config *);
-	void (*fini)(struct tw_config *);
-	bool (*read_config)(struct tw_config *, const char *);
-	char *(*read_error)(struct tw_config *);
-	void *user_data;
-	char *err_msg;
+	void (*init)(struct tw_config_table *);
+	void (*fini)(struct tw_config_table *);
+	bool (*run)(struct tw_config_table *, const char *);
 };
 
-struct tw_config*
-tw_config_create(struct tw_engine *engine, struct tw_bindings *bindings,
-                 enum tw_config_type type);
+void
+tw_config_init_lua(struct tw_config *c, struct tw_engine *engine);
+
+void
+tw_config_fini(struct tw_config *c);
+
 bool
 tw_run_config(struct tw_config *config);
 
@@ -151,9 +145,6 @@ void *
 tw_config_request_object(struct tw_config *config,
                          const char *name);
 
-const char *
-tw_config_retrieve_error(struct tw_config *);
-
 /* the bus would be used for configuration anyway, we probably just move it
  * inside config
  */
@@ -167,20 +158,7 @@ tw_bus_create_global(struct wl_display *display);
 void
 tw_config_table_dirty(struct tw_config_table *table, bool dirty);
 
-void
-tw_config_table_flush(struct tw_config_table *table);
 
-extern bool
-tw_luaconfig_read(struct tw_config *c, const char *path);
-
-extern char *
-tw_luaconfig_read_error(struct tw_config *c);
-
-void
-tw_luaconfig_fini(struct tw_config *c);
-
-void
-tw_luaconfig_init(struct tw_config *c);
 
 #ifdef __cplusplus
 }

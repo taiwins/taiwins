@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 struct tw_config;
+struct tw_config_table;
 
 enum tw_builtin_binding_t {
 	TW_QUIT_BINDING = 0,
@@ -64,10 +65,10 @@ enum tw_builtin_binding_t {
 };
 
 void
-tw_config_default_bindings(struct tw_config *c);
+tw_config_default_bindings(struct tw_binding *bindings);
 
 bool
-tw_config_install_bindings(struct tw_config *c, struct tw_bindings *root);
+tw_config_install_bindings(struct tw_config_table *table);
 
 bool
 parse_one_press(const char *str, const enum tw_binding_type type,

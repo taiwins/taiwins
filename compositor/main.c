@@ -48,7 +48,6 @@
 
 #include "xdg.h"
 #include "input.h"
-#include "bindings.h"
 #include "render.h"
 #include "config/config.h"
 
@@ -67,9 +66,8 @@ struct tw_server {
 	/* globals */
 	struct tw_backend *backend;
 	struct tw_engine *engine;
-	struct tw_bindings *bindings;
 	struct tw_render_context *ctx;
-	struct tw_config *config;
+	struct tw_config config;
 
 	/* seats */
 	struct tw_seat_listeners seat_listeners[8];
@@ -98,21 +96,11 @@ bind_backend(struct tw_server *server)
 	return true;
 }
 
-static bool
+static inline bool
 bind_config(struct tw_server *server)
 {
-	server->bindings = tw_bindings_create(server->display);
-	if (!server->bindings)
-		goto err_binding;
-	server->config = tw_config_create(server->engine, server->bindings,
-	                                  TW_CONFIG_TYPE_LUA);
-	if (!server->config)
-		goto err_config;
+	tw_config_init_lua(&server->config, server->engine);
 	return true;
-err_config:
-	tw_bindings_destroy(server->bindings);
-err_binding:
-	return false;
 }
 
 static void
@@ -123,7 +111,7 @@ notify_adding_seat(struct wl_listener *listener, void *data)
 	struct tw_engine_seat *seat = data;
 
 	tw_seat_listeners_init(&server->seat_listeners[seat->idx],
-	                       seat, server->bindings);
+	                       seat, &server->config.config_table.bindings);
 }
 
 static void
@@ -185,11 +173,10 @@ tw_server_init(struct tw_server *server, struct wl_display *display)
 	return true;
 }
 
-static void
+static inline void
 tw_server_fini(struct tw_server *server)
 {
-	/* tw_config_destroy(server->config); */
-	tw_bindings_destroy(server->bindings);
+	tw_config_fini(&server->config);
 }
 
 static bool
@@ -421,12 +408,12 @@ main(int argc, char *argv[])
 	if (!drop_permissions())
 		goto err_permission;
 
-	tw_config_register_object(ec.config, TW_CONFIG_SHELL_PATH,
+	tw_config_register_object(&ec.config, TW_CONFIG_SHELL_PATH,
 	                          (void *)options.shell_path);
-	tw_config_register_object(ec.config, TW_CONFIG_CONSOLE_PATH,
+	tw_config_register_object(&ec.config, TW_CONFIG_CONSOLE_PATH,
 	                          (void *)options.console_path);
-	if (!tw_run_config(ec.config)) {
-		if (!tw_run_default_config(ec.config))
+	if (!tw_run_config(&ec.config)) {
+		if (!tw_run_default_config(&ec.config))
 			goto err_config;
 	}
 	//run the loop
