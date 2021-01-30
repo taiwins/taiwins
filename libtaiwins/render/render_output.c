@@ -184,7 +184,7 @@ notify_output_frame(struct wl_listener *listener, void *data)
 	clock_gettime(output->device.clk_id, &tstart);
 
 	buffer_age = tw_render_presentable_make_current(presentable, ctx);
-	buffer_age = buffer_age > 2 ? 2 : buffer_age;
+	buffer_age = (buffer_age < 0 || buffer_age > 2) ? 2 : buffer_age;
 
 	wl_list_for_each(pipeline, &ctx->pipelines, link)
 		tw_render_pipeline_repaint(pipeline, output, buffer_age);
