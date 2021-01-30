@@ -46,9 +46,9 @@
 #include <taiwins/render_context.h>
 #include <taiwins/render_pipeline.h>
 
-#include "xdg.h"
 #include "input.h"
 #include "render.h"
+#include "desktop/xdg.h"
 #include "config/config.h"
 
 struct tw_options {

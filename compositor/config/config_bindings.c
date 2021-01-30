@@ -30,7 +30,6 @@
 #include <taiwins/shell.h>
 #include <wayland-server.h>
 
-#include "xdg.h"
 #include "bindings.h"
 #include "config.h"
 

@@ -26,10 +26,10 @@
 #include <ctypes/sequential.h>
 #include <ctypes/tree.h>
 #include <wayland-server.h>
-#include "xdg.h"
 
 #include "workspace.h"
 #include "layout.h"
+#include "xdg.h"
 
 static const uint32_t TILINT_STATE =
 	TW_XDG_VIEW_TILED_LEFT | TW_XDG_VIEW_TILED_RIGHT |

@@ -27,7 +27,6 @@
 #include <unistd.h>
 #include <taiwins/objects/layers.h>
 #include <wayland-server-protocol.h>
-#include "xdg.h"
 
 #include "layout.h"
 

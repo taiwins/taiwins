@@ -1,5 +1,5 @@
 /*
- * xdg_internal.h - taiwins desktop internal header
+ * xdg_grab.h - taiwins desktop grab header
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef TW_XDG_INTERNAL_H
-#define TW_XDG_INTERNAL_H
+#ifndef TW_XDG_GRAB_H
+#define TW_XDG_GRAB_H
 
 #include <pixman.h>
 #include <stdint.h>
@@ -52,33 +52,6 @@ struct tw_xdg_grab_interface {
 	enum wl_shell_surface_resize edge;
 	uint32_t mod_mask;
 };
-
-struct tw_xdg {
-	struct wl_display *display;
-	struct tw_shell *shell;
-	struct tw_engine *engine;
-
-        struct tw_desktop_manager desktop_manager;
-
-	/* managing current status */
-	struct tw_workspace *actived_workspace[2];
-	struct tw_workspace workspaces[MAX_WORKSPACES];
-
-	struct wl_listener desktop_area_listener;
-	struct wl_listener display_destroy_listener;
-	struct wl_listener output_create_listener;
-	struct wl_listener output_destroy_listener;
-	struct wl_listener surface_transform_listener;
-
-        /**< statics */
-	struct tw_xdg_output outputs[32];
-	struct tw_xdg_layout floating_layout;
-	struct tw_xdg_layout maximized_layout;
-	struct tw_xdg_layout fullscreen_layout;
-	struct tw_xdg_layout tiling_layouts[MAX_WORKSPACES];
-
-};
-
 
 
 #ifdef  __cplusplus

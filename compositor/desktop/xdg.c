@@ -37,7 +37,7 @@
 
 #include "xdg.h"
 #include "workspace.h"
-#include "xdg_internal.h"
+#include "xdg_grab.h"
 #include "layout.h"
 
 static struct tw_xdg s_desktop = {0};

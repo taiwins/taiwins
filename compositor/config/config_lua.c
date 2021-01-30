@@ -38,7 +38,7 @@
 #include <taiwins/objects/logger.h>
 #include <twclient/theme.h>
 
-#include "xdg.h"
+#include "desktop/xdg.h"
 #include "lua_helper.h"
 #include "bindings.h"
 #include "config.h"
@@ -60,15 +60,6 @@ _lua_to_config_table(lua_State *L)
 	table = lua_touserdata(L, -1);
 	lua_pop(L, 1);
 	return table;
-}
-
-static inline struct tw_config *
-to_user_config(lua_State *L)
-{
-	lua_getfield(L, LUA_REGISTRYINDEX, "__config");
-	struct tw_config *c = lua_touserdata(L, -1);
-	lua_pop(L, 1);
-	return c;
 }
 
 /******************************************************************************

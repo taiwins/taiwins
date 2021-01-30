@@ -30,7 +30,7 @@
 #include <wayland-util.h>
 #include "xdg.h"
 
-#include "xdg_internal.h"
+#include "xdg_grab.h"
 #include "workspace.h"
 
 
