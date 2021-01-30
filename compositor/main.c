@@ -360,6 +360,7 @@ int
 main(int argc, char *argv[])
 {
 	int ret = 0;
+	char *cfg_err = NULL;
 	struct tw_server ec = {0};
 	struct wl_event_source *signals[4];
 	struct wl_display *display;
@@ -412,10 +413,15 @@ main(int argc, char *argv[])
 	                          (void *)options.shell_path);
 	tw_config_register_object(&ec.config, TW_CONFIG_CONSOLE_PATH,
 	                          (void *)options.console_path);
-	if (!tw_run_config(&ec.config)) {
-		if (!tw_run_default_config(&ec.config))
+	if (!tw_config_run(&ec.config, &cfg_err)) {
+		if (!tw_config_run_default(&ec.config))
 			goto err_config;
 	}
+	if (cfg_err) {
+		tw_logl_level(TW_LOG_WARN, "config run failed: %s", cfg_err);
+		free(cfg_err);
+	}
+
 	//run the loop
 	tw_backend_start(ec.backend, ec.ctx);
 	wl_display_run(ec.display);

@@ -92,7 +92,6 @@ struct tw_config_table {
 	struct tw_bindings bindings;
 	struct tw_config *config;
 	void *user_data; //lua state
-	char *err_msg;
 };
 
 /**
@@ -120,7 +119,7 @@ struct tw_config {
 	//ideally, we would use function pointers to wrap lua code together
 	void (*init)(struct tw_config_table *);
 	void (*fini)(struct tw_config_table *);
-	bool (*run)(struct tw_config_table *, const char *);
+	char *(*run)(struct tw_config_table *, const char *);
 };
 
 void
@@ -130,10 +129,10 @@ void
 tw_config_fini(struct tw_config *c);
 
 bool
-tw_run_config(struct tw_config *config);
+tw_config_run(struct tw_config *config, char **err_msg);
 
 bool
-tw_run_default_config(struct tw_config *c);
+tw_config_run_default(struct tw_config *c);
 
 void
 tw_config_destroy(struct tw_config *config);

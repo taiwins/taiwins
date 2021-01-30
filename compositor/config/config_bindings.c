@@ -67,10 +67,17 @@ reload_config(struct tw_keyboard *keyboard, uint32_t time,
 {
 	struct tw_config *config = data;
 	struct tw_shell *shell = tw_config_request_object(config, "shell");
+	char *err_msg = NULL;
 
-	if (!tw_run_config(config))
+	if (!tw_config_run(config, &err_msg)) {
+		const char *send_msg = err_msg ?
+			err_msg : "Config failed with Unknown reason";
+
 		tw_shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_CONFIG_ERR,
-		                      config->config_table.err_msg);
+		                      send_msg);
+		if (err_msg)
+			free(err_msg);
+	}
 	return true;
 }
 

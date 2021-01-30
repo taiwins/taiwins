@@ -76,13 +76,6 @@ static const uint32_t TW_CONFIG_GLOBAL_DEFAULT =
 	TW_CONFIG_GLOBAL_XWAYLAND |
 	TW_CONFIG_GLOBAL_DESKTOP;
 
-static inline bool
-copy_builtin_bindings(struct tw_binding *dst, const struct tw_binding *src)
-{
-	memcpy(dst, src, sizeof(struct tw_binding) * TW_BUILTIN_BINDING_SIZE);
-	return true;
-}
-
 static inline void
 purge_xkb_rules(struct xkb_rule_names *rules)
 {
@@ -93,24 +86,9 @@ purge_xkb_rules(struct xkb_rule_names *rules)
 	SAFE_FREE(rules->variant);
 }
 
-static inline void
-move_xkb_rules(struct xkb_rule_names *dst, struct xkb_rule_names *src)
-{
-	purge_xkb_rules(dst);
-	*dst = *src;
-	*src = (struct xkb_rule_names){0};
-}
-
 /******************************************************************************
- * config APIs
+ * registry
  *****************************************************************************/
-
-/* static void */
-/* tw_config_copy_registry(struct tw_config *dst, struct tw_config *src) */
-/* { */
-/*	vector_copy(&dst->registry, &src->registry); */
-/* } */
-
 void
 tw_config_register_object(struct tw_config *config,
                           const char *name, void *obj)
@@ -178,7 +156,6 @@ tw_config_table_fini(struct tw_config_table *table)
 	table->dirty = false;
 	vector_destroy(&table->registry);
 	vector_destroy(&table->config_bindings);
-	SAFE_FREE(table->err_msg);
 	if (table->user_data) {
 		config->fini(table);
 		table->user_data = NULL;
@@ -370,7 +347,6 @@ tw_config_apply_table(struct tw_config *config, struct tw_config_table *src)
 	tw_bindings_release(&dst->bindings);
 	config->fini(dst);
 	dst->user_data = NULL;
-	SAFE_FREE(dst->err_msg);
 	//a shallow copy
 	memcpy(dst, src, sizeof(*dst));
 	//the data requires deep copy
@@ -378,7 +354,7 @@ tw_config_apply_table(struct tw_config *config, struct tw_config_table *src)
 }
 
 static bool
-tw_try_config(struct tw_config_table *pending)
+tw_try_config(struct tw_config_table *pending, char **err_msg)
 {
 	char path[PATH_MAX];
 	bool safe = true;
@@ -390,8 +366,10 @@ tw_try_config(struct tw_config_table *pending)
 
 	pending->config->init(pending);
 
-	if (is_file_exist(path))
-		safe = safe && config->run(pending, path);
+	if (is_file_exist(path)) {
+		*err_msg = config->run(pending, path);
+		safe = safe && !(*err_msg);
+	}
 
 	return safe;
 }
@@ -404,7 +382,7 @@ tw_try_config(struct tw_config_table *pending)
  * will migrate to the main config.
  */
 bool
-tw_run_config(struct tw_config *config)
+tw_config_run(struct tw_config *config, char **err_msg)
 {
 	bool safe;
 	struct tw_config_table pending = {0};
@@ -412,7 +390,7 @@ tw_run_config(struct tw_config *config)
 	tw_config_table_init(&pending, config, &config->config_table.registry);
 	//we now use temporary config table
 	config->current = &pending;
-	safe = tw_try_config(&pending);
+	safe = tw_try_config(&pending, err_msg);
 	safe = safe && tw_config_install_bindings(&pending);
 	safe = safe && tw_config_wake_compositor(config);
 
@@ -420,8 +398,6 @@ tw_run_config(struct tw_config *config)
 		tw_config_apply_table(config, &pending);
 		tw_config_table_flush(&config->config_table);
 	} else {
-		tw_logl_level(TW_LOG_WARN, "config run failed: %s",
-		              pending.err_msg);
 		tw_config_table_fini(&pending);
 	}
 	//config table now points back
@@ -430,7 +406,7 @@ tw_run_config(struct tw_config *config)
 }
 
 bool
-tw_run_default_config(struct tw_config *config)
+tw_config_run_default(struct tw_config *config)
 {
 	bool safe = true;
 	config->config_table.enable_globals = TW_CONFIG_GLOBAL_DEFAULT;

@@ -810,16 +810,15 @@ read_error(struct tw_config_table *c)
 	return strdup(lua_tostring((lua_State *)c->user_data, -1));
 }
 
-static bool
+static char *
 tw_luaconfig_read(struct tw_config_table *table, const char *path)
 {
 	bool safe = true;
 	lua_State *L = table->user_data;
+
 	safe = safe && !luaL_loadfile(L, path);
 	safe = safe && !lua_pcall(L, 0, 0, 0);
-	if (!safe)
-		table->err_msg = read_error(table);
-	return safe;
+	return (safe) ? NULL : read_error(table);
 }
 
 
