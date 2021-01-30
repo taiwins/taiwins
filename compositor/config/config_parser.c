@@ -31,7 +31,8 @@
 #include <ctypes/strops.h>
 #include <taiwins/objects/seat.h>
 
-#include "config_internal.h"
+#include "bindings.h"
+#include "config.h"
 
 struct event_map {
 	const char *name;

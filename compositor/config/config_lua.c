@@ -41,7 +41,26 @@
 #include "xdg.h"
 #include "lua_helper.h"
 #include "bindings.h"
-#include "config_internal.h"
+#include "config.h"
+
+#define REGISTRY_CONFIG "__config"
+#define REGISTRY_CONFIG_TABLE "__config_table"
+#define REGISTRY_WORKSPACES "__workspaces"
+#define REGISTRY_HINT "__hint"
+
+#define METATABLE_COMPOSITOR "metatable_compositor"
+#define METATABLE_WORKSPACE "metatable_workspace"
+
+static inline struct tw_config_table *
+_lua_to_config_table(lua_State *L)
+{
+	struct tw_config_table *table;
+
+	lua_getfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG_TABLE);
+	table = lua_touserdata(L, -1);
+	lua_pop(L, 1);
+	return table;
+}
 
 static inline struct tw_config *
 to_user_config(lua_State *L)
@@ -95,14 +114,13 @@ _lua_run_axisbinding(struct tw_pointer *pointer, uint32_t time,
 	return true;
 }
 
-
 static struct tw_binding *
-_new_lua_binding(struct tw_config *config, enum tw_binding_type type)
+_new_lua_binding(struct tw_config_table *table, enum tw_binding_type type)
 {
-	struct tw_binding *b = vector_newelem(&config->config_bindings);
-	b->user_data = config->user_data;
+	struct tw_binding *b = vector_newelem(&table->config_bindings);
+	b->user_data = table->user_data;
 	b->type = type;
-	sprintf(b->name, "luabinding_%x", config->config_bindings.len);
+	sprintf(b->name, "luabinding_%x", table->config_bindings.len);
 	switch (type) {
 	case TW_BINDING_key:
 		b->key_func = _lua_run_keybinding;
@@ -165,11 +183,11 @@ _parse_binding(struct tw_binding *b, const char *seq_string)
 }
 
 static inline struct tw_binding *
-_find_default_binding(struct tw_config *config, const char *name)
+_find_default_binding(struct tw_config_table *table, const char *name)
 {
 	for (int i = 0; i < TW_BUILTIN_BINDING_SIZE; i++) {
-		if (strcmp(config->builtin_bindings[i].name, name) == 0)
-			return &config->builtin_bindings[i];
+		if (strcmp(table->builtin_bindings[i].name, name) == 0)
+			return &table->builtin_bindings[i];
 	}
 	return NULL;
 }
@@ -193,7 +211,7 @@ _binding_type_name(enum tw_binding_type type)
 static inline int
 _lua_bind(lua_State *L, enum tw_binding_type binding_type)
 {
-	struct tw_config *cd = to_user_config(L);
+	struct tw_config_table *table = _lua_to_config_table(L);
 	struct tw_binding *binding_to_find = NULL;
 	const char *key = NULL;
 	struct tw_binding temp = {0};
@@ -207,7 +225,7 @@ _lua_bind(lua_State *L, enum tw_binding_type binding_type)
 	//builtin binding
 	if (tw_lua_isstring(L, 2)) {
 		key = lua_tostring(L, 2);
-		binding_to_find = _find_default_binding(cd, key);
+		binding_to_find = _find_default_binding(table, key);
 		if (!binding_to_find || binding_to_find->type != binding_type)
 			return luaL_error(L, "bind_%s:binding %s not found\n",
 			                  type_name, key);
@@ -215,7 +233,7 @@ _lua_bind(lua_State *L, enum tw_binding_type binding_type)
 	//user binding
 	else if (lua_isfunction(L, 2) && !lua_iscfunction(L, 2)) {
 		//create a function in the registry so we can call it later.
-		binding_to_find = _new_lua_binding(cd, binding_type);
+		binding_to_find = _new_lua_binding(table, binding_type);
 		lua_pushvalue(L, 2);
 		lua_setfield(L, LUA_REGISTRYINDEX, binding_to_find->name);
 		//now we need to get the binding
@@ -267,25 +285,6 @@ static tw_config_transform_t TRANSFORMS[] = {
 	{180, true, WL_OUTPUT_TRANSFORM_FLIPPED_180},
 	{270, true, WL_OUTPUT_TRANSFORM_FLIPPED_270},
 };
-
-#define REGISTRY_CONFIG "__config"
-#define REGISTRY_WORKSPACES "__workspaces"
-#define REGISTRY_HINT "__hint"
-#define CONFIG_TABLE "__config_table"
-
-#define METATABLE_COMPOSITOR "metatable_compositor"
-#define METATABLE_WORKSPACE "metatable_workspace"
-
-static inline struct tw_config_table *
-_lua_to_config_table(lua_State *L)
-{
-	struct tw_config_table *table;
-
-	lua_getfield(L, LUA_REGISTRYINDEX, CONFIG_TABLE);
-	table = lua_touserdata(L, -1);
-	lua_pop(L, 1);
-	return table;
-}
 
 extern int tw_theme_read(lua_State *L, struct tw_theme *theme);
 
@@ -616,7 +615,7 @@ _lua_set_keyboard_model(lua_State *L)
 	struct tw_config_table *t = _lua_to_config_table(L);
 
 	tw_lua_stackcheck(L, 2);
-	t->xkb_rules->model = strdup(luaL_checkstring(L, 2));
+	t->xkb_rules.model = strdup(luaL_checkstring(L, 2));
 	return 0;
 }
 
@@ -626,7 +625,7 @@ _lua_set_keyboard_layout(lua_State *L)
 	struct tw_config_table *t = _lua_to_config_table(L);
 
 	tw_lua_stackcheck(L, 2);
-	t->xkb_rules->layout = strdup(luaL_checkstring(L, 2));
+	t->xkb_rules.layout = strdup(luaL_checkstring(L, 2));
 	tw_config_table_dirty(t, true);
 	return 0;
 }
@@ -637,7 +636,7 @@ _lua_set_keyboard_options(lua_State *L)
 	struct tw_config_table *t = _lua_to_config_table(L);
 
 	tw_lua_stackcheck(L, 2);
-	t->xkb_rules->options = strdup(luaL_checkstring(L, 2));
+	t->xkb_rules.options = strdup(luaL_checkstring(L, 2));
 	tw_config_table_dirty(t, true);
 	return 0;
 }
@@ -751,7 +750,6 @@ _lua_desktop_gap(lua_State *L)
 	return luaL_error(L, "invalid size of params for gap.");
 }
 
-
 static int
 luaopen_taiwins(lua_State *L)
 {
@@ -806,48 +804,63 @@ luaopen_taiwins(lua_State *L)
 	return 1;
 }
 
-bool
-tw_luaconfig_read(struct tw_config *c, const char *path)
-{
-	bool safe = true;
-	lua_State *L = c->user_data;
-	safe = safe && !luaL_loadfile(L, path);
-	safe = safe && !lua_pcall(L, 0, 0, 0);
-	return safe;
-}
-
-char *
-tw_luaconfig_read_error(struct tw_config *c)
+static inline char *
+read_error(struct tw_config_table *c)
 {
 	return strdup(lua_tostring((lua_State *)c->user_data, -1));
 }
 
-void
-tw_luaconfig_fini(struct tw_config *c)
+static char *
+tw_luaconfig_read(struct tw_config_table *table, const char *path)
 {
-	if (c->user_data)
-		lua_close(c->user_data);
+	bool safe = true;
+	lua_State *L = table->user_data;
+
+	safe = safe && !luaL_loadfile(L, path);
+	safe = safe && !lua_pcall(L, 0, 0, 0);
+	return (safe) ? NULL : read_error(table);
+}
+
+
+static void
+tw_luaconfig_fini(struct tw_config_table *table)
+{
+	if (table->user_data)
+		lua_close(table->user_data);
 }
 
 void
-tw_luaconfig_init(struct tw_config *c)
+tw_luaconfig_init(struct tw_config_table *table)
 {
 	lua_State *L;
 
-	if (c->user_data)
-		lua_close(c->user_data);
+	if (table->user_data)
+		lua_close(table->user_data);
 	if (!(L = luaL_newstate()))
 		return;
 	luaL_openlibs(L);
-	c->user_data = L;
+	table->user_data = L;
 
 	//REGISTRIES
-	lua_pushlightuserdata(L, c); //s1
+	lua_pushlightuserdata(L, table->config); //s1
 	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG); //s0
-	lua_pushlightuserdata(L, &c->config_table);
-	lua_setfield(L, LUA_REGISTRYINDEX, CONFIG_TABLE);
+	lua_pushlightuserdata(L, table);
+	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_CONFIG_TABLE);
 	lua_newtable(L);
 	lua_setfield(L, LUA_REGISTRYINDEX, REGISTRY_HINT);
 	// preload the taiwins module
 	luaL_requiref(L, "taiwins", luaopen_taiwins, true);
+}
+
+extern void
+tw_config_init(struct tw_config *config, struct tw_engine *engine);
+
+void
+tw_config_init_lua(struct tw_config *config, struct tw_engine *engine)
+{
+	config->type = TW_CONFIG_TYPE_LUA;
+	tw_config_init(config, engine);
+	config->init = tw_luaconfig_init;
+	config->fini = tw_luaconfig_fini;
+	config->run = tw_luaconfig_read;
 }
