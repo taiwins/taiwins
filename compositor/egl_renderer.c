@@ -373,9 +373,7 @@ pipeline_repaint_output(struct tw_render_pipeline *base,
 	struct tw_egl_layer_render_pipeline *pipeline =
 		wl_container_of(base, pipeline, base);
         struct tw_layers_manager *manager = pipeline->manager;
-        struct timespec now;
 	pixman_region32_t output_damage;
-	uint32_t now_int;
 
 	SCOPE_PROFILE_BEG();
 
@@ -388,7 +386,6 @@ pipeline_repaint_output(struct tw_render_pipeline *base,
 		surface->current->plane = &pipeline->main_plane;
 	}
 
-
 	pipeline_stack_damage(pipeline, &pipeline->main_plane);
 	pipeline_compose_output_buffer_damage(output, &output_damage,
 	                                      buffer_age);
@@ -398,16 +395,9 @@ pipeline_repaint_output(struct tw_render_pipeline *base,
 	//for non-opaque surface to work, you really have to draw in reverse
 	//order
 	wl_list_for_each_reverse(surface, &manager->views,
-	                         links[TW_VIEW_GLOBAL_LINK]) {
-
+	                         links[TW_VIEW_GLOBAL_LINK])
 		pipeline_paint_surface(surface, pipeline, output,
 		                       &output_damage);
-
-		clock_gettime(CLOCK_MONOTONIC, &now);
-		now_int = now.tv_sec * 1000 + now.tv_nsec / 1000000;
-		tw_surface_flush_frame(surface, now_int);
-	}
-	//presentation feebacks
 
 	pixman_region32_fini(&output_damage);
 
