@@ -27,6 +27,7 @@
 
 #include "layout.h"
 #include "workspace.h"
+#include "xdg.h"
 
 static void
 emplace_fullscreen(const enum tw_xdg_layout_command command,

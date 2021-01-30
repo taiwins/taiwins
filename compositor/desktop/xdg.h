@@ -33,7 +33,7 @@
 #include <taiwins/engine.h>
 #include <taiwins/output_device.h>
 
-#define MAX_WORKSPACES 9
+#include "workspace.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -59,17 +59,30 @@ struct tw_xdg_output {
 	uint32_t outer_gap;
 };
 
-//not sure if we want to make it here
-enum tw_xdg_view_resize_option {
-	RESIZE_LEFT, RESIZE_RIGHT,
-	RESIZE_UP, RESIZE_DOWN,
-};
+struct tw_xdg {
+	struct wl_display *display;
+	struct tw_shell *shell;
+	struct tw_engine *engine;
 
-enum tw_layout_type {
-	LAYOUT_FLOATING,
-	LAYOUT_TILING,
-	LAYOUT_MAXIMIZED,
-	LAYOUT_FULLSCREEN,
+        struct tw_desktop_manager desktop_manager;
+
+	/* managing current status */
+	struct tw_workspace *actived_workspace[2];
+	struct tw_workspace workspaces[MAX_WORKSPACES];
+
+	struct wl_listener desktop_area_listener;
+	struct wl_listener display_destroy_listener;
+	struct wl_listener output_create_listener;
+	struct wl_listener output_destroy_listener;
+	struct wl_listener surface_transform_listener;
+
+        /**< statics */
+	struct tw_xdg_output outputs[32];
+	struct tw_xdg_layout floating_layout;
+	struct tw_xdg_layout maximized_layout;
+	struct tw_xdg_layout fullscreen_layout;
+	struct tw_xdg_layout tiling_layouts[MAX_WORKSPACES];
+
 };
 
 /******************************************************************************

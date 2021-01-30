@@ -29,8 +29,6 @@
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/surface.h>
 
-#include "xdg.h"
-
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -38,6 +36,8 @@ extern "C" {
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+
+#define MAX_WORKSPACES 9
 
 /* the commands pass to layout algorithm */
 enum tw_xdg_layout_command {
@@ -61,6 +61,19 @@ enum tw_xdg_view_state {
 	TW_XDG_VIEW_TILED_TOP = 1 << 2,
 	TW_XDG_VIEW_TILED_BOTTOM = 1 << 3,
 	TW_XDG_VIEW_FOCUSED = 1 << 4,
+};
+
+//not sure if we want to make it here
+enum tw_xdg_view_resize_option {
+	RESIZE_LEFT, RESIZE_RIGHT,
+	RESIZE_UP, RESIZE_DOWN,
+};
+
+enum tw_layout_type {
+	LAYOUT_FLOATING,
+	LAYOUT_TILING,
+	LAYOUT_MAXIMIZED,
+	LAYOUT_FULLSCREEN,
 };
 
 struct tw_xdg_view;

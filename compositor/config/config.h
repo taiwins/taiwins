@@ -32,7 +32,7 @@
 #include <taiwins/engine.h>
 
 #include "bindings.h"
-#include "xdg.h"
+#include "desktop/xdg.h"
 #include "config_types.h"
 #include "config_bindings.h"
 

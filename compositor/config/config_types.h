@@ -26,7 +26,7 @@
 #include <wayland-server.h>
 #include <ctypes/helpers.h>
 #include <wayland-taiwins-shell-server-protocol.h>
-#include "xdg.h"
+#include "desktop/xdg.h"
 
 #ifdef __cplusplus
 extern "C" {
