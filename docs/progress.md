@@ -14,11 +14,13 @@ libtaiwins is the compositor library tailored for Taiwins compositor, much like
 * [x] Wayland backend.
   - [ ] Frame re-scheduling on switching workspaces.
   - [ ] Frame time measurement in wayland backend.
-  - [ ] Fullscreen surface.
+  - [x] Fullscreen surface.
 * [ ] DRM backend.
   - login service.
 	+ [x] systemd-logind/elogind service.
 	+ [x] direct login service.
+    + [x] session switch away.
+	+ [ ] session switch back.
   - [x] GPU resource enumeration.
   - [x] atomic modesetting.
   - [x] gbm platform.
@@ -33,6 +35,14 @@ libtaiwins is the compositor library tailored for Taiwins compositor, much like
   - [x] EGL render context.
 	- [ ] EGLStream functions. 
   - [ ] Vulkan render context.
+* desktop shell.
+  - [x] taiwins-shell protocol.
+  - [x] taiwins-console protocol.
+  - [x] taiwins-theme protocol (loading different theme/fonts).
+  - [x] wlr-layer-shell protocol(NOT TESTED).
+
+## Compositor
+	Taiwins is an instance of a libtaiwins compositor.
 * desktop logic.
   - [x] switchable workspace.
   - [x] xdg-shell protocol.
@@ -43,17 +53,28 @@ libtaiwins is the compositor library tailored for Taiwins compositor, much like
 	+ [x] fullscreend layout.
 	+ [x] minimized layout.
 	+ [ ] smart layout (auto-select which layout to use).
-* desktop shell.
-  - [x] taiwins-shell protocol.
-  - [x] taiwins-console protocol.
-  - [x] taiwins-theme protocol (loading different theme/fonts).
-  - [x] wlr-layer-shell protocol(NOT TESTED).
-
-## Compositor
-	Taiwins is an instance of a libtaiwins compositor.
-	
-* [x] lua configuration.
-* [ ] DBus configuration service.
+* configuration.
+  + [x] configure desktop layout
+  + [x] configure desktop gab.
+  + [x] configure panel pos.
+  + [ ] configure sleep timer.
+  + [x] configure keyboard layouts.
+  + [x] configure bindings.
+  + [x] lua configure.
+  + [ ] dbus configure.
+  + [x] configure reload.
+* bindings
+  + [x] quit
+  + [x] close app.
+  + [x] reload configuration.
+  + [x] open console
+  + [ ] zoom
+  + [ ] chaning transparency.
+  + [x] switch workspace.
+  + [x] toggle workspace layout.
+  + [x] vertial split workspace.
+  + [x] horizontal split workspace.
+  + [x] task toggling.
 
 ## Taiwins Shell
 	Taiwins shell provides desktop environment(cursor, wallpaper, panel).
