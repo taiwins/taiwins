@@ -327,3 +327,9 @@ err_remote:
         free(wl);
         return NULL;
 }
+
+WL_EXPORT bool
+tw_backend_is_wayland(struct tw_backend *backend)
+{
+	return backend->impl == &wl_impl;
+}

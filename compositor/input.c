@@ -36,8 +36,10 @@
 
 #include <taiwins/engine.h>
 #include <taiwins/input_device.h>
+#include <taiwins/login.h>
 #include "bindings.h"
 #include "input.h"
+#include "taiwins/backend.h"
 
 /******************************************************************************
  * bindings
@@ -215,11 +217,12 @@ session_switch_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
 {
 	struct tw_seat_listeners *seat_listeners =
 		wl_container_of(grab, seat_listeners, session_switch_grab);
+	struct tw_backend *backend = seat_listeners->engine->backend;
+	struct tw_login *login = tw_backend_get_login(backend);
 	int sid = *(int *)grab->data;
-	(void)sid;
 
-	/* struct tw_engine *engine = seat_listeners->engine; */
-	/* tw_backend_switch_session(backend, sid); */
+	if (login)
+		tw_login_switch_vt(login, sid);
 }
 
 static const struct tw_keyboard_grab_interface session_switch_impl = {

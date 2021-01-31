@@ -414,3 +414,9 @@ err_conn:
 	free(x11);
 	return NULL;
 }
+
+WL_EXPORT bool
+tw_backend_is_x11(struct tw_backend *backend)
+{
+	return backend->impl == &x11_impl;
+}

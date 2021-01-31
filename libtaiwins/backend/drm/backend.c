@@ -419,3 +419,9 @@ tw_drm_backend_get_login(struct tw_backend *base)
 	drm = wl_container_of(base, drm, base);
 	return drm->login;
 }
+
+WL_EXPORT bool
+tw_backend_is_drm(struct tw_backend *backend)
+{
+	return backend->impl == &drm_impl;
+}

@@ -86,3 +86,12 @@ tw_backend_create_auto(struct wl_display *display)
 
 	return backend;
 }
+
+WL_EXPORT struct tw_login *
+tw_backend_get_login(struct tw_backend *backend)
+{
+	if (tw_backend_is_drm(backend))
+		return tw_drm_backend_get_login(backend);
+	else
+		return NULL;
+}

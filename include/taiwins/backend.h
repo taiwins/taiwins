@@ -75,6 +75,18 @@ tw_backend_start(struct tw_backend *backend, struct tw_render_context *ctx);
 const struct tw_egl_options *
 tw_backend_get_egl_params(struct tw_backend *backend);
 
+bool
+tw_backend_is_x11(struct tw_backend *backend);
+
+bool
+tw_backend_is_wayland(struct tw_backend *backend);
+
+bool
+tw_backend_is_drm(struct tw_backend *backend);
+
+struct tw_login *
+tw_backend_get_login(struct tw_backend *backend);
+
 #ifdef  __cplusplus
 }
 #endif

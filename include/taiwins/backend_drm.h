@@ -28,39 +28,11 @@
 
 #include "backend.h"
 #include "input_device.h"
+#include "login.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
-
-struct tw_login;
-
-struct tw_login_impl {
-	int (*open)(struct tw_login *login, const char *path, uint32_t flags);
-	void (*close)(struct tw_login *login, int fd);
-	bool (*switch_vt)(struct tw_login *login, unsigned int vt);
-	int (*get_vt)(struct tw_login *login);
-
-	//other methods like sleep, hibernate may need to be supported
-};
-
-struct tw_login {
-	char seat[32];
-
-	struct udev *udev;
-	struct udev_monitor *mon;
-	struct wl_event_source *udev_event;
-	const struct tw_login_impl *impl;
-
-	/* attributes */
-	bool active;
-
-	struct {
-		struct wl_signal attributes_change;
-		struct wl_signal udev_device;
-	} signals;
-
-};
 
 struct tw_backend *
 tw_drm_backend_create(struct wl_display *display);
@@ -68,29 +40,6 @@ tw_drm_backend_create(struct wl_display *display);
 struct tw_login *
 tw_drm_backend_get_login(struct tw_backend *backend);
 
-static inline int
-tw_login_open(struct tw_login *login, const char *path, uint32_t flags)
-{
-	return login->impl->open(login, path, flags);
-}
-
-static inline void
-tw_login_close(struct tw_login *login, int fd)
-{
-	login->impl->close(login, fd);
-}
-
-static inline bool
-tw_login_switch_vt(struct tw_login *login, unsigned vt)
-{
-	return login->impl->switch_vt(login, vt);
-}
-
-static inline int
-tw_login_get_vt(struct tw_login *login)
-{
-	return login->impl->get_vt(login);
-}
 
 #ifdef  __cplusplus
 }
