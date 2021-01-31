@@ -467,6 +467,7 @@ tw_drm_display_start(struct tw_drm_display *output)
 
 	//commit state would now handle most of the logics
 	tw_output_device_commit_state(&output->output.device);
+	tw_render_output_dirty(&output->output);
 }
 
 void
