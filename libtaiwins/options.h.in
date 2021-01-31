@@ -1,0 +1,12 @@
+#ifndef TW_COMPILE_OPTIONS_H
+#define TW_COMPILE_OPTIONS_H
+
+#mesondefine _TW_HAS_EGLMESAEXT
+#mesondefine _TW_ENABLE_PROFILING
+#mesondefine _TW_HAS_X11_BACKEND
+#mesondefine _TW_HAS_XWAYLAND
+#mesondefine _TW_HAS_LIBINPUT_GET_TOUCH_COUNT
+#mesondefine _TW_HAS_SYSTEMD
+#mesondefine _TW_HAS_ELOGIND
+
+#endif /* EOF */

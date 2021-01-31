@@ -56,6 +56,7 @@ sudo apt-get -y --no-install-recommends install \
      libxcb1-dev \
      libxcb-composite0-dev \
      libxcb-xfixes0-dev \
+     libxcb-xinput-dev \
      libxcb-xkb-dev \
      libxcursor-dev \
      libxkbcommon-dev \
@@ -107,10 +108,7 @@ mkdir build
 ./autogen.sh
 sudo make install
 
-#instal an upstream libweston
-git clone -b 8.0 https://gitlab.freedesktop.org/wayland/weston /tmp/weston
-cd /tmp/weston
-meson build -Dsimple-dmabuf-drm= -Dbackend-rdp=false
-sudo ninja -C build install
-
 cd $(CURDIR)
+
+#adding user to the input group for testing
+sudo usermod -a -G input $(echo ${USER})

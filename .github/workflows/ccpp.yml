@@ -26,9 +26,7 @@ jobs:
       run: |
         export PATH=~/.local/bin:$PATH
         export PKG_CONFIG_PATH=/usr/local/lib:${PKG_CONFIG_PATH}
-        meson wrap promote subprojects/twclient/subprojects/ctypes
-        meson build && ninja -C build
-        # cmake -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ .. && make
+        meson -Dx11-backend=enabled build && ninja -C build
         
   other-ci:
     runs-on: ubuntu-latest

@@ -1,11 +1,11 @@
 project('taiwins', 'c',
-	version : '0.2.0',
+	version : '0.2.9',
 	default_options: [
-	  'warning_level=2', #warn level has to be 2 to get wlroots compiles
+	  'warning_level=3', #warn level has to be 2 to get wlroots compiles
 	  'c_std=gnu11',
 	  'werror=true',
 	],
-	meson_version: '>= 0.46',
+	meson_version: '>= 0.50',
 	license: 'GPLv2+')
 
 
@@ -16,6 +16,8 @@ global_args_maybe = [
 	'-Wno-unused-parameter',
 	'-Wno-missing-field-initializers',
 	'-Wno-pedantic',
+	'-Wunsequenced', #for clang
+	'-Wsequence-point', #for gcc
 ]
 
 add_global_arguments(
@@ -23,18 +25,22 @@ add_global_arguments(
   language : 'c'
 )
 
+###### options
+options_data = configuration_data()
+options_data.set10('_TW_HAS_EGLMESAEXT', cc.has_header('EGL/eglmesaext.h'))
+options_data.set10('_TW_ENABLE_PROFILING', false)
+options_data.set10('_TW_HAS_X11_BACKEND', false)
+options_data.set10('_TW_HAS_XWAYLAND', false)
+options_data.set10('_TW_HAS_LIBINPUT_GET_TOUCH_COUNT', false)
+options_data.set10('_TW_HAS_SYSTEMD', false)
+options_data.set10('_TW_HAS_ELOGIND', false)
+
 ###### subprojects
 twclient = subproject('twclient')
 nklua = subproject('nklua')
 tdbus = subproject('tdbus')
 ctypes = subproject('ctypes')
 twobjects = subproject('twobjects', required: false)
-wlroots = subproject('wlroots', default_options : [
-		       'c_std=c11',
-		       'warning_level=2',
-		       'werror=true',
-		       'examples=false',
-		     ], required: false)
 pixman = subproject('pixman', default_options: [
 		      'gtk=disabled',
 		      'libpng=disabled',
@@ -46,11 +52,13 @@ pixman = subproject('pixman', default_options: [
 dep_xkbcommon = dependency('xkbcommon', version: '>= 0.3.0')
 dep_wayland_server = dependency('wayland-server', version: '>= 1.12.0')
 dep_wayland_client = dependency('wayland-client', version: '>= 1.12.0')
+dep_wayland_egl = dependency('wayland-egl', version: '>= 1.12.0')
 dep_threads = dependency('threads')
 dep_glesv2 = dependency('glesv2')
 dep_egl = dependency('egl')
 dep_libdrm = dependency('libdrm', version: '>= 2.4.68')
 dep_libinput = dependency('libinput', version: '>=1.9.0')
+dep_gbm = dependency('gbm')
 dep_pam = cc.find_library('pam')
 dep_m = cc.find_library('m')
 dep_dl = cc.find_library('dl')
@@ -63,7 +71,6 @@ dep_twobjects = twobjects.get_variable('dep_twobjects')
 dep_nklua = nklua.get_variable('dep_nklua')
 dep_tdbus = tdbus.get_variable('dep_tdbus')
 dep_pixman = pixman.found() ? pixman.get_variable('idep_pixman') : dependency('pixman-1', version: '>= 0.25.2')
-dep_wlroots = wlroots.found() ? wlroots.get_variable('wlroots') : dependency('wlroots', version: '>= 0.11.0', required: true)
 dep_twobjects = twobjects.found() ? twobjects.get_variable('dep_twobjects') : dependency('twobjects', required: true)
 dep_lua = dependency('lua', version: '>= 5.3', required: false)
 if not dep_lua.found()
@@ -71,11 +78,14 @@ if not dep_lua.found()
 endif
 
 inc_shared_config = include_directories('.')
+inc_libtaiwins = include_directories('include')
 dir_tp_base = join_paths(meson.source_root(), 'subprojects', 'taiwins-protocols')
 
 subdir('protocols')
-subdir('server')
+subdir('include')
+subdir('libtaiwins')
 subdir('clients')
+subdir('compositor')
 subdir('test')
 
 
