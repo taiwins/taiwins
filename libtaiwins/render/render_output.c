@@ -19,13 +19,11 @@
  *
  */
 
-#include <GLES2/gl2.h>
 #include <assert.h>
 #include <time.h>
 #include <pixman.h>
 #include <stdint.h>
 #include <string.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
@@ -33,7 +31,6 @@
 #include <taiwins/render_context.h>
 #include <taiwins/render_output.h>
 #include <taiwins/render_surface.h>
-#include <taiwins/output_device.h>
 #include <taiwins/render_pipeline.h>
 
 static inline bool
@@ -139,6 +136,17 @@ update_output_frame_time(struct tw_render_output *output,
 	output->state.ft_idx = (output->state.ft_idx + 1) % TW_FRAME_TIME_CNT;
 }
 
+static void
+flush_output_frame(struct tw_render_output *output,
+                   const struct timespec *now)
+{
+	struct tw_surface *surface;
+	uint32_t now_int = now->tv_sec * 1000 + now->tv_nsec / 1000000;
+
+	wl_list_for_each(surface, &output->views, links[TW_VIEW_OUTPUT_LINK])
+		tw_surface_flush_frame(surface, now_int);
+}
+
 /******************************************************************************
  * listeners
  *****************************************************************************/
@@ -184,7 +192,7 @@ notify_output_frame(struct wl_listener *listener, void *data)
 	clock_gettime(output->device.clk_id, &tstart);
 
 	buffer_age = tw_render_presentable_make_current(presentable, ctx);
-	buffer_age = buffer_age > 2 ? 2 : buffer_age;
+	buffer_age = (buffer_age < 0) ? 2 : buffer_age;
 
 	wl_list_for_each(pipeline, &ctx->pipelines, link)
 		tw_render_pipeline_repaint(pipeline, output, buffer_age);
@@ -193,6 +201,7 @@ notify_output_frame(struct wl_listener *listener, void *data)
 
 	clock_gettime(output->device.clk_id, &tend);
 	update_output_frame_time(output, &tstart, &tend);
+	flush_output_frame(output, &tend);
 	/* tw_logl("The render time is %u", */
 	/*         tw_render_output_calc_frametime(output)); */
 
@@ -215,7 +224,6 @@ notify_output_new_mode(struct wl_listener *listener, void *data)
 		wl_container_of(listener, output, listeners.set_mode);
 	tw_render_output_rebuild_view_mat(output);
 }
-
 
 /******************************************************************************
  * APIs
