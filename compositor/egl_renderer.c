@@ -153,12 +153,13 @@ pipeline_compose_output_buffer_damage(struct tw_render_output *output,
                                       pixman_region32_t *damage,
                                       int buffer_age)
 {
-	pixman_region32_t *damages[2] = {
-		output->state.curr_damage,
-		output->state.prev_damage,
-	};
+	pixman_region32_t *damages[2];
 
+	buffer_age = buffer_age <= 2 ? buffer_age : 2;
+	damages[0] = output->state.curr_damage;
+	damages[1] = output->state.prev_damage;
 	pixman_region32_copy(damage, output->state.pending_damage);
+
 	for (int i = 0; i < buffer_age; i++)
 		pixman_region32_union(damage, damage, damages[i]);
 }
@@ -169,7 +170,7 @@ pipeline_compose_output_buffer_damage(struct tw_render_output *output,
 
 static void
 pipeline_scissor_surface(struct tw_render_output *output,
-                               pixman_box32_t *box)
+                         pixman_box32_t *box)
 {
 	//the box are in global space, we would need to convert them into
 	//output_space
@@ -249,7 +250,6 @@ pipeline_cleanup_buffer(struct tw_render_output *output)
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-	//now we cannot use clear buffer to clean up the damages anymore
 #if defined( _TW_DEBUG_DAMAGE ) || defined( _TW_DEBUG_CLIP )
 	glClear(GL_COLOR_BUFFER_BIT);
 	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
@@ -259,7 +259,7 @@ pipeline_cleanup_buffer(struct tw_render_output *output)
 #if defined ( _TW_DEBUG_CLIP )
 
 static void
-pipeline_paint_surface_clip(struct tw_surface *surface,
+pipeline_paint_surface_clip(struct tw_render_surface *surface,
                             struct tw_egl_layer_render_pipeline *pipeline,
                             struct tw_render_output *o,
                             const struct tw_mat3 *proj)
@@ -343,9 +343,11 @@ pipeline_paint_surface(struct tw_surface *surface,
 	                          output_damage);
 
 #if defined( _TW_DEBUG_CLIP )
-	boxes = pixman_region32_rectangles(&surface->clip, &nrects);
+	boxes = pixman_region32_rectangles(&render_surface->clip, &nrects);
 #else
-	boxes = pixman_region32_rectangles(&damage, &nrects);
+	//TODO this is clearly not right, we should use damage but we keep
+	//drawing on the wrong buffer
+	boxes = pixman_region32_rectangles(&render_surface->clip, &nrects);
 #endif
 
 	for (int i = 0; i < nrects; i++) {
@@ -356,7 +358,7 @@ pipeline_paint_surface(struct tw_surface *surface,
 	pixman_region32_fini(&damage);
 
 #if defined ( _TW_DEBUG_CLIP )
-	layer_render_paint_surface_clip(surface, rdr, o, &proj);
+	pipeline_paint_surface_clip(render_surface, pipeline, o, &proj);
 #endif
 	SCOPE_PROFILE_END();
 }
