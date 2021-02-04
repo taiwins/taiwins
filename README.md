@@ -6,11 +6,17 @@ script and it has built-in **shell** and **widgets** implementation through
 [nuklear GUI](https://github.com/Immediate-Mode-UI/Nuklear). It also supports 
 popular tiling window manager features like gapping.
 
-Taiwins is usable and currently under heavy developement. Join the discussion on
-[Gitter](https://gitter.im/taiwins). If you would like to contribute to the
-project, You can refer to [contributing](CONTRIBUTING.md) for getting started.
+The name of the project pronounces as ['taiwinz], it was inspired by the
+philosophy of Taichi, as I hope it would be dynamic and balanced.
 
-## How to build
+Taiwins is usable now with potential bugs and some missing features. Continues
+developement in progress and helps are wanted. If you like to join, I drafted
+some pages of [notes](docs/mainpage.md) to guide you through the starting
+steps. You can also join the chat on [Gitter](https://gitter.im/taiwins) for
+any questions and disscussions. There is a [feature list](docs/progress.md)
+available if you want to know more about what taiwins can do.
+
+## Dependencies
 you will need following dependencies
 
 - Pixman
@@ -30,17 +36,16 @@ you will need following dependencies
 - fontconfig
 - freetype2
 
-## build steps:
+## Build steps:
 with source code, you can easily compile and try out:
 
 	git clone https://github.com/taiwins/taiwins --recursive taiwins && cd taiwins
-
-	meson wrap promote subprojects/twclient/subprojects/ctypes
 	
 	meson build && ninja -C build
 	
 For those who use Archlinux, there is an
-[aur](https://aur.archlinux.org/packages/taiwins-git) package you can simply install.
+[aur](https://aur.archlinux.org/packages/taiwins-git) package you can simply
+install(Outdated).
 
 ## How to run
 
@@ -53,16 +58,18 @@ options.
 	
 Or if you install systemwisely, you can simply use
 
-	taiwins 
+	taiwins -s taiwins-shell -c taiwins-console
 
 If you prefer not to have the shell, try `taiwins -n` which will make taiwins
 run without shell, user can start a shell later.
 
 The default configuration is `$XDG_CONFIG_PATH/taiwins/config.lua`, see the
-[sample config](docs/config.lua) for example.
+[sample config](docs/config.lua) for an example.
 
-### key-bindings
-Though it is configurable, by default available bindings are
+### Key-bindings
+Taiwins has a versatile binding system, you can chain key-presses like in
+Emacs(up to 5) and add custom bindings through lua functions. The bindings is
+configurable, by default available bindings are
 
 - `F12` : quit taiwins
 - `Super+Shift+c` close current application
@@ -83,8 +90,6 @@ Currently documentation is generated through doxygen. enable `build_doc` option
 to enable building documentation. We also host a online themed
 [documentation](https://taiwins.org/page_doc.html) which you can access.
 
-There is also a [feature list](docs/progress.md) available as well if you want
-to know more about what taiwins can do.
 
 ### Screenshots
 There are some example screen shots of taiwins, check out the [screenshot

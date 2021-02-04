@@ -1,27 +1,32 @@
 # Contributing to Taiwins
 
-Taiwins is hosted on github, contributing to taiwins involves sending pull
-requests and submitting issues. From the beginning, taiwins has been quietly
-under my solo development, so the git history is far from clean, but for now, I
-am creating a common practice to facilitate the collaboration.
+Welcome to the contributing page, this page explains the development workflow
+and the coding convensions for Taiwins, for getting started with the code
+itself, please visit [this](docs/mainpage.md) page.
+
+Taiwins is hosted on github currently, contributing to taiwins involves
+submitting issues and pull requests. Using the following guide could be helpful
+to the success of your contribution. But since no rules are perfect,
+adjust/break/ignore them if it fits your need and prepare to justify it.
 
 ## submitting issues
 
 If you are new to git or github, check out their
-[doc](https://guides.github.com/features/issues/) for how to use this feature. A
-good issues is specific, easy to understand. excellent issues would help
-developers locating in the code. Additional infomation is appreciated, for
-example, if you run into a segmentfault, a **stack trace** and **reproduce
-steps** in the description would be very helpful.
+[doc](https://guides.github.com/features/issues/) for how to use this
+feature. A good issue is specific, it would help developers locating the
+problems. Additional infomation is appreciated, for example, if you run into a
+segmentfault, a **stack trace** and **reproduce steps** in the description
+would be very helpful.
 
 If you know which part of the code leaded to the problem, you can propose the
 issue with `[suggest label] actual title`.
 
-Issues can also be proposals or questions. For proposals, you can list your
-ideas and how to implement them. Later you can link your pull request to the
-issue. A question issue need to be specific, so that an answer would not require
-an whole article to answer, or if you can also break it down to smaller
-questions.
+Issues can also be proposals, questions and feature requests. For
+**proposals**, you can list your ideas and how to implement them. Later you can
+link your pull request to the issue. A **question** issue need to be specific,
+so that an answer would not require an whole article to answer, or if you can
+also break it down to smaller questions. **Feature requests** are welcome, but
+are not guaranteed to be implemented.
 
 ## Pull requests
 
@@ -44,8 +49,8 @@ Start with a short, explicit title would be a good idea. Taiwins is modular in
 design, and it splitted into server and client code. As you can see in the
 source tree, on the server side, can find `backend`, `dbus`, `compositor`,
 `config`, `desktop`, etc. Client now has `desktop_shell`, `desktop_console`,
-`widget` and `update_icon_cache`. Signing-off is recommended so we can count the
-contribution. An good example of commit message would be like this:
+`widget` and `update_icon_cache`. Signing-off is recommended and can be done
+by `git commit -s`. An good example of commit message would be like this:
 	
 	config: adding new reload shell binding.
 	
@@ -54,8 +59,6 @@ contribution. An good example of commit message would be like this:
 	
 	Signed-off-by: John Doe <J.Doe@abcdefg.org>
 
-Signing-off is done through `git commit -s`.
-
 ### code review
 
 After engaging with some good discussion and you decide to make some changes,
@@ -63,9 +66,8 @@ you can rebase your work with `git rebase -i` to apply the changes, then force
 push to your remote. This will greatly help the merging process. In general,
 there are 4 steps
 
-1. **Review** the commit messages.
-
-2. **Review** the code style and correctness, tests maybe run if appliable.
+1. **Review** the commit messages, the code style and correctness, tests maybe
+   run if appliable.
 
 3. **Modifier** the commits, following the discussion in the review.
 
@@ -128,9 +130,3 @@ function_is_very_very_lone(very_complex_type_name_a a,
   long arguments which span multiple lines, we use spaces to align the
   parameters with opening parentheses. This would keep the code properly aigned
   under different tab width.
-  
-## Wikis for getting started.
-
-At the moment documentation is generated through doxygen. Also, previous notes
-registered during the development is under `docs/. For start, you can check out
-the [mainpage](docs/mainpage.md).
