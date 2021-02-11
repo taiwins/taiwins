@@ -11,8 +11,7 @@ for wayland projects.
 - [twclient](https://github.com/taiwins/twclient) : general purpose wayland
   client widget system. **Twclient** implements many common
   `wl_*_listeners` and provides convinient interfaces to implement shmbuf
-  `wl_surface` or EGL `wl_surface`. You can take a look at the [twclient
-  guide](api.md) for getting started.
+  `wl_surface` or EGL `wl_surface`. 
 
 - [twobjects](https://github.com/taiwins/twobjects) : the server-side wayland
   objects implementation. It implements all the basic types a compositor has to
@@ -35,15 +34,12 @@ Take a look [here](libtaiwins.md)
 
 ### Client-side design
 
-TODO 
+Take a look [here](libtwclient.md).
 
 ## Other notes
 
-If you are new to wayland, you may be also interested in the [wayland note](wayland.md)
-for some important bits, I also recorded parts of the reference compositor
-weston [weston](https://gitlab.freedesktop.org/wayland/weston), for some
-insights of designing a wayland compositor.
+If you are new to wayland, you may be also interested in the [wayland
+note](wayland.md) for some important bits. [lua](lua.md) notes is the compact
+summary on using the lua c API. Taiwins also uses dbus for configuration and
+various other things, a quick tutorial on dbus can be found [here][dbus.md].
 
-[lua](lua.md) notes is the compact summary on using the lua c API.
-
-Several taiwins design sketches can also be found here.

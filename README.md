@@ -7,7 +7,7 @@ script and it has built-in **shell** and **widgets** implementation through
 popular tiling window manager features like gapping.
 
 The name of the project pronounces as ['taiwinz], it is inspired by the
-philosophy of Taichi. I hope it would be dynamic and balanced.
+philosophy of Taichi as I hope it would be dynamic and balanced.
 
 Taiwins is usable now with potential bugs and some missing features. Continues
 developement in progress and helps are wanted. If you like to join, I drafted

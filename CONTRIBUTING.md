@@ -118,8 +118,8 @@ function_a(int x, int y, int z)
 }
 
 void
-function_is_very_very_lone(very_complex_type_name_a a,
-                           very_complex_type_name_b b);
+function_name_is_very_very_long(very_complex_type_name_a a,
+                                very_complex_type_name_b b);
 ```
 
 - As in the example, we use c comment style outside the function body, and c++

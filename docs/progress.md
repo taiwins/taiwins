@@ -4,7 +4,6 @@ This is a public list of Taiwins features(finished or not), I have been using
 org-mode for tracking taiwins development, the feature list was never known
 other than myself. This should be helpful for knowing what taiwins can do.
 
-
 ## libtaiwins feature
 libtaiwins is the compositor library tailored for Taiwins compositor, much like
 [libweston](https://gitlab.freedesktop.org/wayland/weston/tree/master/libweston).
