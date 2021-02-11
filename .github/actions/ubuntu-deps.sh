@@ -6,11 +6,6 @@ wget -qO /tmp/key.asc http://packages.lunarg.com/lunarg-signing-key-pub.asc
 sudo apt-key add /tmp/key.asc
 sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.1.130-bionic.list http://packages.lunarg.com/vulkan/1.1.130/lunarg-vulkan-1.1.130-bionic.list
 
-wget -qO /tmp/key1.asc https://apt.kitware.com/keys/kitware-archive-latest.asc
-sudo apt-key add /tmp/key1.asc
-echo 'deb https://apt.kitware.com/ubuntu/ bionic main' > /tmp/cmake-kitware.list
-sudo mv /tmp/cmake-kitware.list /etc/apt/sources.list.d/
-
 sudo apt-get update
 
 sudo apt-get -y install vulkan-sdk cmake gcc-8 g++-8
@@ -102,11 +97,11 @@ cd build
 sudo make install
 
 #install pipewire that is not available on ubuntu
-git clone -b 0.2 --depth=1 https://gitlab.freedesktop.org/pipewire/pipewire /tmp/pipewire
-cd /tmp/pipewire
-mkdir build
-./autogen.sh
-sudo make install
+# git clone -b 0.2 --depth=1 https://gitlab.freedesktop.org/pipewire/pipewire /tmp/pipewire
+# cd /tmp/pipewire
+# mkdir build
+# ./autogen.sh
+# sudo make install
 
 cd $(CURDIR)
 
