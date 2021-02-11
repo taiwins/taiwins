@@ -1,5 +1,6 @@
 #!/bin/bash
-
+mkdir -p /var/lib/pacman/local
+chmod a+x /var/lib/pacman/local
 pacman -Syu --needed --noconfirm weston libxkbcommon pixman mesa wayland  wayland-protocols fontconfig freetype2 librsvg lua cairo pam doxygen
 pacman -Syu --needed --noconfirm libglvnd vulkan-headers vulkan-icd-loader
 pacman -Syu --needed --noconfirm gstreamer gst-plugins-base gst-plugins-base-libs
