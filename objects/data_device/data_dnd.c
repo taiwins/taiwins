@@ -95,10 +95,9 @@ dnd_pointer_button(struct tw_seat_pointer_grab *grab,
 
 		if (wl_resource_get_version(offer->source->resource) >=
 		    WL_DATA_SOURCE_DND_DROP_PERFORMED_SINCE_VERSION)
-			wl_data_source_send_dnd_drop_performed(
-				source->resource);
+			tw_data_source_send_dnd_drop(source);
 	} else if (source) {
-		wl_data_source_send_cancelled(source->resource);
+		tw_data_source_send_cancel(source);
 	}
 	tw_pointer_end_grab(pointer);
 }

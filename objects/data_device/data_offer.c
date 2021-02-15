@@ -68,13 +68,12 @@ data_offer_accept(struct wl_client *client,
 
 	wl_array_for_each(p, &offer->source->mimes) {
 		if (mime_type && !strcmp(*p, mime_type)) {
-			wl_data_source_send_target(offer->source->resource,
-			                           mime_type);
+			tw_data_source_send_target(offer->source, mime_type);
 			offer->source->accepted = true;
 			return;
 		}
 	}
-	wl_data_source_send_cancelled(offer->source->resource);
+	tw_data_source_send_cancel(offer->source);
 }
 
 static void
@@ -90,7 +89,7 @@ data_offer_receive(struct wl_client *client,
 
 	//it is either we do not check at all or we verify if offer source is
 	//linked
-	wl_data_source_send_send(offer->source->resource, mime_type, fd);
+        tw_data_source_send_send(offer->source, mime_type, fd);
 	close(fd);
 }
 
@@ -125,7 +124,7 @@ data_offer_finish(struct wl_client *client, struct wl_resource *resource)
 	//different versions have different handling though.
 	offer->finished = true;
 
-	wl_data_source_send_dnd_finished(offer->source->resource);
+	tw_data_source_send_dnd_finish(offer->source);
 }
 
 static void
@@ -163,16 +162,15 @@ data_offer_set_actions(struct wl_client *client,
 	}
 
 	if (!(dnd_actions & offer->source->actions)) {
-		wl_data_source_send_cancelled(offer->source->resource);
+		tw_data_source_send_cancel(offer->source);
 		return;
 	}
 
 	//okay, this is the determined action for the offer.
 	determined_action = preferred_action;
 	if (wl_resource_get_version(offer->source->resource) >=
-		WL_DATA_SOURCE_ACTION_SINCE_VERSION)
-		wl_data_source_send_action(offer->source->resource,
-		                           determined_action);
+	    WL_DATA_SOURCE_ACTION_SINCE_VERSION)
+		tw_data_source_send_action(offer->source, determined_action);
 	if (wl_resource_get_version(resource) >=
 		WL_DATA_OFFER_ACTION_SINCE_VERSION)
 		wl_data_offer_send_action(resource,

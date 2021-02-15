@@ -23,6 +23,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <wayland-util.h>
 
@@ -131,6 +132,7 @@ notify_device_source_destroy(struct wl_listener *listener, void *data)
 
 	tw_reset_wl_list(&device->source_destroy.link);
 	device->source_set = NULL;
+	wl_signal_emit(&device->source_removed, data);
 }
 
 static void
@@ -143,35 +145,8 @@ data_device_set_selection(struct wl_client *client,
 		tw_data_source_from_resource(source_resource);
 	struct tw_data_device *device =
 		tw_data_device_from_source(device_resource);
-	struct tw_seat *seat = device->seat;
 
-	if (device->source_set == source)
-		return;
-
-	if (source->actions) {
-		wl_resource_post_error(source_resource,
-		                       WL_DATA_SOURCE_ERROR_INVALID_SOURCE,
-		                       "attempted to set selection on a "
-		                       "dnd source");
-		return;
-	}
-	//reset the current source, we need to notify the source it is not valid
-	//anymore
-	if (device->source_set) {
-		wl_data_source_send_cancelled(device->source_set->resource);
-		tw_reset_wl_list(&device->source_destroy.link);
-		device->source_set = NULL;
-	}
-
-	device->source_set = source;
-	source->selection_source = true;
-	tw_signal_setup_listener(&source->destroy_signal,
-	                         &device->source_destroy,
-	                         notify_device_source_destroy);
-
-	if (device->seat->keyboard.focused_surface)
-		notify_device_selection_data_offer(&device->create_data_offer,
-		                              seat->keyboard.focused_surface);
+        tw_data_device_set_selection(device, source);
 }
 
 static void
@@ -229,10 +204,10 @@ static struct tw_data_device *
 tw_data_device_find_create(struct tw_data_device_manager *manager,
                            struct tw_seat *seat)
 {
-	struct tw_data_device *device;
-	wl_list_for_each(device, &manager->devices, link)
-		if (device->seat == seat)
-			return device;
+	struct tw_data_device *device =
+		tw_data_device_find(manager, seat);
+	if (device)
+		return device;
 
 	device = calloc(1, sizeof(*device));
 	if (!device)
@@ -241,6 +216,8 @@ tw_data_device_find_create(struct tw_data_device_manager *manager,
 	wl_list_init(&device->link);
 	wl_list_init(&device->clients);
 	wl_list_init(&device->source_destroy.link);
+	wl_signal_init(&device->source_added);
+	wl_signal_init(&device->source_removed);
 	wl_list_insert(manager->devices.prev, &device->link);
 	tw_signal_setup_listener(&seat->focus_signal,
 	                         &device->create_data_offer,
@@ -333,6 +310,10 @@ notify_data_device_manager_display_destroy(struct wl_listener *listener,
 	wl_global_destroy(manager->global);
 }
 
+/******************************************************************************
+ * public API
+ *****************************************************************************/
+
 WL_EXPORT bool
 tw_data_device_manager_init(struct tw_data_device_manager *manager,
                             struct wl_display *display)
@@ -361,4 +342,56 @@ tw_data_device_create_global(struct wl_display *display)
 		return NULL;
 
 	return manager;
+}
+
+WL_EXPORT struct tw_data_device *
+tw_data_device_find(struct tw_data_device_manager *manager,
+                    struct tw_seat *seat)
+{
+	struct tw_data_device *device = NULL;
+
+	wl_list_for_each(device, &manager->devices, link)
+		if (device->seat == seat)
+			return device;
+	return NULL;
+}
+
+WL_EXPORT void
+tw_data_device_set_selection(struct tw_data_device *device,
+                             struct tw_data_source *source)
+{
+	uint32_t err_code = WL_DATA_SOURCE_ERROR_INVALID_SOURCE;
+	struct wl_resource *focused = device->seat->keyboard.focused_surface;
+
+	if (device->source_set == source)
+		return;
+
+	if (source->actions) {
+		//we could be using a exotic data_source which does not have a
+		//resources
+		if (source->resource)
+			wl_resource_post_error(source->resource, err_code,
+			                       "attempted to set selection on "
+			                       "a dnd source");
+		return;
+	}
+	//reset the current source, we need to notify the source it is not
+	//valid anymore
+	if (device->source_set) {
+		//TODO need to implment the source impl
+		tw_data_source_send_cancel(device->source_set);
+		tw_reset_wl_list(&device->source_destroy.link);
+		device->source_set = NULL;
+	}
+	device->source_set = source;
+	source->selection_source = true;
+	tw_signal_setup_listener(&source->destroy_signal,
+	                         &device->source_destroy,
+	                         notify_device_source_destroy);
+	wl_signal_emit(&device->source_added, source);
+	//NOTE we could have slight problem if focused surface is a xwayland,
+	//then we would create an empty data_source
+        if (focused)
+		notify_device_selection_data_offer(&device->create_data_offer,
+		                                   focused);
 }
