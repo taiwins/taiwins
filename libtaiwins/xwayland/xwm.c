@@ -60,8 +60,9 @@ handle_xwm_create_surface(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 	struct tw_xsurface *surface = NULL;
 	xcb_create_notify_event_t *ev = (xcb_create_notify_event_t *)ge;
 
-	if (ev->window == xwm->window || ev->window == xwm->selection_win ||
-	    ev->window == xwm->dnd_win)
+	if (ev->window == xwm->window ||
+	    ev->window == xwm->selection.window ||
+	    ev->window == xwm->dnd.window)
 		return;
 	tw_logl("Received CreateNotify:%d for %d",
 	        XCB_CREATE_NOTIFY, ev->window);
@@ -453,6 +454,14 @@ collect_visual_colormap(struct tw_xwm *xwm)
 	return true;
 }
 
+static inline void
+xwm_set_net_active_window(struct tw_xwm *wm, xcb_window_t window)
+{
+	xcb_change_property(wm->xcb_conn, XCB_PROP_MODE_REPLACE,
+	                    wm->screen->root, wm->atoms.net_active_window,
+	                    wm->atoms.window, 32, 1, &window);
+}
+
 static bool
 change_window_attributes(struct tw_xwm *xwm)
 {
@@ -480,7 +489,7 @@ change_window_attributes(struct tw_xwm *xwm)
 	                    XCB_ATOM_ATOM, 32,
 	                    sizeof(supported)/sizeof(*supported),
 	                    supported);
-	tw_xwm_set_net_active_window(xwm, XCB_WINDOW_NONE);
+	xwm_set_net_active_window(xwm, XCB_WINDOW_NONE);
 	return true;
 }
 
@@ -633,4 +642,21 @@ tw_xserver_create_xwindow_manager(struct tw_xserver *server,
 err:
 	destroy_xwm(xwm);
 	return NULL;
+}
+
+char *
+tw_xwm_get_atom_name(struct tw_xwm *xwm, xcb_atom_t atom)
+{
+	xcb_get_atom_name_cookie_t name_cookie =
+		xcb_get_atom_name(xwm->xcb_conn, atom);
+	xcb_get_atom_name_reply_t *name_reply =
+		xcb_get_atom_name_reply(xwm->xcb_conn, name_cookie, NULL);
+	if (name_reply == NULL) {
+		return NULL;
+	}
+	size_t len = xcb_get_atom_name_name_length(name_reply);
+	char *buf = xcb_get_atom_name_name(name_reply); // not a C string
+	char *name = strndup(buf, len);
+	free(name_reply);
+	return name;
 }

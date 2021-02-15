@@ -19,6 +19,7 @@
  *
  */
 
+#include <stdlib.h>
 #include <string.h>
 #include <taiwins/objects/logger.h>
 #include "internal.h"
@@ -140,4 +141,59 @@ collect_xwm_atoms(xcb_connection_t *conn, struct tw_xwm_atoms *xwm_atoms)
 		}
 	}
 	return true;
+}
+
+xcb_atom_t
+xwm_mime_name_to_atom(struct tw_xwm *xwm, const char *name)
+{
+	xcb_atom_t atom;
+	xcb_intern_atom_cookie_t cookie;
+	xcb_intern_atom_reply_t *reply = NULL;
+
+	if (!name)
+		return XCB_ATOM_NONE;
+	else if (!strcmp(name, "text/plain;charset=utf-8"))
+		return xwm->atoms.utf8_string;
+	else if (!strcmp(name, "UTF8_STRING"))
+		return xwm->atoms.utf8_string;
+	else if (!strcmp(name, "text/plain"))
+		return xwm->atoms.text;
+
+	cookie = xcb_intern_atom(xwm->xcb_conn, 0, strlen(name), name);
+	reply = xcb_intern_atom_reply(xwm->xcb_conn, cookie, NULL);
+	if (!reply)
+		return XCB_ATOM_NONE;
+	atom = reply->atom;
+	free(reply);
+	return atom;
+}
+
+char *
+xwm_mime_atom_to_name(struct tw_xwm *xwm, xcb_atom_t atom)
+{
+	char *mime_type = NULL;
+
+	if (atom == xwm->atoms.utf8_string) {
+		mime_type = strdup("text/plain;charset=utf-8");
+	} else if (atom == xwm->atoms.text) {
+		mime_type = strdup("text/plain");
+	} else if (atom != xwm->atoms.targets &&
+	           atom != xwm->atoms.timestamp) {
+		xcb_get_atom_name_cookie_t cookie =
+			xcb_get_atom_name(xwm->xcb_conn, atom);
+		xcb_get_atom_name_reply_t *reply =
+			xcb_get_atom_name_reply(xwm->xcb_conn, cookie, NULL);
+		size_t len = reply ? xcb_get_atom_name_name_length(reply) : 0;
+		char *name = reply ? xcb_get_atom_name_name(reply) : NULL;
+
+		if (reply && (memchr(name, '/', len) != NULL)) {
+			mime_type = malloc((len+1) * sizeof(char));
+			if (mime_type) {
+				memcpy(mime_type, name, len);
+				mime_type[len] = '\0';
+			}
+		}
+		free(reply);
+	}
+	return mime_type;
 }

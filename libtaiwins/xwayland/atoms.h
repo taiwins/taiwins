@@ -24,10 +24,13 @@
 
 #include <stdbool.h>
 #include <xcb/xcb.h>
+#include <xcb/xproto.h>
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
+
+struct tw_xwm;
 
 struct tw_xwm_atoms {
 	xcb_atom_t wm_protocols;
@@ -100,6 +103,12 @@ struct tw_xwm_atoms {
 
 bool
 collect_xwm_atoms(xcb_connection_t *conn, struct tw_xwm_atoms *atoms);
+
+xcb_atom_t
+xwm_mime_name_to_atom(struct tw_xwm *xwm, const char *name);
+
+char *
+xwm_mime_atom_to_name(struct tw_xwm *xwm, xcb_atom_t atom);
 
 #ifdef  __cplusplus
 }

@@ -39,8 +39,10 @@
 #include <taiwins/xwayland.h>
 #include <taiwins/objects/desktop.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/objects/data_device.h>
 
 #include "atoms.h"
+#include "selection.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -113,6 +115,7 @@ struct tw_xmotif_wm_hints {
 
 #define XCB_EVENT_TYPE_MASK (0x7f)
 
+
 /** @brief the window manager for xwayland.
  *
  * The xwm works like any other normal X window manager by creating a root
@@ -122,8 +125,6 @@ struct tw_xmotif_wm_hints {
  *
  * We intercept `ConfigureRequest` from clients, we may set different different
  * geometry using xcb_configure_window.
- *
- *
  */
 struct tw_xwm {
 	//wayland resources
@@ -132,6 +133,8 @@ struct tw_xwm {
 	struct wl_event_source *x11_event;
 	struct tw_desktop_manager *manager;
 	struct tw_xsurface *focus_window;
+	struct tw_data_device *seat;
+	struct tw_xwm_selection selection, dnd;
 	struct {
 		struct wl_listener server_destroy;
 		struct wl_listener wl_surface_create;
@@ -142,8 +145,7 @@ struct tw_xwm {
 	xcb_connection_t *xcb_conn;
 	xcb_screen_t *screen;
 	xcb_window_t window; //root window
-	xcb_window_t selection_win;
-	xcb_window_t dnd_win;
+
 #if _TW_HAS_XCB_ERRORS
 	xcb_errors_context_t *errors_context;
 #endif
@@ -166,7 +168,6 @@ struct tw_xwm {
  * xcb window would send a MapRequest event for mapping the surface on the
  * window manager, this usually happens before we actually receive the
  * wl_surface id.
- *
  */
 struct tw_xsurface {
 	xcb_window_t id;
@@ -222,17 +223,12 @@ tw_xsurface_read_property(struct tw_xsurface *surface, xcb_atom_t type);
 void
 tw_xsurface_read_client_msg(struct tw_xsurface *surface,
                             xcb_client_message_event_t *ev);
-
-static inline void
-tw_xwm_set_net_active_window(struct tw_xwm *wm, xcb_window_t window)
-{
-	xcb_change_property(wm->xcb_conn, XCB_PROP_MODE_REPLACE,
-	                    wm->screen->root, wm->atoms.net_active_window,
-	                    wm->atoms.window, 32, 1, &window);
-}
-
 void
 tw_xsurface_set_focus(struct tw_xsurface *surface, struct tw_xwm *xwm);
+
+char *
+tw_xwm_get_atom_name(struct tw_xwm *xwm, xcb_atom_t atom);
+
 
 #ifdef  __cplusplus
 }
