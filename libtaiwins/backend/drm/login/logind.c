@@ -231,7 +231,7 @@ logind_bus_handle_session_properties_changed(const struct tdbus_signal *signal)
 	struct tw_logind_login *logind = signal->user_data;
 
 	if (!tdbus_read(signal->message, "sa{sv}as",
-	                &interface, &nstr, &strings, &ne, &entries)) {
+	                &interface, &ne, &entries, &nstr, &strings)) {
 		tw_logl_level(TW_LOG_WARN, "Failed to parse property change");
 		goto out;
 	}
@@ -383,9 +383,9 @@ handle_logind_switch_vt(struct tw_login *base, unsigned int vt)
 		return true;
 	if (!sd_seat_can_tty(logind->base.seat))
 		return false;
-	if (tdbus_send_method_call(logind->bus, LOGIND_DEST, logind->seat_path,
-	                           LOGIND_SEAT_IFACE, "SwitchTo",
-	                           NULL, "u", (uint32_t)vt)) {
+	if (!tdbus_send_method_call(logind->bus, LOGIND_DEST, logind->seat_path,
+	                            LOGIND_SEAT_IFACE, "SwitchTo",
+	                            NULL, "u", (uint32_t)vt)) {
 		tw_logl_level(TW_LOG_WARN, "Failed to switch to vt:%d", vt);
 		return false;
 	}
