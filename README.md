@@ -1,4 +1,7 @@
-## Taiwins, a modern wayland window manager
+# Taiwins, a modern wayland window manager
+
+[![Gitter](https://img.shields.io/badge/gitter-taiwins--project-purple?logo=gitter-white)](https://gitter.im/taiwins/)
+![example workflow](https://github.com/taiwins/taiwins/actions/workflows/ccpp.yml/badge.svg)
 
 Taiwins is a dynamic wayland window manager, supports both tiling and floating
 layout. It is designed to be modern and modular. It is extensible through lua
