@@ -24,6 +24,7 @@
 #include <pixman.h>
 #include <stdint.h>
 #include <string.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>

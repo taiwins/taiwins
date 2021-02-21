@@ -483,7 +483,8 @@ tw_drm_display_stop(struct tw_drm_display *output)
 		crtc_from_id(output->gpu, output->status.crtc_id);
 	tw_reset_wl_list(&output->presentable_commit.link);
 	tw_output_device_commit_state(&output->output.device);
-	tw_render_output_unset_context(&output->output);
+	if (output->output.ctx)
+		tw_render_output_unset_context(&output->output);
 	output->status.unset_crtc = NULL;
 }
 

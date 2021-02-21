@@ -30,6 +30,7 @@
 #include <taiwins/render_surface.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/profiling.h>
+#include <wayland-util.h>
 
 /******************************************************************************
  * tw_render_surface APIs
@@ -104,6 +105,7 @@ tw_render_surface_fini(struct tw_render_surface *surface)
 	wl_list_remove(&surface->listeners.dirty.link);
 	wl_list_remove(&surface->listeners.frame.link);
 	wl_list_remove(&surface->listeners.commit.link);
+	wl_list_remove(&surface->listeners.output_lost.link);
 }
 
 struct tw_render_surface *
@@ -268,33 +270,29 @@ tw_render_context_build_view_list(struct tw_render_context *ctx,
 }
 
 static void
-update_surface_mask(struct tw_surface *tw_surface,
+update_surface_mask(struct tw_surface *base, struct tw_render_context *ctx,
                     struct tw_render_output *major, uint32_t mask)
 {
 	struct tw_render_output *output;
 	struct tw_render_surface *surface =
-		wl_container_of(tw_surface, surface, surface);
+		wl_container_of(base, surface, surface);
 	uint32_t output_bit;
 	uint32_t different = surface->output_mask ^ mask;
 	uint32_t entered = mask & different;
 	uint32_t left = surface->output_mask & different;
 
-	assert(major->ctx);
-
 	//update the surface_mask and
 	surface->output_mask = mask;
-	surface->output = major->device.id;
+	surface->output = major ? major->device.id : -1;
 
-	wl_list_for_each(output, &major->ctx->outputs, link) {
+	wl_list_for_each(output, &ctx->outputs, link) {
 		output_bit = 1u << output->device.id;
 		if (!(output_bit & different))
 			continue;
 		if ((output_bit & entered))
-			wl_signal_emit(&output->signals.surface_enter,
-			               tw_surface);
+			wl_signal_emit(&output->signals.surface_enter, base);
 		if ((output_bit & left))
-			wl_signal_emit(&output->signals.surface_leave,
-			               tw_surface);
+			wl_signal_emit(&output->signals.surface_leave, base);
 	}
 }
 
@@ -336,7 +334,7 @@ tw_render_surface_reassign_outputs(struct tw_render_surface *render_surface,
 	}
 	pixman_region32_fini(&surface_region);
 
-	update_surface_mask(surface, major, mask);
+	update_surface_mask(surface, ctx, major, mask);
 }
 
 WL_EXPORT void
