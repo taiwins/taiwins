@@ -28,14 +28,14 @@ jobs:
         export PKG_CONFIG_PATH=/usr/local/lib:${PKG_CONFIG_PATH}
         meson -Dx11-backend=enabled build && ninja -C build
         
-  other-ci:
-    runs-on: ubuntu-latest
+  # other-ci:
+  #   runs-on: ubuntu-latest
 
-    steps:
-    - uses: actions/checkout@v1
-    - name: submodule
-      run: git submodule update --init --recursive
-    - name: run with archlinux docker img
-      uses: docker://archlinux/base:latest
-      with:
-        entrypoint: ./.github/actions/entrypoint.sh
+  #   steps:
+  #   - uses: actions/checkout@v1
+  #   - name: submodule
+  #     run: git submodule update --init --recursive
+  #   - name: run with archlinux docker img
+  #     uses: docker://archlinux/base:latest
+  #     with:
+  #       entrypoint: ./.github/actions/entrypoint.sh
