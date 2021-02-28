@@ -24,6 +24,7 @@
 #include <tdbus.h>
 #include <wayland-server-core.h>
 #include <taiwins/dbus_utils.h>
+#include <taiwins/objects/logger.h>
 
 static int
 tw_dbus_dispatch_watch(int fd, uint32_t mask, void *data)
@@ -143,6 +144,28 @@ tw_bus_dispatch(int fd, uint32_t mask, void *data)
 	return 0;
 }
 
+static void
+tw_handle_tdbus_log(enum tdbus_log_level level, const char *fmt, va_list ap)
+{
+	enum TW_LOG_LEVEL lvl;
+
+        switch (level) {
+	case TDBUS_LOG_DBUG:
+		lvl = TW_LOG_DBUG;
+		break;
+	case TDBUS_LOG_INFO:
+		lvl = TW_LOG_INFO;
+		break;
+	case TDBUS_LOG_WARN:
+		lvl = TW_LOG_WARN;
+		break;
+	case TDBUS_LOG_ERRO:
+		lvl = TW_LOG_ERRO;
+		break;
+	}
+        tw_logv_level(lvl, fmt, ap);
+}
+
 WL_EXPORT struct wl_event_source *
 tw_bind_tdbus_for_wl_display(struct tdbus *bus, struct wl_display *display)
 {
@@ -166,5 +189,6 @@ tw_bind_tdbus_for_wl_display(struct tdbus *bus, struct wl_display *display)
 	tdbus_set_nonblock(bus, display, tw_bus_add_watch, tw_bus_ch_watch,
 	                   tw_bus_rm_watch, tw_bus_add_timeout,
 	                   tw_bus_ch_timeout, tw_bus_rm_timeout);
+	tdbus_set_logger(bus, tw_handle_tdbus_log);
 	return src;
 }

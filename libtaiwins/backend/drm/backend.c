@@ -297,17 +297,17 @@ notify_drm_login_state(struct wl_listener *listener, void *data)
 	struct tw_drm_backend *drm =
 		wl_container_of(listener, drm, login_attribute_change);
 	struct tw_login *login = data;
-	struct tw_drm_gpu *gpu;
+	struct tw_drm_display *dpy;
 
 	//TODO: supposed to dirty all the output and handle planes
 	if (login->active) {
 		tw_libinput_input_enable(&drm->input);
-		wl_list_for_each(gpu, &drm->gpu_list, link)
-			tw_drm_handle_gpu_event(gpu, TW_DRM_DEV_ONLINE);
+		wl_list_for_each(dpy, &drm->base.outputs, output.device.link)
+			tw_drm_display_continue(dpy);
 	} else {
 		tw_libinput_input_disable(&drm->input);
-		wl_list_for_each(gpu, &drm->gpu_list, link)
-			tw_drm_handle_gpu_event(gpu, TW_DRM_DEV_OFFLINE);
+		wl_list_for_each(dpy, &drm->base.outputs, output.device.link)
+			tw_drm_display_pause(dpy);
 	}
 }
 

@@ -221,8 +221,10 @@ session_switch_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
 	struct tw_login *login = tw_backend_get_login(backend);
 	int sid = *(int *)grab->data;
 
-	if (login)
+	if (login) {
 		tw_login_switch_vt(login, sid);
+		tw_keyboard_end_grab(&grab->seat->keyboard);
+	}
 }
 
 static const struct tw_keyboard_grab_interface session_switch_impl = {

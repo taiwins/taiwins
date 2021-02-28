@@ -57,7 +57,6 @@ struct tw_render_output {
 
 	/* render_output s'occupy with render_data of the output */
 	struct {
-		bool dirty;
 		/**< we have 3 frame_damages for triple buffering */
 		pixman_region32_t damages[3];
 		pixman_region32_t *pending_damage, *curr_damage, *prev_damage;
@@ -68,6 +67,10 @@ struct tw_render_output {
 		unsigned long ft_sum, ft_cnt;
 		/** average frame time in microseconds */
 		unsigned int fts[TW_FRAME_TIME_CNT], ft_idx;
+		/** additional checks for running render_output */
+		//TODO this is very much ugly approach, all the backend would
+		//set on this
+		bool enabled;
 	} state;
 
 	struct {

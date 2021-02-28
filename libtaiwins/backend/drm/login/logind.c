@@ -231,7 +231,7 @@ logind_bus_handle_session_properties_changed(const struct tdbus_signal *signal)
 	struct tw_logind_login *logind = signal->user_data;
 
 	if (!tdbus_read(signal->message, "sa{sv}as",
-	                &interface, &nstr, &strings, &ne, &entries)) {
+	                &interface, &ne, &entries, &nstr, &strings)) {
 		tw_logl_level(TW_LOG_WARN, "Failed to parse property change");
 		goto out;
 	}
@@ -370,6 +370,7 @@ static int
 handle_logind_get_vt(struct tw_login *base)
 {
 	struct tw_logind_login *logind = tw_logind_login_from_base(base);
+	sd_session_get_vt(logind->session_id, &logind->vtnr);
 	return logind->vtnr;
 }
 
@@ -378,14 +379,14 @@ handle_logind_switch_vt(struct tw_login *base, unsigned int vt)
 {
 	struct tw_logind_login *logind = tw_logind_login_from_base(base);
 
-	//TODO we may only debug this through ssh
+	sd_session_get_vt(logind->session_id, &logind->vtnr);
 	if (logind->vtnr == vt)
 		return true;
 	if (!sd_seat_can_tty(logind->base.seat))
 		return false;
-	if (tdbus_send_method_call(logind->bus, LOGIND_DEST, logind->seat_path,
-	                           LOGIND_SEAT_IFACE, "SwitchTo",
-	                           NULL, "u", (uint32_t)vt)) {
+	if (!tdbus_send_method_call(logind->bus, LOGIND_DEST, logind->seat_path,
+	                            LOGIND_SEAT_IFACE, "SwitchTo",
+	                            NULL, "u", (uint32_t)vt)) {
 		tw_logl_level(TW_LOG_WARN, "Failed to switch to vt:%d", vt);
 		return false;
 	}
@@ -411,8 +412,11 @@ handle_logind_open(struct tw_login *base, const char *path, uint32_t flags)
 	                            logind->session_org_path,
 	                            LOGIND_SESSION_IFACE, "TakeDevice",
 	                            &reply, "uu", major(st.st_rdev),
-	                            minor(st.st_rdev)))
+	                            minor(st.st_rdev))) {
+		tw_logl_level(TW_LOG_WARN, "Failed to open device %s", path);
 		return -1;
+	}
+
 
 	if (!tdbus_read(reply.message, "hb", &fd, &paused)) {
 		tw_logl_level(TW_LOG_WARN, "Failed to parse result from dbus");
@@ -458,7 +462,7 @@ handle_logind_close(struct tw_login *base, int fd)
 	if (!tdbus_send_method_call(logind->bus, LOGIND_DEST,
 	                            logind->session_org_path,
 	                            LOGIND_SESSION_IFACE, "ReleaseDevice",
-	                            NULL, "ReleaseDevice", "uu",
+	                            NULL, "uu",
 	                            major(st.st_rdev), minor(st.st_rdev))) {
 		tw_logl_level(TW_LOG_WARN, "Failed to release logind device");
 	}
