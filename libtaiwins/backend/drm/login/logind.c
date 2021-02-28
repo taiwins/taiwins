@@ -370,6 +370,7 @@ static int
 handle_logind_get_vt(struct tw_login *base)
 {
 	struct tw_logind_login *logind = tw_logind_login_from_base(base);
+	sd_session_get_vt(logind->session_id, &logind->vtnr);
 	return logind->vtnr;
 }
 
@@ -378,7 +379,7 @@ handle_logind_switch_vt(struct tw_login *base, unsigned int vt)
 {
 	struct tw_logind_login *logind = tw_logind_login_from_base(base);
 
-	//TODO we may only debug this through ssh
+	sd_session_get_vt(logind->session_id, &logind->vtnr);
 	if (logind->vtnr == vt)
 		return true;
 	if (!sd_seat_can_tty(logind->base.seat))
