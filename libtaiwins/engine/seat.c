@@ -552,6 +552,7 @@ tw_engine_seat_release(struct tw_engine_seat *seat)
 	tw_seat_destroy(seat->tw_seat);
 	seat->tw_seat = NULL;
 	xkb_keymap_unref(seat->keymap);
+	seat->keymap = NULL;
 
 	seat->engine->seat_pool &= unset;
 }

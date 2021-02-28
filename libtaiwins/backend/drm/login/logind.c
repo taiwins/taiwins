@@ -411,8 +411,11 @@ handle_logind_open(struct tw_login *base, const char *path, uint32_t flags)
 	                            logind->session_org_path,
 	                            LOGIND_SESSION_IFACE, "TakeDevice",
 	                            &reply, "uu", major(st.st_rdev),
-	                            minor(st.st_rdev)))
+	                            minor(st.st_rdev))) {
+		tw_logl_level(TW_LOG_WARN, "Failed to open device %s", path);
 		return -1;
+	}
+
 
 	if (!tdbus_read(reply.message, "hb", &fd, &paused)) {
 		tw_logl_level(TW_LOG_WARN, "Failed to parse result from dbus");
@@ -458,7 +461,7 @@ handle_logind_close(struct tw_login *base, int fd)
 	if (!tdbus_send_method_call(logind->bus, LOGIND_DEST,
 	                            logind->session_org_path,
 	                            LOGIND_SESSION_IFACE, "ReleaseDevice",
-	                            NULL, "ReleaseDevice", "uu",
+	                            NULL, "uu",
 	                            major(st.st_rdev), minor(st.st_rdev))) {
 		tw_logl_level(TW_LOG_WARN, "Failed to release logind device");
 	}
