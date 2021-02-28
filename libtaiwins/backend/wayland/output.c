@@ -326,6 +326,7 @@ tw_wl_surface_start(struct tw_wl_surface *output)
 	                       output->output.device.name);
 	wl_surface_commit(output->wl_surface);
 
+	output->output.state.enabled = true;
 	tw_render_output_set_context(&output->output, wl->base.ctx);
 	tw_output_device_commit_state(&output->output.device);
 	tw_output_device_raw_resolution(&output->output.device,

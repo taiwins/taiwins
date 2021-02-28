@@ -320,6 +320,9 @@ void
 tw_drm_display_continue(struct tw_drm_display *display);
 
 void
+tw_drm_display_pause(struct tw_drm_display *output);
+
+void
 tw_drm_display_stop(struct tw_drm_display *output);
 
 void

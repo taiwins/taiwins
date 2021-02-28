@@ -318,6 +318,7 @@ handle_display_commit_state(struct tw_output_device *device)
 	select_display_mode(output);
 	UPDATE_PENDING(output, active, enabled, TW_DRM_PENDING_ACTIVE);
 	memcpy(&device->state, &device->pending, sizeof(device->state));
+	//we cannot use output_device_enable hear because it sets the pending
 	device->state.enabled = enabled;
 
 	//flushing the pending states
@@ -464,7 +465,8 @@ tw_drm_display_start(struct tw_drm_display *output)
 	}
 	//force updating display mode to allocate buffers.
 	UPDATE_PENDING_MODE(output, &output->status.mode, true);
-
+	//TODO better handling for this?
+	output->output.state.enabled = true;
 	//commit state would now handle most of the logics
 	tw_output_device_commit_state(&output->output.device);
 	tw_render_output_dirty(&output->output);
@@ -473,7 +475,22 @@ tw_drm_display_start(struct tw_drm_display *output)
 void
 tw_drm_display_continue(struct tw_drm_display *output)
 {
-	tw_output_device_commit_state(&output->output.device);
+	if (output->status.connected) {
+		output->output.state.enabled = true;
+		tw_output_device_commit_state(&output->output.device);
+		tw_render_output_dirty(&output->output);
+	}
+}
+
+void
+tw_drm_display_pause(struct tw_drm_display *output)
+{
+	//for disabling additional rendering
+	output->status.unset_crtc =
+		crtc_from_id(output->gpu, output->status.crtc_id);
+	output->output.state.enabled = false;
+	tw_drm_display_detach_crtc(output);
+	output->gpu->impl->page_flip(output, 0);
 }
 
 void
@@ -482,6 +499,7 @@ tw_drm_display_stop(struct tw_drm_display *output)
 	output->status.unset_crtc =
 		crtc_from_id(output->gpu, output->status.crtc_id);
 	tw_reset_wl_list(&output->presentable_commit.link);
+	output->output.state.enabled = false;
 	tw_output_device_commit_state(&output->output.device);
 	if (output->output.ctx)
 		tw_render_output_unset_context(&output->output);

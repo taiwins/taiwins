@@ -134,6 +134,7 @@ tw_x11_output_start(struct tw_x11_output *output)
 	                         &output->output_commit_listener,
 	                         notify_output_commit);
 
+	output->output.state.enabled = true;
 	tw_render_output_set_context(&output->output, x11->base.ctx);
 	tw_output_device_commit_state(&output->output.device);
 	tw_output_device_raw_resolution(&output->output.device,
