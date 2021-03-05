@@ -72,31 +72,35 @@ notify_pointer_button(struct tw_seat_pointer_grab *grab,
 
 static void
 notify_pointer_axis(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
-                   enum wl_pointer_axis orientation, double value,
+                   enum wl_pointer_axis orientation, double val,
                    int32_t value_discrete,
                    enum wl_pointer_axis_source source)
 {
 	struct wl_resource *resource;
 	struct tw_pointer *pointer = &grab->seat->pointer;
 	struct tw_seat_client *client = pointer->focused_client;
-	uint32_t version;
+	const uint32_t ver_discrete = WL_POINTER_AXIS_DISCRETE_SINCE_VERSION;
+	const uint32_t ver_source = WL_POINTER_AXIS_SOURCE_SINCE_VERSION;
+
+	uint32_t ver;
+
 	if (client) {
 		wl_resource_for_each(resource, &client->pointers) {
-			version = wl_resource_get_version(resource);
-			if (value)
+			ver = wl_resource_get_version(resource);
+			if (ver >= ver_source)
+				wl_pointer_send_axis_source(resource, source);
+			if (val) {
+				if (value_discrete && ver >= ver_discrete)
+					wl_pointer_send_axis(resource, time_msec,
+					                     orientation,
+					                     value_discrete);
 				wl_pointer_send_axis(resource, time_msec,
 				                     orientation,
-				                     wl_fixed_from_double(
-					                     value));
-			else if (value_discrete &&
-			         version >= WL_POINTER_AXIS_DISCRETE_SINCE_VERSION)
-				wl_pointer_send_axis_discrete(resource,
-				                              time_msec,
-				                              value_discrete);
-			if (version >= WL_POINTER_AXIS_SOURCE_SINCE_VERSION)
-				wl_pointer_send_axis_source(resource, source);
+				                     wl_fixed_from_double(val));
+			} else if (ver >= WL_POINTER_AXIS_STOP_SINCE_VERSION)
+				wl_pointer_send_axis_stop(resource, time_msec,
+				                          orientation);
 		}
-		//TODO, we are not able to send stop event?
 	}
 }
 

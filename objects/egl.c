@@ -76,6 +76,7 @@ platform_to_extension(EGLenum platform)
 		return "device";
 	default:
 		assert(0 && "bad EGL platform enum");
+		return "";
 	}
 }
 
