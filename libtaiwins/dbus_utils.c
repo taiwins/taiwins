@@ -147,7 +147,7 @@ tw_bus_dispatch(int fd, uint32_t mask, void *data)
 static void
 tw_handle_tdbus_log(enum tdbus_log_level level, const char *fmt, va_list ap)
 {
-	enum TW_LOG_LEVEL lvl;
+	enum TW_LOG_LEVEL lvl = TW_LOG_INFO;
 
         switch (level) {
 	case TDBUS_LOG_DBUG:

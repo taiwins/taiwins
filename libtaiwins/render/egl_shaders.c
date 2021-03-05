@@ -24,6 +24,7 @@
 
 #include <taiwins/objects/logger.h>
 #include <taiwins/render_context_egl.h>
+#include <wayland-util.h>
 
 /******************************************************************************
  * shader collections
@@ -142,7 +143,7 @@ compile_shader(GLenum type, const GLchar *src)
 /*****************************************************************************
  * exposed APIs
  ****************************************************************************/
-GLuint
+WL_EXPORT GLuint
 tw_egl_shader_create_program(const GLchar *vs_src, const GLchar *fs_src)
 {
 	GLuint p;
@@ -162,7 +163,7 @@ tw_egl_shader_create_program(const GLchar *vs_src, const GLchar *fs_src)
 	return p;
 }
 
-void
+WL_EXPORT void
 tw_egl_quad_color_shader_init(struct tw_egl_quad_shader *shader)
 {
 	shader->prog = tw_egl_shader_create_program(quad_vs, color_quad_fs);
@@ -174,13 +175,13 @@ tw_egl_quad_color_shader_init(struct tw_egl_quad_shader *shader)
 	assert(shader->uniform.alpha >= 0);
 }
 
-void
+WL_EXPORT void
 tw_egl_quad_color_shader_fini(struct tw_egl_quad_shader *shader)
 {
 	glDeleteProgram(shader->prog);
 }
 
-void
+WL_EXPORT void
 tw_egl_quad_tex_shader_init(struct tw_egl_quad_shader *shader)
 {
 	shader->prog = tw_egl_shader_create_program(quad_vs, tex_quad_fs);
@@ -192,13 +193,13 @@ tw_egl_quad_tex_shader_init(struct tw_egl_quad_shader *shader)
 	assert(shader->uniform.alpha >= 0);
 }
 
-void
+WL_EXPORT void
 tw_egl_quad_tex_shader_fini(struct tw_egl_quad_shader *shader)
 {
 	glDeleteProgram(shader->prog);
 }
 
-void
+WL_EXPORT void
 tw_egl_quad_texext_shader_init(struct tw_egl_quad_shader *shader)
 {
 	shader->prog = tw_egl_shader_create_program(quad_vs, tex_quad_ext_fs);
@@ -210,7 +211,7 @@ tw_egl_quad_texext_shader_init(struct tw_egl_quad_shader *shader)
 	assert(shader->uniform.alpha >= 0);
 }
 
-void
+WL_EXPORT void
 tw_egl_quad_texext_shader_fini(struct tw_egl_quad_shader *shader)
 {
 	glDeleteProgram(shader->prog);

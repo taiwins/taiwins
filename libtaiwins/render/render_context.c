@@ -145,6 +145,7 @@ handle_alloc_compositor_obj(size_t size, const struct wl_interface *interface)
 	} else {
 		tw_logl_level(TW_LOG_ERRO, "invalid interface");
 		assert(0);
+		return NULL;
 	}
 }
 
@@ -154,18 +155,18 @@ handle_free_compositor_obj(void *ptr, const struct wl_interface *interface)
 	if (interface == &wl_surface_interface) {
 		struct tw_surface *tw_surface = ptr;
 		struct tw_render_surface *surface =
-			wl_container_of(ptr, surface, surface);
+			wl_container_of(tw_surface, surface, surface);
 		assert(interface == &wl_surface_interface);
 		assert(tw_surface->alloc == &tw_render_compositor_allocator);
 		free(surface);
 	} else if (interface == &wl_subsurface_interface) {
 		struct tw_subsurface *subsurface = ptr;
 		assert(subsurface->alloc == &tw_render_compositor_allocator);
-		free(ptr);
+		free(subsurface);
 	} else if (interface == &wl_region_interface) {
 		struct tw_region *region = ptr;
 		assert(region->alloc == &tw_render_compositor_allocator);
-		free(ptr);
+		free(region);
 	} else {
 		tw_logl_level(TW_LOG_ERRO, "invalid interface");
 		assert(0);

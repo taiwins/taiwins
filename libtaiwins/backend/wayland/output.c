@@ -110,7 +110,7 @@ handle_xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
 {
 	struct tw_wl_surface *output = data;
 	assert(output && output->xdg_surface == xdg_surface);
-	xdg_surface_ack_configure(xdg_surface, serial);
+	xdg_surface_ack_configure(output->xdg_surface, serial);
 }
 
 static const struct xdg_surface_listener xdg_surface_listener = {

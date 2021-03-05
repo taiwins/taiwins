@@ -26,7 +26,7 @@ jobs:
       run: |
         export PATH=~/.local/bin:$PATH
         export PKG_CONFIG_PATH=/usr/local/lib:${PKG_CONFIG_PATH}
-        meson -Dx11-backend=enabled build && ninja -C build
+        meson -Dbuildtype=release -Dx11-backend=enabled build && ninja -C build
         
   # other-ci:
   #   runs-on: ubuntu-latest

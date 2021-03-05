@@ -172,15 +172,12 @@ commit_fullscreen(struct tw_surface *surface)
 {
 	struct tw_shell_ui *ui = surface->role.commit_private;
 	struct tw_shell_output *output = ui->output;
-	pixman_rectangle32_t *geo = &surface->geometry.xywh;
 	pixman_rectangle32_t output_geo =
 		tw_output_device_geometry(output->output->device);
 
 	ui->x = output_geo.x;
 	ui->y = output_geo.y;
 
-	assert(geo->width == output_geo.width);
-	assert(geo->height == output_geo.height);
 	tw_surface_set_position(surface, ui->x, ui->y);
 }
 
@@ -192,8 +189,8 @@ commit_widget(struct tw_surface *surface)
 }
 
 static void
-shell_ui_destroy_resource(UNUSED_ARG(struct wl_client *client),
-			  struct wl_resource *resource)
+shell_ui_destroy_resource(struct wl_client *client,
+                          struct wl_resource *resource)
 {
 	wl_resource_destroy(resource);
 }
