@@ -147,8 +147,6 @@ click_activate_surface(struct tw_pointer *pointer, uint32_t time,
 	struct tw_config *config = data;
 	struct tw_xdg *desktop =
 		tw_config_request_object(config, "desktop");
-	struct tw_seat *seat = container_of(pointer, struct tw_seat, pointer);
-	struct tw_keyboard *keyboard = &seat->keyboard;
 
 	if (desktop && pointer->focused_surface) {
 		surface = tw_surface_from_resource(pointer->focused_surface);
@@ -156,9 +154,6 @@ click_activate_surface(struct tw_pointer *pointer, uint32_t time,
 
 		if (pointer->btn_count > 0 && view)
 			tw_xdg_view_activate(desktop, view);
-		else if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
-			tw_keyboard_set_focus(keyboard,
-			                      pointer->focused_surface, NULL);
 	}
 	return false;
 }
