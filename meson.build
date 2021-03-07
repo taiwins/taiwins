@@ -15,6 +15,7 @@ global_args_maybe = [
 	'-Wno-unused-parameter',
 	'-Wno-missing-field-initializers',
 	'-Wno-pedantic',
+	'-Wno-unused-result',
 ]
 arg_visibility = get_option('buildtype') != 'debug' ? ['-fvisibility=hidden'] : []
 global_args_maybe += arg_visibility
