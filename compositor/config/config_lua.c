@@ -459,7 +459,7 @@ _lua_config_display(lua_State *L)
 			return _lua_read_display(L, t, i);
 		} else if (strlen(t->outputs[i].name) == 0) {
 			//or a new one.
-			strncpy(t->outputs[i].name, name, 31);
+			strncpy(t->outputs[i].name, name, 23);
 			return _lua_read_display(L, t, i);
 		}
 	}
