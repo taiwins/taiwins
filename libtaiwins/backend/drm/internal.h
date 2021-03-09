@@ -160,6 +160,19 @@ struct tw_drm_mode_info {
 	struct tw_output_device_mode mode;
 };
 
+struct tw_kms_state {
+	/* a display(connector will link to a crtc), or the crtc to unset mode */
+	struct {
+		int id;
+		bool active;
+		drmModeModeInfo mode;
+		uint32_t mode_id;
+	} crtc;
+	int fb_id;
+	//TODO gamma lut
+	//TODO list of planes
+};
+
 struct tw_drm_display {
 	struct tw_render_output output;
 	struct tw_drm_backend *drm;
@@ -181,6 +194,8 @@ struct tw_drm_display {
 		drmModeModeInfo mode;
 		struct wl_array modes;
 		enum tw_drm_display_pending_flags pending;
+		struct tw_kms_state kms_current, kms_pending;
+
 	} status;
 	//TODO remove the swapchain here
 	//struct tw_drm_swapchain sc;

@@ -146,6 +146,9 @@ tw_drm_display_attach_crtc(struct tw_drm_display *display,
 	display->crtc = crtc;
 	UPDATE_PENDING(display, crtc_id, crtc->id, TW_DRM_PENDING_CRTC);
 	display->crtc->display = display;
+	//updating pending kms
+	display->status.kms_pending.crtc.id = crtc->id;
+
 	return true;
 }
 
@@ -161,6 +164,13 @@ tw_drm_display_detach_crtc(struct tw_drm_display *display)
 	UPDATE_PENDING(display, crtc_id, id, TW_DRM_PENDING_CRTC);
 	UPDATE_PENDING(display, active, false, TW_DRM_PENDING_ACTIVE);
 	display->status.crtc_id = TW_DRM_CRTC_ID_INVALID;
+	//updating pending kms
+	// we would want to remove mode_id and other properties on disable
+	display->status.kms_pending.crtc.id =
+		(crtc ? crtc->id : TW_DRM_CRTC_ID_INVALID);
+	display->status.kms_pending.crtc.active = false;
+	display->status.kms_pending.crtc.mode_id =
+		display->status.kms_current.crtc.mode_id;
 }
 
 static bool
