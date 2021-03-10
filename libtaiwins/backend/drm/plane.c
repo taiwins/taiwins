@@ -162,8 +162,6 @@ tw_drm_plane_init(struct tw_drm_plane *plane, int fd, drmModePlane *drm_plane)
 	plane->crtc_mask = drm_plane->possible_crtcs;
 	read_plane_properties(fd, plane->id, &plane->props);
 	populate_plane_formats(plane, drm_plane, fd);
-	plane_fb_init(&plane->pending);
-	plane_fb_init(&plane->current);
 
 	return true;
 }

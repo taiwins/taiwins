@@ -201,8 +201,6 @@ handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
 {
 	struct tw_drm_display *output = data;
 	struct tw_drm_gpu *gpu = output ? output->gpu : NULL;
-	struct tw_drm_plane *main_plane = output ?
-		output->primary_plane : NULL;
 	struct tw_output_device *device = output ?
 		&output->output.device : NULL;
 
@@ -230,8 +228,8 @@ handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
 			//pointer?
 			assert(output->status.crtc_id == (int)crtc_id);
 
-			gpu->impl->vsynced(output, &main_plane->current);
-			main_plane->current = main_plane->pending;
+			gpu->impl->vsynced(output, &output->status.kms_current);
+			output->status.kms_current = output->status.kms_pending;
 			tw_render_output_clean_maybe(&output->output);
 			tw_output_device_present(device, &present);
 		}

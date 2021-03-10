@@ -53,7 +53,7 @@ atomic_plane_disable(drmModeAtomicReq *req, bool *pass,
 bool
 tw_kms_atomic_set_plane_props(drmModeAtomicReq *req, bool pass,
                               struct tw_drm_plane *plane,
-                              int crtc_id, int x, int y, int w, int h)
+                              struct tw_drm_fb *fb, int crtc_id)
 {
 
 	if (crtc_id == TW_DRM_CRTC_ID_INVALID) {
@@ -61,16 +61,15 @@ tw_kms_atomic_set_plane_props(drmModeAtomicReq *req, bool pass,
 	} else {
 		uint32_t id = plane->id;
 		struct tw_drm_plane_props *props = &plane->props;
-		struct tw_drm_fb *fb = &plane->pending;
 
 		atomic_add(req, &pass, id, props->src_x, 0);
 		atomic_add(req, &pass, id, props->src_y, 0);
-		atomic_add(req, &pass, id, props->src_w, (uint64_t)w << 16);
-		atomic_add(req, &pass, id, props->src_h, (uint64_t)h << 16);
-		atomic_add(req, &pass, id, props->crtc_x, x);
-		atomic_add(req, &pass, id, props->crtc_y, y);
-		atomic_add(req, &pass, id, props->crtc_w, w);
-		atomic_add(req, &pass, id, props->crtc_h, h);
+		atomic_add(req, &pass, id, props->src_w, (uint64_t)fb->w << 16);
+		atomic_add(req, &pass, id, props->src_h, (uint64_t)fb->h << 16);
+		atomic_add(req, &pass, id, props->crtc_x, fb->x);
+		atomic_add(req, &pass, id, props->crtc_y, fb->y);
+		atomic_add(req, &pass, id, props->crtc_w, fb->w);
+		atomic_add(req, &pass, id, props->crtc_h, fb->h);
 		atomic_add(req, &pass, id, props->crtc_id, crtc_id);
 		atomic_add(req, &pass, id, props->fb_id, fb->fb);
 	}

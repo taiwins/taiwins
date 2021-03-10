@@ -131,7 +131,7 @@ struct tw_drm_plane_props {
 struct tw_drm_fb {
 	enum tw_drm_fb_type type;
 	bool locked;
-	int fb;
+	int fb, x, y, w, h;
 	uintptr_t handle;
 };
 
@@ -143,7 +143,7 @@ struct tw_drm_plane {
 
 	struct tw_drm_formats formats;
 	struct tw_drm_plane_props props;
-	struct tw_drm_fb pending, current;
+	// struct tw_drm_fb pending, current;
 };
 
 struct tw_drm_crtc {
@@ -161,14 +161,14 @@ struct tw_drm_mode_info {
 };
 
 struct tw_kms_state {
-	/* a display(connector will link to a crtc), or the crtc to unset mode */
 	struct {
 		int id;
 		bool active;
 		drmModeModeInfo mode;
 		uint32_t mode_id;
 	} crtc;
-	int fb_id;
+	struct tw_drm_fb fb;
+	uint32_t flags;
 	//TODO gamma lut
 	//TODO list of planes
 };
@@ -195,7 +195,6 @@ struct tw_drm_display {
 		struct wl_array modes;
 		enum tw_drm_display_pending_flags pending;
 		struct tw_kms_state kms_current, kms_pending;
-
 	} status;
 	//TODO remove the swapchain here
 	//struct tw_drm_swapchain sc;
@@ -217,8 +216,11 @@ struct tw_drm_gpu_impl {
 	/** destroy display buffers as well as render surface */
 	void (*end_display)(struct tw_drm_display *output);
 
+	bool (*render_pending)(struct tw_drm_display *output,
+	                       struct tw_kms_state *state);
+
 	void (*vsynced)(struct tw_drm_display *output,
-	                     struct tw_drm_fb *fb);
+	                struct tw_kms_state *state);
 
 	void (*page_flip)(struct tw_drm_display *output, uint32_t flags);
 };
@@ -358,7 +360,7 @@ tw_drm_display_check_start_stop(struct tw_drm_display *output,
 bool
 tw_kms_atomic_set_plane_props(drmModeAtomicReq *req, bool pass,
                               struct tw_drm_plane *plane,
-                              int crtc_id, int x, int y, int w, int h);
+                              struct tw_drm_fb *fb, int crtc_id);
 bool
 tw_kms_atomic_set_connector_props(drmModeAtomicReq *req, bool pass,
                                   struct tw_drm_display *output);

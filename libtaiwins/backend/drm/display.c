@@ -30,6 +30,7 @@
 #include <wayland-server.h>
 #include <xf86drmMode.h>
 
+#include "drm_mode.h"
 #include "internal.h"
 
 bool
@@ -362,7 +363,14 @@ notify_display_presentable_commit(struct wl_listener *listener, void *data)
 {
 	struct tw_drm_display *output =
 		wl_container_of(listener, output, presentable_commit);
+	struct tw_kms_state *pending_state =  &output->status.kms_pending;
+
 	assert(data == &output->output.surface);
+	if (output->gpu->impl->render_pending(output, pending_state)) {
+
+
+	}
+
 	output->gpu->impl->page_flip(output, DRM_MODE_PAGE_FLIP_EVENT);
 }
 
