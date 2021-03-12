@@ -189,6 +189,26 @@ tw_mat3_box_transform(const struct tw_mat3 *mat,
 }
 
 WL_EXPORT void
+tw_mat3_region_transform(const struct tw_mat3 *mat,
+                         pixman_region32_t *dst, pixman_region32_t *src)
+{
+	int n = 0;
+	pixman_box32_t *src_rects = NULL;
+	pixman_box32_t *dst_rects = NULL;
+
+	src_rects = pixman_region32_rectangles(src, &n);
+	dst_rects = malloc(n * sizeof(pixman_box32_t));
+	if (!dst_rects)
+		return;
+
+	for (int i = 0; i < n; i++)
+		tw_mat3_box_transform(mat, &dst_rects[i], &src_rects[i]);
+	pixman_region32_fini(dst);
+	pixman_region32_init_rects(dst, dst_rects, n);
+	free(dst_rects);
+}
+
+WL_EXPORT void
 tw_mat3_translate(struct tw_mat3 *mat, float x, float y)
 {
 	tw_mat3_init(mat);

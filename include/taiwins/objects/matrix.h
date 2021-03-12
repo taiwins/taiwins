@@ -57,6 +57,9 @@ void
 tw_mat3_box_transform(const struct tw_mat3 *mat,
                       pixman_box32_t *dst, const pixman_box32_t *src);
 void
+tw_mat3_region_transform(const struct tw_mat3 *mat,
+                         pixman_region32_t *dst, pixman_region32_t *src);
+void
 tw_mat3_scale(struct tw_mat3 *dst, float x, float y);
 
 void
