@@ -118,6 +118,15 @@ struct tw_vec3 {
 	float x; float y; float z;
 };
 
+void
+tw_vec3_add(struct tw_vec3 *r, const struct tw_vec3 *a,
+            const struct tw_vec3 *b);
+void
+tw_vec3_sub(struct tw_vec3 *r, const struct tw_vec3 *a,
+            const struct tw_vec3 *b);
+void
+tw_vec3_scale(struct tw_vec3 *r, const float s);
+
 float
 tw_vec3_dot(const struct tw_vec3 *a, const struct tw_vec3 *b);
 
@@ -144,6 +153,12 @@ tw_mat4_inverse(struct tw_mat4 *dst, const struct tw_mat4 *src);
 void
 tw_mat4_multiply(struct tw_mat4 *dst, const struct tw_mat4 *a,
                  const struct tw_mat4 *b);
+float
+tw_mat4_apply(struct tw_vec3 *r, const struct tw_mat4 *m,
+              const struct tw_vec3 *v);
+void
+tw_mat4_apply_homogenous(struct tw_vec3 *r, const struct tw_mat4 *m,
+                         const struct tw_vec3 *v);
 void
 tw_mat4_translate(struct tw_mat4 *dst, float x, float y, float z);
 
@@ -152,19 +167,23 @@ tw_mat4_scale(struct tw_mat4 *dst, float x, float y, float z);
 
 //TODO
 void
-tw_mat4_rotate(struct tw_mat4 *dst, const struct tw_vec3 *axis, float angle);
-
-//TODO
+tw_mat4_rotate(struct tw_mat4 *dst, float xy_degree, float xz_degree,
+               float yz_degree);
+//TODO test
 void
 tw_mat4_lookat(struct tw_mat4 *dst, const struct tw_vec3 *center,
-               const struct tw_vec3 *forward, const struct tw_vec3 *up);
-//TODO
+               const struct tw_vec3 *target, const struct tw_vec3 *up);
+//TODO test
 void
 tw_mat4_ortho(struct tw_mat4 *dst, float left, float right,
               float bottom, float top, float near, float far);
-//TODO
+//TODO test
 void
-tw_mat4_perspective(struct tw_mat4 *dst, float fovy,  float aspect,
+tw_mat4_frustum(struct tw_mat4 *dst, float left, float right,
+                float bottom, float top, float near, float far);
+//TODO test
+void
+tw_mat4_perspective(struct tw_mat4 *dst, float fovy, float aspect,
                     float near, float far);
 
 #ifdef  __cplusplus

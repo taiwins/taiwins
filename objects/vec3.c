@@ -21,6 +21,32 @@
 
 #include <taiwins/objects/matrix.h>
 
+WL_EXPORT void
+tw_vec3_add(struct tw_vec3 *r, const struct tw_vec3 *a,
+            const struct tw_vec3 *b)
+{
+	r->x = a->x + b->x;
+	r->y = a->y + b->y;
+	r->z = a->z + b->z;
+}
+
+WL_EXPORT void
+tw_vec3_sub(struct tw_vec3 *r, const struct tw_vec3 *a,
+            const struct tw_vec3 *b)
+{
+	r->x = a->x - b->x;
+	r->y = a->y - b->y;
+	r->z = a->z - b->z;
+}
+
+WL_EXPORT void
+tw_vec3_scale(struct tw_vec3 *r, const float s)
+{
+	r->x *= s;
+	r->y *= s;
+	r->z *= s;
+}
+
 WL_EXPORT float
 tw_vec3_dot(const struct tw_vec3 *a, const struct tw_vec3 *b)
 {
