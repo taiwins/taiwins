@@ -148,7 +148,8 @@ tw_drm_display_attach_crtc(struct tw_drm_display *display,
 	UPDATE_PENDING(display, crtc_id, crtc->props.id, TW_DRM_PENDING_CRTC);
 	display->crtc->display = display;
 	//updating pending kms
-	display->status.kms_pending.crtc.id = crtc->props.id;
+	display->status.kms_pending.props_crtc = &crtc->props;
+	display->status.kms_pending.flags |= TW_DRM_PENDING_CRTC;
 
 	return true;
 }
@@ -167,11 +168,8 @@ tw_drm_display_detach_crtc(struct tw_drm_display *display)
 	display->status.crtc_id = TW_DRM_CRTC_ID_INVALID;
 	//updating pending kms
 	// we would want to remove mode_id and other properties on disable
-	display->status.kms_pending.crtc.id =
-		(crtc ? crtc->props.id : TW_DRM_CRTC_ID_INVALID);
 	display->status.kms_pending.crtc.active = false;
-	display->status.kms_pending.crtc.mode_id =
-		display->status.kms_current.crtc.mode_id;
+	display->status.kms_pending.flags |= TW_DRM_PENDING_ACTIVE;
 }
 
 static bool
@@ -370,8 +368,7 @@ notify_display_presentable_commit(struct wl_listener *listener, void *data)
 	struct tw_kms_state *pending_state =  &output->status.kms_pending;
 
 	assert(data == &output->output.surface);
-	if (output->gpu->impl->render_pending(output, pending_state)) {
-
+	if (output->gpu->impl->compose_fb(output, pending_state)) {
 
 	}
 

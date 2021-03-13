@@ -215,12 +215,15 @@ handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
 	};
 
 	if (output) {
+		struct tw_kms_state *curr = &output->status.kms_current;
+		struct tw_kms_state *pend = &output->status.kms_pending;
 
                 assert(gpu->gpu_fd == fd);
 		if (output->status.crtc_id == TW_DRM_CRTC_ID_INVALID) {
 			//happens when we close the crtc
 			return;
 		} else {
+
 			//the pending buffer is now used as front buffer, at
 			//this point, render_output is clean, ready to repaint
 			//if still dirty. For gbm, it is a good time for
@@ -228,8 +231,9 @@ handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
 			//pointer?
 			assert(output->status.crtc_id == (int)crtc_id);
 
-			gpu->impl->vsynced(output, &output->status.kms_current);
-			output->status.kms_current = output->status.kms_pending;
+			gpu->impl->release_fb(output, &curr->fb);
+			tw_kms_state_copy(curr, pend, fd);
+
 			tw_render_output_clean_maybe(&output->output);
 			tw_output_device_present(device, &present);
 		}

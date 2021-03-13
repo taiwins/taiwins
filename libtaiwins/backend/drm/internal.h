@@ -164,9 +164,16 @@ struct tw_drm_mode_info {
 	struct tw_output_device_mode mode;
 };
 
+/**
+ * kms_state represents a atomic state we submit to kernel
+ */
 struct tw_kms_state {
+
+	const struct tw_drm_crtc_props *props_crtc;
+	const struct tw_drm_plane_props *props_main_plane;
+	const struct tw_drm_connector_props *props_connector;
+
 	struct {
-		int id;
 		bool active;
 		drmModeModeInfo mode;
 		uint32_t mode_id;
@@ -194,8 +201,8 @@ struct tw_drm_display {
 		int crtc_id; /**< crtc_id read from connector, may not work */
 		/* crtc for unset, used once in display_stop */
 		struct tw_drm_crtc *unset_crtc;
-		drmModeModeInfo mode;
 		struct wl_array modes;
+		drmModeModeInfo mode;
 		enum tw_drm_display_pending_flags pending;
 		struct tw_kms_state kms_current, kms_pending;
 	} status;
@@ -216,16 +223,15 @@ struct tw_drm_gpu_impl {
 	const struct tw_egl_options *(*gen_egl_params)(struct tw_drm_gpu *);
 	/** init display buffers as well as render surface */
 	bool (*allocate_fb)(struct tw_drm_display *output);
+
+	//release buffer
+	void (*release_fb)(struct tw_drm_display *output,
+	                   struct tw_drm_fb *fb);
 	/** destroy display buffers as well as render surface */
 	void (*end_display)(struct tw_drm_display *output);
 
-	bool (*render_pending)(struct tw_drm_display *output,
-	                       struct tw_kms_state *state);
-
-	void (*vsynced)(struct tw_drm_display *output,
-	                struct tw_kms_state *state);
-
-	void (*page_flip)(struct tw_drm_display *output, uint32_t flags);
+	bool (*compose_fb)(struct tw_drm_display *output,
+	                   struct tw_kms_state *state);
 };
 
 struct tw_drm_gpu {
@@ -358,20 +364,18 @@ void
 tw_drm_display_check_start_stop(struct tw_drm_display *output,
                                 bool *need_start, bool *need_stop,
                                 bool *need_continue);
+
 /********************************** KMS API **********************************/
 
+void
+tw_kms_state_copy(struct tw_kms_state *dst, struct tw_kms_state *src,
+                  int drm_fd);
 bool
-tw_kms_atomic_set_plane_props(drmModeAtomicReq *req, bool pass,
-                              struct tw_drm_plane *plane,
-                              struct tw_drm_fb *fb, int crtc_id);
+tw_kms_state_submit_atomic(struct tw_kms_state *state,
+                           struct tw_drm_display *output, uint32_t flags);
 bool
-tw_kms_atomic_set_connector_props(drmModeAtomicReq *req, bool pass,
-                                  struct tw_drm_display *output);
-bool
-tw_kms_atomic_set_crtc_props(drmModeAtomicReq *req, bool pass,
-                             struct tw_drm_display *output,
-                             //return values
-                             uint32_t *mode_id);
+tw_kms_state_submit_legacy(struct tw_kms_state *state,
+                           struct tw_drm_display *output, uint32_t flags);
 
 #ifdef  __cplusplus
 }
