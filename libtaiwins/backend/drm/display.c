@@ -244,9 +244,9 @@ read_display_props(struct tw_drm_display *output, drmModeConnector *conn,
  *****************************************************************************/
 
 static inline bool
-display_enable(struct tw_drm_display *output)
+pending_enable(struct tw_drm_display *output)
 {
-	return output->status.active && output->status.connected;
+	return output->status.kms_pending.crtc.active;
 }
 
 static inline int
@@ -333,11 +333,9 @@ handle_display_commit_state(struct tw_output_device *device)
 		wl_container_of(device, output, output.device);
 	//ensure valid active state.
 	int crtc;
-	bool enabled = device->pending.enabled && output->status.connected;
+	bool enabled = device->pending.enabled && pending_enable(output);
 
 	//skip before first commit, man this is ugly
-	if (!output->status.annouced)
-		return;
 	select_display_mode(output);
 	UPDATE_PENDING(output, active, enabled, TW_DRM_PENDING_ACTIVE);
 	memcpy(&device->state, &device->pending, sizeof(device->state));
@@ -345,7 +343,7 @@ handle_display_commit_state(struct tw_output_device *device)
 	device->state.enabled = enabled;
 
 	//flushing the pending states
-	if (display_enable(output)) {
+	if (pending_enable(output)) {
 		if ((crtc = find_display_crtc(output)) ==
 		    TW_DRM_CRTC_ID_INVALID) {
 			tw_logl_level(TW_LOG_ERRO, "Failed to find a crtc for "
@@ -432,7 +430,8 @@ tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn)
 			return found;
 		}
 	}
-	if (!found) {
+	//only collect connected display
+	if (!found && conn->connection == DRM_MODE_CONNECTED) {
 		found = calloc(1, sizeof(*found));
 		if (!found)
 			return NULL;
@@ -440,7 +439,6 @@ tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn)
 		found->drm = drm;
 		found->gpu = gpu;
 
-		found->status.annouced = false;
 		wl_list_init(&found->presentable_commit.link);
 		wl_list_insert(drm->base.outputs.prev,
 		               &found->output.device.link);
@@ -454,15 +452,15 @@ tw_drm_display_start(struct tw_drm_display *output)
 {
 	struct tw_drm_backend *drm = output->drm;
 
+	wl_signal_emit(&drm->base.signals.new_output,
+	               &output->output.device);
+
 	tw_render_output_set_context(&output->output, drm->base.ctx);
 	tw_signal_setup_listener(&output->output.surface.commit,
 	                         &output->presentable_commit,
 	                         notify_display_presentable_commit);
-	if (!output->status.annouced) {
-		wl_signal_emit(&drm->base.signals.new_output,
-		               &output->output.device);
-		output->status.annouced = true;
-	}
+
+
 	//force updating display mode to allocate buffers.
 	//UPDATE_PENDING_MODE(output, &output->status.mode, true);
 	//TODO better handling for this?
@@ -475,11 +473,11 @@ tw_drm_display_start(struct tw_drm_display *output)
 void
 tw_drm_display_continue(struct tw_drm_display *output)
 {
-	if (output->status.connected) {
-		output->output.state.enabled = true;
-		tw_output_device_commit_state(&output->output.device);
-		tw_render_output_dirty(&output->output);
-	}
+	/* if (output->status.connected) { */
+	output->output.state.enabled = true;
+	tw_output_device_commit_state(&output->output.device);
+	tw_render_output_dirty(&output->output);
+	/* } */
 }
 
 void
@@ -511,10 +509,10 @@ tw_drm_display_remove(struct tw_drm_display *output)
 }
 
 void
-tw_drm_display_check_start_stop(struct tw_drm_display *output,
-                                drmModeConnector *conn,
-                                bool *need_start, bool *need_stop,
-                                bool *need_continue)
+tw_drm_display_check_action(struct tw_drm_display *output,
+                            drmModeConnector *conn,
+                            bool *need_start, bool *need_stop,
+                            bool *need_continue, bool *need_remove)
 {
 	struct tw_drm_backend *drm = output->drm;
 	struct tw_output_device *dev = &output->output.device;
@@ -531,8 +529,10 @@ tw_drm_display_check_start_stop(struct tw_drm_display *output,
 	*need_start = backend_started && enabled && !active;
 	*need_continue = backend_started && enabled && active;
 	*need_stop = backend_started && !enabled && active;
+	*need_remove = backend_started && !connected;
 
-	// didn't update pending though
+	//TODO didn't set the pending...
+
 
 	/* bool connect_change, active_change; */
 	/* bool pending_connect, pending_disconnect; */

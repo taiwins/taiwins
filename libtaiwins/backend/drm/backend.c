@@ -52,10 +52,9 @@ drm_backend_start(struct tw_backend *backend, struct tw_render_context *ctx)
 	struct tw_libinput_device *input;
 	struct tw_drm_backend *drm = wl_container_of(backend, drm, base);
 
-	wl_list_for_each(output, &drm->base.outputs, output.device.link) {
-		if (output->status.connected && output->status.active)
+	wl_list_for_each(output, &drm->base.outputs, output.device.link)
 			tw_drm_display_start(output);
-	}
+
 	wl_list_for_each(input, &drm->base.inputs, base.link)
 		wl_signal_emit(&drm->base.signals.new_input, &input->base);
 

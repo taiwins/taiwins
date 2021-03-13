@@ -69,22 +69,25 @@ add_display(struct tw_drm_gpu *gpu, drmModeConnector *conn)
 	} else {
 		output = tw_drm_display_find_create(gpu, conn);
 		if (output) {
-			bool need_start, need_stop, need_continue;
+			bool need_start, need_stop, need_continue, need_remove;
 
 			if (!tw_drm_display_read_info(output, conn))
 				tw_logl_level(TW_LOG_WARN, "failed to read "
 				              "current mode from output");
 			//exactly here, we need to pass in drmModeConnector
-			tw_drm_display_check_start_stop(output, conn,
-			                                &need_start,
-			                                &need_stop,
-			                                &need_continue);
+			tw_drm_display_check_action(output, conn,
+			                            &need_start,
+			                            &need_stop,
+			                            &need_continue,
+			                            &need_remove);
 			if (need_start)
 				tw_drm_display_start(output);
 			else if (need_continue)
 				tw_drm_display_continue(output);
 			else if (need_stop)
 				tw_drm_display_stop(output);
+			else if (need_remove)
+				tw_drm_display_remove(output);
 		}
 	}
 }

@@ -82,7 +82,6 @@ enum tw_drm_plane_type {
 };
 
 enum tw_drm_display_pending_flags {
-	TW_DRM_PENDING_CONNECT = 1 << 0,   /**< connection status changed */
 	TW_DRM_PENDING_ACTIVE = 1 << 1, /**< connector DPMS status changed */
 	TW_DRM_PENDING_MODE = 1 << 2,
 	TW_DRM_PENDING_CRTC = 1 << 3,
@@ -197,7 +196,7 @@ struct tw_drm_display {
 	struct tw_drm_crtc *crtc;
 
 	struct {
-		bool connected, active, annouced;
+		bool active;
 		//int crtc_id; /**< crtc_id read from connector, may not work */
 		/* crtc for unset, used once in display_stop */
 		struct tw_drm_crtc *unset_crtc;
@@ -361,10 +360,10 @@ bool
 tw_drm_display_read_info(struct tw_drm_display *output,
                          drmModeConnector *conn);
 void
-tw_drm_display_check_start_stop(struct tw_drm_display *output,
-                                drmModeConnector *conn,
-                                bool *need_start, bool *need_stop,
-                                bool *need_continue);
+tw_drm_display_check_action(struct tw_drm_display *output,
+                            drmModeConnector *conn,
+                            bool *need_start, bool *need_stop,
+                            bool *need_continue, bool *need_remove);
 
 /********************************** KMS API **********************************/
 
