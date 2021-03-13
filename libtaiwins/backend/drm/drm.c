@@ -43,7 +43,7 @@ tw_drm_crtc_init(struct tw_drm_crtc *crtc, int fd, int id, int idx)
 	};
 
 	crtc->display = NULL;
-	crtc->id = id;
+	crtc->props.id = id;
 	crtc->idx = idx;
 	wl_list_init(&crtc->link);
 	tw_drm_read_properties(fd, id, DRM_MODE_OBJECT_CRTC, prop_info,
@@ -54,7 +54,7 @@ static inline void
 tw_drm_crtc_fini(struct tw_drm_crtc *crtc)
 {
 	crtc->display = NULL;
-	crtc->id = -1;
+	crtc->props.id = TW_DRM_CRTC_ID_INVALID;
 	crtc->idx = -1;
 	wl_list_remove(&crtc->link);
 }

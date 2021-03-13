@@ -258,9 +258,9 @@ legacy_pageflip(struct tw_drm_display *output, uint32_t flags)
 	if (output->status.pending & TW_DRM_PENDING_MODE) {
 		uint32_t on = output->status.active ?
 			DRM_MODE_DPMS_ON : DRM_MODE_DPMS_OFF;
-		uint32_t conn_id = output->conn_id;
+		uint32_t conn_id = output->props.id;
 
-		if (drmModeConnectorSetProperty(fd, output->conn_id,
+		if (drmModeConnectorSetProperty(fd, output->props.id,
 		                                output->props.dpms, on) != 0) {
 			tw_logl_level(TW_LOG_ERRO, "Failed to set %s DPMS "
 			              "property", name);

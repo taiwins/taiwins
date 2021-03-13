@@ -145,10 +145,10 @@ tw_drm_display_attach_crtc(struct tw_drm_display *display,
 	if (crtc->display && crtc->display != display)
 		return false;
 	display->crtc = crtc;
-	UPDATE_PENDING(display, crtc_id, crtc->id, TW_DRM_PENDING_CRTC);
+	UPDATE_PENDING(display, crtc_id, crtc->props.id, TW_DRM_PENDING_CRTC);
 	display->crtc->display = display;
 	//updating pending kms
-	display->status.kms_pending.crtc.id = crtc->id;
+	display->status.kms_pending.crtc.id = crtc->props.id;
 
 	return true;
 }
@@ -168,7 +168,7 @@ tw_drm_display_detach_crtc(struct tw_drm_display *display)
 	//updating pending kms
 	// we would want to remove mode_id and other properties on disable
 	display->status.kms_pending.crtc.id =
-		(crtc ? crtc->id : TW_DRM_CRTC_ID_INVALID);
+		(crtc ? crtc->props.id : TW_DRM_CRTC_ID_INVALID);
 	display->status.kms_pending.crtc.active = false;
 	display->status.kms_pending.crtc.mode_id =
 		display->status.kms_current.crtc.mode_id;
@@ -210,14 +210,18 @@ err:
 }
 
 static inline void
-read_display_props(struct tw_drm_display *output, int fd)
+read_display_props(struct tw_drm_display *output, drmModeConnector *conn,
+                   int fd)
 {
 	struct tw_drm_prop_info prop_info[] = {
 		{"CRTC_ID", &output->props.crtc_id},
 		{"DPMS", &output->props.dpms},
 		{"EDID", &output->props.edid},
 	};
-	tw_drm_read_properties(fd, output->conn_id, DRM_MODE_OBJECT_CONNECTOR,
+
+	output->props.id = conn->connector_id;
+	tw_drm_read_properties(fd, conn->connector_id,
+	                       DRM_MODE_OBJECT_CONNECTOR,
 	                       prop_info,
 	                       sizeof(prop_info)/sizeof(prop_info[0]));
 }
@@ -236,7 +240,7 @@ static inline int
 crtc_idx_from_id(struct tw_drm_gpu *gpu, int id)
 {
 	for (int i = 0; i < 32; i++)
-		if (((1 << i) & gpu->crtc_mask) && id == gpu->crtcs[i].id)
+		if (((1<<i) & gpu->crtc_mask) && id == gpu->crtcs[i].props.id)
 			return i;
 	assert(0);
 	return TW_DRM_CRTC_ID_INVALID;
@@ -246,7 +250,7 @@ static inline struct tw_drm_crtc *
 crtc_from_id(struct tw_drm_gpu *gpu, int id)
 {
 	for (int i = 0; i < 32; i++)
-		if (((1 << i) & gpu->crtc_mask) && id == gpu->crtcs[i].id)
+		if (((1<<i) & gpu->crtc_mask) && id == gpu->crtcs[i].props.id)
 			return &gpu->crtcs[i];
 	return NULL;
 }
@@ -409,7 +413,7 @@ tw_drm_display_read_info(struct tw_drm_display *output, drmModeConnector *conn)
 		crtc_id = TW_DRM_CRTC_ID_INVALID;
 	}
 out:
-	read_display_props(output, fd);
+	read_display_props(output, conn, fd);
 	read_display_modes(output, conn);
 	dev->phys_width = conn->mmWidth;
 	dev->phys_height = conn->mmHeight;
@@ -422,10 +426,10 @@ out:
 	                      output->output.device.model,
 	                      output->output.device.serial);
 	output->crtc_mask = read_connector_possible_crtcs(fd, conn);
-	output->conn_id = conn->connector_id;
 	output->crtc = NULL;
 	//make, model
 
+	//TODO move this to a different function
 	//// update pending status
 	connected = conn->connection == DRM_MODE_CONNECTED;
 	enabled = dev->pending.enabled && connected;
@@ -445,7 +449,7 @@ tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn)
 	struct tw_drm_backend *drm = gpu->drm;
 
 	wl_list_for_each(c, &drm->base.outputs, output.device.link) {
-		if (c->conn_id == (int)conn->connector_id) {
+		if (c->props.id == (int)conn->connector_id) {
 			found = c;
 			return found;
 		}
@@ -457,7 +461,7 @@ tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn)
 		tw_render_output_init(&found->output, &output_dev_impl);
 		found->drm = drm;
 		found->gpu = gpu;
-		found->conn_id = conn->connector_id;
+
 		found->status.annouced = false;
 		wl_list_init(&found->presentable_commit.link);
 		wl_list_insert(drm->base.outputs.prev,

@@ -50,6 +50,8 @@ struct tw_drm_backend;
 #define _DRM_PLATFORM_GBM "TW_DRM_PLATFORM_GBM"
 #define _DRM_PLATFORM_STREAM "TW_DRM_PLATFORM_STREAM"
 #define TW_DRM_CRTC_ID_INVALID 0
+#define TW_DRM_CONN_ID_INVLAID 0
+#define TW_DRM_PLANE_ID_INVALID 0
 #define TW_DRM_MAX_SWAP_IMGS 3
 
 enum tw_drm_platform {
@@ -97,12 +99,14 @@ struct tw_drm_prop_info {
 };
 
 struct tw_drm_crtc_props {
+	int id;
 	//write
 	uint32_t active;
 	uint32_t mode_id;
 };
 
 struct tw_drm_connector_props {
+	int id;
 	//read
 	uint32_t edid;
 	uint32_t dpms;
@@ -111,6 +115,7 @@ struct tw_drm_connector_props {
 };
 
 struct tw_drm_plane_props {
+	int id;
 	//read
 	uint32_t type;
 	uint32_t in_formats;
@@ -137,7 +142,6 @@ struct tw_drm_fb {
 
 struct tw_drm_plane {
 	struct tw_plane base;
-	uint32_t id; /**< drm plane id */
 	uint32_t crtc_mask;
 	enum tw_drm_plane_type type;
 
@@ -147,7 +151,7 @@ struct tw_drm_plane {
 };
 
 struct tw_drm_crtc {
-	int id, idx;
+	int idx;
 	/** occupied by display */
 	struct tw_drm_display *display;
 	struct wl_list link; /** drm->crtc_list */
@@ -178,7 +182,6 @@ struct tw_drm_display {
 	struct tw_drm_backend *drm;
 	struct tw_drm_gpu *gpu;
 
-	int conn_id;
 	uint32_t crtc_mask, plane_mask;
 	uintptr_t handle; /* platform specific handle */
 

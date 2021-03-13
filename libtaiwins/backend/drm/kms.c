@@ -45,8 +45,8 @@ atomic_plane_disable(drmModeAtomicReq *req, bool *pass,
 	if (plane) {
 		struct tw_drm_plane_props *props = &plane->props;
 
-		atomic_add(req, pass, plane->id, props->crtc_id, 0);
-		atomic_add(req, pass, plane->id, props->fb_id, 0);
+		atomic_add(req, pass, plane->props.id, props->crtc_id, 0);
+		atomic_add(req, pass, plane->props.id, props->fb_id, 0);
 	}
 }
 
@@ -59,7 +59,7 @@ tw_kms_atomic_set_plane_props(drmModeAtomicReq *req, bool pass,
 	if (crtc_id == TW_DRM_CRTC_ID_INVALID) {
 		atomic_plane_disable(req, &pass, plane);
 	} else {
-		uint32_t id = plane->id;
+		uint32_t id = plane->props.id;
 		struct tw_drm_plane_props *props = &plane->props;
 
 		atomic_add(req, &pass, id, props->src_x, 0);
