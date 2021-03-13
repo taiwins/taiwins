@@ -211,13 +211,14 @@ handle_end_gbm_display(struct tw_drm_display *output)
  * as the selected mode. In general, we allocate this buffer for a given plane.
  */
 static bool
-handle_allocate_display_gbm_surface(struct tw_drm_display *output)
+handle_allocate_display_gbm_surface(struct tw_drm_display *output,
+                                    drmModeModeInfo *mode)
 {
 	struct gbm_surface *surface;
 	struct tw_drm_gpu *gpu = output->gpu;
 	struct gbm_device *gbm = tw_drm_get_gbm_device(gpu);
-	unsigned w = output->status.mode.hdisplay;
-	unsigned h = output->status.mode.vdisplay;
+	unsigned w = mode->hdisplay;
+	unsigned h = mode->vdisplay;
 	uint32_t scanout_flags = GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
 	struct tw_drm_plane *plane = output->primary_plane;
 	const struct tw_drm_format *format =

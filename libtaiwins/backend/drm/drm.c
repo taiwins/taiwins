@@ -74,7 +74,9 @@ add_display(struct tw_drm_gpu *gpu, drmModeConnector *conn)
 			if (!tw_drm_display_read_info(output, conn))
 				tw_logl_level(TW_LOG_WARN, "failed to read "
 				              "current mode from output");
-			tw_drm_display_check_start_stop(output, &need_start,
+			//exactly here, we need to pass in drmModeConnector
+			tw_drm_display_check_start_stop(output, conn,
+			                                &need_start,
 			                                &need_stop,
 			                                &need_continue);
 			if (need_start)
@@ -219,24 +221,24 @@ handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
 		struct tw_kms_state *pend = &output->status.kms_pending;
 
                 assert(gpu->gpu_fd == fd);
-		if (output->status.crtc_id == TW_DRM_CRTC_ID_INVALID) {
-			//happens when we close the crtc
-			return;
-		} else {
+		/* if (output->status.crtc_id == TW_DRM_CRTC_ID_INVALID) { */
+		/*	//happens when we close the crtc */
+		/*	return; */
+		/* } else { */
 
-			//the pending buffer is now used as front buffer, at
-			//this point, render_output is clean, ready to repaint
-			//if still dirty. For gbm, it is a good time for
-			//release_buffer, maybe we gives a current buffer
-			//pointer?
-			assert(output->status.crtc_id == (int)crtc_id);
+                //the pending buffer is now used as front buffer, at
+                //this point, render_output is clean, ready to repaint
+                //if still dirty. For gbm, it is a good time for
+                //release_buffer, maybe we gives a current buffer
+                //pointer?
+                assert(pend->props_crtc->id == (int)crtc_id);
 
-			gpu->impl->release_fb(output, &curr->fb);
-			tw_kms_state_copy(curr, pend, fd);
+                gpu->impl->release_fb(output, &curr->fb);
+                tw_kms_state_copy(curr, pend, fd);
 
-			tw_render_output_clean_maybe(&output->output);
-			tw_output_device_present(device, &present);
-		}
+                tw_render_output_clean_maybe(&output->output);
+                tw_output_device_present(device, &present);
+		/* } */
 	}
 }
 

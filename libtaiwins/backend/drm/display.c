@@ -30,7 +30,6 @@
 #include <wayland-server.h>
 #include <xf86drmMode.h>
 
-#include "drm_mode.h"
 #include "internal.h"
 
 bool
@@ -45,14 +44,16 @@ drm_display_read_edid(int fd, drmModeConnector *conn, uint32_t prop_edid,
 	dpy->status.name = newval;
 
 static inline void
-UPDATE_PENDING_MODE(struct tw_drm_display *dpy, drmModeModeInfo *new_mode,
+UPDATE_PENDING_MODE(struct tw_drm_display *dpy, drmModeModeInfo *next,
                     bool force)
 {
-	bool nequal = new_mode ? memcmp(new_mode, &dpy->status.mode,
-	                                sizeof(*new_mode)) : false;
+	drmModeModeInfo *curr = &dpy->status.kms_current.crtc.mode;
+	drmModeModeInfo *pend = &dpy->status.kms_pending.crtc.mode;
+	bool nequal = next ? memcmp(next, curr, sizeof(*next)) : false;
+
 	dpy->status.pending |= (nequal || force) ? TW_DRM_PENDING_MODE : 0;
-	if (new_mode)
-		dpy->status.mode = *new_mode;
+	if (next)
+		*pend = *next;
 }
 
 static inline enum wl_output_subpixel
@@ -138,6 +139,24 @@ read_connector_possible_crtcs(int fd, drmModeConnector *conn)
 	return possible_crtcs;
 }
 
+static int
+read_connector_curr_crtc(int fd, drmModeConnector *conn)
+{
+	int crtc_id = TW_DRM_CRTC_ID_INVALID;
+	drmModeEncoder *encoder = drmModeGetEncoder(fd, conn->encoder_id);
+
+	if (encoder != NULL) {
+		drmModeCrtc *crtc = drmModeGetCrtc(fd, encoder->crtc_id);
+
+		if (crtc) {
+			drmModeFreeCrtc(crtc);
+			crtc_id = encoder->crtc_id;
+		}
+		drmModeFreeEncoder(encoder);
+	}
+	return crtc_id;
+}
+
 static inline bool
 tw_drm_display_attach_crtc(struct tw_drm_display *display,
                            struct tw_drm_crtc *crtc)
@@ -145,7 +164,6 @@ tw_drm_display_attach_crtc(struct tw_drm_display *display,
 	if (crtc->display && crtc->display != display)
 		return false;
 	display->crtc = crtc;
-	UPDATE_PENDING(display, crtc_id, crtc->props.id, TW_DRM_PENDING_CRTC);
 	display->crtc->display = display;
 	//updating pending kms
 	display->status.kms_pending.props_crtc = &crtc->props;
@@ -158,14 +176,11 @@ static inline void
 tw_drm_display_detach_crtc(struct tw_drm_display *display)
 {
 	struct tw_drm_crtc *crtc = display->crtc;
-	const int id = TW_DRM_CRTC_ID_INVALID;
 
 	if (crtc)
 		crtc->display = NULL;
 	display->crtc = NULL;
-	UPDATE_PENDING(display, crtc_id, id, TW_DRM_PENDING_CRTC);
 	UPDATE_PENDING(display, active, false, TW_DRM_PENDING_ACTIVE);
-	display->status.crtc_id = TW_DRM_CRTC_ID_INVALID;
 	//updating pending kms
 	// we would want to remove mode_id and other properties on disable
 	display->status.kms_pending.crtc.active = false;
@@ -254,11 +269,11 @@ crtc_from_id(struct tw_drm_gpu *gpu, int id)
 }
 
 static inline struct tw_drm_plane *
-find_plane(struct tw_drm_display *output, enum tw_drm_plane_type t)
+find_plane(struct tw_drm_display *dpy, enum tw_drm_plane_type t, int crtc_id)
 {
 	struct tw_drm_plane *p;
-	struct tw_drm_gpu *gpu = output->gpu;
-	int crtc_idx = crtc_idx_from_id(gpu, output->status.crtc_id);
+	struct tw_drm_gpu *gpu = dpy->gpu;
+	int crtc_idx = crtc_idx_from_id(gpu, crtc_id);
 
 	wl_list_for_each(p, &gpu->plane_list, base.link)
 	        if (((1 << crtc_idx) & p->crtc_mask) && p->type == t)
@@ -266,35 +281,29 @@ find_plane(struct tw_drm_display *output, enum tw_drm_plane_type t)
 	return NULL;
 }
 
-static inline void
-prepare_plane_fbs(struct tw_drm_plane *plane, struct tw_drm_display *output)
-{
-	//TODO: used in display start, originally was designed for clearing the
-	//plane state, there is problem with this though, if we stopped output
-	//we may lose the chance to free unlock the buffer in page-flipped.
-}
-
-static bool
+static int
 find_display_crtc(struct tw_drm_display *output)
 {
-	struct tw_drm_gpu *gpu = output->gpu;
-	struct tw_drm_crtc *crtc, *potential_crtc =
-		crtc_from_id(gpu, output->status.crtc_id);
 	uint32_t mask = output->crtc_mask;
-	//not attached
-	if (potential_crtc && (!potential_crtc->display)) {
-		tw_drm_display_attach_crtc(output, potential_crtc);
-		return true;
-	} else {
-		wl_list_for_each(crtc, &gpu->crtc_list, link) {
-			//compatible and not taken
-			if (((1 << crtc->idx) & mask) && !crtc->display) {
-				tw_drm_display_attach_crtc(output, crtc);
-				return true;
-			}
+
+	struct tw_drm_gpu *gpu = output->gpu;
+	struct tw_drm_crtc *crtc = NULL;
+	/* struct tw_drm_crtc *potential_crtc = */
+	/*	crtc_from_id(gpu, output->status.crtc_id); */
+	/* //not attached */
+	/* if (potential_crtc && (!potential_crtc->display)) { */
+	/*	tw_drm_display_attach_crtc(output, potential_crtc); */
+	/*	return true; */
+	/* } else { */
+	wl_list_for_each(crtc, &gpu->crtc_list, link) {
+		//compatible and not taken
+		if (((1 << crtc->idx) & mask) && !crtc->display) {
+			tw_drm_display_attach_crtc(output, crtc);
+			return crtc->props.id;
 		}
 	}
-	return false;
+	/* } */
+	return TW_DRM_CRTC_ID_INVALID;
 }
 
 /* handles the selection of display mode from available candidates, NOTE
@@ -323,6 +332,7 @@ handle_display_commit_state(struct tw_output_device *device)
 	struct tw_drm_display *output =
 		wl_container_of(device, output, output.device);
 	//ensure valid active state.
+	int crtc;
 	bool enabled = device->pending.enabled && output->status.connected;
 
 	//skip before first commit, man this is ugly
@@ -336,16 +346,18 @@ handle_display_commit_state(struct tw_output_device *device)
 
 	//flushing the pending states
 	if (display_enable(output)) {
-		if (!find_display_crtc(output)) {
+		if ((crtc = find_display_crtc(output)) ==
+		    TW_DRM_CRTC_ID_INVALID) {
 			tw_logl_level(TW_LOG_ERRO, "Failed to find a crtc for "
 			              "output:%s", output->output.device.name);
 			return;
 		}
-		output->primary_plane = find_plane(output, TW_DRM_PLANE_MAJOR);
+		output->primary_plane =
+			find_plane(output, TW_DRM_PLANE_MAJOR, crtc);
 
 		if ((output->status.pending & TW_DRM_PENDING_MODE))
-			output->gpu->impl->allocate_fb(output);
-		prepare_plane_fbs(output->primary_plane, output);
+			output->gpu->impl->allocate_fb(output,
+			                               &output->status.kms_pending.crtc.mode);
 		wl_signal_emit(&device->signals.new_frame, device);
 	} else {
 		tw_drm_display_detach_crtc(output);
@@ -382,34 +394,13 @@ notify_display_presentable_commit(struct wl_listener *listener, void *data)
 bool
 tw_drm_display_read_info(struct tw_drm_display *output, drmModeConnector *conn)
 {
-	bool ret = true;
-	int crtc_id;
-	bool connected, enabled;
 	int fd = output->gpu->gpu_fd;
-	drmModeEncoder *encoder = NULL;
-	drmModeCrtc *crtc = NULL;
-	drmModeModeInfo mode = {0};
+	//drmModeModeInfo mode = {0};
 	struct tw_output_device *dev = &output->output.device;
+	int crtc_id = read_connector_curr_crtc(fd, conn);
+	(void)crtc_id; //TODO use this later
 
-	//we will be update display status and setup the pending.
-	encoder = drmModeGetEncoder(fd, conn->encoder_id);
-	if (encoder != NULL) {
-                crtc = drmModeGetCrtc(fd, encoder->crtc_id);
-                crtc_id = encoder->crtc_id;
-                drmModeFreeEncoder(encoder);
-
-                if (crtc == NULL) {
-	                ret = false;
-	                crtc_id = TW_DRM_CRTC_ID_INVALID;
-	                goto out;
-                } else {
-	                mode = crtc->mode;
-	                drmModeFreeCrtc(crtc);
-                }
-	} else {
-		crtc_id = TW_DRM_CRTC_ID_INVALID;
-	}
-out:
+	//setup static data
 	read_display_props(output, conn, fd);
 	read_display_modes(output, conn);
 	dev->phys_width = conn->mmWidth;
@@ -426,17 +417,7 @@ out:
 	output->crtc = NULL;
 	//make, model
 
-	//TODO move this to a different function
-	//// update pending status
-	connected = conn->connection == DRM_MODE_CONNECTED;
-	enabled = dev->pending.enabled && connected;
-	output->status.mode = mode; //note that if connector does not have a
-				    //crtc, it does not have mode either
-	UPDATE_PENDING(output, connected, connected, TW_DRM_PENDING_CONNECT);
-	UPDATE_PENDING(output, active, enabled, TW_DRM_PENDING_ACTIVE);
-	UPDATE_PENDING(output, crtc_id, crtc_id, TW_DRM_PENDING_CRTC);
-
-	return ret;
+	return true;
 }
 
 struct tw_drm_display *
@@ -483,7 +464,7 @@ tw_drm_display_start(struct tw_drm_display *output)
 		output->status.annouced = true;
 	}
 	//force updating display mode to allocate buffers.
-	UPDATE_PENDING_MODE(output, &output->status.mode, true);
+	//UPDATE_PENDING_MODE(output, &output->status.mode, true);
 	//TODO better handling for this?
 	output->output.state.enabled = true;
 	//commit state would now handle most of the logics
@@ -504,9 +485,6 @@ tw_drm_display_continue(struct tw_drm_display *output)
 void
 tw_drm_display_pause(struct tw_drm_display *output)
 {
-	//for disabling additional rendering
-	output->status.unset_crtc =
-		crtc_from_id(output->gpu, output->status.crtc_id);
 	output->output.state.enabled = false;
 	tw_drm_display_detach_crtc(output);
 	output->gpu->impl->page_flip(output, 0);
@@ -515,8 +493,6 @@ tw_drm_display_pause(struct tw_drm_display *output)
 void
 tw_drm_display_stop(struct tw_drm_display *output)
 {
-	output->status.unset_crtc =
-		crtc_from_id(output->gpu, output->status.crtc_id);
 	tw_reset_wl_list(&output->presentable_commit.link);
 	output->output.state.enabled = false;
 	tw_output_device_commit_state(&output->output.device);
@@ -528,7 +504,6 @@ tw_drm_display_stop(struct tw_drm_display *output)
 void
 tw_drm_display_remove(struct tw_drm_display *output)
 {
-	UPDATE_PENDING(output, connected, false, TW_DRM_PENDING_CONNECT);
 	tw_drm_display_stop(output);
 	wl_array_release(&output->status.modes);
 	tw_render_output_fini(&output->output);
@@ -537,35 +512,52 @@ tw_drm_display_remove(struct tw_drm_display *output)
 
 void
 tw_drm_display_check_start_stop(struct tw_drm_display *output,
+                                drmModeConnector *conn,
                                 bool *need_start, bool *need_stop,
                                 bool *need_continue)
 {
 	struct tw_drm_backend *drm = output->drm;
-	bool connect_change, active_change;
-	bool pending_connect, pending_disconnect;
-	bool pending_activate, pending_deactivate;
-	bool backend_started;
+	struct tw_output_device *dev = &output->output.device;
+	struct tw_kms_state *state_curr = &output->status.kms_current;
+	//We have a big problem here as user haven't setup pending yet, it is
+	//the default pending,
+	struct tw_output_device_state *user_pending = &dev->pending;
 
-	connect_change = (output->status.pending & TW_DRM_PENDING_CONNECT);
-	active_change = (output->status.pending & TW_DRM_PENDING_ACTIVE);
+	bool backend_started = drm->base.started;
+	bool connected = conn->connection == DRM_MODE_CONNECTED;
+	bool enabled = user_pending->enabled && connected;
+	bool active = state_curr->crtc.active;
 
-	pending_connect = (output->status.connected && connect_change);
-	pending_disconnect = (!output->status.connected && connect_change);
+	*need_start = backend_started && enabled && !active;
+	*need_continue = backend_started && enabled && active;
+	*need_stop = backend_started && !enabled && active;
 
-	pending_activate = (output->status.active && active_change);
-	pending_deactivate = (!output->status.active && active_change);
+	// didn't update pending though
 
-	//need_find_crtc happens after recollecting resources, all the display
-	//loses its crtc.
-	backend_started = drm->base.started;
-	if (need_continue)
-		*need_continue = (output->status.active &&
-		                  output->status.connected &&
-		                  !output->crtc && backend_started);
-	if (need_start)
-		*need_start = (pending_connect || pending_activate) &&
-			backend_started;
-	if (need_stop)
-		*need_stop = (pending_disconnect || pending_deactivate) &&
-			backend_started;
+	/* bool connect_change, active_change; */
+	/* bool pending_connect, pending_disconnect; */
+	/* bool pending_activate, pending_deactivate; */
+
+	/* connect_change = (output->status.pending & TW_DRM_PENDING_CONNECT); */
+	/* active_change = (output->status.pending & TW_DRM_PENDING_ACTIVE); */
+
+	/* pending_connect = (output->status.connected && connect_change); */
+	/* pending_disconnect = (!output->status.connected && connect_change); */
+
+	/* pending_activate = (output->status.active && active_change); */
+	/* pending_deactivate = (!output->status.active && active_change); */
+
+	/* //need_find_crtc happens after recollecting resources, all the display */
+	/* //loses its crtc. */
+
+	/* if (need_continue) */
+	/*	*need_continue = (output->status.active && */
+	/*	                  output->status.connected && */
+	/*	                  !output->crtc && backend_started); */
+	/* if (need_start) */
+	/*	*need_start = (pending_connect || pending_activate) && */
+	/*		backend_started; */
+	/* if (need_stop) */
+	/*	*need_stop = (pending_disconnect || pending_deactivate) && */
+	/*		backend_started; */
 }

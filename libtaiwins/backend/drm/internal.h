@@ -198,13 +198,13 @@ struct tw_drm_display {
 
 	struct {
 		bool connected, active, annouced;
-		int crtc_id; /**< crtc_id read from connector, may not work */
+		//int crtc_id; /**< crtc_id read from connector, may not work */
 		/* crtc for unset, used once in display_stop */
 		struct tw_drm_crtc *unset_crtc;
 		struct wl_array modes;
-		drmModeModeInfo mode;
-		enum tw_drm_display_pending_flags pending;
 		struct tw_kms_state kms_current, kms_pending;
+		enum tw_drm_display_pending_flags pending;
+
 	} status;
 	//TODO remove the swapchain here
 	//struct tw_drm_swapchain sc;
@@ -222,8 +222,8 @@ struct tw_drm_gpu_impl {
 	/** platform specific egl options */
 	const struct tw_egl_options *(*gen_egl_params)(struct tw_drm_gpu *);
 	/** init display buffers as well as render surface */
-	bool (*allocate_fb)(struct tw_drm_display *output);
-
+	bool (*allocate_fb)(struct tw_drm_display *output,
+	                    drmModeModeInfo *mode);
 	//release buffer
 	void (*release_fb)(struct tw_drm_display *output,
 	                   struct tw_drm_fb *fb);
@@ -362,6 +362,7 @@ tw_drm_display_read_info(struct tw_drm_display *output,
                          drmModeConnector *conn);
 void
 tw_drm_display_check_start_stop(struct tw_drm_display *output,
+                                drmModeConnector *conn,
                                 bool *need_start, bool *need_stop,
                                 bool *need_continue);
 
