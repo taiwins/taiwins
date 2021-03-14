@@ -193,7 +193,6 @@ tw_config_table_apply_output(struct tw_config_table *t,
 		tw_output_device_set_pos(od, co->posx.val, co->posy.val);
 	if (co->scale.valid)
 		tw_output_device_set_scale(od, co->scale.val);
-	tw_output_device_commit_state(od);
 }
 
 /* this function is the only point we apply for configurations, It can may run
@@ -219,8 +218,12 @@ tw_config_table_flush(struct tw_config_table *t)
 	if (!t->dirty)
 		return;
 
-	wl_list_for_each(output, &engine->heads, link)
+	//before backend start, the table flush should not touch the
+	//input/output device
+	wl_list_for_each(output, &engine->heads, link) {
 		tw_config_table_apply_output(t, output);
+		tw_output_device_commit_state(output->device);
+	}
 
 	wl_list_for_each(seat, &engine->inputs, link)
 		tw_engine_seat_set_xkb_rules(seat, &t->xkb_rules);
