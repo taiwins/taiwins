@@ -39,9 +39,9 @@ drm_display_read_edid(int fd, drmModeConnector *conn, uint32_t prop_edid,
  * pending
  *****************************************************************************/
 
-#define UPDATE_PENDING(dpy, name, newval, flags) \
-	dpy->status.pending |= (dpy->status.name != newval) ? flags : 0; \
-	dpy->status.name = newval;
+#define UPDATE_PENDING(dpy, name, val, flg) \
+	dpy->status.flags |= (dpy->status.kms_current.name != val) ? flg : 0; \
+	dpy->status.kms_pending.name = val;
 
 static inline void
 UPDATE_PENDING_MODE(struct tw_drm_display *dpy, drmModeModeInfo *next,
@@ -51,7 +51,7 @@ UPDATE_PENDING_MODE(struct tw_drm_display *dpy, drmModeModeInfo *next,
 	drmModeModeInfo *pend = &dpy->status.kms_pending.crtc.mode;
 	bool nequal = next ? memcmp(next, curr, sizeof(*next)) : false;
 
-	dpy->status.pending |= (nequal || force) ? TW_DRM_PENDING_MODE : 0;
+	dpy->status.flags |= (nequal || force) ? TW_DRM_PENDING_MODE : 0;
 	if (next)
 		*pend = *next;
 }
@@ -167,7 +167,7 @@ tw_drm_display_attach_crtc(struct tw_drm_display *display,
 	display->crtc->display = display;
 	//updating pending kms
 	display->status.kms_pending.props_crtc = &crtc->props;
-	display->status.kms_pending.flags |= TW_DRM_PENDING_CRTC;
+	UPDATE_PENDING(display, crtc_id, crtc->props.id, TW_DRM_PENDING_CRTC);
 
 	return true;
 }
@@ -180,11 +180,7 @@ tw_drm_display_detach_crtc(struct tw_drm_display *display)
 	if (crtc)
 		crtc->display = NULL;
 	display->crtc = NULL;
-	UPDATE_PENDING(display, active, false, TW_DRM_PENDING_ACTIVE);
-	//updating pending kms
-	// we would want to remove mode_id and other properties on disable
-	display->status.kms_pending.crtc.active = false;
-	display->status.kms_pending.flags |= TW_DRM_PENDING_ACTIVE;
+	UPDATE_PENDING(display, crtc.active, false, TW_DRM_PENDING_ACTIVE);
 }
 
 static bool
@@ -335,9 +331,8 @@ handle_display_commit_state(struct tw_output_device *device)
 	int crtc;
 	bool enabled = device->pending.enabled && pending_enable(output);
 
-	//skip before first commit, man this is ugly
 	select_display_mode(output);
-	UPDATE_PENDING(output, active, enabled, TW_DRM_PENDING_ACTIVE);
+	UPDATE_PENDING(output, crtc.active, enabled, TW_DRM_PENDING_ACTIVE);
 	memcpy(&device->state, &device->pending, sizeof(device->state));
 	//we cannot use output_device_enable hear because it sets the pending
 	device->state.enabled = enabled;
@@ -353,7 +348,7 @@ handle_display_commit_state(struct tw_output_device *device)
 		output->primary_plane =
 			find_plane(output, TW_DRM_PLANE_MAJOR, crtc);
 
-		if ((output->status.pending & TW_DRM_PENDING_MODE))
+		if ((output->status.flags & TW_DRM_PENDING_MODE))
 			output->gpu->impl->allocate_fb(output,
 			                               &output->status.kms_pending.crtc.mode);
 		wl_signal_emit(&device->signals.new_frame, device);
@@ -455,19 +450,18 @@ tw_drm_display_start(struct tw_drm_display *output)
 	wl_signal_emit(&drm->base.signals.new_output,
 	               &output->output.device);
 
+	tw_output_device_commit_state(&output->output.device);
+
+	//TODO setup a new listener for output_state here, it is how we can
+	//apply the output mode?
+
 	tw_render_output_set_context(&output->output, drm->base.ctx);
 	tw_signal_setup_listener(&output->output.surface.commit,
 	                         &output->presentable_commit,
 	                         notify_display_presentable_commit);
-
-
-	//force updating display mode to allocate buffers.
-	//UPDATE_PENDING_MODE(output, &output->status.mode, true);
-	//TODO better handling for this?
 	output->output.state.enabled = true;
-	//commit state would now handle most of the logics
-	tw_output_device_commit_state(&output->output.device);
 	tw_render_output_dirty(&output->output);
+
 }
 
 void
@@ -531,8 +525,7 @@ tw_drm_display_check_action(struct tw_drm_display *output,
 	*need_stop = backend_started && !enabled && active;
 	*need_remove = backend_started && !connected;
 
-	//TODO didn't set the pending...
-
+	UPDATE_PENDING(output, crtc.active, enabled, TW_DRM_PENDING_ACTIVE);
 
 	/* bool connect_change, active_change; */
 	/* bool pending_connect, pending_disconnect; */

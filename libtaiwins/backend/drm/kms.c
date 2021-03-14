@@ -120,11 +120,11 @@ tw_kms_atomic_set_crtc_active(drmModeAtomicReq *reg, bool pass,
 static bool
 tw_kms_atomic_set_crtc_modeid(drmModeAtomicReq *req, bool pass,
                               struct tw_kms_state *state,
-                              int gpu_fd)
+                              uint32_t pending_flags, int gpu_fd)
 {
 	const struct tw_drm_crtc_props *prop = state->props_crtc;
 	const size_t mode_size = sizeof(drmModeModeInfo);
-	bool pending_mode = (state->flags & TW_DRM_PENDING_MODE);
+	bool pending_mode = (pending_flags & TW_DRM_PENDING_MODE);
 	uint32_t mode_id = 0;
 
 	if (!prop)
@@ -147,8 +147,9 @@ tw_kms_state_submit_atomic(struct tw_kms_state *state,
 	bool pass = true;
 	drmModeAtomicReq *req = NULL;
 	int gpu_fd = output->gpu->gpu_fd;
+	uint32_t pending_flags = output->status.flags;
 
-	if (state->flags & TW_DRM_PENDING_MODE)
+	if (pending_flags & TW_DRM_PENDING_MODE)
 		flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
 	else
 		flags |= DRM_MODE_ATOMIC_NONBLOCK;
@@ -159,10 +160,12 @@ tw_kms_state_submit_atomic(struct tw_kms_state *state,
 	pass = tw_kms_atomic_set_plane_fb(req, pass, state);
 	pass = tw_kms_atomic_set_connector_crtc(req, pass, state);
 	pass = tw_kms_atomic_set_crtc_active(req, pass, state);
-	pass = tw_kms_atomic_set_crtc_modeid(req, pass, state, gpu_fd);
+	pass = tw_kms_atomic_set_crtc_modeid(req, pass, state, pending_flags,
+	                                     gpu_fd);
 
 	pass = pass && (drmModeAtomicCommit(gpu_fd, req, flags, output) == 0);
 	drmModeAtomicFree(req);
+	output->status.flags = 0;
 	return pass;
 }
 
@@ -173,8 +176,9 @@ tw_kms_state_submit_legacy(struct tw_kms_state *state,
 	int fd = output->gpu->gpu_fd;
 	uint32_t crtc_id = state->props_crtc->id;
 	const char *name = output->output.device.name;
+	uint32_t pending_flags = output->status.flags;
 
-	if (state->flags & TW_DRM_PENDING_MODE) {
+	if (pending_flags & TW_DRM_PENDING_MODE) {
 		uint32_t on = state->crtc.active ?
 			DRM_MODE_DPMS_ON : DRM_MODE_DPMS_OFF;
 		uint32_t conn_id = output->props.id;
@@ -205,6 +209,7 @@ tw_kms_state_submit_legacy(struct tw_kms_state *state,
 			return false;
 		}
 	}
+	output->status.flags = 0;
 	return true;
 }
 
@@ -219,8 +224,6 @@ tw_kms_state_move(struct tw_kms_state *dst, struct tw_kms_state *src,
 
 	dst->crtc.active = src->crtc.active;
 	atomic_commit_prop_blob(0, &dst->crtc.mode_id, src->crtc.mode_id);
-	//clear the src flags
-	src->flags = 0;
 }
 
 //how do we do a noop page_flip
@@ -229,6 +232,4 @@ tw_kms_state_duplicate(struct tw_kms_state *dst, struct tw_kms_state *src)
 {
 	dst->fb = src->fb;
 	dst->crtc = src->crtc;
-
-	dst->flags = 0;
 }

@@ -177,8 +177,9 @@ struct tw_kms_state {
 		drmModeModeInfo mode;
 		uint32_t mode_id;
 	} crtc;
+	int crtc_id;
 	struct tw_drm_fb fb;
-	uint32_t flags;
+
 	//TODO gamma lut
 	//TODO list of planes
 };
@@ -202,7 +203,7 @@ struct tw_drm_display {
 		struct tw_drm_crtc *unset_crtc;
 		struct wl_array modes;
 		struct tw_kms_state kms_current, kms_pending;
-		enum tw_drm_display_pending_flags pending;
+		uint32_t flags;
 
 	} status;
 	//TODO remove the swapchain here
