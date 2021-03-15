@@ -362,7 +362,7 @@ tw_drm_display_check_action(struct tw_drm_display *output,
 /********************************** KMS API **********************************/
 
 void
-tw_kms_state_copy(struct tw_kms_state *dst, struct tw_kms_state *src,
+tw_kms_state_move(struct tw_kms_state *dst, struct tw_kms_state *src,
                   int drm_fd);
 bool
 tw_kms_state_submit_atomic(struct tw_kms_state *state,

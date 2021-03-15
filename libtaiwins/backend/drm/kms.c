@@ -70,7 +70,6 @@ tw_kms_atomic_set_plane_fb(drmModeAtomicReq *req, bool pass,
 	} else if (!prop || !state->props_crtc) {
 		return false;
 	} else {
-		uint32_t crtc_id = state->props_crtc->id;
 		uint32_t id = prop->id;
 		struct tw_drm_fb *fb = &state->fb;
 
@@ -82,7 +81,7 @@ tw_kms_atomic_set_plane_fb(drmModeAtomicReq *req, bool pass,
 		atomic_add(req, &pass, id, prop->crtc_y, fb->y);
 		atomic_add(req, &pass, id, prop->crtc_w, fb->w);
 		atomic_add(req, &pass, id, prop->crtc_h, fb->h);
-		atomic_add(req, &pass, id, prop->crtc_id, crtc_id);
+		atomic_add(req, &pass, id, prop->crtc_id, state->crtc_id);
 		atomic_add(req, &pass, id, prop->fb_id, fb->fb);
 	}
 	return pass;
@@ -94,7 +93,8 @@ tw_kms_atomic_set_connector_crtc(drmModeAtomicReq *req, bool pass,
 {
 	const struct tw_drm_connector_props *prop = state->props_connector;
 	bool active = state->crtc.active;
-	int32_t id = (active && prop) ? prop->id : TW_DRM_CRTC_ID_INVALID;
+	int32_t id = (active && prop) ?
+		state->crtc_id : TW_DRM_CRTC_ID_INVALID;
 
 	if (!prop || (active && id == TW_DRM_CRTC_ID_INVALID))
 		return false;
@@ -134,8 +134,11 @@ tw_kms_atomic_set_crtc_modeid(drmModeAtomicReq *req, bool pass,
 	if (pending_mode && !state->crtc.active)
 		return false;
 
-	pass = pass && drmModeCreatePropertyBlob(gpu_fd, &state->crtc.mode,
-	                                         mode_size, &mode_id);
+	pass = pass && (drmModeCreatePropertyBlob(gpu_fd, &state->crtc.mode,
+	                                          mode_size, &mode_id) == 0);
+	atomic_add(req, &pass, prop->id, prop->mode_id, mode_id);
+	if (!pass)
+		drmModeDestroyPropertyBlob(gpu_fd, mode_id);
 	state->crtc.mode_id = pass ? mode_id : 0;
 	return pass;
 }

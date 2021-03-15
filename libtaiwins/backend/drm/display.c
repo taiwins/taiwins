@@ -290,6 +290,17 @@ static const struct tw_output_device_impl output_dev_impl = {
 	handle_display_commit_state,
 };
 
+static inline void
+commit_display_state(struct tw_drm_display *output, uint32_t flags)
+{
+	if (output->gpu->feats & TW_DRM_CAP_ATOMIC)
+		tw_kms_state_submit_atomic(&output->status.kms_pending,
+		                           output, flags);
+	else
+		tw_kms_state_submit_legacy(&output->status.kms_pending,
+		                           output, flags);
+}
+
 static void
 notify_display_presentable_commit(struct wl_listener *listener, void *data)
 {
@@ -299,7 +310,7 @@ notify_display_presentable_commit(struct wl_listener *listener, void *data)
 
 	assert(data == &output->output.surface);
 	if (output->gpu->impl->compose_fb(output, pending_state)) {
-		output->gpu->impl->page_flip(output, DRM_MODE_PAGE_FLIP_EVENT);
+		commit_display_state(output, DRM_MODE_PAGE_FLIP_EVENT);
 	}
 }
 
@@ -307,31 +318,34 @@ notify_display_presentable_commit(struct wl_listener *listener, void *data)
  * output preparitions
  *****************************************************************************/
 
-static inline int
-crtc_idx_from_id(struct tw_drm_gpu *gpu, int id)
-{
-	for (int i = 0; i < 32; i++)
-		if (((1<<i) & gpu->crtc_mask) && id == gpu->crtcs[i].props.id)
-			return i;
-	assert(0);
-	return TW_DRM_CRTC_ID_INVALID;
-}
+/* static inline int */
+/* crtc_idx_from_id(struct tw_drm_gpu *gpu, int id) */
+/* { */
+/*	for (int i = 0; i < 32; i++) */
+/*		if (((1<<i) & gpu->crtc_mask) && id == gpu->crtcs[i].props.id) */
+/*			return i; */
+/*	assert(0); */
+/*	return TW_DRM_CRTC_ID_INVALID; */
+/* } */
 
+/*
 static inline struct tw_drm_crtc *
 crtc_from_id(struct tw_drm_gpu *gpu, int id)
 {
-	for (int i = 0; i < 32; i++)
-		if (((1<<i) & gpu->crtc_mask) && id == gpu->crtcs[i].props.id)
-			return &gpu->crtcs[i];
-	return NULL;
+        for (int i = 0; i < 32; i++)
+                if (((1<<i) & gpu->crtc_mask) && id == gpu->crtcs[i].props.id)
+                        return &gpu->crtcs[i];
+        return NULL;
 }
+*/
 
 static inline struct tw_drm_plane *
-find_plane(struct tw_drm_display *dpy, enum tw_drm_plane_type t, int crtc_id)
+find_plane(struct tw_drm_display *dpy, enum tw_drm_plane_type t,
+           struct tw_drm_crtc *crtc)
 {
 	struct tw_drm_plane *p;
 	struct tw_drm_gpu *gpu = dpy->gpu;
-	int crtc_idx = crtc_idx_from_id(gpu, crtc_id);
+	int crtc_idx = crtc->idx;
 
 	wl_list_for_each(p, &gpu->plane_list, base.link)
 	        if (((1 << crtc_idx) & p->crtc_mask) && p->type == t)
@@ -363,9 +377,11 @@ tw_drm_display_detach_crtc(struct tw_drm_display *display)
 		crtc->display = NULL;
 	display->crtc = NULL;
 	UPDATE_PENDING(display, crtc.active, false, TW_DRM_PENDING_ACTIVE);
+	UPDATE_PENDING(display, crtc_id, TW_DRM_CRTC_ID_INVALID,
+	               TW_DRM_PENDING_CRTC);
 }
 
-static int
+static struct tw_drm_crtc *
 find_display_crtc(struct tw_drm_display *output)
 {
 	uint32_t mask = output->crtc_mask;
@@ -383,26 +399,36 @@ find_display_crtc(struct tw_drm_display *output)
 		//compatible and not taken
 		if (((1 << crtc->idx) & mask) && !crtc->display) {
 			tw_drm_display_attach_crtc(output, crtc);
-			return crtc->props.id;
+			return crtc;
 		}
 	}
 	/* } */
-	return TW_DRM_CRTC_ID_INVALID;
+	return NULL;
+}
+
+static void
+prepare_display_state_prop(struct tw_kms_state *state,
+                           struct tw_drm_crtc *crtc, struct tw_drm_plane *plane,
+                           struct tw_drm_display *display)
+{
+	state->props_connector = &display->props;
+	state->props_crtc = &crtc->props;
+	state->props_main_plane = &plane->props;
 }
 
 static bool
 prepare_display_start(struct tw_drm_display *output)
 {
-	uint32_t crtc;
+	struct tw_drm_crtc *crtc = NULL;
 	struct tw_kms_state *next = &output->status.kms_pending;
 
 	if (pending_enable(output)) {
-		if ((crtc = find_display_crtc(output)) ==
-		    TW_DRM_CRTC_ID_INVALID) {
+		if ((crtc = find_display_crtc(output)) == NULL) {
 			tw_logl_level(TW_LOG_ERRO, "Failed to find a crtc for "
 			              "output:%s", output->output.device.name);
 			return false;
 		}
+
 		output->primary_plane =
 			find_plane(output, TW_DRM_PLANE_MAJOR, crtc);
                 if (!output->primary_plane) {
@@ -410,10 +436,12 @@ prepare_display_start(struct tw_drm_display *output)
 			              "output:%s", output->output.device.name);
 			return false;
                 }
-
 		if ((output->status.flags & TW_DRM_PENDING_MODE))
 			output->gpu->impl->allocate_fbs(output,
 			                               &next->crtc.mode);
+		prepare_display_state_prop(next, crtc, output->primary_plane,
+		                           output);
+
 		return true;
 	}
 	return false;
@@ -422,9 +450,13 @@ prepare_display_start(struct tw_drm_display *output)
 static void
 prepare_display_stop(struct tw_drm_display *output)
 {
+	struct tw_kms_state *next = &output->status.kms_pending;
 	//don't destroy the output
-	if (!pending_enable(output))
+	if (!pending_enable(output)) {
+		prepare_display_state_prop(next, output->crtc,
+		                           output->primary_plane, output);
 		tw_drm_display_detach_crtc(output);
+	}
 }
 
 /******************************************************************************
@@ -448,13 +480,13 @@ tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn,
 	//only collect connected display
 	if (!dpy && conn->connection == DRM_MODE_CONNECTED) {
 		*found = false;
-		dpy = calloc(1, sizeof(*found));
+		dpy = calloc(1, sizeof(*dpy));
 		if (!dpy)
 			return NULL;
-		tw_render_output_init(&dpy->output, &output_dev_impl);
-		read_display_info(dpy, conn);
 		dpy->drm = drm;
 		dpy->gpu = gpu;
+		tw_render_output_init(&dpy->output, &output_dev_impl);
+		read_display_info(dpy, conn);
 
 		wl_list_init(&dpy->presentable_commit.link);
 		wl_list_insert(drm->base.outputs.prev,
@@ -487,6 +519,7 @@ tw_drm_display_start_maybe(struct tw_drm_display *output)
 {
 	struct tw_drm_backend *drm = output->drm;
 
+	UPDATE_PENDING(output, crtc.active, true, TW_DRM_PENDING_ACTIVE);
 	wl_signal_emit(&drm->base.signals.new_output,
 	               &output->output.device);
 
@@ -508,7 +541,7 @@ tw_drm_display_pause(struct tw_drm_display *output)
 {
 	output->output.state.enabled = false;
 	prepare_display_stop(output);
-	output->gpu->impl->page_flip(output, 0);
+	commit_display_state(output, 0);
 }
 
 void
@@ -517,6 +550,7 @@ tw_drm_display_stop(struct tw_drm_display *output)
 	tw_reset_wl_list(&output->presentable_commit.link);
 	output->output.state.enabled = false;
 	prepare_display_stop(output);
+	commit_display_state(output, 0);
 	output->gpu->impl->free_fbs(output);
 
 	if (output->output.ctx)
@@ -527,6 +561,7 @@ tw_drm_display_stop(struct tw_drm_display *output)
 void
 tw_drm_display_remove(struct tw_drm_display *output)
 {
+	UPDATE_PENDING(output, crtc.active, false, TW_DRM_PENDING_ACTIVE);
 	tw_drm_display_stop(output);
 	wl_array_release(&output->status.modes);
 	tw_render_output_fini(&output->output);

@@ -63,14 +63,14 @@ static void
 add_display(struct tw_drm_gpu *gpu, drmModeConnector *conn)
 {
 	struct tw_drm_display *output = NULL;
-	bool found = false;
+	bool found = false, backend_started = gpu->drm->base.started;
 
 	if (conn->connector_type == DRM_MODE_CONNECTOR_WRITEBACK) {
 		//TODO handle writeback connector
 	} else {
 		output = tw_drm_display_find_create(gpu, conn, &found);
 		if (output) {
-			if (!found)
+			if (!found && backend_started)
 				tw_drm_display_start_maybe(output);
 			else
 				tw_drm_display_check_action(output, conn);
@@ -223,7 +223,8 @@ handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
                 assert(pend->props_crtc->id == (int)crtc_id);
 
                 gpu->impl->release_fb(output, &curr->fb);
-                tw_kms_state_copy(curr, pend, fd);
+                tw_kms_state_move(curr, pend, fd);
+                output->status.flags = 0;
 
                 tw_render_output_clean_maybe(&output->output);
                 tw_output_device_present(device, &present);

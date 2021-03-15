@@ -63,8 +63,8 @@ tw_backend_start(struct tw_backend *backend, struct tw_render_context *ctx)
 	assert(backend->impl->start);
 
 	backend->ctx = ctx;
-	backend->impl->start(backend, ctx);
 	backend->started = true;
+	backend->impl->start(backend, ctx);
 	wl_signal_add(&ctx->signals.destroy, &backend->render_context_destroy);
 	wl_signal_emit(&backend->signals.start, backend);
 }

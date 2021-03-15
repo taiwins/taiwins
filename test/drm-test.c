@@ -114,8 +114,6 @@ int main(int argc, char *argv[])
 	struct tw_test_desktop desktop;
 	tw_logger_open("/tmp/drm-debug");
 
-	wait_for_debug();
-
 	struct wl_display *display = wl_display_create();
 	struct wl_event_loop *loop = wl_display_get_event_loop(display);
 	struct tw_backend *backend = tw_drm_backend_create(display);
@@ -140,6 +138,8 @@ int main(int argc, char *argv[])
 
 	/* tw_render_pipeline_init(&dummy_pipeline, "dummy_pipeline", ctx); */
 	wl_list_insert(ctx->pipelines.next, &pipeline->link);
+
+	wait_for_debug();
 
 	tw_backend_start(backend, ctx);
 
