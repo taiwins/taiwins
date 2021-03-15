@@ -123,6 +123,10 @@ name_from_type(uint32_t connector_type)
 	}
 }
 
+/******************************************************************************
+ * display info gathering
+ *****************************************************************************/
+
 static uint32_t
 read_connector_possible_crtcs(int fd, drmModeConnector *conn)
 {
@@ -155,32 +159,6 @@ read_connector_curr_crtc(int fd, drmModeConnector *conn)
 		drmModeFreeEncoder(encoder);
 	}
 	return crtc_id;
-}
-
-static inline bool
-tw_drm_display_attach_crtc(struct tw_drm_display *display,
-                           struct tw_drm_crtc *crtc)
-{
-	if (crtc->display && crtc->display != display)
-		return false;
-	display->crtc = crtc;
-	display->crtc->display = display;
-	//updating pending kms
-	display->status.kms_pending.props_crtc = &crtc->props;
-	UPDATE_PENDING(display, crtc_id, crtc->props.id, TW_DRM_PENDING_CRTC);
-
-	return true;
-}
-
-static inline void
-tw_drm_display_detach_crtc(struct tw_drm_display *display)
-{
-	struct tw_drm_crtc *crtc = display->crtc;
-
-	if (crtc)
-		crtc->display = NULL;
-	display->crtc = NULL;
-	UPDATE_PENDING(display, crtc.active, false, TW_DRM_PENDING_ACTIVE);
 }
 
 static bool
@@ -235,6 +213,32 @@ read_display_props(struct tw_drm_display *output, drmModeConnector *conn,
 	                       sizeof(prop_info)/sizeof(prop_info[0]));
 }
 
+static void
+read_display_info(struct tw_drm_display *output, drmModeConnector *conn)
+{
+	int fd = output->gpu->gpu_fd;
+	//drmModeModeInfo mode = {0};
+	struct tw_output_device *dev = &output->output.device;
+	int crtc_id = read_connector_curr_crtc(fd, conn);
+	(void)crtc_id; //TODO use this later
+
+	//setup static data
+	read_display_props(output, conn, fd);
+	read_display_modes(output, conn);
+	dev->phys_width = conn->mmWidth;
+	dev->phys_height = conn->mmHeight;
+	dev->subpixel = wl_subpixel_from_drm(conn->subpixel);
+	snprintf(dev->name, sizeof(dev->name), "%s-%d",
+	         name_from_type(conn->connector_type),
+	         conn->connector_type_id);
+	drm_display_read_edid(fd, conn, output->props.edid,
+	                      output->output.device.make,
+	                      output->output.device.model,
+	                      output->output.device.serial);
+	output->crtc_mask = read_connector_possible_crtcs(fd, conn);
+	output->crtc = NULL;
+}
+
 /******************************************************************************
  * display commit
  *****************************************************************************/
@@ -244,6 +248,64 @@ pending_enable(struct tw_drm_display *output)
 {
 	return output->status.kms_pending.crtc.active;
 }
+
+/* handles the selection of display mode from available candidates, NOTE
+ * that if display is not connected, nothing happens here */
+static inline void
+select_display_mode(struct tw_drm_display *output)
+{
+	struct tw_output_device *device = &output->output.device;
+	struct tw_output_device_state *pending = &device->pending;
+	struct tw_output_device_mode *mode =
+		tw_output_device_match_mode(device,
+		                            pending->current_mode.w,
+		                            pending->current_mode.h,
+		                            pending->current_mode.refresh);
+	struct tw_drm_mode_info *mode_info = (mode) ?
+		wl_container_of(mode, mode_info, mode) : NULL;
+	drmModeModeInfo *info = mode_info ? &mode_info->info : NULL;
+	UPDATE_PENDING_MODE(output, info, false);
+	if (mode_info)
+		tw_output_device_set_mode(device, &mode_info->mode);
+}
+
+static void
+handle_display_commit_state(struct tw_output_device *device)
+{
+	struct tw_drm_display *output =
+		wl_container_of(device, output, output.device);
+	//ensure valid active state.
+	bool enabled = device->pending.enabled && pending_enable(output);
+
+	select_display_mode(output);
+	UPDATE_PENDING(output, crtc.active, enabled, TW_DRM_PENDING_ACTIVE);
+	memcpy(&device->state, &device->pending, sizeof(device->state));
+	//we cannot use output_device_enable hear because it sets the pending
+	device->state.enabled = enabled;
+
+	tw_drm_display_check_action(output, NULL);
+}
+
+static const struct tw_output_device_impl output_dev_impl = {
+	handle_display_commit_state,
+};
+
+static void
+notify_display_presentable_commit(struct wl_listener *listener, void *data)
+{
+	struct tw_drm_display *output =
+		wl_container_of(listener, output, presentable_commit);
+	struct tw_kms_state *pending_state =  &output->status.kms_pending;
+
+	assert(data == &output->output.surface);
+	if (output->gpu->impl->compose_fb(output, pending_state)) {
+		output->gpu->impl->page_flip(output, DRM_MODE_PAGE_FLIP_EVENT);
+	}
+}
+
+/******************************************************************************
+ * output preparitions
+ *****************************************************************************/
 
 static inline int
 crtc_idx_from_id(struct tw_drm_gpu *gpu, int id)
@@ -277,6 +339,32 @@ find_plane(struct tw_drm_display *dpy, enum tw_drm_plane_type t, int crtc_id)
 	return NULL;
 }
 
+static inline bool
+tw_drm_display_attach_crtc(struct tw_drm_display *display,
+                           struct tw_drm_crtc *crtc)
+{
+	if (crtc->display && crtc->display != display)
+		return false;
+	display->crtc = crtc;
+	display->crtc->display = display;
+	//updating pending kms
+	display->status.kms_pending.props_crtc = &crtc->props;
+	UPDATE_PENDING(display, crtc_id, crtc->props.id, TW_DRM_PENDING_CRTC);
+
+	return true;
+}
+
+static inline void
+tw_drm_display_detach_crtc(struct tw_drm_display *display)
+{
+	struct tw_drm_crtc *crtc = display->crtc;
+
+	if (crtc)
+		crtc->display = NULL;
+	display->crtc = NULL;
+	UPDATE_PENDING(display, crtc.active, false, TW_DRM_PENDING_ACTIVE);
+}
+
 static int
 find_display_crtc(struct tw_drm_display *output)
 {
@@ -302,155 +390,85 @@ find_display_crtc(struct tw_drm_display *output)
 	return TW_DRM_CRTC_ID_INVALID;
 }
 
-/* handles the selection of display mode from available candidates, NOTE
- * that if display is not connected, nothing happens here */
-static inline void
-select_display_mode(struct tw_drm_display *output)
+static bool
+prepare_display_start(struct tw_drm_display *output)
 {
-	struct tw_output_device *device = &output->output.device;
-	struct tw_output_device_state *pending = &device->pending;
-	struct tw_output_device_mode *mode =
-		tw_output_device_match_mode(device,
-		                            pending->current_mode.w,
-		                            pending->current_mode.h,
-		                            pending->current_mode.refresh);
-	struct tw_drm_mode_info *mode_info = (mode) ?
-		wl_container_of(mode, mode_info, mode) : NULL;
-	drmModeModeInfo *info = mode_info ? &mode_info->info : NULL;
-	UPDATE_PENDING_MODE(output, info, false);
-	if (mode_info)
-		tw_output_device_set_mode(device, &mode_info->mode);
-}
+	uint32_t crtc;
+	struct tw_kms_state *next = &output->status.kms_pending;
 
-static void
-handle_display_commit_state(struct tw_output_device *device)
-{
-	struct tw_drm_display *output =
-		wl_container_of(device, output, output.device);
-	//ensure valid active state.
-	int crtc;
-	bool enabled = device->pending.enabled && pending_enable(output);
-
-	select_display_mode(output);
-	UPDATE_PENDING(output, crtc.active, enabled, TW_DRM_PENDING_ACTIVE);
-	memcpy(&device->state, &device->pending, sizeof(device->state));
-	//we cannot use output_device_enable hear because it sets the pending
-	device->state.enabled = enabled;
-
-	//flushing the pending states
 	if (pending_enable(output)) {
 		if ((crtc = find_display_crtc(output)) ==
 		    TW_DRM_CRTC_ID_INVALID) {
 			tw_logl_level(TW_LOG_ERRO, "Failed to find a crtc for "
 			              "output:%s", output->output.device.name);
-			return;
+			return false;
 		}
 		output->primary_plane =
 			find_plane(output, TW_DRM_PLANE_MAJOR, crtc);
+                if (!output->primary_plane) {
+			tw_logl_level(TW_LOG_ERRO, "Failed to find plane for "
+			              "output:%s", output->output.device.name);
+			return false;
+                }
 
 		if ((output->status.flags & TW_DRM_PENDING_MODE))
-			output->gpu->impl->allocate_fb(output,
-			                               &output->status.kms_pending.crtc.mode);
-		wl_signal_emit(&device->signals.new_frame, device);
-	} else {
-		tw_drm_display_detach_crtc(output);
-		output->gpu->impl->end_display(output);
-		//the pageflip should turn off display
-		output->gpu->impl->page_flip(output, 0);
-
+			output->gpu->impl->allocate_fbs(output,
+			                               &next->crtc.mode);
+		return true;
 	}
+	return false;
 }
 
-static const struct tw_output_device_impl output_dev_impl = {
-	handle_display_commit_state,
-};
-
 static void
-notify_display_presentable_commit(struct wl_listener *listener, void *data)
+prepare_display_stop(struct tw_drm_display *output)
 {
-	struct tw_drm_display *output =
-		wl_container_of(listener, output, presentable_commit);
-	struct tw_kms_state *pending_state =  &output->status.kms_pending;
-
-	assert(data == &output->output.surface);
-	if (output->gpu->impl->compose_fb(output, pending_state)) {
-
-	}
-
-	output->gpu->impl->page_flip(output, DRM_MODE_PAGE_FLIP_EVENT);
+	//don't destroy the output
+	if (!pending_enable(output))
+		tw_drm_display_detach_crtc(output);
 }
 
 /******************************************************************************
  * output API
  *****************************************************************************/
 
-bool
-tw_drm_display_read_info(struct tw_drm_display *output, drmModeConnector *conn)
-{
-	int fd = output->gpu->gpu_fd;
-	//drmModeModeInfo mode = {0};
-	struct tw_output_device *dev = &output->output.device;
-	int crtc_id = read_connector_curr_crtc(fd, conn);
-	(void)crtc_id; //TODO use this later
-
-	//setup static data
-	read_display_props(output, conn, fd);
-	read_display_modes(output, conn);
-	dev->phys_width = conn->mmWidth;
-	dev->phys_height = conn->mmHeight;
-	dev->subpixel = wl_subpixel_from_drm(conn->subpixel);
-	snprintf(dev->name, sizeof(dev->name), "%s-%d",
-	         name_from_type(conn->connector_type),
-	         conn->connector_type_id);
-	drm_display_read_edid(fd, conn, output->props.edid,
-	                      output->output.device.make,
-	                      output->output.device.model,
-	                      output->output.device.serial);
-	output->crtc_mask = read_connector_possible_crtcs(fd, conn);
-	output->crtc = NULL;
-	//make, model
-
-	return true;
-}
-
 struct tw_drm_display *
-tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn)
+tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn,
+                           bool *found)
 {
-	struct tw_drm_display *c, *found = NULL;
+	struct tw_drm_display *c, *dpy = NULL;
 	struct tw_drm_backend *drm = gpu->drm;
 
 	wl_list_for_each(c, &drm->base.outputs, output.device.link) {
 		if (c->props.id == (int)conn->connector_id) {
-			found = c;
-			return found;
+			dpy = c;
+			*found = true;
+			return dpy;
 		}
 	}
 	//only collect connected display
-	if (!found && conn->connection == DRM_MODE_CONNECTED) {
-		found = calloc(1, sizeof(*found));
-		if (!found)
+	if (!dpy && conn->connection == DRM_MODE_CONNECTED) {
+		*found = false;
+		dpy = calloc(1, sizeof(*found));
+		if (!dpy)
 			return NULL;
-		tw_render_output_init(&found->output, &output_dev_impl);
-		found->drm = drm;
-		found->gpu = gpu;
+		tw_render_output_init(&dpy->output, &output_dev_impl);
+		read_display_info(dpy, conn);
+		dpy->drm = drm;
+		dpy->gpu = gpu;
 
-		wl_list_init(&found->presentable_commit.link);
+		wl_list_init(&dpy->presentable_commit.link);
 		wl_list_insert(drm->base.outputs.prev,
-		               &found->output.device.link);
-		return found;
+		               &dpy->output.device.link);
+		return dpy;
 	}
-	return found;
+	return dpy;
 }
 
+/* if we are here, output is definitely starting */
 void
 tw_drm_display_start(struct tw_drm_display *output)
 {
 	struct tw_drm_backend *drm = output->drm;
-
-	wl_signal_emit(&drm->base.signals.new_output,
-	               &output->output.device);
-
-	tw_output_device_commit_state(&output->output.device);
 
 	//TODO setup a new listener for output_state here, it is how we can
 	//apply the output mode?
@@ -460,8 +478,19 @@ tw_drm_display_start(struct tw_drm_display *output)
 	                         &output->presentable_commit,
 	                         notify_display_presentable_commit);
 	output->output.state.enabled = true;
+	prepare_display_start(output);
 	tw_render_output_dirty(&output->output);
+}
 
+void
+tw_drm_display_start_maybe(struct tw_drm_display *output)
+{
+	struct tw_drm_backend *drm = output->drm;
+
+	wl_signal_emit(&drm->base.signals.new_output,
+	               &output->output.device);
+
+	tw_output_device_commit_state(&output->output.device);
 }
 
 void
@@ -469,7 +498,7 @@ tw_drm_display_continue(struct tw_drm_display *output)
 {
 	/* if (output->status.connected) { */
 	output->output.state.enabled = true;
-	tw_output_device_commit_state(&output->output.device);
+	prepare_display_start(output);
 	tw_render_output_dirty(&output->output);
 	/* } */
 }
@@ -478,7 +507,7 @@ void
 tw_drm_display_pause(struct tw_drm_display *output)
 {
 	output->output.state.enabled = false;
-	tw_drm_display_detach_crtc(output);
+	prepare_display_stop(output);
 	output->gpu->impl->page_flip(output, 0);
 }
 
@@ -487,7 +516,9 @@ tw_drm_display_stop(struct tw_drm_display *output)
 {
 	tw_reset_wl_list(&output->presentable_commit.link);
 	output->output.state.enabled = false;
-	tw_output_device_commit_state(&output->output.device);
+	prepare_display_stop(output);
+	output->gpu->impl->free_fbs(output);
+
 	if (output->output.ctx)
 		tw_render_output_unset_context(&output->output);
 	output->status.unset_crtc = NULL;
@@ -503,29 +534,48 @@ tw_drm_display_remove(struct tw_drm_display *output)
 }
 
 void
-tw_drm_display_check_action(struct tw_drm_display *output,
-                            drmModeConnector *conn,
-                            bool *need_start, bool *need_stop,
-                            bool *need_continue, bool *need_remove)
+tw_drm_display_login_active(struct tw_drm_display *display, bool active)
 {
+	UPDATE_PENDING(display, crtc.active, active, TW_DRM_PENDING_ACTIVE);
+	tw_drm_display_check_action(display, NULL);
+}
+
+/**
+ * check_action takes the hardware event and apply the right action
+ */
+void
+tw_drm_display_check_action(struct tw_drm_display *output,
+                            drmModeConnector *conn)
+{
+	bool need_start, need_stop, need_continue, need_remove;
+
 	struct tw_drm_backend *drm = output->drm;
-	struct tw_output_device *dev = &output->output.device;
 	struct tw_kms_state *state_curr = &output->status.kms_current;
+	struct tw_kms_state *state_pend = &output->status.kms_pending;
 	//We have a big problem here as user haven't setup pending yet, it is
 	//the default pending,
-	struct tw_output_device_state *user_pending = &dev->pending;
 
+	//TODO we need to check this enabling logic
 	bool backend_started = drm->base.started;
-	bool connected = conn->connection == DRM_MODE_CONNECTED;
-	bool enabled = user_pending->enabled && connected;
+	bool connected = conn ? conn->connection == DRM_MODE_CONNECTED : true;
+	bool enabled = state_pend->crtc.active && connected;
 	bool active = state_curr->crtc.active;
 
-	*need_start = backend_started && enabled && !active;
-	*need_continue = backend_started && enabled && active;
-	*need_stop = backend_started && !enabled && active;
-	*need_remove = backend_started && !connected;
+	need_start = backend_started && enabled && !active;
+	need_continue = backend_started && enabled && active;
+	need_stop = backend_started && !enabled && active;
+	need_remove = backend_started && !connected;
 
 	UPDATE_PENDING(output, crtc.active, enabled, TW_DRM_PENDING_ACTIVE);
+
+	if (need_start)
+		tw_drm_display_start(output);
+	else if (need_continue)
+		tw_drm_display_continue(output);
+	else if (need_stop)
+		tw_drm_display_stop(output);
+	else if (need_remove)
+		tw_drm_display_remove(output);
 
 	/* bool connect_change, active_change; */
 	/* bool pending_connect, pending_disconnect; */

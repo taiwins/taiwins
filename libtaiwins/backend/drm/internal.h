@@ -222,16 +222,17 @@ struct tw_drm_gpu_impl {
 	/** platform specific egl options */
 	const struct tw_egl_options *(*gen_egl_params)(struct tw_drm_gpu *);
 	/** init display buffers as well as render surface */
-	bool (*allocate_fb)(struct tw_drm_display *output,
-	                    drmModeModeInfo *mode);
-	//release buffer
-	void (*release_fb)(struct tw_drm_display *output,
-	                   struct tw_drm_fb *fb);
+	bool (*allocate_fbs)(struct tw_drm_display *output,
+	                     drmModeModeInfo *mode);
 	/** destroy display buffers as well as render surface */
-	void (*end_display)(struct tw_drm_display *output);
+	void (*free_fbs)(struct tw_drm_display *output);
 
 	bool (*compose_fb)(struct tw_drm_display *output,
 	                   struct tw_kms_state *state);
+	//release buffer
+	void (*release_fb)(struct tw_drm_display *output,
+	                   struct tw_drm_fb *fb);
+
 };
 
 struct tw_drm_gpu {
@@ -340,31 +341,23 @@ tw_drm_plane_fini(struct tw_drm_plane *plane);
 /******************************** display API ********************************/
 
 void
-tw_drm_display_start(struct tw_drm_display *display);
+tw_drm_display_login_active(struct tw_drm_display *display, bool active);
 
 void
-tw_drm_display_continue(struct tw_drm_display *display);
-
-void
-tw_drm_display_pause(struct tw_drm_display *output);
-
-void
-tw_drm_display_stop(struct tw_drm_display *output);
+tw_drm_display_start_maybe(struct tw_drm_display *display);
 
 void
 tw_drm_display_remove(struct tw_drm_display *display);
 
 struct tw_drm_display *
-tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn);
-
+tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn,
+                           bool *found);
 bool
 tw_drm_display_read_info(struct tw_drm_display *output,
                          drmModeConnector *conn);
 void
 tw_drm_display_check_action(struct tw_drm_display *output,
-                            drmModeConnector *conn,
-                            bool *need_start, bool *need_stop,
-                            bool *need_continue, bool *need_remove);
+                            drmModeConnector *conn);
 
 /********************************** KMS API **********************************/
 

@@ -290,8 +290,8 @@ const struct tw_drm_gpu_impl tw_gpu_gbm_impl = {
     .get_gpu_device = handle_get_gpu_device,
     .free_gpu_device = handle_free_gpu_device,
     .gen_egl_params = handle_gen_egl_params,
-    .allocate_fb = handle_allocate_display_gbm_surface,
+    .allocate_fbs = handle_allocate_display_gbm_surface,
     .compose_fb = handle_render_pending,
     .release_fb = handle_release_gbm_bo,
-    .end_display = handle_end_gbm_display,
+    .free_fbs = handle_end_gbm_display,
 };

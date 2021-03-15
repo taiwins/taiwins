@@ -53,7 +53,7 @@ drm_backend_start(struct tw_backend *backend, struct tw_render_context *ctx)
 	struct tw_drm_backend *drm = wl_container_of(backend, drm, base);
 
 	wl_list_for_each(output, &drm->base.outputs, output.device.link)
-			tw_drm_display_start(output);
+			tw_drm_display_start_maybe(output);
 
 	wl_list_for_each(input, &drm->base.inputs, base.link)
 		wl_signal_emit(&drm->base.signals.new_input, &input->base);
@@ -298,15 +298,15 @@ notify_drm_login_state(struct wl_listener *listener, void *data)
 	struct tw_login *login = data;
 	struct tw_drm_display *dpy;
 
-	//TODO: supposed to dirty all the output and handle planes
+	//TODO: supposed to dirty all the output and handle planes,
 	if (login->active) {
 		tw_libinput_input_enable(&drm->input);
 		wl_list_for_each(dpy, &drm->base.outputs, output.device.link)
-			tw_drm_display_continue(dpy);
+			tw_drm_display_login_active(dpy, login->active);
 	} else {
 		tw_libinput_input_disable(&drm->input);
 		wl_list_for_each(dpy, &drm->base.outputs, output.device.link)
-			tw_drm_display_pause(dpy);
+			tw_drm_display_login_active(dpy, login->active);
 	}
 }
 
