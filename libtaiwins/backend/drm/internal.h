@@ -198,9 +198,6 @@ struct tw_drm_display {
 
 	struct {
 		bool active;
-		//int crtc_id; /**< crtc_id read from connector, may not work */
-		/* crtc for unset, used once in display_stop */
-		struct tw_drm_crtc *unset_crtc;
 		struct wl_array modes;
 		struct tw_kms_state now, next;
 		uint32_t pending;
@@ -360,6 +357,9 @@ tw_drm_display_handle_page_flipped(struct tw_drm_display *output, int crtc_id);
 
 
 /********************************** KMS API **********************************/
+
+void
+tw_kms_state_deactivate(struct tw_kms_state *state);
 
 void
 tw_kms_state_move(struct tw_kms_state *dst, struct tw_kms_state *src,

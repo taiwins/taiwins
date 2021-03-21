@@ -26,8 +26,15 @@
 #include <xf86drmMode.h>
 #include <taiwins/objects/logger.h>
 
-#include "drm_mode.h"
 #include "internal.h"
+
+static inline void
+plane_fb_init(struct tw_drm_fb *fb)
+{
+	fb->fb = 0;
+	fb->handle = 0;
+	fb->type = TW_DRM_FB_SURFACE;
+}
 
 static inline void
 atomic_commit_prop_blob(int drm_fd, uint32_t *dst, uint32_t src)
@@ -226,6 +233,7 @@ tw_kms_state_move(struct tw_kms_state *dst, struct tw_kms_state *src,
 	dst->props_crtc = src->crtc.active ? src->props_crtc : NULL;
 
 	dst->crtc.active = src->crtc.active;
+	dst->crtc.mode = src->crtc.mode;
 	atomic_commit_prop_blob(0, &dst->crtc.mode_id, src->crtc.mode_id);
 }
 
@@ -235,4 +243,16 @@ tw_kms_state_duplicate(struct tw_kms_state *dst, struct tw_kms_state *src)
 {
 	dst->fb = src->fb;
 	dst->crtc = src->crtc;
+}
+
+void
+tw_kms_state_deactivate(struct tw_kms_state *state)
+{
+	const drmModeModeInfo none_mode = {0};
+
+	plane_fb_init(&state->fb);
+	state->crtc_id = TW_DRM_CRTC_ID_INVALID;
+	state->crtc.mode = none_mode;
+	state->crtc.active = false;
+	state->crtc.mode_id = 0;
 }

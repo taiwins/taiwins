@@ -483,7 +483,7 @@ tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn,
 }
 
 /* if we are here, output is definitely starting */
-void
+static void
 tw_drm_display_start(struct tw_drm_display *output)
 {
 	struct tw_drm_backend *drm = output->drm;
@@ -512,36 +512,28 @@ tw_drm_display_start_maybe(struct tw_drm_display *output)
 	tw_output_device_commit_state(&output->output.device);
 }
 
-void
+/* called on udev change event and no change to this output */
+static void
 tw_drm_display_continue(struct tw_drm_display *output)
 {
-	/* if (output->status.connected) { */
 	output->output.state.enabled = true;
 	prepare_display_start(output);
 	tw_render_output_dirty(&output->output);
-	/* } */
 }
 
-void
-tw_drm_display_pause(struct tw_drm_display *output)
-{
-	output->output.state.enabled = false;
-	prepare_display_stop(output);
-	submit_kms_state(output, 0);
-}
-
-void
+static void
 tw_drm_display_stop(struct tw_drm_display *output)
 {
 	tw_reset_wl_list(&output->presentable_commit.link);
+
 	output->output.state.enabled = false;
+	tw_kms_state_deactivate(&output->status.next);
 	prepare_display_stop(output);
 	submit_kms_state(output, 0);
-	output->gpu->impl->free_fbs(output);
 
+	output->gpu->impl->free_fbs(output);
 	if (output->output.ctx)
 		tw_render_output_unset_context(&output->output);
-	output->status.unset_crtc = NULL;
 }
 
 void
@@ -549,6 +541,7 @@ tw_drm_display_remove(struct tw_drm_display *output)
 {
 	UPDATE_PENDING(output, crtc.active, false, TW_DRM_PENDING_ACTIVE);
 	tw_drm_display_stop(output);
+
 	wl_array_release(&output->status.modes);
 	tw_render_output_fini(&output->output);
 	free(output);
@@ -557,8 +550,9 @@ tw_drm_display_remove(struct tw_drm_display *output)
 void
 tw_drm_display_login_active(struct tw_drm_display *display, bool active)
 {
+	//NOTE that we are calling display_stop on login deactivate
 	UPDATE_PENDING(display, crtc.active, active, TW_DRM_PENDING_ACTIVE);
-	tw_drm_display_check_action(display, NULL);
+	handle_display_commit_state(&display->output.device);
 }
 
 /**
@@ -597,33 +591,6 @@ tw_drm_display_check_action(struct tw_drm_display *output,
 		tw_drm_display_stop(output);
 	else if (need_remove)
 		tw_drm_display_remove(output);
-
-	/* bool connect_change, active_change; */
-	/* bool pending_connect, pending_disconnect; */
-	/* bool pending_activate, pending_deactivate; */
-
-	/* connect_change = (output->status.pending & TW_DRM_PENDING_CONNECT); */
-	/* active_change = (output->status.pending & TW_DRM_PENDING_ACTIVE); */
-
-	/* pending_connect = (output->status.connected && connect_change); */
-	/* pending_disconnect = (!output->status.connected && connect_change); */
-
-	/* pending_activate = (output->status.active && active_change); */
-	/* pending_deactivate = (!output->status.active && active_change); */
-
-	/* //need_find_crtc happens after recollecting resources, all the display */
-	/* //loses its crtc. */
-
-	/* if (need_continue) */
-	/*	*need_continue = (output->status.active && */
-	/*	                  output->status.connected && */
-	/*	                  !output->crtc && backend_started); */
-	/* if (need_start) */
-	/*	*need_start = (pending_connect || pending_activate) && */
-	/*		backend_started; */
-	/* if (need_stop) */
-	/*	*need_stop = (pending_disconnect || pending_deactivate) && */
-	/*		backend_started; */
 }
 
 

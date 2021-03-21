@@ -236,8 +236,8 @@ surface_add_to_outputs_list(struct tw_render_context *ctx,
 			break;
 		}
 	}
-	assert(output);
-	assert(render_surface->output >= 0 && render_surface->output <= 31);
+        if (!output)
+	        return;
 
 	wl_list_insert(output->views.prev,
 	               &surface->links[TW_VIEW_OUTPUT_LINK]);

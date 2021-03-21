@@ -134,13 +134,6 @@ read_plane_properties(int fd, int plane_id, struct tw_drm_plane_props *p)
 	                       sizeof(plane_info)/sizeof(plane_info[0]));
 }
 
-static inline void
-plane_fb_init(struct tw_drm_fb *fb)
-{
-	fb->fb = 0;
-	fb->handle = 0;
-	fb->type = TW_DRM_FB_SURFACE;
-}
 
 bool
 tw_drm_plane_init(struct tw_drm_plane *plane, int fd, drmModePlane *drm_plane)
