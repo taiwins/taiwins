@@ -52,8 +52,7 @@ tw_drm_output_get_gbm_surface(struct tw_drm_display *output)
 static inline bool
 tw_drm_output_invalid_active_state(struct tw_drm_display *output)
 {
-	return (output->status.active &&
-	        (!output->crtc || !output->primary_plane));
+	return (!output->crtc || !output->primary_plane);
 }
 
 static inline struct gbm_bo *
@@ -135,28 +134,6 @@ tw_drm_gbm_write_fb(struct tw_drm_fb *fb, struct gbm_bo *bo)
 	fb->handle = (uintptr_t)(void *)bo;
 	fb->locked = true;
 }
-
-/* static struct gbm_bo * */
-/* tw_drm_gbm_render_pending(struct tw_drm_display *output) */
-/* { */
-/*	struct tw_drm_plane *main_plane = output->primary_plane; */
-/*	struct gbm_surface *gbm_surface = */
-/*		tw_drm_output_get_gbm_surface(output); */
-/*	struct gbm_bo *next_bo = NULL; */
-
-/*	next_bo = gbm_surface_lock_front_buffer(gbm_surface); */
-/*	if (!next_bo) { */
-/*		//TODO: We encounter on manual pageflip, if we failed to lock */
-/*		//a buffer, we should use the current buffer and use the one in */
-/*		//front. */
-/*		tw_log_level(TW_LOG_ERRO, "Failed to lock the " */
-/*		             "front buffer"); */
-/*		return NULL; */
-/*	} */
-/*	tw_drm_gbm_write_fb(&main_plane->pending, next_bo, */
-/*	                    tw_drm_gbm_get_fb(next_bo)); */
-/*	return next_bo; */
-/* } */
 
 /******************************************************************************
  * tw_gpu_gbm_impl

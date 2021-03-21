@@ -47,8 +47,8 @@ static inline void
 UPDATE_PENDING_MODE(struct tw_drm_display *dpy, drmModeModeInfo *next,
                     bool force)
 {
-	drmModeModeInfo *curr = &dpy->status.now.crtc.mode;
-	drmModeModeInfo *pend = &dpy->status.next.crtc.mode;
+	drmModeModeInfo *curr = &dpy->status.now.mode;
+	drmModeModeInfo *pend = &dpy->status.next.mode;
 	bool nequal = next ? memcmp(next, curr, sizeof(*next)) : false;
 
 	dpy->status.pending |= (nequal || force) ? TW_DRM_PENDING_MODE : 0;
@@ -169,14 +169,14 @@ read_display_modes(struct tw_drm_display *output, drmModeConnector *conn)
 	struct tw_drm_mode_info *mode_info = NULL;
 	struct tw_output_device *dev = &output->output.device;
 
-	wl_array_release(&output->status.modes);
-	wl_array_init(&output->status.modes);
+	wl_array_release(&output->modes);
+	wl_array_init(&output->modes);
 	wl_list_init(&dev->mode_list);
 
-	if (!wl_array_add(&output->status.modes, s_mode_info))
+	if (!wl_array_add(&output->modes, s_mode_info))
 		goto err;
 
-	mode_info = output->status.modes.data;
+	mode_info = output->modes.data;
 	for (int i = 0; i < conn->count_modes; i++) {
 		drmModeModeInfo *mode = &conn->modes[i];
 		mode_info[i].info = *mode;
@@ -190,8 +190,8 @@ read_display_modes(struct tw_drm_display *output, drmModeConnector *conn)
 	}
 	return true;
 err:
-	wl_array_release(&output->status.modes);
-	wl_array_init(&output->status.modes);
+	wl_array_release(&output->modes);
+	wl_array_init(&output->modes);
 	wl_list_init(&dev->mode_list);
 	return false;
 }
@@ -246,7 +246,7 @@ read_display_info(struct tw_drm_display *output, drmModeConnector *conn)
 static inline bool
 pending_enable(struct tw_drm_display *output)
 {
-	return output->status.next.crtc.active;
+	return output->status.next.active;
 }
 
 /* handles the selection of display mode from available candidates, NOTE
@@ -278,7 +278,7 @@ handle_display_commit_state(struct tw_output_device *device)
 	bool enabled = device->pending.enabled && pending_enable(output);
 
 	select_display_mode(output);
-	UPDATE_PENDING(output, crtc.active, enabled, TW_DRM_PENDING_ACTIVE);
+	UPDATE_PENDING(output, active, enabled, TW_DRM_PENDING_ACTIVE);
 	memcpy(&device->state, &device->pending, sizeof(device->state));
 	//we cannot use output_device_enable hear because it sets the pending
 	device->state.enabled = enabled;
@@ -347,7 +347,7 @@ tw_drm_display_detach_crtc(struct tw_drm_display *display)
 	if (crtc)
 		crtc->display = NULL;
 	display->crtc = NULL;
-	UPDATE_PENDING(display, crtc.active, false, TW_DRM_PENDING_ACTIVE);
+	UPDATE_PENDING(display, active, false, TW_DRM_PENDING_ACTIVE);
 	UPDATE_PENDING(display, crtc_id, TW_DRM_CRTC_ID_INVALID,
 	               TW_DRM_PENDING_CRTC);
 }
@@ -424,7 +424,7 @@ prepare_display_start(struct tw_drm_display *output)
                 }
 		if ((output->status.pending & TW_DRM_PENDING_MODE))
 			output->gpu->impl->allocate_fbs(output,
-			                               &next->crtc.mode);
+			                               &next->mode);
 		prepare_display_state_prop(next, crtc, output->primary_plane,
 		                           output);
 
@@ -504,7 +504,7 @@ tw_drm_display_start_maybe(struct tw_drm_display *output)
 {
 	struct tw_drm_backend *drm = output->drm;
 
-	UPDATE_PENDING(output, crtc.active, true, TW_DRM_PENDING_ACTIVE);
+	UPDATE_PENDING(output, active, true, TW_DRM_PENDING_ACTIVE);
 	wl_signal_emit(&drm->base.signals.new_output,
 	               &output->output.device);
 
@@ -536,10 +536,10 @@ tw_drm_display_stop(struct tw_drm_display *output)
 void
 tw_drm_display_remove(struct tw_drm_display *output)
 {
-	UPDATE_PENDING(output, crtc.active, false, TW_DRM_PENDING_ACTIVE);
+	UPDATE_PENDING(output, active, false, TW_DRM_PENDING_ACTIVE);
 	tw_drm_display_stop(output);
 
-	wl_array_release(&output->status.modes);
+	wl_array_release(&output->modes);
 	tw_render_output_fini(&output->output);
 	free(output);
 }
@@ -548,7 +548,7 @@ void
 tw_drm_display_login_active(struct tw_drm_display *display, bool active)
 {
 	//NOTE that we are calling display_stop on login deactivate
-	UPDATE_PENDING(display, crtc.active, active, TW_DRM_PENDING_ACTIVE);
+	UPDATE_PENDING(display, active, active, TW_DRM_PENDING_ACTIVE);
 	handle_display_commit_state(&display->output.device);
 }
 
@@ -570,15 +570,15 @@ tw_drm_display_check_action(struct tw_drm_display *output,
 	//TODO we need to check this enabling logic
 	bool backend_started = drm->base.started;
 	bool connected = conn ? conn->connection == DRM_MODE_CONNECTED : true;
-	bool enabled = state_pend->crtc.active && connected;
-	bool active = state_curr->crtc.active;
+	bool enabled = state_pend->active && connected;
+	bool active = state_curr->active;
 
 	need_start = backend_started && enabled && !active;
 	need_continue = backend_started && enabled && active;
 	need_stop = backend_started && !enabled && active;
 	need_remove = backend_started && !connected;
 
-	UPDATE_PENDING(output, crtc.active, enabled, TW_DRM_PENDING_ACTIVE);
+	UPDATE_PENDING(output, active, enabled, TW_DRM_PENDING_ACTIVE);
 
 	if (need_start)
 		tw_drm_display_start(output);

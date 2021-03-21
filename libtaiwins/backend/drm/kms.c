@@ -72,7 +72,7 @@ tw_kms_atomic_set_plane_fb(drmModeAtomicReq *req, bool pass,
 {
 	const struct tw_drm_plane_props *prop = state->props_main_plane;
 
-	if (!state->crtc.active) {
+	if (!state->active) {
 		atomic_plane_disable(req, &pass, prop);
 	} else if (!prop || !state->props_crtc) {
 		return false;
@@ -99,7 +99,7 @@ tw_kms_atomic_set_connector_crtc(drmModeAtomicReq *req, bool pass,
                                  struct tw_kms_state *state)
 {
 	const struct tw_drm_connector_props *prop = state->props_connector;
-	bool active = state->crtc.active;
+	bool active = state->active;
 	int32_t id = (active && prop) ?
 		state->crtc_id : TW_DRM_CRTC_ID_INVALID;
 
@@ -116,7 +116,7 @@ tw_kms_atomic_set_crtc_active(drmModeAtomicReq *reg, bool pass,
                               struct tw_kms_state *state)
 {
 	const struct tw_drm_crtc_props *prop = state->props_crtc;
-	bool active = state->crtc.active;
+	bool active = state->active;
 
         if (!prop)
 		return false;
@@ -138,15 +138,15 @@ tw_kms_atomic_set_crtc_modeid(drmModeAtomicReq *req, bool pass,
 		return false;
 	if (!pending_mode)
 		return true;
-	if (pending_mode && !state->crtc.active)
+	if (pending_mode && !state->active)
 		return false;
 
-	pass = pass && (drmModeCreatePropertyBlob(gpu_fd, &state->crtc.mode,
+	pass = pass && (drmModeCreatePropertyBlob(gpu_fd, &state->mode,
 	                                          mode_size, &mode_id) == 0);
 	atomic_add(req, &pass, prop->id, prop->mode_id, mode_id);
 	if (!pass)
 		drmModeDestroyPropertyBlob(gpu_fd, mode_id);
-	state->crtc.mode_id = pass ? mode_id : 0;
+	state->mode_id = pass ? mode_id : 0;
 	return pass;
 }
 
@@ -189,7 +189,7 @@ tw_kms_state_submit_legacy(struct tw_kms_state *state,
 	uint32_t pending_flags = output->status.pending;
 
 	if (pending_flags & TW_DRM_PENDING_MODE) {
-		uint32_t on = state->crtc.active ?
+		uint32_t on = state->active ?
 			DRM_MODE_DPMS_ON : DRM_MODE_DPMS_OFF;
 		uint32_t conn_id = output->props.id;
 
@@ -201,7 +201,7 @@ tw_kms_state_submit_legacy(struct tw_kms_state *state,
 		}
 		if (drmModeSetCrtc(fd, crtc_id,
 		                   state->fb.fb, state->fb.x, state->fb.y,
-		                   &conn_id, 1, &state->crtc.mode) != 0) {
+		                   &conn_id, 1, &state->mode) != 0) {
 			tw_logl_level(TW_LOG_ERRO, "Failed to set %s CRTC",
 			              name);
 			return false;
@@ -230,11 +230,11 @@ tw_kms_state_move(struct tw_kms_state *dst, struct tw_kms_state *src,
 	dst->fb = src->fb;
 	dst->props_connector = src->props_connector;
 	dst->props_main_plane = src->props_main_plane;
-	dst->props_crtc = src->crtc.active ? src->props_crtc : NULL;
+	dst->props_crtc = src->active ? src->props_crtc : NULL;
 
-	dst->crtc.active = src->crtc.active;
-	dst->crtc.mode = src->crtc.mode;
-	atomic_commit_prop_blob(0, &dst->crtc.mode_id, src->crtc.mode_id);
+	dst->active = src->active;
+	dst->mode = src->mode;
+	atomic_commit_prop_blob(0, &dst->mode_id, src->mode_id);
 }
 
 //how do we do a noop page_flip
@@ -242,7 +242,10 @@ void
 tw_kms_state_duplicate(struct tw_kms_state *dst, struct tw_kms_state *src)
 {
 	dst->fb = src->fb;
-	dst->crtc = src->crtc;
+	dst->mode = src->mode;
+	dst->crtc_id = src->crtc_id;
+	dst->mode_id = src->mode_id;
+	dst->active = src->active;
 }
 
 void
@@ -252,7 +255,7 @@ tw_kms_state_deactivate(struct tw_kms_state *state)
 
 	plane_fb_init(&state->fb);
 	state->crtc_id = TW_DRM_CRTC_ID_INVALID;
-	state->crtc.mode = none_mode;
-	state->crtc.active = false;
-	state->crtc.mode_id = 0;
+	state->mode = none_mode;
+	state->active = false;
+	state->mode_id = 0;
 }

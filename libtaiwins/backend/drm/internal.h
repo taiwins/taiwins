@@ -172,11 +172,9 @@ struct tw_kms_state {
 	const struct tw_drm_plane_props *props_main_plane;
 	const struct tw_drm_connector_props *props_connector;
 
-	struct {
-		bool active;
-		drmModeModeInfo mode;
-		uint32_t mode_id;
-	} crtc;
+	uint32_t mode_id;
+	drmModeModeInfo mode;
+	bool active;
 	int crtc_id;
 	struct tw_drm_fb fb;
 
@@ -195,13 +193,11 @@ struct tw_drm_display {
 	/** output has at least one primary plane */
 	struct tw_drm_plane *primary_plane;
 	struct tw_drm_crtc *crtc;
+	struct wl_array modes;
 
 	struct {
-		bool active;
-		struct wl_array modes;
 		struct tw_kms_state now, next;
 		uint32_t pending;
-
 	} status;
 	//TODO remove the swapchain here
 	//struct tw_drm_swapchain sc;
@@ -360,6 +356,9 @@ tw_drm_display_handle_page_flipped(struct tw_drm_display *output, int crtc_id);
 
 void
 tw_kms_state_deactivate(struct tw_kms_state *state);
+
+void
+tw_kms_state_duplicate(struct tw_kms_state *dst, struct tw_kms_state *src);
 
 void
 tw_kms_state_move(struct tw_kms_state *dst, struct tw_kms_state *src,
