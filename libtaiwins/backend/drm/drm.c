@@ -382,7 +382,7 @@ tw_drm_read_properties(int fd, uint32_t obj_id, uint32_t obj_type,
 			*(i->ptr) = prop->prop_id;
 		drmModeFreeProperty(prop);
 	}
-
+	drmModeFreeObjectProperties(props);
 	return true;
 }
 

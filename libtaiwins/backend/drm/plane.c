@@ -100,6 +100,7 @@ populate_plane_formats(struct tw_drm_plane *plane, drmModePlane *drm_plane,
 		tw_drm_formats_add_format(&plane->formats, blob_formats[i],
 		                          count_mods, mods, externals);
 	}
+	drmModeFreePropertyBlob(blob);
 	return;
 fallback:
 	for (unsigned i = 0; i < drm_plane->count_formats; i++) {
