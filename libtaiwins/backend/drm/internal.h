@@ -224,7 +224,7 @@ struct tw_drm_gpu_impl {
 	/** destroy display buffers as well as render surface */
 	void (*free_fbs)(struct tw_drm_display *output);
 
-	bool (*compose_fb)(struct tw_drm_display *output,
+	bool (*acquire_fb)(struct tw_drm_display *output,
 	                   struct tw_kms_state *state);
 	//release buffer
 	void (*release_fb)(struct tw_drm_display *output,

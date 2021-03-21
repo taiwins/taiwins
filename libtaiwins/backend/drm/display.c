@@ -315,7 +315,7 @@ notify_display_presentable_commit(struct wl_listener *listener, void *data)
 	struct tw_kms_state *pending_state =  &output->status.next;
 
 	assert(data == &output->output.surface);
-	if (output->gpu->impl->compose_fb(output, pending_state)) {
+	if (output->gpu->impl->acquire_fb(output, pending_state)) {
 		submit_kms_state(output, DRM_MODE_PAGE_FLIP_EVENT);
 	}
 }
