@@ -68,9 +68,6 @@ struct tw_render_output {
 		/** average frame time in microseconds */
 		unsigned int fts[TW_FRAME_TIME_CNT], ft_idx;
 		/** additional checks for running render_output */
-		//TODO this is very much ugly approach, all the backend would
-		//set on this
-		bool enabled;
 	} state;
 
 	struct {

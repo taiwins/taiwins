@@ -495,7 +495,6 @@ tw_drm_display_start(struct tw_drm_display *output)
 	tw_signal_setup_listener(&output->output.surface.commit,
 	                         &output->presentable_commit,
 	                         notify_display_presentable_commit);
-	output->output.state.enabled = true;
 	prepare_display_start(output);
 	tw_render_output_dirty(&output->output);
 }
@@ -516,7 +515,6 @@ tw_drm_display_start_maybe(struct tw_drm_display *output)
 static void
 tw_drm_display_continue(struct tw_drm_display *output)
 {
-	output->output.state.enabled = true;
 	prepare_display_start(output);
 	tw_render_output_dirty(&output->output);
 }
@@ -526,7 +524,6 @@ tw_drm_display_stop(struct tw_drm_display *output)
 {
 	tw_reset_wl_list(&output->presentable_commit.link);
 
-	output->output.state.enabled = false;
 	tw_kms_state_deactivate(&output->status.next);
 	prepare_display_stop(output);
 	submit_kms_state(output, 0);

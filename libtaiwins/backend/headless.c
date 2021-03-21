@@ -120,7 +120,6 @@ headless_output_start(struct tw_headless_output *output,
 	                         notify_output_commit);
 
 	//this will give us good resolution
-	output->output.state.enabled = true;
 	tw_render_output_set_context(&output->output, headless->base.ctx);
 	tw_output_device_commit_state(&output->output.device);
 
