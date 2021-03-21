@@ -202,8 +202,8 @@ struct tw_drm_display {
 		/* crtc for unset, used once in display_stop */
 		struct tw_drm_crtc *unset_crtc;
 		struct wl_array modes;
-		struct tw_kms_state kms_current, kms_pending;
-		uint32_t flags;
+		struct tw_kms_state now, next;
+		uint32_t pending;
 
 	} status;
 	//TODO remove the swapchain here
@@ -352,12 +352,12 @@ tw_drm_display_remove(struct tw_drm_display *display);
 struct tw_drm_display *
 tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn,
                            bool *found);
-bool
-tw_drm_display_read_info(struct tw_drm_display *output,
-                         drmModeConnector *conn);
 void
 tw_drm_display_check_action(struct tw_drm_display *output,
                             drmModeConnector *conn);
+void
+tw_drm_display_handle_page_flipped(struct tw_drm_display *output, int crtc_id);
+
 
 /********************************** KMS API **********************************/
 

@@ -150,7 +150,7 @@ tw_kms_state_submit_atomic(struct tw_kms_state *state,
 	bool pass = true;
 	drmModeAtomicReq *req = NULL;
 	int gpu_fd = output->gpu->gpu_fd;
-	uint32_t pending_flags = output->status.flags;
+	uint32_t pending_flags = output->status.pending;
 
 	if (pending_flags & TW_DRM_PENDING_MODE)
 		flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
@@ -168,7 +168,7 @@ tw_kms_state_submit_atomic(struct tw_kms_state *state,
 
 	pass = pass && (drmModeAtomicCommit(gpu_fd, req, flags, output) == 0);
 	drmModeAtomicFree(req);
-	output->status.flags = 0;
+	output->status.pending = 0;
 	return pass;
 }
 
@@ -179,7 +179,7 @@ tw_kms_state_submit_legacy(struct tw_kms_state *state,
 	int fd = output->gpu->gpu_fd;
 	uint32_t crtc_id = state->props_crtc->id;
 	const char *name = output->output.device.name;
-	uint32_t pending_flags = output->status.flags;
+	uint32_t pending_flags = output->status.pending;
 
 	if (pending_flags & TW_DRM_PENDING_MODE) {
 		uint32_t on = state->crtc.active ?
@@ -212,7 +212,7 @@ tw_kms_state_submit_legacy(struct tw_kms_state *state,
 			return false;
 		}
 	}
-	output->status.flags = 0;
+	output->status.pending = 0;
 	return true;
 }
 

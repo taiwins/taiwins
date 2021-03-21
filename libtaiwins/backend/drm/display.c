@@ -40,18 +40,18 @@ drm_display_read_edid(int fd, drmModeConnector *conn, uint32_t prop_edid,
  *****************************************************************************/
 
 #define UPDATE_PENDING(dpy, name, val, flg) \
-	dpy->status.flags |= (dpy->status.kms_current.name != val) ? flg : 0; \
-	dpy->status.kms_pending.name = val;
+	dpy->status.pending |= (dpy->status.now.name != val) ? flg : 0; \
+	dpy->status.next.name = val;
 
 static inline void
 UPDATE_PENDING_MODE(struct tw_drm_display *dpy, drmModeModeInfo *next,
                     bool force)
 {
-	drmModeModeInfo *curr = &dpy->status.kms_current.crtc.mode;
-	drmModeModeInfo *pend = &dpy->status.kms_pending.crtc.mode;
+	drmModeModeInfo *curr = &dpy->status.now.crtc.mode;
+	drmModeModeInfo *pend = &dpy->status.next.crtc.mode;
 	bool nequal = next ? memcmp(next, curr, sizeof(*next)) : false;
 
-	dpy->status.flags |= (nequal || force) ? TW_DRM_PENDING_MODE : 0;
+	dpy->status.pending |= (nequal || force) ? TW_DRM_PENDING_MODE : 0;
 	if (next)
 		*pend = *next;
 }
@@ -246,7 +246,7 @@ read_display_info(struct tw_drm_display *output, drmModeConnector *conn)
 static inline bool
 pending_enable(struct tw_drm_display *output)
 {
-	return output->status.kms_pending.crtc.active;
+	return output->status.next.crtc.active;
 }
 
 /* handles the selection of display mode from available candidates, NOTE
@@ -290,15 +290,21 @@ static const struct tw_output_device_impl output_dev_impl = {
 	handle_display_commit_state,
 };
 
-static inline void
-commit_display_state(struct tw_drm_display *output, uint32_t flags)
+static void
+submit_kms_state(struct tw_drm_display *output, uint32_t flags)
 {
 	if (output->gpu->feats & TW_DRM_CAP_ATOMIC)
-		tw_kms_state_submit_atomic(&output->status.kms_pending,
+		tw_kms_state_submit_atomic(&output->status.next,
 		                           output, flags);
 	else
-		tw_kms_state_submit_legacy(&output->status.kms_pending,
+		tw_kms_state_submit_legacy(&output->status.next,
 		                           output, flags);
+	//flip immediately
+	if (!(flags & DRM_MODE_PAGE_FLIP_EVENT)) {
+		uint32_t crtc_id = output->status.next.crtc_id;
+		tw_drm_display_handle_page_flipped(output, crtc_id);
+	}
+
 }
 
 static void
@@ -306,52 +312,17 @@ notify_display_presentable_commit(struct wl_listener *listener, void *data)
 {
 	struct tw_drm_display *output =
 		wl_container_of(listener, output, presentable_commit);
-	struct tw_kms_state *pending_state =  &output->status.kms_pending;
+	struct tw_kms_state *pending_state =  &output->status.next;
 
 	assert(data == &output->output.surface);
 	if (output->gpu->impl->compose_fb(output, pending_state)) {
-		commit_display_state(output, DRM_MODE_PAGE_FLIP_EVENT);
+		submit_kms_state(output, DRM_MODE_PAGE_FLIP_EVENT);
 	}
 }
 
 /******************************************************************************
  * output preparitions
  *****************************************************************************/
-
-/* static inline int */
-/* crtc_idx_from_id(struct tw_drm_gpu *gpu, int id) */
-/* { */
-/*	for (int i = 0; i < 32; i++) */
-/*		if (((1<<i) & gpu->crtc_mask) && id == gpu->crtcs[i].props.id) */
-/*			return i; */
-/*	assert(0); */
-/*	return TW_DRM_CRTC_ID_INVALID; */
-/* } */
-
-/*
-static inline struct tw_drm_crtc *
-crtc_from_id(struct tw_drm_gpu *gpu, int id)
-{
-        for (int i = 0; i < 32; i++)
-                if (((1<<i) & gpu->crtc_mask) && id == gpu->crtcs[i].props.id)
-                        return &gpu->crtcs[i];
-        return NULL;
-}
-*/
-
-static inline struct tw_drm_plane *
-find_plane(struct tw_drm_display *dpy, enum tw_drm_plane_type t,
-           struct tw_drm_crtc *crtc)
-{
-	struct tw_drm_plane *p;
-	struct tw_drm_gpu *gpu = dpy->gpu;
-	int crtc_idx = crtc->idx;
-
-	wl_list_for_each(p, &gpu->plane_list, base.link)
-	        if (((1 << crtc_idx) & p->crtc_mask) && p->type == t)
-		        return p;
-	return NULL;
-}
 
 static inline bool
 tw_drm_display_attach_crtc(struct tw_drm_display *display,
@@ -362,7 +333,7 @@ tw_drm_display_attach_crtc(struct tw_drm_display *display,
 	display->crtc = crtc;
 	display->crtc->display = display;
 	//updating pending kms
-	display->status.kms_pending.props_crtc = &crtc->props;
+	display->status.next.props_crtc = &crtc->props;
 	UPDATE_PENDING(display, crtc_id, crtc->props.id, TW_DRM_PENDING_CRTC);
 
 	return true;
@@ -406,9 +377,24 @@ find_display_crtc(struct tw_drm_display *output)
 	return NULL;
 }
 
+static inline struct tw_drm_plane *
+find_display_plane(struct tw_drm_display *dpy, enum tw_drm_plane_type t,
+                   struct tw_drm_crtc *crtc)
+{
+	struct tw_drm_plane *p;
+	struct tw_drm_gpu *gpu = dpy->gpu;
+	int crtc_idx = crtc->idx;
+
+	wl_list_for_each(p, &gpu->plane_list, base.link)
+	        if (((1 << crtc_idx) & p->crtc_mask) && p->type == t)
+		        return p;
+	return NULL;
+}
+
 static void
 prepare_display_state_prop(struct tw_kms_state *state,
-                           struct tw_drm_crtc *crtc, struct tw_drm_plane *plane,
+                           struct tw_drm_crtc *crtc,
+                           struct tw_drm_plane *plane,
                            struct tw_drm_display *display)
 {
 	state->props_connector = &display->props;
@@ -420,7 +406,7 @@ static bool
 prepare_display_start(struct tw_drm_display *output)
 {
 	struct tw_drm_crtc *crtc = NULL;
-	struct tw_kms_state *next = &output->status.kms_pending;
+	struct tw_kms_state *next = &output->status.next;
 
 	if (pending_enable(output)) {
 		if ((crtc = find_display_crtc(output)) == NULL) {
@@ -430,13 +416,13 @@ prepare_display_start(struct tw_drm_display *output)
 		}
 
 		output->primary_plane =
-			find_plane(output, TW_DRM_PLANE_MAJOR, crtc);
+			find_display_plane(output, TW_DRM_PLANE_MAJOR, crtc);
                 if (!output->primary_plane) {
 			tw_logl_level(TW_LOG_ERRO, "Failed to find plane for "
 			              "output:%s", output->output.device.name);
 			return false;
                 }
-		if ((output->status.flags & TW_DRM_PENDING_MODE))
+		if ((output->status.pending & TW_DRM_PENDING_MODE))
 			output->gpu->impl->allocate_fbs(output,
 			                               &next->crtc.mode);
 		prepare_display_state_prop(next, crtc, output->primary_plane,
@@ -450,7 +436,7 @@ prepare_display_start(struct tw_drm_display *output)
 static void
 prepare_display_stop(struct tw_drm_display *output)
 {
-	struct tw_kms_state *next = &output->status.kms_pending;
+	struct tw_kms_state *next = &output->status.next;
 	//don't destroy the output
 	if (!pending_enable(output)) {
 		prepare_display_state_prop(next, output->crtc,
@@ -541,7 +527,7 @@ tw_drm_display_pause(struct tw_drm_display *output)
 {
 	output->output.state.enabled = false;
 	prepare_display_stop(output);
-	commit_display_state(output, 0);
+	submit_kms_state(output, 0);
 }
 
 void
@@ -550,7 +536,7 @@ tw_drm_display_stop(struct tw_drm_display *output)
 	tw_reset_wl_list(&output->presentable_commit.link);
 	output->output.state.enabled = false;
 	prepare_display_stop(output);
-	commit_display_state(output, 0);
+	submit_kms_state(output, 0);
 	output->gpu->impl->free_fbs(output);
 
 	if (output->output.ctx)
@@ -585,8 +571,8 @@ tw_drm_display_check_action(struct tw_drm_display *output,
 	bool need_start, need_stop, need_continue, need_remove;
 
 	struct tw_drm_backend *drm = output->drm;
-	struct tw_kms_state *state_curr = &output->status.kms_current;
-	struct tw_kms_state *state_pend = &output->status.kms_pending;
+	struct tw_kms_state *state_curr = &output->status.now;
+	struct tw_kms_state *state_pend = &output->status.next;
 	//We have a big problem here as user haven't setup pending yet, it is
 	//the default pending,
 
@@ -638,4 +624,28 @@ tw_drm_display_check_action(struct tw_drm_display *output,
 	/* if (need_stop) */
 	/*	*need_stop = (pending_disconnect || pending_deactivate) && */
 	/*		backend_started; */
+}
+
+
+/*
+ * handle page-flipping, the render-output currently relies on a double
+ * buffering algorithm as we block additional rendering on submit. This looks
+ * like a hard constrain to remove
+ */
+void
+tw_drm_display_handle_page_flipped(struct tw_drm_display *output, int crtc_id)
+{
+	struct tw_drm_gpu *gpu = output->gpu;
+	struct tw_kms_state *curr = &output->status.now;
+	struct tw_kms_state *pend = &output->status.next;
+
+	assert(pend->crtc_id == crtc_id);
+	//release fb if we are not reusing it.
+	if (curr->fb.fb != pend->fb.fb &&
+	    curr->fb.handle != pend->fb.handle)
+		gpu->impl->release_fb(output, &curr->fb);
+	tw_kms_state_move(curr, pend, gpu->gpu_fd);
+	output->status.pending = 0;
+
+	tw_render_output_clean_maybe(&output->output);
 }
