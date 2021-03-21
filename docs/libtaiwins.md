@@ -109,7 +109,7 @@ context is lost somehow, you need to handle it and signal the `backend.stop`.
 #### DRM backend
 
 Until now, the most complex backend(and the one missing many features) is the
-drm backend because of its nature. The paragraph here assumes you know the
+drm backend because of its nature. I have to assumes you know the
 basics of libdrm, the data type involved and how to work with it. If not, I
 highly recommend checking out the very well documented [drm
 howto](https://github.com/dvdhrm/docs). The complexity is two folds here, we
@@ -118,6 +118,10 @@ the context of drm backend, it means a page-flip, not only we need to set
 current framebuffer on the `drmPlane`, it is also the chance to update display
 mode and other properties.
 
-As for now, libtaiwins misses the feature like plane-assignments and setting
-gammas, and in the future to work with vulkan, we would need create a swapchain
-and work with `gbm_bo` directly instead of relies on `gbm_surface`.
+A rough description of the drm backend workflow is shown here
+![](./imgs/drm-backend.svg)
+
+Note that this diagram captures the various events and corresponding drm action
+responses(they all boils down to start/continue/stop actions), the details
+about state setting is skipped. Taiwins' drm backend is designed in such way
+that framebuffer creation(`gbm_bo`) code is seperated from KMS code.

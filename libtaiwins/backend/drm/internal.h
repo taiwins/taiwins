@@ -50,6 +50,8 @@ struct tw_drm_backend;
 #define _DRM_PLATFORM_GBM "TW_DRM_PLATFORM_GBM"
 #define _DRM_PLATFORM_STREAM "TW_DRM_PLATFORM_STREAM"
 #define TW_DRM_CRTC_ID_INVALID 0
+#define TW_DRM_CONN_ID_INVLAID 0
+#define TW_DRM_PLANE_ID_INVALID 0
 #define TW_DRM_MAX_SWAP_IMGS 3
 
 enum tw_drm_platform {
@@ -80,7 +82,6 @@ enum tw_drm_plane_type {
 };
 
 enum tw_drm_display_pending_flags {
-	TW_DRM_PENDING_CONNECT = 1 << 0,   /**< connection status changed */
 	TW_DRM_PENDING_ACTIVE = 1 << 1, /**< connector DPMS status changed */
 	TW_DRM_PENDING_MODE = 1 << 2,
 	TW_DRM_PENDING_CRTC = 1 << 3,
@@ -97,12 +98,14 @@ struct tw_drm_prop_info {
 };
 
 struct tw_drm_crtc_props {
+	int id;
 	//write
 	uint32_t active;
 	uint32_t mode_id;
 };
 
 struct tw_drm_connector_props {
+	int id;
 	//read
 	uint32_t edid;
 	uint32_t dpms;
@@ -111,6 +114,7 @@ struct tw_drm_connector_props {
 };
 
 struct tw_drm_plane_props {
+	int id;
 	//read
 	uint32_t type;
 	uint32_t in_formats;
@@ -131,23 +135,22 @@ struct tw_drm_plane_props {
 struct tw_drm_fb {
 	enum tw_drm_fb_type type;
 	bool locked;
-	int fb;
+	int fb, x, y, w, h;
 	uintptr_t handle;
 };
 
 struct tw_drm_plane {
 	struct tw_plane base;
-	uint32_t id; /**< drm plane id */
 	uint32_t crtc_mask;
 	enum tw_drm_plane_type type;
 
 	struct tw_drm_formats formats;
 	struct tw_drm_plane_props props;
-	struct tw_drm_fb pending, current;
+	// struct tw_drm_fb pending, current;
 };
 
 struct tw_drm_crtc {
-	int id, idx;
+	int idx;
 	/** occupied by display */
 	struct tw_drm_display *display;
 	struct wl_list link; /** drm->crtc_list */
@@ -160,27 +163,41 @@ struct tw_drm_mode_info {
 	struct tw_output_device_mode mode;
 };
 
+/**
+ * kms_state represents a atomic state we submit to kernel
+ */
+struct tw_kms_state {
+
+	const struct tw_drm_crtc_props *props_crtc;
+	const struct tw_drm_plane_props *props_main_plane;
+	const struct tw_drm_connector_props *props_connector;
+
+	uint32_t mode_id;
+	drmModeModeInfo mode;
+	bool active;
+	int crtc_id;
+	struct tw_drm_fb fb;
+
+	//TODO gamma lut
+	//TODO list of planes
+};
+
 struct tw_drm_display {
 	struct tw_render_output output;
 	struct tw_drm_backend *drm;
 	struct tw_drm_gpu *gpu;
 
-	int conn_id;
 	uint32_t crtc_mask, plane_mask;
 	uintptr_t handle; /* platform specific handle */
 
 	/** output has at least one primary plane */
 	struct tw_drm_plane *primary_plane;
 	struct tw_drm_crtc *crtc;
+	struct wl_array modes;
 
 	struct {
-		bool connected, active, annouced;
-		int crtc_id; /**< crtc_id read from connector, may not work */
-		/* crtc for unset, used once in display_stop */
-		struct tw_drm_crtc *unset_crtc;
-		drmModeModeInfo mode;
-		struct wl_array modes;
-		enum tw_drm_display_pending_flags pending;
+		struct tw_kms_state now, next;
+		uint32_t pending;
 	} status;
 	//TODO remove the swapchain here
 	//struct tw_drm_swapchain sc;
@@ -198,14 +215,17 @@ struct tw_drm_gpu_impl {
 	/** platform specific egl options */
 	const struct tw_egl_options *(*gen_egl_params)(struct tw_drm_gpu *);
 	/** init display buffers as well as render surface */
-	bool (*allocate_fb)(struct tw_drm_display *output);
+	bool (*allocate_fbs)(struct tw_drm_display *output,
+	                     drmModeModeInfo *mode);
 	/** destroy display buffers as well as render surface */
-	void (*end_display)(struct tw_drm_display *output);
+	void (*free_fbs)(struct tw_drm_display *output);
 
-	void (*vsynced)(struct tw_drm_display *output,
-	                     struct tw_drm_fb *fb);
+	bool (*acquire_fb)(struct tw_drm_display *output,
+	                   struct tw_kms_state *state);
+	//release buffer
+	void (*release_fb)(struct tw_drm_display *output,
+	                   struct tw_drm_fb *fb);
 
-	void (*page_flip)(struct tw_drm_display *output, uint32_t flags);
 };
 
 struct tw_drm_gpu {
@@ -314,44 +334,41 @@ tw_drm_plane_fini(struct tw_drm_plane *plane);
 /******************************** display API ********************************/
 
 void
-tw_drm_display_start(struct tw_drm_display *display);
+tw_drm_display_login_active(struct tw_drm_display *display, bool active);
 
 void
-tw_drm_display_continue(struct tw_drm_display *display);
-
-void
-tw_drm_display_pause(struct tw_drm_display *output);
-
-void
-tw_drm_display_stop(struct tw_drm_display *output);
+tw_drm_display_start_maybe(struct tw_drm_display *display);
 
 void
 tw_drm_display_remove(struct tw_drm_display *display);
 
 struct tw_drm_display *
-tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn);
-
-bool
-tw_drm_display_read_info(struct tw_drm_display *output,
-                         drmModeConnector *conn);
+tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn,
+                           bool *found);
 void
-tw_drm_display_check_start_stop(struct tw_drm_display *output,
-                                bool *need_start, bool *need_stop,
-                                bool *need_continue);
+tw_drm_display_check_action(struct tw_drm_display *output,
+                            drmModeConnector *conn);
+void
+tw_drm_display_handle_page_flipped(struct tw_drm_display *output, int crtc_id);
+
+
 /********************************** KMS API **********************************/
 
+void
+tw_kms_state_deactivate(struct tw_kms_state *state);
+
+void
+tw_kms_state_duplicate(struct tw_kms_state *dst, struct tw_kms_state *src);
+
+void
+tw_kms_state_move(struct tw_kms_state *dst, struct tw_kms_state *src,
+                  int drm_fd);
 bool
-tw_kms_atomic_set_plane_props(drmModeAtomicReq *req, bool pass,
-                              struct tw_drm_plane *plane,
-                              int crtc_id, int x, int y, int w, int h);
+tw_kms_state_submit_atomic(struct tw_kms_state *state,
+                           struct tw_drm_display *output, uint32_t flags);
 bool
-tw_kms_atomic_set_connector_props(drmModeAtomicReq *req, bool pass,
-                                  struct tw_drm_display *output);
-bool
-tw_kms_atomic_set_crtc_props(drmModeAtomicReq *req, bool pass,
-                             struct tw_drm_display *output,
-                             //return values
-                             uint32_t *mode_id);
+tw_kms_state_submit_legacy(struct tw_kms_state *state,
+                           struct tw_drm_display *output, uint32_t flags);
 
 #ifdef  __cplusplus
 }

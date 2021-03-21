@@ -58,7 +58,6 @@ init_output_state(struct tw_render_output *o)
 	for (int i = 0; i < 3; i++)
 		pixman_region32_init(&o->state.damages[i]);
 
-	o->state.enabled = false;
 	o->state.pending_damage = &o->state.damages[0];
 	o->state.curr_damage = &o->state.damages[1];
 	o->state.prev_damage = &o->state.damages[2];
@@ -69,7 +68,6 @@ init_output_state(struct tw_render_output *o)
 static void
 fini_output_state(struct tw_render_output *o)
 {
-	o->state.enabled = false;
 	wl_list_remove(&o->link);
 
 	for (int i = 0; i < 3; i++)
@@ -185,7 +183,7 @@ notify_output_frame(struct wl_listener *listener, void *data)
 	uint32_t should_repaint = TW_REPAINT_DIRTY | TW_REPAINT_SCHEDULED;
 
 	assert(ctx);
-	if (!output->state.enabled)
+	if (!output->device.state.enabled)
 		return;
 	if (!check_bits(output->state.repaint_state, should_repaint))
 		return;
@@ -353,7 +351,7 @@ tw_render_output_dirty(struct tw_render_output *output)
 {
 	output->state.repaint_state |= TW_REPAINT_DIRTY;
 	if ((!(output->state.repaint_state & TW_REPAINT_SCHEDULED)) &&
-	    output->state.enabled) {
+	    output->device.state.enabled) {
 		schedule_output_frame(output);
 		output->state.repaint_state |= TW_REPAINT_SCHEDULED;
 	}

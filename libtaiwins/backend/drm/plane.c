@@ -100,6 +100,7 @@ populate_plane_formats(struct tw_drm_plane *plane, drmModePlane *drm_plane,
 		tw_drm_formats_add_format(&plane->formats, blob_formats[i],
 		                          count_mods, mods, externals);
 	}
+	drmModeFreePropertyBlob(blob);
 	return;
 fallback:
 	for (unsigned i = 0; i < drm_plane->count_formats; i++) {
@@ -129,17 +130,11 @@ read_plane_properties(int fd, int plane_id, struct tw_drm_plane_props *p)
 		{"SRC_Y", &p->src_y},
 		{"type", &p->type},
 	};
-	tw_drm_read_properties(fd, plane_id, DRM_MODE_OBJECT_PLANE, plane_info,
+	p->id = plane_id;
+	tw_drm_read_properties(fd, p->id, DRM_MODE_OBJECT_PLANE, plane_info,
 	                       sizeof(plane_info)/sizeof(plane_info[0]));
 }
 
-static inline void
-plane_fb_init(struct tw_drm_fb *fb)
-{
-	fb->fb = 0;
-	fb->handle = 0;
-	fb->type = TW_DRM_FB_SURFACE;
-}
 
 bool
 tw_drm_plane_init(struct tw_drm_plane *plane, int fd, drmModePlane *drm_plane)
@@ -158,12 +153,9 @@ tw_drm_plane_init(struct tw_drm_plane *plane, int fd, drmModePlane *drm_plane)
 		plane->type = TW_DRM_PLANE_MAJOR;
 	tw_plane_init(&plane->base);
 	tw_drm_formats_init(&plane->formats);
-	plane->id = drm_plane->plane_id;
 	plane->crtc_mask = drm_plane->possible_crtcs;
-	read_plane_properties(fd, plane->id, &plane->props);
+	read_plane_properties(fd, drm_plane->plane_id, &plane->props);
 	populate_plane_formats(plane, drm_plane, fd);
-	plane_fb_init(&plane->pending);
-	plane_fb_init(&plane->current);
 
 	return true;
 }

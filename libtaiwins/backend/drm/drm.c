@@ -43,7 +43,7 @@ tw_drm_crtc_init(struct tw_drm_crtc *crtc, int fd, int id, int idx)
 	};
 
 	crtc->display = NULL;
-	crtc->id = id;
+	crtc->props.id = id;
 	crtc->idx = idx;
 	wl_list_init(&crtc->link);
 	tw_drm_read_properties(fd, id, DRM_MODE_OBJECT_CRTC, prop_info,
@@ -54,7 +54,7 @@ static inline void
 tw_drm_crtc_fini(struct tw_drm_crtc *crtc)
 {
 	crtc->display = NULL;
-	crtc->id = -1;
+	crtc->props.id = TW_DRM_CRTC_ID_INVALID;
 	crtc->idx = -1;
 	wl_list_remove(&crtc->link);
 }
@@ -63,26 +63,17 @@ static void
 add_display(struct tw_drm_gpu *gpu, drmModeConnector *conn)
 {
 	struct tw_drm_display *output = NULL;
+	bool found = false, backend_started = gpu->drm->base.started;
 
 	if (conn->connector_type == DRM_MODE_CONNECTOR_WRITEBACK) {
 		//TODO handle writeback connector
 	} else {
-		output = tw_drm_display_find_create(gpu, conn);
+		output = tw_drm_display_find_create(gpu, conn, &found);
 		if (output) {
-			bool need_start, need_stop, need_continue;
-
-			if (!tw_drm_display_read_info(output, conn))
-				tw_logl_level(TW_LOG_WARN, "failed to read "
-				              "current mode from output");
-			tw_drm_display_check_start_stop(output, &need_start,
-			                                &need_stop,
-			                                &need_continue);
-			if (need_start)
-				tw_drm_display_start(output);
-			else if (need_continue)
-				tw_drm_display_continue(output);
-			else if (need_stop)
-				tw_drm_display_stop(output);
+			if (!found && backend_started)
+				tw_drm_display_start_maybe(output);
+			else
+				tw_drm_display_check_action(output, conn);
 		}
 	}
 }
@@ -201,8 +192,6 @@ handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
 {
 	struct tw_drm_display *output = data;
 	struct tw_drm_gpu *gpu = output ? output->gpu : NULL;
-	struct tw_drm_plane *main_plane = output ?
-		output->primary_plane : NULL;
 	struct tw_output_device *device = output ?
 		&output->output.device : NULL;
 
@@ -217,24 +206,9 @@ handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
 	};
 
 	if (output) {
-
                 assert(gpu->gpu_fd == fd);
-		if (output->status.crtc_id == TW_DRM_CRTC_ID_INVALID) {
-			//happens when we close the crtc
-			return;
-		} else {
-			//the pending buffer is now used as front buffer, at
-			//this point, render_output is clean, ready to repaint
-			//if still dirty. For gbm, it is a good time for
-			//release_buffer, maybe we gives a current buffer
-			//pointer?
-			assert(output->status.crtc_id == (int)crtc_id);
-
-			gpu->impl->vsynced(output, &main_plane->current);
-			main_plane->current = main_plane->pending;
-			tw_render_output_clean_maybe(&output->output);
-			tw_output_device_present(device, &present);
-		}
+		tw_drm_display_handle_page_flipped(output, crtc_id);
+                tw_output_device_present(device, &present);
 	}
 }
 
@@ -408,7 +382,7 @@ tw_drm_read_properties(int fd, uint32_t obj_id, uint32_t obj_type,
 			*(i->ptr) = prop->prop_id;
 		drmModeFreeProperty(prop);
 	}
-
+	drmModeFreeObjectProperties(props);
 	return true;
 }
 
