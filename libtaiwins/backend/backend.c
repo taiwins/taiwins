@@ -73,9 +73,10 @@ WL_EXPORT struct tw_backend *
 tw_backend_create_auto(struct wl_display *display)
 {
 	struct tw_backend *backend = NULL;
-	if (getenv("WAYLAND_DISPLAY") != NULL)
+	if (tw_wl_backend_has_socket())
 		backend = tw_wl_backend_create(display,
-		                               getenv("WAYLAND_DISPLAy"));
+		                               getenv("WAYLAND_DISPLAY"));
+
 #if _TW_HAS_X11_BACKEND
 	else if(getenv("DISPLAY") != NULL)
 		backend = tw_x11_backend_create(display,

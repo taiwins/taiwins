@@ -333,3 +333,17 @@ tw_backend_is_wayland(struct tw_backend *backend)
 {
 	return backend->impl == &wl_impl;
 }
+
+WL_EXPORT bool
+tw_wl_backend_has_socket(void)
+{
+	struct wl_display *display = NULL;
+	const char *socket = getenv("WAYLAND_DISPLAY");
+
+	display = wl_display_connect(socket);
+	if (display) {
+		wl_display_disconnect(display);
+		return true;
+	}
+	return false;
+}
