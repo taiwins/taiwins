@@ -157,12 +157,36 @@ bind_render(struct tw_server *server)
 }
 
 static bool
+bind_socket(struct tw_server *server)
+{
+	char path[PATH_MAX];
+	unsigned int socket_num = 0;
+	const char *runtime_dir = getenv("XDG_RUNTIME_DIR");
+	//get socket
+	while(true) {
+		sprintf(path, "%s/wayland-%d", runtime_dir, socket_num);
+		if (access(path, F_OK) != 0) {
+			sprintf(path, "wayland-%d", socket_num);
+			break;
+		}
+		socket_num++;
+	}
+	if (wl_display_add_socket(server->display, path)) {
+		tw_logl("EE:failed to add socket %s", path);
+		return false;
+	}
+	return true;
+}
+
+static bool
 tw_server_init(struct tw_server *server, struct wl_display *display)
 {
 	server->display = display;
 	server->loop = wl_display_get_event_loop(display);
 
 	if (!bind_backend(server))
+		return false;
+	if (!bind_socket(server))
 		return false;
 	if (!bind_config(server))
 		return false;
@@ -177,28 +201,6 @@ static inline void
 tw_server_fini(struct tw_server *server)
 {
 	tw_config_fini(&server->config);
-}
-
-static bool
-tw_set_socket(struct wl_display *display)
-{
-	char path[PATH_MAX];
-	unsigned int socket_num = 0;
-	const char *runtime_dir = getenv("XDG_RUNTIME_DIR");
-	//get socket
-	while(true) {
-		sprintf(path, "%s/wayland-%d", runtime_dir, socket_num);
-		if (access(path, F_OK) != 0) {
-			sprintf(path, "wayland-%d", socket_num);
-			break;
-		}
-		socket_num++;
-	}
-	if (wl_display_add_socket(display, path)) {
-		tw_logl("EE:failed to add socket %s", path);
-		return false;
-	}
-	return true;
 }
 
 static int
@@ -385,10 +387,6 @@ main(int argc, char *argv[])
 		tw_logl("EE: failed to get event_loop from display\n");
 		goto err_event_loop;
 	}
-	if (!tw_set_socket(display)) {
-		ret = -1;
-		goto err_socket;
-	}
 	if (!options.profiling_path)
 		options.profiling_path = "/dev/null";
 	if (!tw_profiler_open(display, options.profiling_path))
@@ -437,7 +435,6 @@ err_signal:
 err_event_loop:
 	tw_profiler_close();
 err_profiler:
-err_socket:
 	wl_display_destroy(ec.display);
 err_create_display:
 	tw_logger_close();

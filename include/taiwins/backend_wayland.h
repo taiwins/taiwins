@@ -28,6 +28,9 @@
 extern "C" {
 #endif
 
+bool
+tw_wl_backend_has_socket(void);
+
 struct tw_backend *
 tw_wl_backend_create(struct wl_display *display, const char *remote);
 
