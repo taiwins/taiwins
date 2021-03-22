@@ -568,7 +568,7 @@ tw_drm_display_check_action(struct tw_drm_display *output,
 	//the default pending,
 
 	//TODO we need to check this enabling logic
-	bool backend_started = drm->base.started;
+	bool backend_started = drm->base.started || drm->base.preparing;
 	bool connected = conn ? conn->connection == DRM_MODE_CONNECTED : true;
 	bool enabled = state_pend->active && connected;
 	bool active = state_curr->active;

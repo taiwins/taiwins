@@ -60,6 +60,7 @@ struct tw_backend {
 	struct wl_list outputs;
 
 	bool started;
+	bool preparing; /**< preparing indicates we are in tw_backend_start */
 	struct wl_listener render_context_destroy;
 };
 
