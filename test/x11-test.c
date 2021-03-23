@@ -29,6 +29,7 @@ struct data {
 #endif
 	struct {
 		struct wl_listener xserver_ready;
+		struct wl_listener seat_focused;
 	} listeners;
 };
 
@@ -45,6 +46,21 @@ notify_xserver_ready(struct wl_listener *listener, void *data)
 	tw_xserver_create_xwindow_manager(d->xserver, desktop,
 	                                  &d->engine->compositor_manager);
 }
+
+static void
+notify_xserver_seat_focused(struct wl_listener *listener, void *data)
+{
+	struct data *d =
+		wl_container_of(listener, d, listeners.seat_focused);
+	struct tw_engine_seat *seat = data;
+	struct tw_data_device *dev;
+
+	wl_list_for_each(dev, &d->engine->data_device_manager.devices, link) {
+		if (dev->seat == seat->tw_seat)
+			tw_xserver_set_seat(d->xserver, dev);
+	}
+}
+
 #endif
 
 static int
@@ -106,6 +122,7 @@ int main(int argc, char *argv[])
 		tw_engine_create_global(display, backend);
 	if (!engine)
 		goto err;
+
 	struct tw_render_pipeline *pipeline =
 		tw_egl_render_pipeline_create_default(ctx,
 		                                      &engine->layers_manager);
@@ -125,10 +142,14 @@ int main(int argc, char *argv[])
 
 	};
 	(void)data;
+
 #ifdef _TW_HAS_XWAYLAND
         tw_signal_setup_listener(&xserver->signals.ready,
 	                         &data.listeners.xserver_ready,
 	                         notify_xserver_ready);
+        tw_signal_setup_listener(&engine->signals.seat_focused,
+                                 &data.listeners.seat_focused,
+                                 notify_xserver_seat_focused);
 #endif
 
 	tw_backend_start(backend, ctx);
