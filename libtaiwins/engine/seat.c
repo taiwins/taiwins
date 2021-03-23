@@ -36,6 +36,16 @@
 #include "internal.h"
 
 static void
+update_focused_seat(struct tw_engine_seat *seat)
+{
+	struct tw_engine *engine = seat->engine;
+	if (engine->focused_seat != seat) {
+		engine->focused_seat = seat;
+		wl_signal_emit(&engine->signals.seat_focused, seat);
+	}
+}
+
+static void
 notify_seat_remove_device(struct wl_listener *listener, void *data)
 {
 	struct tw_engine_seat *seat =
@@ -132,6 +142,7 @@ notify_seat_keyboard_key(struct wl_listener *listener, void *data)
 
 	tw_keyboard_notify_key(seat_keyboard, event->time, event->keycode,
 	                       event->state);
+	update_focused_seat(seat);
 }
 
 /******************************************************************************
@@ -152,6 +163,7 @@ notify_seat_pointer_button(struct wl_listener *listener, void *data)
 		seat_pointer->btn_count--;
 	tw_pointer_notify_button(seat_pointer, event->time, event->button,
 	                         event->state);
+	update_focused_seat(seat);
 }
 
 static void
@@ -321,7 +333,6 @@ notify_seat_pointer_swipe_end(struct wl_listener *listener, void *data)
 	                      event->cancelled);
 }
 
-
 /******************************************************************************
  * touch listeners
  *****************************************************************************/
@@ -352,6 +363,7 @@ notify_seat_touch_down(struct wl_listener *listener, void *data)
 		tw_touch_notify_down(touch, event->time,
 		                     event->touch_id, x, y);
 	}
+	update_focused_seat(seat);
 }
 
 static void
@@ -631,19 +643,8 @@ WL_EXPORT struct tw_engine_seat *
 tw_engine_get_focused_seat(struct tw_engine *engine)
 {
 	//compare the last serial, the biggest win.
-	struct tw_engine_seat *seat = NULL, *selected = NULL;
-	uint32_t serial = 0;
+	struct tw_engine_seat *seat, *selected = engine->focused_seat;
 
-	wl_list_for_each(seat, &engine->inputs, link) {
-		if (seat->tw_seat->last_pointer_serial > serial) {
-			selected = seat;
-			serial = seat->tw_seat->last_pointer_serial;
-		}
-		if (seat->tw_seat->last_touch_serial > serial) {
-			selected = seat;
-			serial = seat->tw_seat->last_touch_serial;
-		}
-	}
 	if (!selected)
 		wl_list_for_each(seat, &engine->inputs, link) {
 			selected = seat;
