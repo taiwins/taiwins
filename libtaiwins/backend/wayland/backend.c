@@ -163,7 +163,7 @@ wl_start_backend(struct tw_backend *backend, struct tw_render_context *ctx)
 		tw_wl_backend_new_output(&wl->base, 1280, 720);
 
 	wl_list_for_each(output, &wl->base.outputs, output.device.link)
-		tw_wl_surface_start(output);
+		tw_wl_surface_start_maybe(output);
 
 	wl_list_for_each(seat, &wl->seats, link)
 		tw_wl_seat_start(seat);
