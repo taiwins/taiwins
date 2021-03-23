@@ -544,6 +544,12 @@ create_xwm_wm_window(struct tw_xwm *xwm)
 
 }
 
+static inline void
+create_xwm_selections(struct tw_xwm *xwm)
+{
+	tw_xwm_init_selection(xwm);
+}
+
 static void
 notify_xwm_wl_surface_created(struct wl_listener *listener, void *data)
 {
@@ -573,7 +579,7 @@ notify_xwm_server_destroy(struct wl_listener *listener, void *data)
  * 2) Setting up server resources and listening on the wmfd for events.
  * 3) processing the events and sending the input events to xserver
  */
-WL_EXPORT struct tw_xwm *
+WL_EXPORT bool
 tw_xserver_create_xwindow_manager(struct tw_xserver *server,
                                   struct tw_desktop_manager *desktop_manager,
                                   struct tw_compositor *compositor)
@@ -626,8 +632,8 @@ tw_xserver_create_xwindow_manager(struct tw_xserver *server,
         if (!change_window_attributes(xwm))
 	        goto err;
         //TODO create cursor,
-
 	create_xwm_wm_window(xwm);
+	create_xwm_selections(xwm);
 
 	tw_signal_setup_listener(&server->signals.destroy,
 	                         &xwm->listeners.server_destroy,
@@ -638,25 +644,17 @@ tw_xserver_create_xwindow_manager(struct tw_xserver *server,
 
 	wl_event_source_check(xwm->x11_event);
         xcb_flush(xwm->xcb_conn);
-        return xwm;
+        server->wm = xwm;
+
+        return true;
 err:
 	destroy_xwm(xwm);
-	return NULL;
+	return false;
 }
 
-char *
-tw_xwm_get_atom_name(struct tw_xwm *xwm, xcb_atom_t atom)
+WL_EXPORT void
+tw_xserver_set_seat(struct tw_xserver *server, struct tw_data_device *device)
 {
-	xcb_get_atom_name_cookie_t name_cookie =
-		xcb_get_atom_name(xwm->xcb_conn, atom);
-	xcb_get_atom_name_reply_t *name_reply =
-		xcb_get_atom_name_reply(xwm->xcb_conn, name_cookie, NULL);
-	if (name_reply == NULL) {
-		return NULL;
-	}
-	size_t len = xcb_get_atom_name_name_length(name_reply);
-	char *buf = xcb_get_atom_name_name(name_reply); // not a C string
-	char *name = strndup(buf, len);
-	free(name_reply);
-	return name;
+	struct tw_xwm *xwm = server->wm;
+	xwm->seat = device;
 }

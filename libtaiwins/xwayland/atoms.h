@@ -110,6 +110,9 @@ xwm_mime_name_to_atom(struct tw_xwm *xwm, const char *name);
 char *
 xwm_mime_atom_to_name(struct tw_xwm *xwm, xcb_atom_t atom);
 
+char *
+xwm_get_atom_name(struct tw_xwm *xwm, xcb_atom_t atom);
+
 #ifdef  __cplusplus
 }
 #endif

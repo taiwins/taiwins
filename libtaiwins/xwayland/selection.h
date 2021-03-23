@@ -89,6 +89,12 @@ struct tw_xwm_selection {
 };
 
 void
+tw_xwm_init_selection(struct tw_xwm *xwm);
+
+void
+tw_xwm_fini_selection(struct tw_xwm *xwm);
+
+void
 tw_xwm_data_transfer_init_write(struct tw_xwm_data_transfer *transfer,
                                 struct tw_xwm_selection *selection,
                                 int fd);

@@ -226,9 +226,6 @@ tw_xsurface_read_client_msg(struct tw_xsurface *surface,
 void
 tw_xsurface_set_focus(struct tw_xsurface *surface, struct tw_xwm *xwm);
 
-char *
-tw_xwm_get_atom_name(struct tw_xwm *xwm, xcb_atom_t atom);
-
 
 #ifdef  __cplusplus
 }

@@ -24,14 +24,13 @@
 #include <string.h>
 #include <wayland-server.h>
 #include <taiwins/objects/data_device.h>
+#include <taiwins/objects/logger.h>
 #include <wayland-util.h>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
 
 #include "selection.h"
 #include "internal.h"
-#include "taiwins/objects/logger.h"
-#include "xwayland/atoms.h"
 
 /*
  * now we recevies a wayland client as for writing the data. Then we would ask

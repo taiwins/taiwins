@@ -216,7 +216,7 @@ handle_selection_request(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 		tw_logl_level(TW_LOG_DBUG, "not our business");
 		goto send_none_notify;
 	} else if (xwm->focus_window == NULL) {
-		char *name = tw_xwm_get_atom_name(xwm, selection->type);
+		char *name = xwm_get_atom_name(xwm, selection->type);
 		tw_logl_level(TW_LOG_DBUG, "deny access to selection %s, "
 		              "no xwayland surface focused", selection->type);
 		free(name);

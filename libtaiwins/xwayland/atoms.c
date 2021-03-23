@@ -197,3 +197,20 @@ xwm_mime_atom_to_name(struct tw_xwm *xwm, xcb_atom_t atom)
 	}
 	return mime_type;
 }
+
+char *
+xwm_get_atom_name(struct tw_xwm *xwm, xcb_atom_t atom)
+{
+	xcb_get_atom_name_cookie_t name_cookie =
+		xcb_get_atom_name(xwm->xcb_conn, atom);
+	xcb_get_atom_name_reply_t *name_reply =
+		xcb_get_atom_name_reply(xwm->xcb_conn, name_cookie, NULL);
+	if (name_reply == NULL) {
+		return NULL;
+	}
+	size_t len = xcb_get_atom_name_name_length(name_reply);
+	char *buf = xcb_get_atom_name_name(name_reply); // not a C string
+	char *name = strndup(buf, len);
+	free(name_reply);
+	return name;
+}
