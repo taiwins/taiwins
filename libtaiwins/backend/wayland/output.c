@@ -42,25 +42,54 @@
 #include "internal.h"
 
 static void
+tw_wl_surface_start(struct tw_wl_surface *output);
+
+static bool
+check_pending_stop(struct tw_output_device *output)
+{
+	struct tw_wl_surface *wl_surface =
+		wl_container_of(output, wl_surface, output.device);
+
+	bool penable = output->pending.enabled;
+	bool cenable = output->state.enabled;
+
+	if (wl_surface->egl_window && cenable && !penable) {
+		tw_logl_level(TW_LOG_WARN, "changing wl_output@%s enabling "
+		              "to %s not supported after started",
+		              output->name, penable ? "true" : "false");
+		return false;
+	}
+	return true;
+}
+
+static void
 handle_commit_output_state(struct tw_output_device *output)
 {
 	struct tw_wl_surface *wl_surface =
 		wl_container_of(output, wl_surface, output.device);
 	unsigned width, height;
+	bool enabled = output->pending.enabled || output->state.enabled;
+
+	if (!check_pending_stop(output))
+		return;
 
 	assert(output->pending.scale >= 1.0);
 	assert(output->pending.current_mode.h > 0 &&
 	       output->pending.current_mode.w > 0);
+
         memcpy(&output->state, &output->pending, sizeof(output->state));
-        //override the refresh rate
+        //override the enabling and refresh rate
+        output->state.enabled = enabled;
         output->state.current_mode.refresh = wl_surface->residing ?
 	        (int)wl_surface->residing->r : -1;
 
+        //resize, maybe getting output to start?
         tw_output_device_raw_resolution(output, &width, &height);
-
         if (wl_surface->egl_window)
 	        wl_egl_window_resize(wl_surface->egl_window, width, height,
 	                             0, 0);
+        else if (enabled)
+	        tw_wl_surface_start(wl_surface);
 }
 
 static const struct tw_output_device_impl output_impl = {
@@ -306,7 +335,7 @@ notify_output_commit(struct wl_listener *listener, void *data)
 	tw_render_output_clean_maybe(&output->output);
 }
 
-void
+static void
 tw_wl_surface_start(struct tw_wl_surface *output)
 {
 	struct tw_wl_backend *wl = output->wl;
@@ -327,7 +356,6 @@ tw_wl_surface_start(struct tw_wl_surface *output)
 	wl_surface_commit(output->wl_surface);
 
 	tw_render_output_set_context(&output->output, wl->base.ctx);
-	tw_output_device_commit_state(&output->output.device);
 	tw_output_device_raw_resolution(&output->output.device,
 	                                &width, &height);
 
@@ -342,15 +370,20 @@ tw_wl_surface_start(struct tw_wl_surface *output)
 	}
 
 	wl_display_roundtrip(wl->remote_display);
-
-	//finally
-	wl_signal_emit(&wl->base.signals.new_output, &output->output.device);
-	wl_signal_emit(&output->output.device.signals.info,
-	               &output->output.device);
-
+	//trigger the initial frame
 	output->frame = NULL;
 	handle_callback_done(output, output->frame, 0);
 	tw_render_output_dirty(&output->output);
+}
+
+void
+tw_wl_surface_start_maybe(struct tw_wl_surface *output)
+{
+	struct tw_wl_backend *wl = output->wl;
+	struct tw_output_device *dev = &output->output.device;
+
+	wl_signal_emit(&wl->base.signals.new_output, dev);
+	tw_output_device_commit_state(dev);
 }
 
 WL_EXPORT bool
@@ -405,7 +438,7 @@ tw_wl_backend_new_output(struct tw_backend *backend,
 	wl_list_insert(backend->outputs.prev, &output->output.device.link);
 
 	if (backend->started)
-		tw_wl_surface_start(output);
+		tw_wl_surface_start_maybe(output);
 
 	return true;
 err_toplevel:

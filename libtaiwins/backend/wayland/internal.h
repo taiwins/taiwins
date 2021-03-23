@@ -114,7 +114,7 @@ void
 tw_wl_surface_remove(struct tw_wl_surface *output);
 
 void
-tw_wl_surface_start(struct tw_wl_surface *output);
+tw_wl_surface_start_maybe(struct tw_wl_surface *output);
 
 #ifdef  __cplusplus
 }
