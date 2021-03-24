@@ -62,7 +62,7 @@ check_pending_stop(struct tw_output_device *output)
 	return true;
 }
 
-static void
+static bool
 handle_commit_output_state(struct tw_output_device *output)
 {
 	struct tw_wl_surface *wl_surface =
@@ -71,7 +71,7 @@ handle_commit_output_state(struct tw_output_device *output)
 	bool enabled = output->pending.enabled || output->state.enabled;
 
 	if (!check_pending_stop(output))
-		return;
+		return false;
 
 	assert(output->pending.scale >= 1.0);
 	assert(output->pending.current_mode.h > 0 &&
@@ -90,6 +90,7 @@ handle_commit_output_state(struct tw_output_device *output)
 	                             0, 0);
         else if (enabled)
 	        tw_wl_surface_start(wl_surface);
+        return true;
 }
 
 static const struct tw_output_device_impl output_impl = {

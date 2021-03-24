@@ -61,7 +61,7 @@ check_pending_stop(struct tw_output_device *dev)
 	return true;
 }
 
-static void
+static bool
 handle_commit_output_state(struct tw_output_device *output)
 {
 	struct tw_x11_output *x11_output =
@@ -72,9 +72,9 @@ handle_commit_output_state(struct tw_output_device *output)
 	pending.current_mode.refresh = DEFAULT_REFRESH;
 	pending.enabled = enabled;
 	if (!check_pending_stop(output))
-		return;
+		return false;
 	if (tw_output_device_state_eq(&output->state, &pending))
-		return;
+		return false;
 
 	assert(pending.scale >= 1.0);
 	assert(pending.current_mode.h > 0 && pending.current_mode.w > 0);
@@ -85,6 +85,7 @@ handle_commit_output_state(struct tw_output_device *output)
 
 	if (x11_output->win == XCB_WINDOW_NONE && enabled)
 		tw_x11_output_start(x11_output);
+	return true;
 }
 
 static const struct tw_output_device_impl x11_output_impl = {

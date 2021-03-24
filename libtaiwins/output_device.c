@@ -186,10 +186,11 @@ WL_EXPORT void
 tw_output_device_commit_state(struct tw_output_device *device)
 {
 	//emit for backend
-	device->impl->commit_state(device);
-	wl_signal_emit(&device->signals.commit_state, device);
-	//emit for sending new backend info.
-	wl_signal_emit(&device->signals.info, device);
+	if (device->impl->commit_state(device)) {
+		wl_signal_emit(&device->signals.commit_state, device);
+		//emit for sending new backend info.
+		wl_signal_emit(&device->signals.info, device);
+	}
 }
 
 WL_EXPORT void

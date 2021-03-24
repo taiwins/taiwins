@@ -269,7 +269,7 @@ select_display_mode(struct tw_drm_display *output)
 		tw_output_device_set_mode(device, &mode_info->mode);
 }
 
-static void
+static bool
 handle_display_commit_state(struct tw_output_device *device)
 {
 	struct tw_drm_display *output =
@@ -284,6 +284,7 @@ handle_display_commit_state(struct tw_output_device *device)
 	device->state.enabled = enabled;
 
 	tw_drm_display_check_action(output, NULL);
+	return true;
 }
 
 static const struct tw_output_device_impl output_dev_impl = {

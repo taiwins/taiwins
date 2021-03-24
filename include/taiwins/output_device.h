@@ -55,7 +55,7 @@ struct tw_output_device_state {
 };
 
 struct tw_output_device_impl {
-	void (*commit_state) (struct tw_output_device *device);
+	bool (*commit_state) (struct tw_output_device *device);
 };
 
 struct tw_event_output_device_present {
