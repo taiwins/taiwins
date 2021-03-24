@@ -146,8 +146,12 @@ void
 tw_output_device_present(struct tw_output_device *device,
                          struct tw_event_output_device_present *event);
 bool
+tw_output_device_mode_eq(const struct tw_output_device_mode *a,
+                         const struct tw_output_device_mode *b);
+bool
 tw_output_device_state_eq(const struct tw_output_device_state *a,
                           const struct tw_output_device_state *b);
+
 pixman_rectangle32_t
 tw_output_device_geometry(const struct tw_output_device *device);
 

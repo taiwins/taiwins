@@ -68,7 +68,6 @@ struct tw_engine_output {
 
 	int id, cloning;
 	struct wl_list link; /* tw_engine:heads */
-	char name[24];
 
 	struct tw_cursor_constrain constrain;
 

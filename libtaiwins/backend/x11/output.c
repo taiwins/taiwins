@@ -45,6 +45,9 @@
 static bool
 tw_x11_output_start(struct tw_x11_output *output);
 
+static void
+tw_x11_output_resize(struct tw_x11_output *output);
+
 static bool
 check_pending_stop(struct tw_output_device *dev)
 {
@@ -68,6 +71,8 @@ handle_commit_output_state(struct tw_output_device *output)
 		wl_container_of(output, x11_output, output.device);
 	bool enabled = output->pending.enabled || output->state.enabled;
 	struct tw_output_device_state pending = output->pending;
+	bool resize = !tw_output_device_mode_eq(&output->state.current_mode,
+	                                        &output->pending.current_mode);
 
 	pending.current_mode.refresh = DEFAULT_REFRESH;
 	pending.enabled = enabled;
@@ -85,6 +90,8 @@ handle_commit_output_state(struct tw_output_device *output)
 
 	if (x11_output->win == XCB_WINDOW_NONE && enabled)
 		tw_x11_output_start(x11_output);
+	else if (resize)
+		tw_x11_output_resize(x11_output);
 	return true;
 }
 
@@ -148,6 +155,19 @@ notify_output_commit(struct wl_listener *listener, void *data)
 		wl_container_of(listener, output, output_commit_listener);
 	tw_output_device_present(&output->output.device, NULL);
 	tw_render_output_clean_maybe(&output->output);
+}
+
+static void
+tw_x11_output_resize(struct tw_x11_output *output)
+{
+	uint32_t values[2];
+	tw_output_device_raw_resolution(&output->output.device,
+	                                &values[0], &values[1]);
+
+	xcb_configure_window(output->x11->xcb_conn,
+	                     output->win, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT,
+	                     values);
+	xcb_flush(output->x11->xcb_conn);
 }
 
 static bool

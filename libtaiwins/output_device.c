@@ -259,6 +259,13 @@ tw_output_device_raw_resolution(const struct tw_output_device *device,
 }
 
 WL_EXPORT bool
+tw_output_device_mode_eq(const struct tw_output_device_mode *a,
+                         const struct tw_output_device_mode *b)
+{
+	return output_device_mode_match(a, b->w, b->h, b->refresh);
+}
+
+WL_EXPORT bool
 tw_output_device_state_eq(const struct tw_output_device_state *a,
                           const struct tw_output_device_state *b)
 {
@@ -267,8 +274,5 @@ tw_output_device_state_eq(const struct tw_output_device_state *a,
 		a->gx == b->gx &&
 		a->gy == b->gy &&
 		a->transform == b->transform &&
-		output_device_mode_match(&a->current_mode,
-		                         b->current_mode.w,
-		                         b->current_mode.h,
-		                         b->current_mode.refresh);
+		tw_output_device_mode_eq(&a->current_mode, &b->current_mode);
 }

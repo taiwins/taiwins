@@ -166,7 +166,7 @@ tw_config_output_from_backend_output(struct tw_config_table *t,
                                      struct tw_engine_output *output)
 {
 	for (unsigned i = 0; i < NUMOF(t->outputs); i++) {
-		if (!strcmp(output->name, t->outputs[i].name))
+		if (!strcmp(output->device->name, t->outputs[i].name))
 			return &t->outputs[i];
 	}
 	return NULL;
