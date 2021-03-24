@@ -67,19 +67,21 @@ handle_commit_output_state(struct tw_output_device *output)
 	struct tw_x11_output *x11_output =
 		wl_container_of(output, x11_output, output.device);
 	bool enabled = output->pending.enabled || output->state.enabled;
+	struct tw_output_device_state pending = output->pending;
 
+	pending.current_mode.refresh = DEFAULT_REFRESH;
+	pending.enabled = enabled;
 	if (!check_pending_stop(output))
 		return;
+	if (tw_output_device_state_eq(&output->state, &pending))
+		return;
 
-	assert(output->pending.scale >= 1.0);
-	assert(output->pending.current_mode.h > 0 &&
-	       output->pending.current_mode.w > 0);
+	assert(pending.scale >= 1.0);
+	assert(pending.current_mode.h > 0 && pending.current_mode.w > 0);
 
 	//the x11 backend will simply resize the output for us so we only need
 	//to update the view matrix
-	memcpy(&output->state, &output->pending, sizeof(output->state));
-	output->state.current_mode.refresh = DEFAULT_REFRESH;
-	output->state.enabled = enabled;
+	memcpy(&output->state, &pending, sizeof(output->state));
 
 	if (x11_output->win == XCB_WINDOW_NONE && enabled)
 		tw_x11_output_start(x11_output);
