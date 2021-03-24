@@ -177,7 +177,7 @@ x11_start_backend(struct tw_backend *backend,
 		tw_x11_backend_add_output(&x11->base, 1000, 720);
 
 	wl_list_for_each(output, &x11->base.outputs, output.device.link)
-		tw_x11_output_start(output);
+		tw_x11_output_start_maybe(output);
 	wl_signal_emit(&x11->base.signals.new_input, &x11->keyboard);
 
 	return true;

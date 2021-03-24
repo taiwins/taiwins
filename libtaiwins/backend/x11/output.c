@@ -42,21 +42,61 @@
 #define DEFAULT_REFRESH (60 * 1000) /* 60Hz */
 #define FRAME_DELAY (1000000 / DEFAULT_REFRESH)
 
+static bool
+tw_x11_output_start(struct tw_x11_output *output);
+
 static void
-x11_commit_output_state(struct tw_output_device *output)
+tw_x11_output_resize(struct tw_x11_output *output);
+
+static bool
+check_pending_stop(struct tw_output_device *dev)
 {
-	assert(output->pending.scale >= 1.0);
-	assert(output->pending.current_mode.h > 0 &&
-	       output->pending.current_mode.w > 0);
+	struct tw_x11_output *output =
+		wl_container_of(dev, output, output.device);
+	bool penable = dev->pending.enabled;
+
+	if (output->win != XCB_WINDOW_NONE && !penable) {
+		tw_logl_level(TW_LOG_WARN, "changing x11_output@%s to %s is "
+		              "not possible after started",
+		              dev->name, penable ? "true" : "false");
+		return false;
+	}
+	return true;
+}
+
+static bool
+handle_commit_output_state(struct tw_output_device *output)
+{
+	struct tw_x11_output *x11_output =
+		wl_container_of(output, x11_output, output.device);
+	bool enabled = output->pending.enabled || output->state.enabled;
+	struct tw_output_device_state pending = output->pending;
+	bool resize = !tw_output_device_mode_eq(&output->state.current_mode,
+	                                        &output->pending.current_mode);
+
+	pending.current_mode.refresh = DEFAULT_REFRESH;
+	pending.enabled = enabled;
+	if (!check_pending_stop(output))
+		return false;
+	if (tw_output_device_state_eq(&output->state, &pending))
+		return false;
+
+	assert(pending.scale >= 1.0);
+	assert(pending.current_mode.h > 0 && pending.current_mode.w > 0);
 
 	//the x11 backend will simply resize the output for us so we only need
 	//to update the view matrix
-	memcpy(&output->state, &output->pending, sizeof(output->state));
-	output->state.current_mode.refresh = DEFAULT_REFRESH;
+	memcpy(&output->state, &pending, sizeof(output->state));
+
+	if (x11_output->win == XCB_WINDOW_NONE && enabled)
+		tw_x11_output_start(x11_output);
+	else if (resize)
+		tw_x11_output_resize(x11_output);
+	return true;
 }
 
 static const struct tw_output_device_impl x11_output_impl = {
-	.commit_state = x11_commit_output_state,
+	.commit_state = handle_commit_output_state,
 };
 
 static int
@@ -117,7 +157,20 @@ notify_output_commit(struct wl_listener *listener, void *data)
 	tw_render_output_clean_maybe(&output->output);
 }
 
-bool
+static void
+tw_x11_output_resize(struct tw_x11_output *output)
+{
+	uint32_t values[2];
+	tw_output_device_raw_resolution(&output->output.device,
+	                                &values[0], &values[1]);
+
+	xcb_configure_window(output->x11->xcb_conn,
+	                     output->win, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT,
+	                     values);
+	xcb_flush(output->x11->xcb_conn);
+}
+
+static bool
 tw_x11_output_start(struct tw_x11_output *output)
 {
 	struct tw_x11_backend *x11 = output->x11;
@@ -135,7 +188,6 @@ tw_x11_output_start(struct tw_x11_output *output)
 	                         notify_output_commit);
 
 	tw_render_output_set_context(&output->output, x11->base.ctx);
-	tw_output_device_commit_state(&output->output.device);
 	tw_output_device_raw_resolution(&output->output.device,
 	                                &width, &height);
 
@@ -181,14 +233,22 @@ tw_x11_output_start(struct tw_x11_output *output)
 	                                              output);
 	wl_event_source_timer_update(output->frame_timer, FRAME_DELAY);
 
-	//finally
-	wl_signal_emit(&x11->base.signals.new_output, &output->output.device);
-	wl_signal_emit(&output->output.device.signals.info,
-	               &output->output.device);
+	//signal the pointer for the output
 	wl_signal_emit(&x11->base.signals.new_input, &output->pointer);
 
 	return true;
 }
+
+void
+tw_x11_output_start_maybe(struct tw_x11_output *output)
+{
+	struct tw_x11_backend *x11 = output->x11;
+	struct tw_output_device *dev = &output->output.device;
+
+	wl_signal_emit(&x11->base.signals.new_output, dev);
+	tw_output_device_commit_state(dev);
+}
+
 
 WL_EXPORT bool
 tw_x11_backend_add_output(struct tw_backend *backend,

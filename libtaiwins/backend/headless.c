@@ -171,13 +171,14 @@ static const struct tw_backend_impl headless_impl = {
 	.gen_egl_params = headless_gen_egl_params,
 };
 
-static void
+static bool
 headless_commit_output_state(struct tw_output_device *device)
 {
 	assert(device->pending.scale >= 1.0);
 	assert(device->pending.current_mode.h > 0 &&
 	       device->pending.current_mode.w > 0);
 	memcpy(&device->state, &device->pending, sizeof(device->state));
+	return true;
 }
 
 static const struct tw_output_device_impl headless_output_impl = {

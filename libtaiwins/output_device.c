@@ -48,6 +48,13 @@ output_device_state_init(struct tw_output_device_state *state,
 	state->gy = 0;
 }
 
+static inline bool
+output_device_mode_match(const struct tw_output_device_mode *mode,
+                         int w, int h, int r)
+{
+	return mode->w == w && mode->h == h && mode->refresh == r;
+}
+
 WL_EXPORT void
 tw_output_device_init(struct tw_output_device *device,
                       const struct tw_output_device_impl *impl)
@@ -140,7 +147,7 @@ tw_output_device_match_mode(struct tw_output_device *device,
 		uint64_t diff = abs(mode->w-w) * abs(mode->h-h) * 1000 +
 			abs(mode->refresh - r);
 
-		if (w == mode->w && h == mode->h && r == mode->refresh)
+		if (output_device_mode_match(mode, w, h, r))
 			return mode;
 
 		if (diff < min_diff) {
@@ -179,10 +186,11 @@ WL_EXPORT void
 tw_output_device_commit_state(struct tw_output_device *device)
 {
 	//emit for backend
-	device->impl->commit_state(device);
-	wl_signal_emit(&device->signals.commit_state, device);
-	//emit for sending new backend info.
-	wl_signal_emit(&device->signals.info, device);
+	if (device->impl->commit_state(device)) {
+		wl_signal_emit(&device->signals.commit_state, device);
+		//emit for sending new backend info.
+		wl_signal_emit(&device->signals.info, device);
+	}
 }
 
 WL_EXPORT void
@@ -248,4 +256,23 @@ tw_output_device_raw_resolution(const struct tw_output_device *device,
 {
 	*width = device->state.current_mode.w;
 	*height = device->state.current_mode.h;
+}
+
+WL_EXPORT bool
+tw_output_device_mode_eq(const struct tw_output_device_mode *a,
+                         const struct tw_output_device_mode *b)
+{
+	return output_device_mode_match(a, b->w, b->h, b->refresh);
+}
+
+WL_EXPORT bool
+tw_output_device_state_eq(const struct tw_output_device_state *a,
+                          const struct tw_output_device_state *b)
+{
+	return a->enabled == b->enabled &&
+		a->scale == b->scale &&
+		a->gx == b->gx &&
+		a->gy == b->gy &&
+		a->transform == b->transform &&
+		tw_output_device_mode_eq(&a->current_mode, &b->current_mode);
 }
