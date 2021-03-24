@@ -646,6 +646,9 @@ notify_shell_resize_output(struct wl_listener *listener, void *data)
 	struct tw_engine_output *output = data;
 	struct tw_shell *shell =
 		wl_container_of(listener, shell, output_resize_listener);
+	struct tw_shell_output *shell_output =
+		shell_output_from_engine_output(shell, output);
+	shell_change_desktop_area(shell_output);
 	shell_send_output_config(shell, output,
 	                         TAIWINS_SHELL_OUTPUT_MSG_CHANGE);
 }
