@@ -89,8 +89,8 @@ struct tw_x11_output {
 void
 tw_x11_handle_input_event(struct tw_x11_backend *x11,
                           xcb_ge_generic_event_t *ge);
-bool
-tw_x11_output_start(struct tw_x11_output *output);
+void
+tw_x11_output_start_maybe(struct tw_x11_output *output);
 
 void
 tw_x11_remove_output(struct tw_x11_output *output);
