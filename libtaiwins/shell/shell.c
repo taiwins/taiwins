@@ -153,7 +153,6 @@ commit_panel(struct tw_surface *surface)
 	//TODO: in the future, we can use ui_configure instead of
 	//output_configure for the size. For now we expect surfaces to hornor
 	//size.
-	assert(geo->width == output_geo.width);
 	ui->x = output_geo.x;
 	ui->y = output_geo.y;
 
