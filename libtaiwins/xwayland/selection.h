@@ -86,6 +86,11 @@ struct tw_xwm_selection {
 	struct tw_xwm_data_source source;
 	//the wayland side source, not managed by us
 	struct tw_data_source *wl_source;
+
+	struct tw_data_device *seat;
+	//on data_device set source or drag source enter the surface.
+	struct wl_listener source_set;
+	struct wl_listener source_removed;
 };
 
 void
@@ -93,6 +98,10 @@ tw_xwm_init_selection(struct tw_xwm *xwm);
 
 void
 tw_xwm_fini_selection(struct tw_xwm *xwm);
+
+void
+tw_xwm_selection_set_device(struct tw_xwm_selection *selection,
+                            struct tw_data_device *device);
 
 void
 tw_xwm_data_transfer_init_write(struct tw_xwm_data_transfer *transfer,

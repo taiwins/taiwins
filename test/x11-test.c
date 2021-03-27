@@ -55,12 +55,15 @@ notify_xserver_seat_focused(struct wl_listener *listener, void *data)
 	struct tw_engine_seat *seat = data;
 	struct tw_data_device *dev;
 
-	wl_list_for_each(dev, &d->engine->data_device_manager.devices, link) {
-		if (dev->seat == seat->tw_seat)
-			tw_xserver_set_seat(d->xserver, dev);
-	}
-}
+	//wm not started
+	if (!d->xserver->wm)
+		return;
 
+	dev = tw_data_device_find_create(&d->engine->data_device_manager,
+	                                 seat->tw_seat);
+	if (dev)
+		tw_xserver_set_seat(d->xserver, dev);
+}
 #endif
 
 static int

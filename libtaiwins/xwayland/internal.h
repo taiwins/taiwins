@@ -133,7 +133,6 @@ struct tw_xwm {
 	struct wl_event_source *x11_event;
 	struct tw_desktop_manager *manager;
 	struct tw_xsurface *focus_window;
-	struct tw_data_device *seat;
 	struct tw_xwm_selection selection, dnd;
 	struct {
 		struct wl_listener server_destroy;

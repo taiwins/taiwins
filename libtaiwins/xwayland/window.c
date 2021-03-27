@@ -71,6 +71,37 @@ send_xsurface_wm_state(struct tw_xsurface *surface, int32_t state)
 	                    2, property);
 }
 
+static inline void
+get_xsurface_net_wm_state(struct tw_xsurface *surface,
+                          bool *fullscreened, bool *maximized, bool *hidden)
+{
+	struct tw_desktop_surface *dsurf = &surface->dsurf;
+
+	*fullscreened = (dsurf->states & TW_DESKTOP_SURFACE_FULLSCREENED);
+	*maximized = (dsurf->states & TW_DESKTOP_SURFACE_MAXIMIZED);
+	*hidden = (dsurf->states & TW_DESKTOP_SURFACE_MINIMIZED);
+}
+
+static void
+set_xsurface_net_wm_state(struct tw_xsurface *surface,
+                          bool fullscreen, bool maximize, bool hide)
+{
+	struct tw_desktop_surface *dsurf = &surface->dsurf;
+	bool fullscreened, maximized, hidden;
+
+	if (!dsurf->surface_added)
+		return;
+	get_xsurface_net_wm_state(surface, &fullscreened, &maximized, &hidden);
+
+	if (fullscreen != fullscreened)
+		tw_desktop_surface_set_fullscreen(dsurf, NULL, fullscreen);
+	else if (maximize != maximized)
+		tw_desktop_surface_set_maximized(dsurf, maximize);
+	else if (hidden && !(dsurf->states & TW_DESKTOP_SURFACE_MINIMIZED))
+		tw_desktop_surface_set_minimized(dsurf);
+}
+
+
 static void
 send_xsurface_net_wm_state(struct tw_xsurface *surface)
 {
@@ -79,12 +110,12 @@ send_xsurface_net_wm_state(struct tw_xsurface *surface)
 	size_t i = 0;
 	struct tw_desktop_surface *dsurf = &surface->dsurf;
 
-	if (dsurf->fullscreened) {
+	if (dsurf->states & TW_DESKTOP_SURFACE_FULLSCREENED) {
 		property[i++] = xwm->atoms.net_wm_state_fullscreen;
-	} else if (dsurf->maximized) {
+	} else if (dsurf->states & TW_DESKTOP_SURFACE_MAXIMIZED) {
 		property[i++] = xwm->atoms.net_wm_state_maximized_horz;
 		property[i++] = xwm->atoms.net_wm_state_maximized_vert;
-	} else if (dsurf->minimized) {
+	} else if (dsurf->states & TW_DESKTOP_SURFACE_MINIMIZED) {
 		property[i++] = xwm->atoms.net_wm_state_hidden;
 	}
 
@@ -96,23 +127,6 @@ send_xsurface_net_wm_state(struct tw_xsurface *surface)
 		                    xwm->atoms.net_wm_state, XCB_ATOM_ATOM,
 		                    32, // format
 		                    i, property);
-}
-
-static void
-set_xsurface_net_wm_state(struct tw_xsurface *surface,
-                          bool fullscreen, bool maximize, bool hidden)
-{
-	struct tw_desktop_surface *dsurf = &surface->dsurf;
-
-	if (dsurf->surface_added) {
-		if (fullscreen != dsurf->fullscreened)
-			tw_desktop_surface_set_fullscreen(dsurf, NULL,
-			                                  fullscreen);
-		else if (maximize != dsurf->maximized)
-			tw_desktop_surface_set_maximized(dsurf, maximize);
-		else if (hidden && !dsurf->minimized)
-			tw_desktop_surface_set_minimized(dsurf);
-	}
 }
 
 /******************************************************************************
@@ -397,15 +411,12 @@ static void
 read_net_wm_state_msg(struct tw_xsurface *surface, struct tw_xwm *xwm,
                       xcb_client_message_event_t *ev)
 {
-	struct tw_desktop_surface *dsurf = &surface->dsurf;
-	bool fullscreend = dsurf->fullscreened;
-	bool maximized = dsurf->maximized;
-	bool hidden = dsurf->minimized;
+	bool fullscreend, maximized, hidden;
         uint32_t action = ev->data.data32[0];
         uint32_t property1 = ev->data.data32[1];
         uint32_t property2 = ev->data.data32[2];
 
-        //request the state to the implemenation.
+        get_xsurface_net_wm_state(surface, &fullscreend, &maximized, &hidden);
         if ((property1 == xwm->atoms.net_wm_state_fullscreen) ||
             (property2 == xwm->atoms.net_wm_state_fullscreen))
 	        fullscreend = set_state(action, fullscreend);
@@ -507,7 +518,7 @@ static void
 handle_configure_tw_xsurface(struct tw_desktop_surface *dsurf,
                              enum wl_shell_surface_resize edge,
                              int32_t x, int32_t y,
-                             unsigned width, unsigned height)
+                             unsigned width, unsigned height, uint32_t flags)
 {
 	struct tw_xsurface *surface =
 		wl_container_of(dsurf, surface, dsurf);
@@ -517,7 +528,7 @@ handle_configure_tw_xsurface(struct tw_desktop_surface *dsurf,
 		XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
 	uint32_t values[] = {x, y, width, height, 0};
 
-	if (dsurf->focused)
+	if (dsurf->states & TW_DESKTOP_SURFACE_FOCUSED)
 		tw_xsurface_set_focus(surface, xwm);
 	surface->x = x;
 	surface->y = y;

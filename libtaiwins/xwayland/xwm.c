@@ -656,5 +656,5 @@ WL_EXPORT void
 tw_xserver_set_seat(struct tw_xserver *server, struct tw_data_device *device)
 {
 	struct tw_xwm *xwm = server->wm;
-	xwm->seat = device;
+	tw_xwm_selection_set_device(&xwm->selection, device);
 }

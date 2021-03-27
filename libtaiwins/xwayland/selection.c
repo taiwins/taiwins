@@ -23,14 +23,16 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <taiwins/objects/data_device.h>
+#include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
+#include <wayland-server-core.h>
 #include <wayland-util.h>
 #include <xcb/xcb.h>
 #include <xcb/xfixes.h>
 #include <xcb/xproto.h>
+
 #include "internal.h"
-#include "xwayland/atoms.h"
-#include "xwayland/selection.h"
+
 
 static const uint32_t EVENT_VALUE[] = {
 	XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY |
@@ -68,7 +70,7 @@ static void
 selection_add_data_source(struct tw_xwm_selection *selection)
 {
 	struct tw_xwm *xwm = selection->xwm;
-	struct tw_data_device *device = xwm->seat;
+	struct tw_data_device *device = selection->seat;
 	struct tw_xwm_data_source *source = &selection->source;
 
 	tw_xwm_data_source_reset(source);
@@ -338,6 +340,9 @@ clipboard_init(struct tw_xwm_selection *selection, struct tw_xwm *xwm)
 	selection->xwm = xwm;
 	selection->window = xcb_generate_id(xwm->xcb_conn);
 	selection->type = xwm->atoms.clipboard;
+	//setup listeners
+	wl_list_init(&selection->source_set.link);
+	wl_list_init(&selection->source_removed.link);
 	/* tw_data_source_init(&selection->source, NULL, &selection_impl); */
 
 	xcb_create_window(xwm->xcb_conn, XCB_COPY_FROM_PARENT,
@@ -390,6 +395,46 @@ monitor_clipboard_event(struct tw_xwm_selection *selection,
 	xcb_xfixes_select_selection_input(xwm->xcb_conn,
 	                                  selection->window,
 	                                  xwm->atoms.clipboard, mask);
+}
+
+static inline void
+notify_selection_wl_data_source_set(struct wl_listener *listener, void *data)
+{
+	struct tw_xwm_selection *selection =
+		wl_container_of(listener, selection, source_set);
+	selection->wl_source = data;
+}
+
+static inline void
+notify_selection_wl_data_source_rm(struct wl_listener *listener, void *data)
+{
+	struct tw_xwm_selection *selection =
+		wl_container_of(listener, selection, source_removed);
+	selection->wl_source = NULL;
+}
+
+void
+tw_xwm_selection_set_device(struct tw_xwm_selection *selection,
+                            struct tw_data_device *device)
+{
+	if (device == selection->seat)
+		return;
+
+	//TODO properly handling the data source
+	if (&selection->source.wl_source == device->source_set)
+		tw_data_source_fini(&selection->source.wl_source);
+
+	tw_reset_wl_list(&selection->source_set.link);
+	tw_reset_wl_list(&selection->source_removed.link);
+
+	tw_signal_setup_listener(&device->source_added,
+	                         &selection->source_set,
+	                         notify_selection_wl_data_source_set);
+	tw_signal_setup_listener(&device->source_removed,
+	                         &selection->source_removed,
+	                         notify_selection_wl_data_source_rm);
+
+	//TODO adding new data source to the new device
 }
 
 void
