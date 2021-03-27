@@ -122,14 +122,14 @@ struct tw_data_device_manager {
 };
 
 struct tw_data_device *
-tw_data_device_find(struct tw_data_device_manager *manager,
-                    struct tw_seat *seat);
+tw_data_device_find_create(struct tw_data_device_manager *manager,
+                           struct tw_seat *seat);
 void
 tw_data_device_set_selection(struct tw_data_device *device,
                              struct tw_data_source *source);
 
 struct tw_data_device_manager *
-tw_data_device_create_global(struct wl_display *display);
+tw_data_device_manager_create_global(struct wl_display *display);
 
 bool
 tw_data_device_manager_init(struct tw_data_device_manager *manager,

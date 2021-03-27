@@ -53,6 +53,18 @@ tw_data_device_find_client(struct tw_data_device *device,
 	return NULL;
 }
 
+static struct tw_data_device *
+tw_data_device_find(struct tw_data_device_manager *manager,
+                    struct tw_seat *seat)
+{
+	struct tw_data_device *device = NULL;
+
+	wl_list_for_each(device, &manager->devices, link)
+		if (device->seat == seat)
+			return device;
+	return NULL;
+}
+
 struct wl_resource *
 tw_data_device_create_data_offer(struct wl_resource *device_resource,
                                  struct tw_data_source *source)
@@ -200,34 +212,6 @@ notify_data_device_seat_destroy(struct wl_listener *listener, void *data)
 	tw_data_device_destroy(device);
 }
 
-static struct tw_data_device *
-tw_data_device_find_create(struct tw_data_device_manager *manager,
-                           struct tw_seat *seat)
-{
-	struct tw_data_device *device =
-		tw_data_device_find(manager, seat);
-	if (device)
-		return device;
-
-	device = calloc(1, sizeof(*device));
-	if (!device)
-		return NULL;
-	device->seat = seat;
-	wl_list_init(&device->link);
-	wl_list_init(&device->clients);
-	wl_list_init(&device->source_destroy.link);
-	wl_signal_init(&device->source_added);
-	wl_signal_init(&device->source_removed);
-	wl_list_insert(manager->devices.prev, &device->link);
-	tw_signal_setup_listener(&seat->focus_signal,
-	                         &device->create_data_offer,
-	                         notify_device_selection_data_offer);
-	tw_signal_setup_listener(&seat->destroy_signal,
-	                         &device->seat_destroy,
-	                         notify_data_device_seat_destroy);
-	return device;
-}
-
 /******************************************************************************
  * wl_data_device_manager implemenation
  *****************************************************************************/
@@ -334,7 +318,7 @@ tw_data_device_manager_init(struct tw_data_device_manager *manager,
 }
 
 WL_EXPORT struct tw_data_device_manager *
-tw_data_device_create_global(struct wl_display *display)
+tw_data_device_manager_create_global(struct wl_display *display)
 {
 	struct tw_data_device_manager *manager =
 		&s_tw_data_device_manager;
@@ -345,15 +329,31 @@ tw_data_device_create_global(struct wl_display *display)
 }
 
 WL_EXPORT struct tw_data_device *
-tw_data_device_find(struct tw_data_device_manager *manager,
-                    struct tw_seat *seat)
+tw_data_device_find_create(struct tw_data_device_manager *manager,
+                           struct tw_seat *seat)
 {
-	struct tw_data_device *device = NULL;
+	struct tw_data_device *device =
+		tw_data_device_find(manager, seat);
+	if (device)
+		return device;
 
-	wl_list_for_each(device, &manager->devices, link)
-		if (device->seat == seat)
-			return device;
-	return NULL;
+	device = calloc(1, sizeof(*device));
+	if (!device)
+		return NULL;
+	device->seat = seat;
+	wl_list_init(&device->link);
+	wl_list_init(&device->clients);
+	wl_list_init(&device->source_destroy.link);
+	wl_signal_init(&device->source_added);
+	wl_signal_init(&device->source_removed);
+	wl_list_insert(manager->devices.prev, &device->link);
+	tw_signal_setup_listener(&seat->focus_signal,
+	                         &device->create_data_offer,
+	                         notify_device_selection_data_offer);
+	tw_signal_setup_listener(&seat->destroy_signal,
+	                         &device->seat_destroy,
+	                         notify_data_device_seat_destroy);
+	return device;
 }
 
 WL_EXPORT void
@@ -378,7 +378,6 @@ tw_data_device_set_selection(struct tw_data_device *device,
 	//reset the current source, we need to notify the source it is not
 	//valid anymore
 	if (device->source_set) {
-		//TODO need to implment the source impl
 		tw_data_source_send_cancel(device->source_set);
 		tw_reset_wl_list(&device->source_destroy.link);
 		device->source_set = NULL;
