@@ -191,7 +191,6 @@ handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
                   unsigned crtc_id, void *data)
 {
 	struct tw_drm_display *output = data;
-	struct tw_drm_gpu *gpu = output ? output->gpu : NULL;
 	struct tw_output_device *device = output ?
 		&output->output.device : NULL;
 
@@ -206,7 +205,7 @@ handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
 	};
 
 	if (output) {
-                assert(gpu->gpu_fd == fd);
+                assert(output->gpu->gpu_fd == fd);
 		tw_drm_display_handle_page_flipped(output, crtc_id);
                 tw_output_device_present(device, &present);
 	}
