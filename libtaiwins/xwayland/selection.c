@@ -71,7 +71,7 @@ selection_add_data_source(struct tw_xwm_selection *selection)
 {
 	struct tw_xwm *xwm = selection->xwm;
 	struct tw_data_device *device = selection->seat;
-	struct tw_xwm_data_source *source = &selection->source;
+	struct tw_xwm_data_source *source = &selection->xwm_source;
 
 	tw_xwm_data_source_reset(source);
         if (tw_xwm_data_source_get_targets(source, xwm))
@@ -398,11 +398,32 @@ monitor_clipboard_event(struct tw_xwm_selection *selection,
 }
 
 static inline void
+selection_declare_owner(struct tw_xwm_selection *selection, bool declare)
+{
+	struct tw_xwm *xwm = selection->xwm;
+
+	if (declare)
+		xcb_set_selection_owner(xwm->xcb_conn, selection->window,
+		                        selection->type,
+		                        XCB_TIME_CURRENT_TIME);
+	else
+		xcb_set_selection_owner(xwm->xcb_conn, XCB_WINDOW_NONE,
+		                        selection->type,
+		                        selection->timestamp);
+}
+
+static inline void
 notify_selection_wl_data_source_set(struct wl_listener *listener, void *data)
 {
 	struct tw_xwm_selection *selection =
 		wl_container_of(listener, selection, source_set);
+
+	//not to be bothered if it is a xselection source
+	if (data == &selection->xwm_source.wl_source)
+		return;
+
 	selection->wl_source = data;
+	selection_declare_owner(selection, true);
 }
 
 static inline void
@@ -421,8 +442,8 @@ tw_xwm_selection_set_device(struct tw_xwm_selection *selection,
 		return;
 
 	//TODO properly handling the data source
-	if (&selection->source.wl_source == device->source_set)
-		tw_data_source_fini(&selection->source.wl_source);
+	if (&selection->xwm_source.wl_source == device->source_set)
+		tw_data_source_fini(&selection->xwm_source.wl_source);
 
 	tw_reset_wl_list(&selection->source_set.link);
 	tw_reset_wl_list(&selection->source_removed.link);

@@ -83,7 +83,7 @@ struct tw_xwm_selection {
 	//we support one transfer at a time, could simply use only one data
 	struct tw_xwm_data_transfer write_transfer, read_transfer;
 	//the x11 side source, managed by us
-	struct tw_xwm_data_source source;
+	struct tw_xwm_data_source xwm_source;
 	//the wayland side source, not managed by us
 	struct tw_data_source *wl_source;
 
