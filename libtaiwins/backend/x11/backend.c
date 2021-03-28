@@ -52,11 +52,10 @@ static void
 handle_x11_configure_notify(struct tw_output_device *device,
                             xcb_configure_notify_event_t *ev)
 {
-	if (ev->width > 0 && ev->height > 0) {
-		device->pending.current_mode.h = ev->height;
-		device->pending.current_mode.w = ev->width;
-		tw_output_device_commit_state(device);
-	}
+	int refresh = device->state.current_mode.refresh;
+	if (ev->width > 0 && ev->height > 0)
+		tw_output_device_set_current_mode(device, ev->width, ev->height,
+		                                  refresh);
 }
 
 static void

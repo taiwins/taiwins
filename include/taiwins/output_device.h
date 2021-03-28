@@ -24,7 +24,6 @@
 
 #include <stdint.h>
 #include <time.h>
-#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <pixman.h>
 
@@ -133,6 +132,20 @@ tw_output_device_set_pos(struct tw_output_device *device, int gx, int gy);
 void
 tw_output_device_set_mode(struct tw_output_device *dev,
                           const struct tw_output_device_mode *mode);
+
+//TODO don't expose this, used internally by x11 backend when output dimensions
+//changed directly in xserver
+static inline void
+tw_output_device_set_current_mode(struct tw_output_device *device,
+                                  unsigned width, unsigned height, int refresh)
+{
+		device->state.current_mode.h = height;
+		device->state.current_mode.w = width;
+		device->state.current_mode.refresh = refresh;
+		wl_signal_emit(&device->signals.commit_state, device);
+		wl_signal_emit(&device->signals.info, device);
+}
+
 void
 tw_output_device_set_custom_mode(struct tw_output_device *device,
                                  unsigned width, unsigned height, int refresh);
