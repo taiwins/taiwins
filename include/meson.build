@@ -5,7 +5,11 @@ if get_option('enable-profiler')
 endif
 
 if not get_option('x11-backend').enabled()
-	exclude_files += 'backend-x11.h'
+  exclude_files += 'backend-x11.h'
+endif
+
+if not get_option('xwayland').enabled()
+  exclude_files += 'xwayland.h'
 endif
 
 install_subdir('taiwins',

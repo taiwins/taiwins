@@ -36,6 +36,11 @@ taiwins_src = [
   wayland_taiwins_shell_server_protocol_h,
 ]
 
+if get_option('xwayland').enabled()
+  taiwins_src += 'xwayland.c'
+endif
+
+
 taiwins = executable(
   'taiwins',
   taiwins_src,
