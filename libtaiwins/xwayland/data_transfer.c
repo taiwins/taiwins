@@ -22,18 +22,26 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <wayland-server-core.h>
 #include <wayland-util.h>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
+#include <ctypes/helpers.h>
 
 #include "selection.h"
 #include "internal.h"
 #include "taiwins/objects/logger.h"
 
 #define INCR_CHUNK_SIZE (64 * 1024)
+
+static inline int
+xwm_data_transfer_get_available(struct tw_xwm_data_transfer *transfer)
+{
+	return MAX(INCR_CHUNK_SIZE - transfer->cached, 0);
+}
 
 static inline void
 xwm_data_transfer_add_fd(struct tw_xwm_data_transfer *transfer, int fd,
@@ -222,14 +230,137 @@ tw_xwm_data_transfer_write_chunk(struct tw_xwm_data_transfer *transfer)
  * read transfer
  *****************************************************************************/
 
-static void
+static inline void
 xwm_data_transfer_fini_read(struct tw_xwm_data_transfer *transfer)
 {
+	xwm_data_transfer_remove_source(transfer);
+	xwm_data_transfer_close_fd(transfer);
+
 	free(transfer->data);
 	transfer->in_chunk = false;
+	transfer->property_set = false;
 	transfer->data = NULL;
 	transfer->fd = -1;
 	transfer->cached = 0;
+}
+
+static void
+xwm_data_transfer_read_flush(struct tw_xwm_data_transfer *transfer)
+{
+	xcb_change_property(transfer->selection->xwm->xcb_conn,
+	                    XCB_PROP_MODE_REPLACE,
+	                    transfer->req.requestor,
+	                    transfer->req.property,
+	                    transfer->req.target,
+	                    8, //format
+	                    transfer->cached, //size
+	                    transfer->data);
+
+	xcb_flush(transfer->selection->xwm->xcb_conn);
+
+	transfer->cached = 0;
+	transfer->property_set = true;
+}
+
+static inline void
+xwm_data_transfer_read_begin_chunk(struct tw_xwm_data_transfer *transfer)
+{
+	size_t incr_chunk_size = INCR_CHUNK_SIZE;
+	struct tw_xwm *xwm = transfer->selection->xwm;
+	transfer->in_chunk = true;
+	xcb_change_property(transfer->selection->xwm->xcb_conn,
+	                    XCB_PROP_MODE_REPLACE,
+	                    transfer->req.requestor,
+	                    transfer->req.property,
+	                    xwm->atoms.incr,
+	                    32, //format
+	                    1,
+	                    &incr_chunk_size);
+	//remove the source for now and wait for
+	xwm_data_transfer_remove_source(transfer);
+}
+
+static inline void
+xwm_data_transfer_read_end_chunk(struct tw_xwm_data_transfer *transfer)
+{
+	xcb_change_property(transfer->selection->xwm->xcb_conn,
+	                    XCB_PROP_MODE_REPLACE,
+	                    transfer->req.requestor,
+	                    transfer->req.property,
+	                    transfer->req.target,
+	                    32,
+	                    0, NULL);
+}
+
+static int
+xwm_data_transfer_read_chunk(int fd, uint32_t mask, void *data)
+{
+	struct tw_xwm_data_transfer *transfer = data;
+	unsigned avail = xwm_data_transfer_get_available(transfer);
+	int len = 0;
+
+	if (transfer->property_set) {
+		tw_logl_level(TW_LOG_WARN, "property not yet deleted");
+		return 1;
+	}
+
+	//read if we can
+	if (avail) {
+		len = read(fd, transfer->data+transfer->cached, avail);
+		transfer->cached += len > 0 ? len : 0;
+		avail = xwm_data_transfer_get_available(transfer);
+	}
+	if ((len <= 0 && transfer->cached) || avail == 0) {
+		//we either read enough or no more data to read, either way we
+		//send what is cached
+		xwm_data_transfer_read_flush(transfer);
+		xwm_data_transfer_remove_source(transfer);
+		tw_xwm_selection_send_notify(transfer->selection->xwm,
+		                             &transfer->req, true);
+		transfer->done = len == 0;
+	} else if (len <= 0 && !transfer->cached) {
+		//edge case: nothing to send and nothing to read
+		xwm_data_transfer_read_end_chunk(transfer);
+		xwm_data_transfer_fini_read(transfer);
+	} else {
+		//continue accumulating
+		tw_logl_level(TW_LOG_DBUG, "continue accumulate data_transfer");
+	}
+	return 1;
+}
+
+static int
+xwm_data_transfer_read(int fd, uint32_t mask, void *data)
+{
+	struct tw_xwm_data_transfer *transfer = data;
+	int available = xwm_data_transfer_get_available(transfer);
+	ssize_t len = 0;
+
+	//we begin by read as much as we can
+	len = read(fd, transfer->data+transfer->cached, available);
+	transfer->cached += len > 0 ? len : 0;
+	available = xwm_data_transfer_get_available(transfer);
+
+	if (len == -1) {
+		tw_logl_level(TW_LOG_WARN, "read error from data source");
+		tw_xwm_selection_send_notify(transfer->selection->xwm,
+		                             &transfer->req, false);
+		xwm_data_transfer_fini_read(transfer);
+	} else if (len == 0) {
+		xwm_data_transfer_read_flush(transfer);
+		tw_xwm_selection_send_notify(transfer->selection->xwm,
+		                             &transfer->req, true);
+		xwm_data_transfer_fini_read(transfer);
+	} else if (available == 0) {
+		//need to write in chunks
+		xwm_data_transfer_read_begin_chunk(transfer);
+		return 0;
+	} else {
+		//continue accumulating
+		tw_logl_level(TW_LOG_DBUG, "continue accumulate data_transfer");
+		return 1;
+	}
+	return 0;
 }
 
 int
@@ -258,112 +389,25 @@ tw_xwm_data_transfer_init_read(struct tw_xwm_data_transfer *transfer,
 	return p[1];
 }
 
-static void
-xwm_data_transfer_read_flush(struct tw_xwm_data_transfer *transfer)
-{
-	xcb_change_property(transfer->selection->xwm->xcb_conn,
-	                    XCB_PROP_MODE_REPLACE,
-	                    transfer->req.requestor,
-	                    transfer->req.property,
-	                    transfer->req.target,
-	                    8, //format
-	                    transfer->cached, //size
-	                    transfer->data);
-	xcb_flush(transfer->selection->xwm->xcb_conn);
-	transfer->cached = 0;
-	transfer->property_set = true;
-}
-
-static inline void
-xwm_data_transfer_begin_read_chunk(struct tw_xwm_data_transfer *transfer)
-{
-	size_t incr_chunk_size = INCR_CHUNK_SIZE;
-	struct tw_xwm *xwm = transfer->selection->xwm;
-	transfer->in_chunk = true;
-	xcb_change_property(transfer->selection->xwm->xcb_conn,
-	                    XCB_PROP_MODE_REPLACE,
-	                    transfer->req.requestor,
-	                    transfer->req.property,
-	                    xwm->atoms.incr,
-	                    32, //format
-	                    1,
-	                    &incr_chunk_size);
-}
-
-static inline void
-xwm_data_transfer_end_read_chunk(struct tw_xwm_data_transfer *transfer)
-{
-	xcb_change_property(transfer->selection->xwm->xcb_conn,
-	                    XCB_PROP_MODE_REPLACE,
-	                    transfer->req.requestor,
-	                    transfer->req.property,
-	                    transfer->req.target,
-	                    32,
-	                    0, NULL);
-}
-
-//now we begin to read from wl_data_source, there are a few cases to handle. If
-//the data is few, we just write it to the property and we are done. Otherwise,
-//we need to open-up the chunk and begin the chunk transport
-static int
-xwm_data_transfer_read(int fd, uint32_t mask, void *data)
-{
-	struct tw_xwm_data_transfer *transfer = data;
-	struct tw_xwm *xwm = transfer->selection->xwm;
-	int available = INCR_CHUNK_SIZE - transfer->cached;
-	ssize_t len = 0;
-
-	//we begin by read as much as we can
-	available = available > 0 ? available : 0;
-	len = read(fd, transfer->data + transfer->cached, available);
-	transfer->cached += len > 0 ? len : 0;
-	if (len == -1) {
-		tw_logl_level(TW_LOG_WARN, "read error from data source");
-		xwm_data_transfer_remove_source(transfer);
-		xwm_data_transfer_close_fd(transfer);
-		xwm_data_transfer_fini_read(transfer);
-	}
-	//need to avoid
-	if (transfer->cached >= INCR_CHUNK_SIZE && !transfer->in_chunk) {
-		xwm_data_transfer_begin_read_chunk(transfer);
-		tw_xwm_selection_send_notify(xwm, &transfer->req, true);
-	} else if (transfer->property_set) {
-		tw_logl_level(TW_LOG_DBUG, "property not yet deleted");
-		xwm_data_transfer_remove_source(transfer);
-	} else if (transfer->cached) {
-		//flush the buffer for now
-		xwm_data_transfer_read_flush(transfer);
-		xwm_data_transfer_remove_source(transfer);
-	} else {
-		//there is no cached, no property,
-		if (transfer->in_chunk) {
-			tw_logl_level(TW_LOG_DBUG, "finish writing chunks");
-			xwm_data_transfer_end_read_chunk(transfer);
-		} else {
-			tw_logl_level(TW_LOG_DBUG, "finish writing");
-			tw_xwm_selection_send_notify(xwm, &transfer->req,
-			                             true);
-		}
-		xwm_data_transfer_remove_source(transfer);
-		xwm_data_transfer_close_fd(transfer);
-		xwm_data_transfer_fini_read(transfer);
-	}
-	return 1;
-}
-
 void
 tw_xwm_data_transfer_start_read(struct tw_xwm_data_transfer *transfer)
 {
-	xwm_data_transfer_add_fd(transfer, transfer->fd, WL_EVENT_READABLE,
-	                         xwm_data_transfer_read);
-}
-
-void
-tw_xwm_data_transfer_read_chunk(struct tw_xwm_data_transfer *transfer)
-{
-	transfer->property_offset = false;
-	if (transfer->fd >= 0)
+	if (transfer->in_chunk)
+		xwm_data_transfer_add_fd(transfer, transfer->fd,
+		                         WL_EVENT_READABLE,
+		                         xwm_data_transfer_read_chunk);
+	else
 		xwm_data_transfer_add_fd(transfer, transfer->fd,
 		                         WL_EVENT_READABLE,
 		                         xwm_data_transfer_read);
+}
+
+void
+tw_xwm_data_transfer_continue_read(struct tw_xwm_data_transfer *transfer)
+{
+	if (transfer->done) {
+		xwm_data_transfer_read_end_chunk(transfer);
+		xwm_data_transfer_fini_read(transfer);
+	} else
+		tw_xwm_data_transfer_start_read(transfer);
 }

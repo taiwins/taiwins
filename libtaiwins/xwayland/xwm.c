@@ -282,7 +282,9 @@ _handle_x11_events(struct tw_xwm *xwm, xcb_generic_event_t *event)
 	assert(event);
 	do {
 		count++;
-		// handle selection event?
+		//TODO handle user events?
+		if (tw_xwm_handle_selection_event(xwm, event))
+			continue;
 		switch (event->response_type & XCB_EVENT_TYPE_MASK) {
 		case XCB_CREATE_NOTIFY:
 			handle_xwm_create_surface(xwm, event);

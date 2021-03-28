@@ -49,7 +49,7 @@ struct tw_xwm_data_transfer {
 	ssize_t cached;
 	xcb_selection_request_event_t req;
 	//we set the property and waiting for requestor to delete
-	bool property_set;
+	bool property_set, done;
 	char *data;
 };
 
@@ -73,6 +73,7 @@ struct tw_xwm_data_source {
  * to the SelectionNotify event, it means the write is done.
  *
  * ref: https://www.uninformativ.de/blog/postings/2017-04-02/0/POSTING-en.html
+ * incr: https://www.x.org/releases/X11R7.6/doc/xorg-docs/specs/ICCCM/icccm.html#incr_properties
  */
 struct tw_xwm_selection {
 	struct tw_xwm *xwm;
@@ -122,7 +123,7 @@ void
 tw_xwm_data_transfer_start_read(struct tw_xwm_data_transfer *transfer);
 
 void
-tw_xwm_data_transfer_read_chunk(struct tw_xwm_data_transfer *transfer);
+tw_xwm_data_transfer_continue_read(struct tw_xwm_data_transfer *transfer);
 
 int
 tw_xwm_handle_selection_event(struct tw_xwm *xwm, xcb_generic_event_t *ge);

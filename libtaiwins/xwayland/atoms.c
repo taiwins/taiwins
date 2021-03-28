@@ -177,6 +177,14 @@ xwm_mime_atom_to_name(struct tw_xwm *xwm, xcb_atom_t atom)
 		mime_type = strdup("text/plain;charset=utf-8");
 	} else if (atom == xwm->atoms.text) {
 		mime_type = strdup("text/plain");
+	} else if (atom == xwm->atoms.string) {
+		mime_type = strdup("STRING");
+	} else if (atom == xwm->atoms.text) {
+		mime_type = strdup("TEXT");
+	} else if (atom == xwm->atoms.compound_text) {
+		mime_type = strdup("COMPOUND_TEXT");
+	} else if (atom == xwm->atoms.multiple) {
+		mime_type = strdup("MULTIPLE");
 	} else if (atom != xwm->atoms.targets &&
 	           atom != xwm->atoms.timestamp) {
 		xcb_get_atom_name_cookie_t cookie =

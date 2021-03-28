@@ -32,6 +32,7 @@
 #include <xcb/xproto.h>
 
 #include "internal.h"
+#include "xwayland/selection.h"
 
 
 static const uint32_t EVENT_VALUE[] = {
@@ -74,7 +75,7 @@ selection_add_data_source(struct tw_xwm_selection *selection)
 	struct tw_xwm_data_source *source = &selection->xwm_source;
 
 	tw_xwm_data_source_reset(source);
-        if (tw_xwm_data_source_get_targets(source, xwm))
+        if (tw_xwm_data_source_get_targets(source, xwm) && device)
 	        tw_data_device_set_selection(device, &source->wl_source);
 }
 
@@ -90,6 +91,7 @@ handle_selection_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 {
 	xcb_selection_notify_event_t *ev = (xcb_selection_notify_event_t *) ge;
 
+	tw_logl_level(TW_LOG_DBUG, "xcb selection notify event");
 	if (ev->target == XCB_ATOM_NONE) {
 		tw_log_level(TW_LOG_DBUG, "convert selection failed");
 	} else if (ev->target == xwm->atoms.targets) {
@@ -137,7 +139,6 @@ selection_send_targets(struct tw_xwm_selection *selection,
 	                    2+i,
 	                    targets);
 	tw_xwm_selection_send_notify(xwm, req, true);
-
 }
 
 static inline void
@@ -158,20 +159,21 @@ selection_send_data(struct tw_xwm_selection *selection,
                     xcb_selection_request_event_t *req, const char *mime)
 {
 	int fd = -1;
-	struct tw_data_source *wl_source = selection->wl_source;
 
-	if (selection->read_transfer.fd >= 0) {
+	if (selection->read_transfer.fd > 0) {
 		tw_logl_level(TW_LOG_WARN, "clipboard in use");
 		tw_xwm_selection_send_notify(selection->xwm, req, false);
+		return;
 	}
-	fd = tw_xwm_data_transfer_init_read(&selection->read_transfer,
-	                                    selection, req);
-	if (fd < 0) {
+	if ((fd = tw_xwm_data_transfer_init_read(&selection->read_transfer,
+	                                         selection, req)) >= 0) {
+		tw_data_source_send_send(selection->wl_source, mime, fd);
+		close(fd);
+		tw_xwm_data_transfer_start_read(&selection->read_transfer);
+	} else {
 		tw_logl_level(TW_LOG_WARN, "failed to connect wl_data_source");
 		tw_xwm_selection_send_notify(selection->xwm, req, false);
 	}
-	tw_data_source_send_send(wl_source, mime, fd);
-	tw_xwm_data_transfer_start_read(&selection->read_transfer);
 }
 
 static const char *
@@ -181,6 +183,9 @@ selection_check_mime(struct tw_xwm_selection *selection, xcb_atom_t target)
 	struct wl_array *mimes = &selection->wl_source->mimes;
 	char *requested = xwm_mime_atom_to_name(selection->xwm, target);
 
+	if (!requested)
+		return NULL;
+	tw_logl_level(TW_LOG_DBUG, "requested mime type %s", requested);
 	wl_array_for_each(mime_ptr, mimes) {
 		if (*mime_ptr && (strcmp(*mime_ptr, requested) == 0)) {
 			free(requested);
@@ -210,6 +215,7 @@ handle_selection_request(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 		//we do the same as weston and wlroots, because the target is
 		//already converted
 		tw_xwm_selection_send_notify(xwm, ev, true);
+		return;
 	} else if (selection == NULL) {
 		tw_logl_level(TW_LOG_DBUG, "received request for unknown "
 		              "selection");
@@ -238,13 +244,14 @@ handle_selection_request(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 		}
 		selection_send_data(selection, ev, mime);
 	}
+	return;
 send_none_notify:
 	//no data for the requestor but let it know
 	tw_xwm_selection_send_notify(xwm, ev, false);
 }
 
 /******************************************************************************
- * selection request handling
+ * selection property notify
  *****************************************************************************/
 
 static int
@@ -253,20 +260,25 @@ handle_selection_property_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 	xcb_property_notify_event_t *ev = (xcb_property_notify_event_t *)ge;
 	struct tw_xwm_selection *selection = &xwm->selection;
 
+	tw_logl_level(TW_LOG_DBUG, "xcb selection property notify event");
 	if (ev->window == selection->window) {
+		struct tw_xwm_data_transfer *transfer =
+			&selection->write_transfer;
 		if (ev->state == XCB_PROPERTY_NEW_VALUE &&
 		    ev->atom == xwm->atoms.wl_selection &&
-		    selection->write_transfer.in_chunk) {
+		    transfer->in_chunk) {
 			//write new chunk
 			return 0;
 		}
 	}
 
 	if (ev->window == selection->read_transfer.req.requestor) {
+		struct tw_xwm_data_transfer *transfer =
+			&selection->read_transfer;
 		if (ev->state == XCB_PROPERTY_DELETE &&
-		    ev->atom == selection->read_transfer.req.property &&
-		    selection->read_transfer.in_chunk) {
-			//read new chunk
+		    ev->atom == transfer->req.property &&
+		    transfer->in_chunk) {
+			tw_xwm_data_transfer_continue_read(transfer);
 			return 1;
 		}
 	}
@@ -343,6 +355,7 @@ clipboard_init(struct tw_xwm_selection *selection, struct tw_xwm *xwm)
 	//setup listeners
 	wl_list_init(&selection->source_set.link);
 	wl_list_init(&selection->source_removed.link);
+	tw_xwm_data_source_init(&selection->xwm_source, selection);
 	/* tw_data_source_init(&selection->source, NULL, &selection_impl); */
 
 	xcb_create_window(xwm->xcb_conn, XCB_COPY_FROM_PARENT,
@@ -359,6 +372,7 @@ dnd_init(struct tw_xwm_selection *dnd, struct tw_xwm *xwm)
 
 	dnd->xwm = xwm;
 	dnd->window = xcb_generate_id(xwm->xcb_conn);
+	tw_xwm_data_source_init(&dnd->xwm_source, dnd);
 	xcb_create_window(xwm->xcb_conn, XCB_COPY_FROM_PARENT,
 	                  dnd->window, xwm->screen->root,
 	                  0, 0, 8192, 8192, 0,
@@ -441,6 +455,7 @@ tw_xwm_selection_set_device(struct tw_xwm_selection *selection,
 	if (device == selection->seat)
 		return;
 
+	selection->seat = device;
 	//TODO properly handling the data source
 	if (&selection->xwm_source.wl_source == device->source_set)
 		tw_data_source_fini(&selection->xwm_source.wl_source);
