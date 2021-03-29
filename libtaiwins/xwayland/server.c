@@ -73,13 +73,20 @@ handle_sigusr(int signumber, void *data)
 static int
 handle_xwayland_fork(pid_t pid, struct tw_subprocess *chld)
 {
+	int devnull = -1;
 	struct tw_xserver *xserver = wl_container_of(chld, xserver, process);
 
-	if (pid == 0)
+	if (pid == 0) {
 		/* X server send SIGUSR1 to the parent when it's done
 		 * initialization */
 		signal(SIGUSR1, SIG_IGN);
-	else {
+		//redirect the xwayland output
+		devnull = open("/dev/null", O_WRONLY);
+		if (devnull >= 0) {
+			dup2(devnull, STDOUT_FILENO);
+			dup2(devnull, STDERR_FILENO);
+		}
+	} else {
 		close(xserver->wms[1]);
 		xserver->wms[1] = -1;
 		xserver->pid = pid;
