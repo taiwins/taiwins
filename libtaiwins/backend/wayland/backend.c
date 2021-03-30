@@ -77,6 +77,8 @@ wl_backend_stop(struct tw_wl_backend *wl)
 
 	if (!wl->base.ctx)
 		return;
+	wl_signal_emit(&wl->base.signals.stop, &wl->base);
+
 	wl_list_for_each_safe(surface, tmp_surface, &wl->base.outputs,
 	                      output.device.link)
 		tw_wl_surface_remove(surface);
@@ -85,23 +87,8 @@ wl_backend_stop(struct tw_wl_backend *wl)
 	wl_list_for_each_safe(output, tmp_output, &wl->outputs, link)
 		tw_wl_output_remove(output);
 
-	wl_signal_emit(&wl->base.signals.stop, &wl->base);
 	wl_list_remove(&wl->base.render_context_destroy.link);
 	wl->base.ctx = NULL;
-}
-
-static void
-wl_backend_destroy(struct tw_wl_backend *wl)
-{
-	wl_signal_emit(&wl->base.signals.destroy, &wl->base);
-
-        wl_list_remove(&wl->display_destroy.link);
-
-	if (wl->base.ctx)
-		tw_render_context_destroy(wl->base.ctx);
-	wl_event_source_remove(wl->event_src);
-
-	free(wl);
 }
 
 static void
@@ -118,8 +105,11 @@ notify_wl_display_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_wl_backend *wl =
 		wl_container_of(listener, wl, display_destroy);
-
-	wl_backend_destroy(wl);
+        wl_list_remove(&wl->display_destroy.link);
+        if (wl->base.ctx)
+	        tw_render_context_destroy(wl->base.ctx);
+        wl_event_source_remove(wl->event_src);
+        free(wl);
 }
 
 /******************************************************************************
