@@ -100,7 +100,6 @@ static void
 drm_backend_destroy(struct tw_drm_backend *drm)
 {
 	struct libinput *libinput = drm->input.libinput;
-	wl_signal_emit(&drm->base.signals.destroy, &drm->base);
 	if (drm->base.ctx)
 		tw_render_context_destroy(drm->base.ctx);
 	drm_backend_release_gpus(drm);

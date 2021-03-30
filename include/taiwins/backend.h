@@ -49,7 +49,6 @@ struct tw_backend {
 	//tw_backend. Later, these signals will get throw away and here we call
 	//`tw_backend_new_output` or `tw_backend_new_input` directly.
 	struct {
-		struct wl_signal destroy;
 		struct wl_signal new_input;
 		struct wl_signal new_output;
 		struct wl_signal start;

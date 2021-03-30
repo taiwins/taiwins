@@ -310,26 +310,10 @@ x11_backend_stop(struct tw_x11_backend *x11)
         wl_list_for_each_safe(output, tmp, &x11->base.outputs,
                               output.device.link)
 		tw_x11_remove_output(output);
-	wl_list_remove(&x11->base.render_context_destroy.link);
-	x11->base.ctx = NULL;
-}
-
-static void
-x11_backend_destroy(struct tw_x11_backend *x11)
-{
-	wl_signal_emit(&x11->base.signals.destroy, &x11->base);
-
-	if (x11->event_source)
-		wl_event_source_remove(x11->event_source);
-	wl_list_remove(&x11->display_destroy.link);
 	tw_input_device_fini(&x11->keyboard);
 
-	//destroy the render context now as it needs x11 connection for fini.
-	if (x11->base.ctx)
-		tw_render_context_destroy(x11->base.ctx);
-
-	XCloseDisplay(x11->x11_dpy);
-	free(x11);
+	wl_list_remove(&x11->base.render_context_destroy.link);
+	x11->base.ctx = NULL;
 }
 
 static void
@@ -337,7 +321,16 @@ notify_x11_display_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_x11_backend *x11 =
 		wl_container_of(listener, x11, display_destroy);
-	x11_backend_destroy(x11);
+
+	wl_list_remove(&listener->link);
+	if (x11->event_source)
+		wl_event_source_remove(x11->event_source);
+	//destroy the render context now as it needs x11 connection for fini.
+	if (x11->base.ctx)
+		tw_render_context_destroy(x11->base.ctx);
+
+	XCloseDisplay(x11->x11_dpy);
+	free(x11);
 }
 
 static void

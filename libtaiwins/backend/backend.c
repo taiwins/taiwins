@@ -41,7 +41,6 @@ tw_backend_init(struct tw_backend *backend)
 	backend->started = false;
 	wl_signal_init(&backend->signals.new_input);
 	wl_signal_init(&backend->signals.new_output);
-	wl_signal_init(&backend->signals.destroy);
 	wl_signal_init(&backend->signals.start);
 	wl_signal_init(&backend->signals.stop);
 

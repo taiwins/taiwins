@@ -191,6 +191,7 @@ headless_destroy(struct tw_headless_backend *headless)
 	struct tw_headless_output *output, *otmp;
 	struct tw_input_device *input, *itmp;
 
+	wl_signal_emit(&headless->base.signals.stop, &headless->base);
 	wl_list_for_each_safe(output, otmp, &headless->base.outputs,
 	                      output.device.link) {
 		tw_render_output_fini(&output->output);
@@ -202,8 +203,6 @@ headless_destroy(struct tw_headless_backend *headless)
 		tw_input_device_fini(input);
 		free(input);
 	}
-
-	wl_signal_emit(&headless->base.signals.destroy, &headless->base);
 	free(headless);
 }
 
