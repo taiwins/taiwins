@@ -22,6 +22,7 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <string.h>
+#include <unistd.h>
 #include <wayland-server.h>
 #include <taiwins/objects/data_device.h>
 #include <taiwins/objects/logger.h>
@@ -29,8 +30,59 @@
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
 
-#include "selection.h"
 #include "internal.h"
+
+
+static bool
+xwm_data_source_collect_mimes(struct tw_xwm_data_source *source,
+                              xcb_get_property_reply_t *reply)
+{
+	unsigned i, j;
+	xcb_atom_t *value = xcb_get_property_value(reply);
+	struct tw_xwm *xwm = source->selection->xwm;
+	xcb_atom_t *mime_atoms = NULL;
+	char **mime_strs = NULL;
+
+	mime_strs = wl_array_add(&source->wl_source.mimes,
+	                         sizeof(char *) * reply->value_len);
+	mime_atoms = wl_array_add(&source->mime_types,
+	                          sizeof(xcb_atom_t) * reply->value_len);
+	if (!mime_strs || !mime_atoms) {
+		wl_array_release(&source->wl_source.mimes);
+		wl_array_release(&source->mime_types);
+		free(reply);
+		return false;
+	}
+	for (i = 0, j = 0; i < reply->value_len; i++) {
+		char *mime_name = xwm_mime_atom_to_name(xwm, value[i]);
+		if (mime_name) {
+			mime_strs[j] = mime_name;
+			mime_atoms[j] = value[i];
+			j++;
+		}
+	}
+	source->wl_source.mimes.size = j * sizeof(char *);
+	source->mime_types.size = j * sizeof(xcb_atom_t);
+
+	return true;
+}
+
+static xcb_atom_t
+xwm_data_source_query_mime_atom(struct tw_xwm_data_source *source,
+                                const char *mime_str)
+{
+	struct tw_data_source *base = &source->wl_source;
+	int len = base->mimes.size / sizeof(char *);
+
+	for (int i = 0; i < len; i++) {
+		char **pmime_name = (char **)base->mimes.data + i;
+		xcb_atom_t *pmime = (xcb_atom_t *)source->mime_types.data + i;
+
+		if (*pmime_name && (strcmp(*pmime_name, mime_str) == 0))
+			return *pmime;
+	}
+	return XCB_ATOM_NONE;
+}
 
 /*
  * now we recevies a wayland client as for writing the data. Then we would ask
@@ -44,19 +96,14 @@ handle_selection_ask_for_data(struct tw_data_source *base,
 		wl_container_of(base, source, wl_source);
 	struct tw_xwm_selection *selection = source->selection;
 	struct tw_xwm *xwm = selection->xwm;
-	xcb_atom_t *pmime = NULL, mime = XCB_ATOM_NONE;
-	char **pmime_name = NULL;
-	int i = 0;
+	xcb_atom_t mime = xwm_data_source_query_mime_atom(source, mime_asked);
 
-	wl_array_for_each(pmime, &source->mime_types) {
-		pmime_name = (char **)base->mimes.data + i;
-		if (*pmime_name && (strcmp(*pmime_name, mime_asked) == 0)) {
-			mime = *pmime;
-			break;
-		}
-		i++;
+	//we are duplicate the fd because this one is closed after
+	if ((fd = dup(fd)) < 0) {
+		tw_logl_level(TW_LOG_WARN, "Failed to duplicate fd for "
+		              "wl_data_offer");
+		return;
 	}
-
 	if (mime == XCB_ATOM_NONE) {
 		tw_logl_level(TW_LOG_WARN, "Failed to send X11 selection to "
 		              "wayland, no supportted MIME found");
@@ -85,7 +132,6 @@ tw_xwm_data_source_get_targets(struct tw_xwm_data_source *source,
                                struct tw_xwm *xwm)
 {
 	struct tw_xwm_selection *selection = source->selection;
-	xcb_atom_t *value = NULL;
 	xcb_get_property_cookie_t cookie =
 		xcb_get_property(xwm->xcb_conn,
 		                 1, //delete
@@ -96,34 +142,16 @@ tw_xwm_data_source_get_targets(struct tw_xwm_data_source *source,
 		                 4096);
 	xcb_get_property_reply_t *reply =
 		xcb_get_property_reply(xwm->xcb_conn, cookie, NULL);
+
         if (reply == NULL)
 		return false;
 	if (reply->type != XCB_ATOM_ATOM) {
 		free(reply);
 		return false;
 	}
-	value = xcb_get_property_value(reply);
-	for (unsigned i = 0; i < reply->value_len; i++) {
-		char *mime_type = xwm_mime_atom_to_name(xwm, value[i]);
-
-		if (mime_type) {
-			char **pmime_type =
-				wl_array_add(&source->wl_source.mimes,
-				             sizeof(*pmime_type));
-			xcb_atom_t *patom = wl_array_add(&source->mime_types,
-			                                 sizeof(*patom));
-			if (patom && pmime_type) {
-				*patom = value[i];
-				*pmime_type = mime_type;
-			} else if (pmime_type) {
-				//null is okay here
-				*pmime_type = NULL;
-				free(mime_type);
-				break;
-			} else if (*patom) {
-				break;
-			}
-		}
+	if (!xwm_data_source_collect_mimes(source, reply)) {
+		free(reply);
+		return false;
 	}
 	free(reply);
 	return true;

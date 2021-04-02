@@ -53,11 +53,47 @@ struct tw_xwm_data_transfer {
 	char *data;
 };
 
+void
+tw_xwm_data_transfer_init_write(struct tw_xwm_data_transfer *transfer,
+                                struct tw_xwm_selection *selection,
+                                int fd);
+void
+tw_xwm_data_transfer_start_write(struct tw_xwm_data_transfer *transfer);
+
+void
+tw_xwm_data_transfer_continue_write(struct tw_xwm_data_transfer *transfer);
+
+/* init the read transfer and return a fd for wl_data_source */
+int
+tw_xwm_data_transfer_init_read(struct tw_xwm_data_transfer *transfer,
+                               struct tw_xwm_selection *selection,
+                               xcb_selection_request_event_t *req);
+void
+tw_xwm_data_transfer_start_read(struct tw_xwm_data_transfer *transfer);
+
+void
+tw_xwm_data_transfer_continue_read(struct tw_xwm_data_transfer *transfer);
+
 struct tw_xwm_data_source {
 	struct tw_xwm_selection *selection;
 	struct wl_array mime_types;
 	struct tw_data_source wl_source;
 };
+
+void
+tw_xwm_data_source_init(struct tw_xwm_data_source *source,
+                        struct tw_xwm_selection *selection);
+void
+tw_xwm_data_source_reset(struct tw_xwm_data_source *source);
+
+bool
+tw_xwm_data_source_get_targets(struct tw_xwm_data_source *source,
+                               struct tw_xwm *xwm);
+
+/* triggered by a wl_client asking for data, we would act as the client writing
+ * to the fd */
+void
+tw_xwm_data_source_get_data(struct tw_xwm_data_source *source);
 
 /*
  * the X11 selection
@@ -103,45 +139,8 @@ tw_xwm_fini_selection(struct tw_xwm *xwm);
 void
 tw_xwm_selection_set_device(struct tw_xwm_selection *selection,
                             struct tw_data_device *device);
-
-void
-tw_xwm_data_transfer_init_write(struct tw_xwm_data_transfer *transfer,
-                                struct tw_xwm_selection *selection,
-                                int fd);
-void
-tw_xwm_data_transfer_start_write(struct tw_xwm_data_transfer *transfer);
-
-void
-tw_xwm_data_transfer_write_chunk(struct tw_xwm_data_transfer *transfer);
-
-/* init the read transfer and return a fd for wl_data_source */
-int
-tw_xwm_data_transfer_init_read(struct tw_xwm_data_transfer *transfer,
-                               struct tw_xwm_selection *selection,
-                               xcb_selection_request_event_t *req);
-void
-tw_xwm_data_transfer_start_read(struct tw_xwm_data_transfer *transfer);
-
-void
-tw_xwm_data_transfer_continue_read(struct tw_xwm_data_transfer *transfer);
-
 int
 tw_xwm_handle_selection_event(struct tw_xwm *xwm, xcb_generic_event_t *ge);
-
-void
-tw_xwm_data_source_init(struct tw_xwm_data_source *source,
-                        struct tw_xwm_selection *selection);
-void
-tw_xwm_data_source_reset(struct tw_xwm_data_source *source);
-
-bool
-tw_xwm_data_source_get_targets(struct tw_xwm_data_source *source,
-                               struct tw_xwm *xwm);
-
-/* triggered by a wl_client asking for data, we would act as the client writing
- * to the fd */
-void
-tw_xwm_data_source_get_data(struct tw_xwm_data_source *source);
 
 void
 tw_xwm_selection_send_notify(struct tw_xwm *xwm,

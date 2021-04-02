@@ -27,13 +27,12 @@
 #include <unistd.h>
 #include <wayland-server-core.h>
 #include <wayland-util.h>
+#include <taiwins/objects/logger.h>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
 #include <ctypes/helpers.h>
 
-#include "selection.h"
 #include "internal.h"
-#include "taiwins/objects/logger.h"
 
 #define INCR_CHUNK_SIZE (64 * 1024)
 
@@ -83,7 +82,7 @@ xwm_data_transfer_close_fd(struct tw_xwm_data_transfer *transfer)
  *****************************************************************************/
 
 static inline void
-xwm_data_transfer_fini_chunk(struct tw_xwm_data_transfer *transfer)
+xwm_data_transfer_fini_write(struct tw_xwm_data_transfer *transfer)
 {
 	struct tw_xwm_selection *selection = transfer->selection;
 	struct tw_xwm *xwm = transfer->selection->xwm;
@@ -95,41 +94,42 @@ xwm_data_transfer_fini_chunk(struct tw_xwm_data_transfer *transfer)
 }
 
 static int
-handle_write_unblock(int fd, uint32_t mask, void *data)
+xwm_data_transfer_write(int fd, uint32_t mask, void *data)
 {
-	int ret = 1; //mark for recheck
 	struct tw_xwm_data_transfer *transfer = data;
 
 	char *property = xcb_get_property_value(transfer->property_reply);
 	int remains = xcb_get_property_value_length(transfer->property_reply) -
 		transfer->property_offset;
 	ssize_t len = write(fd, property + transfer->property_offset, remains);
+	transfer->property_offset += MAX(len, 0);
 
-	if (len == -1) {
-		xwm_data_transfer_destroy_reply(transfer);
-		xwm_data_transfer_remove_source(transfer);
-		xwm_data_transfer_close_fd(transfer);
+	if (len == -1)
 		tw_log_level(TW_LOG_WARN, "write error in writing "
-		             "wl_data_source");
-		return 0;
-	}
-	//advance the offset
-	transfer->property_offset += len;
-	if (len == remains) { //done writing
+		             "wl_data_offer target fd %d", fd);
+	if (len == -1 || len == remains) {
 		xwm_data_transfer_destroy_reply(transfer);
 		xwm_data_transfer_remove_source(transfer);
-		//if we are writing the chunk, just close this one
-		if (transfer->in_chunk) {
-			tw_logl_level(TW_LOG_DBUG, "done writing chunk, "
-			              "to next chunk");
-			xwm_data_transfer_fini_chunk(transfer);
-		} else {
-			tw_logl_level(TW_LOG_DBUG, "transfer complete");
+		xwm_data_transfer_fini_write(transfer);
+
+		if (!transfer->in_chunk)
 			xwm_data_transfer_close_fd(transfer);
-			ret = 0;
-		}
 	}
-	return ret;
+	return 1;
+}
+
+static inline void
+handle_write_property(struct tw_xwm_data_transfer *transfer,
+                      xcb_get_property_reply_t *reply)
+{
+	uint32_t mask = WL_EVENT_WRITABLE;
+	transfer->property_offset = 0;
+	transfer->property_reply = reply;
+
+	//not done yet
+	if (xwm_data_transfer_write(transfer->fd, mask, transfer) != 0)
+		xwm_data_transfer_add_fd(transfer, transfer->fd, mask,
+		                         xwm_data_transfer_write);
 }
 
 void
@@ -143,33 +143,6 @@ tw_xwm_data_transfer_init_write(struct tw_xwm_data_transfer *transfer,
 	fcntl(fd, F_SETFL, O_WRONLY | O_NONBLOCK);
 }
 
-static inline void
-handle_write_property(struct tw_xwm_data_transfer *transfer,
-                      xcb_get_property_reply_t *reply)
-{
-	uint32_t mask = WL_EVENT_WRITABLE;
-	transfer->property_offset = 0;
-	transfer->property_reply = reply;
-
-	//not done yet
-	if (handle_write_unblock(transfer->fd, mask, transfer) != 0)
-		xwm_data_transfer_add_fd(transfer, transfer->fd, mask,
-		                         handle_write_unblock);
-}
-
-/* ref:
-https://www.x.org/releases/X11R7.6/doc/xorg-docs/specs/ICCCM/icccm.html#incr_properties
-*/
-static inline void
-handle_write_start_chunks(struct tw_xwm_data_transfer *transfer,
-                          xcb_get_property_reply_t *reply)
-{
-	//for handling chunks, the spec stats: The selection requestor starts
-	//the transfer process by deleting the (type==INCR) property forming
-	//the reply to the selection
-	free(reply);
-}
-
 void
 tw_xwm_data_transfer_start_write(struct tw_xwm_data_transfer *transfer)
 {
@@ -177,7 +150,7 @@ tw_xwm_data_transfer_start_write(struct tw_xwm_data_transfer *transfer)
 	struct tw_xwm *xwm = selection->xwm;
 	xcb_get_property_cookie_t cookie =
 		xcb_get_property(xwm->xcb_conn,
-		                 1, //delete
+		                 0, //delete
 		                 selection->window,
 		                 xwm->atoms.wl_selection,
 		                 XCB_GET_PROPERTY_TYPE_ANY,
@@ -186,25 +159,31 @@ tw_xwm_data_transfer_start_write(struct tw_xwm_data_transfer *transfer)
 			);
 	xcb_get_property_reply_t *reply =
 		xcb_get_property_reply(xwm->xcb_conn, cookie, NULL);
-	//if we
+
 	if (reply->type == xwm->atoms.incr) {
+		//for handling chunks, the spec stats: The selection requestor
+		//starts the transfer process by deleting the (type==INCR)
+		//property forming the reply to the selection, the delete was
+		//done
 		transfer->in_chunk = true;
-		handle_write_start_chunks(transfer, reply);
+		xcb_delete_property(xwm->xcb_conn, selection->window,
+		                    xwm->atoms.wl_selection);
+		free(reply);
 	} else {
 		transfer->in_chunk = false;
 		handle_write_property(transfer, reply);
 	}
 }
 
-//we are here because we delete the property and the owner wrote the property
 void
-tw_xwm_data_transfer_write_chunk(struct tw_xwm_data_transfer *transfer)
+tw_xwm_data_transfer_continue_write(struct tw_xwm_data_transfer *transfer)
 {
 	struct tw_xwm_selection *selection = transfer->selection;
 	struct tw_xwm *xwm = selection->xwm;
+	//getting properties, we are deleting ourselves
 	xcb_get_property_cookie_t cookie =
 		xcb_get_property(xwm->xcb_conn,
-		                 1, //delete
+		                 0, //delete
 		                 selection->window,
 		                 xwm->atoms.wl_selection,
 		                 XCB_GET_PROPERTY_TYPE_ANY,
@@ -217,11 +196,12 @@ tw_xwm_data_transfer_write_chunk(struct tw_xwm_data_transfer *transfer)
 		tw_logl_level(TW_LOG_WARN, "Could not get reply");
 		return;
 	}
-	if (xcb_get_property_value_length(reply) > 0)
+	if (xcb_get_property_value_length(reply) > 0) {
 		handle_write_property(transfer, reply);
-	else {
+	} else {
 		tw_logl_level(TW_LOG_DBUG, "transfer complete");
 		xwm_data_transfer_close_fd(transfer);
+		xwm_data_transfer_fini_write(transfer);
 		free(reply);
 	}
 }
@@ -278,6 +258,7 @@ xwm_data_transfer_read_begin_chunk(struct tw_xwm_data_transfer *transfer)
 	                    &incr_chunk_size);
 	//remove the source for now and wait for
 	xwm_data_transfer_remove_source(transfer);
+	tw_xwm_selection_send_notify(xwm, &transfer->req, true);
 }
 
 static inline void

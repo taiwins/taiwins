@@ -79,17 +79,12 @@ selection_add_data_source(struct tw_xwm_selection *selection)
 	        tw_data_device_set_selection(device, &source->wl_source);
 }
 
-static void
-selection_write_data_source(struct tw_xwm_selection *selection)
-{
-	tw_xwm_data_transfer_start_write(&selection->write_transfer);
-}
-
 /* handle wl_client request a xwindow data_source */
 static void
 handle_selection_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 {
 	xcb_selection_notify_event_t *ev = (xcb_selection_notify_event_t *) ge;
+	struct tw_xwm_selection *selection = &xwm->selection;
 
 	tw_logl_level(TW_LOG_DBUG, "xcb selection notify event");
 	if (ev->target == XCB_ATOM_NONE) {
@@ -101,10 +96,9 @@ handle_selection_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 			              "no xwayland surface focused");
 			return;
 		}
-		selection_add_data_source(&xwm->selection);
+		selection_add_data_source(selection);
 	} else {
-		//coming from wl_data_offer.receive, writing to a data_offer
-		selection_write_data_source(&xwm->selection);
+		tw_xwm_data_transfer_start_write(&selection->write_transfer);
 	}
 }
 
@@ -267,8 +261,8 @@ handle_selection_property_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 		if (ev->state == XCB_PROPERTY_NEW_VALUE &&
 		    ev->atom == xwm->atoms.wl_selection &&
 		    transfer->in_chunk) {
-			//write new chunk
-			return 0;
+			tw_xwm_data_transfer_continue_write(transfer);
+			return 1;
 		}
 	}
 
