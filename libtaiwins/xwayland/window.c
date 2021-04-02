@@ -6,6 +6,7 @@
 #include <string.h>
 #include <pixman.h>
 #include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <wayland-util.h>
 #include <xcb/xcb.h>
@@ -345,8 +346,7 @@ read_surface_normal_hints(struct tw_xwm *xwm, struct tw_xsurface *surface,
 
 	if (reply->value_len == 0)
 		return;
-	memcpy(&hints, xcb_get_property_value(reply),
-	       sizeof(surface->normal_hints));
+	memcpy(&hints, xcb_get_property_value(reply), sizeof(hints));
 	has_min_size = (hints.flags & PMinSize) != 0;
 	has_max_size = (hints.flags & PMaxSize) != 0;
 #endif
@@ -438,7 +438,7 @@ read_net_wm_moveresize_msg(struct tw_xsurface *surface, struct tw_xwm *xwm,
 {
 	uint32_t serial;
 	bool move = false, cancel = false;
-	enum wl_shell_surface_resize edge;
+	enum wl_shell_surface_resize edge = WL_SHELL_SURFACE_RESIZE_NONE;
 	int detail = ev->data.data32[2];
 
 	switch (detail) {

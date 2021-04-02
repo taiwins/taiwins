@@ -296,7 +296,7 @@ handle_xfixes_selection_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 	if (!selection)
 		return 0;
 	if (ev->owner == XCB_WINDOW_NONE) {
-		//TODO, no owner, we need to cleanup the selection in wayland
+		tw_xwm_data_source_reset(&selection->xwm_source);
 		selection->owner = XCB_WINDOW_NONE;
 		return 1;
 	}
@@ -320,7 +320,6 @@ handle_xfixes_selection_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 int
 tw_xwm_handle_selection_event(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 {
-	//TODO: check for seat
 	switch (ge->response_type & XCB_EVENT_TYPE_MASK) {
 	case XCB_SELECTION_NOTIFY:
 		handle_selection_notify(xwm, ge);
