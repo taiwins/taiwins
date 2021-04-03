@@ -13,7 +13,6 @@
 #include <taiwins/objects/desktop.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/output_device.h>
-
 #include "test_desktop.h"
 
 #define TW_VIEW_LINK 4
@@ -95,6 +94,10 @@ send_view_configure(struct tw_desktop_surface *dsurf,
 		tw_engine_get_focused_seat(desktop->engine);
 	struct tw_seat *tw_seat = seat->tw_seat;
 	struct tw_surface *surf = dsurf->tw_surface;
+	uint32_t flags = TW_DESKTOP_SURFACE_CONFIG_X |
+		TW_DESKTOP_SURFACE_CONFIG_Y |
+		TW_DESKTOP_SURFACE_CONFIG_W |
+		TW_DESKTOP_SURFACE_CONFIG_H;
 
 	dsurf->tiled_state = 0;
 	//first one on the list
@@ -102,7 +105,7 @@ send_view_configure(struct tw_desktop_surface *dsurf,
 	tw_surface_set_position(dsurf->tw_surface, conf->rect.x, conf->rect.y);
 	dsurf->configure(dsurf, 0, //edge
 	                 conf->rect.x, conf->rect.y,
-	                 conf->rect.width, conf->rect.height);
+	                 conf->rect.width, conf->rect.height, flags);
 	if (dsurf->focused) {
 		if ((tw_seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD) &&
 		    dsurf->focused)
@@ -458,6 +461,14 @@ handle_minimized(struct tw_desktop_surface *dsurf, void *user_data)
 	set_view_focus(surface, desktop);
 }
 
+static void
+handle_config_request(struct tw_desktop_surface *dsurf,
+                      int x, int y, unsigned w, unsigned h, uint32_t flags,
+                      void *user_data)
+{
+	dsurf->configure(dsurf, 0, x, y, w, h, flags);
+}
+
 static const struct tw_desktop_surface_api test_api = {
 	.ping_timeout = handle_ping_timeout,
 	.pong = handle_pong,
@@ -471,6 +482,7 @@ static const struct tw_desktop_surface_api test_api = {
 	.fullscreen_requested = handle_fullscreen,
 	.maximized_requested = handle_maximized,
 	.minimized_requested = handle_minimized,
+	.configure_requested = handle_config_request,
 };
 
 void
