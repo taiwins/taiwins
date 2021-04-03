@@ -20,6 +20,7 @@
  */
 
 #include <assert.h>
+#include <stdint.h>
 #include <string.h>
 #include <wayland-server-core.h>
 #include <wayland-server-protocol.h>
@@ -104,10 +105,12 @@ static void
 configure_wl_shell_surface(struct tw_desktop_surface *surface,
                            enum wl_shell_surface_resize edge,
                            int32_t x, int32_t y,
-                           unsigned width, unsigned height)
+                           unsigned width, unsigned height, uint32_t flags)
 {
-	wl_shell_surface_send_configure(surface->resource, edge,
-	                                width, height);
+	if ((flags & TW_DESKTOP_SURFACE_CONFIG_W) ||
+	    (flags & TW_DESKTOP_SURFACE_CONFIG_H))
+		wl_shell_surface_send_configure(surface->resource, edge,
+		                                width, height);
 }
 
 static void
