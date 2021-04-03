@@ -19,7 +19,7 @@
 #include "internal.h"
 
 static void
-send_surface_wm_msg(struct tw_xsurface *surface,
+send_xsurface_wm_msg(struct tw_xsurface *surface,
                     xcb_client_message_data_t *data, uint32_t event_mask)
 {
 	struct tw_xwm *xwm = surface->xwm;
@@ -42,23 +42,6 @@ send_surface_wm_msg(struct tw_xsurface *surface,
 #define ICCCM_WITHDRAWN_STATE	0
 #define ICCCM_NORMAL_STATE	1
 #define ICCCM_ICONIC_STATE	3
-
-static inline bool
-set_state(uint32_t action, bool state)
-{
-        switch (action) {
-        case _NET_WM_STATE_REMOVE:
-	        state = false;
-	        break;
-        case _NET_WM_STATE_ADD:
-	        state = true;
-	        break;
-        case _NET_WM_STATE_TOGGLE:
-	        state = !state;
-	        break;
-        }
-        return state;
-}
 
 static void
 send_xsurface_wm_state(struct tw_xsurface *surface, int32_t state)
@@ -102,7 +85,6 @@ set_xsurface_net_wm_state(struct tw_xsurface *surface,
 		tw_desktop_surface_set_minimized(dsurf);
 }
 
-
 static void
 send_xsurface_net_wm_state(struct tw_xsurface *surface)
 {
@@ -128,6 +110,31 @@ send_xsurface_net_wm_state(struct tw_xsurface *surface)
 		                    xwm->atoms.net_wm_state, XCB_ATOM_ATOM,
 		                    32, // format
 		                    i, property);
+}
+
+static inline bool
+set_state(uint32_t action, bool state)
+{
+        switch (action) {
+        case _NET_WM_STATE_REMOVE:
+	        state = false;
+	        break;
+        case _NET_WM_STATE_ADD:
+	        state = true;
+	        break;
+        case _NET_WM_STATE_TOGGLE:
+	        state = !state;
+	        break;
+        }
+        return state;
+}
+
+static inline void
+send_xsurface_focus(struct tw_xsurface *surface, bool focus)
+{
+	uint32_t value = focus ? XCB_STACK_MODE_ABOVE : XCB_STACK_MODE_BELOW;
+	xcb_configure_window(surface->xwm->xcb_conn, surface->id,
+	                     XCB_CONFIG_WINDOW_STACK_MODE, &value);
 }
 
 /******************************************************************************
@@ -192,8 +199,7 @@ static inline bool
 has_xsurface_parent(struct tw_xsurface *surface)
 {
 	//here we make sure the parent surface is mapped
-	return surface->parent && surface->parent->surface &&
-		surface->parent->dsurf.surface_added;
+	return surface->parent && surface->parent->surface;
 }
 
 static inline bool
@@ -266,11 +272,10 @@ read_surface_parent(struct tw_xwm *xwm, struct tw_xsurface *surface,
 	}
 }
 
-static void
+static inline void
 read_surface_pid(struct tw_xwm *xwm, struct tw_xsurface *surface,
                  xcb_get_property_reply_t *reply)
 {
-
         if (reply->type != XCB_ATOM_CARDINAL)
 		return;
         surface->pid = *(pid_t *)xcb_get_property_value(reply);
@@ -397,11 +402,11 @@ read_wl_surface_id_msg(struct tw_xsurface *surface, struct tw_xwm *xwm,
 	//window that was not mapped. At the same time, here is a chance we
 	//received from xwayland this id but wl_object is not created yet from
 	//wl_display, caching it for now.
-	if (wl_surface && surface->pending_mapping) {
+	if (wl_surface) {
 		tw_xsurface_map_tw_surface(
 			surface, tw_surface_from_resource(wl_surface));
 		surface->surface_id = 0;
-	} else if (surface->pending_mapping) {
+	} else {
 		surface->surface_id = id;
 		surface->surface = NULL;
 	}
@@ -512,6 +517,13 @@ handle_commit_tw_xsurface(struct tw_surface *tw_surface)
 
 	if (dsurf->surface_added)
 		desktop->api.committed(dsurf, desktop->user_data);
+	else if (is_xsurface_subsurface(surface)) {
+		struct tw_surface *parent = surface->parent->surface;
+		tw_surface_set_position(tw_surface,
+		                        parent->geometry.x + surface->subsurface.sx,
+		                        parent->geometry.y + surface->subsurface.sy);
+	}
+
 }
 
 static void
@@ -523,19 +535,36 @@ handle_configure_tw_xsurface(struct tw_desktop_surface *dsurf,
 	struct tw_xsurface *surface =
 		wl_container_of(dsurf, surface, dsurf);
 	struct tw_xwm *xwm = surface->xwm;
+	uint16_t mask = 0;
+	unsigned values[5] = {0}, i = 0;
+
 	//we have to set the mask to match the values.
-	uint16_t mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y |
-		XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
-	uint32_t values[] = {x, y, width, height, 0};
+	//TODO: this is the part with frame, we shall strip them out
+	tw_logl_level(TW_LOG_DBUG, "handle configure for desktop for %d",
+	              surface->id);
+
+        if ((flags & TW_DESKTOP_SURFACE_CONFIG_X)) {
+		values[i++] = x;
+		mask |= XCB_CONFIG_WINDOW_X;
+	} if ((flags & TW_DESKTOP_SURFACE_CONFIG_Y)) {
+		values[i++] = y;
+		mask |= XCB_CONFIG_WINDOW_Y;
+	}
+	if ((flags & TW_DESKTOP_SURFACE_CONFIG_W)) {
+		values[i++] = width;
+		mask |= XCB_CONFIG_WINDOW_WIDTH;
+	} if ((flags & TW_DESKTOP_SURFACE_CONFIG_H)) {
+		values[i++] = height;
+		mask |= XCB_CONFIG_WINDOW_HEIGHT;
+	}
 
 	if (dsurf->states & TW_DESKTOP_SURFACE_FOCUSED)
 		tw_xsurface_set_focus(surface, xwm);
-	surface->x = x;
-	surface->y = y;
-	surface->w = width;
-	surface->h = height;
-	xcb_configure_window(xwm->xcb_conn, surface->id, mask, values);
-	xcb_flush(xwm->xcb_conn);
+	if (mask) {
+		xcb_configure_window(surface->xwm->xcb_conn, surface->id,
+		                     mask, values);
+		xcb_flush(surface->xwm->xcb_conn);
+	}
 }
 
 static void
@@ -550,7 +579,7 @@ handle_close_tw_xsurface(struct tw_desktop_surface *dsurf)
 		xcb_client_message_data_t msg = {0};
 		msg.data32[0] = xwm->atoms.wm_delete_window;
 		msg.data32[1] = XCB_CURRENT_TIME;
-		send_surface_wm_msg(surface, &msg, XCB_EVENT_MASK_NO_EVENT);
+		send_xsurface_wm_msg(surface, &msg, XCB_EVENT_MASK_NO_EVENT);
 	} else {
 		xcb_kill_client(xwm->xcb_conn, surface->id);
 	}
@@ -572,14 +601,69 @@ notify_xsurface_surface_destroy(struct wl_listener *listener, void *data)
 	struct tw_xsurface *surface =
 		wl_container_of(listener, surface, surface_destroy);
 	tw_reset_wl_list(&surface->surface_destroy.link);
+	tw_reset_wl_list(&surface->surface_geometry_dirty.link);
 	tw_xsurface_unmap_requested(surface);
+}
+
+static void
+notify_xsurface_surface_dirty(struct wl_listener *listener, void *data)
+{
+	/* struct tw_surface *tw_surface = data; */
+	/* struct tw_xsurface *surface = */
+	/*	wl_container_of(listener, surface, surface_geometry_dirty); */
+	/* uint16_t mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y; */
+	/* int xy[] = { tw_surface->geometry.x, tw_surface->geometry.y }; */
+
+	/* if (!is_xsurface_subsurface(surface)) { */
+	/*	xcb_configure_window(surface->xwm->xcb_conn, surface->id, mask, xy); */
+	/*	xcb_flush(surface->xwm->xcb_conn); */
+	/*	tw_logl_level(TW_LOG_DBUG, "current surface position is (%d, %d)", */
+	/*	              xy[0], xy[1]); */
+	/* } */
 }
 
 /******************************************************************************
  * exposed
  *****************************************************************************/
 
-//reading property does not need updating net_wm_state
+void
+tw_xsurface_read_config_request(struct tw_xsurface *surface,
+                                xcb_configure_request_event_t *ev)
+{
+	/* struct tw_desktop_surface *dsurf = &surface->dsurf; */
+	/* uint32_t mask = 0, geo_mask = 0, i = 0; */
+	uint32_t values[2] = {ev->width, ev->height};
+	uint32_t geo_mask = XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
+
+	/* if (ev->value_mask & XCB_CONFIG_WINDOW_X) { */
+	/*	values[i++] = ev->x; */
+	/*	mask |= TW_DESKTOP_SURFACE_CONFIG_X; */
+	/*	geo_mask |= XCB_CONFIG_WINDOW_X; */
+	/* } */
+	/* if (ev->value_mask & XCB_CONFIG_WINDOW_Y) { */
+	/*	values[i++] = ev->y; */
+	/*	mask |= TW_DESKTOP_SURFACE_CONFIG_Y; */
+	/*	geo_mask |= XCB_CONFIG_WINDOW_Y; */
+	/* } */
+	/* if (ev->value_mask & XCB_CONFIG_WINDOW_WIDTH) { */
+	/*	values[i++] = ev->width; */
+	/*	mask |= TW_DESKTOP_SURFACE_CONFIG_W; */
+	/*	geo_mask |= XCB_CONFIG_WINDOW_WIDTH; */
+	/* } */
+	/* if (ev->value_mask & XCB_CONFIG_WINDOW_HEIGHT) { */
+	/*	values[i++] = ev->height; */
+	/*	mask |= TW_DESKTOP_SURFACE_CONFIG_H; */
+	/*	geo_mask |= XCB_CONFIG_WINDOW_HEIGHT; */
+	/* } */
+	/* if (dsurf->surface_added) */
+	/*	dsurf->desktop->api.configure_requested( */
+	/*		dsurf, ev->x, ev->y, ev->width, ev->height, */
+	/*		mask, dsurf->desktop->user_data); */
+	/* else */
+		xcb_configure_window(surface->xwm->xcb_conn, surface->id,
+		                     geo_mask, values);
+}
+
 void
 tw_xsurface_read_property(struct tw_xsurface *surface, xcb_atom_t type)
 {
@@ -669,6 +753,9 @@ tw_xsurface_map_tw_surface(struct tw_xsurface *surface,
 	tw_set_resource_destroy_listener(tw_surface->resource,
 	                                 &surface->surface_destroy,
 	                                 notify_xsurface_surface_destroy);
+	tw_signal_setup_listener(&tw_surface->signals.dirty,
+	                         &surface->surface_geometry_dirty,
+	                         notify_xsurface_surface_dirty);
 
 	for (unsigned i = 0; i < sizeof(atoms)/sizeof(xcb_atom_t); i++)
 		tw_xsurface_read_property(surface, atoms[i]);
@@ -695,13 +782,13 @@ tw_xsurface_unmap_requested(struct tw_xsurface *surface)
 	surface->pending_mapping = false;
 	tw_desktop_surface_rm(dsurf);
 	tw_desktop_surface_fini(dsurf);
+	surface->surface = NULL;
 }
 
 void
 tw_xsurface_map_requested(struct tw_xsurface *xsurface)
 {
 	struct tw_xwm *xwm = xsurface->xwm;
-	uint32_t values = XCB_STACK_MODE_BELOW;
 
 	send_xsurface_wm_state(xsurface, ICCCM_NORMAL_STATE);
 	send_xsurface_net_wm_state(xsurface);
@@ -709,8 +796,7 @@ tw_xsurface_map_requested(struct tw_xsurface *xsurface)
         //from weston documentation. The MapRequest happens before the
 	//wl_surface.id is available. Here we Simply acknowledge the xwindow
 	//for the mapping. Processing happens later in reading_wl_surface_id.
-	xcb_configure_window(xwm->xcb_conn, xsurface->id,
-	                     XCB_CONFIG_WINDOW_STACK_MODE, &values);
+	send_xsurface_focus(xsurface, false);
 	xcb_map_window(xwm->xcb_conn, xsurface->id);
 	xsurface->pending_mapping = true;
 }
@@ -733,8 +819,6 @@ tw_xsurface_set_focus(struct tw_xsurface *surface, struct tw_xwm *xwm)
 	xcb_client_message_event_t msg;
 
 	if (surface) {
-		uint32_t values[1];
-
 		if (surface->override_redirect)
 			return;
 		msg.response_type = XCB_CLIENT_MESSAGE;
@@ -750,10 +834,7 @@ tw_xsurface_set_focus(struct tw_xsurface *surface, struct tw_xwm *xwm)
 		xcb_set_input_focus(xwm->xcb_conn,
 		                    XCB_INPUT_FOCUS_POINTER_ROOT,
 		                    surface->id, XCB_TIME_CURRENT_TIME);
-		//move surface to toplevel
-		values[0] = XCB_STACK_MODE_ABOVE;
-		xcb_configure_window(xwm->xcb_conn, surface->id,
-		                     XCB_CONFIG_WINDOW_STACK_MODE, values);
+		send_xsurface_focus(surface, true);
 		send_xsurface_net_wm_state(surface);
 
 	} else {
@@ -781,16 +862,17 @@ tw_xsurface_create(struct tw_xwm *xwm, xcb_window_t win_id,
 	//surface property
 	surface->id = win_id;
 	surface->xwm = xwm;
+	surface->override_redirect = override_redirect;
 	surface->x = x;
 	surface->y = y;
 	surface->w = w;
 	surface->h = h;
-	surface->override_redirect = override_redirect;
 	surface->dsurf.desktop = xwm->manager;
 
 	wl_list_init(&surface->link);
 	wl_list_init(&surface->children);
 	wl_list_init(&surface->surface_destroy.link);
+	wl_list_init(&surface->surface_geometry_dirty.link);
 
 	geometry_cookie = xcb_get_geometry(xwm->xcb_conn, win_id);
 	xcb_change_window_attributes(xwm->xcb_conn, win_id, XCB_CW_EVENT_MASK,

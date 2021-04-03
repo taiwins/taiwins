@@ -192,9 +192,10 @@ struct tw_xsurface {
 	struct wl_list link; /* xwm:surfaces */
 	struct wl_list children;
 	struct wl_listener surface_destroy;
+	struct wl_listener surface_geometry_dirty;
 
 	struct tw_desktop_surface dsurf;
-	struct tw_subsurface subsurface;
+	struct tw_subsurface subsurface; /**< used if is subsurface */
 };
 
 struct tw_xsurface *
@@ -222,6 +223,9 @@ tw_xsurface_read_property(struct tw_xsurface *surface, xcb_atom_t type);
 void
 tw_xsurface_read_client_msg(struct tw_xsurface *surface,
                             xcb_client_message_event_t *ev);
+void
+tw_xsurface_read_config_request(struct tw_xsurface *surface,
+                                xcb_configure_request_event_t *ev);
 void
 tw_xsurface_set_focus(struct tw_xsurface *surface, struct tw_xwm *xwm);
 

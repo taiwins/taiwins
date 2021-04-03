@@ -254,7 +254,7 @@ handle_selection_property_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 	xcb_property_notify_event_t *ev = (xcb_property_notify_event_t *)ge;
 	struct tw_xwm_selection *selection = &xwm->selection;
 
-	tw_logl_level(TW_LOG_DBUG, "xcb selection property notify event");
+	/* tw_logl_level(TW_LOG_DBUG, "xcb selection property notify event"); */
 	if (ev->window == selection->window) {
 		struct tw_xwm_data_transfer *transfer =
 			&selection->write_transfer;

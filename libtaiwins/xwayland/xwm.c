@@ -127,8 +127,12 @@ handle_xwm_unmap_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 }
 
 /*
- * xserver/xwayland send this event to us(root window) whenever other clients
- * initiates a
+ * xserver/xwayland send this event to us(root window) whenever clients
+ * initiates a xcb_configure_window or xcb_raise_window ...
+ *
+ * TODO What we are doing here is not correct, we should deligate this to the
+ * actual window manager, the window manager then generates configure events to
+ * properly set the window size.
  */
 static void
 handle_xwm_configure_request(struct tw_xwm *xwm, xcb_generic_event_t *ge)
@@ -137,20 +141,11 @@ handle_xwm_configure_request(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 		(xcb_configure_request_event_t *)ge;
 
 	struct tw_xsurface *surface = tw_xsurface_from_id(xwm, ev->window);
-	uint16_t geo_mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y |
-		XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
-	//TODO: have we have to grant the wish of the clients for the frame to
-	//show
-	uint32_t values[5] = {
-		surface->x, surface->h, ev->width, ev->height, 0
-	};
-
 	if (!surface)
 		return;
-	tw_logl("Recived Configure request:%d from xcb_window@%d",
-	        XCB_CONFIGURE_REQUEST, surface->id);
-
-	xcb_configure_window(xwm->xcb_conn, surface->id, geo_mask, values);
+	tw_logl_level(TW_LOG_DBUG, "Recived ConfigureRequest:%d from "
+	              "xcb_window@%d", XCB_CONFIGURE_REQUEST, surface->id);
+	tw_xsurface_read_config_request(surface, ev);
 }
 
 /*
@@ -165,8 +160,10 @@ handle_xwm_configure_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 
 	if (!surface)
 		return;
-	tw_logl("Recived Configure notify:%d from xcb_window@%d",
-	        XCB_CONFIGURE_NOTIFY, ev->window);
+	tw_logl("Recived Configure notify:%d from xcb_window@%d, for (%d, %d, %d, %d)",
+	        XCB_CONFIGURE_NOTIFY, ev->window, ev->x, ev->y, ev->width, ev->height);
+	surface->x = ev->x;
+	surface->y = ev->y;
 }
 
 static inline void
