@@ -110,13 +110,10 @@ tw_desktop_surface_init(struct tw_desktop_surface *surf,
 	surf->desktop = desktop;
 	surf->tw_surface = tw_surface_from_resource(wl_surface);
 	surf->resource = resource;
-	surf->fullscreened = false;
-	surf->maximized = false;
-	surf->minimized = false;
 	surf->surface_added = false;
-	surf->focused = false;
 	surf->title = NULL;
 	surf->class = NULL;
+	surf->states = 0;
 	surf->max_size.w = UINT32_MAX;
 	surf->max_size.h = UINT32_MAX;
 	surf->min_size.w = 0;
@@ -163,7 +160,7 @@ tw_desktop_surface_set_fullscreen(struct tw_desktop_surface *surf,
                                   bool fullscreen)
 {
 	void *user_data = surf->desktop->user_data;
-	if (surf->fullscreened != fullscreen)
+	if ((surf->states & TW_DESKTOP_SURFACE_FULLSCREENED) != fullscreen)
 		surf->desktop->api.fullscreen_requested(surf, output,
 		                                        fullscreen, user_data);
 }
@@ -173,7 +170,7 @@ tw_desktop_surface_set_maximized(struct tw_desktop_surface *surf,
                                  bool maximized)
 {
 	void *user_data = surf->desktop->user_data;
-	if (surf->maximized != maximized)
+	if ((surf->states & TW_DESKTOP_SURFACE_MAXIMIZED) != maximized)
 		surf->desktop->api.maximized_requested(surf, maximized,
 		                                       user_data);
 }
@@ -182,7 +179,7 @@ WL_EXPORT void
 tw_desktop_surface_set_minimized(struct tw_desktop_surface *surf)
 {
 	void *user_data = surf->desktop->user_data;
-	if (!surf->minimized)
+	if (!(surf->states & TW_DESKTOP_SURFACE_MINIMIZED))
 		surf->desktop->api.minimized_requested(surf, user_data);
 }
 

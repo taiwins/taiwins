@@ -111,6 +111,7 @@ configure_wl_shell_surface(struct tw_desktop_surface *surface,
 	    (flags & TW_DESKTOP_SURFACE_CONFIG_H))
 		wl_shell_surface_send_configure(surface->resource, edge,
 		                                width, height);
+	surface->states = flags & TW_DESKTOP_SURFACE_STATES;
 }
 
 static void
@@ -206,7 +207,9 @@ handle_set_fullscreen(struct wl_client *client,
 {
 	struct tw_desktop_surface *d =
 		tw_desktop_surface_from_wl_shell_surface(resource);
-	tw_desktop_surface_set_fullscreen(d, output, !d->fullscreened);
+	bool fullscreened = !(d->states & TW_DESKTOP_SURFACE_FULLSCREENED);
+
+	tw_desktop_surface_set_fullscreen(d, output, fullscreened);
 }
 
 static void
@@ -216,7 +219,9 @@ handle_set_maximized(struct wl_client *client,
 {
 	struct tw_desktop_surface *d =
 		tw_desktop_surface_from_wl_shell_surface(resource);
-	tw_desktop_surface_set_maximized(d, !d->maximized);
+	bool maximized = !(d->states & TW_DESKTOP_SURFACE_MAXIMIZED);
+
+	tw_desktop_surface_set_maximized(d, maximized);
 }
 
 static void

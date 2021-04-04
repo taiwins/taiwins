@@ -86,19 +86,22 @@ enum tw_desktop_surface_type {
 	TW_DESKTOP_POPUP_SURFACE = 4,
 };
 
-enum tw_desktop_surface_tiled_state {
+enum tw_desktop_surface_state_flag {
+	/* states */
 	TW_DESKTOP_SURFACE_TILED_LEFT = 1 << 0,
 	TW_DESKTOP_SURFACE_TILED_RIGHT = 1 << 1,
 	TW_DESKTOP_SURFACE_TILED_TOP = 1 << 2,
 	TW_DESKTOP_SURFACE_TILED_BOTTOM = 1 << 3,
-};
-
-//TODO: include fullscreen/maximized/minimized/focused, tiled_state
-enum tw_desktop_surface_config_flag {
-	TW_DESKTOP_SURFACE_CONFIG_X = 1 << 0,
-	TW_DESKTOP_SURFACE_CONFIG_Y = 1 << 1,
-	TW_DESKTOP_SURFACE_CONFIG_W = 1 << 2,
-	TW_DESKTOP_SURFACE_CONFIG_H = 1 << 3,
+	TW_DESKTOP_SURFACE_FOCUSED = 1 << 4,
+	TW_DESKTOP_SURFACE_MAXIMIZED = 1 << 5,
+	TW_DESKTOP_SURFACE_FULLSCREENED = 1 << 6,
+	TW_DESKTOP_SURFACE_MINIMIZED = 1 << 7,
+	TW_DESKTOP_SURFACE_STATES = (1 << 8) - 1, //all the states
+	/* flags */
+	TW_DESKTOP_SURFACE_CONFIG_X = 1 << 9,
+	TW_DESKTOP_SURFACE_CONFIG_Y = 1 << 10,
+	TW_DESKTOP_SURFACE_CONFIG_W = 1 << 11,
+	TW_DESKTOP_SURFACE_CONFIG_H = 1 << 12,
 };
 
 struct tw_desktop_surface {
@@ -106,8 +109,8 @@ struct tw_desktop_surface {
 	struct tw_surface *tw_surface;
 	struct tw_desktop_manager *desktop;
 	enum tw_desktop_surface_type type;
-	bool fullscreened, maximized, minimized, focused, surface_added;
-	uint32_t tiled_state;
+	bool surface_added;
+	uint32_t states;
 	struct tw_size_2d max_size, min_size;
         /**
          * the window geometry for this given desktop surface, always available
