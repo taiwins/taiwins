@@ -78,14 +78,16 @@ tw_xdg_view_set_position(struct tw_xdg_view *view, int x, int y)
 }
 
 static void
-tw_xdg_view_configure(struct tw_xdg_view *view)
+tw_xdg_view_configure(struct tw_xdg_view *view, uint32_t flags)
 {
-	view->dsurf->tiled_state = view->state & 15;
-	view->dsurf->focused = (view->state & TW_XDG_VIEW_FOCUSED);
-	view->dsurf->maximized =(view->type == LAYOUT_MAXIMIZED);
-	view->dsurf->fullscreened = (view->type == LAYOUT_FULLSCREEN);
-	view->dsurf->configure(view->dsurf, 0, 0, 0,
-	                       view->planed_w, view->planed_h);
+	flags |= view->state;
+	flags |= (view->type == LAYOUT_MAXIMIZED) ?
+		TW_DESKTOP_SURFACE_MAXIMIZED : 0;
+	flags |= (view->type == LAYOUT_FULLSCREEN) ?
+		TW_DESKTOP_SURFACE_FULLSCREENED : 0;
+	tw_desktop_surface_send_configure(view->dsurf, 0, view->x, view->y,
+	                                  view->planed_w, view->planed_h,
+	                                  flags);
 }
 
 void
@@ -95,7 +97,7 @@ tw_xdg_view_set_focus(struct tw_xdg_view *view, bool focus)
 		view->state |= TW_XDG_VIEW_FOCUSED;
 	else
 		view->state &= ~TW_XDG_VIEW_FOCUSED;
-	tw_xdg_view_configure(view);
+	tw_xdg_view_configure(view, 0);
 }
 
 static void
@@ -244,6 +246,8 @@ apply_layout_operations(const struct tw_xdg_layout_op *ops, const int len)
 {
 	for (int i = 0; i < len && !ops[i].out.end; i++) {
 		struct tw_xdg_view *v = ops[i].v;
+		uint32_t flags = TW_DESKTOP_SURFACE_CONFIG_X |
+			TW_DESKTOP_SURFACE_CONFIG_Y;
 		tw_xdg_view_set_position(v, ops[i].out.pos.x,
 		                         ops[i].out.pos.y);
 
@@ -251,7 +255,10 @@ apply_layout_operations(const struct tw_xdg_layout_op *ops, const int len)
 			v->planed_w = ops[i].out.size.width;
 			v->planed_h = ops[i].out.size.height;
 			v->state = ops[i].out.state;
-			tw_xdg_view_configure(v);
+			flags |= (v->planed_w && v->planed_h) ?
+				TW_DESKTOP_SURFACE_CONFIG_W |
+				TW_DESKTOP_SURFACE_CONFIG_H : 0;
+			tw_xdg_view_configure(v, flags);
 		}
 	}
 }

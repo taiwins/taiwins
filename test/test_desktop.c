@@ -3,6 +3,7 @@
 #include "taiwins/objects/seat.h"
 #include <math.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <pixman.h>
 #include <wayland-server-core.h>
@@ -13,7 +14,6 @@
 #include <taiwins/objects/desktop.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/output_device.h>
-
 #include "test_desktop.h"
 
 #define TW_VIEW_LINK 4
@@ -89,23 +89,28 @@ view_focused(struct tw_surface *surf, const struct tw_test_desktop *desktop)
 static void
 send_view_configure(struct tw_desktop_surface *dsurf,
                     const struct tw_test_desktop *desktop,
-                    const struct view_configure *conf)
+                    const struct view_configure *conf, uint32_t flags)
 {
 	struct tw_engine_seat *seat =
 		tw_engine_get_focused_seat(desktop->engine);
 	struct tw_seat *tw_seat = seat->tw_seat;
 	struct tw_surface *surf = dsurf->tw_surface;
+	bool focused = view_focused(dsurf->tw_surface, desktop);
+	flags |= TW_DESKTOP_SURFACE_CONFIG_X |
+		TW_DESKTOP_SURFACE_CONFIG_Y |
+		TW_DESKTOP_SURFACE_CONFIG_W |
+		TW_DESKTOP_SURFACE_CONFIG_H;
+	flags |= focused ? TW_DESKTOP_SURFACE_FOCUSED : 0;
 
-	dsurf->tiled_state = 0;
 	//first one on the list
-	dsurf->focused = view_focused(dsurf->tw_surface, desktop);
 	tw_surface_set_position(dsurf->tw_surface, conf->rect.x, conf->rect.y);
-	dsurf->configure(dsurf, 0, //edge
-	                 conf->rect.x, conf->rect.y,
-	                 conf->rect.width, conf->rect.height);
-	if (dsurf->focused) {
+	tw_desktop_surface_send_configure(dsurf, 0,
+	                                  conf->rect.x, conf->rect.y,
+	                                  conf->rect.width, conf->rect.height,
+	                                  flags);
+	if (focused) {
 		if ((tw_seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD) &&
-		    dsurf->focused)
+		    focused)
 			tw_keyboard_set_focus(&tw_seat->keyboard,
 			                      surf->resource, NULL);
 		dsurf->ping(dsurf, wl_display_next_serial(desktop->display));
@@ -119,7 +124,7 @@ set_view_focus(struct tw_surface *surf, const struct tw_test_desktop *desktop)
 	struct view_configure conf = {
 		.rect = view_get_visible(dsurf),
 	};
-	send_view_configure(dsurf, desktop, &conf);
+	send_view_configure(dsurf, desktop, &conf, 0);
 }
 
 static void
@@ -134,7 +139,7 @@ handle_refocus(void *data)
 		struct view_configure conf = {
 			.rect = view_get_visible(dsurf),
 		};
-		send_view_configure(dsurf, desktop, &conf);
+		send_view_configure(dsurf, desktop, &conf, 0);
 	}
 }
 
@@ -243,7 +248,7 @@ handle_resize_pointer_grab_motion(struct tw_seat_pointer_grab *grab,
 			.rect.width = tg->curr->window_geometry.w + dw,
 			.rect.height = tg->curr->window_geometry.h + dh,
 		};
-		send_view_configure(tg->curr, desktop, &conf);
+		send_view_configure(tg->curr, desktop, &conf, 0);
 	}
 	tg->gx = gx;
 	tg->gy = gy;
@@ -290,7 +295,7 @@ handle_surface_added(struct tw_desktop_surface *dsurf, void *user_data)
 
 	wl_list_insert(&desktop->layer.views, view_link(dsurf->tw_surface));
 	//randomly setup a size
-	send_view_configure(dsurf, desktop, &conf);
+	send_view_configure(dsurf, desktop, &conf, 0);
 	//unset the previous view focus
 	if (prev_surf)
 		set_view_focus(prev_surf, desktop);
@@ -412,11 +417,11 @@ handle_fullscreen(struct tw_desktop_surface *dsurf,
 	struct view_configure conf = {
 		.rect = (fullscreen) ? region : visible,
 	};
+	uint32_t flags = fullscreen ? TW_DESKTOP_SURFACE_FULLSCREENED : 0;
 
 	tw_reset_wl_list(view_link(surf));
 	wl_list_insert(&desktop->layer.views, view_link(surf));
-	dsurf->fullscreened = fullscreen;
-	send_view_configure(dsurf, desktop, &conf);
+	send_view_configure(dsurf, desktop, &conf, flags);
 	//fullscreen this one may lead defocus of others.
 	if (prev_surf != surf && prev_surf)
 		set_view_focus(prev_surf, desktop);
@@ -438,11 +443,11 @@ handle_maximized(struct tw_desktop_surface *dsurf, bool maximized,
 	struct view_configure conf = {
 		.rect = (maximized) ? region : visible,
 	};
+	uint32_t flags = maximized ? TW_DESKTOP_SURFACE_MAXIMIZED : 0;
 
 	tw_reset_wl_list(view_link(surf));
 	wl_list_insert(&desktop->layer.views, view_link(surf));
-	dsurf->maximized = maximized;
-	send_view_configure(dsurf, desktop, &conf);
+	send_view_configure(dsurf, desktop, &conf, flags);
 	//maximized this one may lead defocus of others.
 	if (prev_surf != surf && prev_surf)
 		set_view_focus(prev_surf, desktop);
@@ -458,6 +463,14 @@ handle_minimized(struct tw_desktop_surface *dsurf, void *user_data)
 	set_view_focus(surface, desktop);
 }
 
+static void
+handle_config_request(struct tw_desktop_surface *dsurf,
+                      int x, int y, unsigned w, unsigned h, uint32_t flags,
+                      void *user_data)
+{
+	tw_desktop_surface_send_configure(dsurf, 0, x, y, w, h, flags);
+}
+
 static const struct tw_desktop_surface_api test_api = {
 	.ping_timeout = handle_ping_timeout,
 	.pong = handle_pong,
@@ -471,6 +484,7 @@ static const struct tw_desktop_surface_api test_api = {
 	.fullscreen_requested = handle_fullscreen,
 	.maximized_requested = handle_maximized,
 	.minimized_requested = handle_minimized,
+	.configure_requested = handle_config_request,
 };
 
 void
