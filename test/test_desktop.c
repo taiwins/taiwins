@@ -104,9 +104,10 @@ send_view_configure(struct tw_desktop_surface *dsurf,
 
 	//first one on the list
 	tw_surface_set_position(dsurf->tw_surface, conf->rect.x, conf->rect.y);
-	dsurf->configure(dsurf, 0, //edge
-	                 conf->rect.x, conf->rect.y,
-	                 conf->rect.width, conf->rect.height, flags);
+	tw_desktop_surface_send_configure(dsurf, 0,
+	                                  conf->rect.x, conf->rect.y,
+	                                  conf->rect.width, conf->rect.height,
+	                                  flags);
 	if (focused) {
 		if ((tw_seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD) &&
 		    focused)
@@ -467,7 +468,7 @@ handle_config_request(struct tw_desktop_surface *dsurf,
                       int x, int y, unsigned w, unsigned h, uint32_t flags,
                       void *user_data)
 {
-	dsurf->configure(dsurf, 0, x, y, w, h, flags);
+	tw_desktop_surface_send_configure(dsurf, 0, x, y, w, h, flags);
 }
 
 static const struct tw_desktop_surface_api test_api = {

@@ -85,8 +85,9 @@ tw_xdg_view_configure(struct tw_xdg_view *view, uint32_t flags)
 		TW_DESKTOP_SURFACE_MAXIMIZED : 0;
 	flags |= (view->type == LAYOUT_FULLSCREEN) ?
 		TW_DESKTOP_SURFACE_FULLSCREENED : 0;
-	view->dsurf->configure(view->dsurf, 0, view->x, view->y,
-	                       view->planed_w, view->planed_h, flags);
+	tw_desktop_surface_send_configure(view->dsurf, 0, view->x, view->y,
+	                                  view->planed_w, view->planed_h,
+	                                  flags);
 }
 
 void
