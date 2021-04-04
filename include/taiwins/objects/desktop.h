@@ -203,6 +203,16 @@ tw_desktop_surface_resize(struct tw_desktop_surface *surf,
 void
 tw_desktop_surface_calc_window_geometry(struct tw_surface *surface,
                                         pixman_region32_t *geometry);
+void
+tw_desktop_surface_send_configure(struct tw_desktop_surface *surface,
+                                  enum wl_shell_surface_resize edge,
+                                  int x, int y, unsigned w, unsigned h,
+                                  uint32_t state_flags);
+void
+tw_desktop_surface_send_ping(struct tw_desktop_surface *surface,
+                             uint32_t serial);
+void
+tw_desktop_surface_send_close(struct tw_desktop_surface *surface);
 
 #ifdef  __cplusplus
 }

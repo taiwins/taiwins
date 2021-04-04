@@ -210,16 +210,16 @@ notify_xdg_surf_surface_destroy(struct wl_listener *listener, void *userdata)
 static void
 compile_toplevel_states(struct tw_xdg_surface *xdg_surface,
                         struct wl_array *states,
-                        uint32_t w, uint32_t h, uint32_t flags)
+                        uint32_t w, uint32_t h)
 {
 	struct tw_desktop_surface *dsurf = &xdg_surface->base;
 	enum xdg_toplevel_state *state = NULL;
 	uint32_t ver = wl_resource_get_version(xdg_surface->toplevel.resource);
 
-	if (flags & TW_DESKTOP_SURFACE_MAXIMIZED) {
+	if (dsurf->states & TW_DESKTOP_SURFACE_MAXIMIZED) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_MAXIMIZED;
-	} else if (flags & TW_DESKTOP_SURFACE_FULLSCREENED) {
+	} else if (dsurf->states & TW_DESKTOP_SURFACE_FULLSCREENED) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_FULLSCREEN;
 	}
@@ -227,27 +227,27 @@ compile_toplevel_states(struct tw_xdg_surface *xdg_surface,
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_RESIZING;
 	}
-	if (flags & TW_DESKTOP_SURFACE_FOCUSED) {
+	if (dsurf->states & TW_DESKTOP_SURFACE_FOCUSED) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_ACTIVATED;
 	}
 	//tiled state
-	if ((flags & TW_DESKTOP_SURFACE_TILED_LEFT) &&
+	if ((dsurf->states & TW_DESKTOP_SURFACE_TILED_LEFT) &&
 	    ver >= XDG_TOPLEVEL_STATE_TILED_LEFT_SINCE_VERSION) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_TILED_LEFT;
 	}
-	if ((flags & TW_DESKTOP_SURFACE_TILED_RIGHT) &&
+	if ((dsurf->states & TW_DESKTOP_SURFACE_TILED_RIGHT) &&
 	    ver >= XDG_TOPLEVEL_STATE_TILED_RIGHT_SINCE_VERSION) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_TILED_RIGHT;
 	}
-	if ((flags & TW_DESKTOP_SURFACE_TILED_TOP) &&
+	if ((dsurf->states & TW_DESKTOP_SURFACE_TILED_TOP) &&
 	    ver >= XDG_TOPLEVEL_STATE_TILED_TOP_SINCE_VERSION) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_TILED_TOP;
 	}
-	if ((flags & TW_DESKTOP_SURFACE_TILED_BOTTOM) &&
+	if ((dsurf->states & TW_DESKTOP_SURFACE_TILED_BOTTOM) &&
 	    ver >= XDG_TOPLEVEL_STATE_TILED_BOTTOM_SINCE_VERSION) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_TILED_BOTTOM;
@@ -266,10 +266,9 @@ configure_xdg_surface(struct tw_desktop_surface *dsurf,
 	struct wl_array states;
 
 	wl_array_init(&states);
-	compile_toplevel_states(xdg_surface, &states, width, height, flags);
+	compile_toplevel_states(xdg_surface, &states, width, height);
 
 	if (dsurf->type == TW_DESKTOP_TOPLEVEL_SURFACE) {
-		dsurf->states = flags & TW_DESKTOP_SURFACE_STATES;
 		xdg_toplevel_send_configure(xdg_surface->toplevel.resource,
 		                            width, height, &states);
 		xdg_surface_send_configure(dsurf->resource,

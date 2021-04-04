@@ -268,6 +268,29 @@ tw_desktop_surface_calc_window_geometry(struct tw_surface *surface,
 	pixman_region32_fini(&region);
 }
 
+WL_EXPORT void
+tw_desktop_surface_send_configure(struct tw_desktop_surface *dsurf,
+                                  enum wl_shell_surface_resize edge,
+                                  int x, int y, unsigned w, unsigned h,
+                                  uint32_t state_flags)
+{
+	dsurf->states = state_flags & TW_DESKTOP_SURFACE_STATES;
+	dsurf->configure(dsurf, edge, x, y, w, h,
+	                 state_flags & (~TW_DESKTOP_SURFACE_STATES));
+}
+
+WL_EXPORT void
+tw_desktop_surface_send_ping(struct tw_desktop_surface *dsurf, uint32_t serial)
+{
+	dsurf->ping(dsurf, serial);
+}
+
+WL_EXPORT void
+tw_desktop_surface_send_close(struct tw_desktop_surface *dsurf)
+{
+	dsurf->close(dsurf);
+}
+
 bool
 tw_surface_is_wl_shell_surface(struct tw_surface *surface);
 

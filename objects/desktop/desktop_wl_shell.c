@@ -111,7 +111,6 @@ configure_wl_shell_surface(struct tw_desktop_surface *surface,
 	    (flags & TW_DESKTOP_SURFACE_CONFIG_H))
 		wl_shell_surface_send_configure(surface->resource, edge,
 		                                width, height);
-	surface->states = flags & TW_DESKTOP_SURFACE_STATES;
 }
 
 static void
