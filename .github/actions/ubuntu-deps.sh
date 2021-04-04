@@ -53,7 +53,7 @@ export PATH=~/.local/bin:$PATH
 pip3 install --user git+https://github.com/mesonbuild/meson.git@0.54
 
 #install upstream wayland
-git clone --depth=1 https://gitlab.freedesktop.org/wayland/wayland /tmp/wayland
+git clone --depth=1 -b 1.19.0 https://gitlab.freedesktop.org/wayland/wayland /tmp/wayland
 export MAKEFLAGS="-j4"
 cd /tmp/wayland
 mkdir build

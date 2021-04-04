@@ -22,6 +22,7 @@
 #ifndef TW_DESKTOP_H
 #define TW_DESKTOP_H
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <pixman.h>
 #include <wayland-server.h>
@@ -71,6 +72,12 @@ struct tw_desktop_surface_api {
 				    bool maximized, void *user_data);
 	void (*minimized_requested)(struct tw_desktop_surface *surface,
 				    void *user_data);
+	/* requested from xwayland surfaces, the implementation need send back
+	 * a configure event as return. It can return whatever as pleased, the
+	 * simplest would be just return what ever sent here */
+	void (*configure_requested)(struct tw_desktop_surface *surface,
+	                            int x, int y, unsigned w, unsigned h,
+	                            uint32_t flags, void *user_data);
 };
 
 enum tw_desktop_surface_type {
@@ -79,11 +86,22 @@ enum tw_desktop_surface_type {
 	TW_DESKTOP_POPUP_SURFACE = 4,
 };
 
-enum tw_desktop_surface_tiled_state {
+enum tw_desktop_surface_state_flag {
+	/* states */
 	TW_DESKTOP_SURFACE_TILED_LEFT = 1 << 0,
 	TW_DESKTOP_SURFACE_TILED_RIGHT = 1 << 1,
 	TW_DESKTOP_SURFACE_TILED_TOP = 1 << 2,
 	TW_DESKTOP_SURFACE_TILED_BOTTOM = 1 << 3,
+	TW_DESKTOP_SURFACE_FOCUSED = 1 << 4,
+	TW_DESKTOP_SURFACE_MAXIMIZED = 1 << 5,
+	TW_DESKTOP_SURFACE_FULLSCREENED = 1 << 6,
+	TW_DESKTOP_SURFACE_MINIMIZED = 1 << 7,
+	TW_DESKTOP_SURFACE_STATES = (1 << 8) - 1, //all the states
+	/* flags */
+	TW_DESKTOP_SURFACE_CONFIG_X = 1 << 9,
+	TW_DESKTOP_SURFACE_CONFIG_Y = 1 << 10,
+	TW_DESKTOP_SURFACE_CONFIG_W = 1 << 11,
+	TW_DESKTOP_SURFACE_CONFIG_H = 1 << 12,
 };
 
 struct tw_desktop_surface {
@@ -91,8 +109,8 @@ struct tw_desktop_surface {
 	struct tw_surface *tw_surface;
 	struct tw_desktop_manager *desktop;
 	enum tw_desktop_surface_type type;
-	bool fullscreened, maximized, minimized, focused, surface_added;
-	uint32_t tiled_state;
+	bool surface_added;
+	uint32_t states;
 	struct tw_size_2d max_size, min_size;
         /**
          * the window geometry for this given desktop surface, always available
@@ -106,7 +124,7 @@ struct tw_desktop_surface {
 	void (*configure)(struct tw_desktop_surface *surface,
 	                  enum wl_shell_surface_resize edge,
 	                  int32_t x, int32_t y,
-	                  unsigned width, unsigned height);
+	                  unsigned width, unsigned height, uint32_t flags);
 	void (*close)(struct tw_desktop_surface *surface);
 	void (*ping)(struct tw_desktop_surface *surface, uint32_t serial);
 
@@ -185,6 +203,16 @@ tw_desktop_surface_resize(struct tw_desktop_surface *surf,
 void
 tw_desktop_surface_calc_window_geometry(struct tw_surface *surface,
                                         pixman_region32_t *geometry);
+void
+tw_desktop_surface_send_configure(struct tw_desktop_surface *surface,
+                                  enum wl_shell_surface_resize edge,
+                                  int x, int y, unsigned w, unsigned h,
+                                  uint32_t state_flags);
+void
+tw_desktop_surface_send_ping(struct tw_desktop_surface *surface,
+                             uint32_t serial);
+void
+tw_desktop_surface_send_close(struct tw_desktop_surface *surface);
 
 #ifdef  __cplusplus
 }

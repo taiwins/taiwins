@@ -209,16 +209,17 @@ notify_xdg_surf_surface_destroy(struct wl_listener *listener, void *userdata)
 
 static void
 compile_toplevel_states(struct tw_xdg_surface *xdg_surface,
-                        struct wl_array *states, uint32_t w, uint32_t h)
+                        struct wl_array *states,
+                        uint32_t w, uint32_t h)
 {
 	struct tw_desktop_surface *dsurf = &xdg_surface->base;
 	enum xdg_toplevel_state *state = NULL;
 	uint32_t ver = wl_resource_get_version(xdg_surface->toplevel.resource);
 
-	if (dsurf->maximized) {
+	if (dsurf->states & TW_DESKTOP_SURFACE_MAXIMIZED) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_MAXIMIZED;
-	} else if (dsurf->fullscreened) {
+	} else if (dsurf->states & TW_DESKTOP_SURFACE_FULLSCREENED) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_FULLSCREEN;
 	}
@@ -226,27 +227,27 @@ compile_toplevel_states(struct tw_xdg_surface *xdg_surface,
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_RESIZING;
 	}
-	if (dsurf->focused) {
+	if (dsurf->states & TW_DESKTOP_SURFACE_FOCUSED) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_ACTIVATED;
 	}
 	//tiled state
-	if ((dsurf->tiled_state & TW_DESKTOP_SURFACE_TILED_LEFT) &&
+	if ((dsurf->states & TW_DESKTOP_SURFACE_TILED_LEFT) &&
 	    ver >= XDG_TOPLEVEL_STATE_TILED_LEFT_SINCE_VERSION) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_TILED_LEFT;
 	}
-	if ((dsurf->tiled_state & TW_DESKTOP_SURFACE_TILED_RIGHT) &&
+	if ((dsurf->states & TW_DESKTOP_SURFACE_TILED_RIGHT) &&
 	    ver >= XDG_TOPLEVEL_STATE_TILED_RIGHT_SINCE_VERSION) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_TILED_RIGHT;
 	}
-	if ((dsurf->tiled_state & TW_DESKTOP_SURFACE_TILED_TOP) &&
+	if ((dsurf->states & TW_DESKTOP_SURFACE_TILED_TOP) &&
 	    ver >= XDG_TOPLEVEL_STATE_TILED_TOP_SINCE_VERSION) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_TILED_TOP;
 	}
-	if ((dsurf->tiled_state & TW_DESKTOP_SURFACE_TILED_BOTTOM) &&
+	if ((dsurf->states & TW_DESKTOP_SURFACE_TILED_BOTTOM) &&
 	    ver >= XDG_TOPLEVEL_STATE_TILED_BOTTOM_SINCE_VERSION) {
 		state = wl_array_add(states, sizeof(enum xdg_toplevel_state));
 		*state = XDG_TOPLEVEL_STATE_TILED_BOTTOM;
@@ -256,8 +257,8 @@ compile_toplevel_states(struct tw_xdg_surface *xdg_surface,
 static void
 configure_xdg_surface(struct tw_desktop_surface *dsurf,
                       enum wl_shell_surface_resize edge,
-                      int32_t x, int32_t y,
-                      unsigned width, unsigned height)
+                      int32_t x, int32_t y, //x y not used here
+                      unsigned width, unsigned height, uint32_t flags)
 {
 	struct tw_xdg_surface *xdg_surface =
 		wl_container_of(dsurf, xdg_surface, base);
@@ -265,20 +266,14 @@ configure_xdg_surface(struct tw_desktop_surface *dsurf,
 	struct wl_array states;
 
 	wl_array_init(&states);
+	compile_toplevel_states(xdg_surface, &states, width, height);
 
 	if (dsurf->type == TW_DESKTOP_TOPLEVEL_SURFACE) {
-		compile_toplevel_states(xdg_surface, &states, width, height);
 		xdg_toplevel_send_configure(xdg_surface->toplevel.resource,
 		                            width, height, &states);
-	} else if (dsurf->type == TW_DESKTOP_POPUP_SURFACE) {
-		xdg_popup_send_configure(xdg_surface->popup.resource,
-		                         x, y, width, height);
-	} else {
-		tw_logl_level(TW_LOG_ERRO, "xdg_surface cant be transient");
+		xdg_surface_send_configure(dsurf->resource,
+		                           wl_display_next_serial(display));
 	}
-
-	xdg_surface_send_configure(dsurf->resource,
-	                           wl_display_next_serial(display));
 	wl_array_release(&states);
 }
 
@@ -555,6 +550,7 @@ popup_reposition(struct tw_xdg_surface *surf,
                  struct tw_xdg_positioner *positioner)
 {
 	//this defines the basic geometry.
+	struct wl_display *display = surf->base.desktop->display;
 	struct tw_xdg_surface *parent = surf->popup.parent;
 	pixman_rectangle32_t geometry = {
 		.x = positioner->offset.x,
@@ -629,8 +625,11 @@ popup_reposition(struct tw_xdg_surface *surf,
         tw_subsurface_update_pos(&surf->popup.subsurface,
                                  geometry.x+parent->base.window_geometry.x,
                                  geometry.y+parent->base.window_geometry.y);
-        surf->base.configure(&surf->base, 0, geometry.x, geometry.y,
-                             geometry.width, geometry.height);
+        xdg_popup_send_configure(surf->popup.resource, geometry.x, geometry.y,
+                                 geometry.width, geometry.height);
+        xdg_surface_send_configure(surf->base.resource,
+                                   wl_display_next_serial(display));
+
 }
 
 static void
