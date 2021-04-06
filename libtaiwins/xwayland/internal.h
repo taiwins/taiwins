@@ -134,9 +134,13 @@ struct tw_xwm {
 	struct tw_desktop_manager *manager;
 	struct tw_xsurface *focus_window;
 	struct tw_xwm_selection selection, dnd;
+	struct tw_seat *seat;
 	struct {
 		struct wl_listener server_destroy;
 		struct wl_listener wl_surface_create;
+		struct wl_listener wl_surface_focus;
+		struct wl_listener seat_destroy;
+
 	} listeners;
 
 	///x resources

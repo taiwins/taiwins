@@ -449,19 +449,19 @@ tw_xwm_selection_set_device(struct tw_xwm_selection *selection,
 		return;
 
 	selection->seat = device;
-	//TODO properly handling the data source
-	if (&selection->xwm_source.wl_source == device->source_set)
-		tw_data_source_fini(&selection->xwm_source.wl_source);
-
 	tw_reset_wl_list(&selection->source_set.link);
 	tw_reset_wl_list(&selection->source_removed.link);
 
-	tw_signal_setup_listener(&device->source_added,
-	                         &selection->source_set,
-	                         notify_selection_wl_data_source_set);
-	tw_signal_setup_listener(&device->source_removed,
-	                         &selection->source_removed,
-	                         notify_selection_wl_data_source_rm);
+	tw_xwm_data_source_reset(&selection->xwm_source);
+
+	if (device) {
+		tw_signal_setup_listener(&device->source_added,
+		                         &selection->source_set,
+		                         notify_selection_wl_data_source_set);
+		tw_signal_setup_listener(&device->source_removed,
+		                         &selection->source_removed,
+		                         notify_selection_wl_data_source_rm);
+	}
 
 	//TODO adding new data source to the new device
 }

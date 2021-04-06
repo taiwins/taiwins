@@ -35,7 +35,6 @@ send_xsurface_wm_msg(struct tw_xsurface *surface,
 	               0, //propagate
 	               surface->id,
 	               event_mask, (const char *)&event);
-	//TODO optional?
 	xcb_flush(xwm->xcb_conn);
 }
 
@@ -445,6 +444,7 @@ read_net_wm_moveresize_msg(struct tw_xsurface *surface, struct tw_xwm *xwm,
 	bool move = false, cancel = false;
 	enum wl_shell_surface_resize edge = WL_SHELL_SURFACE_RESIZE_NONE;
 	int detail = ev->data.data32[2];
+	struct tw_seat *seat = xwm->seat;
 
 	switch (detail) {
 	case _NET_WM_MOVERESIZE_SIZE_TOP:
@@ -477,10 +477,10 @@ read_net_wm_moveresize_msg(struct tw_xsurface *surface, struct tw_xwm *xwm,
 		return;
 	//TODO error We would probably need assigning seat to
 	serial = wl_display_next_serial(xwm->server->wl_display);
-	if (move)
-		tw_desktop_surface_move(&surface->dsurf, NULL, serial);
-	else
-		tw_desktop_surface_resize(&surface->dsurf, NULL, edge, serial);
+	if (move && seat)
+		tw_desktop_surface_move(&surface->dsurf, seat, serial);
+	else if (seat)
+		tw_desktop_surface_resize(&surface->dsurf, seat, edge, serial);
 }
 
 static void
@@ -534,7 +534,6 @@ handle_configure_tw_xsurface(struct tw_desktop_surface *dsurf,
 {
 	struct tw_xsurface *surface =
 		wl_container_of(dsurf, surface, dsurf);
-	struct tw_xwm *xwm = surface->xwm;
 	uint16_t mask = 0;
 	unsigned values[5] = {0}, i = 0;
 
@@ -558,8 +557,6 @@ handle_configure_tw_xsurface(struct tw_desktop_surface *dsurf,
 		mask |= XCB_CONFIG_WINDOW_HEIGHT;
 	}
 
-	if (dsurf->states & TW_DESKTOP_SURFACE_FOCUSED)
-		tw_xsurface_set_focus(surface, xwm);
 	if (mask) {
 		xcb_configure_window(surface->xwm->xcb_conn, surface->id,
 		                     mask, values);
@@ -841,6 +838,7 @@ tw_xsurface_set_focus(struct tw_xsurface *surface, struct tw_xwm *xwm)
 		                    XCB_INPUT_FOCUS_POINTER_ROOT,
 		                    XCB_NONE, XCB_TIME_CURRENT_TIME);
 	}
+	xcb_flush(xwm->xcb_conn);
 	xwm->focus_window = surface;
 }
 

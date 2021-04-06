@@ -564,6 +564,31 @@ notify_xwm_wl_surface_created(struct wl_listener *listener, void *data)
 }
 
 static void
+notify_xwm_tw_surface_focused(struct wl_listener *listener, void *data)
+{
+	struct tw_xwm *xwm =
+		wl_container_of(listener, xwm, listeners.wl_surface_focus);
+	struct wl_resource *resource = data;
+	struct tw_surface *surface = tw_surface_from_resource(resource);
+	struct tw_desktop_surface *dsurf =
+		tw_xwayland_desktop_surface_from_tw_surface(surface);
+	struct tw_xsurface *xsurface = dsurf ?
+		wl_container_of(dsurf, xsurface, dsurf) : NULL;
+	tw_xsurface_set_focus(xsurface, xwm);
+}
+
+static void
+notify_xwm_tw_seat_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_xwm *xwm =
+		wl_container_of(listener, xwm, listeners.seat_destroy);
+	wl_list_remove(&xwm->listeners.seat_destroy.link);
+	wl_list_remove(&xwm->listeners.wl_surface_focus.link);
+	tw_xwm_selection_set_device(&xwm->selection, NULL);
+	xwm->seat = NULL;
+}
+
+static void
 notify_xwm_server_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_xwm *xwm =
@@ -640,6 +665,8 @@ tw_xserver_create_xwindow_manager(struct tw_xserver *server,
 	tw_signal_setup_listener(&compositor->surface_created,
 	                         &xwm->listeners.wl_surface_create,
 	                         notify_xwm_wl_surface_created);
+	wl_list_init(&xwm->listeners.wl_surface_focus.link);
+	wl_list_init(&xwm->listeners.seat_destroy.link);
 
 	wl_event_source_check(xwm->x11_event);
         xcb_flush(xwm->xcb_conn);
@@ -655,5 +682,18 @@ WL_EXPORT void
 tw_xserver_set_seat(struct tw_xserver *server, struct tw_data_device *device)
 {
 	struct tw_xwm *xwm = server->wm;
+	struct tw_seat *seat = device->seat;
+
+	tw_reset_wl_list(&xwm->listeners.seat_destroy.link);
+	tw_reset_wl_list(&xwm->listeners.wl_surface_focus.link);
+
+	xwm->seat = seat;
+	tw_signal_setup_listener(&seat->destroy_signal,
+	                         &xwm->listeners.seat_destroy,
+	                         notify_xwm_tw_seat_destroy);
+	tw_signal_setup_listener(&seat->focus_signal,
+	                         &xwm->listeners.wl_surface_focus,
+	                         notify_xwm_tw_surface_focused);
+
 	tw_xwm_selection_set_device(&xwm->selection, device);
 }
