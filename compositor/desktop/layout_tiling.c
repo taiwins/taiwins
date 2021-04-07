@@ -400,7 +400,7 @@ tiling_arrange_subtree(struct tiling_view *subtree, pixman_rectangle32_t *geo,
 			geo->height - 2 * ((subtree->vertical) ?
 					   o->output->inner_gap :
 					   o->output->outer_gap);
-		data->out.state = TILINT_STATE;
+		data->out.tile_state = TILINT_STATE;
 		data->out.end = false;
 		return 1;
 	}

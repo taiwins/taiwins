@@ -40,6 +40,13 @@
 /******************************************************************************
  * tw_xdg_view api
  *****************************************************************************/
+
+static inline uint32_t
+tw_xdg_view_get_focus_state(struct tw_xdg_view *v)
+{
+	return v->state & TW_XDG_VIEW_FOCUSED;
+}
+
 struct tw_xdg_view *
 tw_xdg_view_create(struct tw_desktop_surface *dsurf)
 {
@@ -254,7 +261,8 @@ apply_layout_operations(const struct tw_xdg_layout_op *ops, const int len)
 		if (ops[i].out.size.height && ops[i].out.size.width) {
 			v->planed_w = ops[i].out.size.width;
 			v->planed_h = ops[i].out.size.height;
-			v->state = ops[i].out.state;
+			v->state = tw_xdg_view_get_focus_state(v) |
+				ops[i].out.tile_state;
 			flags |= (v->planed_w && v->planed_h) ?
 				TW_DESKTOP_SURFACE_CONFIG_W |
 				TW_DESKTOP_SURFACE_CONFIG_H : 0;

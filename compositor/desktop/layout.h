@@ -85,7 +85,7 @@ struct tw_xdg_layout_op {
 		struct { uint32_t width, height; } size;
 		float scale;
 		bool end;
-		uint32_t state;
+		uint32_t tile_state;
 	} out;
 	//input
 	union {
