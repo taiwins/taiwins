@@ -539,8 +539,8 @@ handle_configure_tw_xsurface(struct tw_desktop_surface *dsurf,
 
 	//we have to set the mask to match the values.
 	//TODO: this is the part with frame, we shall strip them out
-	tw_logl_level(TW_LOG_DBUG, "handle configure for desktop for %d",
-	              surface->id);
+	tw_logl_level(TW_LOG_DBUG, "handle configure for desktop for %d with flags %d",
+	              surface->id, flags);
 
         if ((flags & TW_DESKTOP_SURFACE_CONFIG_X)) {
 		values[i++] = x;
@@ -598,25 +598,7 @@ notify_xsurface_surface_destroy(struct wl_listener *listener, void *data)
 	struct tw_xsurface *surface =
 		wl_container_of(listener, surface, surface_destroy);
 	tw_reset_wl_list(&surface->surface_destroy.link);
-	tw_reset_wl_list(&surface->surface_geometry_dirty.link);
 	tw_xsurface_unmap_requested(surface);
-}
-
-static void
-notify_xsurface_surface_dirty(struct wl_listener *listener, void *data)
-{
-	/* struct tw_surface *tw_surface = data; */
-	/* struct tw_xsurface *surface = */
-	/*	wl_container_of(listener, surface, surface_geometry_dirty); */
-	/* uint16_t mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y; */
-	/* int xy[] = { tw_surface->geometry.x, tw_surface->geometry.y }; */
-
-	/* if (!is_xsurface_subsurface(surface)) { */
-	/*	xcb_configure_window(surface->xwm->xcb_conn, surface->id, mask, xy); */
-	/*	xcb_flush(surface->xwm->xcb_conn); */
-	/*	tw_logl_level(TW_LOG_DBUG, "current surface position is (%d, %d)", */
-	/*	              xy[0], xy[1]); */
-	/* } */
 }
 
 /******************************************************************************
@@ -749,9 +731,6 @@ tw_xsurface_map_tw_surface(struct tw_xsurface *surface,
 	tw_set_resource_destroy_listener(tw_surface->resource,
 	                                 &surface->surface_destroy,
 	                                 notify_xsurface_surface_destroy);
-	tw_signal_setup_listener(&tw_surface->signals.dirty,
-	                         &surface->surface_geometry_dirty,
-	                         notify_xsurface_surface_dirty);
 
 	for (unsigned i = 0; i < sizeof(atoms)/sizeof(xcb_atom_t); i++)
 		tw_xsurface_read_property(surface, atoms[i]);
@@ -871,7 +850,6 @@ tw_xsurface_create(struct tw_xwm *xwm, xcb_window_t win_id,
 	wl_list_init(&surface->link);
 	wl_list_init(&surface->children);
 	wl_list_init(&surface->surface_destroy.link);
-	wl_list_init(&surface->surface_geometry_dirty.link);
 
 	geometry_cookie = xcb_get_geometry(xwm->xcb_conn, win_id);
 	xcb_change_window_attributes(xwm->xcb_conn, win_id, XCB_CW_EVENT_MASK,

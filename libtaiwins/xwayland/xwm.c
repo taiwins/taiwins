@@ -166,6 +166,8 @@ handle_xwm_configure_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 	        XCB_CONFIGURE_NOTIFY, ev->window, ev->x, ev->y, ev->width, ev->height);
 	surface->x = ev->x;
 	surface->y = ev->y;
+	surface->w = ev->width;
+	surface->h = ev->height;
 }
 
 static inline void

@@ -196,7 +196,6 @@ struct tw_xsurface {
 	struct wl_list link; /* xwm:surfaces */
 	struct wl_list children;
 	struct wl_listener surface_destroy;
-	struct wl_listener surface_geometry_dirty;
 
 	struct tw_desktop_surface dsurf;
 	struct tw_subsurface subsurface; /**< used if is subsurface */
