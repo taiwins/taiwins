@@ -94,10 +94,13 @@ struct tw_xdg_layout_op {
 			//dx,dy, delta
 			float dx, dy;
 			enum wl_shell_surface_resize edge;
-			//surface x, surface y
-			wl_fixed_t sx, sy;
 		};
-		struct tw_xdg_output *o;
+		//applying ops on an output, this usually applies view to one
+		//layer
+		struct {
+			struct tw_xdg_output *o;
+			struct tw_layer *l;
+		};
 		pixman_rectangle32_t default_geometry;
 	} in;
 };

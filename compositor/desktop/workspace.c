@@ -189,25 +189,23 @@ tw_workspace_get_top_view(const struct tw_workspace *ws)
 }
 
 static struct tw_xdg_layout *
-tw_workspace_view_pick_layout(const struct tw_workspace *ws,
-                              const struct tw_xdg_view *v)
+tw_workspace_pick_layout(const struct tw_workspace *ws, enum tw_layout_type type)
 {
 	struct tw_xdg_layout *layout;
 
 	wl_list_for_each(layout, &ws->layouts, links[ws->idx]) {
-		if (layout->type == v->type)
+		if (layout->type == type)
 			return layout;
 	}
 	return NULL;
 }
 
 static struct tw_layer *
-tw_workspace_view_pick_layer(struct tw_workspace *ws,
-                             struct tw_xdg_view *v)
+tw_workspace_pick_layer(struct tw_workspace *ws, enum tw_layout_type type)
 {
-	if (v->type == LAYOUT_FLOATING || v->type == LAYOUT_MAXIMIZED)
+	if (type == LAYOUT_FLOATING || type == LAYOUT_MAXIMIZED)
 		return &ws->front_layer;
-	else if (v->type == LAYOUT_FULLSCREEN)
+	else if (type == LAYOUT_FULLSCREEN)
 		return &ws->fullscreen_layer;
 	else //tiling layout
 		return &ws->mid_layer;
@@ -217,8 +215,8 @@ static void
 tw_workspace_view_pick_settings(struct tw_workspace *ws,
                                 struct tw_xdg_view *v)
 {
-	v->layout = tw_workspace_view_pick_layout(ws, v);
-	v->layer = tw_workspace_view_pick_layer(ws, v);
+	v->layout = tw_workspace_pick_layout(ws, v->type);
+	v->layer = tw_workspace_pick_layer(ws, v->type);
 }
 
 static uint32_t
@@ -286,15 +284,23 @@ arrange_view_for_workspace(struct tw_workspace *ws, struct tw_xdg_view *v,
                            const enum tw_xdg_layout_command command,
                            const struct tw_xdg_layout_op *arg)
 {
-	//IF v is NULL, we need to re-arrange the entire output
+	assert(v);
+	assert(v->layout);
+	arrange_view_for_layout(ws, v->layout, v, command, arg);
+}
+
+static void
+arrange_output_for_workspace(struct tw_workspace *ws, struct tw_xdg_output *o,
+                             const enum tw_xdg_layout_command cmd)
+{
 	struct tw_xdg_layout *layout;
-	if (!v) {
-		wl_list_for_each(layout, &ws->layouts, links[ws->idx])
-			arrange_view_for_layout(ws, layout, NULL,
-			                        command, arg);
-	} else {
-		assert(v->layout);
-		arrange_view_for_layout(ws, v->layout, v, command, arg);
+
+	wl_list_for_each(layout, &ws->layouts, links[ws->idx]) {
+		const struct tw_xdg_layout_op arg = {
+			.in.o = o,
+			.in.l = tw_workspace_pick_layer(ws, layout->type),
+		};
+		arrange_view_for_layout(ws, layout, NULL, cmd, &arg);
 	}
 }
 
@@ -550,28 +556,19 @@ tw_workspace_run_command(struct tw_workspace *w,
 void
 tw_workspace_add_output(struct tw_workspace *ws, struct tw_xdg_output *output)
 {
-	const struct tw_xdg_layout_op arg = {
-		.in.o = output,
-	};
-	arrange_view_for_workspace(ws, NULL, DPSR_output_add, &arg);
+	arrange_output_for_workspace(ws, output, DPSR_output_add);
 }
 
 void
 tw_workspace_resize_output(struct tw_workspace *ws,
                            struct tw_xdg_output *output)
 {
-	const struct tw_xdg_layout_op arg = {
-		.in.o = output,
-	};
-	arrange_view_for_workspace(ws, NULL, DPSR_output_resize, &arg);
+	arrange_output_for_workspace(ws, output, DPSR_output_resize);
 }
 
 void
 tw_workspace_remove_output(struct tw_workspace *ws,
                            struct tw_xdg_output *output)
 {
-	const struct tw_xdg_layout_op arg = {
-		.in.o = output,
-	};
-	arrange_view_for_workspace(ws, NULL, DPSR_output_rm, &arg);
+	arrange_output_for_workspace(ws, output, DPSR_output_rm);
 }
