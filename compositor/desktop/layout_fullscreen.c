@@ -74,6 +74,19 @@ fullscreen_add(const enum tw_xdg_layout_command command,
 }
 
 static void
+fullscreen_resize_output(const enum tw_xdg_layout_command command,
+                         const struct tw_xdg_layout_op *arg,
+                         struct tw_xdg_view *v, struct tw_xdg_layout *l,
+                         struct tw_xdg_layout_op *ops)
+{
+	struct tw_xdg_output *output = arg->in.o;
+	pixman_rectangle32_t geo =
+		tw_output_device_geometry(output->output->device);
+
+	tw_xdg_layout_write_rect(arg->in.l, l, &geo, ops);
+}
+
+static void
 emplace_fullscreen(const enum tw_xdg_layout_command command,
                   const struct tw_xdg_layout_op *arg,
                   struct tw_xdg_view *v, struct tw_xdg_layout *l,
@@ -96,7 +109,7 @@ emplace_fullscreen(const enum tw_xdg_layout_command command,
 		{DPSR_merge, tw_xdg_layout_emplace_noop},
 		{DPSR_output_add, tw_xdg_layout_emplace_noop},
 		{DPSR_output_rm, tw_xdg_layout_emplace_noop},
-		{DPSR_output_resize, tw_xdg_layout_emplace_noop},
+		{DPSR_output_resize, fullscreen_resize_output},
 	};
 	assert(fullscreen_ops[command].command == command);
 	fullscreen_ops[command].fun(command, arg, v, l, ops);

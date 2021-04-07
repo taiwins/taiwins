@@ -165,6 +165,10 @@ tw_xdg_layout_emplace_noop(const enum tw_xdg_layout_command command,
                            const struct tw_xdg_layout_op *arg,
                            struct tw_xdg_view *v, struct tw_xdg_layout *l,
                            struct tw_xdg_layout_op *ops);
+void
+tw_xdg_layout_write_rect(struct tw_layer *layer, struct tw_xdg_layout *layout,
+                         pixman_rectangle32_t *r, struct tw_xdg_layout_op *ops);
+
 
 #ifdef  __cplusplus
 }
