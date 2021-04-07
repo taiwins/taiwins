@@ -100,3 +100,26 @@ tw_xdg_layout_resize_output(struct tw_xdg_layout *l, struct tw_xdg_output *o)
 	/* if (l->command == emplace_tiling) */
 	/*	tiling_resize_output(l, o); */
 }
+
+void
+tw_xdg_layout_write_rect(struct tw_layer *layer, struct tw_xdg_layout *layout,
+                         pixman_rectangle32_t *r, struct tw_xdg_layout_op *ops)
+{
+	int i = 0;
+	struct tw_xdg_view *v = NULL;
+	struct tw_surface *surface = NULL;
+
+	wl_list_for_each(surface, &layer->views, layer_link) {
+		v = tw_xdg_view_from_tw_surface(surface);
+		if (v && v->layout == layout) {
+			ops[i].v = v;
+			ops[i].out.pos.x = r->x;
+			ops[i].out.pos.y = r->y;
+			ops[i].out.size.width = r->width;
+			ops[i].out.size.height = r->height;
+			ops[i].out.end = false;
+			i++;
+		}
+	}
+	ops[i].out.end = true;
+}

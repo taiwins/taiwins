@@ -56,9 +56,9 @@ tw_xdg_layout_end_maximized(struct tw_xdg_layout *layout)
 
 static void
 maximized_add(const enum tw_xdg_layout_command command,
-             const struct tw_xdg_layout_op *arg,
-             struct tw_xdg_view *v, struct tw_xdg_layout *l,
-             struct tw_xdg_layout_op *ops)
+              const struct tw_xdg_layout_op *arg,
+              struct tw_xdg_view *v, struct tw_xdg_layout *l,
+              struct tw_xdg_layout_op *ops)
 {
 	pixman_rectangle32_t output_geo =
 		tw_output_device_geometry(v->output->output->device);
@@ -79,6 +79,17 @@ maximized_add(const enum tw_xdg_layout_command command,
 	ops[0].out.end = false;
 	ops[0].v = v;
 	ops[1].out.end = 1;
+}
+
+static void
+maximized_resize_output(const enum tw_xdg_layout_command command,
+                         const struct tw_xdg_layout_op *arg,
+                         struct tw_xdg_view *v, struct tw_xdg_layout *l,
+                         struct tw_xdg_layout_op *ops)
+{
+	pixman_rectangle32_t geo = arg->in.o->desktop_area;
+
+	tw_xdg_layout_write_rect(arg->in.l, l, &geo, ops);
 }
 
 static void
@@ -104,7 +115,7 @@ emplace_maximized(const enum tw_xdg_layout_command command,
 		{DPSR_merge, tw_xdg_layout_emplace_noop},
 		{DPSR_output_add, tw_xdg_layout_emplace_noop},
 		{DPSR_output_rm, tw_xdg_layout_emplace_noop},
-		{DPSR_output_resize, tw_xdg_layout_emplace_noop},
+		{DPSR_output_resize, maximized_resize_output},
 	};
 	assert(maximized_ops[command].command == command);
 	maximized_ops[command].fun(command, arg, v, l, ops);

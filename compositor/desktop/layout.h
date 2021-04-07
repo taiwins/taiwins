@@ -94,10 +94,13 @@ struct tw_xdg_layout_op {
 			//dx,dy, delta
 			float dx, dy;
 			enum wl_shell_surface_resize edge;
-			//surface x, surface y
-			wl_fixed_t sx, sy;
 		};
-		struct tw_xdg_output *o;
+		//applying ops on an output, this usually applies view to one
+		//layer
+		struct {
+			struct tw_xdg_output *o;
+			struct tw_layer *l;
+		};
 		pixman_rectangle32_t default_geometry;
 	} in;
 };
@@ -162,6 +165,10 @@ tw_xdg_layout_emplace_noop(const enum tw_xdg_layout_command command,
                            const struct tw_xdg_layout_op *arg,
                            struct tw_xdg_view *v, struct tw_xdg_layout *l,
                            struct tw_xdg_layout_op *ops);
+void
+tw_xdg_layout_write_rect(struct tw_layer *layer, struct tw_xdg_layout *layout,
+                         pixman_rectangle32_t *r, struct tw_xdg_layout_op *ops);
+
 
 #ifdef  __cplusplus
 }
