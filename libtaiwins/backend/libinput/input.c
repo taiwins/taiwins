@@ -33,6 +33,10 @@
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
 
+static const struct tw_libinput_impl dummy_impl = {
+	.get_output_device = NULL,
+};
+
 /******************************************************************************
  * input device creation/destruction
  *****************************************************************************/
@@ -234,7 +238,7 @@ tw_libinput_input_init(struct tw_libinput_input *input,
 	input->libinput = libinput;
 	input->backend = backend;
 	input->disabled = false;
-	input->impl = impl;
+	input->impl = impl ? impl : &dummy_impl;
 	libinput_set_user_data(libinput, input);
 
 	libinput_log_set_handler(libinput, &libinput_log_func);
