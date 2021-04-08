@@ -27,6 +27,7 @@
 #include <pixman.h>
 #include <wayland-server.h>
 #include "utils.h"
+#include "seat.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -52,17 +53,17 @@ struct tw_desktop_surface_api {
 	void (*committed)(struct tw_desktop_surface *surface,
 			  void *user_data);
 	void (*show_window_menu)(struct tw_desktop_surface *surface,
-				 struct wl_resource *seat,
+				 struct tw_seat *seat,
 	                         int32_t x, int32_t y,
 				 void *user_data);
 	void (*set_parent)(struct tw_desktop_surface *surface,
 			   struct tw_desktop_surface *parent,
 			   void *user_data);
 	void (*move)(struct tw_desktop_surface *surface,
-		     struct wl_resource *seat, uint32_t serial,
+		     struct tw_seat *seat, uint32_t serial,
 	             void *user_data);
 	void (*resize)(struct tw_desktop_surface *surface,
-		       struct wl_resource *seat, uint32_t serial,
+		       struct tw_seat *seat, uint32_t serial,
 		       enum wl_shell_surface_resize edges, void *user_data);
 	void (*fullscreen_requested)(struct tw_desktop_surface *surface,
 	                             struct wl_resource *output,
@@ -195,10 +196,10 @@ tw_desktop_surface_set_class(struct tw_desktop_surface *surf,
                              const char *class, size_t maxlen);
 void
 tw_desktop_surface_move(struct tw_desktop_surface *surf,
-                        struct wl_resource *seat, uint32_t serial);
+                        struct tw_seat *seat, uint32_t serial);
 void
 tw_desktop_surface_resize(struct tw_desktop_surface *surf,
-                          struct wl_resource *seat, uint32_t edge,
+                          struct tw_seat *seat, uint32_t edge,
                           uint32_t serial);
 void
 tw_desktop_surface_calc_window_geometry(struct tw_surface *surface,

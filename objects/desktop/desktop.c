@@ -213,12 +213,11 @@ tw_desktop_surface_set_class(struct tw_desktop_surface *surf,
 
 WL_EXPORT void
 tw_desktop_surface_move(struct tw_desktop_surface *surf,
-                        struct wl_resource *seat, uint32_t serial)
+                        struct tw_seat *seat, uint32_t serial)
 {
-	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
 	void *user_data = surf->desktop->user_data;
 
-	if (!tw_seat_valid_serial(tw_seat, serial)) {
+	if (!tw_seat_valid_serial(seat, serial)) {
 		tw_logl("invalid serial %u", serial);
 		return;
 	}
@@ -227,13 +226,12 @@ tw_desktop_surface_move(struct tw_desktop_surface *surf,
 
 WL_EXPORT void
 tw_desktop_surface_resize(struct tw_desktop_surface *surf,
-                          struct wl_resource *seat, uint32_t edge,
+                          struct tw_seat *seat, uint32_t edge,
                           uint32_t serial)
 {
-	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
 	void *user_data = surf->desktop->user_data;
 
-	if (!tw_seat_valid_serial(tw_seat, serial)) {
+	if (!tw_seat_valid_serial(seat, serial)) {
 		tw_logl("invalid serial %u", serial);
 		return;
 	}

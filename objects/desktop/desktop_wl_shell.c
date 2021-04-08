@@ -182,7 +182,8 @@ handle_surface_move(struct wl_client *client,
 {
 	struct tw_desktop_surface *d =
 		tw_desktop_surface_from_wl_shell_surface(resource);
-	tw_desktop_surface_move(d, seat, serial);
+	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
+	tw_desktop_surface_move(d, tw_seat, serial);
 }
 
 static void
@@ -194,7 +195,8 @@ handle_surface_resize(struct wl_client *client,
 {
 	struct tw_desktop_surface *d =
 		tw_desktop_surface_from_wl_shell_surface(resource);
-	tw_desktop_surface_resize(d, seat, edges, serial);
+	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
+	tw_desktop_surface_resize(d, tw_seat, edges, serial);
 }
 
 static void
