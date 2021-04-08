@@ -90,113 +90,6 @@ handle_xwm_destroy_surface(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 	tw_xsurface_destroy(surface);
 }
 
-static void
-handle_xwm_map_request(struct tw_xwm *xwm, xcb_generic_event_t *ge)
-{
-	xcb_map_request_event_t *ev = (xcb_map_request_event_t *)ge;
-	struct tw_xsurface *surface = tw_xsurface_from_id(xwm, ev->window);
-
-	if (!surface)
-		return;
-	tw_logl("Recived MapRequest:%d from xcb_window@%d",
-	        XCB_MAP_REQUEST, ev->window);
-	// it is likely that we do not have a wl_surface yet
-	tw_xsurface_map_requested(surface);
-}
-
-static inline void
-handle_xwm_map_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
-{
-	xcb_map_notify_event_t *ev = (xcb_map_notify_event_t *)ge;
-	struct tw_xsurface *surface = tw_xsurface_from_id(xwm, ev->window);
-
-	if (surface)
-		tw_logl("Recived MapNotify:%d from xcb_window@%d",
-		        XCB_MAP_NOTIFY, ev->window);
-}
-
-static inline void
-handle_xwm_unmap_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
-{
-	xcb_unmap_notify_event_t *ev = (xcb_unmap_notify_event_t *)ge;
-	struct tw_xsurface *surface = tw_xsurface_from_id(xwm, ev->window);
-
-	if (!surface)
-		return;
-	tw_logl("Recived UnmapNotify:%d from xcb_window@%d",
-	        XCB_UNMAP_NOTIFY, ev->window);
-	tw_xsurface_unmap_requested(surface);
-}
-
-/*
- * xserver/xwayland send this event to us(root window) whenever clients
- * initiates a xcb_configure_window or xcb_raise_window ...
- *
- * TODO What we are doing here is not correct, we should deligate this to the
- * actual window manager, the window manager then generates configure events to
- * properly set the window size.
- */
-static void
-handle_xwm_configure_request(struct tw_xwm *xwm, xcb_generic_event_t *ge)
-{
-	xcb_configure_request_event_t *ev =
-		(xcb_configure_request_event_t *)ge;
-
-	struct tw_xsurface *surface = tw_xsurface_from_id(xwm, ev->window);
-	if (!surface)
-		return;
-	tw_logl_level(TW_LOG_DBUG, "Recived ConfigureRequest:%d from "
-	              "xcb_window@%d", XCB_CONFIGURE_REQUEST, surface->id);
-	tw_xsurface_read_config_request(surface, ev);
-}
-
-/*
- * xserver/xwayland send this event to us(root window) whenever the configure
- * request made by other clients actually completes.
- */
-static inline void
-handle_xwm_configure_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
-{
-	xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t *)ge;
-	struct tw_xsurface *surface = tw_xsurface_from_id(xwm, ev->window);
-
-	if (!surface)
-		return;
-	tw_logl("Recived Configure notify:%d from xcb_window@%d, for (%d, %d, %d, %d)",
-	        XCB_CONFIGURE_NOTIFY, ev->window, ev->x, ev->y, ev->width, ev->height);
-	surface->x = ev->x;
-	surface->y = ev->y;
-	surface->w = ev->width;
-	surface->h = ev->height;
-}
-
-static inline void
-handle_xwm_client_msg(struct tw_xwm *xwm, xcb_generic_event_t *ge)
-{
-	xcb_client_message_event_t *ev = (xcb_client_message_event_t *)ge;
-
-	struct tw_xsurface *surface =
-		tw_xsurface_from_id(xwm, ev->window);
-	if (!surface)
-		return;
-	tw_logl("Received ClientMessage:%d from client@%d",
-	        XCB_CLIENT_MESSAGE, ev->window);
-	tw_xsurface_read_client_msg(surface, ev);
-}
-
-static inline void
-handle_xwm_property_notify(struct tw_xwm *xwm, xcb_generic_event_t *ge)
-{
-	xcb_property_notify_event_t *ev = (xcb_property_notify_event_t *)ge;
-	struct tw_xsurface *surface = tw_xsurface_from_id(xwm, ev->window);
-
-	if (!surface)
-		return;
-	tw_logl("Recived PropertyNotify:%d from xcb_window@%d",
-	        XCB_PROPERTY_NOTIFY, ev->window);
-	tw_xsurface_read_property(surface, ev->atom);
-}
-
 static inline void
 handle_xwm_focus_in(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 {
@@ -205,8 +98,8 @@ handle_xwm_focus_in(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 	if (ev->mode == XCB_NOTIFY_MODE_GRAB ||
 	    ev->mode == XCB_NOTIFY_MODE_UNGRAB)
 		return;
-	tw_logl("Recived FocusIn:%d from xcb_window@d",
-	        XCB_FOCUS_IN, ev->event);
+	tw_logl_level(TW_LOG_DBUG, "Recived FocusIn:%d from xcb_window@d",
+	              XCB_FOCUS_IN, ev->event);
 	//DO NOT let X client change the focus behind the compositor's back
 	//TODO: resolve problems for APP rely need focus like steam. Refer to
 	//https://github.com/swaywm/wlroots/blob/master/xwayland/xwm.c#L1332
@@ -276,76 +169,6 @@ handle_xwm_unhandled_event(struct tw_xwm *xwm, xcb_generic_event_t *ge)
  * XWM logic
  *****************************************************************************/
 
-static inline int
-_handle_x11_events(struct tw_xwm *xwm, xcb_generic_event_t *event)
-{
-	int count = 0;
-	assert(event);
-	do {
-		count++;
-		//TODO handle user events?
-		if (tw_xwm_handle_selection_event(xwm, event))
-			continue;
-		switch (event->response_type & XCB_EVENT_TYPE_MASK) {
-		case XCB_CREATE_NOTIFY:
-			handle_xwm_create_surface(xwm, event);
-			break;
-		case XCB_DESTROY_NOTIFY:
-			handle_xwm_destroy_surface(xwm, event);
-			break;
-		case XCB_CONFIGURE_REQUEST:
-			handle_xwm_configure_request(xwm, event);
-			break;
-		case XCB_CONFIGURE_NOTIFY:
-			handle_xwm_configure_notify(xwm, event);
-			break;
-		case XCB_MAP_REQUEST:
-			handle_xwm_map_request(xwm, event);
-			break;
-		case XCB_MAP_NOTIFY:
-			handle_xwm_map_notify(xwm, event);
-			break;
-		case XCB_UNMAP_NOTIFY:
-			handle_xwm_unmap_notify(xwm, event);
-			break;
-		case XCB_PROPERTY_NOTIFY:
-			handle_xwm_property_notify(xwm, event);
-			break;
-		case XCB_CLIENT_MESSAGE:
-			handle_xwm_client_msg(xwm, event);
-			break;
-		case XCB_FOCUS_IN:
-			handle_xwm_focus_in(xwm, event);
-			break;
-		case 0:
-			handle_xwm_xcb_error(xwm, event);
-			break;
-		default:
-			handle_xwm_unhandled_event(xwm, event);
-			break;
-		}
-		free(event);
-	} while ((event = xcb_poll_for_event(xwm->xcb_conn)));
-	if (count)
-		xcb_flush(xwm->xcb_conn);
-	return count;
-}
-
-static int
-handle_x11_events(int fd, uint32_t mask, void *data)
-{
-	xcb_generic_event_t *event = NULL;
-	struct tw_xwm *xwm = data;
-
-	if ((mask & WL_EVENT_HANGUP) || (mask & WL_EVENT_ERROR))
-		//TODO destroy
-		return 0;
-	if ((event = xcb_poll_for_event(xwm->xcb_conn)))
-		return _handle_x11_events(xwm, event);
-	else
-		return 0;
-}
-
 static void
 destroy_xwm(struct tw_xwm *xwm)
 {
@@ -367,6 +190,52 @@ destroy_xwm(struct tw_xwm *xwm)
 	if (xwm->xcb_conn)
 		xcb_disconnect(xwm->xcb_conn);
 	free(xwm);
+}
+
+static int
+handle_x11_events(int fd, uint32_t mask, void *data)
+{
+	int count = 0;
+	xcb_generic_event_t *event = NULL;
+	struct tw_xwm *xwm = data;
+
+	if ((mask & WL_EVENT_HANGUP) || (mask & WL_EVENT_ERROR)) {
+		destroy_xwm(xwm);
+		return 0;
+	}
+	while ((event = xcb_poll_for_event(xwm->xcb_conn))) {
+		count++;
+		if (tw_xwm_handle_selection_event(xwm, event)) {
+			free(event);
+			continue;
+		}
+		if (tw_xsurface_handle_event(xwm, event)) {
+			free(event);
+			continue;
+		}
+		switch (event->response_type & XCB_EVENT_TYPE_MASK) {
+		case XCB_CREATE_NOTIFY:
+			handle_xwm_create_surface(xwm, event);
+			break;
+		case XCB_DESTROY_NOTIFY:
+			handle_xwm_destroy_surface(xwm, event);
+			break;
+		case XCB_FOCUS_IN:
+			handle_xwm_focus_in(xwm, event);
+			break;
+		case 0:
+			handle_xwm_xcb_error(xwm, event);
+			break;
+		default:
+			handle_xwm_unhandled_event(xwm, event);
+			break;
+		}
+
+		free(event);
+	}
+	if (count)
+		xcb_flush(xwm->xcb_conn);
+	return count;
 }
 
 static bool
@@ -552,6 +421,10 @@ create_xwm_selections(struct tw_xwm *xwm)
 {
 	tw_xwm_init_selection(xwm);
 }
+
+/******************************************************************************
+ * listeners
+ *****************************************************************************/
 
 static void
 notify_xwm_wl_surface_created(struct wl_listener *listener, void *data)

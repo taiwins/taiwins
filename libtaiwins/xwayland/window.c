@@ -384,6 +384,40 @@ read_surface_motif_hints(struct tw_xwm *xwm, struct tw_xsurface *surface,
 	}
 }
 
+static void
+read_surface_property(struct tw_xsurface *surface, xcb_atom_t type)
+{
+	struct tw_xwm *xwm = surface->xwm;
+	xcb_get_property_cookie_t cookie =
+		xcb_get_property(xwm->xcb_conn, 0, surface->id,
+		                 type, XCB_ATOM_ANY, 0, 2048);
+	xcb_get_property_reply_t *reply =
+		xcb_get_property_reply(xwm->xcb_conn, cookie, NULL);
+	if (!reply)
+		return;
+
+	if (type == XCB_ATOM_WM_CLASS)
+		read_surface_class(xwm, surface, reply);
+	else if (type == XCB_ATOM_WM_NAME || type == xwm->atoms.net_wm_name)
+		read_surface_title(xwm, surface, reply);
+	else if (type == XCB_ATOM_WM_TRANSIENT_FOR)
+		read_surface_parent(xwm, surface, reply);
+	else if (type == xwm->atoms.net_wm_pid)
+		read_surface_pid(xwm, surface, reply);
+	else if (type == xwm->atoms.net_wm_window_type)
+		read_surface_wintype(xwm, surface, reply);
+	else if (type == xwm->atoms.wm_protocols)
+		read_surface_protocols(xwm, surface, reply);
+	else if (type == xwm->atoms.net_wm_state)
+		read_surface_net_wm_state(xwm, surface, reply);
+	else if (type == xwm->atoms.wm_normal_hints)
+		read_surface_normal_hints(xwm, surface, reply);
+	else if (type == xwm->atoms.motif_wm_hints)
+		read_surface_motif_hints(xwm, surface, reply);
+	free(reply);
+	xcb_flush(xwm->xcb_conn);
+}
+
 /*****************************************************************************
  * client message
  *****************************************************************************/
@@ -473,13 +507,13 @@ read_net_wm_moveresize_msg(struct tw_xsurface *surface, struct tw_xwm *xwm,
 		break;
 	}
 
-	if (cancel)
+	if (cancel || !seat)
 		return;
-	//TODO error We would probably need assigning seat to
+
 	serial = wl_display_next_serial(xwm->server->wl_display);
-	if (move && seat)
+	if (move)
 		tw_desktop_surface_move(&surface->dsurf, seat, serial);
-	else if (seat)
+	else
 		tw_desktop_surface_resize(&surface->dsurf, seat, edge, serial);
 }
 
@@ -487,11 +521,159 @@ static void
 read_wm_protocols_msg(struct tw_xsurface *surface, struct tw_xwm *xwm,
                       xcb_client_message_event_t *ev)
 {
-	//TODO handle send pong back to wm.
+	//TODO send pong back to wm,
+	//1. get type from ev->data.data32[0]
+	//2. get win id from ev->data.data32[2]
+	//3. unset timer, useless since we don't ping right now.
+}
+
+static void
+read_surface_client_msg(struct tw_xsurface *surface, struct tw_xwm *xwm,
+                        xcb_client_message_event_t *ev)
+{
+	if (ev->type == xwm->atoms.wl_surface_id)
+		read_wl_surface_id_msg(surface, xwm, ev);
+	else if (ev->type == xwm->atoms.net_wm_state)
+		read_net_wm_state_msg(surface, xwm, ev);
+	else if (ev->type == xwm->atoms.net_wm_moveresize)
+		read_net_wm_moveresize_msg(surface, xwm, ev);
+	else if (ev->type == xwm->atoms.wm_protocols)
+		read_wm_protocols_msg(surface, xwm, ev);
+	xcb_flush(xwm->xcb_conn);
+	//TODO getting selection message
+}
+
+/******************************************************************************
+ * handlers
+ *****************************************************************************/
+
+static inline void
+handle_xsurface_property_notify(struct tw_xsurface *surface,
+                                xcb_generic_event_t *ge)
+{
+	xcb_property_notify_event_t *ev =
+		(xcb_property_notify_event_t *)ge;
+	xcb_atom_t type = ev->atom;
+
+	tw_logl_level(TW_LOG_DBUG, "Recived PropertyNotify:%d xcb_window@%d",
+	        XCB_PROPERTY_NOTIFY, ev->window);
+	read_surface_property(surface, type);
+}
+
+static inline void
+handle_xsurface_client_msg(struct tw_xsurface *surface,
+                           xcb_generic_event_t *ge)
+{
+	struct tw_xwm *xwm = surface->xwm;
+	xcb_client_message_event_t *ev = (xcb_client_message_event_t *)ge;
+
+	tw_logl_level(TW_LOG_DBUG, "Received ClientMessage:%d from client@%d",
+	              XCB_CLIENT_MESSAGE, ev->window);
+	read_surface_client_msg(surface, xwm, ev);
+}
+
+static void
+handle_xsurface_unmap_notify(struct tw_xsurface *surface)
+{
+	struct tw_desktop_surface *dsurf = &surface->dsurf;
+
+	tw_logl_level(TW_LOG_DBUG, "Recived MapNotify:%d from xcb_window@%d",
+	              XCB_MAP_NOTIFY, surface->id);
+	send_xsurface_wm_state(surface, ICCCM_WITHDRAWN_STATE);
+
+	surface->pending_mapping = false;
+	tw_desktop_surface_rm(dsurf);
+	tw_desktop_surface_fini(dsurf);
+	surface->surface = NULL;
+}
+
+static void
+handle_xsurface_map_request(struct tw_xsurface *xsurface)
+{
+	struct tw_xwm *xwm = xsurface->xwm;
+
+	tw_logl_level(TW_LOG_DBUG, "Recived MapRequest:%d from xcb_window@%d",
+	              XCB_MAP_REQUEST, xsurface->id);
+	send_xsurface_wm_state(xsurface, ICCCM_NORMAL_STATE);
+	send_xsurface_net_wm_state(xsurface);
+
+        //from weston documentation. The MapRequest happens before the
+	//wl_surface.id is available. Here we Simply acknowledge the xwindow
+	//for the mapping. Processing happens later in reading_wl_surface_id.
+	send_xsurface_focus(xsurface, false);
+	xcb_map_window(xwm->xcb_conn, xsurface->id);
+	xsurface->pending_mapping = true;
+}
+
+static inline void
+handle_xsurface_map_notify(struct tw_xsurface *xsurface)
+{
+	tw_logl_level(TW_LOG_DBUG, "Recived MapNotify:%d from xcb_window@%d",
+	              XCB_MAP_NOTIFY, xsurface->id);
+}
+
+static inline void
+handle_xsurface_configure_notify(struct tw_xsurface *surface,
+                                 xcb_generic_event_t *ge)
+{
+	xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t *)ge;
+
+	tw_logl_level(TW_LOG_DBUG, "Recived Configure notify:%d from "
+	              "xcb_window@%d, for (%d, %d, %d, %d)",
+	              XCB_CONFIGURE_NOTIFY, ev->window, ev->x, ev->y,
+	              ev->width, ev->height);
+	surface->x = ev->x;
+	surface->y = ev->y;
+	surface->w = ev->width;
+	surface->h = ev->height;
+}
+
+static void
+handle_xsurface_configure_request(struct tw_xsurface *surface,
+                                  xcb_generic_event_t *ge)
+{
+	xcb_configure_request_event_t *ev =
+		(xcb_configure_request_event_t *)ge;
+	struct tw_desktop_surface *dsurf = &surface->dsurf;
+	uint32_t mask = 0, geo_mask = 0, i = 0;
+	uint32_t values[4] = {0};
+
+	tw_logl_level(TW_LOG_DBUG, "Recived ConfigureRequest:%d from "
+	              "xcb_window@%d", XCB_CONFIGURE_REQUEST, surface->id);
+
+	if (ev->value_mask & XCB_CONFIG_WINDOW_X) {
+		values[i++] = ev->x;
+		mask |= TW_DESKTOP_SURFACE_CONFIG_X;
+		geo_mask |= XCB_CONFIG_WINDOW_X;
+	}
+	if (ev->value_mask & XCB_CONFIG_WINDOW_Y) {
+		values[i++] = ev->y;
+		mask |= TW_DESKTOP_SURFACE_CONFIG_Y;
+		geo_mask |= XCB_CONFIG_WINDOW_Y;
+	}
+	if (ev->value_mask & XCB_CONFIG_WINDOW_WIDTH) {
+		values[i++] = ev->width;
+		mask |= TW_DESKTOP_SURFACE_CONFIG_W;
+		geo_mask |= XCB_CONFIG_WINDOW_WIDTH;
+	}
+	if (ev->value_mask & XCB_CONFIG_WINDOW_HEIGHT) {
+		values[i++] = ev->height;
+		mask |= TW_DESKTOP_SURFACE_CONFIG_H;
+		geo_mask |= XCB_CONFIG_WINDOW_HEIGHT;
+	}
+	if (dsurf->surface_added)
+		dsurf->desktop->api.configure_requested(
+			dsurf, ev->x, ev->y, ev->width, ev->height,
+			mask, dsurf->desktop->user_data);
+	else {
+		xcb_configure_window(surface->xwm->xcb_conn, surface->id,
+		                     geo_mask, values);
+		xcb_flush(surface->xwm->xcb_conn);
+	}
 }
 
 /*****************************************************************************
- * handlers
+ * desktop surface implementation
  *****************************************************************************/
 
 /* tw_desktop_surface need update window geometry on commit  */
@@ -598,102 +780,47 @@ notify_xsurface_surface_destroy(struct wl_listener *listener, void *data)
 	struct tw_xsurface *surface =
 		wl_container_of(listener, surface, surface_destroy);
 	tw_reset_wl_list(&surface->surface_destroy.link);
-	tw_xsurface_unmap_requested(surface);
+	handle_xsurface_unmap_notify(surface);
 }
 
 /******************************************************************************
- * exposed
+ * event generator
  *****************************************************************************/
 
-void
-tw_xsurface_read_config_request(struct tw_xsurface *surface,
-                                xcb_configure_request_event_t *ev)
-{
-	struct tw_desktop_surface *dsurf = &surface->dsurf;
-	uint32_t mask = 0, geo_mask = 0, i = 0;
-	uint32_t values[4] = {0};
+static const uint8_t WINID_OFFSETS[XCB_EVENT_TYPE_MASK+1] = {
+	[XCB_DESTROY_NOTIFY] = offsetof(xcb_destroy_notify_event_t, window),
+	[XCB_CONFIGURE_REQUEST] = offsetof(xcb_configure_request_event_t, window),
+	[XCB_CONFIGURE_NOTIFY] = offsetof(xcb_configure_notify_event_t, window),
+	[XCB_MAP_REQUEST] = offsetof(xcb_map_request_event_t, window),
+	[XCB_MAP_NOTIFY] = offsetof(xcb_map_notify_event_t, window),
+	[XCB_UNMAP_NOTIFY] = offsetof(xcb_unmap_notify_event_t, window),
+	[XCB_PROPERTY_NOTIFY] = offsetof(xcb_property_notify_event_t, window),
+	[XCB_CLIENT_MESSAGE] = offsetof(xcb_client_message_event_t, window),
+};
 
-	if (ev->value_mask & XCB_CONFIG_WINDOW_X) {
-		values[i++] = ev->x;
-		mask |= TW_DESKTOP_SURFACE_CONFIG_X;
-		geo_mask |= XCB_CONFIG_WINDOW_X;
-	}
-	if (ev->value_mask & XCB_CONFIG_WINDOW_Y) {
-		values[i++] = ev->y;
-		mask |= TW_DESKTOP_SURFACE_CONFIG_Y;
-		geo_mask |= XCB_CONFIG_WINDOW_Y;
-	}
-	if (ev->value_mask & XCB_CONFIG_WINDOW_WIDTH) {
-		values[i++] = ev->width;
-		mask |= TW_DESKTOP_SURFACE_CONFIG_W;
-		geo_mask |= XCB_CONFIG_WINDOW_WIDTH;
-	}
-	if (ev->value_mask & XCB_CONFIG_WINDOW_HEIGHT) {
-		values[i++] = ev->height;
-		mask |= TW_DESKTOP_SURFACE_CONFIG_H;
-		geo_mask |= XCB_CONFIG_WINDOW_HEIGHT;
-	}
-	if (dsurf->surface_added)
-		dsurf->desktop->api.configure_requested(
-			dsurf, ev->x, ev->y, ev->width, ev->height,
-			mask, dsurf->desktop->user_data);
-	else {
-		xcb_configure_window(surface->xwm->xcb_conn, surface->id,
-		                     geo_mask, values);
-		xcb_flush(surface->xwm->xcb_conn);
-	}
+static inline struct tw_xsurface *
+tw_xsurface_from_event(struct tw_xwm *xwm, xcb_generic_event_t *ge)
+{
+	uint8_t off = WINID_OFFSETS[ge->response_type & XCB_EVENT_TYPE_MASK];
+	xcb_window_t _win = *(xcb_window_t *)((unsigned char*)ge + off);
+
+	return (off) ? tw_xsurface_from_id(xwm, _win) : NULL;
 }
 
-void
-tw_xsurface_read_property(struct tw_xsurface *surface, xcb_atom_t type)
+/******************************************************************************
+ * exposed API
+ *****************************************************************************/
+
+//TODO replaces it with hash map?
+struct tw_xsurface *
+tw_xsurface_from_id(struct tw_xwm *xwm, xcb_window_t id)
 {
-	struct tw_xwm *xwm = surface->xwm;
-	xcb_get_property_cookie_t cookie =
-		xcb_get_property(xwm->xcb_conn, 0, surface->id,
-		                 type, XCB_ATOM_ANY, 0, 2048);
-	xcb_get_property_reply_t *reply =
-		xcb_get_property_reply(xwm->xcb_conn, cookie, NULL);
-	if (!reply)
-		return;
+	struct tw_xsurface *surface;
 
-	if (type == XCB_ATOM_WM_CLASS)
-		read_surface_class(xwm, surface, reply);
-	else if (type == XCB_ATOM_WM_NAME || type == xwm->atoms.net_wm_name)
-		read_surface_title(xwm, surface, reply);
-	else if (type == XCB_ATOM_WM_TRANSIENT_FOR)
-		read_surface_parent(xwm, surface, reply);
-	else if (type == xwm->atoms.net_wm_pid)
-		read_surface_pid(xwm, surface, reply);
-	else if (type == xwm->atoms.net_wm_window_type)
-		read_surface_wintype(xwm, surface, reply);
-	else if (type == xwm->atoms.wm_protocols)
-		read_surface_protocols(xwm, surface, reply);
-	else if (type == xwm->atoms.net_wm_state)
-		read_surface_net_wm_state(xwm, surface, reply);
-	else if (type == xwm->atoms.wm_normal_hints)
-		read_surface_normal_hints(xwm, surface, reply);
-	else if (type == xwm->atoms.motif_wm_hints)
-		read_surface_motif_hints(xwm, surface, reply);
-	free(reply);
-	xcb_flush(xwm->xcb_conn);
-}
-
-void
-tw_xsurface_read_client_msg(struct tw_xsurface *surface,
-                            xcb_client_message_event_t *ev)
-{
-	struct tw_xwm *xwm = surface->xwm;
-
-	if (ev->type == xwm->atoms.wl_surface_id)
-		read_wl_surface_id_msg(surface, xwm, ev);
-	else if (ev->type == xwm->atoms.net_wm_state)
-		read_net_wm_state_msg(surface, xwm, ev);
-	else if (ev->type == xwm->atoms.net_wm_moveresize)
-		read_net_wm_moveresize_msg(surface, xwm, ev);
-	else if (ev->type == xwm->atoms.wm_protocols)
-		read_wm_protocols_msg(surface, xwm, ev);
-	xcb_flush(xwm->xcb_conn);
-	//TODO getting selection message
+	wl_list_for_each(surface, &xwm->surfaces, link)
+		if (surface->id == id)
+			return surface;
+	return NULL;
 }
 
 void
@@ -724,7 +851,7 @@ tw_xsurface_map_tw_surface(struct tw_xsurface *surface,
 	}
 	//An xsurface can have different wl_surface during its lifetime.
 	if (dsurf->surface_added)
-		tw_xsurface_unmap_requested(surface);
+		handle_xsurface_unmap_notify(surface);
 	//reinitialize surface
 	tw_desktop_surface_init(dsurf, tw_surface->resource, NULL, manager);
 	dsurf->configure = handle_configure_tw_xsurface;
@@ -735,7 +862,7 @@ tw_xsurface_map_tw_surface(struct tw_xsurface *surface,
 	                                 notify_xsurface_surface_destroy);
 
 	for (unsigned i = 0; i < sizeof(atoms)/sizeof(xcb_atom_t); i++)
-		tw_xsurface_read_property(surface, atoms[i]);
+		read_surface_property(surface, atoms[i]);
 
 	surface->surface = tw_surface;
 	surface->surface_id = 0;
@@ -747,47 +874,6 @@ tw_xsurface_map_tw_surface(struct tw_xsurface *surface,
 		tw_desktop_surface_add(dsurf);
 		//TODO: adding other states
 	}
-}
-
-void
-tw_xsurface_unmap_requested(struct tw_xsurface *surface)
-{
-	struct tw_desktop_surface *dsurf = &surface->dsurf;
-
-	send_xsurface_wm_state(surface, ICCCM_WITHDRAWN_STATE);
-
-	surface->pending_mapping = false;
-	tw_desktop_surface_rm(dsurf);
-	tw_desktop_surface_fini(dsurf);
-	surface->surface = NULL;
-}
-
-void
-tw_xsurface_map_requested(struct tw_xsurface *xsurface)
-{
-	struct tw_xwm *xwm = xsurface->xwm;
-
-	send_xsurface_wm_state(xsurface, ICCCM_NORMAL_STATE);
-	send_xsurface_net_wm_state(xsurface);
-
-        //from weston documentation. The MapRequest happens before the
-	//wl_surface.id is available. Here we Simply acknowledge the xwindow
-	//for the mapping. Processing happens later in reading_wl_surface_id.
-	send_xsurface_focus(xsurface, false);
-	xcb_map_window(xwm->xcb_conn, xsurface->id);
-	xsurface->pending_mapping = true;
-}
-
-//TODO replaces it with hash map?
-struct tw_xsurface *
-tw_xsurface_from_id(struct tw_xwm *xwm, xcb_window_t id)
-{
-	struct tw_xsurface *surface;
-
-	wl_list_for_each(surface, &xwm->surfaces, link)
-		if (surface->id == id)
-			return surface;
-	return NULL;
 }
 
 void
@@ -870,10 +956,47 @@ tw_xsurface_create(struct tw_xwm *xwm, xcb_window_t win_id,
 void
 tw_xsurface_destroy(struct tw_xsurface *surface)
 {
-	tw_xsurface_unmap_requested(surface);
+	handle_xsurface_unmap_notify(surface);
 	tw_reset_wl_list(&surface->surface_destroy.link);
 	//there are other things.
 	free(surface);
+}
+
+int
+tw_xsurface_handle_event(struct tw_xwm *xwm, xcb_generic_event_t *ge)
+{
+	struct tw_xsurface *surface = NULL;
+
+	//not a xwindow event, bail
+	if (!(surface = tw_xsurface_from_event(xwm, ge)))
+		return 0;
+
+	switch (ge->response_type & XCB_EVENT_TYPE_MASK) {
+	case XCB_CONFIGURE_REQUEST:
+		handle_xsurface_configure_request(surface, ge);
+		break;
+	case XCB_CONFIGURE_NOTIFY:
+		handle_xsurface_configure_notify(surface, ge);
+		break;
+	case XCB_MAP_REQUEST:
+		handle_xsurface_map_request(surface);
+		break;
+	case XCB_MAP_NOTIFY:
+		handle_xsurface_map_notify(surface);
+		break;
+	case XCB_UNMAP_NOTIFY:
+		handle_xsurface_unmap_notify(surface);
+		break;
+	case XCB_PROPERTY_NOTIFY:
+		handle_xsurface_property_notify(surface, ge);
+		break;
+	case XCB_CLIENT_MESSAGE:
+		handle_xsurface_client_msg(surface, ge);
+		break;
+	default:
+		return 0;
+	}
+	return 1;
 }
 
 WL_EXPORT struct tw_desktop_surface *

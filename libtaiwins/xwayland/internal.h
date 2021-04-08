@@ -123,8 +123,6 @@ struct tw_xmotif_wm_hints {
  * substructure_redirect to intercept all child window events to us to
  * process. For example:
  *
- * We intercept `ConfigureRequest` from clients, we may set different different
- * geometry using xcb_configure_window.
  */
 struct tw_xwm {
 	//wayland resources
@@ -212,23 +210,11 @@ struct tw_xsurface *
 tw_xsurface_from_id(struct tw_xwm *xwm, xcb_window_t id);
 
 void
-tw_xsurface_map_requested(struct tw_xsurface *surface);
-
-void
-tw_xsurface_unmap_requested(struct tw_xsurface *surface);
-
-void
 tw_xsurface_map_tw_surface(struct tw_xsurface *surface,
                            struct tw_surface *tw_surface);
-void
-tw_xsurface_read_property(struct tw_xsurface *surface, xcb_atom_t type);
+int
+tw_xsurface_handle_event(struct tw_xwm *xwm, xcb_generic_event_t *ge);
 
-void
-tw_xsurface_read_client_msg(struct tw_xsurface *surface,
-                            xcb_client_message_event_t *ev);
-void
-tw_xsurface_read_config_request(struct tw_xsurface *surface,
-                                xcb_configure_request_event_t *ev);
 void
 tw_xsurface_set_focus(struct tw_xsurface *surface, struct tw_xwm *xwm);
 
