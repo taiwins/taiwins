@@ -376,7 +376,8 @@ handle_toplevel_show_window_menu(struct wl_client *client,
 	//TODO verify the serial
 	struct tw_xdg_surface *xdg_surf = xdg_surface_from_toplevel(resource);
 	struct tw_desktop_manager *desktop = xdg_surf->base.desktop;
-	desktop->api.show_window_menu(&xdg_surf->base, seat, x, y,
+	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
+	desktop->api.show_window_menu(&xdg_surf->base, tw_seat, x, y,
 	                              desktop->user_data);
 }
 
@@ -388,7 +389,9 @@ handle_toplevel_move(struct wl_client *client,
 		     uint32_t serial)
 {
 	struct tw_xdg_surface *xdg_surf = xdg_surface_from_toplevel(resource);
-	tw_desktop_surface_move(&xdg_surf->base, seat, serial);
+	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
+
+	tw_desktop_surface_move(&xdg_surf->base, tw_seat, serial);
 }
 
 /* desktop.resize */
@@ -400,11 +403,13 @@ handle_toplevel_resize(struct wl_client *client,
 		       uint32_t edges)
 {
 	struct tw_xdg_surface *xdg_surf = xdg_surface_from_toplevel(resource);
+	struct tw_seat *tw_seat = tw_seat_from_resource(seat);
+
 	if (edges > XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT) {
 		tw_logl("xdg resize requested on invalid edge");
 		return;
 	}
-	tw_desktop_surface_resize(&xdg_surf->base, seat, edges, serial);
+	tw_desktop_surface_resize(&xdg_surf->base, tw_seat, edges, serial);
 }
 
 static void
