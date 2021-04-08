@@ -191,7 +191,7 @@ twdesk_surface_committed(struct tw_desktop_surface *dsurf,
 
 static void
 twdesk_surface_show_window_menu(struct tw_desktop_surface *surface,
-                                struct wl_resource *seat,
+                                struct tw_seat *seat,
                                 int32_t x, int32_t y,
                                 void *user_data)
 {
@@ -212,11 +212,10 @@ twdesk_set_parent(struct tw_desktop_surface *surface,
 
 static void
 twdesk_surface_move(struct tw_desktop_surface *dsurf,
-                    struct wl_resource *seat_resource, uint32_t serial,
+                    struct tw_seat *seat, uint32_t serial,
                     void *user_data)
 {
 	struct tw_xdg *xdg = user_data;
-	struct tw_seat *seat = tw_seat_from_resource(seat_resource);
 	struct tw_xdg_view *view = dsurf->user_data;
 
 	assert(view);
@@ -232,11 +231,10 @@ twdesk_surface_move(struct tw_desktop_surface *dsurf,
 
 static void
 twdesk_surface_resize(struct tw_desktop_surface *dsurf,
-                      struct wl_resource *seat_resource, uint32_t serial,
+                      struct tw_seat *seat, uint32_t serial,
                       enum wl_shell_surface_resize edge, void *user_data)
 {
 	struct tw_xdg *xdg = user_data;
-	struct tw_seat *seat = tw_seat_from_resource(seat_resource);
 	struct tw_xdg_view *view = dsurf->user_data;
 
 	assert(view);
