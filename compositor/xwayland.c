@@ -1,7 +1,7 @@
 /*
  * xwayland.c - taiwins compositor xwayland implementation
  *
- * Copyright (c) 2019 Xichen Zhou
+ * Copyright (c) 2021 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

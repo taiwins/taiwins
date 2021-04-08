@@ -1,7 +1,7 @@
 /*
  * data_transfer.c - taiwins xwayland selection data_source implementation
  *
- * Copyright (c) 2020 Xichen Zhou
+ * Copyright (c) 2021 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
