@@ -1,7 +1,7 @@
 /*
  * internal.h - taiwins xwayland internal header
  *
- * Copyright (c) 2021 Xichen Zhou
+ * Copyright (c) 2020-2021 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -115,6 +115,24 @@ struct tw_xmotif_wm_hints {
 
 #define XCB_EVENT_TYPE_MASK (0x7f)
 
+enum tw_xcursor_type {
+	TW_XCURSOR_TOP = 0,
+	TW_XCURSOR_BOTTOM,
+	TW_XCURSOR_LEFT,
+	TW_XCURSOR_RIGHT,
+	TW_XCURSOR_TOP_LEFT,
+	TW_XCURSOR_TOP_RIGHT,
+	TW_XCURSOR_BOTTOM_LEFT,
+	TW_XCURSOR_BOTTOM_RIGHT,
+	TW_XCURSOR_LEFT_PTR,
+};
+
+xcb_cursor_t
+tw_xcursor_load(struct tw_xwm *xwm, enum tw_xcursor_type type);
+
+void
+tw_xcursor_set(struct tw_xwm *xwm, enum tw_xcursor_type type, xcb_window_t win);
+
 
 /** @brief the window manager for xwayland.
  *
@@ -146,6 +164,7 @@ struct tw_xwm {
 	xcb_connection_t *xcb_conn;
 	xcb_screen_t *screen;
 	xcb_window_t window; //root window
+	xcb_cursor_t cursors[TW_XCURSOR_LEFT_PTR+1], cursor_curr;
 
 #if _TW_HAS_XCB_ERRORS
 	xcb_errors_context_t *errors_context;

@@ -144,6 +144,19 @@ log_raw:
 }
 
 static void
+handle_xwm_enter(struct tw_xwm *xwm, xcb_generic_event_t *ge)
+{
+	xcb_enter_notify_event_t *ev = (xcb_enter_notify_event_t *) ge;
+	xcb_cursor_t cursor = XCB_CURSOR_NONE;
+
+	tw_logl_level(TW_LOG_WARN, "handle XCB_ENTER:%d for %d",
+	              XCB_ENTER_NOTIFY, ev->event);
+	xcb_change_window_attributes(xwm->xcb_conn, ev->event,
+	                             XCB_CW_CURSOR, &cursor);
+	xcb_flush(xwm->xcb_conn);
+}
+
+static void
 handle_xwm_unhandled_event(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 {
 #if _TW_HAS_XCB_ERRORS
@@ -220,6 +233,9 @@ handle_x11_events(int fd, uint32_t mask, void *data)
 			break;
 		case XCB_FOCUS_IN:
 			handle_xwm_focus_in(xwm, event);
+			break;
+		case XCB_ENTER_NOTIFY:
+			handle_xwm_enter(xwm, event);
 			break;
 		case 0:
 			handle_xwm_xcb_error(xwm, event);
@@ -337,6 +353,7 @@ change_window_attributes(struct tw_xwm *xwm)
 {
 	uint32_t values = XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY |
 		XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT |
+		XCB_EVENT_MASK_ENTER_WINDOW |
 		XCB_EVENT_MASK_PROPERTY_CHANGE;
 	xcb_atom_t supported[] = {
 		xwm->atoms.net_wm_state,
