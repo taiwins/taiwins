@@ -550,10 +550,10 @@ handle_configure_tw_xsurface(struct tw_desktop_surface *dsurf,
 		mask |= XCB_CONFIG_WINDOW_Y;
 	}
 	if ((flags & TW_DESKTOP_SURFACE_CONFIG_W)) {
-		values[i++] = width;
+		values[i++] = width + (rand() % 5) - 3;
 		mask |= XCB_CONFIG_WINDOW_WIDTH;
 	} if ((flags & TW_DESKTOP_SURFACE_CONFIG_H)) {
-		values[i++] = height;
+		values[i++] = height + (rand() % 5) - 3;
 		mask |= XCB_CONFIG_WINDOW_HEIGHT;
 	}
 
@@ -611,7 +611,7 @@ tw_xsurface_read_config_request(struct tw_xsurface *surface,
 {
 	struct tw_desktop_surface *dsurf = &surface->dsurf;
 	uint32_t mask = 0, geo_mask = 0, i = 0;
-	uint32_t values[2] = {ev->width, ev->height};
+	uint32_t values[4] = {0};
 
 	if (ev->value_mask & XCB_CONFIG_WINDOW_X) {
 		values[i++] = ev->x;
@@ -637,9 +637,11 @@ tw_xsurface_read_config_request(struct tw_xsurface *surface,
 		dsurf->desktop->api.configure_requested(
 			dsurf, ev->x, ev->y, ev->width, ev->height,
 			mask, dsurf->desktop->user_data);
-	else
+	else {
 		xcb_configure_window(surface->xwm->xcb_conn, surface->id,
 		                     geo_mask, values);
+		xcb_flush(surface->xwm->xcb_conn);
+	}
 }
 
 void
