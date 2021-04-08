@@ -683,8 +683,9 @@ _lua_set_panel_position(lua_State *L)
 	struct tw_config_table *t = _lua_to_config_table(L);
 	const char *pos;
 
-        luaL_checktype(L, 1, LUA_TSTRING);
-	pos = lua_tostring(L, 1);
+	tw_lua_stackcheck(L, 2);
+        luaL_checktype(L, 2, LUA_TSTRING);
+	pos = lua_tostring(L, 2);
 	if (strcmp(pos, "bottom") == 0) {
 		SET_PENDING(&t->panel_pos, pos,
 		            TAIWINS_SHELL_PANEL_POS_BOTTOM);
