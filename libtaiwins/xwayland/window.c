@@ -834,6 +834,8 @@ tw_xsurface_set_focus(struct tw_xsurface *surface, struct tw_xwm *xwm)
 		send_xsurface_net_wm_state(surface);
 
 	} else {
+		if (xwm->focus_window)
+			send_xsurface_focus(xwm->focus_window, false);
 		xcb_set_input_focus(xwm->xcb_conn,
 		                    XCB_INPUT_FOCUS_POINTER_ROOT,
 		                    XCB_NONE, XCB_TIME_CURRENT_TIME);

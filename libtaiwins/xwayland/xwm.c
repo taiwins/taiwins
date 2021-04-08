@@ -85,6 +85,8 @@ handle_xwm_destroy_surface(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 	tw_logl("Received DestroyNotify:%d for xcb_window@%d",
 	        XCB_DESTROY_NOTIFY, ev->window);
 	wl_list_remove(&surface->link);
+	if (xwm->focus_window == surface)
+		tw_xsurface_set_focus(NULL, xwm);
 	tw_xsurface_destroy(surface);
 }
 
