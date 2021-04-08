@@ -633,6 +633,17 @@ _lua_set_keyboard_options(lua_State *L)
 }
 
 static int
+_lua_set_keyboard_variant(lua_State *L)
+{
+	struct tw_config_table *t = _lua_to_config_table(L);
+
+	tw_lua_stackcheck(L, 2);
+	t->xkb_rules.variant = strdup(luaL_checkstring(L, 2));
+	tw_config_table_dirty(t, true);
+	return 0;
+}
+
+static int
 _lua_set_repeat_info(lua_State *L)
 {
 	struct tw_config_table *t = _lua_to_config_table(L);
@@ -765,6 +776,7 @@ luaopen_taiwins(lua_State *L)
 	REGISTER_METHOD(L, "keyboard_model", _lua_set_keyboard_model);
 	REGISTER_METHOD(L, "keyboard_layout", _lua_set_keyboard_layout);
 	REGISTER_METHOD(L, "keyboard_options", _lua_set_keyboard_options);
+	REGISTER_METHOD(L, "keyboard_variant", _lua_set_keyboard_variant);
 	REGISTER_METHOD(L, "repeat_info", _lua_set_repeat_info);
 	//objects
 	REGISTER_METHOD(L, "enable_xwayland", _lua_enable_xwayland);
