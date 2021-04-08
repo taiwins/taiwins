@@ -116,7 +116,7 @@ struct tw_engine {
 	struct xkb_context *xkb_context;
 	struct wl_list inputs; /* tw_backend_seat:links */
 	uint8_t seat_pool;
-	struct tw_engine_seat seats[8];
+	struct tw_engine_seat seats[8], *focused_seat;
 
         /** cursor is global, like most desktop experience, the one reason is
          * that people want to fit cursor in the cursor plane.
@@ -148,6 +148,7 @@ struct tw_engine {
 		struct wl_signal output_resized;
 		struct wl_signal output_remove;
 		struct wl_signal seat_created;
+		struct wl_signal seat_focused;
 		struct wl_signal seat_remove;
 	} signals;
 };

@@ -156,6 +156,7 @@ tw_engine_create_global(struct wl_display *display, struct tw_backend *backend)
 	engine->started = false;
 	engine->output_pool = 0;
 	engine->seat_pool = 0;
+	engine->focused_seat = NULL;
 	wl_list_init(&engine->heads);
 	wl_list_init(&engine->inputs);
 
@@ -188,6 +189,7 @@ tw_engine_create_global(struct wl_display *display, struct tw_backend *backend)
 	                         notify_engine_backend_started);
 	//signals
 	wl_signal_init(&engine->signals.seat_created);
+	wl_signal_init(&engine->signals.seat_focused);
 	wl_signal_init(&engine->signals.seat_remove);
 	wl_signal_init(&engine->signals.output_created);
 	wl_signal_init(&engine->signals.output_remove);
