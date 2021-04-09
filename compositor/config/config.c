@@ -327,6 +327,8 @@ tw_config_wake_compositor(struct tw_config *c)
 	                                           false)))
 		goto out;
 	tw_config_register_object(c, "xwayland", xwayland);
+#else
+	(void)xwayland;
 #endif
 	//this is probably a bad idea.
 	tw_config_register_object(c, "initialized", &c->config_table);
