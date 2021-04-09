@@ -101,11 +101,11 @@ tw_xdg_layout_resize_output(struct tw_xdg_layout *l, struct tw_xdg_output *o)
 	/*	tiling_resize_output(l, o); */
 }
 
-void
+size_t
 tw_xdg_layout_write_rect(struct tw_layer *layer, struct tw_xdg_layout *layout,
                          pixman_rectangle32_t *r, struct tw_xdg_layout_op *ops)
 {
-	int i = 0;
+	size_t i = 0;
 	struct tw_xdg_view *v = NULL;
 	struct tw_surface *surface = NULL;
 
@@ -121,5 +121,5 @@ tw_xdg_layout_write_rect(struct tw_layer *layer, struct tw_xdg_layout *layout,
 			i++;
 		}
 	}
-	ops[i].out.end = true;
+	return i;
 }
