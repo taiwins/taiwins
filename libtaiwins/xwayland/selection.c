@@ -45,23 +45,12 @@ xwm_selection_from_type(struct tw_xwm *xwm, xcb_atom_t type)
 {
 	if (type == xwm->atoms.clipboard)
 		return &xwm->selection;
-	else if (type == xwm->atoms.xdnd_selection)
-		return &xwm->dnd;
+	//TODO: implement DND selection
+	//else if (type == xwm->atoms.xdnd_selection)
+	//	return &xwm->dnd;
 	else
 		return NULL;
 }
-
-
-/* static inline struct tw_xwm_selection * */
-/* tw_xwm_selection_from_window(struct tw_xwm *xwm, xcb_window_t window) */
-/* { */
-/*	if (window == xwm->selection.window) */
-/*		return &xwm->selection; */
-/*	else if (window == xwm->dnd.window) */
-/*		return &xwm->dnd; */
-/*	else */
-/*		return NULL; */
-/* } */
 
 /******************************************************************************
  * selection notify handling
@@ -358,24 +347,25 @@ clipboard_init(struct tw_xwm_selection *selection, struct tw_xwm *xwm)
 	                  EVENT_VALUE);
 }
 
-static inline void
-dnd_init(struct tw_xwm_selection *dnd, struct tw_xwm *xwm)
-{
-	uint32_t dnd_ver = 5;
 
-	dnd->xwm = xwm;
-	dnd->window = xcb_generate_id(xwm->xcb_conn);
-	tw_xwm_data_source_init(&dnd->xwm_source, dnd);
-	xcb_create_window(xwm->xcb_conn, XCB_COPY_FROM_PARENT,
-	                  dnd->window, xwm->screen->root,
-	                  0, 0, 8192, 8192, 0,
-	                  XCB_WINDOW_CLASS_INPUT_ONLY,
-	                  xwm->screen->root_visual, XCB_CW_EVENT_MASK,
-	                  EVENT_VALUE);
-	xcb_change_property(xwm->xcb_conn, XCB_PROP_MODE_REPLACE, dnd->window,
-	                    xwm->atoms.xdnd_aware, XCB_ATOM_ATOM,
-	                    32, 1, &dnd_ver);
-}
+/* static inline void */
+/* dnd_init(struct tw_xwm_selection *dnd, struct tw_xwm *xwm) */
+/* { */
+/*         uint32_t dnd_ver = 5; */
+
+/*         dnd->xwm = xwm; */
+/*         dnd->window = xcb_generate_id(xwm->xcb_conn); */
+/*         tw_xwm_data_source_init(&dnd->xwm_source, dnd); */
+/*         xcb_create_window(xwm->xcb_conn, XCB_COPY_FROM_PARENT, */
+/*                           dnd->window, xwm->screen->root, */
+/*                           0, 0, 8192, 8192, 0, */
+/*                           XCB_WINDOW_CLASS_INPUT_ONLY, */
+/*                           xwm->screen->root_visual, XCB_CW_EVENT_MASK, */
+/*                           EVENT_VALUE); */
+/*         xcb_change_property(xwm->xcb_conn, XCB_PROP_MODE_REPLACE, dnd->window, */
+/*                             xwm->atoms.xdnd_aware, XCB_ATOM_ATOM, */
+/*                             32, 1, &dnd_ver); */
+/* } */
 
 static inline void
 clipboard_manager_init(struct tw_xwm_selection *selection, struct tw_xwm *xwm)
@@ -470,7 +460,7 @@ void
 tw_xwm_init_selection(struct tw_xwm *xwm)
 {
 	clipboard_init(&xwm->selection, xwm);
-	dnd_init(&xwm->dnd, xwm);
+	//dnd_init(&xwm->dnd, xwm);
 	clipboard_manager_init(&xwm->selection, xwm);
 	monitor_clipboard_event(&xwm->selection, xwm);
 }
@@ -482,10 +472,10 @@ tw_xwm_fini_selection(struct tw_xwm *xwm)
 		xcb_destroy_window(xwm->xcb_conn, xwm->selection.window);
 		xwm->selection.window = 0;
 	}
-	if (xwm->dnd.window) {
-		xcb_destroy_window(xwm->xcb_conn, xwm->dnd.window);
-		xwm->dnd.window = 0;
-	}
+	//if (xwm->dnd.window) {
+	//	xcb_destroy_window(xwm->xcb_conn, xwm->dnd.window);
+	//	xwm->dnd.window = 0;
+	//}
 }
 
 void

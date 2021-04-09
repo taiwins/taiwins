@@ -60,8 +60,7 @@ handle_xwm_create_surface(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 	xcb_create_notify_event_t *ev = (xcb_create_notify_event_t *)ge;
 
 	if (ev->window == xwm->window ||
-	    ev->window == xwm->selection.window ||
-	    ev->window == xwm->dnd.window)
+	    ev->window == xwm->selection.window)
 		return;
 	tw_logl("Received CreateNotify:%d for %d",
 	        XCB_CREATE_NOTIFY, ev->window);
