@@ -20,6 +20,9 @@
  */
 
 #include <assert.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <wayland-server-core.h>
 #include <wayland-util.h>
 
@@ -72,6 +75,12 @@ notify_xwayland_create_xwm(struct wl_listener *listener, void *data)
 	//TODO compositor may moved to other places
 	struct tw_compositor *compositor =
 		&xwayland->engine->compositor_manager;
+	struct tw_xserver *server = data;
+	char display[32];
+
+	//set DISPLAY env variable
+	snprintf(display, sizeof(display), ":%d", server->display);
+	setenv("DISPLAY", display, true);
 
 	tw_xserver_create_xwindow_manager(xwayland->server,
 	                                  manager, compositor);

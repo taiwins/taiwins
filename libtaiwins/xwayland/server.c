@@ -63,7 +63,7 @@ handle_ready(int signumber, void *data)
 
 	wl_event_source_remove(xserver->sigusr1_source);
 	xserver->sigusr1_source = NULL;
-	wl_signal_emit(&xserver->signals.ready, &xserver);
+	wl_signal_emit(&xserver->signals.ready, xserver);
 	return 1;
 }
 
