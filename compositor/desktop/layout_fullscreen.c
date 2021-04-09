@@ -83,7 +83,10 @@ fullscreen_resize_output(const enum tw_xdg_layout_command command,
 	pixman_rectangle32_t geo =
 		tw_output_device_geometry(output->output->device);
 
-	tw_xdg_layout_write_rect(arg->in.l, l, &geo, ops);
+	ops += tw_xdg_layout_write_rect(arg->in.f, l, &geo, ops);
+	ops += tw_xdg_layout_write_rect(arg->in.b, l, &geo, ops);
+	ops->out.end = true;
+
 }
 
 static void

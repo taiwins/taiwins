@@ -195,7 +195,7 @@ tw_workspace_get_top_view(const struct tw_workspace *ws)
 		container_of(ws->recent_views.next, struct tw_xdg_view, link);
 }
 
-static struct tw_xdg_layout *
+static inline struct tw_xdg_layout *
 tw_workspace_pick_layout(const struct tw_workspace *ws, enum tw_layout_type type)
 {
 	struct tw_xdg_layout *layout;
@@ -207,8 +207,8 @@ tw_workspace_pick_layout(const struct tw_workspace *ws, enum tw_layout_type type
 	return NULL;
 }
 
-static struct tw_layer *
-tw_workspace_pick_layer(struct tw_workspace *ws, enum tw_layout_type type)
+static inline struct tw_layer *
+tw_workspace_pick_front_layer(struct tw_workspace *ws, enum tw_layout_type type)
 {
 	if (type == LAYOUT_FLOATING || type == LAYOUT_MAXIMIZED)
 		return &ws->front_layer;
@@ -218,12 +218,23 @@ tw_workspace_pick_layer(struct tw_workspace *ws, enum tw_layout_type type)
 		return &ws->mid_layer;
 }
 
+static inline struct tw_layer *
+tw_workspace_pick_back_layer(struct tw_workspace *ws, enum tw_layout_type type)
+{
+	if (type == LAYOUT_FLOATING || type == LAYOUT_MAXIMIZED)
+		return &ws->back_layer;
+	else if (type == LAYOUT_FULLSCREEN)
+		return &ws->fullscreen_back_layer;
+	else //tiling layout
+		return &ws->mid_layer;
+}
+
 static void
 tw_workspace_view_pick_settings(struct tw_workspace *ws,
                                 struct tw_xdg_view *v)
 {
 	v->layout = tw_workspace_pick_layout(ws, v->type);
-	v->layer = tw_workspace_pick_layer(ws, v->type);
+	v->layer = tw_workspace_pick_front_layer(ws, v->type);
 }
 
 static uint32_t
@@ -306,7 +317,8 @@ arrange_output_for_workspace(struct tw_workspace *ws, struct tw_xdg_output *o,
 	wl_list_for_each(layout, &ws->layouts, links[ws->idx]) {
 		const struct tw_xdg_layout_op arg = {
 			.in.o = o,
-			.in.l = tw_workspace_pick_layer(ws, layout->type),
+			.in.f = tw_workspace_pick_front_layer(ws, layout->type),
+			.in.b = tw_workspace_pick_back_layer(ws, layout->type),
 		};
 		arrange_view_for_layout(ws, layout, NULL, cmd, &arg);
 	}
