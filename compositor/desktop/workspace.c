@@ -1,7 +1,7 @@
 /*
  * workspace.c - taiwins desktop workspace implementation
  *
- * Copyright (c) 2019 Xichen Zhou
+ * Copyright (c) 2019-2021 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,6 +32,7 @@
 #include <wayland-util.h>
 
 #include <taiwins/output_device.h>
+#include <taiwins/xwayland.h>
 
 #include "xdg.h"
 #include "workspace.h"
@@ -116,13 +117,28 @@ tw_xdg_view_backup_geometry(struct tw_xdg_view *v)
 	v->old_geometry.height = v->dsurf->window_geometry.h;
 }
 
+static inline bool
+tw_xdg_view_is_xwayland(struct tw_xdg_view *v)
+{
+#if _TW_HAS_XWAYLAND
+	struct tw_surface *surface = v->dsurf->tw_surface;
+	return tw_xwayland_desktop_surface_from_tw_surface(surface) != NULL;
+#else
+	return false;
+#endif
+}
+
 WL_EXPORT struct tw_xdg_view *
-tw_xdg_view_from_tw_surface(struct tw_surface *surface)
+tw_xdg_view_from_tw_surface(struct tw_surface *surf)
 {
 	struct tw_desktop_surface *dsurf =
-		tw_desktop_surface_from_tw_surface(surface);
+		tw_desktop_surface_from_tw_surface(surf);
 	if (dsurf)
 		return dsurf->user_data;
+#ifdef _TW_HAS_XWAYLAND
+	else if ((dsurf = tw_xwayland_desktop_surface_from_tw_surface(surf)))
+		return dsurf->user_data;
+#endif
 	return NULL;
 }
 
@@ -260,10 +276,14 @@ tw_workspace_n_surfaces(const struct tw_workspace *ws,
 static void
 apply_layout_operations(const struct tw_xdg_layout_op *ops, const int len)
 {
+	const uint32_t flags_pos = TW_DESKTOP_SURFACE_CONFIG_X |
+		TW_DESKTOP_SURFACE_CONFIG_Y;
+	const uint32_t flags_size = TW_DESKTOP_SURFACE_CONFIG_W |
+		TW_DESKTOP_SURFACE_CONFIG_H;
+
 	for (int i = 0; i < len && !ops[i].out.end; i++) {
 		struct tw_xdg_view *v = ops[i].v;
-		uint32_t flags = TW_DESKTOP_SURFACE_CONFIG_X |
-			TW_DESKTOP_SURFACE_CONFIG_Y;
+		uint32_t flags = flags_pos;
 		tw_xdg_view_set_position(v, ops[i].out.pos.x,
 		                         ops[i].out.pos.y);
 
@@ -272,11 +292,12 @@ apply_layout_operations(const struct tw_xdg_layout_op *ops, const int len)
 			v->planed_h = ops[i].out.size.height;
 			v->state = tw_xdg_view_get_focus_state(v) |
 				ops[i].out.tile_state;
-			flags |= (v->planed_w && v->planed_h) ?
-				TW_DESKTOP_SURFACE_CONFIG_W |
-				TW_DESKTOP_SURFACE_CONFIG_H : 0;
-			tw_xdg_view_configure(v, flags);
+			flags |= flags_size;
 		}
+		//send the (x,y) configuration only to xwayland surface, since
+		//xdg_surface cares only about size changes
+		if (tw_xdg_view_is_xwayland(v) || ((flags & flags_size)))
+			tw_xdg_view_configure(v, flags);
 	}
 }
 

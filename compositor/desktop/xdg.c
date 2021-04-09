@@ -1,7 +1,7 @@
 /*
  * xdg.c - taiwins desktop shell implementation
  *
- * Copyright (c)  Xichen Zhou
+ * Copyright (c) 2020-2021 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -300,6 +300,23 @@ twdesk_minimized(struct tw_desktop_surface *dsurf, void *user_data)
 	tw_workspace_minimize_view(ws, view);
 }
 
+static void
+twdesk_configure_ask(struct tw_desktop_surface *dsurf, int x, int y,
+                     unsigned w, unsigned h, uint32_t flags, void *user_data)
+{
+	struct tw_xdg_view *view = dsurf->user_data;
+
+	flags = TW_DESKTOP_SURFACE_CONFIG_X | TW_DESKTOP_SURFACE_CONFIG_Y;
+	if (view->planed_w && view->planed_h)
+		flags |= TW_DESKTOP_SURFACE_CONFIG_W |
+			TW_DESKTOP_SURFACE_CONFIG_H;
+
+	tw_desktop_surface_send_configure(dsurf, 0,
+	                                  view->x, view->y,
+	                                  view->planed_w, view->planed_h,
+	                                  flags);
+}
+
 static const struct tw_desktop_surface_api desktop_impl =  {
 	.ping_timeout = twdesk_ping_timeout,
 	.pong = twdesk_pong,
@@ -313,6 +330,7 @@ static const struct tw_desktop_surface_api desktop_impl =  {
 	.fullscreen_requested = twdesk_fullscreen,
 	.maximized_requested = twdesk_maximized,
 	.minimized_requested = twdesk_minimized,
+	.configure_requested = twdesk_configure_ask,
 };
 /******************************************************************************
  * listeners

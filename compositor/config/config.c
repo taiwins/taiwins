@@ -1,7 +1,7 @@
 /*
  * config.c - taiwins config functions
  *
- * Copyright (c) 2019-2020 Xichen Zhou
+ * Copyright (c) 2019-2021 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -48,6 +48,7 @@
 
 #include "bindings.h"
 #include "config.h"
+#include "xwayland.h"
 
 struct tw_config_obj {
 	char name[32];
@@ -270,8 +271,8 @@ tw_config_wake_compositor(struct tw_config *c)
 	struct tw_console *console;
 	struct tw_bus *bus;
 	struct tw_theme_global *theme;
-	/* struct tw_xwayland *xwayland; */
-	struct tw_xdg *xdg;
+	struct tw_xdg *xdg = NULL;
+	struct tw_xwayland *xwayland;
 	struct tw_config *initialized;
 	struct wl_display *display = c->engine->display;
 	uint32_t enables = c->config_table.enable_globals;
@@ -314,14 +315,19 @@ tw_config_wake_compositor(struct tw_config *c)
 			goto out;
 		tw_config_register_object(c, "theme", theme);
 	}
-	/* if (!(xwayland = tw_setup_xwayland(ec))) */
-	/*	goto out; */
-	/* tw_config_register_object(c, "xwayland", xwayland); */
 	if (enables & TW_CONFIG_GLOBAL_DESKTOP) {
 		if (!(xdg = tw_xdg_create_global(display, shell, c->engine)))
 			goto out;
 		tw_config_register_object(c, "desktop", xdg);
 	}
+#ifdef _TW_HAS_XWAYLAND
+	if (!(xwayland = tw_xwayland_create_global(c->engine,
+	                                           xdg ? &xdg->desktop_manager:
+	                                           NULL,
+	                                           false)))
+		goto out;
+	tw_config_register_object(c, "xwayland", xwayland);
+#endif
 	//this is probably a bad idea.
 	tw_config_register_object(c, "initialized", &c->config_table);
 initialized:
@@ -451,7 +457,6 @@ tw_config_init(struct tw_config *config, struct tw_engine *engine)
 	tw_signal_setup_listener(&engine->signals.seat_created,
 	                         &config->seat_created_listener,
 	                         notify_config_seat_create);
-
 }
 
 void

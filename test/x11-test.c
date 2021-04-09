@@ -1,6 +1,8 @@
+#include "taiwins/objects/desktop.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
+#include <wayland-client-protocol.h>
 #include <wayland-server-core.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/egl.h>
@@ -9,23 +11,60 @@
 #include <taiwins/backend_x11.h>
 #include <taiwins/render_context.h>
 #include <taiwins/render_pipeline.h>
+#include <taiwins/objects/utils.h>
 #include <taiwins/engine.h>
 #include "test_desktop.h"
 
+#ifdef _TW_HAS_XWAYLAND
+#include <taiwins/xwayland.h>
+#endif
 
 struct data {
 	struct wl_display *display;
 	struct tw_engine *engine;
-	struct tw_test_desktop *desktop;
 
+	struct tw_test_desktop *desktop;
+#ifdef _TW_HAS_XWAYLAND
+	struct tw_xserver *xserver;
+#endif
 	struct {
 		struct wl_listener xserver_ready;
+		struct wl_listener seat_focused;
 	} listeners;
 };
 
 struct tw_render_pipeline *
 tw_egl_render_pipeline_create_default(struct tw_render_context *ctx,
                                       struct tw_layers_manager *manager);
+#ifdef _TW_HAS_XWAYLAND
+static void
+notify_xserver_ready(struct wl_listener *listener, void *data)
+{
+	struct data *d =
+		wl_container_of(listener, d, listeners.xserver_ready);
+	struct tw_desktop_manager *desktop = &d->desktop->manager;
+	tw_xserver_create_xwindow_manager(d->xserver, desktop,
+	                                  &d->engine->compositor_manager);
+}
+
+static void
+notify_xserver_seat_focused(struct wl_listener *listener, void *data)
+{
+	struct data *d =
+		wl_container_of(listener, d, listeners.seat_focused);
+	struct tw_engine_seat *seat = data;
+	struct tw_data_device *dev;
+
+	//wm not started
+	if (!d->xserver->wm)
+		return;
+
+	dev = tw_data_device_find_create(&d->engine->data_device_manager,
+	                                 seat->tw_seat);
+	if (dev)
+		tw_xserver_set_seat(d->xserver, dev);
+}
+#endif
 
 static int
 tw_term_on_signal(int sig_num, void *data)
@@ -86,24 +125,51 @@ int main(int argc, char *argv[])
 		tw_engine_create_global(display, backend);
 	if (!engine)
 		goto err;
+
 	struct tw_render_pipeline *pipeline =
 		tw_egl_render_pipeline_create_default(ctx,
 		                                      &engine->layers_manager);
 	wl_list_insert(ctx->pipelines.prev, &pipeline->link);
-
         tw_test_desktop_init(&desktop, engine);
+#ifdef _TW_HAS_XWAYLAND
+        struct tw_xserver *xserver =
+		tw_xserver_create_global(display, false);
+#endif
+	struct data data = {
+		.display = display,
+		.engine = engine,
+#ifdef _TW_HAS_XWAYLAND
+		.xserver = xserver,
+#endif
+		.desktop = &desktop,
+
+	};
+	(void)data;
+
+#ifdef _TW_HAS_XWAYLAND
+        tw_signal_setup_listener(&xserver->signals.ready,
+	                         &data.listeners.xserver_ready,
+	                         notify_xserver_ready);
+        tw_signal_setup_listener(&engine->signals.seat_focused,
+                                 &data.listeners.seat_focused,
+                                 notify_xserver_seat_focused);
+#endif
 
 	tw_backend_start(backend, ctx);
 
-	if (wl_event_source_timer_update(timeout, 3000)) {
-		tw_logl_level(TW_LOG_ERRO, "timer update failed");
-		return EXIT_FAILURE;
-	}
+	/* if (wl_event_source_timer_update(timeout, 3000)) { */
+	/*	tw_logl_level(TW_LOG_ERRO, "timer update failed"); */
+	/*	return EXIT_FAILURE; */
+	/* } */
 
 	wl_display_run(display);
 	wl_event_source_remove(sigint);
 	wl_event_source_remove(timeout);
+
 	tw_test_desktop_fini(&desktop);
+#ifdef _TW_HAS_XWAYLAND
+	tw_xserver_fini(xserver);
+#endif
 	tw_render_context_destroy(ctx);
 	wl_display_destroy(display);
 

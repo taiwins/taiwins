@@ -14,6 +14,9 @@
 #include <taiwins/objects/desktop.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/output_device.h>
+#ifdef _TW_HAS_XWAYLAND
+#include <taiwins/xwayland.h>
+#endif
 #include "test_desktop.h"
 
 #define TW_VIEW_LINK 4
@@ -47,6 +50,11 @@ dsurf_from_view(struct tw_surface *surface)
 {
 	struct tw_desktop_surface *dsurf =
 		tw_desktop_surface_from_tw_surface(surface);
+
+#ifdef _TW_HAS_XWAYLAND
+	if (!dsurf)
+		dsurf = tw_xwayland_desktop_surface_from_tw_surface(surface);
+#endif
 	return dsurf;
 }
 
