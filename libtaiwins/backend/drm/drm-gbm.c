@@ -25,6 +25,7 @@
 #include <drm_fourcc.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <wayland-util.h>
 #include <xf86drmMode.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/egl.h>
@@ -135,6 +136,25 @@ tw_drm_gbm_write_fb(struct tw_drm_fb *fb, struct gbm_bo *bo)
 	fb->locked = true;
 }
 
+static const struct tw_drm_format *
+tw_drm_gbm_pick_format(struct tw_drm_plane *plane, uint32_t *visual)
+{
+	const struct tw_drm_format *format = tw_drm_format_find(&plane->formats,
+	                                                        *visual);
+	if (!format) {
+		//strip alpha format
+		*visual = (*visual == DRM_FORMAT_ARGB8888) ?
+			DRM_FORMAT_XRGB8888 : DRM_FORMAT_INVALID;
+		format = tw_drm_format_find(&plane->formats, *visual);
+		if (!format) {
+			tw_logl_level(TW_LOG_ERRO, "no drm format available for"
+			              "gbm_surface");
+			return NULL;
+		}
+	}
+	return format;
+}
+
 /******************************************************************************
  * tw_gpu_gbm_impl
  *****************************************************************************/
@@ -196,10 +216,11 @@ handle_allocate_display_gbm_surface(struct tw_drm_display *output,
 	struct gbm_device *gbm = tw_drm_get_gbm_device(gpu);
 	unsigned w = mode->hdisplay;
 	unsigned h = mode->vdisplay;
+	uint32_t visual_id = gpu->visual_id;
 	uint32_t scanout_flags = GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
 	struct tw_drm_plane *plane = output->primary_plane;
 	const struct tw_drm_format *format =
-		tw_drm_format_find(&plane->formats, gpu->visual_id);
+		tw_drm_gbm_pick_format(plane, &visual_id);
 	const struct tw_drm_modifier *mods =
 		tw_drm_modifiers_get(&plane->formats, format);
 
@@ -209,9 +230,9 @@ handle_allocate_display_gbm_surface(struct tw_drm_display *output,
 		modifiers[i] = mods[i].modifier;
 
 	handle_end_gbm_display(output);
-	surface = tw_drm_create_gbm_surface(gbm, w, h, gpu->visual_id,
-	                                     format->len, modifiers,
-	                                     scanout_flags);
+	surface = tw_drm_create_gbm_surface(gbm, w, h, visual_id,
+	                                    format->len, modifiers,
+	                                    scanout_flags);
 	tw_render_presentable_init_window(&output->output.surface,
 	                                  output->drm->base.ctx,
 	                                  surface);
