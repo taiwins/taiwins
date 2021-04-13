@@ -1,11 +1,11 @@
 # Twobjects quick reference
 
 Twobjects is the result of migration taiwins from **libweston**, as libweston
-has many constrains, lacks of important features and has several severe bugs for
-daily users. Firstly I looked into **wlroots** and found it was not modular
-enough and the design did not fit the taiwins, inspired by the two prior
-project, I created this library for faciliting the development of the wayland
-compositor.
+has many constrains, lacks of important features and has several severe bugs
+for daily users. Firstly I looked into **wlroots** and found it does not fit
+the design of taiwins, inspired by the two prior project. I created this
+library for faciliting the development of the wayland compositor. It is now
+merged inside libtaiwins.
 
 ## Features
 

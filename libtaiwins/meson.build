@@ -5,6 +5,8 @@ taiwins_cargs = [
   '-D_TW_VERSION=@0@'.format(version),
 ]
 
+subdir('objects')
+
 pkgconfig = import('pkgconfig')
 
 ####### static lib
@@ -32,6 +34,7 @@ taiwins_lib_src = [
   wayland_wlr_layer_shell_private_code_c,
   wayland_xdg_shell_private_code_c,
 ]
+
 taiwins_lib_dep = [
   dep_wayland_server,
   dep_twobjects,
