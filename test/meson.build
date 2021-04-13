@@ -47,7 +47,7 @@ matrix_test = executable(
   c_args : ['-D_GNU_SOURCE'],
   dependencies : [
     dep_m,
-    dep_twobjects,
+    dep_taiwins_lib,
   ],
 )
 test('test_matrix_test', matrix_test)
@@ -56,7 +56,7 @@ egl_test_context = executable(
   'tw-test-egl-context',
   'egl-context-test.c',
   c_args : debug_cargs,
-  dependencies : dep_twobjects,
+  dependencies : dep_taiwins_lib,
 )
 test('test_egl_context', egl_test_context)
 

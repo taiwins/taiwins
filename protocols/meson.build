@@ -9,12 +9,15 @@ dir_wp_base = dep_wp.get_pkgconfig_variable('pkgdatadir')
 protocols = [['taiwins-shell', 'taiwins'],
 	     ['taiwins-console', 'taiwins'],
 	     ['taiwins-theme', 'taiwins'],
-	     ['linux-dmabuf', 'v1'],
 	     ['viewporter', 'stable'],
 	     ['presentation-time', 'stable'],
 	     ['xdg-shell', 'stable'],
+	     ['linux-dmabuf', 'v1'],
 	     ['xdg-output', 'v1'],
-	     ['wlr-layer-shell', 'internal']
+	     ['wlr-layer-shell', 'internal'],
+	     ['pointer-gestures', 'v1'],
+	     ['text-input', 'v3'],
+	     ['input-method', 'internal'],
 	    ]
 
 foreach proto : protocols

@@ -13,9 +13,6 @@
 [submodule "3rdparties/tdbus"]
 	path = subprojects/tdbus
 	url = https://github.com/xeechou/tdbus
-[submodule "subprojects/twobjects"]
-	path = subprojects/twobjects
-	url = https://github.com/taiwins/twobjects.git
 [submodule "subprojects/ctypes"]
 	path = subprojects/ctypes
 	url = https://github.com/xeechou/ctypes

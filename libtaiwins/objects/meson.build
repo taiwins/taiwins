@@ -2,6 +2,8 @@ twobject_cargs = [
   '-D_GNU_SOURCE'
 ]
 
+twobjects_inc = inc_libtaiwins
+
 foreach f : [ 'mkostemp', 'posix_fallocate', 'memfd_create' ]
   farg = cc.has_function(f) ? ['-DHAVE_' + f.underscorify().to_upper()] : []
   twobject_cargs += farg
@@ -81,14 +83,14 @@ twobjects_deps = [
     dep_glesv2,
 ]
 
-lib_twobjects = both_libraries(
+lib_twobjects = static_library(
   'taiwins-objects',
   taiwins_obj_srcs,
   c_args : twobject_cargs,
   dependencies : twobjects_deps,
   include_directories : twobjects_inc,
   version: meson.project_version(),
-  install : true,
+  install : false,
   )
 
 dep_twobjects = declare_dependency(
@@ -96,12 +98,4 @@ dep_twobjects = declare_dependency(
   compile_args : twobject_cargs,
   include_directories : twobjects_inc,
   dependencies : twobjects_deps,
-)
-
-pkgconfig.generate(
-  lib_twobjects,
-  filebase : 'twobjects',
-  name : 'taiwins objects',
-  version: meson.project_version(),
-  description: 'Taiwins wayland objects library',
 )
