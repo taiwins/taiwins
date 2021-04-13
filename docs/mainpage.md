@@ -2,9 +2,9 @@
 
 This manual documents the API and design of the Taiwins. Several notes were
 registered along the development. Taiwins consists of serveral **sub-projects**
-like **twclients** and **twobjects** for distinctive parts, those libraries are
-embedable and can be used independently outside serves general building blocks
-for wayland projects.
+like **twclients** for distinctive parts, those libraries are embedable and can
+be used independently outside serves general building blocks for wayland
+projects.
 
 ## Sub-projects
 
@@ -12,12 +12,6 @@ for wayland projects.
   client widget system. **Twclient** implements many common
   `wl_*_listeners` and provides convinient interfaces to implement shmbuf
   `wl_surface` or EGL `wl_surface`. 
-
-- [twobjects](https://github.com/taiwins/twobjects) : the server-side wayland
-  objects implementation. It implements all the basic types a compositor has to
-  have, such as `wl_surface`, as well as many other popular ones like
-  `linux_dmabuf`. It is designed to be modular and autonomous, check out the
-  [quick reference](twobjects.md) for getting started.
 
 - [taiwins-protocols](https://github.com/taiwins/taiwins-protocols) :
   collection of wayland protocols specific to taiwins.
