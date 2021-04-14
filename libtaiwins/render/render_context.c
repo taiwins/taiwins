@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/surface.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/render_context.h>
 #include <taiwins/render_output.h>
@@ -64,6 +65,17 @@ notify_tw_surface_output_lost(struct wl_listener *listener, void *data)
 	tw_render_surface_reassign_outputs(surface, surface->ctx);
 }
 
+static void
+notify_tw_surface_frame_request(struct wl_listener *listener, void *data)
+{
+	//wl_surface requested a frame but no buffer committed, we have to run
+	//through a frame here
+	struct tw_render_surface *surface =
+		wl_container_of(listener, surface, listeners.frame);
+	assert(data == &surface->surface);
+	wl_signal_emit(&surface->ctx->signals.wl_surface_dirty, data);
+}
+
 void
 tw_render_surface_init(struct tw_render_surface *surface,
                        struct tw_render_context *ctx)
@@ -88,6 +100,9 @@ tw_render_surface_init(struct tw_render_surface *surface,
 	tw_signal_setup_listener(&tw_surface->signals.dirty,
 	                         &surface->listeners.dirty,
 	                         notify_tw_surface_dirty);
+	tw_signal_setup_listener(&tw_surface->signals.frame,
+	                         &surface->listeners.frame,
+	                         notify_tw_surface_frame_request);
 	tw_signal_setup_listener(&ctx->signals.output_lost,
 	                         &surface->listeners.output_lost,
 	                         notify_tw_surface_output_lost);
