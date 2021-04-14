@@ -19,6 +19,7 @@
  *
  */
 
+#include "options.h"
 #include <math.h>
 #include <stdint.h>
 #include <time.h>
@@ -30,6 +31,7 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/output_device.h>
 #include <taiwins/objects/utils.h>
+#include <taiwins/profiling.h>
 #include <wayland-util.h>
 
 static void
@@ -207,6 +209,7 @@ tw_output_device_present(struct tw_output_device *device,
 		clock_gettime(device->clk_id, &now);
 		event->time = now;
 	}
+	SCOPE_PROFILE_TS();
 	device->last_present = event->time;
 	event->refresh = tw_millihertz_to_ns(mhz);
 	wl_signal_emit(&device->signals.present, event);

@@ -19,6 +19,7 @@
  *
  */
 
+#include "options.h"
 #include <assert.h>
 #include <time.h>
 #include <pixman.h>
@@ -33,7 +34,8 @@
 #include <taiwins/render_output.h>
 #include <taiwins/render_surface.h>
 #include <taiwins/render_pipeline.h>
-#include <wayland-util.h>
+#include <taiwins/profiling.h>
+#include <ctypes/helpers.h>
 
 static inline bool
 check_bits(uint32_t data, uint32_t mask)
@@ -103,8 +105,9 @@ output_idle_frame(void *data)
 	wl_signal_emit(&output->device.signals.new_frame, &output->device);
 }
 
-/**
+/*
  * update the frame time for the output.
+ * this is mean algorithm, TODO we need a max algorithm
  */
 static void
 update_output_frame_time(struct tw_render_output *output,
@@ -112,8 +115,8 @@ update_output_frame_time(struct tw_render_output *output,
                          const struct timespec *end)
 {
 	uint32_t ft;
-	uint64_t tstart = ((strt->tv_sec * 1000000) + (strt->tv_nsec / 1000));
-	uint64_t tend = ((end->tv_sec * 1000000) + (end->tv_nsec / 1000));
+	uint64_t tstart = tw_timespec_to_us(strt);
+	uint64_t tend = tw_timespec_to_us(end);
 
 	/* assert(tend >= tstart); */
 	ft = (uint32_t)(tend - tstart);
@@ -122,8 +125,9 @@ update_output_frame_time(struct tw_render_output *output,
 	//override the ft slot
 	output->state.fts[output->state.ft_idx] = ft;
 	//move forward the indices
-	output->state.ft_cnt = output->state.ft_cnt >= TW_FRAME_TIME_CNT ?
-		TW_FRAME_TIME_CNT : output->state.ft_cnt + 1;
+	output->state.ft_cnt = MAX(output->state.ft_cnt + 1,
+	                           (unsigned)TW_FRAME_TIME_CNT);
+
 	output->state.ft_idx = (output->state.ft_idx + 1) % TW_FRAME_TIME_CNT;
 }
 
@@ -132,7 +136,7 @@ flush_output_frame(struct tw_render_output *output,
                    const struct timespec *now)
 {
 	struct tw_surface *surface;
-	uint32_t now_int = now->tv_sec * 1000 + now->tv_nsec / 1000000;
+	uint32_t now_int = tw_timespec_to_ms(now);
 
 	wl_list_for_each(surface, &output->views, links[TW_VIEW_OUTPUT_LINK])
 		tw_surface_flush_frame(surface, now_int);
@@ -181,6 +185,7 @@ notify_render_output_frame(void *data)
 	if (check_bits(output->state.repaint_state, TW_REPAINT_COMMITTED))
 		return 0;
 
+	SCOPE_PROFILE_BEG();
 	clock_gettime(output->device.clk_id, &tstart);
 
 	buffer_age = tw_render_presentable_make_current(presentable, ctx);
@@ -191,10 +196,11 @@ notify_render_output_frame(void *data)
 
 	shuffle_output_damage(output);
 
+	tw_render_output_commit(output);
 	clock_gettime(output->device.clk_id, &tend);
 	update_output_frame_time(output, &tstart, &tend);
-	tw_render_output_commit(output);
 	flush_output_frame(output, &tend);
+	SCOPE_PROFILE_END();
 	/* tw_logl("The render time is %u", */
 	/*         tw_render_output_calc_frametime(output)); */
 	return 0;
@@ -203,13 +209,51 @@ notify_render_output_frame(void *data)
 static void
 notify_render_output_frame_scheduled(struct wl_listener *listener, void *data)
 {
+	int delay, ms_left = 0; //< left for render
 	struct tw_render_output *output =
 		wl_container_of(listener, output, listeners.frame);
+	//TODO: change it to max frame time
+	int frametime_us = tw_render_output_calc_frametime(output);
 
 	assert(&output->device == data);
 	if (!output->device.current.enabled)
 		return;
-	notify_render_output_frame(output);
+
+	if (frametime_us) { //becomes max_render_time
+		struct timespec now;
+		//get current time as soon as possible
+		clock_gettime(output->device.clk_id, &now);
+
+		struct timespec predict_refresh = output->device.last_present;
+		unsigned mhz = output->device.current.current_mode.refresh;
+		uint32_t refresh = tw_millihertz_to_ns(mhz);
+
+		//getting a predicted vblank. 1): If we are scheduled right
+		//after a vsync, there are chance predict_refresh is ahead of
+		//us. 2) If we come from a idle frame, predict_time will be
+		//less than now, in that case, we just draw
+
+		predict_refresh.tv_nsec += refresh % TW_NS_PER_S;
+		predict_refresh.tv_sec += refresh / TW_NS_PER_S;
+		if (predict_refresh.tv_nsec >= TW_NS_PER_S) {
+			predict_refresh.tv_sec += 1;
+			predict_refresh.tv_nsec -= TW_NS_PER_S;
+		}
+
+		//this is the floored difference.
+		if (predict_refresh.tv_sec >= now.tv_sec)
+			ms_left = tw_timespec_diff_ms(&predict_refresh, &now);
+	}
+	//here we added 2000 extra us frametime, it seems with amount, we are
+	//able to catch up with next vblank. TODO we can we not rely on this,
+	//otherwise we would have to move this repaint logic out of libtaiwins.
+	delay = (1000 * ms_left - (frametime_us + 2000)) / 1000;
+
+	if (delay < 1) {
+		notify_render_output_frame(output);
+	} else {
+		wl_event_source_timer_update(output->repaint_timer, delay);
+	}
 }
 
 static void

@@ -65,9 +65,9 @@ struct tw_render_output {
 
 		uint32_t repaint_state;
                 /** average frame time is ft_sum / ft_cnt */
-		unsigned long ft_sum, ft_cnt;
+		unsigned long ft_sum;
 		/** average frame time in microseconds */
-		unsigned int fts[TW_FRAME_TIME_CNT], ft_idx;
+		unsigned int fts[TW_FRAME_TIME_CNT], ft_idx, ft_cnt;
 		/** additional checks for running render_output */
 	} state;
 
