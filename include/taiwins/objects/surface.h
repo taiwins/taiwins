@@ -47,9 +47,9 @@ enum tw_surface_state {
 	TW_SURFACE_BUFFER_SCALED = (1 << 4),
 	TW_SURFACE_OPAQUE_REGION = (1 << 5),
 	TW_SURFACE_INPUT_REGION = (1 << 6),
-	/** frame is released in frame, not in commit. If surface never has any
-	 * thinng to commit, we should not care about frame. */
-	//TW_SURFACE_FRAME_REQUESTED = (1 << 9),
+	/* clients may requested a frame but has no buffer to commit,
+	 * essentially they just want a callback_done */
+	TW_SURFACE_FRAME_REQUESTED = (1 << 9),
 };
 
 struct tw_surface;
