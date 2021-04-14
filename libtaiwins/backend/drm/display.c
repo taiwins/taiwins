@@ -279,9 +279,9 @@ handle_display_commit_state(struct tw_output_device *device)
 
 	select_display_mode(output);
 	UPDATE_PENDING(output, active, enabled, TW_DRM_PENDING_ACTIVE);
-	memcpy(&device->state, &device->pending, sizeof(device->state));
+	memcpy(&device->current, &device->pending, sizeof(device->current));
 	//we cannot use output_device_enable hear because it sets the pending
-	device->state.enabled = enabled;
+	device->current.enabled = enabled;
 
 	tw_drm_display_check_action(output, NULL);
 	return true;

@@ -91,7 +91,7 @@ struct tw_output_device {
 	struct wl_list link; /** backend: list */
 	struct wl_list mode_list;
 
-	struct tw_output_device_state state, pending;
+	struct tw_output_device_state current, pending;
 
 	struct {
 		struct wl_signal destroy;
@@ -139,9 +139,9 @@ static inline void
 tw_output_device_set_current_mode(struct tw_output_device *device,
                                   unsigned width, unsigned height, int refresh)
 {
-		device->state.current_mode.h = height;
-		device->state.current_mode.w = width;
-		device->state.current_mode.refresh = refresh;
+		device->current.current_mode.h = height;
+		device->current.current_mode.w = width;
+		device->current.current_mode.refresh = refresh;
 		wl_signal_emit(&device->signals.commit_state, device);
 		wl_signal_emit(&device->signals.info, device);
 }

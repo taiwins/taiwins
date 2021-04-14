@@ -51,7 +51,7 @@ check_pending_stop(struct tw_output_device *output)
 		wl_container_of(output, wl_surface, output.device);
 
 	bool penable = output->pending.enabled;
-	bool cenable = output->state.enabled;
+	bool cenable = output->current.enabled;
 
 	if (wl_surface->egl_window && cenable && !penable) {
 		tw_logl_level(TW_LOG_WARN, "changing wl_output@%s enabling "
@@ -68,7 +68,7 @@ handle_commit_output_state(struct tw_output_device *output)
 	struct tw_wl_surface *wl_surface =
 		wl_container_of(output, wl_surface, output.device);
 	unsigned width, height;
-	bool enabled = output->pending.enabled || output->state.enabled;
+	bool enabled = output->pending.enabled || output->current.enabled;
 
 	if (!check_pending_stop(output))
 		return false;
@@ -77,10 +77,10 @@ handle_commit_output_state(struct tw_output_device *output)
 	assert(output->pending.current_mode.h > 0 &&
 	       output->pending.current_mode.w > 0);
 
-        memcpy(&output->state, &output->pending, sizeof(output->state));
+        memcpy(&output->current, &output->pending, sizeof(output->current));
         //override the enabling and refresh rate
-        output->state.enabled = enabled;
-        output->state.current_mode.refresh = wl_surface->residing ?
+        output->current.enabled = enabled;
+        output->current.current_mode.refresh = wl_surface->residing ?
 	        (int)wl_surface->residing->r : -1;
 
         //resize, maybe getting output to start?

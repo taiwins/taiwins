@@ -109,22 +109,22 @@ notify_output_info(struct wl_listener *listener, void *data)
 	struct tw_engine_output *output =
 		wl_container_of(listener, output, listeners.info);
 	tw_output_set_name(output->tw_output, output->device->name);
-	tw_output_set_scale(output->tw_output, output->device->state.scale);
-	tw_output_set_coord(output->tw_output, output->device->state.gx,
-	                    output->device->state.gy);
+	tw_output_set_scale(output->tw_output, output->device->current.scale);
+	tw_output_set_coord(output->tw_output, output->device->current.gx,
+	                    output->device->current.gy);
 	tw_output_set_mode(output->tw_output, WL_OUTPUT_MODE_CURRENT |
-	                   ((output->device->state.current_mode.preferred) ?
+	                   ((output->device->current.current_mode.preferred) ?
 	                    WL_OUTPUT_MODE_PREFERRED : 0),
-	                   output->device->state.current_mode.w,
-	                   output->device->state.current_mode.h,
-	                   output->device->state.current_mode.refresh);
+	                   output->device->current.current_mode.w,
+	                   output->device->current.current_mode.h,
+	                   output->device->current.current_mode.refresh);
 	tw_output_set_geometry(output->tw_output,
 	                       output->device->phys_width,
 	                       output->device->phys_height,
 	                       output->device->make,
 	                       output->device->model,
 	                       output->device->subpixel,
-	                       output->device->state.transform);
+	                       output->device->current.transform);
 	tw_output_send_clients(output->tw_output);
 }
 

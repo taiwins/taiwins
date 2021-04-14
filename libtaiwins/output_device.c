@@ -67,7 +67,7 @@ tw_output_device_init(struct tw_output_device *device,
 	wl_list_init(&device->mode_list);
 	wl_list_init(&device->link);
 
-	output_device_state_init(&device->state, device);
+	output_device_state_init(&device->current, device);
 	output_device_state_init(&device->pending, device);
 
 	wl_signal_init(&device->signals.destroy);
@@ -197,7 +197,7 @@ WL_EXPORT void
 tw_output_device_present(struct tw_output_device *device,
                          struct tw_event_output_device_present *event)
 {
-	uint32_t mhz = device->state.current_mode.refresh;
+	uint32_t mhz = device->current.current_mode.refresh;
 	struct tw_event_output_device_present _event = {
 		.device = device,
 	};
@@ -231,9 +231,9 @@ tw_output_device_geometry(const struct tw_output_device *output)
 {
 	int width, height;
 
-	output_get_effective_resolution(&output->state, &width, &height);
+	output_get_effective_resolution(&output->current, &width, &height);
 	return (pixman_rectangle32_t){
-		output->state.gx, output->state.gy,
+		output->current.gx, output->current.gy,
 		width, height
 	};
 }
@@ -244,18 +244,18 @@ tw_output_device_loc_to_global(const struct tw_output_device *output,
 {
 	int width, height;
 
-	output_get_effective_resolution(&output->state, &width, &height);
+	output_get_effective_resolution(&output->current, &width, &height);
 
-	*gx = output->state.gx + x * width;
-	*gy = output->state.gy + y * height;
+	*gx = output->current.gx + x * width;
+	*gy = output->current.gy + y * height;
 }
 
 WL_EXPORT void
 tw_output_device_raw_resolution(const struct tw_output_device *device,
                                 unsigned *width, unsigned *height)
 {
-	*width = device->state.current_mode.w;
-	*height = device->state.current_mode.h;
+	*width = device->current.current_mode.w;
+	*height = device->current.current_mode.h;
 }
 
 WL_EXPORT bool

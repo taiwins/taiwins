@@ -165,7 +165,7 @@ headless_commit_output_state(struct tw_output_device *device)
 	assert(device->pending.scale >= 1.0);
 	assert(device->pending.current_mode.h > 0 &&
 	       device->pending.current_mode.w > 0);
-	memcpy(&device->state, &device->pending, sizeof(device->state));
+	memcpy(&device->current, &device->pending, sizeof(device->current));
 	return true;
 }
 

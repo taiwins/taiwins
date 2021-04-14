@@ -174,7 +174,7 @@ notify_render_output_frame(void *data)
 	uint32_t should_repaint = TW_REPAINT_DIRTY | TW_REPAINT_SCHEDULED;
 
 	assert(ctx);
-	if (!output->device.state.enabled)
+	if (!output->device.current.enabled)
 		return 0;
 	if (!check_bits(output->state.repaint_state, should_repaint))
 		return 0;
@@ -207,7 +207,7 @@ notify_render_output_frame_scheduled(struct wl_listener *listener, void *data)
 		wl_container_of(listener, output, listeners.frame);
 
 	assert(&output->device == data);
-	if (!output->device.state.enabled)
+	if (!output->device.current.enabled)
 		return;
 	notify_render_output_frame(output);
 }
@@ -290,7 +290,7 @@ tw_render_output_rebuild_view_mat(struct tw_render_output *output)
 {
 	struct tw_mat3 glproj, tmp;
 	int width, height;
-	const struct tw_output_device_state *state = &output->device.state;
+	const struct tw_output_device_state *state = &output->device.current;
 	pixman_rectangle32_t rect = tw_output_device_geometry(&output->device);
 
 	//the transform should be
@@ -375,7 +375,7 @@ tw_render_output_schedule_frame(struct tw_render_output *output)
 	struct wl_event_loop *loop = wl_display_get_event_loop(display);
 
 	if (!(output->state.repaint_state & TW_REPAINT_SCHEDULED) &&
-	    output->device.state.enabled) {
+	    output->device.current.enabled) {
 		wl_event_loop_add_idle(loop, output_idle_frame, output);
 		output->state.repaint_state |= TW_REPAINT_SCHEDULED;
 	}

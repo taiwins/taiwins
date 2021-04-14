@@ -52,7 +52,7 @@ static void
 handle_x11_configure_notify(struct tw_output_device *device,
                             xcb_configure_notify_event_t *ev)
 {
-	int refresh = device->state.current_mode.refresh;
+	int refresh = device->current.current_mode.refresh;
 	if (ev->width > 0 && ev->height > 0)
 		tw_output_device_set_current_mode(device, ev->width, ev->height,
 		                                  refresh);
