@@ -262,7 +262,7 @@ tw_x11_backend_add_output(struct tw_backend *backend,
 		return false;
         output->x11 = x11;
 
-        tw_render_output_init(&output->output, &x11_output_impl);
+        tw_render_output_init(&output->output, &x11_output_impl, x11->display);
         tw_output_device_set_custom_mode(&output->output.device, width, height,
                                          0);
 

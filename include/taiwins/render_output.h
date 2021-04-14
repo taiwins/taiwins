@@ -52,6 +52,7 @@ struct tw_render_output {
 
 	struct wl_list link; /**< ctx->output */
 	struct wl_list views;
+	struct wl_event_source *repaint_timer;
 	/* important to set it for surface to be renderable */
 	struct tw_render_context *ctx;
 
@@ -71,12 +72,13 @@ struct tw_render_output {
 	} state;
 
 	struct {
-		struct wl_listener frame;
-		struct wl_listener set_mode;
-		struct wl_listener destroy;
-		struct wl_listener surface_dirty;
+		struct wl_listener frame; /* device::new_frame */
+		struct wl_listener set_mode; /* device::set_mode */
+		struct wl_listener destroy; /* device::destroy */
+		struct wl_listener surface_dirty; /* context::surface_dirty */
 	} listeners;
 
+	/* TODO: maybe move this to engine_output? */
 	struct {
 		struct wl_signal surface_enter;
 		struct wl_signal surface_leave;
@@ -85,7 +87,8 @@ struct tw_render_output {
 
 void
 tw_render_output_init(struct tw_render_output *output,
-                      const struct tw_output_device_impl *impl);
+                      const struct tw_output_device_impl *impl,
+                      struct wl_display *display);
 void
 tw_render_output_fini(struct tw_render_output *output);
 

@@ -251,7 +251,8 @@ tw_headless_backend_add_output(struct tw_backend *backend,
 		return false;
 	}
         device = &output->output.device;
-        tw_render_output_init(&output->output, &headless_output_impl);
+        tw_render_output_init(&output->output, &headless_output_impl,
+                              headless->display);
 
         tw_output_device_set_custom_mode(&output->output.device,
                                          width, height, 0);

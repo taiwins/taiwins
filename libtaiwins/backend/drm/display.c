@@ -472,7 +472,8 @@ tw_drm_display_find_create(struct tw_drm_gpu *gpu, drmModeConnector *conn,
 			return NULL;
 		dpy->drm = drm;
 		dpy->gpu = gpu;
-		tw_render_output_init(&dpy->output, &output_dev_impl);
+		tw_render_output_init(&dpy->output, &output_dev_impl,
+		                      drm->display);
 		read_display_info(dpy, conn);
 
 		wl_list_init(&dpy->presentable_commit.link);

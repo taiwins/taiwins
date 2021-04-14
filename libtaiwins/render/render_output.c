@@ -33,6 +33,7 @@
 #include <taiwins/render_output.h>
 #include <taiwins/render_surface.h>
 #include <taiwins/render_pipeline.h>
+#include <wayland-util.h>
 
 static inline bool
 check_bits(uint32_t data, uint32_t mask)
@@ -142,7 +143,7 @@ flush_output_frame(struct tw_render_output *output,
  *****************************************************************************/
 
 static void
-notify_output_surface_dirty(struct wl_listener *listener, void *data)
+notify_render_output_surface_dirty(struct wl_listener *listener, void *data)
 {
 	struct tw_render_output *output =
 		wl_container_of(listener, output, listeners.surface_dirty);
@@ -161,11 +162,10 @@ notify_output_surface_dirty(struct wl_listener *listener, void *data)
 	}
 }
 
-static void
-notify_output_frame(struct wl_listener *listener, void *data)
+static int
+notify_render_output_frame(void *data)
 {
-	struct tw_render_output *output =
-		wl_container_of(listener, output, listeners.frame);
+	struct tw_render_output *output = data;
 	struct tw_render_presentable *presentable = &output->surface;
 	struct tw_render_context *ctx = output->ctx;
 	struct tw_render_pipeline *pipeline;
@@ -175,11 +175,11 @@ notify_output_frame(struct wl_listener *listener, void *data)
 
 	assert(ctx);
 	if (!output->device.state.enabled)
-		return;
+		return 0;
 	if (!check_bits(output->state.repaint_state, should_repaint))
-		return;
+		return 0;
 	if (check_bits(output->state.repaint_state, TW_REPAINT_COMMITTED))
-		return;
+		return 0;
 
 	clock_gettime(output->device.clk_id, &tstart);
 
@@ -197,20 +197,31 @@ notify_output_frame(struct wl_listener *listener, void *data)
 	flush_output_frame(output, &tend);
 	/* tw_logl("The render time is %u", */
 	/*         tw_render_output_calc_frametime(output)); */
-
+	return 0;
 }
 
 static void
-notify_output_destroy(struct wl_listener *listener, void *data)
+notify_render_output_frame_scheduled(struct wl_listener *listener, void *data)
+{
+	struct tw_render_output *output =
+		wl_container_of(listener, output, listeners.frame);
+
+	assert(&output->device == data);
+	if (!output->device.state.enabled)
+		return;
+	notify_render_output_frame(output);
+}
+
+static void
+notify_render_output_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_render_output *output =
 		wl_container_of(listener, output, listeners.destroy);
 	tw_render_output_fini(output);
-
 }
 
 static void
-notify_output_new_mode(struct wl_listener *listener, void *data)
+notify_render_output_new_mode(struct wl_listener *listener, void *data)
 {
 	struct tw_render_output *output =
 		wl_container_of(listener, output, listeners.set_mode);
@@ -223,31 +234,37 @@ notify_output_new_mode(struct wl_listener *listener, void *data)
 
 WL_EXPORT void
 tw_render_output_init(struct tw_render_output *output,
-                      const struct tw_output_device_impl *impl)
+                      const struct tw_output_device_impl *impl,
+                      struct wl_display *display)
 {
 	output->ctx = NULL;
 	output->surface.impl = NULL;
 	output->surface.handle = 0;
 	init_output_state(output);
+	//this cannot fail
+	output->repaint_timer = wl_event_loop_add_timer(
+		wl_display_get_event_loop(display),
+		notify_render_output_frame, output);
+
 	tw_output_device_init(&output->device, impl);
 	tw_render_output_reset_clock(output, CLOCK_MONOTONIC);
 
 	wl_list_init(&output->link);
-	wl_list_init(&output->listeners.surface_dirty.link);
 
 	wl_signal_init(&output->surface.commit);
 	wl_signal_init(&output->signals.surface_enter);
 	wl_signal_init(&output->signals.surface_leave);
 
+	wl_list_init(&output->listeners.surface_dirty.link);
 	tw_signal_setup_listener(&output->device.signals.new_frame,
 	                         &output->listeners.frame,
-	                         notify_output_frame);
+	                         notify_render_output_frame_scheduled);
 	tw_signal_setup_listener(&output->device.signals.destroy,
 	                         &output->listeners.destroy,
-	                         notify_output_destroy);
+	                         notify_render_output_destroy);
 	tw_signal_setup_listener(&output->device.signals.commit_state,
 	                         &output->listeners.set_mode,
-	                         notify_output_new_mode);
+	                         notify_render_output_new_mode);
 }
 
 WL_EXPORT void
@@ -258,8 +275,13 @@ tw_render_output_fini(struct tw_render_output *output)
 	wl_list_remove(&output->listeners.frame.link);
 	wl_list_remove(&output->listeners.set_mode.link);
 	wl_list_remove(&output->listeners.surface_dirty.link);
+
 	if (output->ctx && output->surface.impl)
 		tw_render_presentable_fini(&output->surface, output->ctx);
+	if (output->repaint_timer) {
+		wl_event_source_remove(output->repaint_timer);
+		output->repaint_timer = NULL;
+	}
 	tw_output_device_fini(&output->device);
 }
 
@@ -306,7 +328,7 @@ tw_render_output_set_context(struct tw_render_output *output,
 	tw_reset_wl_list(&output->listeners.surface_dirty.link);
 	tw_signal_setup_listener(&ctx->signals.wl_surface_dirty,
 	                         &output->listeners.surface_dirty,
-	                         notify_output_surface_dirty);
+	                         notify_render_output_surface_dirty);
 }
 
 WL_EXPORT void
