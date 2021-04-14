@@ -92,6 +92,7 @@ struct tw_output_device {
 	struct wl_list mode_list;
 
 	struct tw_output_device_state current, pending;
+	struct timespec last_present;
 
 	struct {
 		struct wl_signal destroy;
