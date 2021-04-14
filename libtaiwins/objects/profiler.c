@@ -178,3 +178,10 @@ tw_profiler_stop_timer(const char *name)
 	write_end(scope, s_profiler.file, !s_profiler.empty);
 	s_profiler.empty = false;
 }
+
+WL_EXPORT void
+tw_profiler_timestamp(const char *name)
+{
+	tw_profiler_start_timer(name);
+	tw_profiler_stop_timer(name);
+}

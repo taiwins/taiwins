@@ -34,12 +34,13 @@ extern "C" {
 
 #define SCOPE_PROFILE_BEG() tw_profiler_start_timer(__func__)
 #define SCOPE_PROFILE_END() tw_profiler_stop_timer(__func__)
+#define SCOPE_PROFILE_TS() tw_profiler_timestamp(__func__)
 
 #else
 
 #define SCOPE_PROFILE_BEG()
 #define SCOPE_PROFILE_END()
-
+#define SCOPE_PROFILE_TS()
 #endif
 
 #ifdef  __cplusplus

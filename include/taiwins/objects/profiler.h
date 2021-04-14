@@ -41,6 +41,9 @@ tw_profiler_start_timer(const char *name);
 void
 tw_profiler_stop_timer(const char *name);
 
+void
+tw_profiler_timestamp(const char *name);
+
 #ifdef  __cplusplus
 }
 #endif
