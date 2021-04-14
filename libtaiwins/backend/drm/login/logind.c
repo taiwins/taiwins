@@ -171,10 +171,7 @@ out:
 static int
 logind_bus_handle_session_removed(const struct tdbus_signal *signal)
 {
-	struct tw_logind_login *logind = signal->user_data;
-
 	tw_logl("logind Session removed !");
-	wl_display_terminate(logind->display);
 	return 0;
 }
 
