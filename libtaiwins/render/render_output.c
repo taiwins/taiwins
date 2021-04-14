@@ -102,15 +102,6 @@ output_idle_frame(void *data)
 	wl_signal_emit(&output->device.signals.new_frame, &output->device);
 }
 
-static inline void
-schedule_output_frame(struct tw_render_output *output)
-{
-	struct wl_display *display = output->ctx->display;
-	struct wl_event_loop *loop = wl_display_get_event_loop(display);
-
-	wl_event_loop_add_idle(loop, output_idle_frame, output);
-}
-
 /**
  * update the frame time for the output.
  */
@@ -189,6 +180,7 @@ notify_output_frame(struct wl_listener *listener, void *data)
 		return;
 	if (check_bits(output->state.repaint_state, TW_REPAINT_COMMITTED))
 		return;
+
 	clock_gettime(output->device.clk_id, &tstart);
 
 	buffer_age = tw_render_presentable_make_current(presentable, ctx);
@@ -201,11 +193,11 @@ notify_output_frame(struct wl_listener *listener, void *data)
 
 	clock_gettime(output->device.clk_id, &tend);
 	update_output_frame_time(output, &tstart, &tend);
+	tw_render_output_commit(output);
 	flush_output_frame(output, &tend);
 	/* tw_logl("The render time is %u", */
 	/*         tw_render_output_calc_frametime(output)); */
 
-	tw_render_output_commit(output);
 }
 
 static void
@@ -350,9 +342,19 @@ WL_EXPORT void
 tw_render_output_dirty(struct tw_render_output *output)
 {
 	output->state.repaint_state |= TW_REPAINT_DIRTY;
-	if ((!(output->state.repaint_state & TW_REPAINT_SCHEDULED)) &&
+	tw_render_output_schedule_frame(output);
+}
+
+/* schedule a frame, maybe for the purpose sending back empty frame_request */
+WL_EXPORT void
+tw_render_output_schedule_frame(struct tw_render_output *output)
+{
+	struct wl_display *display = output->ctx->display;
+	struct wl_event_loop *loop = wl_display_get_event_loop(display);
+
+	if (!(output->state.repaint_state & TW_REPAINT_SCHEDULED) &&
 	    output->device.state.enabled) {
-		schedule_output_frame(output);
+		wl_event_loop_add_idle(loop, output_idle_frame, output);
 		output->state.repaint_state |= TW_REPAINT_SCHEDULED;
 	}
 }

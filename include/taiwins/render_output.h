@@ -108,6 +108,9 @@ void
 tw_render_output_dirty(struct tw_render_output *output);
 
 void
+tw_render_output_schedule_frame(struct tw_render_output *output);
+
+void
 tw_render_output_commit(struct tw_render_output *output);
 
 void
