@@ -175,6 +175,7 @@ bind_socket(struct tw_server *server)
 		tw_logl("EE:failed to add socket %s", path);
 		return false;
 	}
+	setenv("WAYLAND_DISPLAY", path, true);
 	return true;
 }
 
