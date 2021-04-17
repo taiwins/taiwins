@@ -75,13 +75,15 @@ struct tw_render_texture {
 
 
 struct tw_render_context_impl {
+	//TODO, change this as well.
 	bool (*new_offscreen_surface)(struct tw_render_presentable *surf,
 	                              struct tw_render_context *ctx,
 	                              unsigned int width, unsigned int height);
-
+	/** creating a render surface target for the given format, the format
+	 * is platform specific */
 	bool (*new_window_surface)(struct tw_render_presentable *surf,
 	                           struct tw_render_context *ctx,
-	                           void *native_window);
+	                           void *native_window, uint32_t format);
 
 };
 
@@ -147,9 +149,9 @@ tw_render_presentable_init_offscreen(struct tw_render_presentable *surface,
 static inline bool
 tw_render_presentable_init_window(struct tw_render_presentable *surf,
                                   struct tw_render_context *ctx,
-                                  void *native_window)
+                                  void *native_window, uint32_t fmt)
 {
-	return ctx->impl->new_window_surface(surf, ctx, native_window);
+	return ctx->impl->new_window_surface(surf, ctx, native_window, fmt);
 }
 
 static inline void

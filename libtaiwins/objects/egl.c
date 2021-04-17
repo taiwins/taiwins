@@ -26,6 +26,7 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <EGL/eglplatform.h>
+#include <wayland-util.h>
 #ifdef HAVE_EGLMESAEXT
 #include <EGL/eglmesaext.h>
 #endif
@@ -213,54 +214,20 @@ setup_egl_client_extensions(struct tw_egl *egl)
 		                  "eglQueryWaylandBufferWL"))
 			return false;
 	}
-
+	//no config extension
+	if(!check_egl_ext(exts_str, "EGL_KHR_no_config_context", false) &&
+	   !check_egl_ext(exts_str, "EGL_MESA_configless_context", false)) {
+		tw_logl_level(TW_LOG_WARN, "no config EGLContext unsupported");
+		return false;
+	}
 	return true;
 
 }
 
-static EGLConfig
-choose_egl_config(EGLDisplay display, EGLConfig *configs, int count,
-                  const struct tw_egl_options *opts)
+static inline bool
+setup_egl_config(struct tw_egl *egl)
 {
-	if (!opts->visual_id)
-		return configs[0];
-
-	for (int i = 0; i < count; i++) {
-		EGLint visual_id;
-		if (!eglGetConfigAttrib(display, configs[i],
-		                        EGL_NATIVE_VISUAL_ID, &visual_id))
-			continue;
-		if (opts->visual_id == visual_id)
-			return configs[i];
-	}
-	return EGL_NO_CONFIG_KHR;
-}
-
-static bool
-setup_egl_config(struct tw_egl *egl, const struct tw_egl_options *opts)
-{
-	EGLint count = 0, matched = 0, ret = 0;
-
-	ret = eglGetConfigs(egl->display, NULL, 0, &count);
-	if (ret == EGL_FALSE || count == 0) {
-		tw_logl_level(TW_LOG_ERRO, "eglGetConfigs failed");
-		return false;
-	}
-
-	EGLConfig configs[count];
-
-	if(eglChooseConfig(egl->display, opts->context_attribs, configs,
-	                   count, &matched) == EGL_FALSE) {
-		tw_logl_level(TW_LOG_ERRO, "eglChooseConfig failed");
-		return false;
-	}
-	egl->config = choose_egl_config(egl->display, configs, matched, opts);
-	if (egl->config == EGL_NO_CONFIG_KHR)
-		return false;
-	//store the surface type for future queries
-	eglGetConfigAttrib(egl->display, egl->config,
-	                   EGL_SURFACE_TYPE, &egl->surface_type);
-
+	egl->config = EGL_NO_CONFIG_KHR;
 	return true;
 }
 
@@ -346,6 +313,36 @@ get_dmabuf_formats(struct tw_egl *egl, int *formats)
 	if (formats)
 		_query_dmabuf_formats(egl->display, num, formats, &num);
 	return num;
+}
+
+static EGLConfig
+choose_egl_config(struct tw_egl *egl, EGLint visual_id, EGLint *attribs)
+{
+	EGLint count = 0, ret = 0;
+
+	ret = eglGetConfigs(egl->display, NULL, 0, &count);
+	if (ret == EGL_FALSE || count == 0) {
+		tw_logl_level(TW_LOG_ERRO, "eglGetConfig failed");
+		return EGL_NO_CONFIG_KHR;
+	}
+	EGLConfig configs[count];
+	ret = eglChooseConfig(egl->display, attribs, configs, count, &count);
+	if (ret == EGL_FALSE) {
+		tw_logl_level(TW_LOG_ERRO, "eglGetConfig failed");
+		return EGL_NO_CONFIG_KHR;
+	}
+	if (!visual_id)
+		return configs[0];
+
+	for (int i = 0; i < count; i++) {
+		EGLint available;
+		if (!eglGetConfigAttrib(egl->display, configs[i],
+		                        EGL_NATIVE_VISUAL_ID, &available))
+			continue;
+		if (visual_id == available)
+			return configs[i];
+	}
+	return EGL_NO_CONFIG_KHR;
 }
 
 static int
@@ -447,8 +444,8 @@ tw_egl_init(struct tw_egl *egl, const struct tw_egl_options *opts)
 		return false;
 	if (!setup_egl_client_extensions(egl))
 		return false;
-	if (!setup_egl_config(egl, opts))
-		goto error;
+	if (!setup_egl_config(egl))
+		return false;
 	if (!eglBindAPI(EGL_OPENGL_ES_API))
 		goto error;
 	//TODO setup dmabuf formats
@@ -589,10 +586,21 @@ tw_egl_query_wl_buffer(struct tw_egl *egl, struct wl_resource *buffer,
 
 WL_EXPORT EGLSurface
 tw_egl_create_window_surface(struct tw_egl *egl, void *native_surface,
-                             EGLint const * attrib_list)
+                             EGLint visual_id, EGLint const * attrib_list)
 {
+	EGLConfig selected = EGL_NO_CONFIG_KHR;
+	EGLint attribs[] = {
+		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+		EGL_NONE
+	};
+
 	assert(_create_window_surface);
-	return _create_window_surface(egl->display, egl->config,
+	selected = choose_egl_config(egl, visual_id, attribs);
+	if (selected == EGL_NO_CONFIG_KHR)
+		return EGL_NO_SURFACE;
+
+	return _create_window_surface(egl->display, selected,
 	                              native_surface, attrib_list);
 }
 
@@ -687,7 +695,6 @@ prepare_egl_dmabuf_attributes(EGLint eglattrs[50],
 	eglattrs[atti++] = EGL_NONE;
 	assert(atti < 50);
 }
-
 
 WL_EXPORT EGLImageKHR
 tw_egl_import_dmabuf_image(struct tw_egl *egl,

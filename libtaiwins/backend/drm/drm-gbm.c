@@ -235,7 +235,7 @@ handle_allocate_display_gbm_surface(struct tw_drm_display *output,
 	                                    scanout_flags);
 	tw_render_presentable_init_window(&output->output.surface,
 	                                  output->drm->base.ctx,
-	                                  surface);
+	                                  surface, format->fmt);
 	output->handle = (uintptr_t)(void *)surface;
 	return true;
 }

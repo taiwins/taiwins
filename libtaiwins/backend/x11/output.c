@@ -215,7 +215,8 @@ tw_x11_output_start(struct tw_x11_output *output)
 	                           &xinput_mask.head);
 	//creating the render surface
 	if (!tw_render_presentable_init_window(&output->output.surface,
-	                                       x11->base.ctx, &output->win)) {
+	                                       x11->base.ctx, &output->win,
+	                                       x11->screen->root_visual)) {
 		tw_logl_level(TW_LOG_WARN, "failed to create render surface "
 		              "for X11 output");
 		tw_x11_remove_output(output);
