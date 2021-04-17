@@ -362,6 +362,7 @@ tw_wl_surface_start(struct tw_wl_surface *output)
 
 	output->egl_window = wl_egl_window_create(output->wl_surface,
 	                                          width, height);
+	//TODO: this format is 0, use drm format
 	if (!tw_render_presentable_init_window(&output->output.surface,
 	                                       wl->base.ctx,
 	                                       output->egl_window,
