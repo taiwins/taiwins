@@ -44,10 +44,6 @@ struct tw_egl_options {
 	EGLenum platform;
 	/** native display type like a wl_display from wayland */
 	void *native_display;
-	/** visual id represents the format the platform supports */
-	EGLint visual_id;
-
-	const EGLint *context_attribs;
 	const EGLint *platform_attribs;
 };
 
@@ -57,7 +53,6 @@ struct tw_egl {
 	EGLContext context;
 	EGLDisplay display;
 	EGLenum platform;
-	EGLint surface_type;
 	EGLConfig config;
 	bool query_buffer_age, image_base_khr;
 	bool import_dmabuf, import_dmabuf_modifiers;
@@ -98,7 +93,7 @@ tw_egl_query_wl_buffer(struct tw_egl *egl, struct wl_resource *buffer,
                        EGLint attribute, EGLint *value);
 EGLSurface
 tw_egl_create_window_surface(struct tw_egl *egl, void *native_surface,
-                             EGLint const * attrib_list);
+                             EGLint visual_id, EGLint const *attrib_list);
 EGLImageKHR
 tw_egl_import_wl_drm_image(struct tw_egl *egl, struct wl_resource *data,
                            EGLint *fmt, int *width, int *height,

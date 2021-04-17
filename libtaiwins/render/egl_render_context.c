@@ -92,17 +92,14 @@ static const struct tw_render_presentable_impl eglsurface_impl = {
 /* use this if you created egl context with window surface type */
 static bool
 new_window_surface(struct tw_render_presentable *surf,
-                   struct tw_render_context *base, void *native_surface)
+                   struct tw_render_context *base, void *native_surface,
+                   uint32_t format)
 {
 	struct tw_egl_render_context *ctx = wl_container_of(base, ctx, base);
 	EGLSurface eglsurface = EGL_NO_SURFACE;
 
-	if (!(ctx->egl.surface_type & EGL_WINDOW_BIT))
-		return false;
-
 	eglsurface = tw_egl_create_window_surface(&ctx->egl, native_surface,
-	                                          NULL);
-
+	                                          format, NULL);
 	if (eglsurface == EGL_NO_SURFACE) {
 		tw_logl_level(TW_LOG_ERRO, "eglCreateWindowSurface failed");
 		return false;
@@ -127,9 +124,6 @@ new_pbuffer_surface(struct tw_render_presentable *surf,
 		EGL_TEXTURE_FORMAT, EGL_TEXTURE_RGBA,
 		EGL_NONE,
 	};
-
-	if (!(ctx->egl.surface_type & EGL_PBUFFER_BIT))
-		return false;
 
 	eglsurface = eglCreatePbufferSurface(&ctx->egl.display,
 	                                     &ctx->egl.config, attribs);

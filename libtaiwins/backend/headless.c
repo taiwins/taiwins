@@ -67,21 +67,9 @@ struct tw_headless_output {
 static const struct tw_egl_options *
 headless_gen_egl_params(struct tw_backend *backend)
 {
-	static const EGLint egl_config_attribs[] = {
-		EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
-		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-		EGL_BLUE_SIZE, 1,
-		EGL_GREEN_SIZE, 1,
-		EGL_RED_SIZE, 1,
-		EGL_NONE,
-	};
-
 	static struct tw_egl_options egl_opts = {
 		.platform = EGL_PLATFORM_SURFACELESS_MESA,
 		.native_display = EGL_DEFAULT_DISPLAY,
-		.visual_id = 0,
-		//TODO missing drm formats
-		.context_attribs = (EGLint *)egl_config_attribs,
 	};
 
 	return &egl_opts;

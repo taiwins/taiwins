@@ -147,21 +147,8 @@ x11_gen_egl_params(struct tw_backend *backend)
 	static struct tw_egl_options egl_opts = {0};
 	struct tw_x11_backend *x11 = wl_container_of(backend, x11, base);
 
-	static const EGLint egl_config_attribs[] = {
-		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-		EGL_BLUE_SIZE, 1,
-		EGL_GREEN_SIZE, 1,
-		EGL_RED_SIZE, 1,
-		EGL_ALPHA_SIZE, 0,
-		EGL_NONE,
-	};
-
 	egl_opts.platform = EGL_PLATFORM_X11_KHR;
 	egl_opts.native_display = x11->x11_dpy;
-	egl_opts.visual_id = x11->screen->root_visual;
-	egl_opts.context_attribs = (EGLint *)egl_config_attribs;
-
 	return &egl_opts;
 }
 

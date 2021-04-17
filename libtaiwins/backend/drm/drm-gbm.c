@@ -216,7 +216,8 @@ handle_allocate_display_gbm_surface(struct tw_drm_display *output,
 	struct gbm_device *gbm = tw_drm_get_gbm_device(gpu);
 	unsigned w = mode->hdisplay;
 	unsigned h = mode->vdisplay;
-	uint32_t visual_id = gpu->visual_id;
+	//TODO: find a suitable format instead of hardcoding
+	uint32_t visual_id = DRM_FORMAT_ARGB8888;
 	uint32_t scanout_flags = GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
 	struct tw_drm_plane *plane = output->primary_plane;
 	const struct tw_drm_format *format =
@@ -235,7 +236,7 @@ handle_allocate_display_gbm_surface(struct tw_drm_display *output,
 	                                    scanout_flags);
 	tw_render_presentable_init_window(&output->output.surface,
 	                                  output->drm->base.ctx,
-	                                  surface);
+	                                  surface, format->fmt);
 	output->handle = (uintptr_t)(void *)surface;
 	return true;
 }
@@ -249,7 +250,6 @@ handle_get_gpu_device(struct tw_drm_gpu *gpu,
 		tw_logl_level(TW_LOG_ERRO, "Failed to create gbm device");
 		return false;
 	}
-	gpu->visual_id = DRM_FORMAT_ARGB8888;
 	return true;
 }
 
@@ -258,7 +258,6 @@ handle_free_gpu_device(struct tw_drm_gpu *gpu)
 {
 	struct gbm_device *gbm = tw_drm_get_gbm_device(gpu);
 	gbm_device_destroy(gbm);
-	gpu->visual_id = DRM_FORMAT_INVALID;
 }
 
 static const struct tw_egl_options *
@@ -267,18 +266,6 @@ handle_gen_egl_params(struct tw_drm_gpu *gpu)
 	static struct tw_egl_options egl_opts = {
 		.platform = EGL_PLATFORM_GBM_KHR,
 	};
-
-	static const EGLint egl_config_attribs[] = {
-		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-		EGL_BLUE_SIZE, 1,
-		EGL_GREEN_SIZE, 1,
-		EGL_RED_SIZE, 1,
-		EGL_ALPHA_SIZE, 0,
-		EGL_NONE,
-	};
-	egl_opts.context_attribs = egl_config_attribs;
-	egl_opts.visual_id = gpu->visual_id;
 	egl_opts.native_display = tw_drm_get_gbm_device(gpu);
 	return &egl_opts;
 }

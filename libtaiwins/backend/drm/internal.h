@@ -234,7 +234,6 @@ struct tw_drm_gpu {
 	uintptr_t device; /**< contains platform device type */
 	bool boot_vga;
 	bool activated; /**< valid gpu otherwise not used */
-	uint32_t visual_id;
 	clockid_t clk_id;
 
 	struct wl_list link; /* backend:gpu_list */

@@ -362,9 +362,11 @@ tw_wl_surface_start(struct tw_wl_surface *output)
 
 	output->egl_window = wl_egl_window_create(output->wl_surface,
 	                                          width, height);
+	//TODO: this format is 0, use drm format
 	if (!tw_render_presentable_init_window(&output->output.surface,
 	                                       wl->base.ctx,
-	                                       output->egl_window)) {
+	                                       output->egl_window,
+	                                       WL_SHM_FORMAT_ARGB8888)) {
 		tw_logl_level(TW_LOG_WARN, "Failed to create render surface "
 		              "for wayland output");
 		tw_wl_surface_remove(output);
