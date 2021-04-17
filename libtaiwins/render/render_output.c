@@ -107,7 +107,6 @@ output_idle_frame(void *data)
 
 /*
  * update the frame time for the output.
- * this is mean algorithm, TODO we need a max algorithm
  */
 static void
 update_output_frame_time(struct tw_render_output *output,
@@ -119,16 +118,20 @@ update_output_frame_time(struct tw_render_output *output,
 	uint64_t tend = tw_timespec_to_us(end);
 
 	/* assert(tend >= tstart); */
-	ft = (uint32_t)(tend - tstart);
-	output->state.ft_sum -= output->state.fts[output->state.ft_idx];
-	output->state.ft_sum += ft;
-	//override the ft slot
+	ft = MAX((uint32_t)0, (uint32_t)(tend - tstart));
 	output->state.fts[output->state.ft_idx] = ft;
-	//move forward the indices
-	output->state.ft_cnt = MAX(output->state.ft_cnt + 1,
-	                           (unsigned)TW_FRAME_TIME_CNT);
-
 	output->state.ft_idx = (output->state.ft_idx + 1) % TW_FRAME_TIME_CNT;
+}
+
+/* getting the max frame time in milliseconds */
+static uint32_t
+calc_output_max_frametime(struct tw_render_output *output)
+{
+	uint32_t *fts = output->state.fts;
+	uint32_t ft = MAX(MAX(MAX(fts[0], fts[1]), MAX(fts[2],fts[3])),
+	                  MAX(MAX(fts[4], fts[5]), MAX(fts[6],fts[7])));
+	//ceil algorithm, output basically
+	return ft ? ((ft + 1000) / 1000) : ft;
 }
 
 static void
@@ -201,8 +204,6 @@ notify_render_output_frame(void *data)
 	update_output_frame_time(output, &tstart, &tend);
 	flush_output_frame(output, &tend);
 	SCOPE_PROFILE_END();
-	/* tw_logl("The render time is %u", */
-	/*         tw_render_output_calc_frametime(output)); */
 	return 0;
 }
 
@@ -213,13 +214,13 @@ notify_render_output_frame_scheduled(struct wl_listener *listener, void *data)
 	struct tw_render_output *output =
 		wl_container_of(listener, output, listeners.frame);
 	//TODO: change it to max frame time
-	int frametime_us = tw_render_output_calc_frametime(output);
+	int frametime = calc_output_max_frametime(output);
 
 	assert(&output->device == data);
 	if (!output->device.current.enabled)
 		return;
 
-	if (frametime_us) { //becomes max_render_time
+	if (frametime) { //becomes max_render_time
 		struct timespec now;
 		//get current time as soon as possible
 		clock_gettime(output->device.clk_id, &now);
@@ -244,10 +245,10 @@ notify_render_output_frame_scheduled(struct wl_listener *listener, void *data)
 		if (predict_refresh.tv_sec >= now.tv_sec)
 			ms_left = tw_timespec_diff_ms(&predict_refresh, &now);
 	}
-	//here we added 2000 extra us frametime, it seems with amount, we are
+	//here we added 2 extra ms frametime, it seems with amount, we are
 	//able to catch up with next vblank. TODO we can we not rely on this,
 	//otherwise we would have to move this repaint logic out of libtaiwins.
-	delay = (1000 * ms_left - (frametime_us + 2000)) / 1000;
+	delay = (ms_left - (frametime + 2));
 
 	if (delay < 1) {
 		notify_render_output_frame(output);
@@ -391,17 +392,8 @@ WL_EXPORT void
 tw_render_output_reset_clock(struct tw_render_output *output, clockid_t clk)
 {
 	output->device.clk_id = clk;
-	output->state.ft_sum = 0;
 	output->state.ft_idx = 0;
-	output->state.ft_cnt = 0;
 	memset(output->state.fts, 0, sizeof(output->state.fts));
-}
-
-WL_EXPORT uint32_t
-tw_render_output_calc_frametime(struct tw_render_output *output)
-{
-	return output->state.ft_cnt ?
-		(output->state.ft_sum / output->state.ft_cnt) + 1 : 0;
 }
 
 WL_EXPORT void

@@ -35,7 +35,7 @@
 extern "C" {
 #endif
 
-#define TW_FRAME_TIME_CNT 10
+#define TW_FRAME_TIME_CNT 8
 
 struct tw_render_context;
 
@@ -64,10 +64,8 @@ struct tw_render_output {
 		struct tw_mat3 view_2d; /* global to output space */
 
 		uint32_t repaint_state;
-                /** average frame time is ft_sum / ft_cnt */
-		unsigned long ft_sum;
 		/** average frame time in microseconds */
-		unsigned int fts[TW_FRAME_TIME_CNT], ft_idx, ft_cnt;
+		uint32_t fts[TW_FRAME_TIME_CNT], ft_idx;
 		/** additional checks for running render_output */
 	} state;
 
@@ -94,9 +92,6 @@ tw_render_output_fini(struct tw_render_output *output);
 
 void
 tw_render_output_reset_clock(struct tw_render_output *output, clockid_t clk);
-
-uint32_t
-tw_render_output_calc_frametime(struct tw_render_output *output);
 
 void
 tw_render_output_set_context(struct tw_render_output *output,
