@@ -267,18 +267,6 @@ handle_gen_egl_params(struct tw_drm_gpu *gpu)
 	static struct tw_egl_options egl_opts = {
 		.platform = EGL_PLATFORM_GBM_KHR,
 	};
-
-	static const EGLint egl_config_attribs[] = {
-		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-		EGL_BLUE_SIZE, 1,
-		EGL_GREEN_SIZE, 1,
-		EGL_RED_SIZE, 1,
-		EGL_ALPHA_SIZE, 0,
-		EGL_NONE,
-	};
-	egl_opts.context_attribs = egl_config_attribs;
-	egl_opts.visual_id = gpu->visual_id;
 	egl_opts.native_display = tw_drm_get_gbm_device(gpu);
 	return &egl_opts;
 }

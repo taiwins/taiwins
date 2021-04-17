@@ -44,10 +44,6 @@ struct tw_egl_options {
 	EGLenum platform;
 	/** native display type like a wl_display from wayland */
 	void *native_display;
-	/** visual id represents the format the platform supports */
-	EGLint visual_id;
-
-	const EGLint *context_attribs;
 	const EGLint *platform_attribs;
 };
 
