@@ -58,14 +58,6 @@ struct tw_output_device_impl {
 	bool (*commit_state) (struct tw_output_device *device);
 };
 
-struct tw_event_output_device_present {
-	struct tw_output_device *device;
-	struct timespec time;
-	uint32_t flags;
-	uint64_t seq;
-	int refresh;
-};
-
 /**
  * @brief abstraction of an output device
  *
@@ -96,8 +88,6 @@ struct tw_output_device {
 
 	struct {
 		struct wl_signal destroy;
-		/** new frame just presented on the output */
-		struct wl_signal present;
 		/** emit when general wl_output information is available, or
 		 * when output state changed */
                 struct wl_signal info;
@@ -164,9 +154,6 @@ tw_output_device_match_mode(struct tw_output_device *device,
 void
 tw_output_device_commit_state(struct tw_output_device *device);
 
-void
-tw_output_device_present(struct tw_output_device *device,
-                         struct tw_event_output_device_present *event);
 bool
 tw_output_device_mode_eq(const struct tw_output_device_mode *a,
                          const struct tw_output_device_mode *b);

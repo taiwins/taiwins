@@ -241,9 +241,10 @@ notify_output_present(struct wl_listener *listener, void *data)
 {
 	struct tw_server_output *output =
 		wl_container_of(listener, output, listeners.present);
-	struct tw_event_output_device_present *event = data;
+	struct tw_event_output_present *event = data;
 
 	output->state.last_present = event->time;
+	SCOPE_PROFILE_TS();
 }
 
 static void
@@ -307,7 +308,7 @@ tw_server_output_init(struct tw_server_output *output,
         tw_signal_setup_listener(&render_output->signals.post_frame,
                                  &output->listeners.post_frame,
                                  notify_output_post_frame);
-        tw_signal_setup_listener(&device->signals.present,
+        tw_signal_setup_listener(&render_output->signals.present,
                                  &output->listeners.present,
                                  notify_output_present);
         //device signals

@@ -146,7 +146,7 @@ notify_output_present(struct wl_listener *listener, void *data)
 	struct tw_engine_output *output =
 		wl_container_of(listener, output, listeners.present);
 	struct tw_engine *engine = output->engine;
-	struct tw_event_output_device_present *event = data;
+	struct tw_event_output_present *event = data;
 
 	wl_list_for_each_safe(feedback, tmp, &engine->presentation.feedbacks,
 	                      link) {
@@ -206,7 +206,7 @@ tw_engine_new_output(struct tw_engine *engine,
 	tw_signal_setup_listener(&device->signals.commit_state,
 	                         &output->listeners.set_mode,
 	                         notify_output_new_mode);
-	tw_signal_setup_listener(&device->signals.present,
+	tw_signal_setup_listener(&render_output->signals.present,
 	                         &output->listeners.present,
 	                         notify_output_present);
         engine->output_pool |= 1 << id;

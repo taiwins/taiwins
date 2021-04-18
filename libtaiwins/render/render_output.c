@@ -199,6 +199,7 @@ tw_render_output_init(struct tw_render_output *output,
 	wl_signal_init(&output->signals.need_frame);
 	wl_signal_init(&output->signals.pre_frame);
 	wl_signal_init(&output->signals.post_frame);
+	wl_signal_init(&output->signals.present);
 
 	tw_signal_setup_listener(&output->device.signals.destroy,
 	                         &output->listeners.destroy,
@@ -296,4 +297,23 @@ tw_render_output_clean_maybe(struct tw_render_output *output)
 	output->state.repaint_state &= ~TW_REPAINT_COMMITTED;
 	if (output->state.repaint_state & TW_REPAINT_DIRTY)
 		tw_render_output_dirty(output);
+}
+
+void
+tw_render_output_present(struct tw_render_output *output,
+                         struct tw_event_output_present *event)
+{
+	struct tw_output_device *dev = &output->device;
+	uint32_t mhz = dev->current.current_mode.refresh;
+	struct tw_event_output_present _event = {
+		.output = output,
+	};
+	struct timespec now;
+	if (event == NULL) {
+		event = &_event;
+		clock_gettime(dev->clk_id, &now);
+		event->time = now;
+	}
+	event->refresh = tw_millihertz_to_ns(mhz);
+	wl_signal_emit(&output->signals.present, event);
 }

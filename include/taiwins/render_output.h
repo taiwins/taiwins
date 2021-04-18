@@ -46,6 +46,14 @@ enum tw_render_output_repaint_state {
 	TW_REPAINT_COMMITTED = 6, /**< repaint done, need swap */
 };
 
+struct tw_event_output_present {
+	struct tw_render_output *output;
+	struct timespec time;
+	uint32_t flags;
+	uint64_t seq;
+	int refresh;
+};
+
 struct tw_render_output {
 	struct tw_output_device device;
 	struct tw_render_presentable surface;
@@ -76,6 +84,7 @@ struct tw_render_output {
 		struct wl_signal need_frame;
 		struct wl_signal pre_frame;
 		struct wl_signal post_frame;
+		struct wl_signal present;
 	} signals;
 };
 
@@ -91,6 +100,11 @@ tw_render_output_set_context(struct tw_render_output *output,
                              struct tw_render_context *ctx);
 void
 tw_render_output_unset_context(struct tw_render_output *output);
+
+//TODO: dont expose this
+void
+tw_render_output_present(struct tw_render_output *output,
+                         struct tw_event_output_present *event);
 
 void
 tw_render_output_dirty(struct tw_render_output *output);

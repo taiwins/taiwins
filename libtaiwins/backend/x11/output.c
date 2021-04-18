@@ -149,7 +149,7 @@ notify_output_commit(struct wl_listener *listener, void *data)
 		wl_container_of(listener, output, output_commit_listener);
 	//TODO: the x11 backend commit logic is broke here. in weston they wait
 	//for 10 ms then do the present
-	tw_output_device_present(&output->output.device, NULL);
+	tw_render_output_present(&output->output, NULL);
 	tw_render_output_clean_maybe(&output->output);
 }
 
