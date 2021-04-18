@@ -19,7 +19,6 @@
  *
  */
 
-#include "options.h"
 #include <assert.h>
 #include <time.h>
 #include <pixman.h>
@@ -34,7 +33,6 @@
 #include <taiwins/render_output.h>
 #include <taiwins/render_surface.h>
 #include <taiwins/render_pipeline.h>
-#include <taiwins/profiling.h>
 #include <ctypes/helpers.h>
 
 static inline bool
@@ -77,6 +75,35 @@ fini_output_state(struct tw_render_output *o)
 		pixman_region32_fini(&o->state.damages[i]);
 }
 
+static void
+rebuild_render_output_view_mat(struct tw_render_output *output)
+{
+	struct tw_mat3 glproj, tmp;
+	int width, height;
+	const struct tw_output_device_state *state = &output->device.current;
+	pixman_rectangle32_t rect = tw_output_device_geometry(&output->device);
+
+	//the transform should be
+	// T' = glproj * inv_wl_transform * scale * -translate * T
+	width = rect.width;
+	height = rect.height;
+
+	//output scale and inverse transform.
+	tw_mat3_translate(&output->state.view_2d, -state->gx, -state->gy);
+	tw_mat3_transform_rect(&tmp, false,
+	                       inverse_wl_transform(state->transform),
+	                       width, height, state->scale);
+	//glproj matrix,
+	tw_mat3_init(&glproj);
+	glproj.d[4] = -1;
+	glproj.d[7] = state->current_mode.h;
+
+	tw_mat3_multiply(&output->state.view_2d, &tmp,
+	                 &output->state.view_2d);
+	tw_mat3_multiply(&output->state.view_2d, &glproj,
+	                 &output->state.view_2d);
+}
+
 /**
  * @brief manage the backend output damage state
  */
@@ -97,52 +124,36 @@ shuffle_output_damage(struct tw_render_output *output)
 	output->state.pending_damage = previous;
 }
 
-static void
-output_idle_frame(void *data)
-{
-	struct tw_render_output *output = data;
-	//TODO we should reset clock here
-	wl_signal_emit(&output->device.signals.new_frame, &output->device);
-}
-
 /*
- * update the frame time for the output.
- */
-static void
-update_output_frame_time(struct tw_render_output *output,
-                         const struct timespec *strt,
-                         const struct timespec *end)
+ * after commit, the output should not dirty anymore, but the schedule state
+ * should not change, it shield us from committing another frame before the
+ * pageflip/swapbuffer happens.
+*/
+static inline void
+commit_render_output(struct tw_render_output *output)
 {
-	uint32_t ft;
-	uint64_t tstart = tw_timespec_to_us(strt);
-	uint64_t tend = tw_timespec_to_us(end);
-
-	/* assert(tend >= tstart); */
-	ft = MAX((uint32_t)0, (uint32_t)(tend - tstart));
-	output->state.fts[output->state.ft_idx] = ft;
-	output->state.ft_idx = (output->state.ft_idx + 1) % TW_FRAME_TIME_CNT;
+	output->state.repaint_state = TW_REPAINT_COMMITTED;
+	tw_render_presentable_commit(&output->surface, output->ctx);
 }
 
-/* getting the max frame time in milliseconds */
-static uint32_t
-calc_output_max_frametime(struct tw_render_output *output)
+static int
+tick_render_output_frame(struct tw_render_output *output)
 {
-	uint32_t *fts = output->state.fts;
-	uint32_t ft = MAX(MAX(MAX(fts[0], fts[1]), MAX(fts[2],fts[3])),
-	                  MAX(MAX(fts[4], fts[5]), MAX(fts[6],fts[7])));
-	//ceil algorithm, output basically
-	return ft ? ((ft + 1000) / 1000) : ft;
-}
+	struct tw_render_presentable *presentable = &output->surface;
+	struct tw_render_context *ctx = output->ctx;
+	struct tw_render_pipeline *pipeline;
+	int buffer_age;
 
-static void
-flush_output_frame(struct tw_render_output *output,
-                   const struct timespec *now)
-{
-	struct tw_surface *surface;
-	uint32_t now_int = tw_timespec_to_ms(now);
+	assert(ctx);
+	buffer_age = tw_render_presentable_make_current(presentable, ctx);
+	buffer_age = (buffer_age < 0) ? 2 : buffer_age;
 
-	wl_list_for_each(surface, &output->views, links[TW_VIEW_OUTPUT_LINK])
-		tw_surface_flush_frame(surface, now_int);
+	wl_list_for_each(pipeline, &ctx->pipelines, link)
+		tw_render_pipeline_repaint(pipeline, output, buffer_age);
+
+	shuffle_output_damage(output);
+	commit_render_output(output);
+	return 0;
 }
 
 /******************************************************************************
@@ -169,94 +180,6 @@ notify_render_output_surface_dirty(struct wl_listener *listener, void *data)
 	}
 }
 
-static int
-notify_render_output_frame(void *data)
-{
-	struct tw_render_output *output = data;
-	struct tw_render_presentable *presentable = &output->surface;
-	struct tw_render_context *ctx = output->ctx;
-	struct tw_render_pipeline *pipeline;
-	struct timespec tstart, tend;
-	int buffer_age;
-	uint32_t should_repaint = TW_REPAINT_DIRTY | TW_REPAINT_SCHEDULED;
-
-	assert(ctx);
-	if (!output->device.current.enabled)
-		return 0;
-	if (!check_bits(output->state.repaint_state, should_repaint))
-		return 0;
-	if (check_bits(output->state.repaint_state, TW_REPAINT_COMMITTED))
-		return 0;
-
-	SCOPE_PROFILE_BEG();
-	clock_gettime(output->device.clk_id, &tstart);
-
-	buffer_age = tw_render_presentable_make_current(presentable, ctx);
-	buffer_age = (buffer_age < 0) ? 2 : buffer_age;
-
-	wl_list_for_each(pipeline, &ctx->pipelines, link)
-		tw_render_pipeline_repaint(pipeline, output, buffer_age);
-
-	shuffle_output_damage(output);
-
-	tw_render_output_commit(output);
-	clock_gettime(output->device.clk_id, &tend);
-	update_output_frame_time(output, &tstart, &tend);
-	flush_output_frame(output, &tend);
-	SCOPE_PROFILE_END();
-	return 0;
-}
-
-static void
-notify_render_output_frame_scheduled(struct wl_listener *listener, void *data)
-{
-	int delay, ms_left = 0; //< left for render
-	struct tw_render_output *output =
-		wl_container_of(listener, output, listeners.frame);
-	//TODO: change it to max frame time
-	int frametime = calc_output_max_frametime(output);
-
-	assert(&output->device == data);
-	if (!output->device.current.enabled)
-		return;
-
-	if (frametime) { //becomes max_render_time
-		struct timespec now;
-		//get current time as soon as possible
-		clock_gettime(output->device.clk_id, &now);
-
-		struct timespec predict_refresh = output->device.last_present;
-		unsigned mhz = output->device.current.current_mode.refresh;
-		uint32_t refresh = tw_millihertz_to_ns(mhz);
-
-		//getting a predicted vblank. 1): If we are scheduled right
-		//after a vsync, there are chance predict_refresh is ahead of
-		//us. 2) If we come from a idle frame, predict_time will be
-		//less than now, in that case, we just draw
-
-		predict_refresh.tv_nsec += refresh % TW_NS_PER_S;
-		predict_refresh.tv_sec += refresh / TW_NS_PER_S;
-		if (predict_refresh.tv_nsec >= TW_NS_PER_S) {
-			predict_refresh.tv_sec += 1;
-			predict_refresh.tv_nsec -= TW_NS_PER_S;
-		}
-
-		//this is the floored difference.
-		if (predict_refresh.tv_sec >= now.tv_sec)
-			ms_left = tw_timespec_diff_ms(&predict_refresh, &now);
-	}
-	//here we added 2 extra ms frametime, it seems with amount, we are
-	//able to catch up with next vblank. TODO we can we not rely on this,
-	//otherwise we would have to move this repaint logic out of libtaiwins.
-	delay = (ms_left - (frametime + 2));
-
-	if (delay < 1) {
-		notify_render_output_frame(output);
-	} else {
-		wl_event_source_timer_update(output->repaint_timer, delay);
-	}
-}
-
 static void
 notify_render_output_destroy(struct wl_listener *listener, void *data)
 {
@@ -270,7 +193,7 @@ notify_render_output_new_mode(struct wl_listener *listener, void *data)
 {
 	struct tw_render_output *output =
 		wl_container_of(listener, output, listeners.set_mode);
-	tw_render_output_rebuild_view_mat(output);
+	rebuild_render_output_view_mat(output);
 }
 
 /******************************************************************************
@@ -286,24 +209,21 @@ tw_render_output_init(struct tw_render_output *output,
 	output->surface.impl = NULL;
 	output->surface.handle = 0;
 	init_output_state(output);
-	//this cannot fail
-	output->repaint_timer = wl_event_loop_add_timer(
-		wl_display_get_event_loop(display),
-		notify_render_output_frame, output);
 
 	tw_output_device_init(&output->device, impl);
-	tw_render_output_reset_clock(output, CLOCK_MONOTONIC);
+	tw_output_device_reset_clock(&output->device, CLOCK_MONOTONIC);
 
 	wl_list_init(&output->link);
 
 	wl_signal_init(&output->surface.commit);
+	wl_signal_init(&output->signals.need_frame);
+	wl_signal_init(&output->signals.pre_frame);
+	wl_signal_init(&output->signals.post_frame);
 	wl_signal_init(&output->signals.surface_enter);
 	wl_signal_init(&output->signals.surface_leave);
 
 	wl_list_init(&output->listeners.surface_dirty.link);
-	tw_signal_setup_listener(&output->device.signals.new_frame,
-	                         &output->listeners.frame,
-	                         notify_render_output_frame_scheduled);
+
 	tw_signal_setup_listener(&output->device.signals.destroy,
 	                         &output->listeners.destroy,
 	                         notify_render_output_destroy);
@@ -317,7 +237,6 @@ tw_render_output_fini(struct tw_render_output *output)
 {
 	fini_output_state(output);
 	wl_list_remove(&output->listeners.destroy.link);
-	wl_list_remove(&output->listeners.frame.link);
 	wl_list_remove(&output->listeners.set_mode.link);
 	wl_list_remove(&output->listeners.surface_dirty.link);
 
@@ -328,35 +247,6 @@ tw_render_output_fini(struct tw_render_output *output)
 		output->repaint_timer = NULL;
 	}
 	tw_output_device_fini(&output->device);
-}
-
-WL_EXPORT void
-tw_render_output_rebuild_view_mat(struct tw_render_output *output)
-{
-	struct tw_mat3 glproj, tmp;
-	int width, height;
-	const struct tw_output_device_state *state = &output->device.current;
-	pixman_rectangle32_t rect = tw_output_device_geometry(&output->device);
-
-	//the transform should be
-	// T' = glproj * inv_wl_transform * scale * -translate * T
-	width = rect.width;
-	height = rect.height;
-
-	//output scale and inverse transform.
-	tw_mat3_translate(&output->state.view_2d, -state->gx, -state->gy);
-	tw_mat3_transform_rect(&tmp, false,
-	                       inverse_wl_transform(state->transform),
-	                       width, height, state->scale);
-	//glproj matrix,
-	tw_mat3_init(&glproj);
-	glproj.d[4] = -1;
-	glproj.d[7] = state->current_mode.h;
-
-	tw_mat3_multiply(&output->state.view_2d, &tmp,
-	                 &output->state.view_2d);
-	tw_mat3_multiply(&output->state.view_2d, &glproj,
-	                 &output->state.view_2d);
 }
 
 WL_EXPORT void
@@ -389,44 +279,41 @@ tw_render_output_unset_context(struct tw_render_output *output)
 }
 
 WL_EXPORT void
-tw_render_output_reset_clock(struct tw_render_output *output, clockid_t clk)
+tw_render_output_flush_frame(struct tw_render_output *output,
+                             const struct timespec *now)
 {
-	output->device.clk_id = clk;
-	output->state.ft_idx = 0;
-	memset(output->state.fts, 0, sizeof(output->state.fts));
+	struct tw_surface *surface;
+	uint32_t now_int = tw_timespec_to_ms(now);
+
+	wl_list_for_each(surface, &output->views, links[TW_VIEW_OUTPUT_LINK])
+		tw_surface_flush_frame(surface, now_int);
 }
 
 WL_EXPORT void
 tw_render_output_dirty(struct tw_render_output *output)
 {
 	output->state.repaint_state |= TW_REPAINT_DIRTY;
-	tw_render_output_schedule_frame(output);
-}
-
-/* schedule a frame, maybe for the purpose sending back empty frame_request */
-WL_EXPORT void
-tw_render_output_schedule_frame(struct tw_render_output *output)
-{
-	struct wl_display *display = output->ctx->display;
-	struct wl_event_loop *loop = wl_display_get_event_loop(display);
-
 	if (!(output->state.repaint_state & TW_REPAINT_SCHEDULED) &&
-	    output->device.current.enabled) {
-		wl_event_loop_add_idle(loop, output_idle_frame, output);
-		output->state.repaint_state |= TW_REPAINT_SCHEDULED;
-	}
+	    output->device.current.enabled)
+		wl_signal_emit(&output->signals.need_frame, output);
 }
 
-/*
- * after commit, the output should not dirty anymore, but the schedule state
- * should not change, it shield us from committing another frame before the
- * pageflip/swapbuffer happens.
-*/
 WL_EXPORT void
-tw_render_output_commit(struct tw_render_output *output)
+tw_render_output_post_frame(struct tw_render_output *output)
 {
-	output->state.repaint_state = TW_REPAINT_COMMITTED;
-	tw_render_presentable_commit(&output->surface, output->ctx);
+	if (!output->device.current.enabled)
+		return;
+	if (!(output->state.repaint_state & TW_REPAINT_DIRTY))
+		return;
+	if ((output->state.repaint_state & TW_REPAINT_SCHEDULED))
+		return;
+	if (check_bits(output->state.repaint_state, TW_REPAINT_COMMITTED))
+		return;
+
+	output->state.repaint_state |= TW_REPAINT_SCHEDULED;
+	wl_signal_emit(&output->signals.pre_frame, output);
+	tick_render_output_frame(output);
+	wl_signal_emit(&output->signals.post_frame, output);
 }
 
 /*

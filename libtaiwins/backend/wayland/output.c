@@ -427,7 +427,7 @@ tw_wl_backend_new_output(struct tw_backend *backend,
 	output->wl = wl;
 	tw_render_output_init(&output->output, &output_impl,
 	                      wl->server_display);
-	tw_render_output_reset_clock(&output->output, wl->clk_id);
+	tw_output_device_reset_clock(&output->output.device, wl->clk_id);
         tw_output_device_set_custom_mode(&output->output.device, width, height,
                                          0);
 

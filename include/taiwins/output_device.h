@@ -24,6 +24,7 @@
 
 #include <stdint.h>
 #include <time.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <pixman.h>
 
@@ -92,12 +93,9 @@ struct tw_output_device {
 	struct wl_list mode_list;
 
 	struct tw_output_device_state current, pending;
-	struct timespec last_present;
 
 	struct {
 		struct wl_signal destroy;
-		/** new frame requested */
-		struct wl_signal new_frame;
 		/** new frame just presented on the output */
 		struct wl_signal present;
 		/** emit when general wl_output information is available, or
@@ -106,6 +104,8 @@ struct tw_output_device {
 		/** emit right after applying pending state, backend could
 		 * listen on this for applying the states to the hardware */
 		struct wl_signal commit_state;
+                /** emit on clock need to reset for output device. */
+		struct wl_signal clock_reset;
 	} signals;
 };
 
@@ -145,6 +145,14 @@ tw_output_device_set_current_mode(struct tw_output_device *device,
 		device->current.current_mode.refresh = refresh;
 		wl_signal_emit(&device->signals.commit_state, device);
 		wl_signal_emit(&device->signals.info, device);
+}
+
+//TODO: dont expose this, only backends are using it.
+static inline void
+tw_output_device_reset_clock(struct tw_output_device *device, clockid_t clk)
+{
+	device->clk_id = clk;
+	wl_signal_emit(&device->signals.clock_reset, device);
 }
 
 void

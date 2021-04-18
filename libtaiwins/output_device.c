@@ -74,10 +74,9 @@ tw_output_device_init(struct tw_output_device *device,
 
 	wl_signal_init(&device->signals.destroy);
 	wl_signal_init(&device->signals.info);
-	wl_signal_init(&device->signals.new_frame);
-	wl_signal_init(&device->signals.info);
 	wl_signal_init(&device->signals.present);
 	wl_signal_init(&device->signals.commit_state);
+	wl_signal_init(&device->signals.clock_reset);
 }
 
 WL_EXPORT void
@@ -210,7 +209,6 @@ tw_output_device_present(struct tw_output_device *device,
 		event->time = now;
 	}
 	SCOPE_PROFILE_TS();
-	device->last_present = event->time;
 	event->refresh = tw_millihertz_to_ns(mhz);
 	wl_signal_emit(&device->signals.present, event);
 }
