@@ -29,6 +29,7 @@
 #include <taiwins/objects/utils.h>
 #include <taiwins/engine.h>
 #include <taiwins/backend.h>
+#include <taiwins/profiling.h>
 #include <taiwins/render_output.h>
 #include <taiwins/render_context.h>
 #include <taiwins/render_surface.h>
@@ -36,7 +37,6 @@
 #include <wayland-util.h>
 
 #include "output.h"
-#include "taiwins/objects/surface.h"
 
 static void
 tw_server_output_fini(struct tw_server_output *output);
@@ -217,7 +217,7 @@ notify_output_pre_frame(struct wl_listener *listener, void *data)
 	struct tw_output_device *device = output->output->device;
 
 	clock_gettime(device->clk_id, &output->state.ts);
-	//TODO add profiler
+	PROFILE_BEG("notify_output_repaint");
 }
 
 static void
@@ -233,7 +233,7 @@ notify_output_post_frame(struct wl_listener *listener, void *data)
 	clock_gettime(device->clk_id, &now);
 	update_output_frame_time(output, &output->state.ts, &now);
 	tw_render_output_flush_frame(render_output, &now);
-	//TODO: add profiler
+	PROFILE_END("notify_output_repaint");
 }
 
 static void
