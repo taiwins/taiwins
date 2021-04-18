@@ -161,26 +161,6 @@ tick_render_output_frame(struct tw_render_output *output)
  *****************************************************************************/
 
 static void
-notify_render_output_surface_dirty(struct wl_listener *listener, void *data)
-{
-	struct tw_render_output *output =
-		wl_container_of(listener, output, listeners.surface_dirty);
-	struct tw_surface *surface = data;
-	struct tw_render_surface *render_surface =
-		wl_container_of(surface, render_surface, surface);
-	struct tw_render_context *ctx = output->ctx;
-
-        assert(ctx);
-	if (pixman_region32_not_empty(&surface->geometry.dirty))
-		tw_render_surface_reassign_outputs(render_surface, ctx);
-
-	wl_list_for_each(output, &ctx->outputs, link) {
-		if ((1u << output->device.id) & render_surface->output_mask)
-			tw_render_output_dirty(output);
-	}
-}
-
-static void
 notify_render_output_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_render_output *output =
@@ -222,8 +202,6 @@ tw_render_output_init(struct tw_render_output *output,
 	wl_signal_init(&output->signals.surface_enter);
 	wl_signal_init(&output->signals.surface_leave);
 
-	wl_list_init(&output->listeners.surface_dirty.link);
-
 	tw_signal_setup_listener(&output->device.signals.destroy,
 	                         &output->listeners.destroy,
 	                         notify_render_output_destroy);
@@ -238,7 +216,6 @@ tw_render_output_fini(struct tw_render_output *output)
 	fini_output_state(output);
 	wl_list_remove(&output->listeners.destroy.link);
 	wl_list_remove(&output->listeners.set_mode.link);
-	wl_list_remove(&output->listeners.surface_dirty.link);
 
 	if (output->ctx && output->surface.impl)
 		tw_render_presentable_fini(&output->surface, output->ctx);
@@ -259,11 +236,6 @@ tw_render_output_set_context(struct tw_render_output *output,
 	output->ctx = ctx;
 	tw_reset_wl_list(&output->link);
 	wl_list_insert(ctx->outputs.prev, &output->link);
-
-	tw_reset_wl_list(&output->listeners.surface_dirty.link);
-	tw_signal_setup_listener(&ctx->signals.wl_surface_dirty,
-	                         &output->listeners.surface_dirty,
-	                         notify_render_output_surface_dirty);
 }
 
 WL_EXPORT void
@@ -274,7 +246,6 @@ tw_render_output_unset_context(struct tw_render_output *output)
 	assert(!output->surface.handle);
 	output->ctx = NULL;
 	tw_reset_wl_list(&output->link);
-	tw_reset_wl_list(&output->listeners.surface_dirty.link);
 	wl_signal_emit(&ctx->signals.output_lost, output);
 }
 

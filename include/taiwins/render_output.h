@@ -69,7 +69,6 @@ struct tw_render_output {
 	struct {
 		struct wl_listener set_mode; /* device::set_mode */
 		struct wl_listener destroy; /* device::destroy */
-		struct wl_listener surface_dirty; /* context::surface_dirty */
 	} listeners;
 
 	/* TODO: maybe move this to engine_output? */
