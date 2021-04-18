@@ -36,6 +36,10 @@ struct data {
 struct tw_render_pipeline *
 tw_egl_render_pipeline_create_default(struct tw_render_context *ctx,
                                       struct tw_layers_manager *manager);
+struct tw_server_output_manager *
+tw_server_output_manager_create_global(struct tw_engine *engine,
+                                       struct tw_render_context *ctx);
+
 #ifdef _TW_HAS_XWAYLAND
 static void
 notify_xserver_ready(struct wl_listener *listener, void *data)
@@ -154,6 +158,8 @@ int main(int argc, char *argv[])
                                  &data.listeners.seat_focused,
                                  notify_xserver_seat_focused);
 #endif
+
+        tw_server_output_manager_create_global(engine, ctx);
 
 	tw_backend_start(backend, ctx);
 
