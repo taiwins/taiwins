@@ -14,6 +14,7 @@ endif
 taiwins_src = [
   'main.c',
   'input.c',
+  'output.c',
   'bindings.c',
   'egl_renderer.c',
 
