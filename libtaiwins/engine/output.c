@@ -94,8 +94,6 @@ notify_output_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&output->listeners.info.link);
 	wl_list_remove(&output->listeners.present.link);
 	wl_list_remove(&output->listeners.set_mode.link);
-	wl_list_remove(&output->listeners.surface_enter.link);
-	wl_list_remove(&output->listeners.surface_leave.link);
 
 	tw_output_destroy(output->tw_output);
 
@@ -168,32 +166,6 @@ notify_output_present(struct wl_listener *listener, void *data)
 	}
 }
 
-static void
-notify_output_surface_enter(struct wl_listener *listener, void *data)
-{
-	struct wl_resource *wl_output;
-	struct tw_surface *surface = data;
-	struct tw_engine_output *output =
-		wl_container_of(listener, output, listeners.surface_enter);
-	wl_resource_for_each(wl_output, &output->tw_output->resources) {
-		if (tw_match_wl_resource_client(wl_output, surface->resource))
-			wl_surface_send_enter(surface->resource, wl_output);
-	}
-}
-
-static void
-notify_output_surface_leave(struct wl_listener *listener, void *data)
-{
-	struct wl_resource *wl_output;
-	struct tw_surface *surface = data;
-	struct tw_engine_output *output =
-		wl_container_of(listener, output, listeners.surface_leave);
-	wl_resource_for_each(wl_output, &output->tw_output->resources) {
-		if (tw_match_wl_resource_client(wl_output, surface->resource))
-			wl_surface_send_leave(surface->resource, wl_output);
-	}
-}
-
 /******************************************************************************
  * APIs
  *****************************************************************************/
@@ -237,12 +209,6 @@ tw_engine_new_output(struct tw_engine *engine,
 	tw_signal_setup_listener(&device->signals.present,
 	                         &output->listeners.present,
 	                         notify_output_present);
-	tw_signal_setup_listener(&render_output->signals.surface_enter,
-	                         &output->listeners.surface_enter,
-	                         notify_output_surface_enter);
-	tw_signal_setup_listener(&render_output->signals.surface_leave,
-	                         &output->listeners.surface_leave,
-	                         notify_output_surface_leave);
         engine->output_pool |= 1 << id;
         wl_list_init(&output->link);
         wl_list_insert(&engine->heads, &output->link);
@@ -323,4 +289,28 @@ tw_engine_output_from_device(struct tw_engine *engine,
 			return output;
 	//this may not be a good idea?
 	return tw_engine_get_focused_output(engine);
+}
+
+WL_EXPORT void
+tw_engine_output_notify_surface_enter(struct tw_engine_output *output,
+                                      struct tw_surface *surface)
+{
+	struct wl_resource *wl_output;
+
+	wl_resource_for_each(wl_output, &output->tw_output->resources) {
+		if (tw_match_wl_resource_client(wl_output, surface->resource))
+			wl_surface_send_enter(surface->resource, wl_output);
+	}
+}
+
+WL_EXPORT void
+tw_engine_output_notify_surface_leave(struct tw_engine_output *output,
+                                      struct tw_surface *surface)
+{
+	struct wl_resource *wl_output;
+
+	wl_resource_for_each(wl_output, &output->tw_output->resources) {
+		if (tw_match_wl_resource_client(wl_output, surface->resource))
+			wl_surface_send_leave(surface->resource, wl_output);
+	}
 }

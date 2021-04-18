@@ -72,10 +72,10 @@ calc_output_max_frametime(struct tw_server_output *output)
  *****************************************************************************/
 
 static void
-update_surface_mask(struct tw_surface *base, struct tw_render_context *ctx,
+update_surface_mask(struct tw_surface *base, struct tw_engine *engine,
                     struct tw_render_output *major, uint32_t mask)
 {
-	struct tw_render_output *output;
+	struct tw_engine_output *output;
 	struct tw_render_surface *surface =
 		wl_container_of(base, surface, surface);
 	uint32_t output_bit;
@@ -87,14 +87,15 @@ update_surface_mask(struct tw_surface *base, struct tw_render_context *ctx,
 	surface->output_mask = mask;
 	surface->output = major ? major->device.id : -1;
 
-	wl_list_for_each(output, &ctx->outputs, link) {
-		output_bit = 1u << output->device.id;
+	wl_list_for_each(output, &engine->heads, link) {
+
+		output_bit = 1u << output->device->id;
 		if (!(output_bit & different))
 			continue;
 		if ((output_bit & entered))
-			wl_signal_emit(&output->signals.surface_enter, base);
+			tw_engine_output_notify_surface_enter(output, base);
 		if ((output_bit & left))
-			wl_signal_emit(&output->signals.surface_leave, base);
+			tw_engine_output_notify_surface_leave(output, base);
 	}
 }
 
@@ -103,7 +104,8 @@ update_surface_mask(struct tw_surface *base, struct tw_render_context *ctx,
  */
 static void
 reassign_surface_outputs(struct tw_render_surface *render_surface,
-                         struct tw_render_context *ctx)
+                         struct tw_render_context *ctx,
+                         struct tw_engine *engine)
 {
 	uint32_t area = 0, max = 0, mask = 0;
 	struct tw_render_output *output, *major = NULL;
@@ -139,7 +141,7 @@ reassign_surface_outputs(struct tw_render_surface *render_surface,
 	}
 	pixman_region32_fini(&surface_region);
 
-	update_surface_mask(surface, ctx, major, mask);
+	update_surface_mask(surface, engine, major, mask);
 }
 
 /******************************************************************************
@@ -333,7 +335,7 @@ notify_mgr_tw_surface_dirty(struct wl_listener *listener, void *data)
 	struct tw_render_output *output;
 
 	if (pixman_region32_not_empty(&surface->geometry.dirty))
-		reassign_surface_outputs(render_surface, ctx);
+		reassign_surface_outputs(render_surface, ctx, mgr->engine);
 
 	wl_list_for_each(output, &ctx->outputs, link) {
 		if ((1u << output->device.id) & render_surface->output_mask)

@@ -73,8 +73,6 @@ struct tw_render_output {
 
 	/* TODO: maybe move this to engine_output? */
 	struct {
-		struct wl_signal surface_enter;
-		struct wl_signal surface_leave;
 		struct wl_signal need_frame;
 		struct wl_signal pre_frame;
 		struct wl_signal post_frame;

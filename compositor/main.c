@@ -29,7 +29,6 @@
 #include <getopt.h>
 #include <sys/wait.h>
 #include <limits.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/profiler.h>

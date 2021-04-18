@@ -199,8 +199,6 @@ tw_render_output_init(struct tw_render_output *output,
 	wl_signal_init(&output->signals.need_frame);
 	wl_signal_init(&output->signals.pre_frame);
 	wl_signal_init(&output->signals.post_frame);
-	wl_signal_init(&output->signals.surface_enter);
-	wl_signal_init(&output->signals.surface_leave);
 
 	tw_signal_setup_listener(&output->device.signals.destroy,
 	                         &output->listeners.destroy,
