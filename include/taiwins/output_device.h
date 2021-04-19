@@ -24,6 +24,7 @@
 
 #include <stdint.h>
 #include <time.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <pixman.h>
 
@@ -57,14 +58,6 @@ struct tw_output_device_impl {
 	bool (*commit_state) (struct tw_output_device *device);
 };
 
-struct tw_event_output_device_present {
-	struct tw_output_device *device;
-	struct timespec time;
-	uint32_t flags;
-	uint64_t seq;
-	int refresh;
-};
-
 /**
  * @brief abstraction of an output device
  *
@@ -92,20 +85,17 @@ struct tw_output_device {
 	struct wl_list mode_list;
 
 	struct tw_output_device_state current, pending;
-	struct timespec last_present;
 
 	struct {
 		struct wl_signal destroy;
-		/** new frame requested */
-		struct wl_signal new_frame;
-		/** new frame just presented on the output */
-		struct wl_signal present;
 		/** emit when general wl_output information is available, or
 		 * when output state changed */
                 struct wl_signal info;
 		/** emit right after applying pending state, backend could
 		 * listen on this for applying the states to the hardware */
 		struct wl_signal commit_state;
+                /** emit on clock need to reset for output device. */
+		struct wl_signal clock_reset;
 	} signals;
 };
 
@@ -147,6 +137,14 @@ tw_output_device_set_current_mode(struct tw_output_device *device,
 		wl_signal_emit(&device->signals.info, device);
 }
 
+//TODO: dont expose this, only backends are using it.
+static inline void
+tw_output_device_reset_clock(struct tw_output_device *device, clockid_t clk)
+{
+	device->clk_id = clk;
+	wl_signal_emit(&device->signals.clock_reset, device);
+}
+
 void
 tw_output_device_set_custom_mode(struct tw_output_device *device,
                                  unsigned width, unsigned height, int refresh);
@@ -156,9 +154,6 @@ tw_output_device_match_mode(struct tw_output_device *device,
 void
 tw_output_device_commit_state(struct tw_output_device *device);
 
-void
-tw_output_device_present(struct tw_output_device *device,
-                         struct tw_event_output_device_present *event);
 bool
 tw_output_device_mode_eq(const struct tw_output_device_mode *a,
                          const struct tw_output_device_mode *b);

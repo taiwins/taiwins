@@ -102,17 +102,11 @@ static const struct tw_output_device_impl x11_output_impl = {
 static int
 frame_handler(void *data)
 {
-	/* static long long oldtime = 0, newtime; */
-	/* struct timespec spec; */
 	struct tw_x11_output *output = data;
-	wl_signal_emit(&output->output.device.signals.new_frame,
-	               &output->output.device);
+	wl_signal_emit(&output->output.signals.need_frame,
+	               &output->output);
 	wl_event_source_timer_update(output->frame_timer,
 	                             FRAME_DELAY);
-	/* clock_gettime(CLOCK_MONOTONIC, &spec); */
-	/* newtime = (spec.tv_sec*1000000 + spec.tv_nsec/1000); */
-	/* tw_logl("time lapsed: %lld", newtime - oldtime); */
-	/* oldtime = newtime; */
 	return 0;
 }
 
@@ -153,7 +147,9 @@ notify_output_commit(struct wl_listener *listener, void *data)
 {
 	struct tw_x11_output *output =
 		wl_container_of(listener, output, output_commit_listener);
-	tw_output_device_present(&output->output.device, NULL);
+	//TODO: the x11 backend commit logic is broke here. in weston they wait
+	//for 10 ms then do the present
+	tw_render_output_present(&output->output, NULL);
 	tw_render_output_clean_maybe(&output->output);
 }
 
@@ -165,7 +161,9 @@ tw_x11_output_resize(struct tw_x11_output *output)
 	                                &values[0], &values[1]);
 
 	xcb_configure_window(output->x11->xcb_conn,
-	                     output->win, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT,
+	                     output->win,
+	                     XCB_CONFIG_WINDOW_WIDTH |
+	                     XCB_CONFIG_WINDOW_HEIGHT,
 	                     values);
 	xcb_flush(output->x11->xcb_conn);
 }

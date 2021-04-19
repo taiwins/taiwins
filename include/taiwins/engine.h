@@ -76,8 +76,6 @@ struct tw_engine_output {
 		struct wl_listener set_mode;
 		struct wl_listener destroy;
 		struct wl_listener present;
-		struct wl_listener surface_enter;
-		struct wl_listener surface_leave;
 	} listeners;
 };
 
@@ -171,6 +169,13 @@ tw_engine_output_from_resource(struct tw_engine *engine,
 struct tw_engine_output *
 tw_engine_output_from_device(struct tw_engine *engine,
                              const struct tw_output_device *device);
+void
+tw_engine_output_notify_surface_enter(struct tw_engine_output *output,
+                                      struct tw_surface *surface);
+void
+tw_engine_output_notify_surface_leave(struct tw_engine_output *output,
+                                      struct tw_surface *surface);
+
 
 #ifdef  __cplusplus
 }

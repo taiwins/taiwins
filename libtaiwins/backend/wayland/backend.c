@@ -180,7 +180,7 @@ handle_presentation_clock_id(void *data,
 	wl->clk_id = clk_id;
 
 	wl_list_for_each(surface, &wl->base.outputs, output.device.link)
-		tw_render_output_reset_clock(&surface->output, clk_id);
+		tw_output_device_reset_clock(&surface->output.device, clk_id);
 }
 
 static const struct wp_presentation_listener presentation_listener = {

@@ -47,6 +47,7 @@
 #include <taiwins/render_pipeline.h>
 
 #include "input.h"
+#include "output.h"
 #include "render.h"
 #include "desktop/xdg.h"
 #include "config/config.h"
@@ -67,9 +68,10 @@ struct tw_server {
 	struct tw_backend *backend;
 	struct tw_engine *engine;
 	struct tw_render_context *ctx;
-	struct tw_config config;
+        struct tw_config config;
+	struct tw_server_output_manager *output_manager;
 
-	/* seats */
+        /* seats */
 	struct tw_seat_listeners seat_listeners[8];
 	struct wl_listener seat_add;
 	struct wl_listener seat_remove;
@@ -127,6 +129,9 @@ notify_removing_seat(struct wl_listener *listener, void *data)
 static void
 bind_listeners(struct tw_server *server)
 {
+	server->output_manager =
+		tw_server_output_manager_create_global(server->engine,
+		                                       server->ctx);
 	tw_signal_setup_listener(&server->engine->signals.seat_created,
 	                         &server->seat_add,
 	                         notify_adding_seat);

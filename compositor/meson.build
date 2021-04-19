@@ -6,6 +6,10 @@ elif get_option('rendering-debug') == 'clip'
   taiwins_cargs += '-D_TW_DEBUG_CLIP'
 endif
 
+if get_option('enable-profiler')
+  taiwins_cargs += '-D_TW_ENABLE_PROFILING'
+endif
+
 if get_option('xwayland').enabled()
   taiwins_cargs += '-D_TW_HAS_XWAYLAND'
 endif
@@ -14,6 +18,7 @@ endif
 taiwins_src = [
   'main.c',
   'input.c',
+  'output.c',
   'bindings.c',
   'egl_renderer.c',
 

@@ -74,10 +74,8 @@ tw_output_device_init(struct tw_output_device *device,
 
 	wl_signal_init(&device->signals.destroy);
 	wl_signal_init(&device->signals.info);
-	wl_signal_init(&device->signals.new_frame);
-	wl_signal_init(&device->signals.info);
-	wl_signal_init(&device->signals.present);
 	wl_signal_init(&device->signals.commit_state);
+	wl_signal_init(&device->signals.clock_reset);
 }
 
 WL_EXPORT void
@@ -193,26 +191,6 @@ tw_output_device_commit_state(struct tw_output_device *device)
 		//emit for sending new backend info.
 		wl_signal_emit(&device->signals.info, device);
 	}
-}
-
-WL_EXPORT void
-tw_output_device_present(struct tw_output_device *device,
-                         struct tw_event_output_device_present *event)
-{
-	uint32_t mhz = device->current.current_mode.refresh;
-	struct tw_event_output_device_present _event = {
-		.device = device,
-	};
-	struct timespec now;
-	if (event == NULL) {
-		event = &_event;
-		clock_gettime(device->clk_id, &now);
-		event->time = now;
-	}
-	SCOPE_PROFILE_TS();
-	device->last_present = event->time;
-	event->refresh = tw_millihertz_to_ns(mhz);
-	wl_signal_emit(&device->signals.present, event);
 }
 
 static void

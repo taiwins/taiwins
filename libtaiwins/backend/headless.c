@@ -80,7 +80,7 @@ headless_frame(void *data)
 {
 	struct tw_headless_output *output = data;
 
-	wl_signal_emit(&output->output.device.signals.new_frame,
+	wl_signal_emit(&output->output.signals.need_frame,
 	               &output->output.device);
 	wl_event_source_timer_update(output->timer, 1000000 / (60 * 1000));
 	return 0;
@@ -91,7 +91,7 @@ notify_output_commit(struct wl_listener *listener, void *data)
 {
 	struct tw_headless_output *output =
 		wl_container_of(listener, output, present_listener);
-	tw_output_device_present(&output->output.device, NULL);
+	tw_render_output_present(&output->output, NULL);
 	tw_render_output_clean_maybe(&output->output);
 }
 

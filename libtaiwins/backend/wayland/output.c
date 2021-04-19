@@ -195,15 +195,15 @@ handle_feedback_presented(void *data,
 		.tv_sec = ((uint64_t)tv_sec_hi << 32) | tv_sec_lo,
 		.tv_nsec = tv_nsec,
 	};
-	struct tw_event_output_device_present event = {
-		.device = &output->output.device,
+	struct tw_event_output_present event = {
+		.output = &output->output,
 		.time = time,
 		.seq = ((uint64_t)seq_hi << 32) | seq_lo,
 		.refresh = refresh,
 		.flags = flags,
 	};
 
-	tw_output_device_present(&output->output.device, &event);
+	tw_render_output_present(&output->output, &event);
 	wp_presentation_feedback_destroy(wp_feedback);
 }
 
@@ -212,7 +212,7 @@ handle_feedback_discarded(void *data,
                           struct wp_presentation_feedback *wp_feedback)
 {
 	struct tw_wl_surface *output = data;
-	tw_output_device_present(&output->output.device, NULL);
+	tw_render_output_present(&output->output, NULL);
 	wp_presentation_feedback_destroy(wp_feedback);
 }
 
@@ -332,7 +332,7 @@ notify_output_commit(struct wl_listener *listener, void *data)
 		                                      &feedback_listener,
 		                                      output);
 	else
-		tw_output_device_present(&output->output.device, NULL);
+		tw_render_output_present(&output->output, NULL);
 	tw_render_output_clean_maybe(&output->output);
 }
 
@@ -427,7 +427,7 @@ tw_wl_backend_new_output(struct tw_backend *backend,
 	output->wl = wl;
 	tw_render_output_init(&output->output, &output_impl,
 	                      wl->server_display);
-	tw_render_output_reset_clock(&output->output, wl->clk_id);
+	tw_output_device_reset_clock(&output->output.device, wl->clk_id);
         tw_output_device_set_custom_mode(&output->output.device, width, height,
                                          0);
 
