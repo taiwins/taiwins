@@ -97,6 +97,7 @@ surface_frame(struct wl_client *client,
 	                               callback_destroy_resource);
 	wl_list_insert(&surface->frame_callbacks,
 	               wl_resource_get_link(res_callback));
+        surface->pending->commit_state |= TW_SURFACE_FRAME_REQUESTED;
 }
 
 static void
@@ -495,6 +496,10 @@ surface_commit_state(struct tw_surface *surface)
 
 	if (pixman_region32_not_empty(&surface->current->surface_damage))
 		wl_signal_emit(&surface->signals.dirty, surface);
+	//the surface is not dirty, but requested a frame, we should return the
+	//frame done
+	else if ((surface->current->commit_state & TW_SURFACE_FRAME_REQUESTED))
+		wl_signal_emit(&surface->signals.frame, surface);
 	//also commit the subsurface surface and
 	if (surface->role.commit)
 		surface->role.commit(surface);
@@ -688,9 +693,6 @@ WL_EXPORT void
 tw_surface_flush_frame(struct tw_surface *surface, uint32_t time)
 {
 	struct wl_resource *callback, *next;
-	struct tw_event_surface_frame event = {
-		surface, time,
-	};
 
 	pixman_region32_clear(&surface->current->surface_damage);
 	pixman_region32_clear(&surface->current->buffer_damage);
@@ -699,8 +701,6 @@ tw_surface_flush_frame(struct tw_surface *surface, uint32_t time)
 		wl_resource_destroy(callback);
 	}
 	pixman_region32_clear(&surface->geometry.dirty);
-	//handlers like presentation feedback may happen here.
-	wl_signal_emit(&surface->signals.frame, &event);
 }
 
 static void

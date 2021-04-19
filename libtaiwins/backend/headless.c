@@ -80,7 +80,7 @@ headless_frame(void *data)
 {
 	struct tw_headless_output *output = data;
 
-	wl_signal_emit(&output->output.device.signals.new_frame,
+	wl_signal_emit(&output->output.signals.need_frame,
 	               &output->output.device);
 	wl_event_source_timer_update(output->timer, 1000000 / (60 * 1000));
 	return 0;
@@ -91,7 +91,7 @@ notify_output_commit(struct wl_listener *listener, void *data)
 {
 	struct tw_headless_output *output =
 		wl_container_of(listener, output, present_listener);
-	tw_output_device_present(&output->output.device, NULL);
+	tw_render_output_present(&output->output, NULL);
 	tw_render_output_clean_maybe(&output->output);
 }
 
@@ -165,7 +165,7 @@ headless_commit_output_state(struct tw_output_device *device)
 	assert(device->pending.scale >= 1.0);
 	assert(device->pending.current_mode.h > 0 &&
 	       device->pending.current_mode.w > 0);
-	memcpy(&device->state, &device->pending, sizeof(device->state));
+	memcpy(&device->current, &device->pending, sizeof(device->current));
 	return true;
 }
 
@@ -251,7 +251,8 @@ tw_headless_backend_add_output(struct tw_backend *backend,
 		return false;
 	}
         device = &output->output.device;
-        tw_render_output_init(&output->output, &headless_output_impl);
+        tw_render_output_init(&output->output, &headless_output_impl,
+                              headless->display);
 
         tw_output_device_set_custom_mode(&output->output.device,
                                          width, height, 0);

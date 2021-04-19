@@ -35,7 +35,7 @@
 extern "C" {
 #endif
 
-#define TW_FRAME_TIME_CNT 10
+#define TW_FRAME_TIME_CNT 8
 
 struct tw_render_context;
 
@@ -46,12 +46,21 @@ enum tw_render_output_repaint_state {
 	TW_REPAINT_COMMITTED = 6, /**< repaint done, need swap */
 };
 
+struct tw_event_output_present {
+	struct tw_render_output *output;
+	struct timespec time;
+	uint32_t flags;
+	uint64_t seq;
+	int refresh;
+};
+
 struct tw_render_output {
 	struct tw_output_device device;
 	struct tw_render_presentable surface;
 
 	struct wl_list link; /**< ctx->output */
 	struct wl_list views;
+	struct wl_event_source *repaint_timer;
 	/* important to set it for surface to be renderable */
 	struct tw_render_context *ctx;
 
@@ -63,37 +72,28 @@ struct tw_render_output {
 		struct tw_mat3 view_2d; /* global to output space */
 
 		uint32_t repaint_state;
-                /** average frame time is ft_sum / ft_cnt */
-		unsigned long ft_sum, ft_cnt;
-		/** average frame time in microseconds */
-		unsigned int fts[TW_FRAME_TIME_CNT], ft_idx;
-		/** additional checks for running render_output */
 	} state;
 
 	struct {
-		struct wl_listener frame;
-		struct wl_listener set_mode;
-		struct wl_listener destroy;
-		struct wl_listener surface_dirty;
+		struct wl_listener set_mode; /* device::set_mode */
+		struct wl_listener destroy; /* device::destroy */
 	} listeners;
 
+	/* TODO: maybe move this to engine_output? */
 	struct {
-		struct wl_signal surface_enter;
-		struct wl_signal surface_leave;
+		struct wl_signal need_frame;
+		struct wl_signal pre_frame;
+		struct wl_signal post_frame;
+		struct wl_signal present;
 	} signals;
 };
 
 void
 tw_render_output_init(struct tw_render_output *output,
-                      const struct tw_output_device_impl *impl);
+                      const struct tw_output_device_impl *impl,
+                      struct wl_display *display);
 void
 tw_render_output_fini(struct tw_render_output *output);
-
-void
-tw_render_output_reset_clock(struct tw_render_output *output, clockid_t clk);
-
-uint32_t
-tw_render_output_calc_frametime(struct tw_render_output *output);
 
 void
 tw_render_output_set_context(struct tw_render_output *output,
@@ -101,15 +101,34 @@ tw_render_output_set_context(struct tw_render_output *output,
 void
 tw_render_output_unset_context(struct tw_render_output *output);
 
+//TODO: dont expose this
 void
-tw_render_output_rebuild_view_mat(struct tw_render_output *output);
+tw_render_output_present(struct tw_render_output *output,
+                         struct tw_event_output_present *event);
 
 void
 tw_render_output_dirty(struct tw_render_output *output);
 
+/**
+ * @brief flush frame will send wl_callback::done for the wl_surfaces.
+ *
+ * It is enssential to call this at some point after the frame rendering is
+ * done as wayland clients reply on this to draw next frame.
+ */
 void
-tw_render_output_commit(struct tw_render_output *output);
+tw_render_output_flush_frame(struct tw_render_output *output,
+                             const struct timespec *now);
+/**
+ * @brief posting a render request to render_output
+ *
+ * User may call this upon receiving a need_frame signal to trigger the actual
+ * rendering, the render_output would repaint if there is no repainting started
+ * already
+ */
+void
+tw_render_output_post_frame(struct tw_render_output *output);
 
+//TODO: don't expose this, only used by backends
 void
 tw_render_output_clean_maybe(struct tw_render_output *output);
 

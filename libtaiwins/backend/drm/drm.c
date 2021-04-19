@@ -191,11 +191,11 @@ handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
                   unsigned crtc_id, void *data)
 {
 	struct tw_drm_display *output = data;
-	struct tw_output_device *device = output ?
-		&output->output.device : NULL;
+	struct tw_render_output *render_output = output ?
+		&output->output : NULL;
 
-	struct tw_event_output_device_present present = {
-		.device = device,
+	struct tw_event_output_present present = {
+		.output = render_output,
 		.time = {
 			.tv_sec = tv_sec,
 			.tv_nsec = tv_usec * 1000,
@@ -207,7 +207,7 @@ handle_page_flip2(int fd, unsigned seq, unsigned tv_sec, unsigned tv_usec,
 	if (output) {
                 assert(output->gpu->gpu_fd == fd);
 		tw_drm_display_handle_page_flipped(output, crtc_id);
-                tw_output_device_present(device, &present);
+                tw_render_output_present(render_output, &present);
 	}
 }
 

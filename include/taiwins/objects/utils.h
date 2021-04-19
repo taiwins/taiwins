@@ -23,6 +23,7 @@
 #define TW_SIGNAL_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <time.h>
 #include <wayland-server-core.h>
@@ -116,6 +117,8 @@ extern const struct tw_allocator tw_default_allocator;
 		ret; \
 	})
 
+#define TW_NS_PER_S 1000000000
+
 static inline uint32_t
 tw_millihertz_to_ns(unsigned mHz)
 {
@@ -124,20 +127,46 @@ tw_millihertz_to_ns(unsigned mHz)
 }
 
 static inline uint64_t
-tw_timespec_to_msec(const struct timespec *spec)
+tw_timespec_to_ms(const struct timespec *spec)
 {
-	return (int64_t)spec->tv_sec * 1000 + spec->tv_nsec / 1000000;
+	return (uint64_t)spec->tv_sec * 1000 + spec->tv_nsec / 1000000;
+}
+
+static inline uint64_t
+tw_timespec_to_us(const struct timespec *spec)
+{
+	return (uint64_t)spec->tv_sec * 1000000 + spec->tv_nsec / 1000;
 }
 
 static inline uint32_t
-tw_get_time_msec(clockid_t clk)
+tw_get_time_ms(clockid_t clk)
 {
 	struct timespec now;
 
 	clock_gettime(clk, &now);
-	return tw_timespec_to_msec(&now);
+	return tw_timespec_to_ms(&now);
 }
 
+static inline long
+tw_timespec_diff_ns(const struct timespec *a, const struct timespec *b)
+{
+	return (a->tv_sec - b->tv_sec) * (long)TW_NS_PER_S +
+		(a->tv_nsec - b->tv_nsec);
+}
+
+static inline long
+tw_timespec_diff_us(const struct timespec *a, const struct timespec *b)
+{
+	return ((a->tv_sec - b->tv_sec) * (long)1000000) +
+		((a->tv_nsec - b->tv_nsec) / 1000);
+}
+
+static inline int
+tw_timespec_diff_ms(const struct timespec *a, const struct timespec *b)
+{
+	return ((a->tv_sec - b->tv_sec) * 1000) +
+		((a->tv_nsec - b->tv_nsec) / 1000000);
+}
 
 #ifdef  __cplusplus
 }

@@ -69,16 +69,16 @@ handle_commit_output_state(struct tw_output_device *output)
 {
 	struct tw_x11_output *x11_output =
 		wl_container_of(output, x11_output, output.device);
-	bool enabled = output->pending.enabled || output->state.enabled;
+	bool enabled = output->pending.enabled || output->current.enabled;
 	struct tw_output_device_state pending = output->pending;
-	bool resize = !tw_output_device_mode_eq(&output->state.current_mode,
+	bool resize = !tw_output_device_mode_eq(&output->current.current_mode,
 	                                        &output->pending.current_mode);
 
 	pending.current_mode.refresh = DEFAULT_REFRESH;
 	pending.enabled = enabled;
 	if (!check_pending_stop(output))
 		return false;
-	if (tw_output_device_state_eq(&output->state, &pending))
+	if (tw_output_device_state_eq(&output->current, &pending))
 		return false;
 
 	assert(pending.scale >= 1.0);
@@ -86,7 +86,7 @@ handle_commit_output_state(struct tw_output_device *output)
 
 	//the x11 backend will simply resize the output for us so we only need
 	//to update the view matrix
-	memcpy(&output->state, &pending, sizeof(output->state));
+	memcpy(&output->current, &pending, sizeof(output->current));
 
 	if (x11_output->win == XCB_WINDOW_NONE && enabled)
 		tw_x11_output_start(x11_output);
@@ -102,17 +102,11 @@ static const struct tw_output_device_impl x11_output_impl = {
 static int
 frame_handler(void *data)
 {
-	/* static long long oldtime = 0, newtime; */
-	/* struct timespec spec; */
 	struct tw_x11_output *output = data;
-	wl_signal_emit(&output->output.device.signals.new_frame,
-	               &output->output.device);
+	wl_signal_emit(&output->output.signals.need_frame,
+	               &output->output);
 	wl_event_source_timer_update(output->frame_timer,
 	                             FRAME_DELAY);
-	/* clock_gettime(CLOCK_MONOTONIC, &spec); */
-	/* newtime = (spec.tv_sec*1000000 + spec.tv_nsec/1000); */
-	/* tw_logl("time lapsed: %lld", newtime - oldtime); */
-	/* oldtime = newtime; */
 	return 0;
 }
 
@@ -153,7 +147,9 @@ notify_output_commit(struct wl_listener *listener, void *data)
 {
 	struct tw_x11_output *output =
 		wl_container_of(listener, output, output_commit_listener);
-	tw_output_device_present(&output->output.device, NULL);
+	//TODO: the x11 backend commit logic is broke here. in weston they wait
+	//for 10 ms then do the present
+	tw_render_output_present(&output->output, NULL);
 	tw_render_output_clean_maybe(&output->output);
 }
 
@@ -165,7 +161,9 @@ tw_x11_output_resize(struct tw_x11_output *output)
 	                                &values[0], &values[1]);
 
 	xcb_configure_window(output->x11->xcb_conn,
-	                     output->win, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT,
+	                     output->win,
+	                     XCB_CONFIG_WINDOW_WIDTH |
+	                     XCB_CONFIG_WINDOW_HEIGHT,
 	                     values);
 	xcb_flush(output->x11->xcb_conn);
 }
@@ -262,7 +260,7 @@ tw_x11_backend_add_output(struct tw_backend *backend,
 		return false;
         output->x11 = x11;
 
-        tw_render_output_init(&output->output, &x11_output_impl);
+        tw_render_output_init(&output->output, &x11_output_impl, x11->display);
         tw_output_device_set_custom_mode(&output->output.device, width, height,
                                          0);
 

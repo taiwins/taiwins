@@ -19,6 +19,9 @@
 struct tw_render_pipeline *
 tw_egl_render_pipeline_create_default(struct tw_render_context *ctx,
                                       struct tw_layers_manager *manager);
+struct tw_server_output_manager *
+tw_server_output_manager_create_global(struct tw_engine *engine,
+                                       struct tw_render_context *ctx);
 static void
 set_dirty(void *data)
 {
@@ -98,7 +101,7 @@ int main(int argc, char *argv[])
 		tw_egl_render_pipeline_create_default(ctx,
 		                                      &engine->layers_manager);
 	wl_list_insert(ctx->pipelines.next, &pipeline->link);
-
+        tw_server_output_manager_create_global(engine, ctx);
 	tw_backend_start(backend, ctx);
 
 	wl_display_run(display);

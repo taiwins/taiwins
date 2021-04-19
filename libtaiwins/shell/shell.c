@@ -445,7 +445,7 @@ shell_send_output_config(struct tw_shell *shell,
                          enum taiwins_shell_output_msg msg)
 {
 	pixman_rectangle32_t geo = tw_output_device_geometry(output->device);
-	int scale = output->device->state.scale;
+	int scale = output->device->current.scale;
 
 	if (shell->shell_resource)
 		taiwins_shell_send_output_configure(shell->shell_resource,

@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/surface.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/render_context.h>
 #include <taiwins/render_output.h>
@@ -61,7 +62,18 @@ notify_tw_surface_output_lost(struct wl_listener *listener, void *data)
 {
 	struct tw_render_surface *surface =
 		wl_container_of(listener, surface, listeners.output_lost);
-	tw_render_surface_reassign_outputs(surface, surface->ctx);
+	tw_surface_dirty_geometry(&surface->surface);
+}
+
+static void
+notify_tw_surface_frame_request(struct wl_listener *listener, void *data)
+{
+	//wl_surface requested a frame but no buffer committed, we have to run
+	//through a frame here
+	struct tw_render_surface *surface =
+		wl_container_of(listener, surface, listeners.frame);
+	assert(data == &surface->surface);
+	wl_signal_emit(&surface->ctx->signals.wl_surface_dirty, data);
 }
 
 void
@@ -88,6 +100,9 @@ tw_render_surface_init(struct tw_render_surface *surface,
 	tw_signal_setup_listener(&tw_surface->signals.dirty,
 	                         &surface->listeners.dirty,
 	                         notify_tw_surface_dirty);
+	tw_signal_setup_listener(&tw_surface->signals.frame,
+	                         &surface->listeners.frame,
+	                         notify_tw_surface_frame_request);
 	tw_signal_setup_listener(&ctx->signals.output_lost,
 	                         &surface->listeners.output_lost,
 	                         notify_tw_surface_output_lost);
@@ -270,73 +285,6 @@ tw_render_context_build_view_list(struct tw_render_context *ctx,
 	SCOPE_PROFILE_END();
 }
 
-static void
-update_surface_mask(struct tw_surface *base, struct tw_render_context *ctx,
-                    struct tw_render_output *major, uint32_t mask)
-{
-	struct tw_render_output *output;
-	struct tw_render_surface *surface =
-		wl_container_of(base, surface, surface);
-	uint32_t output_bit;
-	uint32_t different = surface->output_mask ^ mask;
-	uint32_t entered = mask & different;
-	uint32_t left = surface->output_mask & different;
-
-	//update the surface_mask and
-	surface->output_mask = mask;
-	surface->output = major ? major->device.id : -1;
-
-	wl_list_for_each(output, &ctx->outputs, link) {
-		output_bit = 1u << output->device.id;
-		if (!(output_bit & different))
-			continue;
-		if ((output_bit & entered))
-			wl_signal_emit(&output->signals.surface_enter, base);
-		if ((output_bit & left))
-			wl_signal_emit(&output->signals.surface_leave, base);
-	}
-}
-
-WL_EXPORT void
-tw_render_surface_reassign_outputs(struct tw_render_surface *render_surface,
-                                   struct tw_render_context *ctx)
-{
-	uint32_t area = 0, max = 0, mask = 0;
-	struct tw_render_output *output, *major = NULL;
-	pixman_region32_t surface_region;
-	pixman_box32_t *e;
-	struct tw_surface *surface = &render_surface->surface;
-
-	pixman_region32_init_rect(&surface_region,
-	                          surface->geometry.xywh.x,
-	                          surface->geometry.xywh.y,
-	                          surface->geometry.xywh.width,
-	                          surface->geometry.xywh.height);
-	wl_list_for_each(output, &ctx->outputs, link) {
-		pixman_region32_t clip;
-		struct tw_output_device *device = &output->device;
-		pixman_rectangle32_t rect =
-			tw_output_device_geometry(device);
-		//TODO dealing with cloning output
-		// if (output->cloning >= 0)
-		//	continue;
-		pixman_region32_init_rect(&clip, rect.x, rect.y,
-		                          rect.width, rect.height);
-		pixman_region32_intersect(&clip, &clip, &surface_region);
-		e = pixman_region32_extents(&clip);
-		area = (e->x2 - e->x1) * (e->y2 - e->y1);
-		if (pixman_region32_not_empty(&clip))
-			mask |= (1u << device->id);
-		if (area >= max) {
-			major = output;
-			max = area;
-		}
-		pixman_region32_fini(&clip);
-	}
-	pixman_region32_fini(&surface_region);
-
-	update_surface_mask(surface, ctx, major, mask);
-}
 
 WL_EXPORT void
 tw_render_context_set_compositor(struct tw_render_context *ctx,

@@ -51,7 +51,7 @@ check_pending_stop(struct tw_output_device *output)
 		wl_container_of(output, wl_surface, output.device);
 
 	bool penable = output->pending.enabled;
-	bool cenable = output->state.enabled;
+	bool cenable = output->current.enabled;
 
 	if (wl_surface->egl_window && cenable && !penable) {
 		tw_logl_level(TW_LOG_WARN, "changing wl_output@%s enabling "
@@ -68,7 +68,7 @@ handle_commit_output_state(struct tw_output_device *output)
 	struct tw_wl_surface *wl_surface =
 		wl_container_of(output, wl_surface, output.device);
 	unsigned width, height;
-	bool enabled = output->pending.enabled || output->state.enabled;
+	bool enabled = output->pending.enabled || output->current.enabled;
 
 	if (!check_pending_stop(output))
 		return false;
@@ -77,10 +77,10 @@ handle_commit_output_state(struct tw_output_device *output)
 	assert(output->pending.current_mode.h > 0 &&
 	       output->pending.current_mode.w > 0);
 
-        memcpy(&output->state, &output->pending, sizeof(output->state));
+        memcpy(&output->current, &output->pending, sizeof(output->current));
         //override the enabling and refresh rate
-        output->state.enabled = enabled;
-        output->state.current_mode.refresh = wl_surface->residing ?
+        output->current.enabled = enabled;
+        output->current.current_mode.refresh = wl_surface->residing ?
 	        (int)wl_surface->residing->r : -1;
 
         //resize, maybe getting output to start?
@@ -195,15 +195,15 @@ handle_feedback_presented(void *data,
 		.tv_sec = ((uint64_t)tv_sec_hi << 32) | tv_sec_lo,
 		.tv_nsec = tv_nsec,
 	};
-	struct tw_event_output_device_present event = {
-		.device = &output->output.device,
+	struct tw_event_output_present event = {
+		.output = &output->output,
 		.time = time,
 		.seq = ((uint64_t)seq_hi << 32) | seq_lo,
 		.refresh = refresh,
 		.flags = flags,
 	};
 
-	tw_output_device_present(&output->output.device, &event);
+	tw_render_output_present(&output->output, &event);
 	wp_presentation_feedback_destroy(wp_feedback);
 }
 
@@ -212,7 +212,7 @@ handle_feedback_discarded(void *data,
                           struct wp_presentation_feedback *wp_feedback)
 {
 	struct tw_wl_surface *output = data;
-	tw_output_device_present(&output->output.device, NULL);
+	tw_render_output_present(&output->output, NULL);
 	wp_presentation_feedback_destroy(wp_feedback);
 }
 
@@ -332,7 +332,7 @@ notify_output_commit(struct wl_listener *listener, void *data)
 		                                      &feedback_listener,
 		                                      output);
 	else
-		tw_output_device_present(&output->output.device, NULL);
+		tw_render_output_present(&output->output, NULL);
 	tw_render_output_clean_maybe(&output->output);
 }
 
@@ -425,8 +425,9 @@ tw_wl_backend_new_output(struct tw_backend *backend,
         }
 
 	output->wl = wl;
-	tw_render_output_init(&output->output, &output_impl);
-	tw_render_output_reset_clock(&output->output, wl->clk_id);
+	tw_render_output_init(&output->output, &output_impl,
+	                      wl->server_display);
+	tw_output_device_reset_clock(&output->output.device, wl->clk_id);
         tw_output_device_set_custom_mode(&output->output.device, width, height,
                                          0);
 

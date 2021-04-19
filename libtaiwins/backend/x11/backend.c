@@ -52,31 +52,17 @@ static void
 handle_x11_configure_notify(struct tw_output_device *device,
                             xcb_configure_notify_event_t *ev)
 {
-	int refresh = device->state.current_mode.refresh;
+	int refresh = device->current.current_mode.refresh;
 	if (ev->width > 0 && ev->height > 0)
 		tw_output_device_set_current_mode(device, ev->width, ev->height,
 		                                  refresh);
 }
 
-static void
-handle_new_x11_frame(void *data)
-{
-	struct tw_x11_output *output = data;
-
-	wl_signal_emit(&output->output.device.signals.new_frame,
-	               &output->output.device);
-}
-
-static void
+static inline void
 handle_x11_request_frame(struct tw_x11_backend *x11,
                          struct tw_x11_output *output)
 {
-	struct wl_display *display = x11->display;
-	struct wl_event_loop *loop = wl_display_get_event_loop(display);
-
-	if (!loop)
-	        return;
-        wl_event_loop_add_idle(loop, handle_new_x11_frame, output);
+	tw_render_output_dirty(&output->output);
 }
 
 static int

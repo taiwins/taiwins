@@ -20,6 +20,9 @@
 struct tw_render_pipeline *
 tw_egl_render_pipeline_create_default(struct tw_render_context *ctx,
                                       struct tw_layers_manager *manager);
+struct tw_server_output_manager *
+tw_server_output_manager_create_global(struct tw_engine *engine,
+                                       struct tw_render_context *ctx);
 static inline void
 wait_for_debug()
 {
@@ -140,6 +143,8 @@ int main(int argc, char *argv[])
 	wl_list_insert(ctx->pipelines.next, &pipeline->link);
 
 	wait_for_debug();
+
+        tw_server_output_manager_create_global(engine, ctx);
 
 	tw_backend_start(backend, ctx);
 
