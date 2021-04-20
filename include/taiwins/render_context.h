@@ -1,7 +1,7 @@
 /*
  * render_context.h - taiwins render context
  *
- * Copyright (c) 2020 Xichen Zhou
+ * Copyright (c) 2020-2021 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -117,11 +117,6 @@ struct tw_render_context {
 struct tw_render_context *
 tw_render_context_create_egl(struct wl_display *display,
                              const struct tw_egl_options *opts);
-
-//TODO implement this later when vulkan is enough to work with
-struct tw_render_context *
-tw_render_context_create_vk(struct wl_display *display);
-
 void
 tw_render_context_destroy(struct tw_render_context *ctx);
 
@@ -134,49 +129,6 @@ tw_render_context_set_dma(struct tw_render_context *ctx,
 void
 tw_render_context_set_compositor(struct tw_render_context *ctx,
                                  struct tw_compositor *compositor);
-
-static inline bool
-tw_render_presentable_init_offscreen(struct tw_render_presentable *surface,
-                                     struct tw_render_context *ctx,
-                                     unsigned int width, unsigned int height)
-{
-	return ctx->impl->new_offscreen_surface(surface, ctx, width, height);
-}
-
-static inline bool
-tw_render_presentable_init_window(struct tw_render_presentable *surf,
-                                  struct tw_render_context *ctx,
-                                  void *native_window, uint32_t fmt)
-{
-	return ctx->impl->new_window_surface(surf, ctx, native_window, fmt);
-}
-
-static inline void
-tw_render_presentable_fini(struct tw_render_presentable *surface,
-                           struct tw_render_context *ctx)
-{
-	surface->impl->destroy(surface, ctx);
-	surface->handle = (intptr_t)NULL;
-}
-
-static inline bool
-tw_render_presentable_commit(struct tw_render_presentable *surface,
-                             struct tw_render_context *ctx)
-{
-	bool ret = true;
-
-	if ((ret = surface->impl->commit(surface, ctx)))
-		wl_signal_emit(&surface->commit, surface);
-	return ret;
-}
-
-static inline int
-tw_render_presentable_make_current(struct tw_render_presentable *surf,
-                                   struct tw_render_context *ctx)
-{
-	return surf->impl->make_current(surf, ctx);
-}
-
 #ifdef  __cplusplus
 }
 #endif

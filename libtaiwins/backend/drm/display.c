@@ -26,7 +26,6 @@
 #include <stdint.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
-#include <taiwins/render_output.h>
 #include <wayland-server.h>
 #include <xf86drmMode.h>
 

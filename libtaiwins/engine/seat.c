@@ -31,8 +31,8 @@
 #include <taiwins/backend.h>
 #include <taiwins/input_device.h>
 #include <taiwins/output_device.h>
-#include <taiwins/profiling.h>
 
+#include "utils.h"
 #include "internal.h"
 
 static void

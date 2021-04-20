@@ -30,8 +30,9 @@
 #include <taiwins/render_output.h>
 #include <taiwins/render_surface.h>
 #include <taiwins/objects/logger.h>
-#include <taiwins/profiling.h>
 #include <wayland-util.h>
+
+#include "utils.h"
 
 /******************************************************************************
  * tw_render_surface APIs

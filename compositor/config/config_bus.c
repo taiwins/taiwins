@@ -27,7 +27,7 @@
 #include <ctypes/helpers.h>
 
 #include <taiwins/objects/utils.h>
-#include <taiwins/dbus_utils.h>
+#include "utils.h"
 
 static struct tw_bus {
 	struct wl_display *display;

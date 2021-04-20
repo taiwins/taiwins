@@ -32,6 +32,8 @@
 #include <taiwins/render_context_egl.h>
 #include <taiwins/render_surface.h>
 
+#include "render.h"
+
 #ifdef  __cplusplus
 extern "C" {
 #endif

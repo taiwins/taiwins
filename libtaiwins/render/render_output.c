@@ -35,6 +35,9 @@
 #include <taiwins/render_pipeline.h>
 #include <ctypes/helpers.h>
 
+#include "render.h"
+#include "output_device.h"
+
 static inline bool
 check_bits(uint32_t data, uint32_t mask)
 {
@@ -180,7 +183,7 @@ notify_render_output_new_mode(struct wl_listener *listener, void *data)
  * APIs
  *****************************************************************************/
 
-WL_EXPORT void
+void
 tw_render_output_init(struct tw_render_output *output,
                       const struct tw_output_device_impl *impl,
                       struct wl_display *display)
@@ -209,7 +212,7 @@ tw_render_output_init(struct tw_render_output *output,
 	                         notify_render_output_new_mode);
 }
 
-WL_EXPORT void
+void
 tw_render_output_fini(struct tw_render_output *output)
 {
 	fini_output_state(output);
@@ -225,7 +228,7 @@ tw_render_output_fini(struct tw_render_output *output)
 	tw_output_device_fini(&output->device);
 }
 
-WL_EXPORT void
+void
 tw_render_output_set_context(struct tw_render_output *output,
                              struct tw_render_context *ctx)
 {
@@ -237,7 +240,7 @@ tw_render_output_set_context(struct tw_render_output *output,
 	wl_list_insert(ctx->outputs.prev, &output->link);
 }
 
-WL_EXPORT void
+void
 tw_render_output_unset_context(struct tw_render_output *output)
 {
 	struct tw_render_context *ctx = output->ctx;
@@ -291,7 +294,7 @@ tw_render_output_post_frame(struct tw_render_output *output)
  * still dirty and reset the TW_REPAINT_SCHEDULED bit so we can commit another
  * frame frame again.
  */
-WL_EXPORT void
+void
 tw_render_output_clean_maybe(struct tw_render_output *output)
 {
 	output->state.repaint_state &= ~TW_REPAINT_COMMITTED;

@@ -28,11 +28,9 @@ add_global_arguments(
 
 ###### options
 options_data = configuration_data()
-options_data.set10('_TW_HAS_EGLMESAEXT', cc.has_header('EGL/eglmesaext.h'))
 options_data.set10('_TW_ENABLE_PROFILING', false)
 options_data.set10('_TW_HAS_X11_BACKEND', false)
 options_data.set10('_TW_HAS_XWAYLAND', false)
-options_data.set10('_TW_HAS_LIBINPUT_GET_TOUCH_COUNT', false)
 options_data.set10('_TW_HAS_SYSTEMD', false)
 options_data.set10('_TW_HAS_ELOGIND', false)
 options_data.set10('_TW_HAS_XCB_ICCCM', false)
@@ -82,12 +80,12 @@ inc_libtaiwins = include_directories('include')
 dir_tp_base = join_paths(meson.source_root(), 'subprojects', 'taiwins-protocols')
 
 subdir('protocols')
-subdir('include')
 subdir('libtaiwins')
 subdir('clients')
 subdir('compositor')
 subdir('test')
 
+subdir('include')
 
 #docs
 if get_option('build-doc')

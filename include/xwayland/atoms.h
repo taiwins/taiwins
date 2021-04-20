@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef TW_XWAYLAND_ATOMS_H
-#define TW_XWAYLAND_ATOMS_H
+#ifndef TW_XWAYLAND_ATOMS_INTERNAL_H
+#define TW_XWAYLAND_ATOMS_INTERNAL_H
 
 #include <stdbool.h>
 #include <xcb/xcb.h>

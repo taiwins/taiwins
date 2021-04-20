@@ -31,7 +31,6 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/output_device.h>
 #include <taiwins/objects/utils.h>
-#include <taiwins/profiling.h>
 #include <wayland-util.h>
 
 static void
@@ -57,7 +56,7 @@ output_device_mode_match(const struct tw_output_device_mode *mode,
 	return mode->w == w && mode->h == h && mode->refresh == r;
 }
 
-WL_EXPORT void
+void
 tw_output_device_init(struct tw_output_device *device,
                       const struct tw_output_device_impl *impl)
 {
@@ -78,18 +77,12 @@ tw_output_device_init(struct tw_output_device *device,
 	wl_signal_init(&device->signals.clock_reset);
 }
 
-WL_EXPORT void
+void
 tw_output_device_fini(struct tw_output_device *device)
 {
 	wl_signal_emit(&device->signals.destroy, device);
 
 	wl_list_remove(&device->link);
-}
-
-WL_EXPORT void
-tw_output_device_set_id(struct tw_output_device *device, int id)
-{
-	device->id = id;
 }
 
 WL_EXPORT void
@@ -240,14 +233,14 @@ tw_output_device_raw_resolution(const struct tw_output_device *device,
 	*height = device->current.current_mode.h;
 }
 
-WL_EXPORT bool
+bool
 tw_output_device_mode_eq(const struct tw_output_device_mode *a,
                          const struct tw_output_device_mode *b)
 {
 	return output_device_mode_match(a, b->w, b->h, b->refresh);
 }
 
-WL_EXPORT bool
+bool
 tw_output_device_state_eq(const struct tw_output_device_state *a,
                           const struct tw_output_device_state *b)
 {

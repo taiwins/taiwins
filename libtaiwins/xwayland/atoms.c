@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <taiwins/objects/logger.h>
-#include "internal.h"
+#include "xwayland/xwm.h"
 
 bool
 collect_xwm_atoms(xcb_connection_t *conn, struct tw_xwm_atoms *xwm_atoms)

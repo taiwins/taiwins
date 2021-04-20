@@ -78,7 +78,6 @@ struct tw_output_device {
 	enum wl_output_subpixel subpixel;
 
 	/** a native window for different backend, could be none */
-	/** Do I need to include render_surface here */
 	void *native_window;
 	const struct tw_output_device_impl *impl;
 	struct wl_list link; /** backend: list */
@@ -100,15 +99,6 @@ struct tw_output_device {
 };
 
 void
-tw_output_device_init(struct tw_output_device *device,
-                      const struct tw_output_device_impl *impl);
-void
-tw_output_device_fini(struct tw_output_device *device);
-
-void
-tw_output_device_set_id(struct tw_output_device *device, int id);
-
-void
 tw_output_device_enable(struct tw_output_device *device, bool enable);
 
 void
@@ -123,28 +113,6 @@ tw_output_device_set_pos(struct tw_output_device *device, int gx, int gy);
 void
 tw_output_device_set_mode(struct tw_output_device *dev,
                           const struct tw_output_device_mode *mode);
-
-//TODO don't expose this, used internally by x11 backend when output dimensions
-//changed directly in xserver
-static inline void
-tw_output_device_set_current_mode(struct tw_output_device *device,
-                                  unsigned width, unsigned height, int refresh)
-{
-		device->current.current_mode.h = height;
-		device->current.current_mode.w = width;
-		device->current.current_mode.refresh = refresh;
-		wl_signal_emit(&device->signals.commit_state, device);
-		wl_signal_emit(&device->signals.info, device);
-}
-
-//TODO: dont expose this, only backends are using it.
-static inline void
-tw_output_device_reset_clock(struct tw_output_device *device, clockid_t clk)
-{
-	device->clk_id = clk;
-	wl_signal_emit(&device->signals.clock_reset, device);
-}
-
 void
 tw_output_device_set_custom_mode(struct tw_output_device *device,
                                  unsigned width, unsigned height, int refresh);
@@ -153,13 +121,6 @@ tw_output_device_match_mode(struct tw_output_device *device,
                             int width, int height, int refresh);
 void
 tw_output_device_commit_state(struct tw_output_device *device);
-
-bool
-tw_output_device_mode_eq(const struct tw_output_device_mode *a,
-                         const struct tw_output_device_mode *b);
-bool
-tw_output_device_state_eq(const struct tw_output_device_state *a,
-                          const struct tw_output_device_state *b);
 
 pixman_rectangle32_t
 tw_output_device_geometry(const struct tw_output_device *device);

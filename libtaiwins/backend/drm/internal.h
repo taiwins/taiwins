@@ -30,11 +30,11 @@
 #include <gbm.h>
 #include <wayland-server.h>
 #include <taiwins/backend_drm.h>
-#include <taiwins/backend_libinput.h>
-#include <taiwins/render_output.h>
 #include <taiwins/objects/plane.h>
 #include <taiwins/objects/drm_formats.h>
 
+#include "input_libinput.h"
+#include "render.h"
 #include "login/login.h"
 
 #ifdef  __cplusplus

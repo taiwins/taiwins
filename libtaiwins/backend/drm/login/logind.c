@@ -35,9 +35,8 @@
 #include <taiwins/objects/utils.h>
 #include <taiwins/backend_drm.h>
 #include <taiwins/objects/logger.h>
-#include <taiwins/dbus_utils.h>
-#include <tdbus.h>
 
+#include "utils.h"
 #include "login.h"
 #include "tdbus_message.h"
 #include "tdbus_message_iter.h"

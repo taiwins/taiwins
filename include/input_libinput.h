@@ -19,15 +19,15 @@
  *
  */
 
-#ifndef TW_BACKEND_LIBINPUT_H
-#define TW_BACKEND_LIBINPUT_H
+#ifndef TW_INPUT_LIBINPUT_INTERNAL_H
+#define TW_INPUT_LIBINPUT_INTERNAL_H
 
 #include <libudev.h>
 #include <wayland-server.h>
 
-#include "input_device.h"
-#include "output_device.h"
-#include "backend.h"
+#include "taiwins/input_device.h"
+#include "taiwins/output_device.h"
+#include "taiwins/backend.h"
 
 #ifdef  __cplusplus
 extern "C" {

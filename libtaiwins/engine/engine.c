@@ -42,16 +42,15 @@
 #include <taiwins/objects/dmabuf.h>
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/surface.h>
-#include <taiwins/objects/profiler.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/gestures.h>
 
 #include <taiwins/input_device.h>
 #include <taiwins/output_device.h>
-#include <taiwins/profiling.h>
 #include <taiwins/render_context.h>
 #include <taiwins/backend.h>
 #include <taiwins/engine.h>
+#include "utils.h"
 #include "internal.h"
 
 static struct tw_engine s_engine = {0};

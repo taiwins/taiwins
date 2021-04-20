@@ -19,16 +19,35 @@
  *
  */
 
-#ifndef TW_DBUS_UTILS_H
-#define TW_DBUS_UTILS_H
+#ifndef TW_UTILS_INTERNAL_H
+#define TW_UTILS_INTERNAL_H
+
+#include "options.h"
 
 #include <unistd.h>
-#include <sys/eventfd.h>
-#include <tdbus.h>
 #include <wayland-server-core.h>
+#include <taiwins/objects/profiler.h>
+#include <tdbus.h>
 
 #ifdef  __cplusplus
 extern "C" {
+#endif
+
+#if _TW_ENABLE_PROFILING
+
+#define SCOPE_PROFILE_BEG() tw_profiler_start_timer(__func__)
+#define SCOPE_PROFILE_END() tw_profiler_stop_timer(__func__)
+#define PROFILE_BEG(name) tw_profiler_start_timer(name)
+#define PROFILE_END(name) tw_profiler_stop_timer(name)
+#define SCOPE_PROFILE_TS() tw_profiler_timestamp(__func__)
+
+#else
+
+#define SCOPE_PROFILE_BEG()
+#define SCOPE_PROFILE_END()
+#define PROFILE_BEG(name)
+#define PROFILE_END(name)
+#define SCOPE_PROFILE_TS()
 #endif
 
 struct wl_event_source *

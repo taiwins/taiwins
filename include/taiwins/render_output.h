@@ -89,24 +89,6 @@ struct tw_render_output {
 };
 
 void
-tw_render_output_init(struct tw_render_output *output,
-                      const struct tw_output_device_impl *impl,
-                      struct wl_display *display);
-void
-tw_render_output_fini(struct tw_render_output *output);
-
-void
-tw_render_output_set_context(struct tw_render_output *output,
-                             struct tw_render_context *ctx);
-void
-tw_render_output_unset_context(struct tw_render_output *output);
-
-//TODO: dont expose this
-void
-tw_render_output_present(struct tw_render_output *output,
-                         struct tw_event_output_present *event);
-
-void
 tw_render_output_dirty(struct tw_render_output *output);
 
 /**
@@ -127,10 +109,6 @@ tw_render_output_flush_frame(struct tw_render_output *output,
  */
 void
 tw_render_output_post_frame(struct tw_render_output *output);
-
-//TODO: don't expose this, only used by backends
-void
-tw_render_output_clean_maybe(struct tw_render_output *output);
 
 #ifdef  __cplusplus
 }
