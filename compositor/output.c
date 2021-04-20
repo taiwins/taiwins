@@ -35,6 +35,7 @@
 #include <ctypes/helpers.h>
 #include <wayland-util.h>
 
+#include "options.h"
 #include "utils.h"
 #include "output.h"
 

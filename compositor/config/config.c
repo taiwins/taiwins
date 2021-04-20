@@ -46,9 +46,12 @@
 #include <taiwins/output_device.h>
 #include <taiwins/shell.h>
 
+#include "options.h"
 #include "bindings.h"
 #include "config.h"
+#if _TW_HAS_XWAYLAND
 #include "xwayland.h"
+#endif
 
 struct tw_config_obj {
 	char name[32];
@@ -272,7 +275,9 @@ tw_config_wake_compositor(struct tw_config *c)
 	struct tw_bus *bus;
 	struct tw_theme_global *theme;
 	struct tw_xdg *xdg = NULL;
+#if _TW_HAS_XWAYLAND
 	struct tw_xwayland *xwayland;
+#endif
 	struct tw_config *initialized;
 	struct wl_display *display = c->engine->display;
 	uint32_t enables = c->config_table.enable_globals;
@@ -320,15 +325,13 @@ tw_config_wake_compositor(struct tw_config *c)
 			goto out;
 		tw_config_register_object(c, "desktop", xdg);
 	}
-#ifdef _TW_HAS_XWAYLAND
+#if _TW_HAS_XWAYLAND
 	if (!(xwayland = tw_xwayland_create_global(c->engine,
 	                                           xdg ? &xdg->desktop_manager:
 	                                           NULL,
 	                                           false)))
 		goto out;
 	tw_config_register_object(c, "xwayland", xwayland);
-#else
-	(void)xwayland;
 #endif
 	//this is probably a bad idea.
 	tw_config_register_object(c, "initialized", &c->config_table);
