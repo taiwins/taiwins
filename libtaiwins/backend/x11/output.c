@@ -35,8 +35,7 @@
 
 #include <taiwins/input_device.h>
 #include <taiwins/output_device.h>
-#include <taiwins/render_context.h>
-#include <taiwins/render_output.h>
+
 #include "internal.h"
 
 #define DEFAULT_REFRESH (60 * 1000) /* 60Hz */

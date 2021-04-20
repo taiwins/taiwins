@@ -59,22 +59,6 @@ tw_render_pipeline_init(struct tw_render_pipeline *pipeline,
 void
 tw_render_pipeline_fini(struct tw_render_pipeline *pipeline);
 
-static inline void
-tw_render_pipeline_destroy(struct tw_render_pipeline *pipeline)
-{
-	assert(pipeline->impl.destroy);
-	pipeline->impl.destroy(pipeline);
-}
-
-static inline void
-tw_render_pipeline_repaint(struct tw_render_pipeline *pipeline,
-                           struct tw_render_output *output,
-                           int buffer_age)
-{
-	assert(pipeline->impl.repaint_output);
-	pipeline->impl.repaint_output(pipeline, output, buffer_age);
-}
-
 #ifdef  __cplusplus
 }
 #endif

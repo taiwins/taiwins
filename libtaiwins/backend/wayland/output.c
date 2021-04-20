@@ -35,10 +35,9 @@
 #include <taiwins/output_device.h>
 #include <taiwins/backend.h>
 #include <taiwins/objects/logger.h>
-#include <taiwins/render_context.h>
-#include <taiwins/render_output.h>
 #include <taiwins/objects/utils.h>
 
+#include "render.h"
 #include "internal.h"
 
 static void

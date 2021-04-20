@@ -33,7 +33,6 @@
 
 #include <taiwins/backend_wayland.h>
 
-
 #ifdef  __cplusplus
 extern "C" {
 #endif

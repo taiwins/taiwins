@@ -31,9 +31,9 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/egl.h>
 #include <taiwins/backend.h>
-#include <taiwins/render_context.h>
 #include <wayland-util.h>
 
+#include "render.h"
 #include "internal.h"
 
 static int

@@ -30,7 +30,6 @@
 #include <xf86drmMode.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
-#include <taiwins/render_output.h>
 
 #include "internal.h"
 
