@@ -55,12 +55,7 @@ subdir('render')
 subdir('backend')
 subdir('xwayland')
 
-option_h = configure_file(
-  input: 'options.h.in',
-  output: 'options.h',
-  configuration: options_data,
-)
-taiwins_lib_src += option_h
+# taiwins_lib_src += option_h
 
 taiwins_lib = both_libraries(
   'taiwins',
