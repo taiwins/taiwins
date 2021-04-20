@@ -1,6 +1,6 @@
-option('enable-profiler',
-       type: 'boolean',
-       value: false,
+option('profiler',
+       type: 'feature',
+       value: 'disabled',
        description: 'Enable taiwins profiler'
 )
 
