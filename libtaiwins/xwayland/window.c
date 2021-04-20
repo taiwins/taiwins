@@ -37,7 +37,7 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/utils.h>
 
-#include "internal.h"
+#include "xwayland/xsurface.h"
 
 static void
 send_xsurface_wm_msg(struct tw_xsurface *surface,

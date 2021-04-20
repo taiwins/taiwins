@@ -44,7 +44,8 @@
 #include <xcb/xfixes.h>
 #include <xcb/xproto.h>
 
-#include "internal.h"
+#include "xwayland/xwm.h"
+#include "xwayland/xsurface.h"
 
 /******************************************************************************
  * handlers

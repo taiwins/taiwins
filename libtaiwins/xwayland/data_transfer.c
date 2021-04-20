@@ -32,7 +32,7 @@
 #include <xcb/xproto.h>
 #include <ctypes/helpers.h>
 
-#include "internal.h"
+#include "xwayland/xwm.h"
 
 #define INCR_CHUNK_SIZE (64 * 1024)
 
