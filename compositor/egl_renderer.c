@@ -36,10 +36,10 @@
 #include <taiwins/objects/plane.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/output_device.h>
-#include <taiwins/profiling.h>
 #include <taiwins/render_context_egl.h>
 #include <taiwins/render_surface.h>
 #include <taiwins/render_pipeline.h>
+#include "utils.h"
 
 struct tw_egl_layer_render_pipeline {
 	struct tw_render_pipeline base;

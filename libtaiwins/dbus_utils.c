@@ -23,8 +23,9 @@
 #include <sys/eventfd.h>
 #include <tdbus.h>
 #include <wayland-server-core.h>
-#include <taiwins/dbus_utils.h>
 #include <taiwins/objects/logger.h>
+
+#include "utils.h"
 
 static int
 tw_dbus_dispatch_watch(int fd, uint32_t mask, void *data)

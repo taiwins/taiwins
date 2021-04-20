@@ -29,13 +29,13 @@
 #include <taiwins/objects/utils.h>
 #include <taiwins/engine.h>
 #include <taiwins/backend.h>
-#include <taiwins/profiling.h>
 #include <taiwins/render_output.h>
 #include <taiwins/render_context.h>
 #include <taiwins/render_surface.h>
 #include <ctypes/helpers.h>
 #include <wayland-util.h>
 
+#include "utils.h"
 #include "output.h"
 
 static void

@@ -31,7 +31,6 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/output_device.h>
 #include <taiwins/objects/utils.h>
-#include <taiwins/profiling.h>
 #include <wayland-util.h>
 
 static void
