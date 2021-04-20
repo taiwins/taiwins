@@ -52,6 +52,7 @@ taiwins_lib_dep = [
 ]
 
 subdir('render')
+subdir('libinput')
 subdir('backend')
 subdir('xwayland')
 

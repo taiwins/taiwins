@@ -28,10 +28,10 @@
 #include <stdint.h>
 
 #include <taiwins/backend.h>
-#include <taiwins/backend_libinput.h>
 #include <taiwins/input_device.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
+#include "input_libinput.h"
 
 static const struct tw_libinput_impl dummy_impl = {
 	.get_output_device = NULL,

@@ -38,9 +38,9 @@
 #include <taiwins/objects/egl.h>
 #include <taiwins/render_context.h>
 
+#include "input_libinput.h"
 #include "login/login.h"
 #include "internal.h"
-#include "taiwins/backend_libinput.h"
 
 extern const struct tw_drm_gpu_impl tw_gpu_gbm_impl;
 extern const struct tw_drm_gpu_impl tw_gpu_stream_impl;
