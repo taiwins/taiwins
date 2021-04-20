@@ -37,7 +37,6 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
 
-#include "render.h"
 #include "internal.h"
 
 static void

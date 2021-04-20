@@ -30,8 +30,10 @@
 #include <wayland-presentation-time-client-protocol.h>
 #include <taiwins/input_device.h>
 #include <taiwins/render_output.h>
-
 #include <taiwins/backend_wayland.h>
+
+#include "render.h"
+#include "output_device.h"
 
 #ifdef  __cplusplus
 extern "C" {

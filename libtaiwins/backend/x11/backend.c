@@ -42,6 +42,8 @@
 #include <taiwins/input_device.h>
 #include <taiwins/output_device.h>
 #include <taiwins/render_context.h>
+
+#include "output_device.h"
 #include "internal.h"
 
 /******************************************************************************

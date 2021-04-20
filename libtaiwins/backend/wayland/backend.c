@@ -33,7 +33,6 @@
 #include <taiwins/backend.h>
 #include <wayland-util.h>
 
-#include "render.h"
 #include "internal.h"
 
 static int

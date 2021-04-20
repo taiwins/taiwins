@@ -35,6 +35,7 @@
 #include <taiwins/output_device.h>
 
 #include "render.h"
+#include "output_device.h"
 
 #ifdef  __cplusplus
 extern "C" {

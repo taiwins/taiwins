@@ -36,6 +36,7 @@
 #include <ctypes/helpers.h>
 
 #include "render.h"
+#include "output_device.h"
 
 static inline bool
 check_bits(uint32_t data, uint32_t mask)

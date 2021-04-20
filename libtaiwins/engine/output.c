@@ -31,6 +31,7 @@
 #include <taiwins/objects/output.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/objects/presentation_feedback.h>
 
 #include <taiwins/engine.h>
 #include <taiwins/output_device.h>
@@ -38,8 +39,9 @@
 #include <taiwins/render_output.h>
 #include <taiwins/render_surface.h>
 #include <wayland-util.h>
+
+#include "output_device.h"
 #include "internal.h"
-#include "taiwins/objects/presentation_feedback.h"
 
 static void
 init_engine_output_state(struct tw_engine_output *o)
