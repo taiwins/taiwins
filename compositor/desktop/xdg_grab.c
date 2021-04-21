@@ -42,6 +42,8 @@ static void
 tw_xdg_grab_interface_destroy(struct tw_xdg_grab_interface *gi)
 {
 	wl_list_remove(&gi->view_destroy_listener.link);
+	if (gi->idle_motion_source)
+		wl_event_source_remove(gi->idle_motion_source);
 	free(gi);
 }
 
@@ -89,9 +91,37 @@ tw_xdg_grab_interface_create(struct tw_xdg_view *view, struct tw_xdg *xdg,
 	return gi;
 }
 
+static void
+tw_xdg_grab_interface_add_idle_motion(struct tw_xdg_grab_interface *gi,
+                                      wl_event_loop_idle_func_t func)
+{
+	if (!gi->idle_motion_source) {
+		struct tw_xdg *xdg = gi->xdg;
+		struct wl_display *display = xdg->display;
+		struct wl_event_loop *loop = wl_display_get_event_loop(display);
+
+		gi->idle_motion_source = wl_event_loop_add_idle(loop, func, gi);
+	}
+}
+
 /******************************************************************************
  * pointer moving grab
  *****************************************************************************/
+
+static void
+idle_move(void *data)
+{
+	struct tw_xdg_grab_interface *gi = data;
+	struct tw_xdg *xdg = gi->xdg;
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+
+	if (gi->dx != 0.0f || gi->dy != 0.0f)
+		tw_workspace_move_view(ws, gi->view, gi->dx, gi->dy);
+	gi->dx = 0.0f;
+	gi->dy = 0.0f;
+	//destroy the event_source when we are done.
+	gi->idle_motion_source = NULL;
+}
 
 static void
 handle_move_pointer_grab_motion(struct tw_seat_pointer_grab *grab,
@@ -99,17 +129,17 @@ handle_move_pointer_grab_motion(struct tw_seat_pointer_grab *grab,
 {
 	struct tw_xdg_grab_interface *gi =
 		container_of(grab, struct tw_xdg_grab_interface, pointer_grab);
-	struct tw_xdg *xdg = gi->xdg;
-	struct tw_workspace *ws = xdg->actived_workspace[0];
 	struct tw_surface *surf = gi->view->dsurf->tw_surface;
 	float gx, gy;
 	tw_surface_to_global_pos(surf, sx, sy, &gx, &gy);
 
 	//TODO: when we set position for the view, here we immedidately changed
 	//its position. flickering may caused from that. The cursor is fine.
-	if (!isnan(gi->gx) && !isnan(gi->gy))
-		tw_workspace_move_view(ws, gi->view, gx-gi->gx, gy-gi->gy);
-
+	if (!isnan(gi->gx) && !isnan(gi->gy)) {
+		gi->dx += gx - gi->gx;
+		gi->dy += gy - gi->gy;
+		tw_xdg_grab_interface_add_idle_motion(gi, idle_move);
+	}
 	gi->gx = gx;
 	gi->gy = gy;
 }
@@ -143,21 +173,38 @@ static const struct tw_pointer_grab_interface move_pointer_grab_impl = {
  *****************************************************************************/
 
 static void
+idle_resize(void *data)
+{
+	struct tw_xdg_grab_interface *gi = data;
+	struct tw_xdg *xdg = gi->xdg;
+	struct tw_workspace *ws = xdg->actived_workspace[0];
+
+	if (gi->dx != 0.0f || gi->dy != 0.0f)
+		tw_workspace_resize_view(ws, gi->view, gi->dx, gi->dy,
+		                         gi->edge);
+	gi->dx = 0.0f;
+	gi->dy = 0.0f;
+	//destroy the event_source when we are done.
+	gi->idle_motion_source = NULL;
+}
+
+
+static void
 handle_resize_pointer_grab_motion(struct tw_seat_pointer_grab *grab,
                                 uint32_t time_msec, double sx, double sy)
 {
 	struct tw_xdg_grab_interface *gi =
 		container_of(grab, struct tw_xdg_grab_interface, pointer_grab);
-	struct tw_xdg *xdg = gi->xdg;
-	struct tw_workspace *ws = xdg->actived_workspace[0];
 	struct tw_surface *surf = gi->view->dsurf->tw_surface;
 	float gx, gy;
 
 	tw_surface_to_global_pos(surf, sx, sy, &gx, &gy);
 
-	if (!isnan(gi->gx) && !isnan(gi->gy))
-		tw_workspace_resize_view(ws, gi->view, gx-gi->gx, gy-gi->gy,
-		                         gi->edge);
+	if (!isnan(gi->gx) && !isnan(gi->gy)) {
+		gi->dx += gx - gi->gx;
+		gi->dy += gy - gi->gy;
+		tw_xdg_grab_interface_add_idle_motion(gi, idle_resize);
+	}
 	gi->gx = gx;
 	gi->gy = gy;
 }

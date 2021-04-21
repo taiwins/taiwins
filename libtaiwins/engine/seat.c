@@ -169,13 +169,17 @@ notify_seat_pointer_button(struct wl_listener *listener, void *data)
 static void
 pointer_focus_motion(struct tw_engine_seat *seat, uint32_t timespec)
 {
-	struct tw_surface *focused;
 	struct tw_pointer *pointer = &seat->tw_seat->pointer;
+	struct tw_surface *focused = pointer->focused_surface ?
+		tw_surface_from_resource(pointer->focused_surface) : NULL;
 	float x = seat->engine->global_cursor.x;
 	float y = seat->engine->global_cursor.y;
 
-	focused = tw_engine_pick_surface_from_layers(seat->engine,
-	                                             x, y, &x, &y);
+	if (focused && pointer->grab != &pointer->default_grab)
+		tw_surface_to_local_pos(focused, x, y, &x, &y);
+	else
+		focused = tw_engine_pick_surface_from_layers(seat->engine,
+		                                             x, y, &x, &y);
 
 	if (focused && (pointer->focused_surface == focused->resource))
 			tw_pointer_notify_motion(pointer, timespec, x, y);

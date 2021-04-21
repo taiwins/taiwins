@@ -48,9 +48,10 @@ struct tw_xdg_grab_interface {
 	struct wl_listener view_destroy_listener;
 	struct tw_xdg_view *view;
 	struct tw_xdg *xdg;
-	double gx, gy; /**< surface motion coordinates by events */
+	float gx, gy, dx, dy;
 	enum wl_shell_surface_resize edge;
 	uint32_t mod_mask;
+	struct wl_event_source *idle_motion_source;
 };
 
 
