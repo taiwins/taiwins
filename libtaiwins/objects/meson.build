@@ -50,7 +50,6 @@ taiwins_obj_srcs = [
   'viewporter.c',
   'input_method.c',
   'text_input.c',
-  'os-compatibility.c',
   'drm_formats.c',
   'egl.c',
   'gestures.c',
@@ -81,6 +80,7 @@ twobjects_deps = [
     dep_m,
     dep_egl,
     dep_glesv2,
+    dep_ctypes,
 ]
 
 lib_twobjects = static_library(

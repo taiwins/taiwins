@@ -29,7 +29,7 @@
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/seat.h>
-#include "os-compatibility.h"
+#include <ctypes/os/os-compatibility.h>
 
 static void
 notify_keyboard_enter(struct tw_seat_keyboard_grab *grab,
