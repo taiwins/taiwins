@@ -53,8 +53,6 @@ desktop_console_src = [
   wayland_taiwins_theme_private_code_c,
   wayland_taiwins_console_client_protocol_h,
   wayland_taiwins_console_private_code_c,
-  # lib code
-  files(join_paths(meson.source_root(), 'subprojects', 'rax', 'rax.c')),
 ]
 desktop_console = executable(
   'taiwins-console',
@@ -70,7 +68,6 @@ desktop_console = executable(
   ],
   include_directories : [
     inc_shared_config,
-    include_directories(join_paths('..', 'subprojects', 'rax')),
   ],
   install : true,
 )

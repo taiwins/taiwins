@@ -28,11 +28,11 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <rax.h>
 #include <ctypes/vector.h>
 #include <ctypes/helpers.h>
 #include <ctypes/strops.h>
 #include "console.h"
+#include "ctypes/radix.h"
 
 
 /**
@@ -58,8 +58,8 @@ console_cmd_module_exec(struct console_module *module, const char *entry,
 	//if the command is not known
 	while (*ptr && !isspace(*ptr))
 		ptr++;
-	if (raxFind(module->radix, (unsigned char *)entry,
-		    ptr-entry) == raxNotFound)
+	if (radix_find(module->radix, (unsigned char *)entry,
+	               ptr-entry) == RADIX_NOT_FOUND)
 		return -1;
 
 	FILE *pipe = popen(entry, "re");//closeonexec
@@ -91,19 +91,19 @@ static int
 console_cmd_module_search(struct console_module *module, const char *to_search,
 			  vector_t *result)
 {
-	struct raxIterator iter;
+	struct radix_iterator iter;
 
 	if (!module->radix)
 		return 0;
 	vector_init_zero(result, sizeof(console_search_entry_t),
 			 search_entry_free);
 
-	raxStart(&iter, module->radix);
+	radix_start(&iter, module->radix);
 	//iterator behavior is not yet understood, maybe wrong
-	if (raxSeek(&iter, ">=", (unsigned char *)to_search,
+	if (radix_seek(&iter, ">=", (unsigned char *)to_search,
 		    strlen(to_search)) == 0)
 		goto out;
-	while (raxNext(&iter)) {
+	while (radix_next(&iter)) {
 		if (strstr((char *)iter.key, to_search) != (char *)iter.key)
 			break;
 		console_search_entry_t *entry = vector_newelem(result);
@@ -117,12 +117,12 @@ console_cmd_module_search(struct console_module *module, const char *to_search,
 		}
 	}
 out:
-	raxStop(&iter);
+	radix_stop(&iter);
 	return 0;
 }
 
 static void
-gather_all_cmds(rax *radix)
+gather_all_cmds(struct radix *radix)
 {
 	char *pathes = strdup(getenv("PATH"));
 	for (char *sv, *path = strtok_r(pathes, ":", &sv);
@@ -136,8 +136,8 @@ gather_all_cmds(rax *radix)
 			if (!strncmp(".", entry->d_name, 255) ||
 			    !strncmp("..", entry->d_name, 255))
 				continue;
-			raxInsert(radix, (unsigned char *)entry->d_name,
-				  strlen(entry->d_name), NULL, NULL);
+			radix_insert(radix, (unsigned char *)entry->d_name,
+			             strlen(entry->d_name), NULL, NULL);
 		}
 		closedir(dir);
 	}
@@ -147,14 +147,14 @@ gather_all_cmds(rax *radix)
 static void
 console_cmd_module_init(struct console_module *module)
 {
-	module->radix = raxNew();
+	module->radix = radix_new();
 	gather_all_cmds(module->radix);
 }
 
 static void
 console_cmd_module_destroy(struct console_module *module)
 {
-	raxFree(module->radix);
+	radix_free(module->radix);
 }
 
 struct console_module cmd_module = {
