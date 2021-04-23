@@ -1,0 +1,164 @@
+<protocol name="taiwins_shell">
+  <copyright>
+    Copyright (c) 2020 Xichen Zhou
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
+  </copyright>
+
+  <interface name="taiwins_shell" version="1">
+    <description summary="create desktop widgets and helpers">
+      Traditional user interfaces can rely on this interface to define the
+      foundations of typical desktops. Currently it's possible to set up
+      background, panels and locking surfaces.
+    </description>
+
+    <!-- new api, so deprecate the old set_widget and hide_widget -->
+    <request name="create_panel">
+      <description summary="create a new widget from wl_surface"/>
+      <arg name="taiwins_ui" type="new_id" interface="taiwins_ui"/>
+      <arg name="wl_surface" type="object" interface="wl_surface"/>
+      <arg name="taiwins_output" type="int"/>
+    </request>
+
+    <request name="create_background">
+      <description summary="create a background for a logical output"/>
+      <arg name="taiwins_ui" type="new_id" interface="taiwins_ui"/>
+      <arg name="wl_surface" type="object" interface="wl_surface"/>
+      <arg name="taiwins_output" type="int"/>
+    </request>
+
+    <request name="launch_widget">
+      <description summary="start the widget at point (x, y) "/>
+      <arg name="taiwins_ui" type="new_id" interface="taiwins_ui"/>
+      <arg name="wl_surface" type="object" interface="wl_surface"/>
+      <arg name="seat" type="object" interface="wl_seat"/>
+      <arg name="taiwins_output" type="int"/>
+      <arg name="x" type="uint"/>
+      <arg name="y" type="uint"/>
+    </request>
+
+    <request name="create_locker">
+      <description summary="create locker interface"/>
+      <arg name="taiwins_ui" type="new_id" interface="taiwins_ui"/>
+      <arg name="wl_surface" type="object" interface="wl_surface"/>
+      <arg name="taiwins_output" type="int" />
+    </request>
+
+    <enum name="output_msg">
+      <entry name="connected" value="0" summary="output is online"/>
+      <entry name="lost" value="1" summary="screen is no long available"/>
+      <entry name="change" value="2" summary="output has geometry change"/>
+    </enum>
+
+    <event name="output_configure">
+      <description summary="signal changes of output">
+	When new ouputs are created, the compositor sends this message to the
+	shell client for it to create new panel or background, it can also be
+	used to have the shell client responds to close of the output or change
+	in parameters, shell does not need to bother with transform information.
+      </description>
+      <arg name="id" type="uint" summary="id of the output"/>
+      <arg name="width" type="uint" summary="pixel width"/>
+      <arg name="height" type="uint" summary="pixel height"/>
+      <arg name="scale" type="uint" summary="screen scale"/>
+      <arg name="major" type="uint" summary="the major output"/>
+      <arg name="msg" type="uint" summary="message about the output"/>
+    </event>
+
+    <event name="client_msg">
+      <description summary="various configuration and msg sends to the client"/>
+      <arg name="key" type="uint" summary="the enum msg_type"/>
+      <arg name="value" type="array" summary="various data values"/>
+    </event>
+
+    <request name="server_msg">
+      <description summary="various configuration and msg sends to the server"/>
+      <arg name="key" type="uint" summary="the enum msg_type"/>
+      <arg name="value" type="array" summary="various data values"/>
+    </request>
+
+    <enum name="msg_type">
+      <!-- notifications to shell -->
+      <entry name="notification" value="0"/>
+      <entry name="config_err" value="1"/>
+
+      <!-- shell message -->
+      <entry name="panel_pos" value="100"
+	     summary="format: `%d`: taiwins_shell_panel_pos enum"/>
+      <entry name="lock" value="104"
+	     summary="tell shell client to start a locker"/>
+
+      <!-- desktop events -->
+      <entry name="switch_workspace" value="200"
+	     summary="format: `%d`: to which workspace"/>
+      <entry name="task_switch_effect" value="201"
+	     summary="format: `%d`: type of "/>
+      <entry name="task_switching" value="202"
+	     summary="format: list of taiwins_window_brief"/>
+    </enum>
+
+    <enum name="panel_pos">
+      <entry name="top" value="0"/>
+      <entry name="bottom" value="1"/>
+    </enum>
+
+    <enum name="task_switch_effect">
+      <entry name="boundary" value="1"
+	     summary="draw effects like ubuntu"/>
+      <entry name="list" value="2"
+	     summary="draw a window with the list of tasks"/>
+    </enum>
+
+  </interface>
+
+  <interface name="taiwins_ui" version="1">
+    <description summary="UI elements like widget, panel, wallpaper">
+      This interface is aming to replace panel, background, locker, widgets and
+      future ui elements to come. The view is created at the time of creation,
+      so no set method is required, the ui elements get removed at time of
+      destruction, work much like those shell surface interface.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="client no longer use taiwins_ui interface">
+      </description>
+    </request>
+
+    <event name="close">
+      <description summary="Server no longer composites this UI element">
+	Server indicates the client to destroy the wl_surface. In the case for
+	panel and background, it happens when taiwins_output is no longer
+	available. For widgets, it is an indication to close.
+      </description>
+    </event>
+
+    <enum name="type">
+      <entry name="panel" value="0"
+	     summary="The panel UI is per output "/>
+      <entry name="background" value="1"
+	     summary="background UI element"/>
+      <entry name="locker" value = "2"
+	     summary="locker ui type"/>
+      <entry name="widget" value="3"
+	     summary="light widget element to interact with"/>
+    </enum>
+
+  </interface>
+
+</protocol>
