@@ -32,7 +32,7 @@
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/utils.h>
 #include <wayland-input-method-server-protocol.h>
-#include "os-compatibility.h"
+#include <ctypes/os/os-compatibility.h>
 
 static const struct zwp_input_method_v2_interface im_v2_impl;
 static const struct zwp_input_method_keyboard_grab_v2_interface grab_impl;

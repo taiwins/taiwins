@@ -28,7 +28,6 @@
 #include <unistd.h>
 #include <libgen.h>
 
-#include <rax.h>
 #include <ctypes/vector.h>
 #include <ctypes/helpers.h>
 #include <ctypes/os/file.h>

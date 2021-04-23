@@ -32,9 +32,9 @@
 
 #include <ctypes/os/file.h>
 #include <ctypes/os/exec.h>
+#include <ctypes/radix.h>
 #include <twclient/client.h>
 #include <twclient/ui.h>
-#include <rax.h>
 #include <twclient/nk_backends.h>
 
 #include <shared_config.h>
@@ -103,7 +103,7 @@ enum console_icon_type {
 struct console_module {
 	const char name[32];
 	struct desktop_console *console;
-	struct rax *radix;
+	struct radix *radix;
 	uint32_t supported_icons;
 	const bool support_cache;
 	bool quit;

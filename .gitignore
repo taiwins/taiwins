@@ -1,8 +1,11 @@
-/build*
+build*
 compile_commands.json
 .ccls-cache/*
+.ccls-root
 .clangd
+.clang-tidy
 .cache
+**/.clang_complete
 .dir-locals.el
 .gdb_history
 subprojects/pixman*

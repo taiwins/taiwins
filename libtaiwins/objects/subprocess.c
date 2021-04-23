@@ -27,7 +27,7 @@
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <wayland-server-core.h>
-#include "os-compatibility.h"
+#include <ctypes/os/os-compatibility.h>
 
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/subprocess.h>
