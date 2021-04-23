@@ -2,13 +2,10 @@ dep_scanner = dependency('wayland-scanner', native: true)
 dep_wp = dependency('wayland-protocols', version: '>= 1.18')
 prog_scanner = find_program(dep_scanner.get_pkgconfig_variable('wayland_scanner'))
 dir_wp_base = dep_wp.get_pkgconfig_variable('pkgdatadir')
-#TODO: protocols shall have versions, that includes taiwins as well, giving a
-#third paramater indicates the basedir. Also, taiwins protocol would need
-#versions as well.
 
-protocols = [['taiwins-shell', 'taiwins'],
-	     ['taiwins-console', 'taiwins'],
-	     ['taiwins-theme', 'taiwins'],
+protocols = [['taiwins-shell', 'internal'],
+	     ['taiwins-console', 'internal'],
+	     ['taiwins-theme', 'internal'],
 	     ['viewporter', 'stable'],
 	     ['presentation-time', 'stable'],
 	     ['xdg-shell', 'stable'],

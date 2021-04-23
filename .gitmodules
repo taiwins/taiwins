@@ -4,9 +4,6 @@
 [submodule "3rdparties/nklua"]
 	path = subprojects/nklua
 	url = https://github.com/xeechou/love-nuklear
-[submodule "3rdparties/taiwins-protocols"]
-	path = subprojects/taiwins-protocols
-	url = https://github.com/taiwins/taiwins-protocols
 [submodule "3rdparties/tdbus"]
 	path = subprojects/tdbus
 	url = https://github.com/xeechou/tdbus
