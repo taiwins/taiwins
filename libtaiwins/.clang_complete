@@ -1,4 +1,0 @@
--I../3rdparties/ctypes/src
--I/usr/local/include/libweston-4
--I/usr/include/libweston-4
--I../build/protocols
