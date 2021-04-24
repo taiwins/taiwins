@@ -1,7 +1,7 @@
 /*
  * console.h - taiwins client console header
  *
- * Copyright (c) 2019-2020 Xichen Zhou
+ * Copyright (c) 2019-2021 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,7 +35,7 @@
 #include <ctypes/radix.h>
 #include <twclient/client.h>
 #include <twclient/ui.h>
-#include <twclient/nk_backends.h>
+#include <twidgets/nk_backends.h>
 
 #include <shared_config.h>
 

@@ -31,7 +31,7 @@
 #include <libudev.h>
 #include <twclient/ui.h>
 #include <twclient/client.h>
-#include <twclient/nk_backends.h>
+#include <twidgets/nk_backends.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -111,7 +111,8 @@ const struct shell_widget *shell_widget_get_builtin_by_name(const char *name);
 static inline void
 shell_widget_hook_panel(struct shell_widget *widget, struct tw_appsurf *panel)
 {
-	embeded_impl_app_surface(&widget->ancre, panel, tw_make_bbox_origin(0, 0, 1));
+	tw_embeded_impl_app_surface(&widget->ancre, panel,
+	                            tw_make_bbox_origin(0, 0, 1));
 	if (widget->setup_cb)
 		widget->setup_cb(widget);
 }

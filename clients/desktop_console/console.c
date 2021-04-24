@@ -1,7 +1,7 @@
 /*
  * console.c - taiwins client console implementation
  *
- * Copyright (c) 2019-2020 Xichen Zhou
+ * Copyright (c) 2019-2021 Xichen Zhou
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,7 +43,7 @@
 #include <ctypes/hash.h>
 #include <twclient/client.h>
 #include <twclient/ui.h>
-#include <twclient/nk_backends.h>
+#include <twidgets/nk_backends.h>
 #include <twclient/theme.h>
 #include <twclient/image_cache.h>
 #include <twclient/shmpool.h>

@@ -291,8 +291,8 @@ int main(int argc, char *argv[])
 	struct wl_surface *surface =
 		wl_compositor_create_surface(tw_globals.compositor);
 	tw_appsurf_init(&app, surface, &tw_globals, TW_APPSURF_WIDGET, 0);
-	eglwin_impl_app_surface(&app, dummy_draw,
-	                        tw_make_bbox_origin(400, 200, 1), &env);
+	tw_eglwin_impl_app_surface(&app, dummy_draw,
+	                           tw_make_bbox_origin(400, 200, 1), &env);
 	wl_display_flush(wl_display);
 
 	dummy_prepare();

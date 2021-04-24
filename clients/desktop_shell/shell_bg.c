@@ -84,9 +84,9 @@ shell_init_bg_for_output(struct shell_output *w)
 	tw_appsurf_init(&w->background, bg_sf,
 			 &shell->globals, TW_APPSURF_BACKGROUND,
 			 TW_APPSURF_NORESIZABLE);
-	shm_buffer_impl_app_surface(&w->background,
-				    shell_background_frame,
-				    w->bbox);
+	tw_shm_buffer_impl_app_surface(&w->background,
+	                               shell_background_frame,
+	                               w->bbox);
 	shell_background_impl_filter(&w->background.filter_head,
 				     &w->background_events);
 }
