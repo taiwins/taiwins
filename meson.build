@@ -37,15 +37,20 @@ options_data.set10('_TW_HAS_XCB_ICCCM', false)
 options_data.set10('_TW_HAS_XCB_ERRORS', false)
 
 ###### subprojects
-twclient = subproject('twclient')
-nklua = subproject('nklua')
-tdbus = subproject('tdbus')
-ctypes = subproject('ctypes')
+tdbus = subproject('tdbus', version: '>=0.1')
+ctypes = subproject('ctypes', version: '>=0.2')
+twclient = subproject('twclient', version: '>= 0.2')
 pixman = subproject('pixman', default_options: [
 		      'gtk=disabled',
 		      'libpng=disabled',
 		      'werror=false'
 		    ], version: '>= 0.25.2', required: false)
+twidgets = subproject('twidgets', default_options: [
+			'nkcairo=enabled',
+			'nkegl=disabled',
+			'nklua=enabled',
+			'test=disabled',
+		      ], version: '>= 0.1')
 
 ###### dependencies
 
@@ -66,8 +71,7 @@ dep_ctypes = ctypes.get_variable('dep_ctypes')
 dep_twclient = twclient.get_variable('dep_twclient')
 dep_twclient_theme = twclient.get_variable('dep_twclient_theme')
 dep_twclient_icons = twclient.get_variable('dep_twclient_icons')
-dep_twclient_nkcairo = twclient.get_variable('dep_nkcairo')
-dep_nklua = nklua.get_variable('dep_nklua')
+dep_nkcairo = twidgets.get_variable('dep_nkcairo')
 dep_tdbus = tdbus.get_variable('dep_tdbus')
 dep_pixman = pixman.found() ? pixman.get_variable('idep_pixman') : dependency('pixman-1', version: '>= 0.25.2')
 dep_lua = dependency('lua', version: '>= 5.3', required: false)

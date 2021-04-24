@@ -113,8 +113,8 @@ int main(int argc, char *argv[])
 	struct wl_surface *surface =
 		wl_compositor_create_surface(tw_globals.compositor);
 	tw_appsurf_init(&app, surface, &tw_globals, TW_APPSURF_WIDGET, 0);
-	shm_buffer_impl_app_surface(&app, dummy_draw,
-                            tw_make_bbox_origin(400, 200, 1));
+	tw_shm_buffer_impl_app_surface(&app, dummy_draw,
+	                               tw_make_bbox_origin(400, 200, 1));
 	wl_display_flush(wl_display);
 
 	if (s_wl_shell) {
