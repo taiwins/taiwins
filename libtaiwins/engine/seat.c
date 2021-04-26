@@ -18,7 +18,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
-#include "options.h"
 
 #include <assert.h>
 #include <wayland-server.h>
@@ -35,14 +34,45 @@
 #include "utils.h"
 #include "internal.h"
 
-static void
-update_focused_seat(struct tw_engine_seat *seat)
+static inline bool
+seat_has_keyboard(struct tw_seat *seat)
 {
-	struct tw_engine *engine = seat->engine;
-	if (engine->focused_seat != seat) {
-		engine->focused_seat = seat;
-		wl_signal_emit(&engine->signals.seat_focused, seat);
-	}
+	return (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD);
+}
+
+static inline bool
+seat_has_pointer(struct tw_seat *seat)
+{
+	return (seat->capabilities & WL_SEAT_CAPABILITY_POINTER);
+}
+
+static inline bool
+seat_has_touch(struct tw_seat *seat)
+{
+	return (seat->capabilities & WL_SEAT_CAPABILITY_TOUCH);
+}
+
+static void
+idle_refocus(void *data)
+{
+	struct tw_engine_seat *seat = data;
+	struct tw_seat *tw_seat = seat->tw_seat;
+	struct tw_cursor *cursor = &seat->engine->global_cursor;
+	float x = cursor->x;
+	float y = cursor->y;
+	struct tw_surface *focused =
+		tw_engine_pick_surface_from_layers(seat->engine, x, y, &x, &y);
+
+        if (!focused)
+		return;
+	if (!tw_seat->keyboard.focused_surface && seat_has_keyboard(tw_seat))
+		tw_keyboard_set_focus(&tw_seat->keyboard, focused->resource,
+		                      NULL);
+	if (!tw_seat->pointer.focused_surface && seat_has_pointer(tw_seat))
+		tw_pointer_set_focus(&tw_seat->pointer, focused->resource,
+		                     x, y);
+	if (!tw_seat->touch.focused_surface && seat_has_touch(tw_seat))
+		tw_touch_set_focus(&tw_seat->touch, focused->resource, x, y);
 }
 
 static void
@@ -75,6 +105,30 @@ notify_seat_remove_device(struct wl_listener *listener, void *data)
 	//TODO: what if we still have switch or tablet deivces?
 	if (has_device == false)
 		tw_engine_seat_release(seat);
+}
+
+static void
+notify_seat_focus_device(struct wl_listener *listener, void *data)
+{
+	struct tw_engine_seat *seat =
+		wl_container_of(listener, seat, listeners.focus);
+	struct tw_engine *engine = seat->engine;
+
+	if (engine->focused_seat != seat) {
+		engine->focused_seat = seat;
+		wl_signal_emit(&engine->signals.seat_focused, seat);
+	}
+}
+
+static void
+notify_seat_unfocus_device(struct wl_listener *listener, void *data)
+{
+	struct tw_engine_seat *seat =
+		wl_container_of(listener, seat, listeners.unfocus);
+	struct wl_event_loop *loop =
+		wl_display_get_event_loop(seat->engine->display);
+
+	wl_event_loop_add_idle(loop, idle_refocus, seat);
 }
 
 /******************************************************************************
@@ -142,7 +196,6 @@ notify_seat_keyboard_key(struct wl_listener *listener, void *data)
 
 	tw_keyboard_notify_key(seat_keyboard, event->time, event->keycode,
 	                       event->state);
-	update_focused_seat(seat);
 }
 
 /******************************************************************************
@@ -163,7 +216,6 @@ notify_seat_pointer_button(struct wl_listener *listener, void *data)
 		seat_pointer->btn_count--;
 	tw_pointer_notify_button(seat_pointer, event->time, event->button,
 	                         event->state);
-	update_focused_seat(seat);
 }
 
 static void
@@ -367,7 +419,6 @@ notify_seat_touch_down(struct wl_listener *listener, void *data)
 		tw_touch_notify_down(touch, event->time,
 		                     event->touch_id, x, y);
 	}
-	update_focused_seat(seat);
 }
 
 static void
@@ -488,6 +539,12 @@ seat_install_touch_listeners(struct tw_engine_seat *seat)
 static void
 seat_install_default_listeners(struct tw_engine_seat *seat)
 {
+	tw_signal_setup_listener(&seat->tw_seat->signals.focus,
+	                         &seat->listeners.focus,
+	                         notify_seat_focus_device);
+	tw_signal_setup_listener(&seat->tw_seat->signals.unfocus,
+	                         &seat->listeners.unfocus,
+	                         notify_seat_unfocus_device);
 	tw_signal_setup_listener(&seat->source.remove, &seat->sink.remove,
 	                         notify_seat_remove_device);
 	seat_install_keyboard_listeners(seat);
@@ -498,14 +555,14 @@ seat_install_default_listeners(struct tw_engine_seat *seat)
 static void
 seat_add_touch(struct tw_engine_seat *seat, struct tw_input_device *touch)
 {
-	if (!(seat->tw_seat->capabilities & WL_SEAT_CAPABILITY_TOUCH))
+	if (!seat_has_touch(seat->tw_seat))
 		tw_seat_new_touch(seat->tw_seat);
 }
 
 static void
 seat_add_pointer(struct tw_engine_seat *seat, struct tw_input_device *pointer)
 {
-	if (!(seat->tw_seat->capabilities & WL_SEAT_CAPABILITY_POINTER))
+	if (!seat_has_pointer(seat->tw_seat))
 		tw_seat_new_pointer(seat->tw_seat);
 }
 
@@ -522,7 +579,7 @@ seat_add_keyboard(struct tw_engine_seat *seat,
 	tw_input_device_set_keymap(keyboard, seat->keymap);
 
 	//setup tw_seat, keymap will provide later.
-	if (!(seat->tw_seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD))
+	if (!seat_has_keyboard(seat->tw_seat))
 		tw_seat_new_keyboard(seat->tw_seat);
 	//Here we pretty much giveup the keymap directly from backend.
 	tw_keyboard_set_keymap(&seat->tw_seat->keyboard, seat->keymap);
@@ -628,7 +685,7 @@ tw_engine_seat_set_xkb_rules(struct tw_engine_seat *seat,
 		seat->keyboard_rule_names.layout = "us";
 	//if the keyboard has no keymap yet, means they keyboard has not
 	//initialized, it is safe to return.
-	if (!(seat->tw_seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD))
+	if (!seat_has_keyboard(seat->tw_seat))
 		return;
 
 	keymap = xkb_map_new_from_names(engine->xkb_context, rules,
