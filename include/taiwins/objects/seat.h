@@ -188,7 +188,7 @@ struct tw_seat {
 	struct tw_cursor *cursor;
 
 	struct {
-		struct wl_signal focus;
+		struct wl_signal focus; /**< notify focused device */
 		struct wl_signal destroy;
 	} signals;
 };

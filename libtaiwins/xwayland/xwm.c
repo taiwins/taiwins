@@ -444,13 +444,18 @@ notify_xwm_tw_surface_focused(struct wl_listener *listener, void *data)
 {
 	struct tw_xwm *xwm =
 		wl_container_of(listener, xwm, listeners.wl_surface_focus);
-	struct wl_resource *resource = data;
-	struct tw_surface *surface = tw_surface_from_resource(resource);
-	struct tw_desktop_surface *dsurf =
-		tw_xwayland_desktop_surface_from_tw_surface(surface);
-	struct tw_xsurface *xsurface = dsurf ?
-		wl_container_of(dsurf, xsurface, dsurf) : NULL;
-	tw_xsurface_set_focus(xsurface, xwm);
+	struct tw_seat *seat = xwm->seat;
+	if (seat && data == &xwm->seat->keyboard) {
+		struct wl_resource *resource = seat->keyboard.focused_surface;
+		struct tw_surface *surface = (resource) ?
+			tw_surface_from_resource(resource) : NULL;
+		struct tw_desktop_surface *dsurf = (surface) ?
+			tw_xwayland_desktop_surface_from_tw_surface(surface) :
+			NULL;
+		struct tw_xsurface *xsurface = dsurf ?
+			wl_container_of(dsurf, xsurface, dsurf) : NULL;
+		tw_xsurface_set_focus(xsurface, xwm);
+	}
 }
 
 static void

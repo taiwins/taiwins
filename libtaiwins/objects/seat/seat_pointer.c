@@ -233,6 +233,7 @@ tw_pointer_set_focus(struct tw_pointer *pointer,
 		tw_reset_wl_list(&pointer->focused_destroy.link);
 		wl_resource_add_destroy_listener(wl_surface,
 		                                 &pointer->focused_destroy);
+		wl_signal_emit(&seat->signals.focus, pointer);
 	}
 }
 

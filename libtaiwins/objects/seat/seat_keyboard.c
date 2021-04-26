@@ -257,8 +257,7 @@ tw_keyboard_set_focus(struct tw_keyboard *keyboard,
 		tw_reset_wl_list(&keyboard->focused_destroy.link);
 		wl_resource_add_destroy_listener(wl_surface,
 		                                 &keyboard->focused_destroy);
-		wl_signal_emit(&seat->signals.focus,
-		               keyboard->focused_surface);
+		wl_signal_emit(&seat->signals.focus, keyboard);
 	}
 }
 

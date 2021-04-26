@@ -217,6 +217,7 @@ tw_touch_set_focus(struct tw_touch *touch,
 		tw_reset_wl_list(&touch->focused_destroy.link);
 		wl_resource_add_destroy_listener(wl_surface,
 		                                 &touch->focused_destroy);
+		wl_signal_emit(&seat->signals.focus, touch);
 	}
 }
 
