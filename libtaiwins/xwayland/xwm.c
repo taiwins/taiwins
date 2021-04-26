@@ -564,10 +564,10 @@ tw_xserver_set_seat(struct tw_xserver *server, struct tw_data_device *device)
 	tw_reset_wl_list(&xwm->listeners.wl_surface_focus.link);
 
 	xwm->seat = seat;
-	tw_signal_setup_listener(&seat->destroy_signal,
+	tw_signal_setup_listener(&seat->signals.destroy,
 	                         &xwm->listeners.seat_destroy,
 	                         notify_xwm_tw_seat_destroy);
-	tw_signal_setup_listener(&seat->focus_signal,
+	tw_signal_setup_listener(&seat->signals.focus,
 	                         &xwm->listeners.wl_surface_focus,
 	                         notify_xwm_tw_surface_focused);
 

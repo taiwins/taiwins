@@ -305,8 +305,8 @@ tw_seat_create(struct wl_display *display, struct tw_cursor *seat_cursor,
 	seat->last_touch_serial = 0;
 	seat->cursor = seat_cursor;
 
-	wl_signal_init(&seat->destroy_signal);
-	wl_signal_init(&seat->focus_signal);
+	wl_signal_init(&seat->signals.destroy);
+	wl_signal_init(&seat->signals.focus);
 	seat->global = wl_global_create(display, &wl_seat_interface, 7,
 	                                seat, bind_seat);
 	return seat;
@@ -319,7 +319,7 @@ tw_seat_destroy(struct tw_seat *seat)
 	struct wl_resource *r, *tmp;
 
 	wl_global_destroy(seat->global);
-	wl_signal_emit(&seat->destroy_signal, seat);
+	wl_signal_emit(&seat->signals.destroy, seat);
 
 	wl_list_for_each_safe(client, next, &seat->clients, link) {
 		wl_resource_for_each_safe(r, tmp, &client->resources) {

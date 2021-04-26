@@ -556,7 +556,7 @@ im_manager_handle_get_input_method(struct wl_client *client,
 	wl_list_init(&im->link);
 	wl_resource_set_implementation(im_resource, &im_v2_impl, im,
 	                               destroy_input_method_resource);
-	tw_signal_setup_listener(&seat->destroy_signal,
+	tw_signal_setup_listener(&seat->signals.destroy,
 	                         &im->seat_destroy_listener,
 	                         notify_im_v2_seat_destroy);
 	//as described in protocol, if we have an input method already in the

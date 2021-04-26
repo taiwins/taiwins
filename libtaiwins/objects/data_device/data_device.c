@@ -347,10 +347,10 @@ tw_data_device_find_create(struct tw_data_device_manager *manager,
 	wl_signal_init(&device->source_added);
 	wl_signal_init(&device->source_removed);
 	wl_list_insert(manager->devices.prev, &device->link);
-	tw_signal_setup_listener(&seat->focus_signal,
+	tw_signal_setup_listener(&seat->signals.focus,
 	                         &device->create_data_offer,
 	                         notify_device_selection_data_offer);
-	tw_signal_setup_listener(&seat->destroy_signal,
+	tw_signal_setup_listener(&seat->signals.destroy,
 	                         &device->seat_destroy,
 	                         notify_data_device_seat_destroy);
 	return device;
