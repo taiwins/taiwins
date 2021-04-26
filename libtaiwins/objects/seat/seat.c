@@ -307,6 +307,7 @@ tw_seat_create(struct wl_display *display, struct tw_cursor *seat_cursor,
 
 	wl_signal_init(&seat->signals.destroy);
 	wl_signal_init(&seat->signals.focus);
+	wl_signal_init(&seat->signals.unfocus);
 	seat->global = wl_global_create(display, &wl_seat_interface, 7,
 	                                seat, bind_seat);
 	return seat;
