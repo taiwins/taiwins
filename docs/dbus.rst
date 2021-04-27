@@ -1,3 +1,4 @@
+.. _dbus.rst:
 
 D-Bus API Quick Reference
 =========================

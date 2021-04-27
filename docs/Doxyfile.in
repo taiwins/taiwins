@@ -936,6 +936,7 @@ EXCLUDE_PATTERNS       = */nk_backends/* \
 			 */wlroots/* \
 			 */nuklear/* \
 			 */stb/* \
+			 */twclient/subprojects/* \
 			 */twclient/theme.h \
 			 */twclient/README.md \
 			 */twidgets/README.md \
