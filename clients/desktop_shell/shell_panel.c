@@ -124,6 +124,9 @@ shell_panel_frame(struct nk_context *ctx, float width, float height,
 		nk_layout_row_push(ctx, width+10);
 		struct nk_rect bound = nk_widget_bounds(ctx);
 		if (nk_widget_is_mouse_clicked(ctx, NK_BUTTON_LEFT)) {
+			//TODO remove this hack, here we manually set the
+			//clicked state, which should be cleared by nk_input_begin
+			ctx->input.mouse.buttons[NK_BUTTON_LEFT].clicked = 0;
 			clicked = widget;
 			label_span.x = bound.x;
 			label_span.y = bound.x+bound.w;
