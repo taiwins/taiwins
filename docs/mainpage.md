@@ -24,16 +24,16 @@ application launcher(taiwins-console).
 
 ### Server-side design
 
-Take a look [here](libtaiwins.md)
+Take a look [here](libtaiwins.rst)
 
 ### Client-side design
 
-Take a look [here](libtwclient.md).
+Take a look [here](libtwclient.rst).
 
 ## Other notes
 
 If you are new to wayland, you may be also interested in the [wayland
-note](wayland.md) for some important bits. [lua](lua.md) notes is the compact
+note](wayland.rst) for some important bits. [lua](lua.rst) notes is the compact
 summary on using the lua c API. Taiwins also uses dbus for configuration and
-various other things, a quick tutorial on dbus can be found [here](dbus.md).
+various other things, a quick tutorial on dbus can be found [here](dbus.rst).
 
