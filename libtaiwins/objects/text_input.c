@@ -201,14 +201,16 @@ static const struct zwp_text_input_v3_interface text_input_impl = {
 static void
 notify_text_input_focus(struct wl_listener *listener, void *data)
 {
-	struct wl_resource *focused = data;
+	struct wl_resource *focused = NULL;
 	struct tw_text_input *ti =
 		wl_container_of(listener, ti, focus_listener);
 	struct tw_input_method *im =
 		tw_input_method_find_from_seat(ti->seat);
-	//skip if there is no input method.
-	if (!im)
+	//skip if there is no input method or this is not a keyboard focus
+	if (!im || data != &ti->seat->keyboard)
 		return;
+	focused = ti->seat->keyboard.focused_surface;
+
 	if (ti->focused && ti->focused != focused) {
 		zwp_text_input_v3_send_leave(ti->resource, ti->focused);
 		ti->focused = NULL;
@@ -259,7 +261,7 @@ handle_text_input_manager_get_text_input(struct wl_client *client,
 	}
 
 	text_input->seat = seat;
-	tw_signal_setup_listener(&seat->focus_signal,
+	tw_signal_setup_listener(&seat->signals.focus,
 	                         &text_input->focus_listener,
 	                         notify_text_input_focus);
 

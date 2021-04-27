@@ -92,9 +92,13 @@ notify_device_selection_data_offer(struct wl_listener *listener, void *data)
 {
 	struct wl_resource *resource;
 	struct wl_resource *offer;
-	struct wl_resource *surface = data;
+	struct wl_resource *surface = NULL;
 	struct tw_data_device *device =
 		wl_container_of(listener, device, create_data_offer);
+	//now we need to determine
+	if (data != &device->seat->keyboard)
+		return;
+	surface = device->seat->keyboard.focused_surface;
 
 	if (!device->source_set || !device->source_set->selection_source)
 		return;
@@ -347,10 +351,10 @@ tw_data_device_find_create(struct tw_data_device_manager *manager,
 	wl_signal_init(&device->source_added);
 	wl_signal_init(&device->source_removed);
 	wl_list_insert(manager->devices.prev, &device->link);
-	tw_signal_setup_listener(&seat->focus_signal,
+	tw_signal_setup_listener(&seat->signals.focus,
 	                         &device->create_data_offer,
 	                         notify_device_selection_data_offer);
-	tw_signal_setup_listener(&seat->destroy_signal,
+	tw_signal_setup_listener(&seat->signals.destroy,
 	                         &device->seat_destroy,
 	                         notify_data_device_seat_destroy);
 	return device;

@@ -123,7 +123,6 @@ notify_pointer_cancel(struct tw_seat_pointer_grab *grab)
 {
 }
 
-
 static const struct tw_pointer_grab_interface default_grab_impl = {
 	.enter = notify_pointer_enter,
 	.motion = notify_pointer_motion,
@@ -138,10 +137,11 @@ notify_focused_disappear(struct wl_listener *listener, void *data)
 {
 	struct tw_pointer *pointer =
 		wl_container_of(listener, pointer, focused_destroy);
-	pointer->focused_surface = NULL;
+
+        pointer->focused_surface = NULL;
 	pointer->focused_client = NULL;
-	wl_list_remove(&listener->link);
-	wl_list_init(&listener->link);
+	tw_reset_wl_list(&listener->link);
+	tw_pointer_clear_focus(pointer); //just for emitting unfocus signal
 }
 
 WL_EXPORT struct tw_pointer *
@@ -208,36 +208,8 @@ tw_pointer_end_grab(struct tw_pointer *pointer)
 	pointer->grab = &pointer->default_grab;
 }
 
-WL_EXPORT void
-tw_pointer_set_focus(struct tw_pointer *pointer,
-                     struct wl_resource *wl_surface,
-                     double sx, double sy)
-{
-	uint32_t serial;
-	struct wl_resource *res;
-	struct tw_seat_client *client;
-	struct tw_seat *seat = wl_container_of(pointer, seat, pointer);
-
-	client = tw_seat_client_find(seat, wl_resource_get_client(wl_surface));
-	if (client && !wl_list_empty(&client->pointers) ) {
-		tw_pointer_clear_focus(pointer);
-
-		serial = wl_display_next_serial(seat->display);
-		wl_resource_for_each(res, &client->pointers)
-			wl_pointer_send_enter(res, serial, wl_surface,
-			                      wl_fixed_from_double(sx),
-			                      wl_fixed_from_double(sy));
-		pointer->focused_client = client;
-		pointer->focused_surface = wl_surface;
-
-		tw_reset_wl_list(&pointer->focused_destroy.link);
-		wl_resource_add_destroy_listener(wl_surface,
-		                                 &pointer->focused_destroy);
-	}
-}
-
-WL_EXPORT void
-tw_pointer_clear_focus(struct tw_pointer *pointer)
+static void
+clear_focus_no_signal(struct tw_pointer *pointer)
 {
 	struct tw_seat_client *client;
 	struct wl_resource *res;
@@ -253,6 +225,44 @@ tw_pointer_clear_focus(struct tw_pointer *pointer)
 	}
 	pointer->focused_client = NULL;
 	pointer->focused_surface = NULL;
+}
+
+WL_EXPORT void
+tw_pointer_set_focus(struct tw_pointer *pointer,
+                     struct wl_resource *wl_surface,
+                     double sx, double sy)
+{
+	uint32_t serial;
+	struct wl_resource *res;
+	struct tw_seat_client *client;
+	struct tw_seat *seat = wl_container_of(pointer, seat, pointer);
+
+	client = tw_seat_client_find(seat, wl_resource_get_client(wl_surface));
+	if (client && !wl_list_empty(&client->pointers) ) {
+		clear_focus_no_signal(pointer);
+
+		serial = wl_display_next_serial(seat->display);
+		wl_resource_for_each(res, &client->pointers)
+			wl_pointer_send_enter(res, serial, wl_surface,
+			                      wl_fixed_from_double(sx),
+			                      wl_fixed_from_double(sy));
+		pointer->focused_client = client;
+		pointer->focused_surface = wl_surface;
+
+		tw_reset_wl_list(&pointer->focused_destroy.link);
+		wl_resource_add_destroy_listener(wl_surface,
+		                                 &pointer->focused_destroy);
+		wl_signal_emit(&seat->signals.focus, pointer);
+	}
+}
+
+WL_EXPORT void
+tw_pointer_clear_focus(struct tw_pointer *pointer)
+{
+	struct tw_seat *seat = wl_container_of(pointer, seat, pointer);
+
+        clear_focus_no_signal(pointer);
+        wl_signal_emit(&seat->signals.unfocus, pointer);
 }
 
 WL_EXPORT void

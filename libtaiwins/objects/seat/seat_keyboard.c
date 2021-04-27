@@ -103,10 +103,31 @@ notify_focused_disappear(struct wl_listener *listener, void *data)
 {
 	struct tw_keyboard *keyboard =
 		wl_container_of(listener, keyboard, focused_destroy);
+
+        keyboard->focused_client = NULL;
 	keyboard->focused_surface = NULL;
+	tw_reset_wl_list(&listener->link);
+	tw_keyboard_clear_focus(keyboard); //just for emitting signals
+}
+
+static void
+clear_focus_no_signal(struct tw_keyboard *keyboard)
+{
+	struct tw_seat_client *client;
+	struct wl_resource *res;
+	uint32_t serial;
+	struct tw_seat *seat = wl_container_of(keyboard, seat, keyboard);
+
+        if (keyboard->focused_surface && keyboard->focused_client) {
+		client = keyboard->focused_client;
+		serial = wl_display_next_serial(seat->display);
+		wl_resource_for_each(res, &client->keyboards)
+			wl_keyboard_send_leave(res, serial,
+			                       keyboard->focused_surface);
+		tw_reset_wl_list(&keyboard->focused_destroy.link);
+	}
 	keyboard->focused_client = NULL;
-	wl_list_remove(&listener->link);
-	wl_list_init(&listener->link);
+	keyboard->focused_surface = NULL;
 }
 
 WL_EXPORT struct tw_keyboard *
@@ -245,7 +266,8 @@ tw_keyboard_set_focus(struct tw_keyboard *keyboard,
 	focus_keys = focus_keys ? focus_keys : &zero_keys;
 	client = tw_seat_client_find(seat, wl_resource_get_client(wl_surface));
 	if (client && !wl_list_empty(&client->keyboards)) {
-		tw_keyboard_clear_focus(keyboard);
+		//clear the focus without signal
+		clear_focus_no_signal(keyboard);
 
 		serial = wl_display_next_serial(seat->display);
 		wl_resource_for_each(res, &client->keyboards)
@@ -257,28 +279,17 @@ tw_keyboard_set_focus(struct tw_keyboard *keyboard,
 		tw_reset_wl_list(&keyboard->focused_destroy.link);
 		wl_resource_add_destroy_listener(wl_surface,
 		                                 &keyboard->focused_destroy);
-		wl_signal_emit(&seat->focus_signal, keyboard->focused_surface);
+		wl_signal_emit(&seat->signals.focus, keyboard);
 	}
 }
 
 WL_EXPORT void
 tw_keyboard_clear_focus(struct tw_keyboard *keyboard)
 {
-	struct tw_seat_client *client;
-	struct wl_resource *res;
-	uint32_t serial;
 	struct tw_seat *seat = wl_container_of(keyboard, seat, keyboard);
 
-        if (keyboard->focused_surface && keyboard->focused_client) {
-		client = keyboard->focused_client;
-		serial = wl_display_next_serial(seat->display);
-		wl_resource_for_each(res, &client->keyboards)
-			wl_keyboard_send_leave(res, serial,
-			                       keyboard->focused_surface);
-		tw_reset_wl_list(&keyboard->focused_destroy.link);
-	}
-	keyboard->focused_client = NULL;
-	keyboard->focused_surface = NULL;
+        clear_focus_no_signal(keyboard);
+        wl_signal_emit(&seat->signals.unfocus, keyboard);
 }
 
 WL_EXPORT void

@@ -187,8 +187,11 @@ struct tw_seat {
 	struct tw_touch touch;
 	struct tw_cursor *cursor;
 
-	struct wl_signal focus_signal;
-	struct wl_signal destroy_signal;
+	struct {
+		struct wl_signal focus; /**< emitted on device set_focus */
+		struct wl_signal unfocus; /**< emitted on device clear_focus */
+		struct wl_signal destroy;
+	} signals;
 };
 
 struct tw_seat_client {

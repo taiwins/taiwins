@@ -444,13 +444,18 @@ notify_xwm_tw_surface_focused(struct wl_listener *listener, void *data)
 {
 	struct tw_xwm *xwm =
 		wl_container_of(listener, xwm, listeners.wl_surface_focus);
-	struct wl_resource *resource = data;
-	struct tw_surface *surface = tw_surface_from_resource(resource);
-	struct tw_desktop_surface *dsurf =
-		tw_xwayland_desktop_surface_from_tw_surface(surface);
-	struct tw_xsurface *xsurface = dsurf ?
-		wl_container_of(dsurf, xsurface, dsurf) : NULL;
-	tw_xsurface_set_focus(xsurface, xwm);
+	struct tw_seat *seat = xwm->seat;
+	if (seat && data == &xwm->seat->keyboard) {
+		struct wl_resource *resource = seat->keyboard.focused_surface;
+		struct tw_surface *surface = (resource) ?
+			tw_surface_from_resource(resource) : NULL;
+		struct tw_desktop_surface *dsurf = (surface) ?
+			tw_xwayland_desktop_surface_from_tw_surface(surface) :
+			NULL;
+		struct tw_xsurface *xsurface = dsurf ?
+			wl_container_of(dsurf, xsurface, dsurf) : NULL;
+		tw_xsurface_set_focus(xsurface, xwm);
+	}
 }
 
 static void
@@ -564,10 +569,10 @@ tw_xserver_set_seat(struct tw_xserver *server, struct tw_data_device *device)
 	tw_reset_wl_list(&xwm->listeners.wl_surface_focus.link);
 
 	xwm->seat = seat;
-	tw_signal_setup_listener(&seat->destroy_signal,
+	tw_signal_setup_listener(&seat->signals.destroy,
 	                         &xwm->listeners.seat_destroy,
 	                         notify_xwm_tw_seat_destroy);
-	tw_signal_setup_listener(&seat->focus_signal,
+	tw_signal_setup_listener(&seat->signals.focus,
 	                         &xwm->listeners.wl_surface_focus,
 	                         notify_xwm_tw_surface_focused);
 

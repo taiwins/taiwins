@@ -90,6 +90,11 @@ struct tw_engine_seat {
 
 	struct xkb_rule_names keyboard_rule_names;
 	struct xkb_keymap *keymap;
+
+	struct {
+		struct wl_listener focus;
+		struct wl_listener unfocus;
+	} listeners;
 };
 
 /**

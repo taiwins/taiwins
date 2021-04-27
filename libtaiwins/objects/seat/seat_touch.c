@@ -132,10 +132,16 @@ notify_focused_disappear(struct wl_listener *listener, void *data)
 {
 	struct tw_touch *touch =
 		wl_container_of(listener, touch, focused_destroy);
-	touch->focused_surface = NULL;
+
+	tw_touch_clear_focus(touch);
+}
+
+static void
+clear_focus_no_signal(struct tw_touch *touch)
+{
 	touch->focused_client = NULL;
-	wl_list_remove(&listener->link);
-	wl_list_init(&listener->link);
+	touch->focused_surface = NULL;
+	tw_reset_wl_list(&touch->focused_destroy.link);
 }
 
 WL_EXPORT struct tw_touch *
@@ -209,7 +215,7 @@ tw_touch_set_focus(struct tw_touch *touch,
 
 	client = tw_seat_client_find(seat, wl_resource_get_client(wl_surface));
 	if (client && !wl_list_empty(&client->touches)) {
-		tw_touch_clear_focus(touch);
+		clear_focus_no_signal(touch);
 
 		touch->focused_client = client;
 		touch->focused_surface = wl_surface;
@@ -217,14 +223,17 @@ tw_touch_set_focus(struct tw_touch *touch,
 		tw_reset_wl_list(&touch->focused_destroy.link);
 		wl_resource_add_destroy_listener(wl_surface,
 		                                 &touch->focused_destroy);
+		wl_signal_emit(&seat->signals.focus, touch);
 	}
 }
 
 WL_EXPORT void
 tw_touch_clear_focus(struct tw_touch *touch)
 {
-	touch->focused_client = NULL;
-	touch->focused_surface = NULL;
+	struct tw_seat *seat = wl_container_of(touch, seat, touch);
+
+	clear_focus_no_signal(touch);
+	wl_signal_emit(&seat->signals.unfocus, touch);
 }
 
 WL_EXPORT void
