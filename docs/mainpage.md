@@ -35,5 +35,5 @@ Take a look [here](libtwclient.md).
 If you are new to wayland, you may be also interested in the [wayland
 note](wayland.md) for some important bits. [lua](lua.md) notes is the compact
 summary on using the lua c API. Taiwins also uses dbus for configuration and
-various other things, a quick tutorial on dbus can be found [here][dbus.md].
+various other things, a quick tutorial on dbus can be found [here](dbus.md).
 
