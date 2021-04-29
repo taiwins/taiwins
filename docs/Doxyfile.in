@@ -942,6 +942,7 @@ EXCLUDE_PATTERNS       = */nk_backends/* \
 			 */twidgets/README.md \
 			 */tdbus/README.md \
 			 */twobjects/README.md \
+			 */progress.md \
 			 README.md \
 			 CONTRIBUTING.md
 			 
