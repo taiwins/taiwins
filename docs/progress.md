@@ -12,23 +12,22 @@ libtaiwins is the compositor library tailored for Taiwins compositor, much like
 * [x] X11 backend.
 * [x] Wayland backend.
   - [ ] Frame re-scheduling on switching workspaces.
-  - [ ] Frame time measurement in wayland backend.
+  - [x] Frame time measurement in wayland backend.
   - [x] Fullscreen surface.
 * [ ] DRM backend.
   - login service.
 	+ [x] systemd-logind/elogind service.
 	+ [x] direct login service.
     + [x] session switch away.
-	+ [ ] session switch back.
+	+ [x] session switch back.
   - [x] GPU resource enumeration.
   - [x] atomic modesetting.
   - [x] gbm platform.
   - [ ] EGLStream platform.
   - [x] Multi-GPU support.
   - [x] GPU hotplug.
-   + [ ] per-GPU render context.
   - [ ] writeback connectors.
-* [ ] XWayland.
+* [x] XWayland.
 * [ ] Pipewire screenrecording.
 * rendering pipeline.
   - [x] EGL render context.

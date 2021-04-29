@@ -928,7 +928,6 @@ EXCLUDE_SYMLINKS       = NO
 # exclude all test directories for example use the pattern */test/*
 
 EXCLUDE_PATTERNS       = */nk_backends/* \
-		         */libweston/* \
 			 */test/* \
 			 */tests/* \
 			 */nklua/* \
@@ -937,9 +936,15 @@ EXCLUDE_PATTERNS       = */nk_backends/* \
 			 */wlroots/* \
 			 */nuklear/* \
 			 */stb/* \
+			 */twclient/subprojects/* \
 			 */twclient/theme.h \
 			 */twclient/README.md \
-			 */twobjects/README.md
+			 */twidgets/README.md \
+			 */tdbus/README.md \
+			 */twobjects/README.md \
+			 */progress.md \
+			 README.md \
+			 CONTRIBUTING.md
 			 
 
 # The EXCLUDE_SYMBOLS tag can be used to specify one or more symbol names
