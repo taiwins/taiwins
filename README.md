@@ -14,7 +14,7 @@ philosophy of Taichi as I hope it would be dynamic and balanced.
 
 Taiwins is usable now with potential bugs and some missing features. Continues
 developement in progress and helps are wanted. If you like to join, I drafted
-some pages of [notes](docs/mainpage.md) to guide you through the starting
+some pages of [notes](docs/apidoc.md) to guide you through the starting
 steps. You can also join the chat on [Gitter](https://gitter.im/taiwins) for
 any questions and disscussions. There is a [feature list](docs/progress.md)
 available if you want to know more about what taiwins can do.
@@ -47,8 +47,8 @@ with source code, you can easily compile and try out:
 	meson build && ninja -C build
 	
 For those who use Archlinux, there is an
-[aur](https://aur.archlinux.org/packages/taiwins-git) package you can simply
-install(Outdated).
+[aur](https://aur.archlinux.org/packages/taiwins) package you can simply
+install.
 
 ## How to run
 
@@ -96,4 +96,4 @@ to enable building documentation. We also host a online themed
 
 ### Screenshots
 There are some example screen shots of taiwins, check out the [screenshot
-page](docs/screenshots.md) for more details.
+page](docs/screenshots.rst) for more details.
