@@ -26,7 +26,6 @@
 
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/seat.h>
-#include <taiwins/objects/cursor.h>
 #include <taiwins/objects/popup_grab.h>
 
 static const struct tw_pointer_grab_interface popup_pointer_grab_impl;
@@ -41,25 +40,6 @@ tw_popup_grab_is_current(struct tw_seat *seat)
 		 seat->touch.grab->impl == &popup_touch_grab_impl);
 }
 
-static bool
-tw_popup_grab_on_surface(struct tw_seat *seat, struct wl_resource *wl_surface)
-{
-	struct tw_surface *surface = (wl_surface) ?
-		tw_surface_from_resource(wl_surface) : NULL;
-	struct tw_cursor *cursor = seat->cursor;
-	float x = cursor->x;
-	float y = cursor->y;
-
-	if (surface) {
-		tw_surface_to_local_pos(surface, x, y, &x, &y);
-		return (x >= 0 && y >= 0 &&
-		        x <= surface->geometry.xywh.width &&
-		        y <= surface->geometry.xywh.height);
-	} else {
-		return false;
-	}
-}
-
 static void tw_popup_grab_close(struct tw_popup_grab *grab);
 
 static void
@@ -69,16 +49,15 @@ popup_pointer_grab_button(struct tw_seat_pointer_grab *grab,
 {
 	struct tw_pointer *pointer = &grab->seat->pointer;
 	struct wl_resource *wl_surface = grab->data;
+	bool on_popup = (wl_surface == pointer->focused_surface);
 	struct tw_popup_grab *popup_grab =
 		wl_container_of(grab, popup_grab, pointer_grab);
 	pointer->default_grab.impl->button(&pointer->default_grab,
 	                                   time_msec, button, state);
 	//TODO it is either we have pointer to be able to focus on popup before
 	//this or defer the grab after the release button.
-	if (!tw_popup_grab_on_surface(grab->seat, wl_surface)) {
-		tw_pointer_clear_focus(pointer);
+	if (!on_popup)
 		tw_popup_grab_close(popup_grab);
-	}
 }
 
 static void
@@ -142,14 +121,13 @@ popup_touch_grab_down(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 	struct wl_resource *wl_surface = grab->data;
 	struct tw_popup_grab *popup_grab =
 		wl_container_of(grab, popup_grab, touch_grab);
+	bool on_popup = (wl_surface == touch->focused_surface);
 
 	touch->default_grab.impl->down(&touch->default_grab,
 	                               time_msec, touch_id,
 	                               sx, sy);
-	if (!tw_popup_grab_on_surface(grab->seat, wl_surface)) {
-		tw_touch_clear_focus(touch);
+	if (!on_popup)
 		tw_popup_grab_close(popup_grab);
-	}
 }
 
 static void
