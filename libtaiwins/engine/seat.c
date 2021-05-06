@@ -82,11 +82,10 @@ notify_seat_remove_device(struct wl_listener *listener, void *data)
 		wl_container_of(listener, seat, sink.remove);
 	struct tw_backend *backend = seat->engine->backend;
 	struct tw_input_device *current = data, *device;
-	bool device_type_left = false, has_device = false;
+	bool device_type_left = false;
 
 	wl_list_for_each(device, &backend->inputs, link) {
 		if ((int)device->seat_id == seat->idx && device != current) {
-			has_device = true;
 			if (device->type == current->type) {
 				device_type_left = true;
 				break;
@@ -102,9 +101,6 @@ notify_seat_remove_device(struct wl_listener *listener, void *data)
 		else if (current->type == TW_INPUT_TYPE_TOUCH)
 			tw_seat_remove_touch(seat->tw_seat);
 	}
-	//TODO: what if we still have switch or tablet deivces?
-	if (has_device == false)
-		tw_engine_seat_release(seat);
 }
 
 static void
