@@ -50,6 +50,29 @@ tw_data_offer_from_resource(struct wl_resource *resource)
 	return wl_resource_get_user_data(resource);
 }
 
+static enum wl_data_device_manager_dnd_action
+data_offer_choose_action(struct tw_data_offer *offer, struct wl_resource *res,
+                         uint32_t offered_actions, uint32_t preferred_action)
+{
+	uint32_t source_actions = 0, available_actions = 0;
+
+	offered_actions = (wl_resource_get_version(res) >=
+	                   WL_DATA_OFFER_ACTION_SINCE_VERSION) ?
+		offered_actions : WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY;
+
+	source_actions = (offer->source->actions) ? offer->source->actions :
+		WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY;
+
+	available_actions = offered_actions & source_actions;
+
+	if (available_actions & preferred_action)
+		return preferred_action;
+	else if (available_actions)
+		return 1 << (ffs(available_actions) - 1);
+	else
+		return WL_DATA_DEVICE_MANAGER_DND_ACTION_NONE;
+}
+
 static void
 data_offer_accept(struct wl_client *client,
                   struct wl_resource *resource,
@@ -133,7 +156,6 @@ data_offer_set_actions(struct wl_client *client,
                        uint32_t dnd_actions,
                        uint32_t preferred_action)
 {
-	uint32_t determined_action;
 	struct tw_data_offer *offer = tw_data_offer_from_resource(resource);
 
 	if (!offer || !offer->source)
@@ -160,22 +182,18 @@ data_offer_set_actions(struct wl_client *client,
 		                       "drag-n-drop offers");
 		return;
 	}
+	offer->source->selected_dnd_action =
+		data_offer_choose_action(offer, resource,
+		                         dnd_actions, preferred_action);
 
-	if (!(dnd_actions & offer->source->actions)) {
-		tw_data_source_send_cancel(offer->source);
-		return;
-	}
-
-	//okay, this is the determined action for the offer.
-	determined_action = preferred_action;
 	if (wl_resource_get_version(offer->source->resource) >=
 	    WL_DATA_SOURCE_ACTION_SINCE_VERSION)
-		tw_data_source_send_action(offer->source, determined_action);
+		tw_data_source_send_action(offer->source,
+		                           offer->source->selected_dnd_action);
 	if (wl_resource_get_version(resource) >=
-		WL_DATA_OFFER_ACTION_SINCE_VERSION)
+	    WL_DATA_OFFER_ACTION_SINCE_VERSION)
 		wl_data_offer_send_action(resource,
-		                          determined_action);
-	offer->source->selected_dnd_action = determined_action;
+		                           offer->source->selected_dnd_action);
 }
 
 static const struct wl_data_offer_interface data_offer_impl = {
