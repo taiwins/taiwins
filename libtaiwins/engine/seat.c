@@ -223,11 +223,11 @@ pointer_focus_motion(struct tw_engine_seat *seat, uint32_t timespec)
 	float x = seat->engine->global_cursor.x;
 	float y = seat->engine->global_cursor.y;
 
-	if (focused && pointer->grab != &pointer->default_grab)
-		tw_surface_to_local_pos(focused, x, y, &x, &y);
-	else
+	if (pointer->grab && pointer->grab->impl->enter)
 		focused = tw_engine_pick_surface_from_layers(seat->engine,
 		                                             x, y, &x, &y);
+	else if (focused)
+		tw_surface_to_local_pos(focused, x, y, &x, &y);
 
 	if (focused && (pointer->focused_surface == focused->resource))
 			tw_pointer_notify_motion(pointer, timespec, x, y);
