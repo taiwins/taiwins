@@ -157,8 +157,8 @@ data_device_set_selection(struct wl_client *client,
                           struct wl_resource *source_resource,
                           uint32_t serial)
 {
-	struct tw_data_source *source =
-		tw_data_source_from_resource(source_resource);
+	struct tw_data_source *source = (source_resource) ?
+		tw_data_source_from_resource(source_resource) : NULL;
 	struct tw_data_device *device =
 		tw_data_device_from_source(device_resource);
 
@@ -370,7 +370,7 @@ tw_data_device_set_selection(struct tw_data_device *device,
 	if (device->source_set == source)
 		return;
 
-	if (source->actions) {
+	if (source && source->actions) {
 		//we could be using a exotic data_source which does not have a
 		//resources
 		if (source->resource)
@@ -383,9 +383,12 @@ tw_data_device_set_selection(struct tw_data_device *device,
 	//valid anymore
 	if (device->source_set) {
 		tw_data_source_send_cancel(device->source_set);
-		tw_reset_wl_list(&device->source_destroy.link);
-		device->source_set = NULL;
+		notify_device_source_destroy(&device->source_destroy,
+		                             device->source_set);
 	}
+	//quit if we are not setting sources
+	if (!source)
+		return;
 	device->source_set = source;
 	source->selection_source = true;
 	tw_signal_setup_listener(&source->destroy_signal,
