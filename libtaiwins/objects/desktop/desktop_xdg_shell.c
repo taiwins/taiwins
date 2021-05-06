@@ -135,10 +135,11 @@ commit_xdg_toplevel(struct tw_surface *surface)
 		wl_container_of(dsurf, xdg_surf, base);
 	struct tw_desktop_manager *desktop = dsurf->desktop;
 	uint32_t id = wl_resource_get_id(dsurf->resource);
+
+	//dont allow it commit surface before xdg is committed
 	if (!xdg_surf->configured) {
-		wl_resource_post_error(dsurf->resource,
-		                       XDG_SURFACE_ERROR_NOT_CONSTRUCTED,
-		                       "xdg_surface@%d not configured", id);
+		tw_logl_level(TW_LOG_WARN, "xdg_surface@%d not configured",
+		              id);
 		return;
 	}
 	commit_update_window_geometry(xdg_surf);
