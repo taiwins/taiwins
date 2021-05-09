@@ -24,15 +24,20 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <drm_fourcc.h>
+#include <sys/stat.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <wayland-linux-dmabuf-server-protocol.h>
 
+#include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/dmabuf.h>
 
-#define DMA_BUF_VERSION 3
+#define DMA_BUF_VERSION 4
 
 static const struct zwp_linux_buffer_params_v1_interface buffer_params_impl;
+
+static const struct zwp_linux_dmabuf_v1_interface dmabuf_impl;
 
 static struct tw_linux_dmabuf s_tw_linux_dmabuf = {0};
 
@@ -66,6 +71,87 @@ tw_dmabuf_buffer_from_resource(struct wl_resource *resource)
 	buffer = wl_resource_get_user_data(resource);
 	return buffer;
 }
+
+static struct tw_linux_dmabuf *
+tw_linux_dmabuf_from_resource(struct wl_resource *resource)
+{
+	struct tw_linux_dmabuf *dmabuf = NULL;
+
+	assert(wl_resource_instance_of(resource,
+	                               &zwp_linux_dmabuf_v1_interface,
+	                               &dmabuf_impl));
+	dmabuf = wl_resource_get_user_data(resource);
+	assert(dmabuf);
+	return dmabuf;
+}
+
+/******************************************************************************
+ * tw_dmabuf_hints implementation
+ *****************************************************************************/
+
+static void
+dmabuf_hints_send_formats(struct tw_linux_dmabuf *dmabuf,
+                          struct wl_resource *resource)
+{
+	size_t nfmts = 0;
+
+	//TODO should error here
+	if (!dmabuf->impl || !dmabuf->impl->format_request ||
+	    !dmabuf->impl->modifiers_request)
+		return;
+	dmabuf->impl->format_request(dmabuf, dmabuf->impl_userdata,
+	                             NULL, &nfmts);
+	int fmts[nfmts + 1];
+	dmabuf->impl->format_request(dmabuf, dmabuf->impl_userdata,
+	                             fmts, &nfmts);
+	//TODO: we have format set now, replace with it
+	for (size_t i = 0; i < nfmts; i++) {
+		size_t nmods = 0;
+		dmabuf->impl->modifiers_request(dmabuf, dmabuf->impl_userdata,
+		                                fmts[i], NULL, &nmods);
+		uint64_t mods[nmods+1];
+		dmabuf->impl->modifiers_request(dmabuf, dmabuf->impl_userdata,
+		                                fmts[i], mods, &nmods);
+		if (nmods == 0) {
+			mods[0] = DRM_FORMAT_MOD_INVALID;
+			nmods = 1;
+		}
+		for (size_t j = 0; j < nmods; j++) {
+			uint32_t mod_lo = mods[i] & 0xffffffff;
+			uint32_t mod_hi = mods[i] >> 32;
+			zwp_linux_dmabuf_hints_v1_send_tranche_modifier(
+				resource, fmts[i], mod_hi, mod_lo);
+		}
+	}
+}
+
+static void
+dmabuf_send_hints(struct tw_linux_dmabuf *dmabuf, struct wl_resource *resource)
+{
+	//TODO get major device
+	int drm_fd = -1;
+	struct stat stat = {0};
+	struct wl_array array = {
+		.size = sizeof(stat.st_rdev),
+		.data = &stat.st_rdev,
+	};
+
+	if (fstat(drm_fd, &stat) != 0) {
+		tw_logl_level(TW_LOG_ERRO, "failed to stat drm_fd %d", drm_fd);
+		return;
+	}
+
+	zwp_linux_dmabuf_hints_v1_send_main_device(resource, &array);
+	zwp_linux_dmabuf_hints_v1_send_tranche_target_device(resource, &array);
+
+	dmabuf_hints_send_formats(dmabuf, resource);
+	zwp_linux_dmabuf_hints_v1_send_tranche_done(resource);
+	zwp_linux_dmabuf_hints_v1_send_done(resource);
+}
+
+static const struct zwp_linux_dmabuf_hints_v1_interface dmabuf_hints_impl = {
+	.destroy = tw_resource_destroy_common,
+};
 
 /******************************************************************************
  * tw_dmabuf_buffer implementation
@@ -368,9 +454,9 @@ static const struct zwp_linux_buffer_params_v1_interface buffer_params_impl = {
  *****************************************************************************/
 
 static void
-linux_dmabuf_create_params(struct wl_client *client,
-                           struct wl_resource *resource,
-                           uint32_t params_id)
+handle_linux_dmabuf_create_params(struct wl_client *client,
+                                  struct wl_resource *resource,
+                                  uint32_t params_id)
 {
 	struct tw_dmabuf_buffer *buffer =
 		calloc(1, sizeof(struct tw_dmabuf_buffer));
@@ -395,9 +481,39 @@ err_buffer:
 	wl_resource_post_no_memory(resource);
 }
 
-static const struct zwp_linux_dmabuf_v1_interface dmabuf_v1_impl = {
+static void
+handle_get_default_hints(struct wl_client *client,
+                         struct wl_resource *resource, uint32_t id)
+{
+	struct tw_linux_dmabuf *dmabuf =
+		tw_linux_dmabuf_from_resource(resource);
+	uint32_t version = wl_resource_get_version(resource);
+	struct wl_resource *hint_resource =
+		wl_resource_create(client,&zwp_linux_dmabuf_hints_v1_interface,
+		                   version, id);
+	if (!hint_resource) {
+		wl_resource_post_no_memory(resource);
+		return;
+	}
+	wl_resource_set_implementation(hint_resource, &dmabuf_hints_impl,
+	                               NULL, NULL);
+	//TODO: send tranches
+	dmabuf_send_hints(dmabuf, hint_resource);
+}
+
+static void
+handle_get_surface_hints(struct wl_client *client,
+                         struct wl_resource *resource,
+                         uint32_t id, struct wl_resource *surface)
+{
+	handle_get_default_hints(client, resource, id);
+}
+
+static const struct zwp_linux_dmabuf_v1_interface dmabuf_impl = {
 	.destroy = tw_resource_destroy_common,
-	.create_params = linux_dmabuf_create_params,
+	.create_params = handle_linux_dmabuf_create_params,
+	.get_default_hints = handle_get_default_hints,
+	.get_surface_hints = handle_get_surface_hints,
 };
 
 static void
@@ -473,7 +589,7 @@ bind_dmabuf(struct wl_client *wl_client, void *data,
 		return;
 	}
 	wl_resource_set_implementation(resource,
-	                               &dmabuf_v1_impl, dmabuf,
+	                               &dmabuf_impl, dmabuf,
 	                               dmabuf_destroy_resource);
 	dmabuf_send_formats(dmabuf, resource, version);
 	//TODO if failed, we shall do something though
