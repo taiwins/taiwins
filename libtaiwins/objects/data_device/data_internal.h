@@ -33,6 +33,7 @@ extern "C" {
 	 WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY | \
 	 WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE | \
 	 WL_DATA_DEVICE_MANAGER_DND_ACTION_ASK )
+extern struct tw_surface_role  tw_data_drag_role;
 
 /**
  * @brief create a data_offer for this surface.
@@ -63,8 +64,8 @@ tw_data_source_from_resource(struct wl_resource *resource);
 bool
 tw_data_source_start_drag(struct tw_data_drag *drag,
                           struct wl_resource *device_resource,
+                          struct wl_resource *icon_source,
                           struct tw_data_source *source, struct tw_seat *seat);
-
 
 #ifdef  __cplusplus
 }

@@ -24,6 +24,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <wayland-server-core.h>
+#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <wayland-util.h>
 
@@ -130,8 +131,8 @@ data_device_start_drag(struct wl_client *client,
 
 	source->selection_source = false;
 	//TODO: match the serial against pointer or touch for the grab.
-	if (tw_data_source_start_drag(&device->drag, resource, source,
-	                              device->seat)) {
+	if (tw_data_source_start_drag(&device->drag, resource, icon_source,
+	                              source, device->seat)) {
 		//we need to trigger a enter event
 		tw_surface_to_local_pos(surface, cursor->x, cursor->y,
 		                        &sx, &sy);
@@ -318,6 +319,7 @@ tw_data_device_manager_init(struct tw_data_device_manager *manager,
 		notify_data_device_manager_display_destroy;
 	wl_display_add_destroy_listener(display,
 	                                &manager->display_destroy_listener);
+	tw_subsurface_add_role(&tw_data_drag_role);
 	return true;
 }
 
