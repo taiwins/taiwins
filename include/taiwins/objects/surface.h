@@ -265,7 +265,7 @@ void
 tw_surface_dirty_geometry(struct tw_surface *surface);
 
 /**
- * @brief flushing the view state, clean up the damage and also calls frame
+ * @brief  flushing the view state, clean up the damage and also calls frame
  * signal
  */
 void
@@ -279,6 +279,19 @@ tw_subsurface_is_synched(struct tw_subsurface *sub);
 
 struct tw_subsurface *
 tw_surface_get_subsurface(struct tw_surface *surf);
+
+/**
+ * @brief  init a subsurface like object; memory may not be managed
+ */
+void
+tw_subsurface_init(struct tw_subsurface *sub, struct wl_resource *resource,
+                   struct tw_surface *surface, struct tw_surface *parent,
+                   wl_notify_func_t notifier);
+/**
+ * @brief cleanup the subsurface without freeing the object
+ */
+void
+tw_subsurface_fini(struct tw_subsurface *sub);
 
 struct tw_subsurface *
 tw_subsurface_create(struct wl_client *client, uint32_t version, uint32_t id,
