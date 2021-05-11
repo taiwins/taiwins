@@ -42,7 +42,7 @@ struct tw_subsurface {
 };
 
 bool
-tw_surface_is_subsurface(struct tw_surface *surf);
+tw_surface_is_subsurface(struct tw_surface *surf, bool include_exotic);
 
 bool
 tw_subsurface_is_synched(struct tw_subsurface *sub);
@@ -62,6 +62,19 @@ tw_subsurface_init(struct tw_subsurface *sub, struct wl_resource *resource,
  */
 void
 tw_subsurface_fini(struct tw_subsurface *sub);
+
+/**
+ * @brief declare a role as exotic subsurface role for other implementation of
+ * subsurface.
+ *
+ * Another types implements subsurfaces can mark itself as an exotic
+ * subsurface, then tw_surface_is_subsurface(surf, true) will consider it.
+ *
+ * To make it work. commit_private has to be a subsurface, otherwise the
+ * behavior is undefined!
+ */
+void
+tw_subsurface_add_role(struct tw_surface_role *role);
 
 struct tw_subsurface *
 tw_subsurface_create(struct wl_client *client, uint32_t version, uint32_t id,

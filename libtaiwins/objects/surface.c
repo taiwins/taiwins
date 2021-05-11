@@ -501,9 +501,22 @@ surface_commit_state(struct tw_surface *surface)
 	//frame done
 	else if ((surface->current->commit_state & TW_SURFACE_FRAME_REQUESTED))
 		wl_signal_emit(&surface->signals.frame, surface);
-	//also commit the subsurface surface and
+
 	if (surface->role.iface && surface->role.iface->commit)
 		surface->role.iface->commit(surface);
+}
+
+/****************************** commit subsurface ****************************/
+
+static inline void
+subsurface_append_to_parent(struct tw_subsurface *subsurface)
+{
+	if (!wl_list_empty(&subsurface->parent_pending_link)) {
+		tw_reset_wl_list(&subsurface->parent_pending_link);
+		tw_reset_wl_list(&subsurface->parent_link);
+		wl_list_insert(subsurface->parent->subsurfaces.prev,
+		               &subsurface->parent_link);
+	}
 }
 
 void
@@ -518,6 +531,8 @@ subsurface_commit_for_parent(struct tw_subsurface *subsurface, bool sync)
 		//we do not have a change state like in wlroots, instead, the
 		//pending state does not commit if we are in sync.
 		surface_commit_state(surface);
+		subsurface_append_to_parent(subsurface);
+
 		wl_list_for_each(child, &surface->subsurfaces, parent_link)
 			subsurface_commit_for_parent(child, true);
 	}
@@ -543,24 +558,16 @@ surface_commit(struct wl_client *client,
 	struct tw_subsurface *subsurface;
 	struct tw_surface *surface = tw_surface_from_resource(resource);
 
-	if (tw_surface_is_subsurface(surface))
+	if (tw_surface_is_subsurface(surface, false))
 		committed = surface_commit_as_subsurface(surface, false);
 	else
 		surface_commit_state(surface);
-
-	if (committed) {
-		wl_list_for_each_reverse(subsurface,
-		                         &surface->subsurfaces_pending,
-		                         parent_pending_link) {
-			wl_list_remove(&subsurface->parent_link);
-			wl_list_insert(&surface->subsurfaces,
-			               &subsurface->parent_link);
-		}
-		//TODO I should not need to update the damage for subsurfaces
-		//here. Stacking order of subsurfaces should work the same as
+	if (committed && tw_surface_is_subsurface(surface, true)) {
+		subsurface = surface->role.commit_private;
+		subsurface_append_to_parent(subsurface);
 	}
-        // if this surface committed, all the subsurface would commit with it if
-        // they did not commit
+        // if this surface committed, all the subsurface would commit with it
+        // if they did not commit
 	wl_list_for_each(subsurface, &surface->subsurfaces, parent_link)
 		subsurface_commit_for_parent(subsurface, committed);
 

@@ -58,15 +58,25 @@ static void subsurface_commit_role(struct tw_surface *surf) {
 }
 
 WL_EXPORT bool
-tw_surface_is_subsurface(struct tw_surface *surf)
+tw_surface_is_subsurface(struct tw_surface *surf, bool include_exotic)
 {
-	return surf->role.iface == &tw_subsurface_role;
+	struct tw_surface_role *exotic_role;
+
+	if (surf->role.iface == &tw_subsurface_role)
+		return true;
+	if (include_exotic) {
+		wl_list_for_each(exotic_role, &tw_subsurface_role.link, link) {
+			if (surf->role.iface == exotic_role)
+				return true;
+		}
+	}
+	return false;
 }
 
 WL_EXPORT struct tw_subsurface *
 tw_surface_get_subsurface(struct tw_surface *surf)
 {
-	return (tw_surface_is_subsurface(surf)) ?
+	return (tw_surface_is_subsurface(surf, false)) ?
 		surf->role.commit_private :
 		NULL;
 }
@@ -317,4 +327,11 @@ tw_subsurface_is_synched(struct tw_subsurface *subsurface)
 	}
 
 	return false;
+}
+
+WL_EXPORT void
+tw_subsurface_add_role(struct tw_surface_role *role)
+{
+	tw_reset_wl_list(&role->link);
+	wl_list_insert(tw_subsurface_role.link.prev, &role->link);
 }
