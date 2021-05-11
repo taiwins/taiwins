@@ -89,18 +89,19 @@ static const struct xdg_surface_interface xdg_surface_impl;
 static void commit_xdg_toplevel(struct tw_surface *surface);
 static void commit_xdg_popup(struct tw_surface *surface);
 
-static struct tw_surface_role tw_xdg_toplevel_role = {
-	.commit = commit_xdg_toplevel,
-	.name = "XDG_TOPLEVEL",
-	.link.prev = &tw_xdg_toplevel_role.link,
-	.link.next = &tw_xdg_toplevel_role.link,
-};
-
-static struct tw_surface_role tw_xdg_popup_role = {
-	.commit = commit_xdg_popup,
-	.name = "XDG_POPUP",
-	.link.prev = &tw_xdg_popup_role.link,
-	.link.next = &tw_xdg_popup_role.link,
+static struct tw_surface_role tw_xdg_roles[] = {
+	[TW_DESKTOP_TOPLEVEL_SURFACE] = {
+		.commit = commit_xdg_toplevel,
+		.name = "XDG_TOPLEVEL",
+		.link.prev = &tw_xdg_roles[TW_DESKTOP_TOPLEVEL_SURFACE].link,
+		.link.next = &tw_xdg_roles[TW_DESKTOP_TOPLEVEL_SURFACE].link,
+	},
+	[TW_DESKTOP_POPUP_SURFACE] = {
+		.commit = commit_xdg_popup,
+		.name = "XDG_POPUP",
+		.link.prev = &tw_xdg_roles[TW_DESKTOP_POPUP_SURFACE].link,
+		.link.next = &tw_xdg_roles[TW_DESKTOP_POPUP_SURFACE].link,
+	},
 };
 
 /******************************************************************************
@@ -146,9 +147,8 @@ commit_update_window_geometry(struct tw_xdg_surface *xdg_surf)
 static void
 commit_xdg_toplevel(struct tw_surface *surface)
 {
-	struct tw_desktop_surface *dsurf = surface->role.commit_private;
-	struct tw_xdg_surface *xdg_surf =
-		wl_container_of(dsurf, xdg_surf, base);
+	struct tw_xdg_surface *xdg_surf = surface->role.commit_private;
+	struct tw_desktop_surface *dsurf = &xdg_surf->base;
 	struct tw_desktop_manager *desktop = dsurf->desktop;
 	uint32_t id = wl_resource_get_id(dsurf->resource);
 
@@ -169,9 +169,9 @@ commit_xdg_toplevel(struct tw_surface *surface)
 static void
 commit_xdg_popup(struct tw_surface *surface)
 {
-	struct tw_desktop_surface *dsurf = surface->role.commit_private;
+	struct tw_subsurface *sub = surface->role.commit_private;
 	struct tw_xdg_surface *xdg_surf =
-		wl_container_of(dsurf, xdg_surf, base);
+		wl_container_of(sub, xdg_surf, popup.subsurface);
 
 	commit_update_window_geometry(xdg_surf);
 }
@@ -179,8 +179,10 @@ commit_xdg_popup(struct tw_surface *surface)
 bool
 tw_surface_is_xdg_surface(struct tw_surface *surface)
 {
-	return surface->role.iface == &tw_xdg_popup_role ||
-		surface->role.iface == &tw_xdg_toplevel_role;
+	return surface->role.iface ==
+		&tw_xdg_roles[TW_DESKTOP_TOPLEVEL_SURFACE] ||
+		surface->role.iface ==
+		&tw_xdg_roles[TW_DESKTOP_POPUP_SURFACE];
 }
 
 static bool
@@ -189,14 +191,16 @@ xdg_surface_set_role(struct tw_desktop_surface *dsurf,
 {
 	struct wl_display *display = dsurf->desktop->display;
 	struct tw_surface *surface = dsurf->tw_surface;
-
+	struct tw_xdg_surface *xdg_surf =
+		wl_container_of(dsurf, xdg_surf, base);
+	//not supported
 	if (type == TW_DESKTOP_TOPLEVEL_SURFACE) {
-		if (!tw_surface_assign_role(surface, &tw_xdg_toplevel_role,
-		                            dsurf))
+		if (!tw_surface_assign_role(surface, &tw_xdg_roles[type],
+		                            xdg_surf))
 			return false;
 	} else if (type == TW_DESKTOP_POPUP_SURFACE) {
-		if (!tw_surface_assign_role(surface, &tw_xdg_popup_role,
-		                            dsurf))
+		if (!tw_surface_assign_role(surface, &tw_xdg_roles[type],
+		                            &xdg_surf->popup.subsurface))
 			return false;
 	} else {
 		return false;
@@ -706,13 +710,22 @@ static void
 destroy_popup_resource(struct wl_resource *resource)
 {
 	struct tw_xdg_surface *surf =
-		wl_resource_get_user_data(resource);
+		xdg_surface_from_popup(resource);
 	if (!surf)
 		return;
-	tw_reset_wl_list(&surf->popup.subsurface.parent_link);
+	if (surf->popup.subsurface.surface)
+		tw_subsurface_fini(&surf->popup.subsurface);
 	wl_resource_set_user_data(resource, NULL);
 	tw_reset_wl_list(&surf->popup.close_popup_listener.link);
 	surf->popup.resource = NULL;
+}
+
+static void
+notify_popup_surface_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_subsurface *sub =
+		wl_container_of(listener, sub, surface_destroyed);
+	tw_subsurface_fini(sub);
 }
 
 /******************************************************************************
@@ -726,15 +739,13 @@ popup_init(struct tw_xdg_surface *popup, struct wl_resource *popup_resource,
 	struct tw_subsurface *subsurface = &popup->popup.subsurface;
 	popup->popup.resource = popup_resource;
 	popup->popup.parent = parent;
-	xdg_surface_set_role(&popup->base, TW_DESKTOP_POPUP_SURFACE);
-
-	subsurface->parent = parent->base.tw_surface;
-	subsurface->surface = popup->base.tw_surface;
-	subsurface->sync = false;
 	wl_list_init(&popup->popup.close_popup_listener.link);
-	wl_list_init(&subsurface->parent_link);
-	wl_list_insert(subsurface->parent->subsurfaces.prev,
-	               &subsurface->parent_link);
+	//init subsurfaces
+	tw_subsurface_init(subsurface, NULL, popup->base.tw_surface,
+	                   parent->base.tw_surface,
+	                   notify_popup_surface_destroy);
+	subsurface->sync = false;
+	xdg_surface_set_role(&popup->base, TW_DESKTOP_POPUP_SURFACE);
 }
 
 static void
@@ -1091,6 +1102,7 @@ init_xdg_shell(struct tw_desktop_manager *desktop)
 		wl_global_create(desktop->display, &xdg_wm_base_interface,
 		                 XDG_SHELL_VERSION, desktop,
 		                 bind_xdg_wm_base);
+	tw_subsurface_add_role(&tw_xdg_roles[TW_DESKTOP_POPUP_SURFACE]);
 	if (!desktop->xdg_shell_global)
 		return false;
 	return true;

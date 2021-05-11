@@ -421,6 +421,15 @@ create_xwm_selections(struct tw_xwm *xwm)
 	tw_xwm_init_selection(xwm);
 }
 
+extern struct tw_surface_role tw_xpopup_role;
+extern struct tw_surface_role tw_xsurface_role;
+
+static inline void
+declare_xwm_surface_roles(struct tw_xwm *xwm)
+{
+	tw_subsurface_add_role(&tw_xpopup_role);
+}
+
 /******************************************************************************
  * listeners
  *****************************************************************************/
@@ -539,6 +548,7 @@ tw_xserver_create_xwindow_manager(struct tw_xserver *server,
         //TODO create cursor,
 	create_xwm_wm_window(xwm);
 	create_xwm_selections(xwm);
+	declare_xwm_surface_roles(xwm);
 
 	tw_signal_setup_listener(&server->signals.destroy,
 	                         &xwm->listeners.server_destroy,
