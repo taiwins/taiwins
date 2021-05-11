@@ -32,8 +32,17 @@
 
 static const struct wl_subsurface_interface subsurface_impl;
 
+static void subsurface_commit_role(struct tw_surface *surf);
+
 void
 subsurface_commit_for_parent(struct tw_subsurface *subsurface, bool sync);
+
+static struct tw_surface_role tw_subsurface_role = {
+	.name = "subsurface",
+	.commit = subsurface_commit_role,
+	.link.prev = &tw_subsurface_role.link,
+	.link.next = &tw_subsurface_role.link,
+};
 
 static void subsurface_commit_role(struct tw_surface *surf) {
 	struct tw_subsurface *sub = surf->role.commit_private;
@@ -42,14 +51,15 @@ static void subsurface_commit_role(struct tw_surface *surf) {
 	// geometry now.
 	if (surf->geometry.xywh.x != sub->sx + parent->geometry.xywh.x ||
 	    surf->geometry.xywh.y != sub->sy + parent->geometry.xywh.y)
-		tw_surface_set_position(surf, parent->geometry.xywh.x + sub->sx,
+		tw_surface_set_position(surf,
+		                        parent->geometry.xywh.x + sub->sx,
 		                        parent->geometry.xywh.y + sub->sy);
 }
 
 WL_EXPORT bool
 tw_surface_is_subsurface(struct tw_surface *surf)
 {
-	return surf->role.commit == subsurface_commit_role;
+	return surf->role.iface == &tw_subsurface_role;
 }
 
 WL_EXPORT struct tw_subsurface *
@@ -181,17 +191,14 @@ static const struct wl_subsurface_interface subsurface_impl = {
 static inline void
 subsurface_set_role(struct tw_subsurface *subsurface, struct tw_surface *surf)
 {
-	surf->role.commit_private = subsurface;
-        surf->role.commit = subsurface_commit_role;
-        surf->role.name = "subsurface";
+	tw_surface_assign_role(surf, &tw_subsurface_role, subsurface);
 }
 
 static inline void
 subsurface_unset_role(struct tw_subsurface *subsurface)
 {
+	subsurface->surface->role.iface = NULL;
 	subsurface->surface->role.commit_private = NULL;
-	subsurface->surface->role.commit = NULL;
-	subsurface->surface->role.name  = NULL;
 }
 
 static void

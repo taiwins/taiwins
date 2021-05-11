@@ -63,6 +63,18 @@ struct tw_event_buffer_uploading {
 };
 
 typedef void (*tw_surface_commit_cb_t)(struct tw_surface *surface);
+
+/**
+ * @brief role represents a type of surfaces to differentiate them from others
+ *
+ * It also contains a link for group differnt roles together
+ */
+struct tw_surface_role {
+	const char *name;
+	tw_surface_commit_cb_t commit;
+	struct wl_list link; /**< can be used for exotic role */
+};
+
 /**
  * @brief tw_surface_buffer represents a buffer texture for the surface.
  *
@@ -170,9 +182,8 @@ struct tw_surface {
 	} geometry;
 
 	struct {
-		const char *name;
+		const struct tw_surface_role *iface;
 		void *commit_private;
-		tw_surface_commit_cb_t commit;
 	} role;
 
 	struct {
@@ -222,8 +233,8 @@ bool
 tw_surface_has_role(struct tw_surface *surface);
 
 bool
-tw_surface_assign_role(struct tw_surface *surface, tw_surface_commit_cb_t cmt,
-                       void *user_data, const char *name);
+tw_surface_assign_role(struct tw_surface *surface,
+                       const struct tw_surface_role *role, void *user_data);
 
 /**
  * @brief dirty the geometry of the surface and subsurfaces.

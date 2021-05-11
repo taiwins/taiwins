@@ -62,7 +62,7 @@ shell_create_ui_element(struct tw_shell *shell,
                         struct tw_shell_output *output,
                         uint32_t x, uint32_t y,
                         struct tw_layer *layer,
-                        tw_surface_commit_cb_t commit_cb)
+                        const struct tw_surface_role *role)
 {
 	if (!elem)
 		elem = calloc(1, sizeof(struct tw_shell_ui));
@@ -79,7 +79,8 @@ shell_create_ui_element(struct tw_shell *shell,
 	// install surface data.
 	tw_reset_wl_list(&surface->layer_link);
 	wl_list_insert(layer->views.prev, &surface->layer_link);
-	shell_ui_set_role(elem, commit_cb, surface);
+	//TODO we should check for the ROLE assigning
+	shell_ui_set_role(elem, role, surface);
 	wl_list_init(&elem->grab_close.link);
 	tw_signal_setup_listener(&surface->signals.destroy,
 	                         &elem->surface_destroy,
@@ -89,22 +90,19 @@ shell_create_ui_element(struct tw_shell *shell,
 }
 
 void
-shell_ui_set_role(struct tw_shell_ui *ui,
-                  void (*commit)(struct tw_surface *surface),
+shell_ui_set_role(struct tw_shell_ui *ui, const struct tw_surface_role *role,
                   struct tw_surface *surface)
 {
-	surface->role.commit = commit;
+	surface->role.iface = role;
 	surface->role.commit_private = ui;
-	surface->role.name = TW_SHELL_UI_ROLE;
 }
 
 static void
 shell_ui_unset_role(struct tw_shell_ui *ui)
 {
 	if (ui->binded) {
-		ui->binded->role.commit = NULL;
+		ui->binded->role.iface = NULL;
 		ui->binded->role.commit_private = NULL;
-		ui->binded->role.name = NULL;
 	}
 }
 
@@ -248,20 +246,28 @@ shell_ui_type_to_layer(struct tw_shell *shell,
 	return NULL;
 }
 
-tw_surface_commit_cb_t
+const struct tw_surface_role *
 shell_ui_type_to_commit_cb(enum taiwins_ui_type type)
 {
-	switch (type) {
-	case TAIWINS_UI_TYPE_PANEL:
-		return commit_panel;
-	case TAIWINS_UI_TYPE_BACKGROUND:
-		return commit_fullscreen;
-	case TAIWINS_UI_TYPE_LOCKER:
-		return commit_fullscreen;
-	case TAIWINS_UI_TYPE_WIDGET:
-		return commit_widget;
-	}
-	return NULL;
+	static const struct tw_surface_role roles[] = {
+		[TAIWINS_UI_TYPE_PANEL] = {
+			.commit = commit_panel,
+			.name = "taiwins-panel",
+		},
+		[TAIWINS_UI_TYPE_BACKGROUND] = {
+			.commit = commit_fullscreen,
+			.name = "taiwins-background",
+		},
+		[TAIWINS_UI_TYPE_LOCKER] = {
+			.commit = commit_fullscreen,
+			.name = "taiwins-locker",
+		},
+		[TAIWINS_UI_TYPE_WIDGET] = {
+			.commit = commit_widget,
+			.name = "taiwins-widget",
+		},
+	};
+	return &roles[type];
 }
 
 static void
@@ -277,16 +283,15 @@ create_ui_element(struct wl_client *client,
 	struct wl_resource *resource;
 	struct tw_surface *surface = tw_surface_from_resource(wl_surface);
 	struct tw_layer *layer = shell_ui_type_to_layer(shell, type);
-	tw_surface_commit_cb_t commit_cb = shell_ui_type_to_commit_cb(type);
+	const struct tw_surface_role *role = shell_ui_type_to_commit_cb(type);
 	resource = wl_resource_create(client, &taiwins_ui_interface, 1, tw_ui);
-	//TODO, we should check if surface already have a role
 
 	if (!resource) {
 		wl_client_post_no_memory(client);
 		return;
 	}
 	elem = shell_create_ui_element(shell, elem, resource, surface,
-	                               output, x, y, layer, commit_cb);
+	                               output, x, y, layer, role);
 	if (!elem) {
 		wl_resource_destroy(resource);
 		wl_client_post_no_memory(client);

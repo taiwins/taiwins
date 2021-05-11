@@ -501,8 +501,8 @@ surface_commit_state(struct tw_surface *surface)
 	else if ((surface->current->commit_state & TW_SURFACE_FRAME_REQUESTED))
 		wl_signal_emit(&surface->signals.frame, surface);
 	//also commit the subsurface surface and
-	if (surface->role.commit)
-		surface->role.commit(surface);
+	if (surface->role.iface && surface->role.iface->commit)
+		surface->role.iface->commit(surface);
 }
 
 void
@@ -599,19 +599,17 @@ tw_surface_has_texture(struct tw_surface *surface)
 WL_EXPORT bool
 tw_surface_has_role(struct tw_surface *surface)
 {
-	return surface->role.commit != NULL;
+	return surface->role.iface != NULL;
 }
 
 WL_EXPORT bool
-tw_surface_assign_role(struct tw_surface *surface, tw_surface_commit_cb_t cmt,
-                       void *user_data, const char *name)
+tw_surface_assign_role(struct tw_surface *surface,
+                       const struct tw_surface_role *role, void *user_data)
 {
-	if (surface->role.commit != NULL &&
-	    surface->role.commit != cmt)
+	if (surface->role.iface != NULL && surface->role.iface != role)
 		return false;
-	surface->role.commit = cmt;
+	surface->role.iface = role;
 	surface->role.commit_private = user_data;
-	surface->role.name = name;
 	return true;
 }
 
