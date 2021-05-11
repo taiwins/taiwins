@@ -131,7 +131,6 @@ struct tw_view {
 	pixman_region32_t opaque_region, input_region;
 };
 
-struct tw_subsurface;
 struct tw_surface {
 	struct wl_resource *resource;
 	const struct tw_allocator *alloc;
@@ -196,22 +195,6 @@ struct tw_surface {
 	void *user_data;
 };
 
-/** a good reference about subsurface is here
- * :https://ppaalanen.blogspot.com/2013/11/sub-surfaces-now.html
- */
-struct tw_subsurface {
-	struct wl_resource *resource;
-	struct tw_surface *surface;
-	struct tw_surface *parent;
-	struct wl_list parent_link; /**< reflects subsurface stacking order */
-	struct wl_list parent_pending_link; /* accummulated stacking order */
-	struct wl_signal destroy;
-	struct wl_listener surface_destroyed;
-	int32_t sx, sy;
-	bool sync;
-	const struct tw_allocator *alloc;
-};
-
 struct tw_region {
 	struct wl_resource *resource;
 	pixman_region32_t region;
@@ -271,35 +254,6 @@ tw_surface_dirty_geometry(struct tw_surface *surface);
 void
 tw_surface_flush_frame(struct tw_surface *surface, uint32_t time_msec);
 
-bool
-tw_surface_is_subsurface(struct tw_surface *surf);
-
-bool
-tw_subsurface_is_synched(struct tw_subsurface *sub);
-
-struct tw_subsurface *
-tw_surface_get_subsurface(struct tw_surface *surf);
-
-/**
- * @brief  init a subsurface like object; memory may not be managed
- */
-void
-tw_subsurface_init(struct tw_subsurface *sub, struct wl_resource *resource,
-                   struct tw_surface *surface, struct tw_surface *parent,
-                   wl_notify_func_t notifier);
-/**
- * @brief cleanup the subsurface without freeing the object
- */
-void
-tw_subsurface_fini(struct tw_subsurface *sub);
-
-struct tw_subsurface *
-tw_subsurface_create(struct wl_client *client, uint32_t version, uint32_t id,
-                     struct tw_surface *surface, struct tw_surface *parent,
-                     const struct tw_allocator *alloc);
-void
-tw_subsurface_update_pos(struct tw_subsurface *sub,
-                         int32_t sx, int32_t sy);
 struct tw_region *
 tw_region_create(struct wl_client *client, uint32_t version, uint32_t id,
                  const struct tw_allocator *alloc);

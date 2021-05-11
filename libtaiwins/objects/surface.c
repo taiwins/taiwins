@@ -32,6 +32,7 @@
 #include <taiwins/objects/matrix.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/objects/subsurface.h>
 
 #define CALLBACK_VERSION 1
 #define SURFACE_VERSION 4

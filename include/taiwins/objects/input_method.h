@@ -26,6 +26,7 @@
 #include <wayland-server.h>
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/objects/subsurface.h>
 
 #ifdef  __cplusplus
 extern "C" {

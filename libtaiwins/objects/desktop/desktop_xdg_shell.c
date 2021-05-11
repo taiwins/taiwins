@@ -31,6 +31,7 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/desktop.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/objects/subsurface.h>
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/popup_grab.h>

@@ -29,6 +29,7 @@
 #include <taiwins/render_context.h>
 #include <taiwins/render_output.h>
 #include <taiwins/render_surface.h>
+#include <taiwins/objects/subsurface.h>
 #include <taiwins/objects/logger.h>
 #include <wayland-util.h>
 

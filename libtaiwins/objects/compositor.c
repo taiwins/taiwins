@@ -31,6 +31,7 @@
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/compositor.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/objects/subsurface.h>
 
 #define COMPOSITOR_VERSION 4
 #define SUBCOMPOSITOR_VERSION 1
