@@ -301,18 +301,20 @@ ping_xdg_surface(struct tw_desktop_surface *dsurf, uint32_t serial)
 
 static void
 init_xdg_surface(struct tw_xdg_surface *surface,
-                 struct wl_resource *wl_surface, struct wl_resource *resource,
+                 struct tw_surface *tw_surface,
+                 struct wl_resource *resource,
                  struct wl_resource *wm_base,
                  struct tw_desktop_manager *desktop)
 {
-	tw_desktop_surface_init(&surface->base, wl_surface, resource,
+	tw_desktop_surface_init(&surface->base, tw_surface, resource,
 	                        desktop);
 	surface->base.configure = configure_xdg_surface;
 	surface->base.close = close_xdg_surface;
 	surface->base.ping = ping_xdg_surface;
 	surface->wm_base = wm_base;
 
-	tw_set_resource_destroy_listener(wl_surface, &surface->surface_destroy,
+	tw_set_resource_destroy_listener(tw_surface->resource,
+	                                 &surface->surface_destroy,
 	                                 notify_xdg_surf_surface_destroy);
 }
 
@@ -1022,6 +1024,7 @@ handle_create_xdg_surface(struct wl_client *client,
 	uint32_t version = wl_resource_get_version(resource);
 	struct tw_desktop_manager *desktop =
 		wl_resource_get_user_data(resource);
+	struct tw_surface *tw_surface = tw_surface_from_resource(surface);
 
 	if (!tw_create_wl_resource_for_obj(r, dsurf, client, id, version,
 	                                   xdg_surface_interface)) {
@@ -1030,7 +1033,7 @@ handle_create_xdg_surface(struct wl_client *client,
 	}
 	wl_resource_set_implementation(r, &xdg_surface_impl, &dsurf->base,
 	                               destroy_xdg_surface_resource);
-	init_xdg_surface(dsurf, surface, r, resource, desktop);
+	init_xdg_surface(dsurf, tw_surface, r, resource, desktop);
 }
 
 static void

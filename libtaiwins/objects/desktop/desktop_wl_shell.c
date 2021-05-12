@@ -143,11 +143,12 @@ handle_shell_surface_surface_destroy(struct wl_listener *listener, void *data)
 
 static void
 init_wl_shell_surface(struct tw_wl_shell_surface *surf,
-                      struct wl_resource *wl_surface, struct wl_resource *r,
+                      struct tw_surface *tw_surface, struct wl_resource *r,
                       struct tw_desktop_manager *desktop)
 {
-	tw_desktop_surface_init(&surf->base, wl_surface, r, desktop);
-	tw_set_resource_destroy_listener(wl_surface, &surf->surface_destroy,
+	tw_desktop_surface_init(&surf->base, tw_surface, r, desktop);
+	tw_set_resource_destroy_listener(tw_surface->resource,
+	                                 &surf->surface_destroy,
 	                                 handle_shell_surface_surface_destroy);
 	surf->base.configure = configure_wl_shell_surface;
 	surf->base.close = close_wl_shell_surface;
@@ -407,7 +408,7 @@ handle_get_wl_shell_surface(struct wl_client *client,
 
 	wl_resource_set_implementation(resource, &wl_shell_surf_impl,
 	                               dsurf, destroy_wl_shell_surf_resource);
-	init_wl_shell_surface(surf, wl_surface, resource, desktop);
+	init_wl_shell_surface(surf, surface, resource, desktop);
 
 }
 

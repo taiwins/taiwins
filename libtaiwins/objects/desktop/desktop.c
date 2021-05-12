@@ -103,12 +103,12 @@ tw_desktop_create_global(struct wl_display *display,
 
 WL_EXPORT void
 tw_desktop_surface_init(struct tw_desktop_surface *surf,
-                        struct wl_resource *wl_surface,
+                        struct tw_surface *surface,
                         struct wl_resource *resource,
                         struct tw_desktop_manager *desktop)
 {
 	surf->desktop = desktop;
-	surf->tw_surface = tw_surface_from_resource(wl_surface);
+	surf->tw_surface = surface;
 	surf->resource = resource;
 	surf->surface_added = false;
 	surf->title = NULL;

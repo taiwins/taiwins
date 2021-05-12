@@ -874,7 +874,7 @@ tw_xsurface_map_tw_surface(struct tw_xsurface *surface,
 	if (dsurf->surface_added)
 		handle_xsurface_unmap_notify(surface);
 	//reinitialize surface
-	tw_desktop_surface_init(dsurf, tw_surface->resource, NULL, manager);
+	tw_desktop_surface_init(dsurf, tw_surface, NULL, manager);
 	dsurf->configure = handle_configure_tw_xsurface;
 	dsurf->close = handle_close_tw_xsurface;
 	dsurf->ping = handle_ping_tw_xsurface;
