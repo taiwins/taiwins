@@ -31,6 +31,7 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/desktop.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/objects/subsurface.h>
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/popup_grab.h>
@@ -47,12 +48,27 @@ struct tw_wl_shell_surface {
 
 static void commit_wl_shell_surface(struct tw_surface *surface);
 
-static struct tw_surface_role tw_wl_shell_surface_role = {
-	.commit = commit_wl_shell_surface,
-	.name = "wl_shell_surface",
-	.link.prev = &tw_wl_shell_surface_role.link,
-	.link.next = &tw_wl_shell_surface_role.link,
+static struct tw_surface_role wl_shell_roles[] = {
+	[TW_DESKTOP_TOPLEVEL_SURFACE] = {
+		.commit = commit_wl_shell_surface,
+		.name = "wl-shell-toplevel-surface",
+		.link.prev = &wl_shell_roles[TW_DESKTOP_TOPLEVEL_SURFACE].link,
+		.link.next = &wl_shell_roles[TW_DESKTOP_TOPLEVEL_SURFACE].link,
+	},
+	[TW_DESKTOP_POPUP_SURFACE] = {
+		.commit = commit_wl_shell_surface,
+		.name = "wl-shell-popup-surface",
+		.link.prev = &wl_shell_roles[TW_DESKTOP_POPUP_SURFACE].link,
+		.link.next = &wl_shell_roles[TW_DESKTOP_POPUP_SURFACE].link,
+	},
+	[TW_DESKTOP_TRANSIENT_SURFACE] = {
+		.commit = commit_wl_shell_surface,
+		.name = "wl-shell-transient-surface",
+		.link.prev = &wl_shell_roles[TW_DESKTOP_TRANSIENT_SURFACE].link,
+		.link.next = &wl_shell_roles[TW_DESKTOP_TRANSIENT_SURFACE].link,
+	}
 };
+
 
 /******************************************************************************
  * wl_shell_surface implementation
@@ -84,7 +100,12 @@ commit_wl_shell_surface(struct tw_surface *surface)
 bool
 tw_surface_is_wl_shell_surface(struct tw_surface *surface)
 {
-	return surface->role.iface == &tw_wl_shell_surface_role;
+	return surface->role.iface ==
+		&wl_shell_roles[TW_DESKTOP_TOPLEVEL_SURFACE] ||
+		surface->role.iface ==
+		&wl_shell_roles[TW_DESKTOP_POPUP_SURFACE] ||
+		surface->role.iface ==
+		&wl_shell_roles[TW_DESKTOP_TRANSIENT_SURFACE];
 }
 
 static void
@@ -94,7 +115,7 @@ wl_shell_surface_set_role(struct tw_desktop_surface *dsurf,
 	struct tw_surface *tw_surface = dsurf->tw_surface;
 
 	dsurf->type = type;
-	if (!tw_surface_assign_role(tw_surface, &tw_wl_shell_surface_role,
+	if (!tw_surface_assign_role(tw_surface, &wl_shell_roles[type],
 	                            dsurf))
 		wl_resource_post_error(dsurf->resource, WL_SHELL_ERROR_ROLE,
 		                       "failed to set wl_shell_surface, "
@@ -245,28 +266,21 @@ notify_transient_surface_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_subsurface *subsurface =
 		wl_container_of(listener, subsurface, surface_destroyed);
-
-	wl_list_remove(&subsurface->parent_link);
+	tw_subsurface_fini(subsurface);
 	free(subsurface);
 }
 
-static void
+static inline void
 transient_impl_subsurface(struct tw_subsurface *subsurface,
                           struct tw_desktop_surface *dsurf,
                           struct wl_resource *parent, int32_t x, int32_t y)
 {
-	subsurface->parent = tw_surface_from_resource(parent);
-	subsurface->surface = dsurf-> tw_surface;
+	tw_subsurface_init(subsurface, NULL, dsurf->tw_surface,
+	                   tw_surface_from_resource(parent),
+	                   notify_transient_surface_destroy);
 	subsurface->sx = x;
 	subsurface->sy = y;
 	subsurface->sync = false;
-
-	wl_list_init(&subsurface->parent_link);
-	wl_list_insert(subsurface->parent->subsurfaces.prev,
-	               &subsurface->parent_link);
-	tw_set_resource_destroy_listener(dsurf->tw_surface->resource,
-	                                 &subsurface->surface_destroyed,
-	                                 notify_transient_surface_destroy);
 }
 
 static void
@@ -393,8 +407,7 @@ handle_get_wl_shell_surface(struct wl_client *client,
 	struct tw_surface *surface = tw_surface_from_resource(wl_surface);
 	uint32_t surf_id = wl_resource_get_id(wl_surface);
 
-	if (surface->role.iface &&
-	    surface->role.iface != &tw_wl_shell_surface_role) {
+	if (surface->role.iface && !tw_surface_is_wl_shell_surface(surface)) {
 		wl_resource_post_error(wl_surface, WL_SHELL_ERROR_ROLE,
 		                       "wl_surface@%d already has "
 		                       "another role", surf_id);
@@ -445,6 +458,7 @@ init_wl_shell(struct tw_desktop_manager *desktop)
 		                 &wl_shell_interface,
 		                 WL_SHELL_VERSION, desktop,
 		                 bind_wl_shell);
+	tw_subsurface_add_role(&wl_shell_roles[TW_DESKTOP_POPUP_SURFACE]);
 	if (!desktop->wl_shell_global)
 		return false;
 	return true;

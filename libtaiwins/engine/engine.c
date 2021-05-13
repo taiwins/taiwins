@@ -42,6 +42,7 @@
 #include <taiwins/objects/dmabuf.h>
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/objects/subsurface.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/gestures.h>
 

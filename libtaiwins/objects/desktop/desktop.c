@@ -31,6 +31,7 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/desktop.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/objects/subsurface.h>
 #include <taiwins/objects/seat.h>
 
 bool
@@ -252,7 +253,7 @@ tw_desktop_surface_calc_window_geometry(struct tw_surface *surface,
 		pixman_region32_t subregion;
 
 		//avoid exotic subsurfaces
-		if (!tw_surface_is_subsurface(sub->surface))
+		if (!tw_surface_is_subsurface(sub->surface, false))
 			continue;
 		pixman_region32_init(&subregion);
 		tw_desktop_surface_calc_window_geometry(sub->surface,

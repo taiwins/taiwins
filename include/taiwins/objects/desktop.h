@@ -82,9 +82,9 @@ struct tw_desktop_surface_api {
 };
 
 enum tw_desktop_surface_type {
-	TW_DESKTOP_TOPLEVEL_SURFACE = 1,
-	TW_DESKTOP_TRANSIENT_SURFACE = 2,
-	TW_DESKTOP_POPUP_SURFACE = 4,
+	TW_DESKTOP_TOPLEVEL_SURFACE = 0,
+	TW_DESKTOP_TRANSIENT_SURFACE = 1,
+	TW_DESKTOP_POPUP_SURFACE = 2,
 };
 
 enum tw_desktop_surface_state_flag {

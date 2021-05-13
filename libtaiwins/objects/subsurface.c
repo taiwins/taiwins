@@ -25,7 +25,8 @@
 #include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/utils.h>
-#include <taiwins/objects/surface.h>
+#include <taiwins/objects/subsurface.h>
+#include <wayland-util.h>
 
 
 #define SUBSURFACE_VERSION 1
@@ -57,15 +58,25 @@ static void subsurface_commit_role(struct tw_surface *surf) {
 }
 
 WL_EXPORT bool
-tw_surface_is_subsurface(struct tw_surface *surf)
+tw_surface_is_subsurface(struct tw_surface *surf, bool include_exotic)
 {
-	return surf->role.iface == &tw_subsurface_role;
+	struct tw_surface_role *exotic_role;
+
+	if (surf->role.iface == &tw_subsurface_role)
+		return true;
+	if (include_exotic) {
+		wl_list_for_each(exotic_role, &tw_subsurface_role.link, link) {
+			if (surf->role.iface == exotic_role)
+				return true;
+		}
+	}
+	return false;
 }
 
 WL_EXPORT struct tw_subsurface *
 tw_surface_get_subsurface(struct tw_surface *surf)
 {
-	return (tw_surface_is_subsurface(surf)) ?
+	return (tw_surface_is_subsurface(surf, false)) ?
 		surf->role.commit_private :
 		NULL;
 }
@@ -206,19 +217,8 @@ subsurface_destroy(struct tw_subsurface *subsurface)
 {
 	if (!subsurface)
 		return;
+	tw_subsurface_fini(subsurface);
 
-	wl_signal_emit(&subsurface->destroy, subsurface);
-
-	wl_list_remove(&subsurface->surface_destroyed.link);
-	if (subsurface->parent) {
-		wl_list_remove(&subsurface->parent_link);
-		wl_list_remove(&subsurface->parent_pending_link);
-	}
-	wl_resource_set_user_data(subsurface->resource, NULL);
-	if (subsurface->surface)
-		subsurface_unset_role(subsurface);
-
-	subsurface->parent = NULL;
 	free(subsurface);
 }
 
@@ -239,9 +239,46 @@ notify_subsurface_surface_destroy(struct wl_listener *listener, void *data)
 	subsurface_destroy(subsurface);
 }
 
-/*******************************************************************************
+/******************************************************************************
  * tw_subsurface API
- ******************************************************************************/
+ *****************************************************************************/
+
+WL_EXPORT void
+tw_subsurface_fini(struct tw_subsurface *subsurface)
+{
+	wl_signal_emit(&subsurface->destroy, subsurface);
+
+	tw_reset_wl_list(&subsurface->surface_destroyed.link);
+	if (subsurface->parent) {
+		tw_reset_wl_list(&subsurface->parent_link);
+		tw_reset_wl_list(&subsurface->parent_pending_link);
+	}
+	if (subsurface->resource)
+		wl_resource_set_user_data(subsurface->resource, NULL);
+	if (subsurface->surface)
+		subsurface_unset_role(subsurface);
+	subsurface->parent = NULL;
+	subsurface->surface = NULL;
+}
+
+WL_EXPORT void
+tw_subsurface_init(struct tw_subsurface *sub, struct wl_resource *resource,
+                   struct tw_surface *surface, struct tw_surface *parent,
+                   wl_notify_func_t notifier)
+{
+	sub->resource = resource;
+	sub->surface = surface;
+	sub->parent = parent;
+	// stacking order
+	wl_signal_init(&sub->destroy);
+	wl_list_init(&sub->parent_link);
+	wl_list_init(&sub->parent_pending_link);
+	wl_list_insert(parent->subsurfaces_pending.prev,
+	               &sub->parent_pending_link);
+	tw_set_resource_destroy_listener(surface->resource,
+	                                 &sub->surface_destroyed,
+	                                 notifier);
+}
 
 WL_EXPORT struct tw_subsurface *
 tw_subsurface_create(struct wl_client *client, uint32_t ver, uint32_t id,
@@ -259,23 +296,9 @@ tw_subsurface_create(struct wl_client *client, uint32_t ver, uint32_t id,
 	wl_resource_set_implementation(resource, &subsurface_impl,
 	                               subsurface,
 	                               subsurface_destroy_resource);
-	subsurface->resource = resource;
-	subsurface->surface = surface;
-	subsurface->parent = parent;
+	tw_subsurface_init(subsurface, resource, surface, parent,
+	                   notify_subsurface_surface_destroy);
 	subsurface_set_role(subsurface, surface);
-	// stacking order
-	wl_signal_init(&subsurface->destroy);
-	wl_list_init(&subsurface->parent_link);
-	wl_list_init(&subsurface->parent_pending_link);
-	wl_list_insert(parent->subsurfaces_pending.prev,
-	               &subsurface->parent_pending_link);
-	// add listeners
-	wl_list_init(&subsurface->surface_destroyed.link);
-	subsurface->surface_destroyed.notify =
-		notify_subsurface_surface_destroy;
-	wl_signal_add(&surface->signals.destroy,
-	              &subsurface->surface_destroyed);
-
 	return subsurface;
 }
 
@@ -304,4 +327,11 @@ tw_subsurface_is_synched(struct tw_subsurface *subsurface)
 	}
 
 	return false;
+}
+
+WL_EXPORT void
+tw_subsurface_add_role(struct tw_surface_role *role)
+{
+	tw_reset_wl_list(&role->link);
+	wl_list_insert(tw_subsurface_role.link.prev, &role->link);
 }

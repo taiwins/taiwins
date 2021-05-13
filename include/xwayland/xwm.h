@@ -40,6 +40,7 @@
 #include <taiwins/xwayland.h>
 #include <taiwins/objects/desktop.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/objects/subsurface.h>
 #include <taiwins/objects/data_device.h>
 
 #include "atoms.h"
