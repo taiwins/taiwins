@@ -166,7 +166,7 @@ tw_desktop_surface_from_tw_surface(struct tw_surface *surface);
 
 void
 tw_desktop_surface_init(struct tw_desktop_surface *surf,
-                        struct wl_resource *wl_surface,
+                        struct tw_surface *surface,
                         struct wl_resource *resource,
                         struct tw_desktop_manager *desktop);
 void
