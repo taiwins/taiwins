@@ -70,8 +70,6 @@ input_method_from_popup_resource(struct wl_resource *resource)
  * input method popup implemenation
  *****************************************************************************/
 
-#define INPUT_POPUP_ROLE "input_popup"
-
 static void
 commit_input_popup_surface(struct tw_surface *surface)
 {
@@ -89,6 +87,13 @@ commit_input_popup_surface(struct tw_surface *surface)
 
 static const struct zwp_input_popup_surface_v2_interface popup_impl = {
 	.destroy = tw_resource_destroy_common,
+};
+
+static struct tw_surface_role tw_input_popup_role = {
+	.commit = commit_input_popup_surface,
+	.name = "input-method-popup",
+	.link.prev = &tw_input_popup_role.link,
+	.link.next = &tw_input_popup_role.link,
 };
 
 /**
@@ -170,9 +175,8 @@ destroy_im_popup_resource(struct wl_resource *resource)
 		                       "input method popup object@%d",
 		                       wl_resource_get_id(resource));
 	} else {
-		popup_surface->role.commit = NULL;
+		popup_surface->role.iface = NULL;
 		popup_surface->role.commit_private = NULL;
-		popup_surface->role.name = NULL;
 	}
 	im->im_surface.subsurface.resource = NULL;
 	im->im_surface.subsurface.surface = NULL;
@@ -205,11 +209,6 @@ input_method_impl_subsurface(struct tw_input_method *im,
 	sub->parent = NULL;
 	sub->sx = 0;
 	sub->sy = 0;
-
-	//this surface has a popup role.
-	surface->role.commit = commit_input_popup_surface;
-	surface->role.commit_private = im;
-	surface->role.name = INPUT_POPUP_ROLE;
 
 	tw_signal_setup_listener(&surface->signals.destroy,
 	                         &sub->surface_destroyed,
@@ -422,11 +421,12 @@ handle_input_method_get_input_popup_surface(struct wl_client *client,
 	uint32_t version = wl_resource_get_version(resource);
 	struct tw_surface *surface = tw_surface_from_resource(surf_resource);
 
-	if (tw_surface_has_role(surface)) {
-		wl_resource_post_error(resource, 0,
-		                       "wl_surface@%d has another role",
-		                       wl_resource_get_id(surf_resource));
-		return;
+	//error if we already has a role
+	if (!tw_surface_assign_role(surface, &tw_input_popup_role, im)) {
+		wl_resource_post_error(resource, -1, "failed to set input "
+		                       "method popup, wl_surface@%d already "
+		                       "has a role",
+		                       wl_resource_get_id(surface->resource));
 	}
 	if (!im)
 		return;

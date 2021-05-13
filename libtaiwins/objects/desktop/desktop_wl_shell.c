@@ -45,10 +45,14 @@ struct tw_wl_shell_surface {
 	struct wl_listener surface_destroy;
 };
 
+static void commit_wl_shell_surface(struct tw_surface *surface);
 
-static const char *TW_DESKTOP_TOPLEVEL_WL_SHELL_NAME = "wl_shell_toplevel";
-static const char *TW_DESKTOP_POPUP_WL_SHELL_NAME = "wl_shell_popup";
-static const char *TW_DESKTOP_TRANSIENT_WL_SHELL_NAME = "wl_shell_transient";
+static struct tw_surface_role tw_wl_shell_surface_role = {
+	.commit = commit_wl_shell_surface,
+	.name = "wl_shell_surface",
+	.link.prev = &tw_wl_shell_surface_role.link,
+	.link.next = &tw_wl_shell_surface_role.link,
+};
 
 /******************************************************************************
  * wl_shell_surface implementation
@@ -80,7 +84,7 @@ commit_wl_shell_surface(struct tw_surface *surface)
 bool
 tw_surface_is_wl_shell_surface(struct tw_surface *surface)
 {
-	return surface->role.commit == commit_wl_shell_surface;
+	return surface->role.iface == &tw_wl_shell_surface_role;
 }
 
 static void
@@ -89,16 +93,13 @@ wl_shell_surface_set_role(struct tw_desktop_surface *dsurf,
 {
 	struct tw_surface *tw_surface = dsurf->tw_surface;
 
-	tw_surface->role.commit = commit_wl_shell_surface;
-	tw_surface->role.commit_private = dsurf;
 	dsurf->type = type;
-
-	if (type == TW_DESKTOP_TOPLEVEL_SURFACE)
-		tw_surface->role.name = TW_DESKTOP_TOPLEVEL_WL_SHELL_NAME;
-	else if (type == TW_DESKTOP_TRANSIENT_SURFACE)
-		tw_surface->role.name = TW_DESKTOP_TRANSIENT_WL_SHELL_NAME;
-	else
-		tw_surface->role.name = TW_DESKTOP_POPUP_WL_SHELL_NAME;
+	if (!tw_surface_assign_role(tw_surface, &tw_wl_shell_surface_role,
+	                            dsurf))
+		wl_resource_post_error(dsurf->resource, WL_SHELL_ERROR_ROLE,
+		                       "failed to set wl_shell_surface, "
+		                       "wl_surface@%d already has a role",
+		                       wl_resource_get_id(dsurf->resource));
 }
 
 static void
@@ -392,8 +393,8 @@ handle_get_wl_shell_surface(struct wl_client *client,
 	struct tw_surface *surface = tw_surface_from_resource(wl_surface);
 	uint32_t surf_id = wl_resource_get_id(wl_surface);
 
-	if (surface->role.commit &&
-	    surface->role.commit != commit_wl_shell_surface) {
+	if (surface->role.iface &&
+	    surface->role.iface != &tw_wl_shell_surface_role) {
 		wl_resource_post_error(wl_surface, WL_SHELL_ERROR_ROLE,
 		                       "wl_surface@%d already has "
 		                       "another role", surf_id);

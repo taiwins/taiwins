@@ -84,8 +84,23 @@ struct tw_xdg_positioner {
 };
 
 static const struct xdg_surface_interface xdg_surface_impl;
-static const char *XDG_TOPLEVEL_ROLE_NAME = "XDG_TOPLEVEL";
-static const char *XDG_POPUP_ROLE_NAME = "XDG_POPUP";
+
+static void commit_xdg_toplevel(struct tw_surface *surface);
+static void commit_xdg_popup(struct tw_surface *surface);
+
+static struct tw_surface_role tw_xdg_toplevel_role = {
+	.commit = commit_xdg_toplevel,
+	.name = "XDG_TOPLEVEL",
+	.link.prev = &tw_xdg_toplevel_role.link,
+	.link.next = &tw_xdg_toplevel_role.link,
+};
+
+static struct tw_surface_role tw_xdg_popup_role = {
+	.commit = commit_xdg_popup,
+	.name = "XDG_POPUP",
+	.link.prev = &tw_xdg_popup_role.link,
+	.link.next = &tw_xdg_popup_role.link,
+};
 
 /******************************************************************************
  * xdg_shell_surface implementation
@@ -163,8 +178,8 @@ commit_xdg_popup(struct tw_surface *surface)
 bool
 tw_surface_is_xdg_surface(struct tw_surface *surface)
 {
-	return surface->role.commit == commit_xdg_toplevel ||
-		surface->role.commit == commit_xdg_popup;
+	return surface->role.iface == &tw_xdg_popup_role ||
+		surface->role.iface == &tw_xdg_toplevel_role;
 }
 
 static bool
@@ -175,22 +190,17 @@ xdg_surface_set_role(struct tw_desktop_surface *dsurf,
 	struct tw_surface *surface = dsurf->tw_surface;
 
 	if (type == TW_DESKTOP_TOPLEVEL_SURFACE) {
-		if (surface->role.commit &&
-		    surface->role.commit != commit_xdg_toplevel)
+		if (!tw_surface_assign_role(surface, &tw_xdg_toplevel_role,
+		                            dsurf))
 			return false;
-		surface->role.commit = commit_xdg_toplevel;
-		surface->role.name = XDG_TOPLEVEL_ROLE_NAME;
 	} else if (type == TW_DESKTOP_POPUP_SURFACE) {
-		if (surface->role.commit &&
-		    surface->role.commit != commit_xdg_popup)
+		if (!tw_surface_assign_role(surface, &tw_xdg_popup_role,
+		                            dsurf))
 			return false;
-		surface->role.commit = commit_xdg_popup;
-		surface->role.name = XDG_POPUP_ROLE_NAME;
 	} else {
 		return false;
 	}
 
-	surface->role.commit_private = dsurf;
 	dsurf->type = type;
 	xdg_surface_send_configure(dsurf->resource,
 	                           wl_display_next_serial(display));

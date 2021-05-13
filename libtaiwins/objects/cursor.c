@@ -30,7 +30,16 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/layers.h>
 
-#define TW_CURSOR_ROLE "tw_cursor_role"
+static void
+commit_cursor_surface(struct tw_surface *surface);
+
+static const struct tw_surface_role tw_cursor_role = {
+	.name =  "tw_cursor_role",
+	.commit = commit_cursor_surface,
+	.link.prev = (struct wl_list *)(&tw_cursor_role.link),
+	.link.next = (struct wl_list *)(&tw_cursor_role.link),
+
+};
 
 static inline void
 cursor_set_surface_pos(struct tw_cursor *cursor)
@@ -100,18 +109,13 @@ tw_cursor_set_surface(struct tw_cursor *cursor,
 	struct tw_surface *surface =
 		tw_surface_from_resource(surface_resource);
 	uint32_t surface_id = wl_resource_get_id(surface_resource);
-	if (surface->role.commit &&
-	    surface->role.commit != commit_cursor_surface) {
+	if (!tw_surface_assign_role(surface, &tw_cursor_role, cursor)) {
 		wl_resource_post_error(pointer_resource, WL_POINTER_ERROR_ROLE,
 		                       "wl_surface@%d already have a role",
 		                       surface_id);
 		return;
 	}
 	tw_cursor_unset_surface(cursor);
-
-	surface->role.commit = commit_cursor_surface;
-	surface->role.commit_private = cursor;
-	surface->role.name = TW_CURSOR_ROLE;
 	wl_signal_add(&surface->signals.destroy,
 	              &cursor->surface_destroy);
 	cursor->hotspot_x = hotspot_x;

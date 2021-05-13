@@ -270,6 +270,10 @@ layer_shell_handle_get_layer_surface(struct wl_client *wl_client,
                                      struct wl_resource *output_resource,
                                      uint32_t layer, const char *namespace)
 {
+	static const struct tw_surface_role layer_surface_role = {
+		.name = "layer-shell-surface",
+		.commit = commit_layer_surface,
+	};
 	struct tw_shell *shell =
 		tw_shell_from_layer_shell_resoruce(client_resource);
 	struct tw_engine_output *output;
@@ -307,7 +311,7 @@ layer_shell_handle_get_layer_surface(struct wl_client *wl_client,
 
 	shell_create_ui_element(shell, shell_ui, layer_surface_resource,
 	                        surface, shell_output, 0, 0,
-	                        l, commit_layer_surface);
+	                        l, &layer_surface_role);
 }
 
 static const struct zwlr_layer_shell_v1_interface layer_shell_impl = {

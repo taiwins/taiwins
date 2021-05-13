@@ -729,6 +729,13 @@ handle_commit_tw_xsurface(struct tw_surface *tw_surface)
 
 }
 
+static struct tw_surface_role tw_xsurface_role = {
+	.commit = handle_commit_tw_xsurface,
+	.name = "xwayland-surface",
+	.link.prev = &tw_xsurface_role.link,
+	.link.next = &tw_xsurface_role.link,
+};
+
 static void
 handle_configure_tw_xsurface(struct tw_desktop_surface *dsurf,
                              enum wl_shell_surface_resize edge,
@@ -864,8 +871,7 @@ tw_xsurface_map_tw_surface(struct tw_xsurface *surface,
 		xwm->atoms.net_wm_pid,
 	};
 
-	if (!tw_surface_assign_role(tw_surface, handle_commit_tw_xsurface,
-	                            dsurf, "xwayland surface")) {
+	if (!tw_surface_assign_role(tw_surface, &tw_xsurface_role, dsurf)) {
 		wl_resource_post_error(tw_surface->resource, 0,
 		                       "wl_surface@d already has role");
 		return;
@@ -1023,7 +1029,7 @@ tw_xsurface_handle_event(struct tw_xwm *xwm, xcb_generic_event_t *ge)
 WL_EXPORT struct tw_desktop_surface *
 tw_xwayland_desktop_surface_from_tw_surface(struct tw_surface *surface)
 {
-	if (surface->role.commit == handle_commit_tw_xsurface)
+	if (surface->role.iface == &tw_xsurface_role)
 		return surface->role.commit_private;
 	return NULL;
 }

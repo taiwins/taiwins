@@ -132,10 +132,9 @@ shell_create_ui_element(struct tw_shell *shell,
                         struct tw_shell_output *output,
                         uint32_t x, uint32_t y,
                         struct tw_layer *layer,
-                        tw_surface_commit_cb_t commit_cb);
+                        const struct tw_surface_role *role);
 void
-shell_ui_set_role(struct tw_shell_ui *ui,
-                  void (*commit)(struct tw_surface *surface),
+shell_ui_set_role(struct tw_shell_ui *ui, const struct tw_surface_role *role,
                   struct tw_surface *surface);
 
 struct tw_shell_output *
