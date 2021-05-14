@@ -110,7 +110,6 @@ struct tw_shell {
         struct wl_listener output_create_listener;
 	struct wl_listener output_destroy_listener;
 	struct wl_listener output_resize_listener;
-	struct wl_listener idle_listener;
 	struct tw_subprocess process;
 
 	struct tw_shell_ui widget;

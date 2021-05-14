@@ -65,6 +65,8 @@ tw_shell_get_desktop_area_signal(struct tw_shell *shell);
 void
 tw_shell_set_panel_pos(struct tw_shell *shell,
                        enum taiwins_shell_panel_pos pos);
+void
+tw_shell_start_locker(struct tw_shell *shell);
 
 struct tw_theme_global *
 tw_theme_create_global(struct wl_display *display);

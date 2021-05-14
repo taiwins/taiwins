@@ -657,20 +657,6 @@ notify_shell_resize_output(struct wl_listener *listener, void *data)
 	                         TAIWINS_SHELL_OUTPUT_MSG_CHANGE);
 }
 
-static void
-notify_shell_idle(struct wl_listener *listener, void *data)
-{
-
-	struct tw_shell *shell =
-		container_of(listener, struct tw_shell, idle_listener);
-	fprintf(stderr, "I should lock right now %p\n",
-	        shell->locker.resource);
-	if (shell->locker.resource)
-		return;
-	if (shell->shell_resource)
-		tw_shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_LOCK, " ");
-}
-
 
 static void
 notify_shell_end(struct wl_listener *listener, void *data)
@@ -683,7 +669,6 @@ notify_shell_end(struct wl_listener *listener, void *data)
 	wl_list_remove(&shell->output_create_listener.link);
 	wl_list_remove(&shell->output_destroy_listener.link);
 	wl_list_remove(&shell->output_resize_listener.link);
-	wl_list_remove(&shell->idle_listener.link);
 	//layers
 	tw_layer_unset_position(&shell->background_layer);
 	tw_layer_unset_position(&shell->bottom_ui_layer);
@@ -717,12 +702,6 @@ shell_add_listeners(struct tw_shell *shell, struct tw_engine *engine)
 	tw_signal_setup_listener(&engine->signals.output_resized,
 	                         &shell->output_resize_listener,
 	                         notify_shell_resize_output);
-        //idle listener
-	wl_list_init(&shell->idle_listener.link);
-	shell->idle_listener.notify = notify_shell_idle;
-	//TODO: idle listener
-	/* wl_signal_add(&ec->idle_signal, &shell->idle_listener); */
-
 }
 
 static void
@@ -749,6 +728,17 @@ shell_init_layers(struct tw_shell *shell, struct tw_layers_manager *layers)
 /******************************************************************************
  * public APIS
  *****************************************************************************/
+
+WL_EXPORT void
+tw_shell_start_locker(struct tw_shell *shell)
+{
+	if (shell->locker.resource)
+		return;
+	if (shell->shell_resource)
+		tw_shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_LOCK, " ");
+}
+
+
 
 WL_EXPORT struct tw_shell *
 tw_shell_create_global(struct wl_display *display,
