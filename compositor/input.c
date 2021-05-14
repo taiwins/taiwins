@@ -23,7 +23,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <linux/input-event-codes.h>
-#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon-names.h>
@@ -347,7 +346,7 @@ notify_touch_input(struct wl_listener *listener, void *data)
 	}
 }
 
-void
+static void
 tw_seat_listeners_init(struct tw_seat_listeners *seat_listeners,
                        struct tw_engine_seat *seat, struct tw_bindings *bindings)
 {
@@ -382,11 +381,59 @@ tw_seat_listeners_init(struct tw_seat_listeners *seat_listeners,
 	seat_listeners->binding_touch_grab.data = NULL;
 }
 
-void
+static void
 tw_seat_listeners_fini(struct tw_seat_listeners *seat_listeners)
 {
 	wl_list_remove(&seat_listeners->key_input.link);
 	wl_list_remove(&seat_listeners->btn_input.link);
 	wl_list_remove(&seat_listeners->axis_input.link);
 	wl_list_remove(&seat_listeners->tch_input.link);
+}
+
+static void
+notify_adding_seat(struct wl_listener *listener, void *data)
+{
+	struct tw_server_input_manager *mgr =
+		wl_container_of(listener, mgr, listeners.seat_add);
+	struct tw_engine_seat *seat = data;
+
+	tw_seat_listeners_init(&mgr->inputs[seat->idx],
+	                       seat, &mgr->config->config_table.bindings);
+}
+
+static void
+notify_removing_seat(struct wl_listener *listener, void *data)
+{
+	struct tw_server_input_manager *mgr =
+		wl_container_of(listener, mgr, listeners.seat_remove);
+	struct tw_engine_seat *seat = data;
+
+	tw_seat_listeners_fini(&mgr->inputs[seat->idx]);
+}
+
+static void
+notify_input_manager_display_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_server_input_manager *mgr =
+		wl_container_of(listener, mgr, listeners.display_destroy);
+}
+
+struct tw_server_input_manager *
+tw_server_input_manager_create_global(struct tw_engine *engine,
+                                      struct tw_config *config)
+{
+	static struct tw_server_input_manager mgr = {0};
+	mgr.engine = engine;
+	mgr.config = config;
+
+	tw_signal_setup_listener(&engine->signals.seat_created,
+	                         &mgr.listeners.seat_add,
+	                         notify_adding_seat);
+	tw_signal_setup_listener(&engine->signals.seat_remove,
+	                         &mgr.listeners.seat_remove,
+	                         notify_removing_seat);
+	tw_set_display_destroy_listener(engine->display,
+	                                &mgr.listeners.display_destroy,
+	                                notify_input_manager_display_destroy);
+	return &mgr;
 }
