@@ -191,6 +191,7 @@ tw_engine_create_global(struct wl_display *display, struct tw_backend *backend)
 	wl_signal_init(&engine->signals.seat_created);
 	wl_signal_init(&engine->signals.seat_focused);
 	wl_signal_init(&engine->signals.seat_remove);
+	wl_signal_init(&engine->signals.seat_input);
 	wl_signal_init(&engine->signals.output_created);
 	wl_signal_init(&engine->signals.output_remove);
 	wl_signal_init(&engine->signals.output_resized);

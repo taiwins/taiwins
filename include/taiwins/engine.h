@@ -153,6 +153,7 @@ struct tw_engine {
 		struct wl_signal seat_created;
 		struct wl_signal seat_focused;
 		struct wl_signal seat_remove;
+		struct wl_signal seat_input;
 	} signals;
 };
 

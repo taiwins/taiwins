@@ -174,8 +174,8 @@ handle_pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time,
 	event.y = wl_fixed_to_double(surface_y) / h;
 
 	if (pointer->emitter)
-		wl_signal_emit(&pointer->emitter->pointer.motion_absolute,
-		               &event);
+		tw_input_signal_emit(pointer->emitter, pointer.motion_absolute,
+		                     &event);
 }
 
 static void
@@ -193,8 +193,7 @@ handle_pointer_button(void *data, struct wl_pointer *wl_pointer,
 	};
 
 	if (pointer->emitter)
-		wl_signal_emit(&pointer->emitter->pointer.button,
-		               &event);
+		tw_input_signal_emit(pointer->emitter, pointer.button, &event);
 }
 
 static void
@@ -213,7 +212,7 @@ handle_pointer_axis(void *data, struct wl_pointer *wl_pointer,
 	};
 
 	if (pointer->emitter)
-		wl_signal_emit(&pointer->emitter->pointer.axis, &event);
+		tw_input_signal_emit(pointer->emitter, pointer.axis, &event);
 }
 
 static void
@@ -223,8 +222,7 @@ handle_pointer_frame(void *data, struct wl_pointer *wl_pointer)
 	struct tw_input_device *pointer = &seat->pointer_dev;
 
         if (pointer->emitter)
-		wl_signal_emit(&pointer->emitter->pointer.frame, pointer);
-
+	        tw_input_signal_emit(pointer->emitter, pointer.frame, pointer);
 }
 
 static void

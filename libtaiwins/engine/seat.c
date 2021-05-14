@@ -104,6 +104,14 @@ notify_seat_remove_device(struct wl_listener *listener, void *data)
 }
 
 static void
+notify_seat_input_event(struct wl_listener *listener, void *data)
+{
+	struct tw_engine_seat *seat =
+		wl_container_of(listener, seat, sink.event);
+	wl_signal_emit(&seat->engine->signals.seat_input, seat);
+}
+
+static void
 notify_seat_focus_device(struct wl_listener *listener, void *data)
 {
 	struct tw_engine_seat *seat =
@@ -543,6 +551,8 @@ seat_install_default_listeners(struct tw_engine_seat *seat)
 	                         notify_seat_unfocus_device);
 	tw_signal_setup_listener(&seat->source.remove, &seat->sink.remove,
 	                         notify_seat_remove_device);
+	tw_signal_setup_listener(&seat->source.event, &seat->sink.event,
+	                         notify_seat_input_event);
 	seat_install_keyboard_listeners(seat);
 	seat_install_pointer_listeners(seat);
 	seat_install_touch_listeners(seat);

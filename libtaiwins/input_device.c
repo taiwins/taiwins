@@ -135,6 +135,7 @@ void
 tw_input_source_init(struct tw_input_source *source)
 {
 	wl_signal_init(&source->remove);
+	wl_signal_init(&source->event);
 	//keyboard
 	wl_signal_init(&source->keyboard.key);
 	wl_signal_init(&source->keyboard.modifiers);
@@ -189,7 +190,7 @@ tw_input_device_notify_key(struct tw_input_device *dev,
 	updated = update_keyboard_modifier(dev);
 
 	if (dev->emitter)
-		wl_signal_emit(&dev->emitter->keyboard.key, event);
+		tw_input_signal_emit(dev->emitter, keyboard.key, event);
 	if (updated && dev->emitter) {
 		struct tw_event_keyboard_modifier mods = {
 			.dev = dev,
@@ -218,5 +219,6 @@ tw_input_device_notify_modifiers(struct tw_input_device *dev,
 	updated = update_keyboard_modifier(dev);
 
 	if (updated && dev->emitter)
-		wl_signal_emit(&dev->emitter->keyboard.modifiers, mod);
+		tw_input_signal_emit(dev->emitter, keyboard.modifiers,
+		                     mod);
 }
