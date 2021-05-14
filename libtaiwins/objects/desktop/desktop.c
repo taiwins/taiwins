@@ -33,6 +33,12 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/subsurface.h>
 #include <taiwins/objects/seat.h>
+#include <wayland-util.h>
+
+static struct wl_list tw_desktop_surface_roles = {
+	.next = &tw_desktop_surface_roles,
+	.prev = &tw_desktop_surface_roles,
+};
 
 bool
 init_wl_shell(struct tw_desktop_manager *desktop);
@@ -290,18 +296,21 @@ tw_desktop_surface_send_close(struct tw_desktop_surface *dsurf)
 	dsurf->close(dsurf);
 }
 
-bool
-tw_surface_is_wl_shell_surface(struct tw_surface *surface);
-
-bool
-tw_surface_is_xdg_surface(struct tw_surface *surface);
-
 WL_EXPORT struct tw_desktop_surface *
 tw_desktop_surface_from_tw_surface(struct tw_surface *surface)
 {
-	if (tw_surface_is_wl_shell_surface(surface) ||
-	    tw_surface_is_xdg_surface(surface))
-		return surface->role.commit_private;
-	else
-		return NULL;
+	struct tw_surface_role *role;
+
+	wl_list_for_each(role, &tw_desktop_surface_roles, link) {
+		if (surface->role.iface == role)
+			return surface->role.commit_private;
+	}
+	return NULL;
+}
+
+WL_EXPORT void
+tw_desktop_surface_add_role(struct tw_surface_role *role)
+{
+	tw_reset_wl_list(&role->link);
+	wl_list_insert(tw_desktop_surface_roles.prev, &role->link);
 }

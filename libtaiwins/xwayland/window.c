@@ -537,6 +537,10 @@ handle_xsurface_unmap_notify(struct tw_xsurface *surface)
 	surface->pending_mapping = false;
 	tw_desktop_surface_rm(dsurf);
 	tw_desktop_surface_fini(dsurf);
+	if (surface->surface) {
+		surface->surface->role.iface = NULL;
+		surface->surface->role.commit_private = NULL;
+	}
 	surface->surface = NULL;
 }
 
@@ -694,7 +698,6 @@ handle_commit_dsurf_xsurface(struct tw_surface *tw_surface)
 	dsurf->window_geometry.w = r->x2 - r->x1;
 	dsurf->window_geometry.h = r->y2 - r->y1;
 	pixman_region32_fini(&surf_region);
-
 	desktop->api.committed(dsurf, desktop->user_data);
 }
 
@@ -773,7 +776,7 @@ notify_xsurface_surface_destroy(struct wl_listener *listener, void *data)
 	handle_xsurface_unmap_notify(surface);
 }
 
-static struct tw_surface_role tw_xsurface_role = {
+struct tw_surface_role tw_xsurface_role = {
 	.commit = handle_commit_dsurf_xsurface,
 	.name = "xwayland-surface",
 	.link.prev = &tw_xsurface_role.link,
