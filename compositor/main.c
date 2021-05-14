@@ -70,11 +70,7 @@ struct tw_server {
 	struct tw_render_context *ctx;
         struct tw_config config;
 	struct tw_server_output_manager *output_manager;
-
-        /* seats */
-	struct tw_seat_listeners seat_listeners[8];
-	struct wl_listener seat_add;
-	struct wl_listener seat_remove;
+	struct tw_server_input_manager *input_manager;
 };
 
 static bool
@@ -106,38 +102,14 @@ bind_config(struct tw_server *server)
 }
 
 static void
-notify_adding_seat(struct wl_listener *listener, void *data)
-{
-	struct tw_server *server =
-		wl_container_of(listener, server, seat_add);
-	struct tw_engine_seat *seat = data;
-
-	tw_seat_listeners_init(&server->seat_listeners[seat->idx],
-	                       seat, &server->config.config_table.bindings);
-}
-
-static void
-notify_removing_seat(struct wl_listener *listener, void *data)
-{
-	struct tw_server *server =
-		container_of(listener, struct tw_server, seat_remove);
-	struct tw_engine_seat *seat = data;
-
-	tw_seat_listeners_fini(&server->seat_listeners[seat->idx]);
-}
-
-static void
 bind_listeners(struct tw_server *server)
 {
 	server->output_manager =
 		tw_server_output_manager_create_global(server->engine,
 		                                       server->ctx);
-	tw_signal_setup_listener(&server->engine->signals.seat_created,
-	                         &server->seat_add,
-	                         notify_adding_seat);
-	tw_signal_setup_listener(&server->engine->signals.seat_remove,
-	                         &server->seat_remove,
-	                         notify_removing_seat);
+	server->input_manager =
+		tw_server_input_manager_create_global(server->engine,
+		                                      &server->config);
 }
 
 static bool
