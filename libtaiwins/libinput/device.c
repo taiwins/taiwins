@@ -90,8 +90,7 @@ handle_device_pointer_motion_event(struct tw_libinput_device *dev,
 			.unaccel_dy =
 			libinput_event_pointer_get_dy_unaccelerated(event),
 		};
-
-		wl_signal_emit(&emitter->pointer.motion, &motion);
+		tw_input_signal_emit(emitter, pointer.motion, &motion);
 		wl_signal_emit(&emitter->pointer.frame, &dev->base);
         }
 }
@@ -103,7 +102,7 @@ handle_device_pointer_motion_abs_event(struct tw_libinput_device *dev,
 	struct tw_input_source *emitter = dev->base.emitter;
 
         if (emitter && event) {
-		struct tw_event_pointer_motion_abs motion = {
+		struct tw_event_pointer_motion_abs abs = {
 			.dev = &dev->base,
 			.time_msec = libinput_event_pointer_get_time(event),
 			.output = request_output_device_from_libinput(dev),
@@ -112,8 +111,7 @@ handle_device_pointer_motion_abs_event(struct tw_libinput_device *dev,
 			.y = libinput_event_pointer_get_absolute_y_transformed(
 				event, 1),
 		};
-
-		wl_signal_emit(&emitter->pointer.motion_absolute, &motion);
+		tw_input_signal_emit(emitter, pointer.motion_absolute, &abs);
 		wl_signal_emit(&emitter->pointer.frame, &dev->base);
         }
 }
@@ -136,7 +134,7 @@ handle_device_pointer_button_event(struct tw_libinput_device *dev,
 			.button = libinput_event_pointer_get_button(event),
 			.time = libinput_event_pointer_get_time(event),
 		};
-		wl_signal_emit(&emitter->pointer.button, &button);
+		tw_input_signal_emit(emitter, pointer.button, &button);
 		wl_signal_emit(&emitter->pointer.frame, &dev->base);
         }
 }
@@ -174,7 +172,7 @@ handle_device_pointer_axis_event(struct tw_libinput_device *dev,
 		axis.delta_discrete =
 			libinput_event_pointer_get_axis_value_discrete(
 				event,LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL);
-		wl_signal_emit(&emitter->pointer.axis, &axis);
+		tw_input_signal_emit(emitter, pointer.axis, &axis);
 
 	} else if (libinput_event_pointer_has_axis(
 		           event, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL)) {
@@ -184,8 +182,7 @@ handle_device_pointer_axis_event(struct tw_libinput_device *dev,
 		axis.delta_discrete =
 			libinput_event_pointer_get_axis_value_discrete(
 				event, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL);
-		wl_signal_emit(&emitter->pointer.axis, &axis);
-
+		tw_input_signal_emit(emitter, pointer.axis, &axis);
 	}
 	wl_signal_emit(&emitter->pointer.frame, &dev->base);
 }
@@ -208,7 +205,7 @@ handle_device_pinch_gesture_begin(struct tw_libinput_device *dev,
 	gesture.time = libinput_event_gesture_get_time(event);
 	gesture.fingers = libinput_event_gesture_get_finger_count(event);
 
-	wl_signal_emit(&emitter->pointer.pinch_begin, &gesture);
+	tw_input_signal_emit(emitter, pointer.pinch_begin, &gesture);
 }
 
 static void
@@ -228,7 +225,7 @@ handle_device_pinch_gesture_update(struct tw_libinput_device *dev,
 	gesture.scale = libinput_event_gesture_get_dy(event);
 	gesture.rotation = libinput_event_gesture_get_angle_delta(event);
 
-	wl_signal_emit(&emitter->pointer.pinch_update, &gesture);
+	tw_input_signal_emit(emitter, pointer.pinch_update, &gesture);
 }
 
 static void
@@ -245,7 +242,7 @@ handle_device_pinch_gesture_end(struct tw_libinput_device *dev,
 	gesture.time = libinput_event_gesture_get_time(event);
 	gesture.cancelled = libinput_event_gesture_get_cancelled(event);
 
-	wl_signal_emit(&emitter->pointer.pinch_end, &gesture);
+	tw_input_signal_emit(emitter, pointer.pinch_end, &gesture);
 }
 
 static void
@@ -262,7 +259,7 @@ handle_device_swipe_gesture_begin(struct tw_libinput_device *dev,
 	gesture.time = libinput_event_gesture_get_time(event);
 	gesture.fingers = libinput_event_gesture_get_finger_count(event);
 
-	wl_signal_emit(&emitter->pointer.swipe_begin, &gesture);
+	tw_input_signal_emit(emitter, pointer.swipe_begin, &gesture);
 }
 
 static void
@@ -280,7 +277,7 @@ handle_device_swipe_gesture_update(struct tw_libinput_device *dev,
 	gesture.dx = libinput_event_gesture_get_dx(event);
 	gesture.dy = libinput_event_gesture_get_dy(event);
 
-	wl_signal_emit(&emitter->pointer.swipe_update, &gesture);
+	tw_input_signal_emit(emitter, pointer.swipe_update, &gesture);
 }
 
 static void
@@ -297,7 +294,7 @@ handle_device_swipe_gesture_end(struct tw_libinput_device *dev,
 	gesture.time = libinput_event_gesture_get_time(event);
 	gesture.cancelled = libinput_event_gesture_get_cancelled(event);
 
-	wl_signal_emit(&emitter->pointer.swipe_end, &gesture);
+	tw_input_signal_emit(emitter, pointer.swipe_end, &gesture);
 }
 
 /******************************************************************************
@@ -319,7 +316,7 @@ handle_device_touch_down_event(struct tw_libinput_device *dev,
 			.x = libinput_event_touch_get_x_transformed(event, 1),
 			.y = libinput_event_touch_get_y_transformed(event, 1),
 		};
-		wl_signal_emit(&emitter->touch.down, &down);
+		tw_input_signal_emit(emitter, touch.down, &down);
 	}
 }
 
@@ -338,7 +335,7 @@ handle_device_touch_motion_event(struct tw_libinput_device *dev,
 			.x = libinput_event_touch_get_x_transformed(event, 1),
 			.y = libinput_event_touch_get_y_transformed(event, 1),
 		};
-		wl_signal_emit(&emitter->touch.motion, &motion);
+		tw_input_signal_emit(emitter, touch.down, &motion);
 	}
 }
 
@@ -353,7 +350,7 @@ handle_device_touch_up_event(struct tw_libinput_device *dev,
 			.time = libinput_event_touch_get_time(event),
 			.touch_id = libinput_event_touch_get_seat_slot(event),
 		};
-		wl_signal_emit(&emitter->touch.up, &up);
+		tw_input_signal_emit(emitter, touch.up, &up);
 	}
 }
 

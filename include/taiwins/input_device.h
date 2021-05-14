@@ -47,6 +47,7 @@ struct tw_input_device;
  */
 struct tw_input_source {
 	struct wl_signal remove; /* device remove */
+	struct wl_signal event; /* an input event emitted */
 
 	struct {
 		struct wl_signal key;
@@ -82,7 +83,8 @@ struct tw_input_source {
  * @brief this struct mirrors the tw_input_source for the listener side.
  */
 struct tw_input_sink {
-	struct wl_listener remove; /** device remove */
+	struct wl_listener remove; /* device remove */
+	struct wl_listener event; /* an input event emitted */
 
 	struct {
 		struct wl_listener key;
@@ -252,6 +254,19 @@ struct tw_event_touch_cancel {
 	uint32_t time_msec;
 	int32_t touch_id;
 };
+
+/**
+ * Emit input signals
+ *
+ * This macro emit an input signal, it notifies the specific event and also
+ * signal an input event is delivered. This makes it is easier to implement
+ * mechanisms like input inhibit
+ */
+#define tw_input_signal_emit(src, sig, ev) \
+	do { \
+		wl_signal_emit(&src->sig, ev); \
+		wl_signal_emit(&src->event, src); \
+	} while (0)
 
 /**
  * @brief attach the given input device to an emitter.

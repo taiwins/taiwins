@@ -94,10 +94,10 @@ handle_x11_btn_axis(struct tw_x11_backend *x11,
 	axis.delta = 15.0 * axis.delta_discrete;
 
 	if (emitter && btn.button != 0) {
-		wl_signal_emit(&emitter->pointer.button, &btn);
+		tw_input_signal_emit(emitter, pointer.button, &btn);
 		wl_signal_emit(&emitter->pointer.frame, &output->pointer);
 	} else if (emitter && axis.delta_discrete != 0) {
-		wl_signal_emit(&emitter->pointer.axis, &axis);
+		tw_input_signal_emit(emitter, pointer.axis, &axis);
 		wl_signal_emit(&emitter->pointer.frame, &output->pointer);
 	}
 }
@@ -107,7 +107,7 @@ handle_x11_motion(struct tw_x11_backend *x11, xcb_ge_generic_event_t *ge)
 {
 	xcb_input_motion_event_t *ev = (xcb_input_motion_event_t *)ge;
 	struct tw_x11_output *output = tw_x11_output_from_id(x11, ev->event);
-	struct tw_event_pointer_motion_abs motion = {
+	struct tw_event_pointer_motion_abs abs = {
 		.dev = &output->pointer,
 	};
 	unsigned width, height;
@@ -120,12 +120,12 @@ handle_x11_motion(struct tw_x11_backend *x11, xcb_ge_generic_event_t *ge)
 
 	emitter = output->pointer.emitter;
 
-	motion.time_msec = ev->time;
-	motion.x = (double)(ev->event_x >> 16) / (float)width;
-	motion.y = (double)(ev->event_y >> 16) / (float)height;
-	motion.output = &output->output.device;
+	abs.time_msec = ev->time;
+	abs.x = (double)(ev->event_x >> 16) / (float)width;
+	abs.y = (double)(ev->event_y >> 16) / (float)height;
+	abs.output = &output->output.device;
 	if (emitter) {
-		wl_signal_emit(&emitter->pointer.motion_absolute, &motion);
+		tw_input_signal_emit(emitter, pointer.motion_absolute, &abs);
 		wl_signal_emit(&emitter->pointer.frame, &output->pointer);
 	}
 }
