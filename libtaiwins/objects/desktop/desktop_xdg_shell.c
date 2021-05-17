@@ -176,7 +176,7 @@ commit_xdg_popup(struct tw_surface *surface)
 	commit_update_window_geometry(xdg_surf);
 }
 
-bool
+static bool
 tw_surface_is_xdg_surface(struct tw_surface *surface)
 {
 	return surface->role.iface ==
@@ -1103,6 +1103,8 @@ init_xdg_shell(struct tw_desktop_manager *desktop)
 		                 XDG_SHELL_VERSION, desktop,
 		                 bind_xdg_wm_base);
 	tw_subsurface_add_role(&tw_xdg_roles[TW_DESKTOP_POPUP_SURFACE]);
+	tw_desktop_surface_add_role(
+		&tw_xdg_roles[TW_DESKTOP_TOPLEVEL_SURFACE]);
 	if (!desktop->xdg_shell_global)
 		return false;
 	return true;

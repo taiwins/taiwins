@@ -26,6 +26,8 @@
 #include <stdlib.h>
 #include <pixman.h>
 #include <wayland-server.h>
+
+#include "surface.h"
 #include "utils.h"
 #include "seat.h"
 
@@ -154,6 +156,15 @@ tw_desktop_create_global(struct wl_display *display,
                          const struct tw_desktop_surface_api *api,
                          void *user_data,
                          enum tw_desktop_init_option option);
+/**
+ * @brief adding a role which implements tw_desktop_surface.
+ *
+ * The role will help getting tw_desktop_surface in calling
+ * tw_desktop_surface_from_tw_surface.
+ */
+void
+tw_desktop_surface_add_role(struct tw_surface_role *role);
+
 /**
  * @brief getting the desktop surface from tw_surface
  *

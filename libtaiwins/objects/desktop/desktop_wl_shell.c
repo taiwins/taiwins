@@ -97,7 +97,7 @@ commit_wl_shell_surface(struct tw_surface *surface)
 	commit_update_window_geometry(surface->role.commit_private);
 }
 
-bool
+static bool
 tw_surface_is_wl_shell_surface(struct tw_surface *surface)
 {
 	return surface->role.iface ==
@@ -459,6 +459,8 @@ init_wl_shell(struct tw_desktop_manager *desktop)
 		                 WL_SHELL_VERSION, desktop,
 		                 bind_wl_shell);
 	tw_subsurface_add_role(&wl_shell_roles[TW_DESKTOP_POPUP_SURFACE]);
+	tw_desktop_surface_add_role(
+		&wl_shell_roles[TW_DESKTOP_TOPLEVEL_SURFACE]);
 	if (!desktop->wl_shell_global)
 		return false;
 	return true;

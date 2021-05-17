@@ -428,6 +428,7 @@ static inline void
 declare_xwm_surface_roles(struct tw_xwm *xwm)
 {
 	tw_subsurface_add_role(&tw_xpopup_role);
+	tw_desktop_surface_add_role(&tw_xsurface_role);
 }
 
 /******************************************************************************

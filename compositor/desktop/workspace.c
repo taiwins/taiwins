@@ -133,12 +133,7 @@ tw_xdg_view_from_tw_surface(struct tw_surface *surf)
 {
 	struct tw_desktop_surface *dsurf =
 		tw_desktop_surface_from_tw_surface(surf);
-	if (dsurf)
-		return dsurf->user_data;
-#ifdef _TW_HAS_XWAYLAND
-	else if ((dsurf = tw_xwayland_desktop_surface_from_tw_surface(surf)))
-		return dsurf->user_data;
-#endif
+	return (dsurf) ? dsurf->user_data : NULL;
 	return NULL;
 }
 
