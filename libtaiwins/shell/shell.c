@@ -394,9 +394,12 @@ create_shell_locker(struct wl_client *client,
 	//TODO: I shall create locker for all the logical output
 	struct tw_shell_output *shell_output =
 		&shell->tw_outputs[0];
+	struct tw_surface *surface = tw_surface_from_resource(wl_surface);
+	struct tw_seat *seat = tw_seat_from_resource(wl_seat);
 
 	create_ui_element(client, shell, &shell->locker, tw_ui, wl_surface,
 			  shell_output, 0, 0, TAIWINS_UI_TYPE_LOCKER);
+	tw_input_lock_grab_start(&shell->lock_grab, seat, surface);
 }
 
 static void

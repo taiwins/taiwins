@@ -30,6 +30,7 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/popup_grab.h>
+#include <taiwins/objects/input_lock_grab.h>
 #include <taiwins/shell.h>
 
 #ifdef  __cplusplus
@@ -114,6 +115,7 @@ struct tw_shell {
 
 	struct tw_shell_ui widget;
 	struct tw_shell_ui locker;
+	struct tw_input_lock_grab lock_grab;
 	bool ready;
 	//we deal with at most 16 outputs
 	struct wl_list heads; /**< tw_shell_output:link */
