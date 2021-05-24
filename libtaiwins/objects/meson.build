@@ -43,6 +43,7 @@ taiwins_obj_srcs = [
   'plane.c',
   'cursor.c',
   'popup_grab.c',
+  'input_lock_grab.c',
   'desktop/desktop.c',
   'desktop/desktop_wl_shell.c',
   'desktop/desktop_xdg_shell.c',
