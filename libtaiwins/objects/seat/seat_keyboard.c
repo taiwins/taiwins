@@ -24,11 +24,12 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <wayland-server.h>
+#include <wayland-util.h>
 #include <xkbcommon/xkbcommon.h>
 
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
-#include <taiwins/objects/seat.h>
+#include <taiwins/objects/seat_grab.h>
 #include <ctypes/os/os-compatibility.h>
 
 static void
@@ -94,10 +95,10 @@ tw_keyboard_clear_focus(struct tw_keyboard *keyboard)
         wl_signal_emit(&seat->signals.unfocus, keyboard);
 }
 
-static void
-notify_keyboard_enter(struct tw_seat_keyboard_grab *grab,
-                      struct wl_resource *surface, uint32_t pressed[],
-                      size_t n_pressed)
+WL_EXPORT void
+tw_keyboard_default_enter(struct tw_seat_keyboard_grab *grab,
+                          struct wl_resource *surface, uint32_t pressed[],
+                          size_t n_pressed)
 {
 	struct tw_keyboard *keyboard = &grab->seat->keyboard;
 	struct wl_array key_array;
@@ -113,9 +114,9 @@ notify_keyboard_enter(struct tw_seat_keyboard_grab *grab,
 		tw_keyboard_clear_focus(keyboard);
 }
 
-static void
-notify_keyboard_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
-                    uint32_t key, uint32_t state)
+WL_EXPORT void
+tw_keyboard_default_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
+                        uint32_t key, uint32_t state)
 {
 	struct tw_seat *seat = grab->seat;
 	struct wl_resource *keyboard;
@@ -131,10 +132,10 @@ notify_keyboard_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
 	}
 }
 
-static void
-notify_keyboard_modifiers(struct tw_seat_keyboard_grab *grab,
-	                  uint32_t mods_depressed, uint32_t mods_latched,
-                          uint32_t mods_locked, uint32_t group)
+WL_EXPORT void
+tw_keyboard_default_modifiers(struct tw_seat_keyboard_grab *grab,
+                              uint32_t mods_depressed, uint32_t mods_latched,
+                              uint32_t mods_locked, uint32_t group)
 {
 	struct tw_seat *seat = grab->seat;
 	struct tw_seat_client *client = seat->keyboard.focused_client;
@@ -152,16 +153,16 @@ notify_keyboard_modifiers(struct tw_seat_keyboard_grab *grab,
 	}
 }
 
-static void
-notify_keyboard_cancel(struct tw_seat_keyboard_grab *grab)
+WL_EXPORT void
+tw_keyboard_default_cancel(struct tw_seat_keyboard_grab *grab)
 {
 }
 
 static const struct tw_keyboard_grab_interface default_grab_impl = {
-	.enter = notify_keyboard_enter,
-	.key = notify_keyboard_key,
-	.modifiers = notify_keyboard_modifiers,
-	.cancel = notify_keyboard_cancel,
+	.enter = tw_keyboard_default_enter,
+	.key = tw_keyboard_default_key,
+	.modifiers = tw_keyboard_default_modifiers,
+	.cancel = tw_keyboard_default_cancel,
 };
 
 static void
@@ -293,34 +294,4 @@ tw_keyboard_send_keymap(struct tw_keyboard *keyboard,
 	wl_keyboard_send_keymap(resource, WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1,
 	                        keymap_fd, keyboard->keymap_size);
 	close(keymap_fd);
-}
-
-WL_EXPORT void
-tw_keyboard_notify_enter(struct tw_keyboard *keyboard,
-                         struct wl_resource *surface, uint32_t *keycodes,
-                         size_t n_keycodes)
-{
-	if (keyboard->grab && keyboard->grab->impl->enter)
-		keyboard->grab->impl->enter(keyboard->grab,
-		                            surface, keycodes, n_keycodes);
-}
-
-WL_EXPORT void
-tw_keyboard_notify_key(struct tw_keyboard *keyboard, uint32_t time_msec,
-                       uint32_t key, uint32_t state)
-{
-	if (keyboard->grab && keyboard->grab->impl->key)
-		keyboard->grab->impl->key(keyboard->grab, time_msec, key,
-		                          state);
-}
-
-WL_EXPORT void
-tw_keyboard_notify_modifiers(struct tw_keyboard *keyboard,
-                             uint32_t mods_depressed, uint32_t mods_latched,
-                             uint32_t mods_locked, uint32_t group)
-{
-	if (keyboard->grab && keyboard->grab->impl->modifiers)
-		keyboard->grab->impl->modifiers(keyboard->grab,
-		                                mods_depressed, mods_latched,
-		                                mods_locked, group);
 }

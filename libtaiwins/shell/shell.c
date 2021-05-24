@@ -33,7 +33,7 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/subprocess.h>
 #include <taiwins/objects/layers.h>
-#include <taiwins/objects/seat.h>
+#include <taiwins/objects/seat_grab.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
 #include <wayland-util.h>

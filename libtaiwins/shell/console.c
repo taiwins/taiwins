@@ -28,7 +28,7 @@
 #include <wayland-server.h>
 #include <pixman.h>
 #include <wayland-taiwins-console-server-protocol.h>
-#include <taiwins/objects/seat.h>
+#include <taiwins/objects/seat_grab.h>
 #include <taiwins/objects/subprocess.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/utils.h>

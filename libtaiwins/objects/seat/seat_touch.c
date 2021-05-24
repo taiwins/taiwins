@@ -66,9 +66,9 @@ tw_touch_clear_focus(struct tw_touch *touch)
 	wl_signal_emit(&seat->signals.unfocus, touch);
 }
 
-static void
-notify_touch_enter(struct tw_seat_touch_grab *grab,
-                   struct wl_resource *surface, double sx, double sy)
+WL_EXPORT void
+tw_touch_default_enter(struct tw_seat_touch_grab *grab,
+                       struct wl_resource *surface, double sx, double sy)
 {
 	struct tw_touch *touch = &grab->seat->touch;
 	if (surface)
@@ -78,9 +78,9 @@ notify_touch_enter(struct tw_seat_touch_grab *grab,
 		tw_touch_clear_focus(touch);
 }
 
-static void
-notify_touch_down(struct tw_seat_touch_grab *grab, uint32_t time_msec,
-                  uint32_t touch_id, double sx, double sy)
+WL_EXPORT void
+tw_touch_default_down(struct tw_seat_touch_grab *grab, uint32_t time_msec,
+                      uint32_t touch_id, double sx, double sy)
 {
 	struct wl_resource *touch_res;
 	struct tw_touch *touch = &grab->seat->touch;
@@ -103,9 +103,9 @@ notify_touch_down(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 	}
 }
 
-static void
-notify_touch_up(struct tw_seat_touch_grab *grab, uint32_t time_msec,
-                uint32_t touch_id)
+WL_EXPORT void
+tw_touch_default_up(struct tw_seat_touch_grab *grab, uint32_t time_msec,
+                    uint32_t touch_id)
 {
 	struct wl_resource *touch_res;
 	struct tw_touch *touch = &grab->seat->touch;
@@ -123,9 +123,9 @@ notify_touch_up(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 
 }
 
-static void
-notify_touch_motion(struct tw_seat_touch_grab *grab, uint32_t time_msec,
-                    uint32_t touch_id, double sx, double sy)
+WL_EXPORT void
+tw_touch_default_motion(struct tw_seat_touch_grab *grab, uint32_t time_msec,
+                        uint32_t touch_id, double sx, double sy)
 {
 	struct wl_resource *touch_res;
 	struct tw_touch *touch = &grab->seat->touch;
@@ -143,8 +143,8 @@ notify_touch_motion(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 
 }
 
-static void
-notify_touch_cancel_event(struct tw_seat_touch_grab *grab)
+WL_EXPORT void
+tw_touch_default_touch_cancel(struct tw_seat_touch_grab *grab)
 {
 	struct wl_resource *touch_res;
 	struct tw_touch *touch = &grab->seat->touch;
@@ -155,18 +155,18 @@ notify_touch_cancel_event(struct tw_seat_touch_grab *grab)
 			wl_touch_send_cancel(touch_res);
 }
 
-static void
-notify_touch_cancel(struct tw_seat_touch_grab *grab)
+WL_EXPORT void
+tw_touch_default_cancel(struct tw_seat_touch_grab *grab)
 {
 }
 
 static const struct tw_touch_grab_interface default_grab_impl = {
-	.enter = notify_touch_enter,
-	.down = notify_touch_down,
-	.up = notify_touch_up,
-	.motion = notify_touch_motion,
-	.touch_cancel = notify_touch_cancel_event,
-	.cancel = notify_touch_cancel,
+	.enter = tw_touch_default_enter,
+	.down = tw_touch_default_down,
+	.up = tw_touch_default_up,
+	.motion = tw_touch_default_motion,
+	.touch_cancel = tw_touch_default_touch_cancel,
+	.cancel = tw_touch_default_cancel,
 };
 
 static void
@@ -237,45 +237,4 @@ tw_touch_end_grab(struct tw_touch *touch)
 	    touch->grab->impl->cancel)
 		touch->grab->impl->cancel(touch->grab);
 	touch->grab = &touch->default_grab;
-}
-
-WL_EXPORT void
-tw_touch_notify_down(struct tw_touch *touch, uint32_t time_msec, uint32_t id,
-                     double sx, double sy)
-{
-	if (touch->grab && touch->grab->impl->down)
-		touch->grab->impl->down(touch->grab, time_msec, id,
-		                        sx, sy);
-}
-
-WL_EXPORT void
-tw_touch_notify_up(struct tw_touch *touch, uint32_t time_msec,
-                   uint32_t touch_id)
-{
-	if (touch->grab && touch->grab->impl->up)
-		touch->grab->impl->up(touch->grab, time_msec, touch_id);
-}
-
-WL_EXPORT void
-tw_touch_notify_motion(struct tw_touch *touch, uint32_t time_msec,
-                       uint32_t touch_id, double sx, double sy)
-{
-	if (touch->grab && touch->grab->impl->motion)
-		touch->grab->impl->motion(touch->grab, time_msec, touch_id,
-		                          sx, sy);
-}
-
-WL_EXPORT void
-tw_touch_notify_enter(struct tw_touch *touch,
-                      struct wl_resource *surface, double sx, double sy)
-{
-	if (touch->grab && touch->grab->impl->enter)
-		touch->grab->impl->enter(touch->grab, surface, sx, sy);
-}
-
-WL_EXPORT void
-tw_touch_notify_cancel(struct tw_touch *touch)
-{
-	if (touch->grab && touch->grab->impl->touch_cancel)
-		touch->grab->impl->touch_cancel(touch->grab);
 }

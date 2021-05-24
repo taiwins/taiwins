@@ -30,7 +30,7 @@
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/data_device.h>
-#include <taiwins/objects/seat.h>
+#include <taiwins/objects/seat_grab.h>
 #include <taiwins/objects/cursor.h>
 #include <taiwins/objects/surface.h>
 

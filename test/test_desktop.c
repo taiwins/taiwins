@@ -1,6 +1,3 @@
-#include "taiwins/engine.h"
-#include "taiwins/objects/layers.h"
-#include "taiwins/objects/seat.h"
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -11,8 +8,12 @@
 #include <wayland-util.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
+#include <taiwins/objects/seat_grab.h>
 #include <taiwins/objects/desktop.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/objects/layers.h>
+
+#include <taiwins/engine.h>
 #include <taiwins/output_device.h>
 #ifdef _TW_HAS_XWAYLAND
 #include <taiwins/xwayland.h>
