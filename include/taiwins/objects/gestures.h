@@ -31,6 +31,20 @@
 extern "C" {
 #endif
 
+struct tw_event_pointer_gesture {
+	struct tw_input_device *dev;
+	uint32_t time, fingers;
+
+	enum {
+		TW_POINTER_GESTURE_BEGIN = 0,
+		TW_POINTER_GESTURE_UPDATE,
+		TW_POINTER_GESTURE_END,
+	} state;
+
+	double dx, dy, rotation, scale;
+	bool cancelled;
+};
+
 struct tw_gestures_manager {
 	struct wl_display *display;
 	struct wl_global *global;
