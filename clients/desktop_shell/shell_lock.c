@@ -161,7 +161,8 @@ void shell_locker_init(struct desktop_shell *shell)
 	struct wl_surface *wl_surface =
 		wl_compositor_create_surface(shell->globals.compositor);
 	shell->transient_ui =
-		taiwins_shell_create_locker(shell->interface, wl_surface, 0);
+		taiwins_shell_create_locker(shell->interface, wl_surface,
+		                            shell->globals.inputs.wl_seat, 0);
 	struct shell_output *output = shell->main_output;
 
 	tw_appsurf_init(&shell->transient, wl_surface,

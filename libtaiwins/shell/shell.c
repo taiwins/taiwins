@@ -387,6 +387,7 @@ create_shell_locker(struct wl_client *client,
 		    struct wl_resource *resource,
 		    uint32_t tw_ui,
 		    struct wl_resource *wl_surface,
+                    struct wl_resource *wl_seat,
                     UNUSED_ARG(int32_t tw_output))
 {
 	struct tw_shell *shell = wl_resource_get_user_data(resource);
