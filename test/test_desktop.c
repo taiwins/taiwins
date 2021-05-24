@@ -119,8 +119,8 @@ send_view_configure(struct tw_desktop_surface *dsurf,
 	if (focused) {
 		if ((tw_seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD) &&
 		    focused)
-			tw_keyboard_set_focus(&tw_seat->keyboard,
-			                      surf->resource, NULL);
+			tw_keyboard_notify_enter(&tw_seat->keyboard,
+			                         surf->resource, NULL, 0);
 		dsurf->ping(dsurf, wl_display_next_serial(desktop->display));
 	}
 }
@@ -340,7 +340,8 @@ handle_surface_committed(struct tw_desktop_surface *dsurf,
 		tw_engine_get_focused_seat(desktop->engine)->tw_seat;
 	if (view_focused(dsurf->tw_surface, desktop) &&
 	    seat->keyboard.focused_surface != surf->resource)
-		tw_keyboard_set_focus(&seat->keyboard, surf->resource, NULL);
+		tw_keyboard_notify_enter(&seat->keyboard, surf->resource,
+		                         NULL, 0);
 
 	/* int32_t gx = dsurf->window_geometry.x; */
 	/* int32_t gy = dsurf->window_geometry.y; */

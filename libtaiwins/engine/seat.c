@@ -66,13 +66,14 @@ idle_refocus(void *data)
         if (!focused)
 		return;
 	if (!tw_seat->keyboard.focused_surface && seat_has_keyboard(tw_seat))
-		tw_keyboard_set_focus(&tw_seat->keyboard, focused->resource,
-		                      NULL);
+		tw_keyboard_notify_enter(&tw_seat->keyboard, focused->resource,
+		                         NULL, 0);
 	if (!tw_seat->pointer.focused_surface && seat_has_pointer(tw_seat))
-		tw_pointer_set_focus(&tw_seat->pointer, focused->resource,
-		                     x, y);
+		tw_pointer_notify_enter(&tw_seat->pointer, focused->resource,
+		                        x, y);
 	if (!tw_seat->touch.focused_surface && seat_has_touch(tw_seat))
-		tw_touch_set_focus(&tw_seat->touch, focused->resource, x, y);
+		tw_touch_notify_enter(&tw_seat->touch, focused->resource,
+		                      x, y);
 }
 
 static void

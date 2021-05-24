@@ -366,7 +366,7 @@ launch_shell_widget(struct wl_client *client,
 		tw_popup_grab_start(&shell->widget.grab, seat);
 	}
 	if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
-		tw_keyboard_set_focus(keyboard, wl_surface, NULL);
+		tw_keyboard_notify_enter(keyboard, wl_surface, NULL, 0);
 }
 
 static void

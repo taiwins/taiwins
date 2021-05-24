@@ -28,13 +28,73 @@
 #include <taiwins/objects/seat.h>
 
 static void
+clear_focus_no_signal(struct tw_pointer *pointer)
+{
+	struct tw_seat_client *client;
+	struct wl_resource *res;
+	uint32_t serial;
+	struct tw_seat *seat = wl_container_of(pointer, seat, pointer);
+
+	if (pointer->focused_surface && pointer->focused_client) {
+		client = pointer->focused_client;
+		serial = wl_display_next_serial(seat->display);
+		wl_resource_for_each(res, &client->pointers)
+			wl_pointer_send_leave(res, serial,
+			                      pointer->focused_surface);
+	}
+	pointer->focused_client = NULL;
+	pointer->focused_surface = NULL;
+}
+
+static void
+tw_pointer_set_focus(struct tw_pointer *pointer,
+                     struct wl_resource *wl_surface,
+                     double sx, double sy)
+{
+	uint32_t serial;
+	struct wl_resource *res;
+	struct tw_seat_client *client;
+	struct tw_seat *seat = wl_container_of(pointer, seat, pointer);
+
+	client = tw_seat_client_find(seat, wl_resource_get_client(wl_surface));
+	if (client && !wl_list_empty(&client->pointers) ) {
+		clear_focus_no_signal(pointer);
+
+		serial = wl_display_next_serial(seat->display);
+		wl_resource_for_each(res, &client->pointers)
+			wl_pointer_send_enter(res, serial, wl_surface,
+			                      wl_fixed_from_double(sx),
+			                      wl_fixed_from_double(sy));
+		pointer->focused_client = client;
+		pointer->focused_surface = wl_surface;
+
+		tw_reset_wl_list(&pointer->focused_destroy.link);
+		wl_resource_add_destroy_listener(wl_surface,
+		                                 &pointer->focused_destroy);
+		wl_signal_emit(&seat->signals.focus, pointer);
+	}
+}
+
+static void
+tw_pointer_clear_focus(struct tw_pointer *pointer)
+{
+	struct tw_seat *seat = wl_container_of(pointer, seat, pointer);
+
+        clear_focus_no_signal(pointer);
+        wl_signal_emit(&seat->signals.unfocus, pointer);
+}
+
+static void
 notify_pointer_enter(struct tw_seat_pointer_grab *grab,
                      struct wl_resource *surface,
                      double sx, double sy)
 {
 	struct tw_pointer *pointer = &grab->seat->pointer;
 
-	tw_pointer_set_focus(pointer, surface, sx, sy);
+	if (surface)
+		tw_pointer_set_focus(pointer, surface, sx, sy);
+	else
+		tw_pointer_clear_focus(pointer);
 }
 
 static void
@@ -206,63 +266,6 @@ tw_pointer_end_grab(struct tw_pointer *pointer)
 	    pointer->grab->impl->cancel)
 		pointer->grab->impl->cancel(pointer->grab);
 	pointer->grab = &pointer->default_grab;
-}
-
-static void
-clear_focus_no_signal(struct tw_pointer *pointer)
-{
-	struct tw_seat_client *client;
-	struct wl_resource *res;
-	uint32_t serial;
-	struct tw_seat *seat = wl_container_of(pointer, seat, pointer);
-
-	if (pointer->focused_surface && pointer->focused_client) {
-		client = pointer->focused_client;
-		serial = wl_display_next_serial(seat->display);
-		wl_resource_for_each(res, &client->pointers)
-			wl_pointer_send_leave(res, serial,
-			                      pointer->focused_surface);
-	}
-	pointer->focused_client = NULL;
-	pointer->focused_surface = NULL;
-}
-
-WL_EXPORT void
-tw_pointer_set_focus(struct tw_pointer *pointer,
-                     struct wl_resource *wl_surface,
-                     double sx, double sy)
-{
-	uint32_t serial;
-	struct wl_resource *res;
-	struct tw_seat_client *client;
-	struct tw_seat *seat = wl_container_of(pointer, seat, pointer);
-
-	client = tw_seat_client_find(seat, wl_resource_get_client(wl_surface));
-	if (client && !wl_list_empty(&client->pointers) ) {
-		clear_focus_no_signal(pointer);
-
-		serial = wl_display_next_serial(seat->display);
-		wl_resource_for_each(res, &client->pointers)
-			wl_pointer_send_enter(res, serial, wl_surface,
-			                      wl_fixed_from_double(sx),
-			                      wl_fixed_from_double(sy));
-		pointer->focused_client = client;
-		pointer->focused_surface = wl_surface;
-
-		tw_reset_wl_list(&pointer->focused_destroy.link);
-		wl_resource_add_destroy_listener(wl_surface,
-		                                 &pointer->focused_destroy);
-		wl_signal_emit(&seat->signals.focus, pointer);
-	}
-}
-
-WL_EXPORT void
-tw_pointer_clear_focus(struct tw_pointer *pointer)
-{
-	struct tw_seat *seat = wl_container_of(pointer, seat, pointer);
-
-        clear_focus_no_signal(pointer);
-        wl_signal_emit(&seat->signals.unfocus, pointer);
 }
 
 WL_EXPORT void
