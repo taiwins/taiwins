@@ -28,7 +28,7 @@
 #include <wayland-server.h>
 #include <pixman.h>
 #include <wayland-taiwins-console-server-protocol.h>
-#include <taiwins/objects/seat.h>
+#include <taiwins/objects/seat_grab.h>
 #include <taiwins/objects/subprocess.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/utils.h>
@@ -119,7 +119,7 @@ set_console(struct wl_client *client,
 	wl_resource_add_destroy_listener(wl_surface,
 	                                 &console->close_console_listener);
 	if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
-		tw_keyboard_set_focus(keyboard, wl_surface, NULL);
+		tw_keyboard_notify_enter(keyboard, wl_surface, NULL, 0);
 }
 
 

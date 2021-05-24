@@ -24,7 +24,7 @@
 #include <math.h>
 #include <wayland-server.h>
 #include <ctypes/helpers.h>
-#include <taiwins/objects/seat.h>
+#include <taiwins/objects/seat_grab.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
 #include <wayland-util.h>

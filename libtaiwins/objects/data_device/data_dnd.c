@@ -26,7 +26,7 @@
 
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/data_device.h>
-#include <taiwins/objects/seat.h>
+#include <taiwins/objects/seat_grab.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/cursor.h>
 #include <wayland-util.h>
@@ -134,7 +134,7 @@ dnd_pointer_cancel(struct tw_seat_pointer_grab *grab)
 		struct tw_cursor *cursor = grab->seat->cursor;
 		tw_surface_to_local_pos(surface, cursor->x, cursor->y,
 		                        &sx, &sy);
-		tw_pointer_set_focus(pointer, surface_resource, sx, sy);
+		tw_pointer_notify_enter(pointer, surface_resource, sx, sy);
 	}
 }
 

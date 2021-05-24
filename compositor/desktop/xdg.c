@@ -29,7 +29,7 @@
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/desktop.h>
-#include <taiwins/objects/seat.h>
+#include <taiwins/objects/seat_grab.h>
 #include <taiwins/engine.h>
 #include <taiwins/output_device.h>
 #include <taiwins/render_output.h>
@@ -86,8 +86,8 @@ twdesk_surface_focus(struct tw_xdg *xdg, struct tw_desktop_surface *dsurf)
 	}
 	tw_seat = seat->tw_seat;
 	if (tw_seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
-		tw_keyboard_set_focus(&tw_seat->keyboard,
-		                      dsurf->tw_surface->resource, NULL);
+		tw_keyboard_notify_enter(&tw_seat->keyboard,
+		                         dsurf->tw_surface->resource, NULL, 0);
 	tw_desktop_surface_send_ping(dsurf,
 	                             wl_display_next_serial(tw_seat->display));
 	wl_list_for_each(view, &ws->recent_views, link)

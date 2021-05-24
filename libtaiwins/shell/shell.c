@@ -33,7 +33,7 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/subprocess.h>
 #include <taiwins/objects/layers.h>
-#include <taiwins/objects/seat.h>
+#include <taiwins/objects/seat_grab.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
 #include <wayland-util.h>
@@ -366,7 +366,7 @@ launch_shell_widget(struct wl_client *client,
 		tw_popup_grab_start(&shell->widget.grab, seat);
 	}
 	if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
-		tw_keyboard_set_focus(keyboard, wl_surface, NULL);
+		tw_keyboard_notify_enter(keyboard, wl_surface, NULL, 0);
 }
 
 static void

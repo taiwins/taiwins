@@ -71,8 +71,8 @@ struct tw_pointer_grab_interface {
 	void (*motion)(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
 	               double sx, double sy);
 	void (*button)(struct tw_seat_pointer_grab *grab,
-	                   uint32_t time_msec, uint32_t button,
-	                   enum wl_pointer_button_state state);
+	               uint32_t time_msec, uint32_t button,
+	               enum wl_pointer_button_state state);
 	void (*axis)(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
 	             enum wl_pointer_axis orientation, double value,
 	             int32_t value_discrete,
@@ -253,24 +253,6 @@ tw_keyboard_set_keymap(struct tw_keyboard *keyboard,
 void
 tw_keyboard_send_keymap(struct tw_keyboard *keyboard,
                         struct wl_resource *keyboard_resource);
-void
-tw_keyboard_set_focus(struct tw_keyboard *keyboard,
-                      struct wl_resource *wl_surface,
-                      struct wl_array *focus_keys);
-void
-tw_keyboard_clear_focus(struct tw_keyboard *keyboard);
-
-void
-tw_keyboard_notify_enter(struct tw_keyboard *keyboard,
-                         struct wl_resource *surface, uint32_t keycodes[],
-                         size_t n_keycodes);
-void
-tw_keyboard_notify_key(struct tw_keyboard *keyboard, uint32_t time_msec,
-                       uint32_t key, uint32_t state);
-void
-tw_keyboard_notify_modifiers(struct tw_keyboard *keyboard,
-                             uint32_t mods_depressed, uint32_t mods_latched,
-                             uint32_t mods_locked, uint32_t group);
 
 /***************************** pointer ***************************************/
 
@@ -286,30 +268,6 @@ tw_pointer_start_grab(struct tw_pointer *pointer,
 void
 tw_pointer_end_grab(struct tw_pointer *pointer);
 
-void
-tw_pointer_set_focus(struct tw_pointer *pointer,
-                     struct wl_resource *wl_surface,
-                     double sx, double sy);
-void
-tw_pointer_clear_focus(struct tw_pointer *pointer);
-
-void
-tw_pointer_notify_enter(struct tw_pointer *pointer,
-                        struct wl_resource *wl_surface,
-                        double sx, double sy);
-void
-tw_pointer_notify_motion(struct tw_pointer *pointer, uint32_t time_msec,
-                         double sx, double sy);
-void
-tw_pointer_notify_button(struct tw_pointer *pointer, uint32_t time_msec,
-                         uint32_t button, enum wl_pointer_button_state state);
-void
-tw_pointer_notify_axis(struct tw_pointer *pointer, uint32_t time_msec,
-                       enum wl_pointer_axis axis, double val, int val_disc,
-                       enum wl_pointer_axis_source source);
-void
-tw_pointer_notify_frame(struct tw_pointer *pointer);
-
 /***************************** touch *****************************************/
 
 struct tw_touch *
@@ -323,28 +281,6 @@ tw_touch_start_grab(struct tw_touch *touch,
                     struct tw_seat_touch_grab *grab);
 void
 tw_touch_end_grab(struct tw_touch *touch);
-
-void
-tw_touch_set_focus(struct tw_touch *touch,
-                     struct wl_resource *wl_surface,
-                     double sx, double sy);
-void
-tw_touch_clear_focus(struct tw_touch *touch);
-
-void
-tw_touch_notify_down(struct tw_touch *touch, uint32_t time_msec, uint32_t id,
-                     double sx, double sy);
-void
-tw_touch_notify_up(struct tw_touch *touch, uint32_t time_msec,
-                   uint32_t touch_id);
-void
-tw_touch_notify_motion(struct tw_touch *touch, uint32_t time_msec,
-                       uint32_t touch_id, double sx, double sy);
-void
-tw_touch_notify_enter(struct tw_touch *touch,
-                      struct wl_resource *surface, double sx, double sy);
-void
-tw_touch_notify_cancel(struct tw_touch *touch);
 
 #ifdef  __cplusplus
 }

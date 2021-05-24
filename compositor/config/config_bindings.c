@@ -195,7 +195,6 @@ switch_workspace(struct tw_keyboard *keyboard,
 		tw_config_request_object(config, "desktop");
 	if (!desktop)
 		return false;
-	tw_keyboard_clear_focus(keyboard);
 
         curr_idx = tw_xdg_current_workspace_idx(desktop);
 	if (switch_left == true)
@@ -218,7 +217,6 @@ switch_workspace_last(struct tw_keyboard *keyboard, uint32_t time,
 		tw_config_request_object(config, "desktop");
 	if (!desktop)
 		return false;
-	tw_keyboard_clear_focus(keyboard);
 
 	prev_idx = tw_xdg_last_workspace_idx(desktop);
 	tw_xdg_switch_workspace(desktop, prev_idx);

@@ -25,7 +25,7 @@
 #include <wayland-util.h>
 
 #include <taiwins/objects/utils.h>
-#include <taiwins/objects/seat.h>
+#include <taiwins/objects/seat_grab.h>
 #include <taiwins/objects/popup_grab.h>
 
 static const struct tw_pointer_grab_interface popup_pointer_grab_impl;
@@ -60,56 +60,13 @@ popup_pointer_grab_button(struct tw_seat_pointer_grab *grab,
 		tw_popup_grab_close(popup_grab);
 }
 
-static void
-popup_pointer_grab_enter(struct tw_seat_pointer_grab *grab,
-                         struct wl_resource *surface, double sx, double sy)
-{
-	struct tw_pointer *pointer = &grab->seat->pointer;
-	pointer->default_grab.impl->enter(&pointer->default_grab, surface,
-	                                  sx, sy);
-}
-
-static void
-popup_pointer_grab_motion(struct tw_seat_pointer_grab *grab,
-                          uint32_t time_msec,
-                          double sx, double sy)
-{
-	struct tw_pointer *pointer = &grab->seat->pointer;
-	pointer->default_grab.impl->motion(&pointer->default_grab, time_msec,
-	                                   sx, sy);
-}
-
-static void
-popup_pointer_grab_axis(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
-                        enum wl_pointer_axis orientation, double value,
-                        int32_t value_discrete,
-                        enum wl_pointer_axis_source source)
-{
-	struct tw_pointer *pointer = &grab->seat->pointer;
-	pointer->default_grab.impl->axis(&pointer->default_grab, time_msec,
-	                                 orientation, value, value_discrete,
-	                                 source);
-}
-
-static void
-popup_pointer_grab_frame(struct tw_seat_pointer_grab *grab)
-{
-	struct tw_pointer *pointer = &grab->seat->pointer;
-	pointer->default_grab.impl->frame(&pointer->default_grab);
-}
-
-static void
-popup_pointer_grab_cancel(struct tw_seat_pointer_grab *grab)
-{
-}
-
 static const struct tw_pointer_grab_interface popup_pointer_grab_impl = {
-	.enter = popup_pointer_grab_enter,
-	.motion = popup_pointer_grab_motion,
+	.enter = tw_pointer_default_enter,
+	.motion = tw_pointer_default_motion,
 	.button = popup_pointer_grab_button,
-	.axis = popup_pointer_grab_axis,
-	.frame = popup_pointer_grab_frame,
-	.cancel = popup_pointer_grab_cancel,
+	.axis = tw_pointer_default_axis,
+	.frame = tw_pointer_default_frame,
+	.cancel = tw_pointer_default_cancel,
 };
 
 
@@ -130,51 +87,13 @@ popup_touch_grab_down(struct tw_seat_touch_grab *grab, uint32_t time_msec,
 		tw_popup_grab_close(popup_grab);
 }
 
-static void
-popup_touch_grab_up(struct tw_seat_touch_grab *grab, uint32_t time_msec,
-                    uint32_t touch_id)
-{
-	struct tw_touch *touch = &grab->seat->touch;
-	touch->default_grab.impl->up(&touch->default_grab, time_msec,
-	                             touch_id);
-}
-
-static void
-popup_touch_grab_motion(struct tw_seat_touch_grab *grab, uint32_t time_msec,
-                        uint32_t touch_id, double sx, double sy)
-{
-	struct tw_touch *touch = &grab->seat->touch;
-	touch->default_grab.impl->motion(&touch->default_grab, time_msec,
-	                                 touch_id, sx, sy);
-}
-
-static void
-popup_touch_grab_enter(struct tw_seat_touch_grab *grab,
-                       struct wl_resource *surface, double sx, double sy)
-{
-	struct tw_touch *touch = &grab->seat->touch;
-	touch->default_grab.impl->enter(&touch->default_grab, surface, sx, sy);
-}
-
-static void
-popup_touch_grab_touch_cancel(struct tw_seat_touch_grab *grab)
-{
-	struct tw_touch *touch = &grab->seat->touch;
-	touch->default_grab.impl->touch_cancel(&touch->default_grab);
-}
-
-static void
-popup_touch_grab_cancel(struct tw_seat_touch_grab *grab)
-{
-}
-
 static const struct tw_touch_grab_interface popup_touch_grab_impl = {
 	.down = popup_touch_grab_down,
-	.up = popup_touch_grab_up,
-	.motion = popup_touch_grab_motion,
-	.enter = popup_touch_grab_enter,
-	.touch_cancel = popup_touch_grab_touch_cancel,
-	.cancel = popup_touch_grab_cancel,
+	.up = tw_touch_default_up,
+	.motion = tw_touch_default_motion,
+	.enter = tw_touch_default_enter,
+	.touch_cancel = tw_touch_default_touch_cancel,
+	.cancel = tw_touch_default_cancel,
 };
 
 void
