@@ -15,6 +15,7 @@ protocols = [['taiwins-shell', 'internal'],
 	     ['pointer-gestures', 'v1'],
 	     ['text-input', 'v3'],
 	     ['input-method', 'internal'],
+	     ['virtual-keyboard', 'internal'],
 	    ]
 
 foreach proto : protocols
