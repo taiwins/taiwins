@@ -163,6 +163,9 @@ tw_engine_create_global(struct wl_display *display,
 struct tw_engine_seat *
 tw_engine_get_focused_seat(struct tw_engine *engine);
 
+struct tw_engine_seat *
+tw_engine_seat_from_seat(struct tw_engine *engine, struct tw_seat *seat);
+
 void
 tw_engine_seat_set_xkb_rules(struct tw_engine_seat *seat,
                              struct xkb_rule_names *rules);

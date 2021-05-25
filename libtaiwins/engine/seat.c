@@ -720,3 +720,14 @@ tw_engine_get_focused_seat(struct tw_engine *engine)
 		}
 	return selected;
 }
+
+WL_EXPORT struct tw_engine_seat *
+tw_engine_seat_from_seat(struct tw_engine *engine, struct tw_seat *tw_seat)
+{
+	struct tw_engine_seat *seat;
+
+	wl_list_for_each(seat, &engine->inputs, link)
+		if (seat->tw_seat == tw_seat)
+			return seat;
+	return NULL;
+}
