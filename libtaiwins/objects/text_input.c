@@ -261,6 +261,7 @@ handle_text_input_manager_get_text_input(struct wl_client *client,
 	}
 
 	text_input->seat = seat;
+	text_input->resource = resource;
 	tw_signal_setup_listener(&seat->signals.focus,
 	                         &text_input->focus_listener,
 	                         notify_text_input_focus);

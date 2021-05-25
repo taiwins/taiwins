@@ -24,6 +24,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 
 #include <taiwins/objects/input_method.h>
@@ -248,7 +249,7 @@ notify_im_keyboard_modifiers(struct tw_seat_keyboard_grab *grab,
 	                                                 mods_locked, group);
 }
 
-static const struct tw_keyboard_grab_interface im_grab = {
+static const struct tw_keyboard_grab_interface im_grab_impl = {
 	.key = notify_im_keyboard_key,
 	.modifiers = notify_im_keyboard_modifiers,
 };
@@ -289,7 +290,7 @@ input_method_start_grab(struct tw_input_method *im,
 	struct tw_seat *seat = wl_container_of(keyboard, seat, keyboard);
 
 	im->im_grab.data = grab_resource;
-	im->im_grab.impl = &im_grab;
+	im->im_grab.impl = &im_grab_impl;
 
 	input_method_send_keymap(im, keyboard, grab_resource);
 	zwp_input_method_keyboard_grab_v2_send_repeat_info(grab_resource,
@@ -300,12 +301,23 @@ input_method_start_grab(struct tw_input_method *im,
 }
 
 static void
+destroy_im_grab(struct tw_input_method *im)
+{
+	struct tw_seat *seat = im->seat;
+	struct wl_resource *resource = im->im_grab.data;
+
+	tw_keyboard_end_grab(&seat->keyboard, &im->im_grab);
+	if (resource)
+		wl_resource_set_user_data(resource, NULL);
+	im->im_grab.data = NULL;
+}
+
+static void
 handle_destroy_im_grab_resource(struct wl_resource *resource)
 {
 	struct tw_input_method *im = input_method_from_grab_resource(resource);
-	struct tw_seat *seat = im->seat;
-
-	tw_keyboard_end_grab(&seat->keyboard, &im->im_grab);
+	if (im)
+		destroy_im_grab(im);
 }
 
 /******************************************************************************
@@ -495,6 +507,8 @@ destroy_input_method(struct tw_input_method *im)
 	wl_list_remove(wl_resource_get_link(im->resource));
 	wl_list_remove(&im->link);
 	wl_resource_set_user_data(im->resource, NULL);
+	destroy_im_grab(im);
+
 	free(im);
 }
 
