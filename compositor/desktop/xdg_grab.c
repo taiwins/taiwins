@@ -277,6 +277,7 @@ handle_task_switching_cancel(struct tw_seat_keyboard_grab *grab)
 }
 
 static const struct tw_keyboard_grab_interface task_switching_impl = {
+	.enter = tw_keyboard_default_enter,
 	.key = handle_task_switching_key,
 	.modifiers = handle_task_switching_modifiers,
 	.cancel = handle_task_switching_cancel,
