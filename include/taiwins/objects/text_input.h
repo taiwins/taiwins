@@ -23,8 +23,10 @@
 #define TW_TEXT_INPUT_H
 
 #include <pixman.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/seat.h>
+#include <taiwins/objects/surface.h>
 
 #ifdef  __cplusplus
 extern "C" {
@@ -61,7 +63,6 @@ struct tw_text_input_event {
 
 struct tw_text_input_state {
 	bool enabled;
-	struct wl_resource *focused; /**< text-input active on this surface */
 
 	struct {
 		char *text;
@@ -76,10 +77,10 @@ struct tw_text_input_state {
 };
 
 struct tw_text_input {
+	uint32_t serial;
 	struct wl_resource *resource;
 	struct tw_seat *seat;
-	struct wl_resource *focused;
-	uint32_t serial;
+	struct tw_surface *focused; /* text-input activated on this surface  */
 
 	struct tw_text_input_state pending, current;
 	struct {
@@ -94,13 +95,12 @@ struct tw_text_input_manager {
 	struct wl_listener display_destroy_listener;
 };
 
+struct tw_text_input *
+tw_text_input_from_resource(struct wl_resource *resource);
+
 void
 tw_text_input_commit_event(struct tw_text_input *text_input,
                            struct tw_text_input_event *event);
-/* get current focused text input from the seat */
-struct tw_text_input *
-tw_text_input_find_from_seat(struct tw_seat *seat);
-
 bool
 tw_text_input_manager_init(struct tw_text_input_manager *manager,
                            struct wl_display *display);
