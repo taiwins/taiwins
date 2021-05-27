@@ -56,7 +56,7 @@ struct tw_text_input_event {
 		uint32_t before_length, after_length;
 	} surrounding_delete;
 
-	uint32_t serial, events;
+	uint32_t events;
 };
 
 struct tw_text_input_state {
@@ -79,6 +79,7 @@ struct tw_text_input {
 	struct wl_resource *resource;
 	struct tw_seat *seat;
 	struct wl_resource *focused;
+	uint32_t serial;
 
 	struct tw_text_input_state pending, current;
 	struct wl_listener focus_listener;

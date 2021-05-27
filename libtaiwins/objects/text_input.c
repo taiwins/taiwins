@@ -65,7 +65,7 @@ handle_text_input_disable(struct wl_client *client,
 	struct tw_text_input *ti = text_input_from_resource(resource);
 	if (!ti)
 		return;
-	ti->pending.enabled = true;
+	ti->pending.enabled = false;
 	ti->pending.requests |= TW_TEXT_INPUT_TOGGLE;
 }
 
@@ -81,7 +81,7 @@ handle_text_input_set_surrounding_text(struct wl_client *client,
 		return;
 	free(ti->pending.surrounding.text);
 	ti->pending.surrounding.text = strdup(text);
-	if (ti->pending.surrounding.text)
+	if (!ti->pending.surrounding.text)
 		wl_resource_post_no_memory(resource);
 	ti->pending.surrounding.cursor = cursor;
 	ti->pending.surrounding.anchor = anchor;
@@ -153,6 +153,7 @@ handle_text_input_commit(struct wl_client *client,
 		if (ti->pending.requests & TW_TEXT_INPUT_TOGGLE) {
 			e.events |= TW_INPUT_METHOD_TOGGLE;
 			e.enabled = ti->pending.enabled;
+			e.focused = ti->pending.focused;
 		}
 		if (ti->pending.requests & TW_TEXT_INPUT_SURROUNDING_TEXT) {
 			e.events |= TW_INPUT_METHOD_SURROUNDING_TEXT;
@@ -183,8 +184,8 @@ handle_text_input_commit(struct wl_client *client,
         //swap state
 	free(ti->current.surrounding.text);
 	ti->current = ti->pending;
-	ti->current.requests = 0;
 	ti->pending = reset;
+	ti->serial++;
 }
 
 static const struct zwp_text_input_v3_interface text_input_impl = {
@@ -259,7 +260,7 @@ handle_text_input_manager_get_text_input(struct wl_client *client,
 		wl_resource_post_no_memory(manager_resource);
 		return;
 	}
-
+	text_input->serial = 0;
 	text_input->seat = seat;
 	text_input->resource = resource;
 	tw_signal_setup_listener(&seat->signals.focus,
@@ -338,7 +339,8 @@ tw_text_input_commit_event(struct tw_text_input *text_input,
 			e->surrounding_delete.before_length,
 			e->surrounding_delete.after_length);
 	if (e->events)
-		zwp_text_input_v3_send_done(text_input->resource, e->serial);
+		zwp_text_input_v3_send_done(text_input->resource,
+		                            text_input->serial);
 }
 
 WL_EXPORT struct tw_text_input *

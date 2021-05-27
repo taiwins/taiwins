@@ -75,7 +75,7 @@ struct tw_input_method_state {
 };
 
 struct tw_input_method {
-	struct wl_resource *resource;
+	struct wl_resource *resource, *focused;
 
 	/**< tw_input_method_manager:resources */
 	struct wl_list link;
