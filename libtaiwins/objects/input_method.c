@@ -77,9 +77,10 @@ input_method_from_popup_resource(struct wl_resource *resource)
 static void
 commit_input_popup_surface(struct tw_surface *surface)
 {
-	struct tw_input_method *im = surface->role.commit_private;
-	struct tw_subsurface *sub = &im->im_surface.subsurface;
+	struct tw_subsurface *sub = surface->role.commit_private;
 	struct tw_surface *parent = sub->parent;
+	struct tw_input_method *im =
+		wl_container_of(sub, im, im_surface.subsurface);
 
         if (!parent)
 		return;
@@ -124,34 +125,40 @@ im_popup_calc_pos(struct tw_input_method *im,
 }
 
 static void
-im_popup_enable(struct tw_input_method *im, struct wl_resource *parent_res)
-{
-	struct tw_surface *parent = NULL;
-	struct tw_subsurface *sub = &im->im_surface.subsurface;
-
-	if (!im->im_surface.subsurface.surface || !parent_res)
-		return;
-	parent = tw_surface_from_resource(parent_res);
-	//take effect on text parent commit.
-	sub->parent = parent;
-	wl_list_insert(parent->subsurfaces.prev,
-	               &sub->parent_link);
-	im->active = true;
-}
-
-static void
 im_popup_disable(struct tw_input_method *im)
 {
 	struct tw_subsurface *sub = &im->im_surface.subsurface;
 
+        tw_reset_wl_list(&sub->surface_destroyed.link);
 	if (!im->im_surface.subsurface.surface)
 		return;
-	tw_reset_wl_list(&sub->parent_link);
-	tw_reset_wl_list(&sub->parent_pending_link);
-	sub->parent = NULL;
-	sub->sx = 0;
-	sub->sy = 0;
+	tw_subsurface_fini(sub);
 	im->active = false;
+}
+
+static void
+notify_im_popup_surface_destroyed(struct wl_listener *listener, void *data)
+{
+	struct tw_subsurface *sub =
+		wl_container_of(listener, sub, surface_destroyed);
+	struct tw_input_method *im =
+		wl_container_of(sub, im, im_surface.subsurface);
+
+	im_popup_disable(im);
+}
+
+static void
+im_popup_enable(struct tw_input_method *im, struct wl_resource *popup_resource,
+                struct tw_surface *surface, struct tw_surface *parent)
+{
+	struct tw_subsurface *sub = &im->im_surface.subsurface;
+
+	if (!surface || !parent)
+		return;
+	tw_subsurface_init(sub, popup_resource, surface, parent,
+	                   notify_im_popup_surface_destroyed);
+	sub->sync = false;
+	im->active = true;
 }
 
 static void
@@ -163,8 +170,6 @@ destroy_im_popup_resource(struct wl_resource *resource)
 
 	if (!im)
 		return;
-	im_popup_disable(im);
-
 	//client should not destroy the surface before the popup destroy, we
 	//will notify client for that
 	popup_surface = im->im_surface.subsurface.surface;
@@ -174,47 +179,9 @@ destroy_im_popup_resource(struct wl_resource *resource)
 		                       "input method popup object@%d",
 		                       wl_resource_get_id(resource));
 	}
-	im->im_surface.subsurface.resource = NULL;
-	im->im_surface.subsurface.surface = NULL;
-}
-
-static void
-notify_im_popup_surface_destroyed(struct wl_listener *listener, void *data)
-{
-	struct tw_subsurface *sub =
-		wl_container_of(listener, sub, surface_destroyed);
-	struct tw_input_method *im =
-		wl_container_of(sub, im, im_surface.subsurface);
-
-        wl_list_remove(&sub->surface_destroyed.link);
 	im_popup_disable(im);
 	im->im_surface.subsurface.resource = NULL;
 	im->im_surface.subsurface.surface = NULL;
-}
-
-static void
-input_method_impl_subsurface(struct tw_input_method *im,
-                             struct tw_surface *surface,
-                             struct wl_resource *resource)
-{
-	struct tw_subsurface *sub = &im->im_surface.subsurface;
-	/* struct tw_surface *parent = tw_surface_from_resource(im->focused); */
-
-	/* tw_subsurface_init(sub, NULL, surface, parent, */
-	/*                    notify_im_popup_surface_destroyed); */
-
-	sub->resource = resource;
-	sub->surface = surface;
-	sub->sync = false;
-	sub->parent = NULL;
-	sub->sx = 0;
-	sub->sy = 0;
-	wl_list_init(&sub->parent_link);
-	wl_list_init(&sub->parent_pending_link);
-
-	tw_signal_setup_listener(&surface->signals.destroy,
-	                         &sub->surface_destroyed,
-	                         notify_im_popup_surface_destroyed);
 }
 
 /******************************************************************************
@@ -432,9 +399,11 @@ handle_input_method_get_input_popup_surface(struct wl_client *client,
 	struct tw_input_method *im = input_method_from_resource(resource);
 	uint32_t version = wl_resource_get_version(resource);
 	struct tw_surface *surface = tw_surface_from_resource(surf_resource);
+	struct tw_surface *parent = im->focused ?
+		tw_surface_from_resource(im->focused) : NULL;
 
-
-	if (!tw_surface_assign_role(surface, &tw_input_popup_role, im)) {
+	if (!tw_surface_assign_role(surface, &tw_input_popup_role,
+	                            &im->im_surface.subsurface)) {
 		wl_resource_post_error(resource, -1, "failed to set input "
 		                       "method popup, wl_surface@%d already "
 		                       "has a role",
@@ -453,9 +422,7 @@ handle_input_method_get_input_popup_surface(struct wl_client *client,
 	}
 	wl_resource_set_implementation(popup_resource, &popup_impl, im,
 	                               destroy_im_popup_resource);
-
-	input_method_impl_subsurface(im, surface, popup_resource);
-	im_popup_enable(im, im->focused);
+	im_popup_enable(im, popup_resource, surface, parent);
 }
 
 static void
@@ -684,7 +651,7 @@ tw_input_method_manager_init(struct tw_input_method_manager *manager,
 	                                &manager->display_destroy_listener,
 	                                notify_im_manager_display_destroy);
 	wl_list_init(&manager->ims);
-
+	tw_subsurface_add_role(&tw_input_popup_role);
 	return true;
 }
 
