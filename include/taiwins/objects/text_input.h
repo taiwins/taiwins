@@ -82,7 +82,10 @@ struct tw_text_input {
 	uint32_t serial;
 
 	struct tw_text_input_state pending, current;
-	struct wl_listener focus_listener;
+	struct {
+		struct wl_listener focus;
+		struct wl_listener unfocus;
+	} listeners;
 };
 
 struct tw_text_input_manager {

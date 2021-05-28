@@ -204,7 +204,7 @@ notify_text_input_focus(struct wl_listener *listener, void *data)
 {
 	struct wl_resource *focused = NULL;
 	struct tw_text_input *ti =
-		wl_container_of(listener, ti, focus_listener);
+		wl_container_of(listener, ti, listeners.focus);
 	struct tw_input_method *im =
 		tw_input_method_find_from_seat(ti->seat);
 	//skip if there is no input method or this is not a keyboard focus
@@ -226,6 +226,20 @@ notify_text_input_focus(struct wl_listener *listener, void *data)
 }
 
 static void
+notify_text_input_unfocus(struct wl_listener *listener, void *data)
+{
+	struct tw_text_input *ti =
+		wl_container_of(listener, ti, listeners.unfocus);
+
+	if (data != &ti->seat->keyboard)
+		return;
+	if (ti->focused)
+		zwp_text_input_v3_send_leave(ti->resource,
+		                             ti->focused);
+	ti->focused = NULL;
+}
+
+static void
 destroy_text_input_resource(struct wl_resource *resource)
 {
 	struct tw_text_input *ti = text_input_from_resource(resource);
@@ -234,7 +248,8 @@ destroy_text_input_resource(struct wl_resource *resource)
 		free(ti->current.surrounding.text);
 		free(ti);
 	}
-	wl_list_remove(&ti->focus_listener.link);
+	wl_list_remove(&ti->listeners.focus.link);
+	wl_list_remove(&ti->listeners.unfocus.link);
 	wl_list_remove(wl_resource_get_link(resource));
 	wl_resource_set_user_data(resource, NULL);
 }
@@ -264,8 +279,11 @@ handle_text_input_manager_get_text_input(struct wl_client *client,
 	text_input->seat = seat;
 	text_input->resource = resource;
 	tw_signal_setup_listener(&seat->signals.focus,
-	                         &text_input->focus_listener,
+	                         &text_input->listeners.focus,
 	                         notify_text_input_focus);
+	tw_signal_setup_listener(&seat->signals.unfocus,
+	                         &text_input->listeners.unfocus,
+	                         notify_text_input_unfocus);
 
 	wl_resource_set_implementation(resource, &text_input_impl, text_input,
 	                               destroy_text_input_resource);
