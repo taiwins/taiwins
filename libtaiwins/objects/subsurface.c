@@ -239,6 +239,14 @@ notify_subsurface_surface_destroy(struct wl_listener *listener, void *data)
 	subsurface_destroy(subsurface);
 }
 
+static void
+notify_subsurface_parent_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_subsurface *subsurface =
+		wl_container_of(listener, subsurface, parent_destroyed);
+	tw_subsurface_hide(subsurface);
+}
+
 /******************************************************************************
  * tw_subsurface API
  *****************************************************************************/
@@ -247,12 +255,9 @@ WL_EXPORT void
 tw_subsurface_fini(struct tw_subsurface *subsurface)
 {
 	wl_signal_emit(&subsurface->destroy, subsurface);
-
+	tw_subsurface_hide(subsurface);
 	tw_reset_wl_list(&subsurface->surface_destroyed.link);
-	if (subsurface->parent) {
-		tw_reset_wl_list(&subsurface->parent_link);
-		tw_reset_wl_list(&subsurface->parent_pending_link);
-	}
+
 	if (subsurface->resource)
 		wl_resource_set_user_data(subsurface->resource, NULL);
 	if (subsurface->surface)
@@ -273,11 +278,38 @@ tw_subsurface_init(struct tw_subsurface *sub, struct wl_resource *resource,
 	wl_signal_init(&sub->destroy);
 	wl_list_init(&sub->parent_link);
 	wl_list_init(&sub->parent_pending_link);
-	wl_list_insert(parent->subsurfaces_pending.prev,
-	               &sub->parent_pending_link);
+	wl_list_init(&sub->parent_destroyed.link);
+	//a surface is necessary
 	tw_set_resource_destroy_listener(surface->resource,
 	                                 &sub->surface_destroyed,
 	                                 notifier);
+	tw_subsurface_show(sub, parent);
+}
+
+WL_EXPORT void
+tw_subsurface_hide(struct tw_subsurface *subsurface)
+{
+	subsurface->parent = NULL;
+	tw_reset_wl_list(&subsurface->parent_link);
+	tw_reset_wl_list(&subsurface->parent_pending_link);
+	tw_reset_wl_list(&subsurface->parent_destroyed.link);
+}
+
+WL_EXPORT void
+tw_subsurface_show(struct tw_subsurface *subsurface,
+                   struct tw_surface *parent)
+{
+	if (subsurface->surface && parent) {
+		subsurface->parent = parent;
+		tw_reset_wl_list(&subsurface->parent_link);
+		tw_reset_wl_list(&subsurface->parent_pending_link);
+		tw_reset_wl_list(&subsurface->parent_destroyed.link);
+		wl_list_insert(parent->subsurfaces_pending.prev,
+		               &subsurface->parent_pending_link);
+		tw_set_resource_destroy_listener(
+			parent->resource, &subsurface->parent_destroyed,
+			notify_subsurface_parent_destroy);
+	}
 }
 
 WL_EXPORT struct tw_subsurface *
