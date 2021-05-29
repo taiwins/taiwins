@@ -23,6 +23,7 @@
 #define TW_INPUT_METHOD_H
 
 #include <pixman.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/surface.h>
@@ -48,8 +49,7 @@ enum tw_input_method_event_type {
 
 struct tw_input_method_event {
 	bool enabled;
-	/** activated text input on this surface, this will drive us to set im
-	 * popup active as well. */
+	/** activated text input */
 	struct wl_resource *focused;
 
 	struct {
@@ -77,7 +77,7 @@ struct tw_input_method_state {
 struct tw_input_method {
 	struct wl_resource *resource;
 
-	/**< tw_input_method_manager:resources */
+	/* tw_input_method_manager:resources */
 	struct wl_list link;
 	struct tw_seat *seat;
 
@@ -86,10 +86,14 @@ struct tw_input_method {
 		pixman_rectangle32_t rectangle;
 	} im_surface;
 
+	struct {
+		struct wl_resource *focused;
+		struct wl_listener destroy;
+	} text_input;
+
 	struct tw_seat_keyboard_grab im_grab;
 	struct tw_input_method_state pending, current;
 	struct wl_listener seat_destroy_listener;
-	bool active;
 };
 
 struct tw_input_method_manager {

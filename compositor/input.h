@@ -25,6 +25,9 @@
 #include <wayland-server.h>
 #include <xkbcommon/xkbcommon.h>
 #include <taiwins/objects/seat.h>
+#include <taiwins/objects/virtual_keyboard.h>
+#include <taiwins/objects/input_method.h>
+#include <taiwins/objects/text_input.h>
 #include <taiwins/engine.h>
 #include <taiwins/input_device.h>
 
@@ -55,13 +58,17 @@ struct tw_seat_listeners {
 struct tw_server_input_manager {
 	struct tw_engine *engine;
 	struct tw_config *config;
-
 	struct tw_seat_listeners inputs[8];
+	//globals
+	struct tw_virtual_keyboard_manager vkeyboard_mgr;
+	struct tw_input_method_manager im_mgr;
+	struct tw_text_input_manager ti_mgr;
 
 	struct {
 		struct wl_listener seat_add;
 		struct wl_listener seat_remove;
 		struct wl_listener display_destroy;
+		struct wl_listener new_virtual_keyboard;
 	} listeners;
 };
 

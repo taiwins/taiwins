@@ -264,6 +264,7 @@ tw_subsurface_fini(struct tw_subsurface *subsurface)
 		subsurface_unset_role(subsurface);
 	subsurface->parent = NULL;
 	subsurface->surface = NULL;
+	subsurface->resource = NULL;
 }
 
 WL_EXPORT void

@@ -24,15 +24,19 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 
 #include <taiwins/objects/input_method.h>
 #include <taiwins/objects/surface.h>
+#include <taiwins/objects/subsurface.h>
 #include <taiwins/objects/text_input.h>
-#include <taiwins/objects/seat.h>
+#include <taiwins/objects/seat_grab.h>
 #include <taiwins/objects/utils.h>
+#include <taiwins/objects/logger.h>
 #include <wayland-input-method-server-protocol.h>
 #include <ctypes/os/os-compatibility.h>
+#include <wayland-util.h>
 
 static const struct zwp_input_method_v2_interface im_v2_impl;
 static const struct zwp_input_method_keyboard_grab_v2_interface grab_impl;
@@ -66,6 +70,13 @@ input_method_from_popup_resource(struct wl_resource *resource)
 
 }
 
+static inline bool
+input_method_has_popup(struct tw_input_method *im)
+{
+	//simply check if we have subsurface
+	return im->im_surface.subsurface.surface != NULL;
+}
+
 /******************************************************************************
  * input method popup implemenation
  *****************************************************************************/
@@ -73,9 +84,10 @@ input_method_from_popup_resource(struct wl_resource *resource)
 static void
 commit_input_popup_surface(struct tw_surface *surface)
 {
-	struct tw_input_method *im = surface->role.commit_private;
-	struct tw_subsurface *sub = &im->im_surface.subsurface;
+	struct tw_subsurface *sub = surface->role.commit_private;
 	struct tw_surface *parent = sub->parent;
+	struct tw_input_method *im =
+		wl_container_of(sub, im, im_surface.subsurface);
 
         if (!parent)
 		return;
@@ -112,6 +124,7 @@ im_popup_calc_pos(struct tw_input_method *im,
 	//The simplest case is just set it underneath.
 	sub->sx = text_cursor->x + text_cursor->width;
 	sub->sy = text_cursor->y + text_cursor->height;
+
 	zwp_input_popup_surface_v2_send_text_input_rectangle(
 		sub->resource, -text_cursor->width,
 		-text_cursor->height, text_cursor->width,
@@ -119,69 +132,100 @@ im_popup_calc_pos(struct tw_input_method *im,
 }
 
 static void
-im_popup_enable(struct tw_input_method *im, struct wl_resource *parent_res)
+input_method_disable(struct tw_input_method *im, struct wl_resource *focused)
 {
-	struct tw_surface *parent = NULL;
 	struct tw_subsurface *sub = &im->im_surface.subsurface;
 
-	if (!im->im_surface.subsurface.surface || !parent_res)
+	//don't disable if not focused (already disabled)
+	if (im->text_input.focused != focused)
 		return;
-	tw_reset_wl_list(&sub->parent_link);
-	tw_reset_wl_list(&sub->parent_pending_link);
-	tw_reset_wl_list(&sub->surface_destroyed.link);
+	tw_logl_level(TW_LOG_DBUG, "input method popup disable");
 
-	parent = tw_surface_from_resource(parent_res);
-	//take effect on text parent commit.
-	sub->parent = parent;
-	wl_list_insert(&parent->subsurfaces_pending,
-	               &sub->parent_pending_link);
-	im->active = true;
+	im->text_input.focused = NULL;
+	tw_reset_wl_list(&im->text_input.destroy.link);
+	zwp_input_method_v2_send_deactivate(im->resource);
+	//also unmap subsurface if possible
+	if (input_method_has_popup(im))
+		tw_subsurface_hide(sub);
 }
 
 static void
-im_popup_disable(struct tw_input_method *im)
+notify_im_text_input_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_input_method *im =
+		wl_container_of(listener, im, text_input.destroy);
+	assert(data == im->text_input.focused);
+	input_method_disable(im, data);
+}
+
+
+/*
+ * try enabling the input-method popup.
+ *
+ * Surface and resource is set in handle_input_method_get_input_popup_surface;
+ * And getting a parent from the list of text_inputs. If all those requirements
+ * are met, we are ready to show the popup surface. Otherwise the popup is not
+ * shown.
+ *
+ * The first time we were asked to enable the popup surface, the popup is not
+ * created yet, im_popup_enable is called again later on get_popup_surface
+ */
+static void
+input_method_enable(struct tw_input_method *im, struct wl_resource *focused)
 {
 	struct tw_subsurface *sub = &im->im_surface.subsurface;
+	struct tw_text_input *ti = focused ?
+		tw_text_input_from_resource(focused) : NULL;
+	struct tw_surface *parent = focused ? ti->focused : NULL;
 
-	if (!im->im_surface.subsurface.surface)
+	tw_logl_level(TW_LOG_DBUG, "input method popup enable");
+
+	//TODO: if equal, we risk adding resource destroy listener twice
+	if (!focused || !parent)
 		return;
+	if (im->text_input.focused != focused) {
+		input_method_disable(im, im->text_input.focused);
+		tw_reset_wl_list(&im->text_input.destroy.link);
+		im->text_input.focused = focused;
+		tw_set_resource_destroy_listener(focused,
+		                                 &im->text_input.destroy,
+		                                 notify_im_text_input_destroy);
+	zwp_input_method_v2_send_activate(im->resource);
+	}
 
-	tw_reset_wl_list(&sub->parent_link);
-	tw_reset_wl_list(&sub->parent_pending_link);
-	tw_reset_wl_list(&sub->surface_destroyed.link);
-	sub->parent = NULL;
-	sub->sx = 0;
-	sub->sy = 0;
-	im->active = false;
+	//adding popup surface if available
+	if (input_method_has_popup(im))
+		tw_subsurface_show(sub, parent);
+}
+
+static inline void
+destroy_im_popup(struct tw_input_method *im)
+{
+	struct tw_subsurface *sub = &im->im_surface.subsurface;
+	if (input_method_has_popup(im))
+		tw_subsurface_fini(sub);
 }
 
 static void
 destroy_im_popup_resource(struct wl_resource *resource)
 {
-	struct tw_surface *popup_surface;
 	struct tw_input_method *im =
 		input_method_from_popup_resource(resource);
 
 	if (!im)
 		return;
-	im_popup_disable(im);
-
 	//client should not destroy the surface before the popup destroy, we
 	//will notify client for that
-	popup_surface = im->im_surface.subsurface.surface;
-	if (!popup_surface) {
+	if (!input_method_has_popup(im)) {
 		wl_resource_post_error(resource, 0, "input method should not "
 		                       "destroy surface before destroying "
 		                       "input method popup object@%d",
 		                       wl_resource_get_id(resource));
-	} else {
-		popup_surface->role.iface = NULL;
-		popup_surface->role.commit_private = NULL;
 	}
 	im->im_surface.subsurface.resource = NULL;
-	im->im_surface.subsurface.surface = NULL;
 }
 
+/* this should be called after destroy_im_popup_resource */
 static void
 notify_im_popup_surface_destroyed(struct wl_listener *listener, void *data)
 {
@@ -190,29 +234,7 @@ notify_im_popup_surface_destroyed(struct wl_listener *listener, void *data)
 	struct tw_input_method *im =
 		wl_container_of(sub, im, im_surface.subsurface);
 
-        wl_list_remove(&sub->surface_destroyed.link);
-	im_popup_disable(im);
-	im->im_surface.subsurface.resource = NULL;
-	im->im_surface.subsurface.surface = NULL;
-}
-
-static void
-input_method_impl_subsurface(struct tw_input_method *im,
-                             struct tw_surface *surface,
-                             struct wl_resource *resource)
-{
-	struct tw_subsurface *sub = &im->im_surface.subsurface;
-
-	sub->resource = resource;
-	sub->surface = surface;
-	sub->sync = false;
-	sub->parent = NULL;
-	sub->sx = 0;
-	sub->sy = 0;
-
-	tw_signal_setup_listener(&surface->signals.destroy,
-	                         &sub->surface_destroyed,
-	                         notify_im_popup_surface_destroyed);
+	destroy_im_popup(im);
 }
 
 /******************************************************************************
@@ -248,9 +270,11 @@ notify_im_keyboard_modifiers(struct tw_seat_keyboard_grab *grab,
 	                                                 mods_locked, group);
 }
 
-static const struct tw_keyboard_grab_interface im_grab = {
+static const struct tw_keyboard_grab_interface im_grab_impl = {
 	.key = notify_im_keyboard_key,
 	.modifiers = notify_im_keyboard_modifiers,
+	.enter = tw_keyboard_default_enter,
+	.cancel = tw_keyboard_default_cancel,
 };
 
 static void
@@ -289,23 +313,33 @@ input_method_start_grab(struct tw_input_method *im,
 	struct tw_seat *seat = wl_container_of(keyboard, seat, keyboard);
 
 	im->im_grab.data = grab_resource;
-	im->im_grab.impl = &im_grab;
+	im->im_grab.impl = &im_grab_impl;
 
 	input_method_send_keymap(im, keyboard, grab_resource);
 	zwp_input_method_keyboard_grab_v2_send_repeat_info(grab_resource,
 	                                                   seat->repeat_rate,
 	                                                   seat->repeat_delay);
-
 	tw_keyboard_start_grab(keyboard, &im->im_grab);
+}
+
+static void
+destroy_im_grab(struct tw_input_method *im)
+{
+	struct tw_seat *seat = im->seat;
+	struct wl_resource *resource = im->im_grab.data;
+
+	tw_keyboard_end_grab(&seat->keyboard, &im->im_grab);
+	if (resource)
+		wl_resource_set_user_data(resource, NULL);
+	im->im_grab.data = NULL;
 }
 
 static void
 handle_destroy_im_grab_resource(struct wl_resource *resource)
 {
 	struct tw_input_method *im = input_method_from_grab_resource(resource);
-	struct tw_seat *seat = im->seat;
-
-	tw_keyboard_end_grab(&seat->keyboard, &im->im_grab);
+	if (im)
+		destroy_im_grab(im);
 }
 
 /******************************************************************************
@@ -369,14 +403,13 @@ handle_input_method_commit(struct wl_client *client,
                            struct wl_resource *resource,
                            uint32_t serial)
 {
-	struct tw_text_input *ti = NULL;
 	struct tw_input_method *im = input_method_from_resource(resource);
 	struct tw_input_method_state reset = {0};
-	if (!im)
-		return;
-	//sending events.
-	if ((ti = tw_text_input_find_from_seat(im->seat))) {
-		struct tw_text_input_event e;
+	struct tw_text_input *ti = (im && im->text_input.focused) ?
+		tw_text_input_from_resource(im->text_input.focused) : NULL;
+
+	if (ti) {
+		struct tw_text_input_event e = {0};
 
 		if (im->pending.requests & TW_INPUT_METHOD_PREEDIT) {
 			e.preedit.text = im->pending.preedit.text;
@@ -397,9 +430,6 @@ handle_input_method_commit(struct wl_client *client,
 				im->pending.surrounding_delete.after_length;
 			e.events |= TW_TEXT_INPUT_SURROUNDING_DELETE;
 		}
-		//TODO this serial is not right
-		e.serial = serial;
-
 		tw_text_input_commit_event(ti, &e);
 	}
 
@@ -409,6 +439,7 @@ handle_input_method_commit(struct wl_client *client,
 	im->current = im->pending;
 	im->pending = reset;
 }
+
 
 static void
 handle_input_method_get_input_popup_surface(struct wl_client *client,
@@ -421,8 +452,8 @@ handle_input_method_get_input_popup_surface(struct wl_client *client,
 	uint32_t version = wl_resource_get_version(resource);
 	struct tw_surface *surface = tw_surface_from_resource(surf_resource);
 
-	//error if we already has a role
-	if (!tw_surface_assign_role(surface, &tw_input_popup_role, im)) {
+	if (!tw_surface_assign_role(surface, &tw_input_popup_role,
+	                            &im->im_surface.subsurface)) {
 		wl_resource_post_error(resource, -1, "failed to set input "
 		                       "method popup, wl_surface@%d already "
 		                       "has a role",
@@ -430,7 +461,7 @@ handle_input_method_get_input_popup_surface(struct wl_client *client,
 	}
 	if (!im)
 		return;
-
+	tw_logl_level(TW_LOG_DBUG, "input method get popup");
 	popup_resource =
 		wl_resource_create(client,
 		                   &zwp_input_popup_surface_v2_interface,
@@ -441,8 +472,9 @@ handle_input_method_get_input_popup_surface(struct wl_client *client,
 	}
 	wl_resource_set_implementation(popup_resource, &popup_impl, im,
 	                               destroy_im_popup_resource);
-
-	input_method_impl_subsurface(im, surface, popup_resource);
+	tw_subsurface_init(&im->im_surface.subsurface, popup_resource, surface,
+	                   NULL, notify_im_popup_surface_destroyed);
+	input_method_enable(im, im->text_input.focused);
 }
 
 static void
@@ -461,10 +493,10 @@ handle_input_method_grab_keyboard(struct wl_client *client,
 	//no keyboard
 	if (!(seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD))
 		return;
-	//already in grab
+	//already in grab, delete the old one
 	if (seat->keyboard.grab == &im->im_grab ||
 	    seat->keyboard.grab != &seat->keyboard.default_grab)
-		return;
+		destroy_im_grab(im);
 	if (!(grab_resource =
 	      wl_resource_create(client,
 	                         &zwp_input_method_keyboard_grab_v2_interface,
@@ -491,10 +523,17 @@ static const struct zwp_input_method_v2_interface im_v2_impl = {
 static void
 destroy_input_method(struct tw_input_method *im)
 {
+	wl_list_remove(&im->link);
 	wl_list_remove(&im->seat_destroy_listener.link);
 	wl_list_remove(wl_resource_get_link(im->resource));
-	wl_list_remove(&im->link);
 	wl_resource_set_user_data(im->resource, NULL);
+	input_method_disable(im, im->text_input.focused);
+	destroy_im_popup(im);
+	destroy_im_grab(im);
+
+	free(im->current.commit_string);
+	free(im->current.preedit.text);
+
 	free(im);
 }
 
@@ -551,9 +590,11 @@ im_manager_handle_get_input_method(struct wl_client *client,
 		wl_resource_post_no_memory(manager_resource);
 		return;
 	}
-	im->resource = im_resource;
 	im->seat = seat;
+	im->resource = im_resource;
+	im->text_input.focused = NULL;
 	wl_list_init(&im->link);
+	wl_list_init(&im->text_input.destroy.link);
 	wl_resource_set_implementation(im_resource, &im_v2_impl, im,
 	                               destroy_input_method_resource);
 	tw_signal_setup_listener(&seat->signals.destroy,
@@ -609,13 +650,10 @@ WL_EXPORT void
 tw_input_method_send_event(struct tw_input_method *im,
                            struct tw_input_method_event *e)
 {
-	if ((e->events & TW_INPUT_METHOD_TOGGLE) && e->enabled) {
-		zwp_input_method_v2_send_activate(im->resource);
-		im_popup_enable(im, e->focused);
-	} else if (e->events & TW_INPUT_METHOD_TOGGLE) {
-		zwp_input_method_v2_send_deactivate(im->resource);
-		im_popup_disable(im);
-	}
+	if ((e->events & TW_INPUT_METHOD_TOGGLE) && e->enabled)
+		input_method_enable(im, e->focused);
+	else if (e->events & TW_INPUT_METHOD_TOGGLE)
+		input_method_disable(im, e->focused);
 
 	if (e->events & TW_INPUT_METHOD_SURROUNDING_TEXT)
 		zwp_input_method_v2_send_surrounding_text(
@@ -666,7 +704,7 @@ tw_input_method_manager_init(struct tw_input_method_manager *manager,
 	                                &manager->display_destroy_listener,
 	                                notify_im_manager_display_destroy);
 	wl_list_init(&manager->ims);
-
+	tw_subsurface_add_role(&tw_input_popup_role);
 	return true;
 }
 

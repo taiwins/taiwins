@@ -32,6 +32,7 @@
 #include <taiwins/objects/seat_grab.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
+#include <taiwins/objects/virtual_keyboard.h>
 
 #include <taiwins/engine.h>
 #include <taiwins/input_device.h>
@@ -43,8 +44,8 @@
 /******************************************************************************
  * bindings
  *
- * Binding grab used in taiwins. The grabs do the search for binding and calling
- * the corresponding binding if found.
+ * Binding grab used in taiwins. The grabs do the search for binding and
+ * calling the corresponding binding if found.
  *
  *****************************************************************************/
 static void
@@ -257,6 +258,63 @@ static const struct tw_keyboard_grab_interface session_switch_impl = {
 };
 
 /******************************************************************************
+ * virtual keyboard
+ *****************************************************************************/
+
+struct tw_vkeyboard_device {
+	struct tw_input_device dev;
+	struct tw_virtual_keyboard *keyboard;
+	struct wl_listener destroy_listener;
+};
+
+static void
+handle_destroy_vkeyboard(struct tw_input_device *device)
+{
+	struct tw_vkeyboard_device *dev =
+		wl_container_of(device, dev, dev);
+	dev->keyboard = NULL;
+	wl_list_remove(&dev->destroy_listener.link);
+	free(dev);
+}
+
+static const struct tw_input_device_impl vkeyboard_impl = {
+	.destroy = handle_destroy_vkeyboard,
+};
+
+static void
+notify_vkeyboard_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_vkeyboard_device *dev =
+		wl_container_of(listener, dev, destroy_listener);
+	//listener removed in handle_destroy_vkeyboard
+	tw_input_device_fini(&dev->dev);
+}
+
+static struct tw_input_device *
+tw_server_create_virtual_keyboard_device(struct tw_virtual_keyboard *keyboard,
+                                         struct tw_engine_seat *seat)
+{
+	struct tw_vkeyboard_device *dev = NULL;
+
+	assert(seat->tw_seat == keyboard->seat);
+	if (!(dev = calloc(1, sizeof(*dev))))
+		return NULL;
+	dev->keyboard = keyboard;
+	dev->dev.vendor = 0xabcd;
+	dev->dev.product = 0x1234;
+	strncpy(dev->dev.name, "virtual-keyboard", sizeof(dev->dev.name));
+
+	tw_input_device_init(&dev->dev, TW_INPUT_TYPE_KEYBOARD, seat->idx,
+	                     &vkeyboard_impl);
+
+	tw_signal_setup_listener(&keyboard->destroy_signal,
+	                         &dev->destroy_listener,
+	                         notify_vkeyboard_destroy);
+	return &dev->dev;
+}
+
+
+/******************************************************************************
  * events
  *
  * The following listeners are the main input handlings in taiwins. It runs
@@ -373,7 +431,8 @@ notify_touch_input(struct wl_listener *listener, void *data)
 
 static void
 tw_seat_listeners_init(struct tw_seat_listeners *seat_listeners,
-                       struct tw_engine_seat *seat, struct tw_bindings *bindings)
+                       struct tw_engine_seat *seat,
+                       struct tw_bindings *bindings)
 {
 	seat_listeners->seat = seat->tw_seat;
 	seat_listeners->engine = seat->engine;
@@ -443,6 +502,25 @@ notify_input_manager_display_destroy(struct wl_listener *listener, void *data)
 		wl_container_of(listener, mgr, listeners.display_destroy);
 }
 
+static void
+notify_adding_virtual_keyboard(struct wl_listener *listener, void *data)
+{
+	struct tw_server_input_manager *mgr =
+		wl_container_of(listener, mgr, listeners.new_virtual_keyboard);
+	struct tw_virtual_keyboard *keyboard = data;
+	struct tw_engine *engine = mgr->engine;
+	struct tw_backend *backend = engine->backend;
+	struct tw_engine_seat *seat =
+		tw_engine_seat_from_seat(engine, keyboard->seat);
+	struct tw_input_device *device =
+		tw_server_create_virtual_keyboard_device(data, seat);
+
+	if (device) {
+		wl_list_insert(backend->inputs.prev, &device->link);
+		wl_signal_emit(&backend->signals.new_input, device);
+	}
+}
+
 struct tw_server_input_manager *
 tw_server_input_manager_create_global(struct tw_engine *engine,
                                       struct tw_config *config)
@@ -451,14 +529,22 @@ tw_server_input_manager_create_global(struct tw_engine *engine,
 	mgr.engine = engine;
 	mgr.config = config;
 
+	tw_virtual_keyboard_manager_init(&mgr.vkeyboard_mgr, engine->display);
+	tw_input_method_manager_init(&mgr.im_mgr, engine->display);
+	tw_text_input_manager_init(&mgr.ti_mgr, engine->display);
+
 	tw_signal_setup_listener(&engine->signals.seat_created,
 	                         &mgr.listeners.seat_add,
 	                         notify_adding_seat);
 	tw_signal_setup_listener(&engine->signals.seat_remove,
 	                         &mgr.listeners.seat_remove,
 	                         notify_removing_seat);
+	tw_signal_setup_listener(&mgr.vkeyboard_mgr.new_keyboard,
+	                         &mgr.listeners.new_virtual_keyboard,
+	                         notify_adding_virtual_keyboard);
 	tw_set_display_destroy_listener(engine->display,
 	                                &mgr.listeners.display_destroy,
 	                                notify_input_manager_display_destroy);
+
 	return &mgr;
 }
