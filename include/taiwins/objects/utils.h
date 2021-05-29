@@ -71,10 +71,22 @@ tw_match_wl_resource_client(struct wl_resource *a, struct wl_resource *b);
 void
 tw_resource_destroy_common(struct wl_client *c, struct wl_resource *r);
 
-#define  tw_reset_wl_list(link) \
-	({ \
-		wl_list_remove(link); \
-		wl_list_init(link); })
+static inline bool
+tw_find_list_elem(struct wl_list *head, struct wl_list *elem)
+{
+	struct wl_list *pos = NULL;
+	for (pos = head->next; pos != head; pos = pos->next)
+		if (pos == elem)
+			return true;
+	return false;
+}
+
+static inline void
+tw_reset_wl_list(struct wl_list *link)
+{
+	wl_list_remove(link);
+	wl_list_init(link);
+}
 
 /**
  * @brief custom allocator
