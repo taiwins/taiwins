@@ -101,6 +101,7 @@ binding_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
 }
 
 static const struct tw_keyboard_grab_interface keybinding_impl = {
+	.enter = tw_keyboard_default_enter,
 	.key = binding_key,
 	.cancel = binding_key_cancel,
 	.restart = binding_key_pop,
@@ -170,6 +171,7 @@ binding_axis(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
 }
 
 static const struct tw_pointer_grab_interface pointer_impl = {
+	.enter = tw_pointer_default_enter,
 	.button = binding_btn,
 	.axis = binding_axis,
 	.cancel = binding_pointer_cancel,
@@ -208,6 +210,7 @@ binding_touch(struct tw_seat_touch_grab *grab, uint32_t time,
 }
 
 static const struct tw_touch_grab_interface touch_impl = {
+	.enter = tw_touch_default_enter,
 	.down = binding_touch,
 	.cancel = binding_touch_cancel,
 	.restart = binding_touch_pop,
