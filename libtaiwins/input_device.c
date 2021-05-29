@@ -76,7 +76,7 @@ tw_keyboard_input_init(struct tw_keyboard_input *input)
 	input->group = 0;
 }
 
-void
+WL_EXPORT void
 tw_input_device_init(struct tw_input_device *device,
                      enum tw_input_device_type type,
                      uint32_t seat_id,
@@ -108,7 +108,7 @@ tw_input_device_init(struct tw_input_device *device,
 	device->impl = impl;
 }
 
-void
+WL_EXPORT void
 tw_input_device_fini(struct tw_input_device *device)
 {
 	if (device->type == TW_INPUT_TYPE_KEYBOARD) {
@@ -124,14 +124,14 @@ tw_input_device_fini(struct tw_input_device *device)
 	device->impl->destroy(device);
 }
 
-void
+WL_EXPORT void
 tw_input_device_attach_emitter(struct tw_input_device *device,
                                struct tw_input_source *emitter)
 {
 	device->emitter = emitter;
 }
 
-void
+WL_EXPORT void
 tw_input_source_init(struct tw_input_source *source)
 {
 	wl_signal_init(&source->remove);
@@ -159,7 +159,7 @@ tw_input_source_init(struct tw_input_source *source)
 	wl_signal_init(&source->touch.cancel);
 }
 
-void
+WL_EXPORT void
 tw_input_device_set_keymap(struct tw_input_device *device,
                            struct xkb_keymap *keymap)
 {
@@ -173,7 +173,7 @@ tw_input_device_set_keymap(struct tw_input_device *device,
 	        xkb_state_new(device->input.keyboard.keymap);
 }
 
-void
+WL_EXPORT void
 tw_input_device_notify_key(struct tw_input_device *dev,
                            struct tw_event_keyboard_key *event)
 {
@@ -205,7 +205,7 @@ tw_input_device_notify_key(struct tw_input_device *dev,
 
 }
 
-void
+WL_EXPORT void
 tw_input_device_notify_modifiers(struct tw_input_device *dev,
                                  struct tw_event_keyboard_modifier *mod)
 {
