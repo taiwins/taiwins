@@ -104,8 +104,10 @@ tw_popup_grab_close(struct tw_popup_grab *grab)
 	struct tw_touch *touch = &seat->touch;
 
 	//we need to end grab unconditionally since we could be nested.
-	tw_pointer_end_grab(pointer);
-	tw_touch_end_grab(touch);
+	if (seat->capabilities & WL_SEAT_CAPABILITY_POINTER)
+		tw_pointer_end_grab(pointer, &grab->pointer_grab);
+	if (seat->capabilities & WL_SEAT_CAPABILITY_TOUCH)
+		tw_touch_end_grab(touch, &grab->touch_grab);
 	wl_signal_emit(&grab->close, grab);
 
 	tw_reset_wl_list(&grab->parent_destroy.link);
@@ -157,6 +159,7 @@ tw_popup_grab_start(struct tw_popup_grab *grab, struct tw_seat *seat)
 
 	grab->pointer_grab.seat = seat;
 	grab->touch_grab.seat = seat;
+
 	if (seat->capabilities & WL_SEAT_CAPABILITY_POINTER) {
 		tw_pointer_start_grab(&seat->pointer, &grab->pointer_grab);
 		//TODO: this is a hack, should work most of the time

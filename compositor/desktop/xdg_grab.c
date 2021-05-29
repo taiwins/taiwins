@@ -55,12 +55,14 @@ notify_grab_interface_view_destroy(struct wl_listener *listener, void *data)
 		             view_destroy_listener);
 	assert(data == gi->view);
 	if (gi->pointer_grab.impl)
-		tw_pointer_end_grab(&gi->pointer_grab.seat->pointer);
+		tw_pointer_end_grab(&gi->pointer_grab.seat->pointer,
+		                    &gi->pointer_grab);
 	else if (gi->keyboard_grab.impl)
 		tw_keyboard_end_grab(&gi->keyboard_grab.seat->keyboard,
 		                     &gi->keyboard_grab);
 	else if (gi->touch_grab.impl)
-		tw_touch_end_grab(&gi->touch_grab.seat->touch);
+		tw_touch_end_grab(&gi->touch_grab.seat->touch,
+		                  &gi->touch_grab);
 }
 
 static struct tw_xdg_grab_interface *
@@ -153,7 +155,7 @@ handle_move_pointer_grab_button(struct tw_seat_pointer_grab *grab,
 	struct tw_pointer *pointer = &grab->seat->pointer;
 	if (state == WL_POINTER_BUTTON_STATE_RELEASED &&
 	    pointer->btn_count == 0)
-		tw_pointer_end_grab(pointer);
+		tw_pointer_end_grab(pointer, grab);
 }
 
 static void
@@ -294,9 +296,9 @@ tw_xdg_start_moving_grab(struct tw_xdg *xdg, struct tw_xdg_view *view,
                          struct tw_seat *seat)
 {
 	struct tw_xdg_grab_interface *gi = NULL;
-	if (seat->pointer.grab != &seat->pointer.default_grab) {
+
+	if (seat->pointer.btn_count == 0)
 		goto err;
-	}
 	gi = tw_xdg_grab_interface_create(view, xdg, &move_pointer_grab_impl,
 	                                  NULL, NULL);
 	if (!gi)
@@ -313,7 +315,7 @@ tw_xdg_start_resizing_grab(struct tw_xdg *xdg, struct tw_xdg_view *view,
                            struct tw_seat *seat)
 {
 	struct tw_xdg_grab_interface *gi = NULL;
-	if (seat->pointer.grab != &seat->pointer.default_grab) {
+	if (seat->pointer.btn_count == 0) {
 		goto err;
 	}
 	gi = tw_xdg_grab_interface_create(view, xdg, &resize_pointer_grab_impl,

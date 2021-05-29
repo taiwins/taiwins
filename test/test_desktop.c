@@ -222,7 +222,7 @@ handle_pointer_grab_button(struct tw_seat_pointer_grab *grab,
 	struct tw_pointer *pointer = &grab->seat->pointer;
 	if (state == WL_POINTER_BUTTON_STATE_RELEASED &&
 	    pointer->btn_count == 0)
-		tw_pointer_end_grab(pointer);
+		tw_pointer_end_grab(pointer, grab);
 }
 
 static const struct tw_pointer_grab_interface move_pointer_grab_impl = {

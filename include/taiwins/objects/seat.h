@@ -79,6 +79,8 @@ struct tw_pointer_grab_interface {
 	             enum wl_pointer_axis_source source);
 	void (*frame)(struct tw_seat_pointer_grab *grab);
 	void (*cancel)(struct tw_seat_pointer_grab *grab);
+	/* used on grab stack pop */
+	void (*restart)(struct tw_seat_pointer_grab *grab);
 };
 
 struct tw_seat_keyboard_grab;
@@ -110,6 +112,8 @@ struct tw_touch_grab_interface {
 	              struct wl_resource *surface, double sx, double sy);
 	void (*touch_cancel)(struct tw_seat_touch_grab *grab);
 	void (*cancel)(struct tw_seat_touch_grab *grab);
+	/* used on grab stack pop */
+	void (*restart)(struct tw_seat_touch_grab *grab);
 };
 
 struct tw_seat_touch_grab {
@@ -274,7 +278,8 @@ void
 tw_pointer_start_grab(struct tw_pointer *pointer,
                       struct tw_seat_pointer_grab *grab);
 void
-tw_pointer_end_grab(struct tw_pointer *pointer);
+tw_pointer_end_grab(struct tw_pointer *pointer,
+                    struct tw_seat_pointer_grab *grab);
 
 /***************************** touch *****************************************/
 
@@ -288,7 +293,8 @@ void
 tw_touch_start_grab(struct tw_touch *touch,
                     struct tw_seat_touch_grab *grab);
 void
-tw_touch_end_grab(struct tw_touch *touch);
+tw_touch_end_grab(struct tw_touch *touch,
+                  struct tw_seat_touch_grab *grab);
 
 #ifdef  __cplusplus
 }

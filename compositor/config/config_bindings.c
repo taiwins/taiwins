@@ -129,9 +129,7 @@ moving_surface_pointer(struct tw_pointer *pointer, const uint32_t time,
 	if (desktop && pointer->focused_surface) {
 		surface = tw_surface_from_resource(pointer->focused_surface);
 		view = tw_xdg_view_from_tw_surface(surface);
-		//TODO: this is not correct, we are in the binding grab!
 		if (pointer->btn_count > 0 && view) {
-			tw_pointer_end_grab(pointer);
 			tw_xdg_start_moving_grab(desktop, view, seat);
 		}
 	}

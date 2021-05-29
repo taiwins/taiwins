@@ -112,6 +112,12 @@ binding_pointer_cancel(struct tw_seat_pointer_grab *grab)
 	grab->data = NULL;
 }
 
+static void
+binding_pointer_pop(struct tw_seat_pointer_grab *grab)
+{
+	//coming from grab stack popping, we just remove the grab here
+	tw_pointer_end_grab(&grab->seat->pointer, grab);
+}
 
 static void
 binding_btn(struct tw_seat_pointer_grab *grab, uint32_t time, uint32_t button,
@@ -127,14 +133,15 @@ binding_btn(struct tw_seat_pointer_grab *grab, uint32_t time, uint32_t button,
 	//release (next button). Unless we get into another grab.
 	if (!binding || binding->type != TW_BINDING_btn ||
 	    state != WL_POINTER_BUTTON_STATE_PRESSED) {
-		tw_pointer_end_grab(&grab->seat->pointer);
+		tw_pointer_end_grab(&grab->seat->pointer, grab);
 		return;
 	}
+	//we could also get into another grab
 	block = binding->btn_func(&seat->pointer, time, button, mod_mask,
 	                          binding->user_data);
 	grab->data = NULL;
 	if (!block) {
-		tw_pointer_end_grab(&seat->pointer);
+		tw_pointer_end_grab(&seat->pointer, grab);
 		tw_pointer_notify_button(&seat->pointer, time, button, state);
 	}
 }
@@ -150,7 +157,7 @@ binding_axis(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
 	uint32_t mod_mask = seat->keyboard.modifiers_state;
 
 	if (!binding || binding->type != TW_BINDING_axis) {
-		tw_pointer_end_grab(&grab->seat->pointer);
+		tw_pointer_end_grab(&grab->seat->pointer, grab);
 		return;
 	}
 	binding->axis_func(&seat->pointer, time_msec, value, orientation,
@@ -159,14 +166,27 @@ binding_axis(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
 	//if the binding does not change the grab, we can actually quit the
 	//binding grab.
 	if (grab == seat->pointer.grab)
-		tw_pointer_end_grab(&seat->pointer);
+		tw_pointer_end_grab(&seat->pointer, grab);
 }
 
 static const struct tw_pointer_grab_interface pointer_impl = {
 	.button = binding_btn,
 	.axis = binding_axis,
 	.cancel = binding_pointer_cancel,
+	.restart = binding_pointer_pop,
 };
+
+static void
+binding_touch_cancel(struct tw_seat_touch_grab *grab)
+{
+	grab->data = NULL;
+}
+
+static void
+binding_touch_pop(struct tw_seat_touch_grab *grab)
+{
+	tw_touch_end_grab(&grab->seat->touch, grab);
+}
 
 static void
 binding_touch(struct tw_seat_touch_grab *grab, uint32_t time,
@@ -177,25 +197,20 @@ binding_touch(struct tw_seat_touch_grab *grab, uint32_t time,
 	uint32_t mod_mask = seat->keyboard.modifiers_state;
 
 	if (!binding) {
-		tw_touch_end_grab(&grab->seat->touch);
+		tw_touch_end_grab(&grab->seat->touch, grab);
 		return;
 	}
 	binding = grab->data;
 	binding->touch_func(&seat->touch, time, mod_mask, binding->user_data);
 	grab->data = NULL;
 	if (grab == seat->touch.grab)
-		tw_touch_end_grab(&seat->touch);
-}
-
-static void
-binding_touch_cancel(struct tw_seat_touch_grab *grab)
-{
-	grab->data = NULL;
+		tw_touch_end_grab(&seat->touch, grab);
 }
 
 static const struct tw_touch_grab_interface touch_impl = {
 	.down = binding_touch,
 	.cancel = binding_touch_cancel,
+	.restart = binding_touch_pop,
 };
 
 /******************************************************************************

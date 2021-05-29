@@ -99,7 +99,7 @@ dnd_pointer_button(struct tw_seat_pointer_grab *grab,
 	} else if (source) {
 		tw_data_source_send_cancel(source);
 	}
-	tw_pointer_end_grab(pointer);
+	tw_pointer_end_grab(pointer, grab);
 }
 
 static void
