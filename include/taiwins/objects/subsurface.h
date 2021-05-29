@@ -36,6 +36,7 @@ struct tw_subsurface {
 	struct wl_list parent_pending_link; /* accummulated stacking order */
 	struct wl_signal destroy;
 	struct wl_listener surface_destroyed;
+	struct wl_listener parent_destroyed;
 	int32_t sx, sy;
 	bool sync;
 	const struct tw_allocator *alloc;
@@ -51,7 +52,14 @@ struct tw_subsurface *
 tw_surface_get_subsurface(struct tw_surface *surf);
 
 /**
- * @brief  init a subsurface like object; memory may not be managed
+ * @brief init a subsurface like object; memory may not be managed
+ *
+ * It is required to call tw_subsurface_fini in the notifier, otherwise you may
+ * have undefined behavior.
+ *
+ * It is now possible to initialize a subsurface without a parent, such
+ * subsurface is HIDDEN. The "parenting" logic is handled through
+ * tw_subsurface_show and tw_subsurface_hide.
  */
 void
 tw_subsurface_init(struct tw_subsurface *sub, struct wl_resource *resource,
@@ -62,6 +70,18 @@ tw_subsurface_init(struct tw_subsurface *sub, struct wl_resource *resource,
  */
 void
 tw_subsurface_fini(struct tw_subsurface *sub);
+
+/**
+ * @brief remove a subsurface from its parent, subsurface has to be initialized
+ */
+void
+tw_subsurface_hide(struct tw_subsurface *sub);
+
+/**
+ * @brief pair a subsurface to a parent, subsurface has to be initialized
+ */
+void
+tw_subsurface_show(struct tw_subsurface *sub, struct tw_surface *parent);
 
 /**
  * @brief declare a role as exotic subsurface role for other implementation of
