@@ -99,7 +99,7 @@ dnd_pointer_button(struct tw_seat_pointer_grab *grab,
 	} else if (source) {
 		tw_data_source_send_cancel(source);
 	}
-	tw_pointer_end_grab(pointer);
+	tw_pointer_end_grab(pointer, grab);
 }
 
 static void
@@ -125,10 +125,11 @@ dnd_pointer_cancel(struct tw_seat_pointer_grab *grab)
 	struct tw_seat *seat = grab->seat;
 	struct tw_pointer *pointer = &grab->seat->pointer;
 	struct wl_resource *surface_resource = pointer->focused_surface;
+	struct tw_data_drag *drag = wl_container_of(grab, drag, pointer_grab);
 	struct tw_surface *surface = (surface_resource) ?
 		tw_surface_from_resource(surface_resource) : NULL;
 
-	tw_keyboard_end_grab(&seat->keyboard);
+	tw_keyboard_end_grab(&seat->keyboard, &drag->keyboard_grab);
 	if (surface) {
 		float sx, sy;
 		struct tw_cursor *cursor = grab->seat->cursor;

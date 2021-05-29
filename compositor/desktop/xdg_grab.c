@@ -55,11 +55,14 @@ notify_grab_interface_view_destroy(struct wl_listener *listener, void *data)
 		             view_destroy_listener);
 	assert(data == gi->view);
 	if (gi->pointer_grab.impl)
-		tw_pointer_end_grab(&gi->pointer_grab.seat->pointer);
+		tw_pointer_end_grab(&gi->pointer_grab.seat->pointer,
+		                    &gi->pointer_grab);
 	else if (gi->keyboard_grab.impl)
-		tw_keyboard_end_grab(&gi->keyboard_grab.seat->keyboard);
+		tw_keyboard_end_grab(&gi->keyboard_grab.seat->keyboard,
+		                     &gi->keyboard_grab);
 	else if (gi->touch_grab.impl)
-		tw_touch_end_grab(&gi->touch_grab.seat->touch);
+		tw_touch_end_grab(&gi->touch_grab.seat->touch,
+		                  &gi->touch_grab);
 }
 
 static struct tw_xdg_grab_interface *
@@ -152,7 +155,7 @@ handle_move_pointer_grab_button(struct tw_seat_pointer_grab *grab,
 	struct tw_pointer *pointer = &grab->seat->pointer;
 	if (state == WL_POINTER_BUTTON_STATE_RELEASED &&
 	    pointer->btn_count == 0)
-		tw_pointer_end_grab(pointer);
+		tw_pointer_end_grab(pointer, grab);
 }
 
 static void
@@ -265,7 +268,7 @@ handle_task_switching_modifiers(struct tw_seat_keyboard_grab *grab,
 	if (keyboard->modifiers_state != gi->mod_mask) {
 		if (find_task_view(ws, view))
 			tw_xdg_view_activate(xdg, view);
-		tw_keyboard_end_grab(keyboard);
+		tw_keyboard_end_grab(keyboard, grab);
 	}
 }
 
@@ -293,9 +296,9 @@ tw_xdg_start_moving_grab(struct tw_xdg *xdg, struct tw_xdg_view *view,
                          struct tw_seat *seat)
 {
 	struct tw_xdg_grab_interface *gi = NULL;
-	if (seat->pointer.grab != &seat->pointer.default_grab) {
+
+	if (seat->pointer.btn_count == 0)
 		goto err;
-	}
 	gi = tw_xdg_grab_interface_create(view, xdg, &move_pointer_grab_impl,
 	                                  NULL, NULL);
 	if (!gi)
@@ -312,7 +315,7 @@ tw_xdg_start_resizing_grab(struct tw_xdg *xdg, struct tw_xdg_view *view,
                            struct tw_seat *seat)
 {
 	struct tw_xdg_grab_interface *gi = NULL;
-	if (seat->pointer.grab != &seat->pointer.default_grab) {
+	if (seat->pointer.btn_count == 0) {
 		goto err;
 	}
 	gi = tw_xdg_grab_interface_create(view, xdg, &resize_pointer_grab_impl,
@@ -334,8 +337,7 @@ tw_xdg_start_task_switching_grab(struct tw_xdg *xdg, uint32_t time,
 	struct tw_xdg_view *view;
 	struct tw_xdg_grab_interface *gi = NULL;
 	struct tw_workspace *ws = xdg->actived_workspace[0];
-	if (seat->keyboard.grab != &seat->keyboard.default_grab ||
-	    wl_list_empty(&ws->recent_views))
+	if (wl_list_empty(&ws->recent_views))
 		goto err;
 	view = container_of(ws->recent_views.next, struct tw_xdg_view, link);
 	gi = tw_xdg_grab_interface_create(view, xdg, NULL,

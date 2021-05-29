@@ -26,6 +26,7 @@
 
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/seat.h>
+#include <wayland-util.h>
 
 static void
 clear_focus_no_signal(struct tw_touch *touch)
@@ -191,6 +192,7 @@ tw_seat_new_touch(struct tw_seat *seat)
 	touch->default_grab.seat = seat;
 	touch->grab = &touch->default_grab;
 
+	wl_list_init(&touch->grabs);
 	wl_list_init(&touch->focused_destroy.link);
 	touch->focused_destroy.notify = notify_focused_disappear;
 
@@ -226,15 +228,33 @@ tw_touch_start_grab(struct tw_touch *touch, struct tw_seat_touch_grab *grab)
 {
 	struct tw_seat *seat = wl_container_of(touch, seat, touch);
 
-	touch->grab = grab;
-	grab->seat = seat;
+	if (touch->grab != grab &&
+	    !tw_find_list_elem(&touch->grabs, &grab->link)) {
+		touch->grab = grab;
+		grab->seat = seat;
+		wl_list_insert(&touch->grabs, &grab->link);
+	}
 }
 
 WL_EXPORT void
-tw_touch_end_grab(struct tw_touch *touch)
+tw_touch_end_grab(struct tw_touch *touch,
+                  struct tw_seat_touch_grab *grab)
 {
-	if (touch->grab && touch->grab != &touch->default_grab &&
-	    touch->grab->impl->cancel)
-		touch->grab->impl->cancel(touch->grab);
-	touch->grab = &touch->default_grab;
+	struct tw_seat *seat = wl_container_of(touch, seat, touch);
+	struct tw_seat_touch_grab *old = touch->grab;
+
+	if (tw_find_list_elem(&touch->grabs, &grab->link)) {
+		if (grab->impl->cancel)
+			grab->impl->cancel(grab);
+		tw_reset_wl_list(&grab->link);
+	}
+	//finding previous grab from list or default if stack is empty
+	if (!wl_list_empty(&touch->grabs))
+		grab = wl_container_of(touch->grabs.next, grab, link);
+	else
+		grab = &touch->default_grab;
+	touch->grab = grab;
+	touch->grab->seat = seat;
+	if (grab != old && grab->impl->restart)
+		grab->impl->restart(grab);
 }
