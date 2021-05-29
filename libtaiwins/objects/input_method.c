@@ -305,7 +305,7 @@ handle_destroy_im_grab_resource(struct wl_resource *resource)
 	struct tw_input_method *im = input_method_from_grab_resource(resource);
 	struct tw_seat *seat = im->seat;
 
-	tw_keyboard_end_grab(&seat->keyboard);
+	tw_keyboard_end_grab(&seat->keyboard, &im->im_grab);
 }
 
 /******************************************************************************

@@ -54,6 +54,13 @@ binding_key_cancel(struct tw_seat_keyboard_grab *grab)
 }
 
 static void
+binding_key_pop(struct tw_seat_keyboard_grab *grab)
+{
+	//coming from grab stack popping, we just remove the grab here
+	tw_keyboard_end_grab(&grab->seat->keyboard, grab);
+}
+
+static void
 binding_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
             uint32_t key, uint32_t state)
 {
@@ -68,7 +75,7 @@ binding_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
 	// that in we cannot do desc in cancel grab, as we may get into another
 	// grab.
 	if (!grab->data) {
-		tw_keyboard_end_grab(&grab->seat->keyboard);
+		tw_keyboard_end_grab(&grab->seat->keyboard, grab);
 		return;
 	} else if (state != WL_KEYBOARD_KEY_STATE_PRESSED) {
 		return;
@@ -88,7 +95,7 @@ binding_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
 	grab->data = keystate;
 	//fall through.
 	if (!block) {
-		tw_keyboard_end_grab(&seat->keyboard);
+		tw_keyboard_end_grab(&seat->keyboard, grab);
 		tw_keyboard_notify_key(&seat->keyboard, time_msec, key, state);
 	}
 }
@@ -96,6 +103,7 @@ binding_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
 static const struct tw_keyboard_grab_interface keybinding_impl = {
 	.key = binding_key,
 	.cancel = binding_key_cancel,
+	.restart = binding_key_pop,
 };
 
 static void
@@ -222,7 +230,7 @@ session_switch_key(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
 
 	if (login) {
 		tw_login_switch_vt(login, sid);
-		tw_keyboard_end_grab(&grab->seat->keyboard);
+		tw_keyboard_end_grab(&grab->seat->keyboard, grab);
 	}
 }
 
@@ -257,8 +265,7 @@ notify_key_input(struct wl_listener *listener, void *data)
 	struct tw_keyboard *seat_keyboard = &seat_listeners->seat->keyboard;
 
 	seat_listeners->curr_state = event->dev->input.keyboard.keystate;
-	if (seat_keyboard->grab != &seat_keyboard->default_grab ||
-	    event->state != WL_KEYBOARD_KEY_STATE_PRESSED)
+	if (event->state != WL_KEYBOARD_KEY_STATE_PRESSED)
 		return;
 
 	if ((sid = session_switch_get_idx(event->keycode, event->dev)) >= 0) {

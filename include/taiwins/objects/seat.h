@@ -93,6 +93,8 @@ struct tw_keyboard_grab_interface {
 	                  uint32_t mods_depressed, uint32_t mods_latched,
 	                  uint32_t mods_locked, uint32_t group);
 	void (*cancel)(struct tw_seat_keyboard_grab *grab);
+	/* used on grab stack pop */
+	void (*restart)(struct tw_seat_keyboard_grab *grab);
 };
 
 struct tw_seat_touch_grab;
@@ -114,18 +116,21 @@ struct tw_seat_touch_grab {
 	const struct tw_touch_grab_interface *impl;
 	struct tw_seat *seat;
 	void *data;
+	struct wl_list link; /* touch:grabs */
 };
 
 struct tw_seat_keyboard_grab {
 	const struct tw_keyboard_grab_interface *impl;
 	struct tw_seat *seat;
 	void *data;
+	struct wl_list link; /* keyboard:grabs */
 };
 
 struct tw_seat_pointer_grab {
 	const struct tw_pointer_grab_interface *impl;
 	struct tw_seat *seat;
 	void *data;
+	struct wl_list link; /* touch:grabs */
 };
 
 struct tw_event_new_cursor {
@@ -145,6 +150,7 @@ struct tw_keyboard {
 	uint32_t modifiers_state;
 	uint32_t led_state; /**< led state reflects lock state */
 
+	struct wl_list grabs;
 	struct tw_seat_keyboard_grab default_grab;
 	struct tw_seat_keyboard_grab *grab;
 };
@@ -154,6 +160,7 @@ struct tw_pointer {
 	struct wl_resource *focused_surface;
 	struct wl_listener focused_destroy;
 
+	struct wl_list grabs;
 	struct tw_seat_pointer_grab default_grab;
 	struct tw_seat_pointer_grab *grab;
 	uint32_t btn_count;
@@ -164,6 +171,7 @@ struct tw_touch {
 	struct wl_resource *focused_surface;
 	struct wl_listener focused_destroy;
 
+	struct wl_list grabs;
 	struct tw_seat_touch_grab default_grab;
 	struct tw_seat_touch_grab *grab;
 };
@@ -245,8 +253,8 @@ void
 tw_keyboard_start_grab(struct tw_keyboard *keyboard,
                        struct tw_seat_keyboard_grab *grab);
 void
-tw_keyboard_end_grab(struct tw_keyboard *keyboard);
-
+tw_keyboard_end_grab(struct tw_keyboard *keyboard,
+                     struct tw_seat_keyboard_grab *grab);
 void
 tw_keyboard_set_keymap(struct tw_keyboard *keyboard,
                        struct xkb_keymap *keymap);
