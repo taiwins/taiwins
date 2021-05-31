@@ -229,10 +229,10 @@ tw_touch_start_grab(struct tw_touch *touch, struct tw_seat_touch_grab *grab)
 	struct tw_seat *seat = wl_container_of(touch, seat, touch);
 
 	if (touch->grab != grab &&
-	    !tw_find_list_elem(&touch->grabs, &grab->link)) {
+	    !tw_find_list_elem(&touch->grabs, &grab->node.link)) {
 		touch->grab = grab;
 		grab->seat = seat;
-		wl_list_insert(&touch->grabs, &grab->link);
+		wl_list_insert(&touch->grabs, &grab->node.link);
 	}
 }
 
@@ -243,14 +243,14 @@ tw_touch_end_grab(struct tw_touch *touch,
 	struct tw_seat *seat = wl_container_of(touch, seat, touch);
 	struct tw_seat_touch_grab *old = touch->grab;
 
-	if (tw_find_list_elem(&touch->grabs, &grab->link)) {
+	if (tw_find_list_elem(&touch->grabs, &grab->node.link)) {
 		if (grab->impl->cancel)
 			grab->impl->cancel(grab);
-		tw_reset_wl_list(&grab->link);
+		tw_reset_wl_list(&grab->node.link);
 	}
 	//finding previous grab from list or default if stack is empty
 	if (!wl_list_empty(&touch->grabs))
-		grab = wl_container_of(touch->grabs.next, grab, link);
+		grab = wl_container_of(touch->grabs.next, grab, node.link);
 	else
 		grab = &touch->default_grab;
 	touch->grab = grab;

@@ -28,6 +28,27 @@
 extern "C" {
 #endif
 
+struct tw_seat_grab_node {
+	struct wl_list link;
+	uint32_t priority; /**< compare using greater-or-equal */
+};
+
+/*
+ * We find the first node which is smaller than the searching pos, then we just
+ * insert in front of it. If everything is bigger than us or the list is emtpy,
+ * just insert at the end
+ */
+static inline struct wl_list *
+tw_seat_grab_node_find_pos(struct wl_list *head, uint32_t priority)
+{
+	struct tw_seat_grab_node *node = NULL;
+	wl_list_for_each(node, head, link) {
+		if (node->priority <= priority)
+			return node->link.prev;
+	}
+	return head->prev;
+}
+
 /******************************************************************************
  * keyboard
  *****************************************************************************/
@@ -38,7 +59,7 @@ struct tw_seat_keyboard_grab {
 	const struct tw_keyboard_grab_interface *impl;
 	struct tw_seat *seat;
 	void *data;
-	struct wl_list link; /* keyboard:grabs */
+	struct tw_seat_grab_node node; /* keyboard:grabs */
 };
 
 struct tw_keyboard_grab_interface {
@@ -80,7 +101,7 @@ struct tw_seat_pointer_grab {
 	const struct tw_pointer_grab_interface *impl;
 	struct tw_seat *seat;
 	void *data;
-	struct wl_list link; /* touch:grabs */
+	struct tw_seat_grab_node node; /* touch:grabs */
 };
 
 struct tw_pointer_grab_interface {
@@ -132,7 +153,7 @@ struct tw_seat_touch_grab {
 	const struct tw_touch_grab_interface *impl;
 	struct tw_seat *seat;
 	void *data;
-	struct wl_list link; /* touch:grabs */
+	struct tw_seat_grab_node node; /* touch:grabs */
 };
 
 struct tw_touch_grab_interface {
