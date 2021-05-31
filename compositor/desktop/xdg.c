@@ -29,7 +29,7 @@
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/desktop.h>
-#include <taiwins/objects/seat_grab.h>
+#include <taiwins/objects/seat.h>
 #include <taiwins/engine.h>
 #include <taiwins/output_device.h>
 #include <taiwins/render_output.h>
