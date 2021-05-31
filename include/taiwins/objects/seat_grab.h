@@ -32,6 +32,20 @@ extern "C" {
  * keyboard
  *****************************************************************************/
 
+struct tw_keyboard_grab_interface {
+	void (*enter)(struct tw_seat_keyboard_grab *grab,
+	              struct wl_resource *surface, uint32_t keycodes[],
+	              size_t n_keycodes);
+	void (*key)(struct tw_seat_keyboard_grab *grab, uint32_t time_msec,
+	            uint32_t key, uint32_t state);
+	void (*modifiers)(struct tw_seat_keyboard_grab *grab,
+	                  uint32_t mods_depressed, uint32_t mods_latched,
+	                  uint32_t mods_locked, uint32_t group);
+	void (*cancel)(struct tw_seat_keyboard_grab *grab);
+	/* used on grab stack pop */
+	void (*restart)(struct tw_seat_keyboard_grab *grab);
+};
+
 void
 tw_keyboard_default_enter(struct tw_seat_keyboard_grab *grab,
                           struct wl_resource *surface, uint32_t *keycodes,
@@ -80,6 +94,24 @@ tw_keyboard_notify_modifiers(struct tw_keyboard *keyboard,
 /******************************************************************************
  * pointer
  *****************************************************************************/
+
+struct tw_pointer_grab_interface {
+	void (*enter)(struct tw_seat_pointer_grab *grab,
+	              struct wl_resource *surface, double sx, double sy);
+	void (*motion)(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
+	               double sx, double sy);
+	void (*button)(struct tw_seat_pointer_grab *grab,
+	               uint32_t time_msec, uint32_t button,
+	               enum wl_pointer_button_state state);
+	void (*axis)(struct tw_seat_pointer_grab *grab, uint32_t time_msec,
+	             enum wl_pointer_axis orientation, double value,
+	             int32_t value_discrete,
+	             enum wl_pointer_axis_source source);
+	void (*frame)(struct tw_seat_pointer_grab *grab);
+	void (*cancel)(struct tw_seat_pointer_grab *grab);
+	/* used on grab stack pop */
+	void (*restart)(struct tw_seat_pointer_grab *grab);
+};
 
 void
 tw_pointer_default_enter(struct tw_seat_pointer_grab *grab,
@@ -148,6 +180,21 @@ tw_pointer_notify_frame(struct tw_pointer *pointer)
 /******************************************************************************
  * touch
  *****************************************************************************/
+
+struct tw_touch_grab_interface {
+	void (*down)(struct tw_seat_touch_grab *grab, uint32_t time_msec,
+	                 uint32_t touch_id, double sx, double sy);
+	void (*up)(struct tw_seat_touch_grab *grab, uint32_t time_msec,
+	           uint32_t touch_id);
+	void (*motion)(struct tw_seat_touch_grab *grab, uint32_t time_msec,
+	               uint32_t touch_id, double sx, double sy);
+	void (*enter)(struct tw_seat_touch_grab *grab,
+	              struct wl_resource *surface, double sx, double sy);
+	void (*touch_cancel)(struct tw_seat_touch_grab *grab);
+	void (*cancel)(struct tw_seat_touch_grab *grab);
+	/* used on grab stack pop */
+	void (*restart)(struct tw_seat_touch_grab *grab);
+};
 
 void
 tw_touch_default_down(struct tw_seat_touch_grab *grab, uint32_t time_msec,

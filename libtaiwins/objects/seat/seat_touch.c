@@ -25,7 +25,7 @@
 #include <wayland-server.h>
 
 #include <taiwins/objects/utils.h>
-#include <taiwins/objects/seat.h>
+#include <taiwins/objects/seat_grab.h>
 #include <wayland-util.h>
 
 static void
