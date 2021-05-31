@@ -173,6 +173,11 @@ destroy_xwm(struct tw_xwm *xwm)
 {
 	struct tw_xsurface *surface, *tmp;
 
+	wl_list_remove(&xwm->listeners.server_destroy.link);
+	wl_list_remove(&xwm->listeners.seat_destroy.link);
+	wl_list_remove(&xwm->listeners.wl_surface_create.link);
+	wl_list_remove(&xwm->listeners.wl_surface_focus.link);
+
 	if (xwm->x11_event) {
 		wl_event_source_remove(xwm->x11_event);
 		xwm->x11_event = NULL;
@@ -473,8 +478,8 @@ notify_xwm_tw_seat_destroy(struct wl_listener *listener, void *data)
 {
 	struct tw_xwm *xwm =
 		wl_container_of(listener, xwm, listeners.seat_destroy);
-	wl_list_remove(&xwm->listeners.seat_destroy.link);
-	wl_list_remove(&xwm->listeners.wl_surface_focus.link);
+	tw_reset_wl_list(&xwm->listeners.seat_destroy.link);
+	tw_reset_wl_list(&xwm->listeners.wl_surface_focus.link);
 	tw_xwm_selection_set_device(&xwm->selection, NULL);
 	xwm->seat = NULL;
 }
