@@ -137,13 +137,6 @@ struct tw_seat_pointer_grab {
 	struct wl_list link; /* touch:grabs */
 };
 
-struct tw_event_new_cursor {
-	struct wl_resource *surface;
-	struct wl_resource *pointer;
-	uint32_t hotspot_x;
-	uint32_t hotspot_y;
-};
-
 struct tw_keyboard {
 	struct tw_seat_client *focused_client;
 	struct wl_resource *focused_surface;

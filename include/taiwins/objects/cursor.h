@@ -65,6 +65,13 @@ struct tw_cursor {
 	struct wl_listener surface_destroy;
 };
 
+struct tw_event_new_cursor {
+	struct wl_resource *surface;
+	struct wl_resource *pointer;
+	uint32_t hotspot_x;
+	uint32_t hotspot_y;
+};
+
 void
 tw_cursor_init(struct tw_cursor *cursor, struct tw_layer *cursor_layer);
 
