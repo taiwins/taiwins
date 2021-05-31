@@ -53,9 +53,11 @@ close_application(struct tw_keyboard *keyboard, uint32_t time,
 	struct wl_resource *resource = keyboard->focused_surface;
 	struct tw_surface *surface = (keyboard->focused_surface) ?
 		tw_surface_from_resource(resource) : NULL;
+	struct tw_desktop_surface *dsurf = surface ?
+		tw_desktop_surface_from_tw_surface(surface) : NULL;
+	if (dsurf)
+		tw_desktop_surface_send_close(dsurf);
 
-	if (surface && tw_desktop_surface_from_tw_surface(surface))
-		wl_client_destroy(wl_resource_get_client(resource));
 	return true;
 }
 
