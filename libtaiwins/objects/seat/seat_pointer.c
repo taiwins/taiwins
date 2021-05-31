@@ -253,17 +253,25 @@ tw_seat_remove_pointer(struct tw_seat *seat)
 
 WL_EXPORT void
 tw_pointer_start_grab(struct tw_pointer *pointer,
-                      struct tw_seat_pointer_grab *grab)
+                      struct tw_seat_pointer_grab *grab, uint32_t priority)
 {
+	struct tw_seat_pointer_grab *old = pointer->grab;
 	struct tw_seat *seat = wl_container_of(pointer, seat, pointer);
 
 	if (pointer->grab != grab &&
-	    !tw_find_list_elem(&pointer->grabs, &grab->link)) {
-		pointer->grab = grab;
+	    !tw_find_list_elem(&pointer->grabs, &grab->node.link)) {
+		struct wl_list *pos =
+			tw_seat_grab_node_find_pos(&pointer->grabs, priority);
 		grab->seat = seat;
-		wl_list_insert(&pointer->grabs, &grab->link);
+		grab->node.priority = priority;
+		//swap grab and notify the old grab its replacement
+		if (pos == &pointer->grabs) {
+			if (old != grab && old->impl->grab_action)
+				old->impl->grab_action(old, TW_SEAT_GRAB_PUSH);
+			pointer->grab = grab;
+		}
+		wl_list_insert(pos, &grab->node.link);
 	}
-
 }
 
 WL_EXPORT void
@@ -273,18 +281,18 @@ tw_pointer_end_grab(struct tw_pointer *pointer,
 	struct tw_seat *seat = wl_container_of(pointer, seat, pointer);
 	struct tw_seat_pointer_grab *old = pointer->grab;
 
-	if (tw_find_list_elem(&pointer->grabs, &grab->link)) {
+	if (tw_find_list_elem(&pointer->grabs, &grab->node.link)) {
 		if (grab->impl->cancel)
 			grab->impl->cancel(grab);
-		tw_reset_wl_list(&grab->link);
+		tw_reset_wl_list(&grab->node.link);
 	}
 	//finding previous grab from list or default if stack is empty
 	if (!wl_list_empty(&pointer->grabs))
-		grab = wl_container_of(pointer->grabs.next, grab, link);
+		grab = wl_container_of(pointer->grabs.next, grab, node.link);
 	else
 		grab = &pointer->default_grab;
 	pointer->grab = grab;
 	pointer->grab->seat = seat;
-	if (grab != old && grab->impl->restart)
-		grab->impl->restart(grab);
+	if (grab != old && grab->impl->grab_action)
+		grab->impl->grab_action(grab, TW_SEAT_GRAB_POP);
 }

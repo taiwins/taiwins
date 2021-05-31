@@ -303,7 +303,8 @@ tw_xdg_start_moving_grab(struct tw_xdg *xdg, struct tw_xdg_view *view,
 	                                  NULL, NULL);
 	if (!gi)
 		goto err;
-	tw_pointer_start_grab(&seat->pointer, &gi->pointer_grab);
+	tw_pointer_start_grab(&seat->pointer, &gi->pointer_grab,
+	                      TW_XDG_GRAB_ORDER);
 	return true;
 err:
 	return false;
@@ -323,7 +324,8 @@ tw_xdg_start_resizing_grab(struct tw_xdg *xdg, struct tw_xdg_view *view,
 	if (!gi)
 		goto err;
 	gi->edge = edge;
-	tw_pointer_start_grab(&seat->pointer, &gi->pointer_grab);
+	tw_pointer_start_grab(&seat->pointer, &gi->pointer_grab,
+	                      TW_XDG_GRAB_ORDER);
 	return true;
 err:
 	return false;
@@ -345,7 +347,8 @@ tw_xdg_start_task_switching_grab(struct tw_xdg *xdg, uint32_t time,
 	if (!gi)
 		goto err;
 	gi->mod_mask = modifiers_state;
-	tw_keyboard_start_grab(&seat->keyboard, &gi->keyboard_grab);
+	tw_keyboard_start_grab(&seat->keyboard, &gi->keyboard_grab,
+	                       TW_XDG_GRAB_ORDER);
 	//immediately jump in next view since, we are missing one key event.
 	tw_keyboard_notify_key(&seat->keyboard, time, key,
 	                       WL_KEYBOARD_KEY_STATE_PRESSED);

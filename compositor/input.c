@@ -35,11 +35,15 @@
 #include <taiwins/objects/virtual_keyboard.h>
 
 #include <taiwins/engine.h>
+#include <taiwins/backend.h>
 #include <taiwins/input_device.h>
 #include <taiwins/login.h>
+#include "desktop/xdg.h"
 #include "bindings.h"
 #include "input.h"
-#include "taiwins/backend.h"
+
+#define TW_SESSION_SWITCH_GRAB_LEVEL	0xffffffff
+#define TW_BINDING_GRAB_ORDER		TW_XDG_GRAB_ORDER
 
 /******************************************************************************
  * bindings
@@ -55,10 +59,12 @@ binding_key_cancel(struct tw_seat_keyboard_grab *grab)
 }
 
 static void
-binding_key_pop(struct tw_seat_keyboard_grab *grab)
+binding_key_pop(struct tw_seat_keyboard_grab *grab,
+                enum tw_seat_grab_action action)
 {
 	//coming from grab stack popping, we just remove the grab here
-	tw_keyboard_end_grab(&grab->seat->keyboard, grab);
+	if (action == TW_SEAT_GRAB_POP)
+		tw_keyboard_end_grab(&grab->seat->keyboard, grab);
 }
 
 static void
@@ -105,7 +111,7 @@ static const struct tw_keyboard_grab_interface keybinding_impl = {
 	.enter = tw_keyboard_default_enter,
 	.key = binding_key,
 	.cancel = binding_key_cancel,
-	.restart = binding_key_pop,
+	.grab_action = binding_key_pop,
 };
 
 static void
@@ -115,10 +121,12 @@ binding_pointer_cancel(struct tw_seat_pointer_grab *grab)
 }
 
 static void
-binding_pointer_pop(struct tw_seat_pointer_grab *grab)
+binding_pointer_pop(struct tw_seat_pointer_grab *grab,
+                    enum tw_seat_grab_action action)
 {
 	//coming from grab stack popping, we just remove the grab here
-	tw_pointer_end_grab(&grab->seat->pointer, grab);
+	if (action == TW_SEAT_GRAB_POP)
+		tw_pointer_end_grab(&grab->seat->pointer, grab);
 }
 
 static void
@@ -176,7 +184,7 @@ static const struct tw_pointer_grab_interface pointer_impl = {
 	.button = binding_btn,
 	.axis = binding_axis,
 	.cancel = binding_pointer_cancel,
-	.restart = binding_pointer_pop,
+	.grab_action = binding_pointer_pop,
 };
 
 static void
@@ -186,9 +194,11 @@ binding_touch_cancel(struct tw_seat_touch_grab *grab)
 }
 
 static void
-binding_touch_pop(struct tw_seat_touch_grab *grab)
+binding_touch_pop(struct tw_seat_touch_grab *grab,
+                  enum tw_seat_grab_action action)
 {
-	tw_touch_end_grab(&grab->seat->touch, grab);
+	if (action == TW_SEAT_GRAB_POP)
+		tw_touch_end_grab(&grab->seat->touch, grab);
 }
 
 static void
@@ -214,7 +224,7 @@ static const struct tw_touch_grab_interface touch_impl = {
 	.enter = tw_touch_default_enter,
 	.down = binding_touch,
 	.cancel = binding_touch_cancel,
-	.restart = binding_touch_pop,
+	.grab_action = binding_touch_pop,
 };
 
 /******************************************************************************
@@ -347,7 +357,8 @@ notify_key_input(struct wl_listener *listener, void *data)
 	if ((sid = session_switch_get_idx(event->keycode, event->dev)) >= 0) {
 		seat_listeners->session_switch_grab.data = &sid;
 		tw_keyboard_start_grab(seat_keyboard,
-		                       &seat_listeners->session_switch_grab);
+		                       &seat_listeners->session_switch_grab,
+		                       TW_SESSION_SWITCH_GRAB_LEVEL);
 		return;
 	}
 
@@ -357,7 +368,8 @@ notify_key_input(struct wl_listener *listener, void *data)
 	if (state) {
 		seat_listeners->binding_key_grab.data = state;
 		tw_keyboard_start_grab(seat_keyboard,
-		                       &seat_listeners->binding_key_grab);
+		                       &seat_listeners->binding_key_grab,
+		                       TW_BINDING_GRAB_ORDER);
 	}
 }
 
@@ -380,7 +392,8 @@ notify_btn_input(struct wl_listener *listener, void *data)
 	if (binding) {
 		seat_listeners->binding_pointer_grab.data = binding;
 		tw_pointer_start_grab(seat_pointer,
-		                      &seat_listeners->binding_pointer_grab);
+		                      &seat_listeners->binding_pointer_grab,
+		                      TW_BINDING_GRAB_ORDER);
 	}
 	//if we are to move part of backend code here, we simply have
 	//seat_pointer->grab->impl->button();
@@ -405,7 +418,8 @@ notify_axis_input(struct wl_listener *listener, void *data)
 	if (binding) {
 		seat_listeners->binding_pointer_grab.data = binding;
 		tw_pointer_start_grab(seat_pointer,
-		                      &seat_listeners->binding_pointer_grab);
+		                      &seat_listeners->binding_pointer_grab,
+		                      TW_BINDING_GRAB_ORDER);
 	}
 }
 
@@ -425,7 +439,8 @@ notify_touch_input(struct wl_listener *listener, void *data)
 	if (binding) {
 		seat_listeners->binding_touch_grab.data = binding;
 		tw_touch_start_grab(seat_touch,
-		                    &seat_listeners->binding_touch_grab);
+		                    &seat_listeners->binding_touch_grab,
+		                    TW_BINDING_GRAB_ORDER);
 	}
 }
 

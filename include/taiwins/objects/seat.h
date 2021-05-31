@@ -176,7 +176,7 @@ tw_seat_remove_keyboard(struct tw_seat *seat);
 
 void
 tw_keyboard_start_grab(struct tw_keyboard *keyboard,
-                       struct tw_seat_keyboard_grab *grab);
+                       struct tw_seat_keyboard_grab *grab, uint32_t priority);
 void
 tw_keyboard_end_grab(struct tw_keyboard *keyboard,
                      struct tw_seat_keyboard_grab *grab);
@@ -227,7 +227,7 @@ tw_seat_remove_pointer(struct tw_seat *seat);
 
 void
 tw_pointer_start_grab(struct tw_pointer *pointer,
-                      struct tw_seat_pointer_grab *grab);
+                      struct tw_seat_pointer_grab *grab, uint32_t priority);
 void
 tw_pointer_end_grab(struct tw_pointer *pointer,
                     struct tw_seat_pointer_grab *grab);
@@ -284,7 +284,7 @@ tw_seat_remove_touch(struct tw_seat *seat);
 
 void
 tw_touch_start_grab(struct tw_touch *touch,
-                    struct tw_seat_touch_grab *grab);
+                    struct tw_seat_touch_grab *grab, uint32_t priority);
 void
 tw_touch_end_grab(struct tw_touch *touch,
                   struct tw_seat_touch_grab *grab);

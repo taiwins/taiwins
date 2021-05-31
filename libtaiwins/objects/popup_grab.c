@@ -161,12 +161,14 @@ tw_popup_grab_start(struct tw_popup_grab *grab, struct tw_seat *seat)
 	grab->touch_grab.seat = seat;
 
 	if (seat->capabilities & WL_SEAT_CAPABILITY_POINTER) {
-		tw_pointer_start_grab(&seat->pointer, &grab->pointer_grab);
+		tw_pointer_start_grab(&seat->pointer, &grab->pointer_grab,
+		                      TW_POPUP_GRAB_ORDER);
 		//TODO: this is a hack, should work most of the time
 		tw_pointer_notify_enter(&seat->pointer, grab->focus, 0, 0);
 	}
 	if (seat->capabilities & WL_SEAT_CAPABILITY_TOUCH) {
-		tw_touch_start_grab(&seat->touch, &grab->touch_grab);
+		tw_touch_start_grab(&seat->touch, &grab->touch_grab,
+		                    TW_POPUP_GRAB_ORDER);
 		tw_touch_notify_enter(&seat->touch, grab->focus, 0, 0);
 	}
 }

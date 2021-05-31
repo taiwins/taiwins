@@ -33,6 +33,8 @@
 extern "C" {
 #endif
 
+#define TW_INPUT_METHOD_GRAB_ORDER	0x2
+
 enum tw_input_method_request_type {
 	TW_INPUT_METHOD_PREEDIT = 1 << 0,
 	TW_INPUT_METHOD_COMMIT_STRING = 1 << 1,

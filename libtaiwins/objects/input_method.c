@@ -319,7 +319,8 @@ input_method_start_grab(struct tw_input_method *im,
 	zwp_input_method_keyboard_grab_v2_send_repeat_info(grab_resource,
 	                                                   seat->repeat_rate,
 	                                                   seat->repeat_delay);
-	tw_keyboard_start_grab(keyboard, &im->im_grab);
+	tw_keyboard_start_grab(keyboard, &im->im_grab,
+	                       TW_INPUT_METHOD_GRAB_ORDER);
 }
 
 static void

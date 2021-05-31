@@ -164,7 +164,6 @@ static const struct tw_keyboard_grab_interface default_grab_impl = {
 	.key = tw_keyboard_default_key,
 	.modifiers = tw_keyboard_default_modifiers,
 	.cancel = tw_keyboard_default_cancel,
-	.restart = tw_keyboard_default_cancel,
 };
 
 static void
@@ -232,14 +231,25 @@ tw_seat_remove_keyboard(struct tw_seat *seat)
 
 WL_EXPORT void
 tw_keyboard_start_grab(struct tw_keyboard *keyboard,
-                       struct tw_seat_keyboard_grab *grab)
+                       struct tw_seat_keyboard_grab *grab, uint32_t priority)
 {
+	struct tw_seat_keyboard_grab *old = keyboard->grab;
+	struct tw_seat *seat = wl_container_of(keyboard, seat, keyboard);
+
 	if (keyboard->grab != grab &&
-	    !tw_find_list_elem(&keyboard->grabs, &grab->link)) {
-		keyboard->grab = grab;
-		grab->seat = wl_container_of(keyboard, grab->seat,
-		                             keyboard);
-		wl_list_insert(&keyboard->grabs, &grab->link);
+	    !tw_find_list_elem(&keyboard->grabs, &grab->node.link)) {
+		struct wl_list *pos =
+			tw_seat_grab_node_find_pos(&keyboard->grabs,
+			                           priority);
+		grab->seat = seat;
+		grab->node.priority = priority;
+		//swap grab and notify the old grab its replacement
+		if (pos == &keyboard->grabs) {
+			if (old != grab && old->impl->grab_action)
+				old->impl->grab_action(old, TW_SEAT_GRAB_PUSH);
+			keyboard->grab = grab;
+		}
+		wl_list_insert(pos, &grab->node.link);
 	}
 }
 
@@ -248,22 +258,22 @@ tw_keyboard_end_grab(struct tw_keyboard *keyboard,
                      struct tw_seat_keyboard_grab *grab)
 {
 	struct tw_seat_keyboard_grab *old = keyboard->grab;
-	if (tw_find_list_elem(&keyboard->grabs, &grab->link)) {
+	if (tw_find_list_elem(&keyboard->grabs, &grab->node.link)) {
 		if (grab->impl->cancel)
 			grab->impl->cancel(grab);
-		tw_reset_wl_list(&grab->link);
+		tw_reset_wl_list(&grab->node.link);
 	}
 	//finding previous grab from list or default if stack is empty
 	if (!wl_list_empty(&keyboard->grabs))
-		grab = wl_container_of(keyboard->grabs.next, grab, link);
+		grab = wl_container_of(keyboard->grabs.next, grab, node.link);
 	else
 		grab = &keyboard->default_grab;
 	keyboard->grab = grab;
 	keyboard->grab->seat =
 		wl_container_of(keyboard, grab->seat, keyboard);
 	//notify previous grab of its return
-	if (grab != old && grab->impl->restart)
-		grab->impl->restart(grab);
+	if (grab != old && grab->impl->grab_action)
+		grab->impl->grab_action(grab, TW_SEAT_GRAB_POP);
 }
 
 WL_EXPORT void
