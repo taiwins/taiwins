@@ -59,10 +59,12 @@ binding_key_cancel(struct tw_seat_keyboard_grab *grab)
 }
 
 static void
-binding_key_pop(struct tw_seat_keyboard_grab *grab)
+binding_key_pop(struct tw_seat_keyboard_grab *grab,
+                enum tw_seat_grab_action action)
 {
 	//coming from grab stack popping, we just remove the grab here
-	tw_keyboard_end_grab(&grab->seat->keyboard, grab);
+	if (action == TW_SEAT_GRAB_POP)
+		tw_keyboard_end_grab(&grab->seat->keyboard, grab);
 }
 
 static void
@@ -109,7 +111,7 @@ static const struct tw_keyboard_grab_interface keybinding_impl = {
 	.enter = tw_keyboard_default_enter,
 	.key = binding_key,
 	.cancel = binding_key_cancel,
-	.restart = binding_key_pop,
+	.grab_action = binding_key_pop,
 };
 
 static void
@@ -119,10 +121,12 @@ binding_pointer_cancel(struct tw_seat_pointer_grab *grab)
 }
 
 static void
-binding_pointer_pop(struct tw_seat_pointer_grab *grab)
+binding_pointer_pop(struct tw_seat_pointer_grab *grab,
+                    enum tw_seat_grab_action action)
 {
 	//coming from grab stack popping, we just remove the grab here
-	tw_pointer_end_grab(&grab->seat->pointer, grab);
+	if (action == TW_SEAT_GRAB_POP)
+		tw_pointer_end_grab(&grab->seat->pointer, grab);
 }
 
 static void
@@ -180,7 +184,7 @@ static const struct tw_pointer_grab_interface pointer_impl = {
 	.button = binding_btn,
 	.axis = binding_axis,
 	.cancel = binding_pointer_cancel,
-	.restart = binding_pointer_pop,
+	.grab_action = binding_pointer_pop,
 };
 
 static void
@@ -190,9 +194,11 @@ binding_touch_cancel(struct tw_seat_touch_grab *grab)
 }
 
 static void
-binding_touch_pop(struct tw_seat_touch_grab *grab)
+binding_touch_pop(struct tw_seat_touch_grab *grab,
+                  enum tw_seat_grab_action action)
 {
-	tw_touch_end_grab(&grab->seat->touch, grab);
+	if (action == TW_SEAT_GRAB_POP)
+		tw_touch_end_grab(&grab->seat->touch, grab);
 }
 
 static void
@@ -218,7 +224,7 @@ static const struct tw_touch_grab_interface touch_impl = {
 	.enter = tw_touch_default_enter,
 	.down = binding_touch,
 	.cancel = binding_touch_cancel,
-	.restart = binding_touch_pop,
+	.grab_action = binding_touch_pop,
 };
 
 /******************************************************************************

@@ -28,6 +28,11 @@
 extern "C" {
 #endif
 
+enum tw_seat_grab_action {
+	TW_SEAT_GRAB_PUSH = 0x1, /* grab being replaced */
+	TW_SEAT_GRAB_POP = 0x2, /* grab being restored */
+};
+
 struct tw_seat_grab_node {
 	struct wl_list link;
 	uint32_t priority; /**< compare using greater-or-equal */
@@ -72,8 +77,8 @@ struct tw_keyboard_grab_interface {
 	                  uint32_t mods_depressed, uint32_t mods_latched,
 	                  uint32_t mods_locked, uint32_t group);
 	void (*cancel)(struct tw_seat_keyboard_grab *grab);
-	/* used on grab stack pop */
-	void (*restart)(struct tw_seat_keyboard_grab *grab);
+	void (*grab_action)(struct tw_seat_keyboard_grab *grab,
+	                    enum tw_seat_grab_action action);
 };
 
 void
@@ -118,8 +123,8 @@ struct tw_pointer_grab_interface {
 	             enum wl_pointer_axis_source source);
 	void (*frame)(struct tw_seat_pointer_grab *grab);
 	void (*cancel)(struct tw_seat_pointer_grab *grab);
-	/* used on grab stack pop */
-	void (*restart)(struct tw_seat_pointer_grab *grab);
+        void (*grab_action)(struct tw_seat_pointer_grab *grab,
+	                    enum tw_seat_grab_action action);
 };
 
 void
@@ -167,8 +172,8 @@ struct tw_touch_grab_interface {
 	              struct wl_resource *surface, double sx, double sy);
 	void (*touch_cancel)(struct tw_seat_touch_grab *grab);
 	void (*cancel)(struct tw_seat_touch_grab *grab);
-	/* used on grab stack pop */
-	void (*restart)(struct tw_seat_touch_grab *grab);
+	void (*grab_action)(struct tw_seat_touch_grab *grab,
+	                    enum tw_seat_grab_action action);
 };
 
 void

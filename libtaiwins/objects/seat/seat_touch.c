@@ -227,6 +227,7 @@ WL_EXPORT void
 tw_touch_start_grab(struct tw_touch *touch, struct tw_seat_touch_grab *grab,
                     uint32_t priority)
 {
+	struct tw_seat_touch_grab *old = touch->grab;
 	struct tw_seat *seat = wl_container_of(touch, seat, touch);
 
 	if (touch->grab != grab &&
@@ -235,10 +236,13 @@ tw_touch_start_grab(struct tw_touch *touch, struct tw_seat_touch_grab *grab,
 			tw_seat_grab_node_find_pos(&touch->grabs, priority);
 		grab->seat = seat;
 		grab->node.priority = priority;
-		touch->grab = grab;
-		wl_list_insert(pos, &grab->node.link);
-		if (pos == &touch->grabs)
+		//swap grab and notify the old grab its replacement
+		if (pos == &touch->grabs) {
+			if (old != grab && old->impl->grab_action)
+				old->impl->grab_action(old, TW_SEAT_GRAB_PUSH);
 			touch->grab = grab;
+		}
+		wl_list_insert(pos, &grab->node.link);
 	}
 }
 
@@ -261,6 +265,6 @@ tw_touch_end_grab(struct tw_touch *touch,
 		grab = &touch->default_grab;
 	touch->grab = grab;
 	touch->grab->seat = seat;
-	if (grab != old && grab->impl->restart)
-		grab->impl->restart(grab);
+	if (grab != old && grab->impl->grab_action)
+		grab->impl->grab_action(grab, TW_SEAT_GRAB_POP);
 }

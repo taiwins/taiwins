@@ -164,7 +164,6 @@ static const struct tw_keyboard_grab_interface default_grab_impl = {
 	.key = tw_keyboard_default_key,
 	.modifiers = tw_keyboard_default_modifiers,
 	.cancel = tw_keyboard_default_cancel,
-	.restart = tw_keyboard_default_cancel,
 };
 
 static void
@@ -234,6 +233,7 @@ WL_EXPORT void
 tw_keyboard_start_grab(struct tw_keyboard *keyboard,
                        struct tw_seat_keyboard_grab *grab, uint32_t priority)
 {
+	struct tw_seat_keyboard_grab *old = keyboard->grab;
 	struct tw_seat *seat = wl_container_of(keyboard, seat, keyboard);
 
 	if (keyboard->grab != grab &&
@@ -243,9 +243,13 @@ tw_keyboard_start_grab(struct tw_keyboard *keyboard,
 			                           priority);
 		grab->seat = seat;
 		grab->node.priority = priority;
-		wl_list_insert(pos, &grab->node.link);
-		if (pos == &keyboard->grabs)
+		//swap grab and notify the old grab its replacement
+		if (pos == &keyboard->grabs) {
+			if (old != grab && old->impl->grab_action)
+				old->impl->grab_action(old, TW_SEAT_GRAB_PUSH);
 			keyboard->grab = grab;
+		}
+		wl_list_insert(pos, &grab->node.link);
 	}
 }
 
@@ -268,8 +272,8 @@ tw_keyboard_end_grab(struct tw_keyboard *keyboard,
 	keyboard->grab->seat =
 		wl_container_of(keyboard, grab->seat, keyboard);
 	//notify previous grab of its return
-	if (grab != old && grab->impl->restart)
-		grab->impl->restart(grab);
+	if (grab != old && grab->impl->grab_action)
+		grab->impl->grab_action(grab, TW_SEAT_GRAB_POP);
 }
 
 WL_EXPORT void
