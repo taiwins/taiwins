@@ -29,6 +29,8 @@
 #include <wayland-server.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "seat_grab.h"
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -61,27 +63,6 @@ enum TW_KEYBOARD_LED {
 	TW_LED_NUM_LOCK = (1 << 0),
 	TW_LED_CAPS_LOCK = (1 << 1),
 	TW_LED_SCROLL_LOCK = (1 << 2),
-};
-
-struct tw_seat_touch_grab {
-	const struct tw_touch_grab_interface *impl;
-	struct tw_seat *seat;
-	void *data;
-	struct wl_list link; /* touch:grabs */
-};
-
-struct tw_seat_keyboard_grab {
-	const struct tw_keyboard_grab_interface *impl;
-	struct tw_seat *seat;
-	void *data;
-	struct wl_list link; /* keyboard:grabs */
-};
-
-struct tw_seat_pointer_grab {
-	const struct tw_pointer_grab_interface *impl;
-	struct tw_seat *seat;
-	void *data;
-	struct wl_list link; /* touch:grabs */
 };
 
 struct tw_keyboard {
@@ -206,6 +187,36 @@ void
 tw_keyboard_send_keymap(struct tw_keyboard *keyboard,
                         struct wl_resource *keyboard_resource);
 
+static inline void
+tw_keyboard_notify_enter(struct tw_keyboard *keyboard,
+                         struct wl_resource *surface, uint32_t *keycodes,
+                         size_t n_keycodes)
+{
+	if (keyboard->grab && keyboard->grab->impl->enter)
+		keyboard->grab->impl->enter(keyboard->grab,
+		                            surface, keycodes, n_keycodes);
+}
+
+static inline void
+tw_keyboard_notify_key(struct tw_keyboard *keyboard, uint32_t time_msec,
+                       uint32_t key, uint32_t state)
+{
+	if (keyboard->grab && keyboard->grab->impl->key)
+		keyboard->grab->impl->key(keyboard->grab, time_msec, key,
+		                          state);
+}
+
+static inline void
+tw_keyboard_notify_modifiers(struct tw_keyboard *keyboard,
+                             uint32_t mods_depressed, uint32_t mods_latched,
+                             uint32_t mods_locked, uint32_t group)
+{
+	if (keyboard->grab && keyboard->grab->impl->modifiers)
+		keyboard->grab->impl->modifiers(keyboard->grab,
+		                                mods_depressed, mods_latched,
+		                                mods_locked, group);
+}
+
 /***************************** pointer ***************************************/
 
 struct tw_pointer *
@@ -220,6 +231,48 @@ tw_pointer_start_grab(struct tw_pointer *pointer,
 void
 tw_pointer_end_grab(struct tw_pointer *pointer,
                     struct tw_seat_pointer_grab *grab);
+static inline void
+tw_pointer_notify_enter(struct tw_pointer *pointer,
+                        struct wl_resource *wl_surface,
+                        double sx, double sy)
+{
+	if (pointer->grab && pointer->grab->impl->enter)
+		pointer->grab->impl->enter(pointer->grab, wl_surface, sx, sy);
+}
+
+static inline void
+tw_pointer_notify_motion(struct tw_pointer *pointer, uint32_t time_msec,
+                         double sx, double sy)
+{
+	if (pointer->grab && pointer->grab->impl->motion)
+		pointer->grab->impl->motion(pointer->grab, time_msec, sx, sy);
+}
+
+static inline void
+tw_pointer_notify_button(struct tw_pointer *pointer, uint32_t time_msec,
+                         uint32_t button, enum wl_pointer_button_state state)
+{
+	if (pointer->grab && pointer->grab->impl->button)
+		pointer->grab->impl->button(pointer->grab, time_msec,
+		                                   button, state);
+}
+
+static inline void
+tw_pointer_notify_axis(struct tw_pointer *pointer, uint32_t time_msec,
+                       enum wl_pointer_axis axis, double val, int val_disc,
+                       enum wl_pointer_axis_source source)
+{
+	if (pointer->grab && pointer->grab->impl->axis)
+		pointer->grab->impl->axis(pointer->grab, time_msec, axis,
+		                          val, val_disc, source);
+}
+
+static inline void
+tw_pointer_notify_frame(struct tw_pointer *pointer)
+{
+	if (pointer->grab && pointer->grab->impl->frame)
+		pointer->grab->impl->frame(pointer->grab);
+}
 
 /***************************** touch *****************************************/
 
@@ -235,6 +288,47 @@ tw_touch_start_grab(struct tw_touch *touch,
 void
 tw_touch_end_grab(struct tw_touch *touch,
                   struct tw_seat_touch_grab *grab);
+
+static inline void
+tw_touch_notify_down(struct tw_touch *touch, uint32_t time_msec, uint32_t id,
+                     double sx, double sy)
+{
+	if (touch->grab && touch->grab->impl->down)
+		touch->grab->impl->down(touch->grab, time_msec, id,
+		                        sx, sy);
+}
+
+static inline void
+tw_touch_notify_up(struct tw_touch *touch, uint32_t time_msec,
+                   uint32_t touch_id)
+{
+	if (touch->grab && touch->grab->impl->up)
+		touch->grab->impl->up(touch->grab, time_msec, touch_id);
+}
+
+static inline void
+tw_touch_notify_motion(struct tw_touch *touch, uint32_t time_msec,
+                       uint32_t touch_id, double sx, double sy)
+{
+	if (touch->grab && touch->grab->impl->motion)
+		touch->grab->impl->motion(touch->grab, time_msec, touch_id,
+		                          sx, sy);
+}
+
+static inline void
+tw_touch_notify_enter(struct tw_touch *touch,
+                      struct wl_resource *surface, double sx, double sy)
+{
+	if (touch->grab && touch->grab->impl->enter)
+		touch->grab->impl->enter(touch->grab, surface, sx, sy);
+}
+
+static inline void
+tw_touch_notify_cancel(struct tw_touch *touch)
+{
+	if (touch->grab && touch->grab->impl->touch_cancel)
+		touch->grab->impl->touch_cancel(touch->grab);
+}
 
 #ifdef  __cplusplus
 }

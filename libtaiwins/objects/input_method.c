@@ -31,7 +31,7 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/subsurface.h>
 #include <taiwins/objects/text_input.h>
-#include <taiwins/objects/seat_grab.h>
+#include <taiwins/objects/seat.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
 #include <wayland-input-method-server-protocol.h>

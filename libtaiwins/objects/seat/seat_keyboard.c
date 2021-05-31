@@ -30,7 +30,7 @@
 
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
-#include <taiwins/objects/seat_grab.h>
+#include <taiwins/objects/seat.h>
 #include <ctypes/os/os-compatibility.h>
 
 static void

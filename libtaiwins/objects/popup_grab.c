@@ -25,7 +25,7 @@
 #include <wayland-util.h>
 
 #include <taiwins/objects/utils.h>
-#include <taiwins/objects/seat_grab.h>
+#include <taiwins/objects/seat.h>
 #include <taiwins/objects/popup_grab.h>
 
 static const struct tw_pointer_grab_interface popup_pointer_grab_impl;

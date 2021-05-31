@@ -24,7 +24,7 @@
 #include <xkbcommon/xkbcommon.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/logger.h>
-#include <taiwins/objects/seat_grab.h>
+#include <taiwins/objects/seat.h>
 
 #include <taiwins/engine.h>
 #include <taiwins/backend.h>
