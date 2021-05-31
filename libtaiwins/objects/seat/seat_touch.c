@@ -224,15 +224,21 @@ tw_seat_remove_touch(struct tw_seat *seat)
 }
 
 WL_EXPORT void
-tw_touch_start_grab(struct tw_touch *touch, struct tw_seat_touch_grab *grab)
+tw_touch_start_grab(struct tw_touch *touch, struct tw_seat_touch_grab *grab,
+                    uint32_t priority)
 {
 	struct tw_seat *seat = wl_container_of(touch, seat, touch);
 
 	if (touch->grab != grab &&
 	    !tw_find_list_elem(&touch->grabs, &grab->node.link)) {
-		touch->grab = grab;
+		struct wl_list *pos =
+			tw_seat_grab_node_find_pos(&touch->grabs, priority);
 		grab->seat = seat;
-		wl_list_insert(&touch->grabs, &grab->node.link);
+		grab->node.priority = priority;
+		touch->grab = grab;
+		wl_list_insert(pos, &grab->node.link);
+		if (pos == &touch->grabs)
+			touch->grab = grab;
 	}
 }
 

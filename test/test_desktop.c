@@ -179,7 +179,7 @@ test_grab_start(struct test_desktop_grab *tg, struct tw_desktop_surface *dsurf,
 	tg->gy = nan("");
 	tg->pointer_grab.impl = gi;
 	tg->pointer_grab.data = desktop;
-	tw_pointer_start_grab(pointer, &tg->pointer_grab);
+	tw_pointer_start_grab(pointer, &tg->pointer_grab, 1000);
 }
 
 static void

@@ -39,6 +39,8 @@
 extern "C" {
 #endif
 
+#define TW_XDG_GRAB_ORDER 0x1000
+
 struct tw_shell;
 struct tw_xdg;
 struct tw_xdg_view;

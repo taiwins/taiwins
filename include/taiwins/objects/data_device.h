@@ -33,6 +33,7 @@
 extern "C" {
 #endif
 
+#define TW_DATA_DND_GRAB_ORDER	0x100  /* application level */
 
 struct tw_data_device;
 struct tw_data_source;

@@ -232,15 +232,20 @@ tw_seat_remove_keyboard(struct tw_seat *seat)
 
 WL_EXPORT void
 tw_keyboard_start_grab(struct tw_keyboard *keyboard,
-                       struct tw_seat_keyboard_grab *grab)
+                       struct tw_seat_keyboard_grab *grab, uint32_t priority)
 {
 	struct tw_seat *seat = wl_container_of(keyboard, seat, keyboard);
 
 	if (keyboard->grab != grab &&
 	    !tw_find_list_elem(&keyboard->grabs, &grab->node.link)) {
-		keyboard->grab = grab;
+		struct wl_list *pos =
+			tw_seat_grab_node_find_pos(&keyboard->grabs,
+			                           priority);
 		grab->seat = seat;
-		wl_list_insert(&keyboard->grabs, &grab->node.link);
+		grab->node.priority = priority;
+		wl_list_insert(pos, &grab->node.link);
+		if (pos == &keyboard->grabs)
+			keyboard->grab = grab;
 	}
 }
 

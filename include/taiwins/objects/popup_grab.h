@@ -31,6 +31,7 @@
 extern "C" {
 #endif
 
+#define TW_POPUP_GRAB_ORDER	0x100
 
 /**
  * @brief common interface used for popup windows

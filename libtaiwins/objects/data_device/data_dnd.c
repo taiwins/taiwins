@@ -146,18 +146,8 @@ static const struct tw_pointer_grab_interface dnd_pointer_grab_impl = {
 	.cancel = dnd_pointer_cancel,
 };
 
-static void
-dnd_keyboard_enter(struct tw_seat_keyboard_grab *grab,
-                   struct wl_resource *surface, uint32_t keycodes[],
-                   size_t n_keycodes)
-{
-	struct tw_seat_keyboard_grab *default_grab =
-		&grab->seat->keyboard.default_grab;
-	default_grab->impl->enter(default_grab, surface, keycodes, n_keycodes);
-}
-
 static const struct tw_keyboard_grab_interface dnd_keyboard_grab_impl = {
-	.enter = dnd_keyboard_enter,
+	.enter = tw_keyboard_default_enter,
 };
 
 static void
@@ -193,9 +183,11 @@ tw_data_source_start_drag(struct tw_data_drag *drag,
 	                         notify_data_drag_source_destroy);
 
 	//we need to trigger a enter event
-	tw_pointer_start_grab(&seat->pointer, &drag->pointer_grab);
+	tw_pointer_start_grab(&seat->pointer, &drag->pointer_grab,
+	                      TW_DATA_DND_GRAB_ORDER);
 	if (seat->capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
-		tw_keyboard_start_grab(&seat->keyboard, &drag->keyboard_grab);
+		tw_keyboard_start_grab(&seat->keyboard, &drag->keyboard_grab,
+		                       TW_DATA_DND_GRAB_ORDER);
 
 	return true;
 }
