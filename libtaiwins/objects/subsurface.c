@@ -275,6 +275,10 @@ tw_subsurface_init(struct tw_subsurface *sub, struct wl_resource *resource,
 	sub->resource = resource;
 	sub->surface = surface;
 	sub->parent = parent;
+	sub->sync = false;
+	sub->pos = TW_SUBSURFACE_ABOVE;
+	sub->sx = 0;
+	sub->sy = 0;
 	// stacking order
 	wl_signal_init(&sub->destroy);
 	wl_list_init(&sub->parent_link);
