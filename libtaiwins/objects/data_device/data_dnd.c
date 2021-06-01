@@ -27,7 +27,7 @@
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/data_device.h>
 #include <taiwins/objects/seat.h>
-#include <taiwins/objects/surface.h>
+#include <taiwins/objects/subsurface.h>
 #include <taiwins/objects/cursor.h>
 #include <wayland-util.h>
 
@@ -204,6 +204,8 @@ data_drag_set_icon(struct tw_data_drag *drag, struct tw_cursor *cursor,
 		return;
 	tw_subsurface_init(subsurf, NULL, icon, parent,
 	                   notify_icon_surface_destroyed);
+	subsurf->pos = TW_SUBSURFACE_BELOW;
+	subsurf->sync = false;
 }
 
 bool
