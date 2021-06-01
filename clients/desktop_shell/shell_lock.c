@@ -46,7 +46,7 @@ static struct auth_buffer {
  * the module. It receives an array of messages in the parameters (set by the
  * module) and sets the array of responses in the parameters with the
  * appropriate content. For example if the module calls this function with a
- * message "login:" we are expected to set the firs response with the username
+ * message "login:" we are expected to set the first response with the username
  *
  * @param num_msg Number of messages from the module
  * @param msg Array of messages (set by the module, should not be modified)
@@ -59,7 +59,9 @@ conversation(int num_msg, const struct pam_message **msgs,
 	     struct pam_response **resp, void *appdata_ptr)
 {
 	struct pam_response *arr_response =
-		malloc(num_msg * sizeof(struct pam_response));
+		calloc(num_msg, sizeof(struct pam_response));
+	if (!arr_response)
+		return PAM_ABORT;
 	//we will be asked for password here
 	*resp = arr_response;
 	for (int i = 0; i < num_msg; i++) {
@@ -136,6 +138,7 @@ shell_locker_frame(struct nk_context *ctx, float width, float height,
 		nk_layout_row(ctx, NK_DYNAMIC, 25, 2, ratio);
 		//so this line already copies data to command buffer at this
 		//line. you will see stars frame/maybe on releasing event.
+		nk_edit_focus(ctx, NK_EDIT_DEFAULT);
 		nk_edit_string(ctx, NK_EDIT_SIMPLE, AUTH.stars,
 			       &AUTH.len, 256, nk_filter_ascii);
 		clicked = nk_button_symbol(ctx, NK_SYMBOL_TRIANGLE_RIGHT);
@@ -161,7 +164,8 @@ void shell_locker_init(struct desktop_shell *shell)
 	struct wl_surface *wl_surface =
 		wl_compositor_create_surface(shell->globals.compositor);
 	shell->transient_ui =
-		taiwins_shell_create_locker(shell->interface, wl_surface, 0);
+		taiwins_shell_create_locker(shell->interface, wl_surface,
+		                            shell->globals.inputs.wl_seat, 0);
 	struct shell_output *output = shell->main_output;
 
 	tw_appsurf_init(&shell->transient, wl_surface,

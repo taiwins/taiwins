@@ -23,7 +23,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <wayland-taiwins-shell-server-protocol.h>
 #include <pixman.h>
@@ -36,7 +35,6 @@
 #include <taiwins/objects/seat.h>
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
-#include <wayland-util.h>
 
 #include <taiwins/output_device.h>
 #include <taiwins/shell.h>
@@ -126,8 +124,8 @@ shell_change_desktop_area(void *data)
 	struct tw_shell_output *shell_output = data;
 	struct tw_engine_output *output = shell_output->output;
 	struct tw_shell *shell = shell_output->shell;
-
-	wl_signal_emit(&shell->desktop_area_signal, output);
+	if (output)
+		wl_signal_emit(&shell->desktop_area_signal, output);
 }
 
 static void
@@ -205,6 +203,8 @@ shell_ui_unbind(struct wl_resource *resource)
 
 	if (ui->binded)
 		tw_reset_wl_list(&ui->binded->layer_link);
+	tw_reset_wl_list(&ui->surface_destroy.link);
+	tw_reset_wl_list(&ui->grab_close.link);
 
 	if (output && ui == &output->panel) {
 		output->panel = (struct tw_shell_ui){0};
@@ -213,8 +213,6 @@ shell_ui_unbind(struct wl_resource *resource)
 	} else if (output && ui == &output->background) {
 		output->background = (struct tw_shell_ui){0};
 	}
-	tw_reset_wl_list(&ui->surface_destroy.link);
-	tw_reset_wl_list(&ui->grab_close.link);
 	ui->binded = NULL;
 	ui->layer = NULL;
 	ui->resource = NULL;
@@ -247,7 +245,7 @@ shell_ui_type_to_layer(struct tw_shell *shell,
 }
 
 const struct tw_surface_role *
-shell_ui_type_to_commit_cb(enum taiwins_ui_type type)
+shell_ui_type_to_role(enum taiwins_ui_type type)
 {
 	static const struct tw_surface_role roles[] = {
 		[TAIWINS_UI_TYPE_PANEL] = {
@@ -283,7 +281,7 @@ create_ui_element(struct wl_client *client,
 	struct wl_resource *resource;
 	struct tw_surface *surface = tw_surface_from_resource(wl_surface);
 	struct tw_layer *layer = shell_ui_type_to_layer(shell, type);
-	const struct tw_surface_role *role = shell_ui_type_to_commit_cb(type);
+	const struct tw_surface_role *role = shell_ui_type_to_role(type);
 	resource = wl_resource_create(client, &taiwins_ui_interface, 1, tw_ui);
 
 	if (!resource) {
@@ -389,14 +387,19 @@ create_shell_locker(struct wl_client *client,
 		    struct wl_resource *resource,
 		    uint32_t tw_ui,
 		    struct wl_resource *wl_surface,
+                    struct wl_resource *wl_seat,
                     UNUSED_ARG(int32_t tw_output))
 {
 	struct tw_shell *shell = wl_resource_get_user_data(resource);
 	//TODO: I shall create locker for all the logical output
 	struct tw_shell_output *shell_output =
 		&shell->tw_outputs[0];
+	struct tw_surface *surface = tw_surface_from_resource(wl_surface);
+	struct tw_seat *seat = tw_seat_from_resource(wl_seat);
+
 	create_ui_element(client, shell, &shell->locker, tw_ui, wl_surface,
 			  shell_output, 0, 0, TAIWINS_UI_TYPE_LOCKER);
+	tw_input_lock_grab_start(&shell->lock_grab, seat, surface);
 }
 
 static void
@@ -485,9 +488,7 @@ unbind_shell(struct wl_resource *resource)
 {
 	//TODO using assert!
 	struct tw_shell *shell = wl_resource_get_user_data(resource);
-	/* struct wl_list *locker_layer = &shell->locker_layer.views; */
-	/* struct wl_list *bg_layer = &shell->background_layer.views; */
-	/* struct wl_list *ui_layer = &shell->ui_layer.views; */
+	shell->shell_resource = NULL;
 
 	tw_layer_unset_position(&shell->background_layer);
 	tw_layer_unset_position(&shell->ui_layer);
@@ -657,20 +658,6 @@ notify_shell_resize_output(struct wl_listener *listener, void *data)
 	                         TAIWINS_SHELL_OUTPUT_MSG_CHANGE);
 }
 
-static void
-notify_shell_idle(struct wl_listener *listener, void *data)
-{
-
-	struct tw_shell *shell =
-		container_of(listener, struct tw_shell, idle_listener);
-	fprintf(stderr, "I should lock right now %p\n",
-	        shell->locker.resource);
-	if (shell->locker.resource)
-		return;
-	if (shell->shell_resource)
-		tw_shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_LOCK, " ");
-}
-
 
 static void
 notify_shell_end(struct wl_listener *listener, void *data)
@@ -683,7 +670,6 @@ notify_shell_end(struct wl_listener *listener, void *data)
 	wl_list_remove(&shell->output_create_listener.link);
 	wl_list_remove(&shell->output_destroy_listener.link);
 	wl_list_remove(&shell->output_resize_listener.link);
-	wl_list_remove(&shell->idle_listener.link);
 	//layers
 	tw_layer_unset_position(&shell->background_layer);
 	tw_layer_unset_position(&shell->bottom_ui_layer);
@@ -717,12 +703,6 @@ shell_add_listeners(struct tw_shell *shell, struct tw_engine *engine)
 	tw_signal_setup_listener(&engine->signals.output_resized,
 	                         &shell->output_resize_listener,
 	                         notify_shell_resize_output);
-        //idle listener
-	wl_list_init(&shell->idle_listener.link);
-	shell->idle_listener.notify = notify_shell_idle;
-	//TODO: idle listener
-	/* wl_signal_add(&ec->idle_signal, &shell->idle_listener); */
-
 }
 
 static void
@@ -749,6 +729,17 @@ shell_init_layers(struct tw_shell *shell, struct tw_layers_manager *layers)
 /******************************************************************************
  * public APIS
  *****************************************************************************/
+
+WL_EXPORT void
+tw_shell_start_locker(struct tw_shell *shell)
+{
+	if (shell->locker.resource)
+		return;
+	if (shell->shell_resource)
+		tw_shell_post_message(shell, TAIWINS_SHELL_MSG_TYPE_LOCK, " ");
+}
+
+
 
 WL_EXPORT struct tw_shell *
 tw_shell_create_global(struct wl_display *display,

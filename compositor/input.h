@@ -58,6 +58,7 @@ struct tw_seat_listeners {
 struct tw_server_input_manager {
 	struct tw_engine *engine;
 	struct tw_config *config;
+	struct wl_event_source *idle_timer;
 	struct tw_seat_listeners inputs[8];
 	//globals
 	struct tw_virtual_keyboard_manager vkeyboard_mgr;
@@ -67,6 +68,7 @@ struct tw_server_input_manager {
 	struct {
 		struct wl_listener seat_add;
 		struct wl_listener seat_remove;
+		struct wl_listener seat_input;
 		struct wl_listener display_destroy;
 		struct wl_listener new_virtual_keyboard;
 	} listeners;

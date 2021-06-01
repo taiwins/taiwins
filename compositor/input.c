@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <linux/input-event-codes.h>
+#include <wayland-server-core.h>
 #include <wayland-server.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon-names.h>
@@ -33,13 +33,16 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/virtual_keyboard.h>
+#include <taiwins/shell.h>
 
 #include <taiwins/engine.h>
 #include <taiwins/backend.h>
 #include <taiwins/input_device.h>
 #include <taiwins/login.h>
 #include "desktop/xdg.h"
+
 #include "bindings.h"
+#include "config/config.h"
 #include "input.h"
 
 #define TW_SESSION_SWITCH_GRAB_LEVEL	0xffffffff
@@ -510,6 +513,31 @@ notify_removing_seat(struct wl_listener *listener, void *data)
 	tw_seat_listeners_fini(&mgr->inputs[seat->idx]);
 }
 
+static int
+notify_input_idle(void *data)
+{
+	struct tw_server_input_manager *mgr = data;
+	struct tw_shell *shell = tw_config_request_object(mgr->config,"shell");
+
+	if (shell)
+		tw_shell_start_locker(shell);
+	return 0;
+}
+
+static void
+notify_input_manager_seat_input(struct wl_listener *listener, void *data)
+{
+	struct tw_server_input_manager *mgr =
+		wl_container_of(listener, mgr, listeners.seat_input);
+	uint32_t idle_time = mgr->config->config_table.lock_timer.val;
+
+	if (mgr->idle_timer) {
+		wl_event_source_timer_update(mgr->idle_timer, idle_time*1000);
+	} else {
+		tw_logl_level(TW_LOG_WARN, "idle timer not available");
+	}
+}
+
 static void
 notify_input_manager_display_destroy(struct wl_listener *listener, void *data)
 {
@@ -541,8 +569,12 @@ tw_server_input_manager_create_global(struct tw_engine *engine,
                                       struct tw_config *config)
 {
 	static struct tw_server_input_manager mgr = {0};
+	struct wl_event_loop *lo =
+		wl_display_get_event_loop(engine->display);
+
 	mgr.engine = engine;
 	mgr.config = config;
+	mgr.idle_timer = wl_event_loop_add_timer(lo, notify_input_idle, &mgr);
 
 	tw_virtual_keyboard_manager_init(&mgr.vkeyboard_mgr, engine->display);
 	tw_input_method_manager_init(&mgr.im_mgr, engine->display);
@@ -554,9 +586,14 @@ tw_server_input_manager_create_global(struct tw_engine *engine,
 	tw_signal_setup_listener(&engine->signals.seat_remove,
 	                         &mgr.listeners.seat_remove,
 	                         notify_removing_seat);
+
 	tw_signal_setup_listener(&mgr.vkeyboard_mgr.new_keyboard,
 	                         &mgr.listeners.new_virtual_keyboard,
 	                         notify_adding_virtual_keyboard);
+	tw_signal_setup_listener(&engine->signals.seat_input,
+	                         &mgr.listeners.seat_input,
+	                         notify_input_manager_seat_input);
+
 	tw_set_display_destroy_listener(engine->display,
 	                                &mgr.listeners.display_destroy,
 	                                notify_input_manager_display_destroy);

@@ -57,6 +57,7 @@
       <description summary="create locker interface"/>
       <arg name="taiwins_ui" type="new_id" interface="taiwins_ui"/>
       <arg name="wl_surface" type="object" interface="wl_surface"/>
+      <arg name="wl_seat" type="object" interface="wl_seat"/>
       <arg name="taiwins_output" type="int" />
     </request>
 
