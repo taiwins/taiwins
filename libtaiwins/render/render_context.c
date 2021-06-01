@@ -208,15 +208,19 @@ tw_render_context_destroy(struct tw_render_context *ctx)
 }
 
 static void
-subsurface_add_to_list(struct wl_list *parent_head, struct tw_surface *surface)
+subsurface_add_to_list(struct wl_list *parent, struct tw_surface *surface,
+                       enum tw_subsurface_pos pos)
 {
 	struct tw_subsurface *sub;
+	//insert subsurface BEFORE the parent if it is placed above or AFTER
+	//the if it is placed below
+	struct wl_list *node =
+		(pos == TW_SUBSURFACE_ABOVE) ? parent->prev : parent;
 
-	wl_list_insert(parent_head->prev,
-	               &surface->links[TW_VIEW_GLOBAL_LINK]);
+	wl_list_insert(node, &surface->links[TW_VIEW_GLOBAL_LINK]);
 	wl_list_for_each_reverse(sub, &surface->subsurfaces, parent_link) {
 		subsurface_add_to_list(&surface->links[TW_VIEW_GLOBAL_LINK],
-		                       sub->surface);
+		                       sub->surface, sub->pos);
 	}
 }
 
@@ -235,7 +239,7 @@ surface_add_to_list(struct tw_layers_manager *manager,
 	//of the main surface
 	wl_list_for_each_reverse(sub, &surface->subsurfaces, parent_link)
 		subsurface_add_to_list(&surface->links[TW_VIEW_GLOBAL_LINK],
-		                       sub->surface);
+		                       sub->surface, sub->pos);
 }
 
 static void

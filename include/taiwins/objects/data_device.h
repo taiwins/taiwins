@@ -28,6 +28,8 @@
 #include <wayland-server.h>
 
 #include "seat.h"
+#include "surface.h"
+#include "subsurface.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -91,6 +93,7 @@ struct tw_data_drag {
 	struct tw_seat_pointer_grab pointer_grab;
 	struct tw_seat_keyboard_grab keyboard_grab;
 	struct wl_listener source_destroy_listener;
+	struct tw_subsurface subsurf;
 };
 
 /**

@@ -24,6 +24,10 @@
 
 #include "surface.h"
 
+enum tw_subsurface_pos {
+	TW_SUBSURFACE_ABOVE = 0,
+	TW_SUBSURFACE_BELOW = 1,
+};
 
 /** a good reference about subsurface is here
  * :https://ppaalanen.blogspot.com/2013/11/sub-surfaces-now.html
@@ -39,6 +43,7 @@ struct tw_subsurface {
 	struct wl_listener parent_destroyed;
 	int32_t sx, sy;
 	bool sync;
+	enum tw_subsurface_pos pos;
 	const struct tw_allocator *alloc;
 };
 

@@ -27,7 +27,7 @@
 #include <taiwins/objects/utils.h>
 #include <taiwins/objects/data_device.h>
 #include <taiwins/objects/seat.h>
-#include <taiwins/objects/surface.h>
+#include <taiwins/objects/subsurface.h>
 #include <taiwins/objects/cursor.h>
 #include <wayland-util.h>
 
@@ -160,9 +160,58 @@ notify_data_drag_source_destroy(struct wl_listener *listener, void *data)
 	drag->source = NULL;
 }
 
+/*****************************************************************************
+ * dnd surface
+ *****************************************************************************/
+
+static void
+commit_dnd_icon_surface(struct tw_surface *surface)
+{
+	//TODO; this is hack using the attach position
+	struct tw_subsurface *sub = surface->role.commit_private;
+	tw_subsurface_update_pos(sub,
+	                         sub->surface->current->dx,
+	                         sub->surface->current->dy);
+}
+
+static void
+notify_icon_surface_destroyed(struct wl_listener *listener, void *data)
+{
+	struct tw_subsurface *sub =
+		wl_container_of(listener, sub, surface_destroyed);
+	struct tw_data_drag *drag =
+		wl_container_of(sub, drag, subsurf);
+	tw_subsurface_fini(sub);
+}
+
+static void
+data_drag_set_icon(struct tw_data_drag *drag, struct tw_cursor *cursor,
+                   struct wl_resource *icon_res)
+{
+	struct tw_surface *icon = icon_res ?
+		tw_surface_from_resource(icon_res) : NULL;
+	struct tw_subsurface *subsurf = &drag->subsurf;
+	struct tw_surface *parent = cursor->curr_surface;
+
+	if (!tw_surface_assign_role(icon, &tw_data_drag_role, subsurf)) {
+		wl_resource_post_error(icon_res, WL_DATA_DEVICE_ERROR_ROLE,
+		                       "wl_surface@%d has another role",
+		                       wl_resource_get_id(icon_res));
+		return;
+	}
+
+	if (!icon || !parent)
+		return;
+	tw_subsurface_init(subsurf, NULL, icon, parent,
+	                   notify_icon_surface_destroyed);
+	subsurf->pos = TW_SUBSURFACE_BELOW;
+	subsurf->sync = false;
+}
+
 bool
 tw_data_source_start_drag(struct tw_data_drag *drag,
                           struct wl_resource *device_resource,
+                          struct wl_resource *icon,
                           struct tw_data_source *source, struct tw_seat *seat)
 {
 	if (!(seat->capabilities & WL_SEAT_CAPABILITY_POINTER))
@@ -189,5 +238,14 @@ tw_data_source_start_drag(struct tw_data_drag *drag,
 		tw_keyboard_start_grab(&seat->keyboard, &drag->keyboard_grab,
 		                       TW_DATA_DND_GRAB_ORDER);
 
+	data_drag_set_icon(drag, seat->cursor, icon);
+
 	return true;
 }
+
+struct tw_surface_role tw_data_drag_role = {
+	.commit = commit_dnd_icon_surface,
+	.name = "drag-and-drop",
+	.link.prev = &tw_data_drag_role.link,
+	.link.next = &tw_data_drag_role.link,
+};
