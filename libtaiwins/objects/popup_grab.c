@@ -31,15 +31,6 @@
 static const struct tw_pointer_grab_interface popup_pointer_grab_impl;
 static const struct tw_touch_grab_interface popup_touch_grab_impl;
 
-static inline bool
-tw_popup_grab_is_current(struct tw_seat *seat)
-{
-	return (seat->pointer.grab &&
-	        seat->pointer.grab->impl == &popup_pointer_grab_impl) ||
-		(seat->touch.grab &&
-		 seat->touch.grab->impl == &popup_touch_grab_impl);
-}
-
 static void tw_popup_grab_close(struct tw_popup_grab *grab);
 
 static void
@@ -110,12 +101,7 @@ tw_popup_grab_close(struct tw_popup_grab *grab)
 		tw_touch_end_grab(touch, &grab->touch_grab);
 	wl_signal_emit(&grab->close, grab);
 
-	tw_reset_wl_list(&grab->parent_destroy.link);
 	tw_reset_wl_list(&grab->resource_destroy.link);
-
-	//also, if there is a parent, we switch to parent
-	if (grab->parent_grab)
-		tw_popup_grab_start(grab->parent_grab, seat);
 }
 
 static void
@@ -126,40 +112,9 @@ notify_resource_destroy(struct wl_listener *listener, void *userdata)
 	tw_popup_grab_close(grab);
 }
 
-static void
-notify_parent_destroy(struct wl_listener *listener, void *userdata)
-{
-	struct tw_popup_grab *parent = userdata;
-	struct tw_popup_grab *grab =
-		wl_container_of(listener, grab, parent_destroy);
-
-        tw_reset_wl_list(&grab->parent_destroy.link);
-	if (parent->parent_grab && grab != parent->parent_grab) {
-		grab->parent_grab = parent->parent_grab;
-		tw_signal_setup_listener(&parent->parent_grab->close,
-		                         &grab->parent_destroy,
-		                         notify_parent_destroy);
-	} else {
-		grab->parent_grab = NULL;
-	}
-}
-
 WL_EXPORT void
 tw_popup_grab_start(struct tw_popup_grab *grab, struct tw_seat *seat)
 {
-	grab->seat = seat;
-	if (tw_popup_grab_is_current(seat)) {
-		grab->parent_grab =
-			wl_container_of(seat->pointer.grab,
-			                grab->parent_grab, pointer_grab);
-		tw_signal_setup_listener(&grab->parent_grab->close,
-		                         &grab->parent_destroy,
-		                         notify_parent_destroy);
-	}
-
-	grab->pointer_grab.seat = seat;
-	grab->touch_grab.seat = seat;
-
 	if (seat->capabilities & WL_SEAT_CAPABILITY_POINTER) {
 		tw_pointer_start_grab(&seat->pointer, &grab->pointer_grab,
 		                      TW_POPUP_GRAB_ORDER);
@@ -189,6 +144,5 @@ tw_popup_grab_init(struct tw_popup_grab *grab, struct tw_surface *surface,
 	tw_set_resource_destroy_listener(obj,
 	                                 &grab->resource_destroy,
 	                                 notify_resource_destroy);
-	wl_list_init(&grab->parent_destroy.link);
 	wl_signal_init(&grab->close);
 }

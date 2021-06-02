@@ -213,12 +213,11 @@ try_pick_subsurfaces(struct tw_surface *parent, float x, float y,
 	//recursively picking subsurfaces, we need to find a way to avoid this
 	wl_list_for_each(sub, &parent->subsurfaces, parent_link) {
 		surface = try_pick_subsurfaces(sub->surface, x, y, sx, sy);
-		if (!surface) {
+		if (!surface)
 			surface = sub->surface;
-			if (tw_surface_has_input_point(surface, x, y)) {
-				tw_surface_to_local_pos(surface, x, y, sx, sy);
-				return surface;
-			}
+		if (tw_surface_has_input_point(surface, x, y)) {
+			tw_surface_to_local_pos(surface, x, y, sx, sy);
+			return surface;
 		}
 	}
 	return NULL;

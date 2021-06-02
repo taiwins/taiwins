@@ -36,8 +36,9 @@ extern "C" {
 /**
  * @brief common interface used for popup windows
  *
- * popup is a subsurface with a specific grab, popup grab is used in wl_shell,
- * xdg_shell, wlr_layer_shell and possibly taiwins_shell as well.
+ * popup is a subsurface with a specific grab, possibly nested. It is used in
+ * wl_shell, xdg_shell, xsurface, wlr_layer_shell and possibly taiwins_shell as
+ * well.
  */
 struct tw_popup_grab {
 	struct tw_seat_pointer_grab pointer_grab;
@@ -45,12 +46,6 @@ struct tw_popup_grab {
 	struct wl_resource *focus, *interface;
 	struct tw_seat *seat;
 	struct wl_listener resource_destroy;
-	struct wl_listener parent_destroy;
-
-        /* popup grab can be nested so that when we jump on another grab we
-         * should see if there was nested grab created
-         */
-	struct tw_popup_grab *parent_grab;
 
 	struct wl_signal close;
 };
