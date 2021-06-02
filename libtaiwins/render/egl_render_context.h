@@ -43,7 +43,6 @@ struct tw_egl_render_context {
 	struct tw_egl egl;
 	struct wl_array pixel_formats;
 
-	struct wl_listener dma_set;
 	struct wl_listener compositor_set;
 	struct wl_listener surface_created;
 

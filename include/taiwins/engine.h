@@ -35,7 +35,6 @@
 #include <taiwins/objects/output.h>
 #include <taiwins/objects/data_device.h>
 #include <taiwins/objects/compositor.h>
-#include <taiwins/objects/dmabuf.h>
 #include <taiwins/objects/cursor.h>
 #include <taiwins/objects/presentation_feedback.h>
 #include <taiwins/objects/viewporter.h>
@@ -132,7 +131,6 @@ struct tw_engine {
 	struct tw_layers_manager layers_manager;
 	struct tw_compositor compositor_manager;
 	struct tw_data_device_manager data_device_manager;
-	struct tw_linux_dmabuf dma_engine;
 	struct tw_presentation presentation;
 	struct tw_viewporter viewporter;
 	struct tw_gestures_manager gestures_manager;

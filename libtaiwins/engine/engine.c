@@ -39,7 +39,6 @@
 #include <taiwins/objects/compositor.h>
 #include <taiwins/objects/cursor.h>
 #include <taiwins/objects/data_device.h>
-#include <taiwins/objects/dmabuf.h>
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/subsurface.h>
@@ -108,7 +107,6 @@ notify_engine_backend_started(struct wl_listener *listener, void *data)
         assert(backend == engine->backend);
 
         tw_render_context_set_compositor(ctx, &engine->compositor_manager);
-        tw_render_context_set_dma(ctx, &engine->dma_engine);
 }
 
 /******************************************************************************
@@ -123,8 +121,6 @@ engine_init_globals(struct tw_engine *engine)
 		return false;
 	if (!tw_data_device_manager_init(&engine->data_device_manager,
 	                                 engine->display))
-		return false;
-	if (!tw_linux_dmabuf_init(&engine->dma_engine, engine->display))
 		return false;
 	if (!tw_presentation_init(&engine->presentation, engine->display))
 		return false;
@@ -145,7 +141,6 @@ WL_EXPORT struct tw_engine *
 tw_engine_create_global(struct wl_display *display, struct tw_backend *backend)
 {
 	struct tw_engine *engine = &s_engine;
-	/* struct tw_engine_obj_proxy *proxy = &s_tw_engine_proxy; */
 
 	if (engine->display) {
 		tw_logl_level(TW_LOG_ERRO, "engine already initialized\n");

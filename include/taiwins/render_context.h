@@ -103,13 +103,15 @@ struct tw_render_context {
 
 	struct {
 		struct wl_signal destroy;
-		struct wl_signal dma_set;
 		struct wl_signal compositor_set;
 		//this is plain damn weird.
 		struct wl_signal output_lost;
 		struct wl_signal wl_surface_dirty;
 		struct wl_signal wl_surface_destroy;
 	} signals;
+
+	//globals
+	struct tw_linux_dmabuf dma_manager;
 
 	struct wl_list pipelines;
 };
@@ -123,9 +125,6 @@ tw_render_context_destroy(struct tw_render_context *ctx);
 void
 tw_render_context_build_view_list(struct tw_render_context *ctx,
                                   struct tw_layers_manager *manager);
-void
-tw_render_context_set_dma(struct tw_render_context *ctx,
-                          struct tw_linux_dmabuf *dma);
 void
 tw_render_context_set_compositor(struct tw_render_context *ctx,
                                  struct tw_compositor *compositor);
