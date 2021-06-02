@@ -296,6 +296,5 @@ WL_EXPORT void
 tw_render_context_set_compositor(struct tw_render_context *ctx,
                                  struct tw_compositor *compositor)
 {
-	wl_signal_emit(&ctx->signals.compositor_set, compositor);
 	compositor->obj_alloc = &tw_render_compositor_allocator;
 }

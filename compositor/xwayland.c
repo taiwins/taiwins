@@ -72,9 +72,9 @@ notify_xwayland_create_xwm(struct wl_listener *listener, void *data)
 	struct tw_xwayland *xwayland =
 		wl_container_of(listener, xwayland, listeners.xserver_created);
 	struct tw_desktop_manager *manager = xwayland->desktop_manager;
+	struct tw_render_context *ctx = xwayland->engine->backend->ctx;
 	//TODO compositor may moved to other places
-	struct tw_compositor *compositor =
-		&xwayland->engine->compositor_manager;
+	struct tw_compositor *compositor = &ctx->compositor_manager;
 	struct tw_xserver *server = data;
 	char display[32];
 

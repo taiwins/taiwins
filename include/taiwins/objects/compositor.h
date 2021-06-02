@@ -74,6 +74,8 @@ tw_compositor_create_global(struct wl_display *display);
 bool
 tw_compositor_init(struct tw_compositor *compositor,
                    struct wl_display *display);
+void
+tw_compositor_fini(struct tw_compositor *compositor);
 
 #ifdef  __cplusplus
 }

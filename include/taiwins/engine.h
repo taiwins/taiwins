@@ -129,7 +129,6 @@ struct tw_engine {
 	//objects
 
 	struct tw_layers_manager layers_manager;
-	struct tw_compositor compositor_manager;
 	struct tw_data_device_manager data_device_manager;
 	struct tw_presentation presentation;
 	struct tw_viewporter viewporter;
@@ -140,8 +139,6 @@ struct tw_engine {
 		struct wl_listener display_destroy;
 		struct wl_listener new_output;
 		struct wl_listener new_input;
-		struct wl_listener backend_started;
-		struct wl_listener surface_dirty;
 	} listeners;
         /* signals */
 	struct {

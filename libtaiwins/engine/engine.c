@@ -90,23 +90,8 @@ notify_engine_release(struct wl_listener *listener, void *data)
 
         wl_list_remove(&engine->listeners.display_destroy.link);
 	tw_cursor_fini(&engine->global_cursor);
-	/* tw_backend_fini_obj_proxy(backend->proxy); */
 	engine->started = false;
 	engine->display = NULL;
-}
-
-static void
-notify_engine_backend_started(struct wl_listener *listener, void *data)
-{
-	struct tw_engine *engine =
-		wl_container_of(listener, engine, listeners.backend_started);
-	struct tw_backend *backend = data;
-	struct tw_render_context *ctx = backend->ctx;
-
-	assert(ctx);
-        assert(backend == engine->backend);
-
-        tw_render_context_set_compositor(ctx, &engine->compositor_manager);
 }
 
 /******************************************************************************
@@ -116,9 +101,6 @@ notify_engine_backend_started(struct wl_listener *listener, void *data)
 static bool
 engine_init_globals(struct tw_engine *engine)
 {
-	if (!tw_compositor_init(&engine->compositor_manager,
-	                        engine->display))
-		return false;
 	if (!tw_data_device_manager_init(&engine->data_device_manager,
 	                                 engine->display))
 		return false;
@@ -180,9 +162,6 @@ tw_engine_create_global(struct wl_display *display, struct tw_backend *backend)
 	tw_signal_setup_listener(&backend->signals.new_input,
 	                         &engine->listeners.new_input,
 	                         notify_new_input);
-	tw_signal_setup_listener(&backend->signals.start,
-	                         &engine->listeners.backend_started,
-	                         notify_engine_backend_started);
 	//signals
 	wl_signal_init(&engine->signals.seat_created);
 	wl_signal_init(&engine->signals.seat_focused);

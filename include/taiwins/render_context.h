@@ -84,7 +84,6 @@ struct tw_render_context_impl {
 	bool (*new_window_surface)(struct tw_render_presentable *surf,
 	                           struct tw_render_context *ctx,
 	                           void *native_window, uint32_t format);
-
 };
 
 /* we create this render context from scratch so we don't break everything, the
@@ -103,7 +102,6 @@ struct tw_render_context {
 
 	struct {
 		struct wl_signal destroy;
-		struct wl_signal compositor_set;
 		//this is plain damn weird.
 		struct wl_signal output_lost;
 		struct wl_signal wl_surface_dirty;
@@ -112,6 +110,7 @@ struct tw_render_context {
 
 	//globals
 	struct tw_linux_dmabuf dma_manager;
+	struct tw_compositor compositor_manager;
 
 	struct wl_list pipelines;
 };

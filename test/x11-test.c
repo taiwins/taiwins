@@ -1,4 +1,3 @@
-#include "taiwins/objects/desktop.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
@@ -22,6 +21,7 @@
 struct data {
 	struct wl_display *display;
 	struct tw_engine *engine;
+	struct tw_render_context *ctx;
 
 	struct tw_test_desktop *desktop;
 #ifdef _TW_HAS_XWAYLAND
@@ -47,8 +47,8 @@ notify_xserver_ready(struct wl_listener *listener, void *data)
 	struct data *d =
 		wl_container_of(listener, d, listeners.xserver_ready);
 	struct tw_desktop_manager *desktop = &d->desktop->manager;
-	tw_xserver_create_xwindow_manager(d->xserver, desktop,
-	                                  &d->engine->compositor_manager);
+	struct tw_compositor *compositor = &d->ctx->compositor_manager;
+	tw_xserver_create_xwindow_manager(d->xserver, desktop, compositor);
 }
 
 static void
@@ -142,6 +142,7 @@ int main(int argc, char *argv[])
 	struct data data = {
 		.display = display,
 		.engine = engine,
+		.ctx = ctx,
 #ifdef _TW_HAS_XWAYLAND
 		.xserver = xserver,
 #endif
