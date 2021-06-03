@@ -586,12 +586,11 @@ tw_drm_display_check_action(struct tw_drm_display *output,
 		tw_drm_display_start(output);
 	else if (need_continue)
 		tw_drm_display_continue(output);
-	else if (need_stop)
-		tw_drm_display_stop(output);
 	else if (need_remove)
 		tw_drm_display_remove(output);
+	else if (need_stop)
+		tw_drm_display_stop(output);
 }
-
 
 /*
  * handle page-flipping, the render-output currently relies on a double
