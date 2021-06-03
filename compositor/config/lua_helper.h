@@ -179,7 +179,7 @@ tw_lua_is_tuple2(lua_State *L, int pos, int *x, int *y)
 		*x = lua_tonumber(L, -1);
 		lua_pop(L, 1);
 
-		lua_rawgeti(L, pos, 1);
+		lua_rawgeti(L, pos, 2);
 		ret = ret && tw_lua_isnumber(L, -1);
 		*y = lua_tonumber(L, -1);
 		lua_pop(L, 1);
