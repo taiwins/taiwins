@@ -27,6 +27,7 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/objects/utils.h>
 #include <wayland-server.h>
+#include <wayland-util.h>
 #include <xf86drmMode.h>
 
 #include "output_device.h"
@@ -329,10 +330,7 @@ static inline bool
 tw_drm_display_attach_crtc(struct tw_drm_display *display,
                            struct tw_drm_crtc *crtc)
 {
-	if (crtc->display && crtc->display != display)
-		return false;
 	display->crtc = crtc;
-	display->crtc->display = display;
 	//updating pending kms
 	display->status.next.props_crtc = &crtc->props;
 	UPDATE_PENDING(display, crtc_id, crtc->props.id, TW_DRM_PENDING_CRTC);
@@ -343,14 +341,23 @@ tw_drm_display_attach_crtc(struct tw_drm_display *display,
 static inline void
 tw_drm_display_detach_crtc(struct tw_drm_display *display)
 {
-	struct tw_drm_crtc *crtc = display->crtc;
+	/* struct tw_drm_crtc *crtc = display->crtc; */
 
-	if (crtc)
-		crtc->display = NULL;
 	display->crtc = NULL;
 	UPDATE_PENDING(display, active, false, TW_DRM_PENDING_ACTIVE);
 	UPDATE_PENDING(display, crtc_id, TW_DRM_CRTC_ID_INVALID,
 	               TW_DRM_PENDING_CRTC);
+}
+
+static struct tw_drm_display *
+find_crtc_occupied(struct tw_drm_gpu *gpu, struct tw_drm_crtc *crtc)
+{
+	struct tw_drm_display *display = NULL;
+	wl_list_for_each(display, &gpu->drm->base.outputs, output.device.link) {
+		if (display->crtc == crtc)
+			return display;
+	}
+	return NULL;
 }
 
 static struct tw_drm_crtc *
@@ -360,21 +367,16 @@ find_display_crtc(struct tw_drm_display *output)
 
 	struct tw_drm_gpu *gpu = output->gpu;
 	struct tw_drm_crtc *crtc = NULL;
-	/* struct tw_drm_crtc *potential_crtc = */
-	/*	crtc_from_id(gpu, output->status.crtc_id); */
-	/* //not attached */
-	/* if (potential_crtc && (!potential_crtc->display)) { */
-	/*	tw_drm_display_attach_crtc(output, potential_crtc); */
-	/*	return true; */
-	/* } else { */
 	wl_list_for_each(crtc, &gpu->crtc_list, link) {
+		struct tw_drm_display *occupied =
+			find_crtc_occupied(gpu, crtc);
 		//compatible and not taken
-		if (((1 << crtc->idx) & mask) && !crtc->display) {
+		if (((1 << crtc->idx) & mask) &&
+		    (!occupied || occupied == output)) {
 			tw_drm_display_attach_crtc(output, crtc);
 			return crtc;
 		}
 	}
-	/* } */
 	return NULL;
 }
 

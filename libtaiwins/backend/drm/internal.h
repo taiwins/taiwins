@@ -151,8 +151,6 @@ struct tw_drm_plane {
 
 struct tw_drm_crtc {
 	int idx;
-	/** occupied by display */
-	struct tw_drm_display *display;
 	struct wl_list link; /** drm->crtc_list */
 
 	struct tw_drm_crtc_props props;
@@ -255,8 +253,6 @@ struct tw_drm_gpu {
 	uint32_t plane_mask;
 	struct tw_drm_plane planes[32];
 	struct wl_list plane_list;
-
-	struct tw_drm_connector_props props;
 };
 
 /**

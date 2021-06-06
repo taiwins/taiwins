@@ -41,7 +41,6 @@ tw_drm_crtc_init(struct tw_drm_crtc *crtc, int fd, int id, int idx)
 		{"MODE_ID", &crtc->props.mode_id},
 	};
 
-	crtc->display = NULL;
 	crtc->props.id = id;
 	crtc->idx = idx;
 	wl_list_init(&crtc->link);
@@ -52,7 +51,6 @@ tw_drm_crtc_init(struct tw_drm_crtc *crtc, int fd, int id, int idx)
 static inline void
 tw_drm_crtc_fini(struct tw_drm_crtc *crtc)
 {
-	crtc->display = NULL;
 	crtc->props.id = TW_DRM_CRTC_ID_INVALID;
 	crtc->idx = -1;
 	wl_list_remove(&crtc->link);
