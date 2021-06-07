@@ -164,14 +164,11 @@ static uint32_t
 get_ledmask(struct tw_input_device *device)
 {
 	uint32_t mask = 0;
-	struct xkb_state *state = device->input.keyboard.keystate;
+	struct tw_keyboard_input *input = &device->input.keyboard;
 
-	if (xkb_state_led_name_is_active(state, XKB_LED_NAME_NUM))
-		mask |= TW_LED_NUM_LOCK;
-	if (xkb_state_led_name_is_active(state, XKB_LED_NAME_CAPS))
-		mask |= TW_LED_CAPS_LOCK;
-	if (xkb_state_led_name_is_active(state, XKB_LED_NAME_SCROLL))
-		mask |= TW_LED_SCROLL_LOCK;
+	mask |= input->num_locked ? TW_LED_NUM_LOCK : 0;
+	mask |= input->caps_locked ? TW_LED_CAPS_LOCK : 0;
+	mask |= input->scroll_locked ? TW_LED_SCROLL_LOCK : 0;
 	return mask;
 }
 

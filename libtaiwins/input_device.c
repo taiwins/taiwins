@@ -22,6 +22,8 @@
 #include <assert.h>
 #include <wayland-server-core.h>
 #include <wayland-util.h>
+#include <xkbcommon/xkbcommon-compat.h>
+#include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon.h>
 
 #include <taiwins/input_device.h>
@@ -41,6 +43,7 @@ update_keyboard_modifier(struct tw_input_device *dev)
 	struct tw_keyboard_input *input = &dev->input.keyboard;
 	struct xkb_state *state = dev->input.keyboard.keystate;
 	xkb_mod_mask_t depressed, latched, locked, group;
+	bool num_lock, scroll_lock, caps_lock;
 
 	if (state == NULL) {
 		return false;
@@ -50,12 +53,18 @@ update_keyboard_modifier(struct tw_input_device *dev)
 	latched = xkb_state_serialize_mods(state, XKB_STATE_MODS_LATCHED);
 	locked = xkb_state_serialize_mods(state, XKB_STATE_MODS_LOCKED);
 	group = xkb_state_serialize_layout(state, XKB_STATE_LAYOUT_EFFECTIVE);
+	num_lock = xkb_state_led_name_is_active(state, XKB_LED_NAME_NUM);
+	caps_lock = xkb_state_led_name_is_active(state, XKB_LED_NAME_CAPS);
+	scroll_lock = xkb_state_led_name_is_active(state, XKB_LED_NAME_SCROLL);
 
-        if (depressed == input->depressed  && latched == input->latched &&
+	if (depressed == input->depressed  && latched == input->latched &&
 	    locked == input->locked && group == input->group) {
 		return false;
 	}
 
+	input->num_locked = num_lock;
+	input->caps_locked = caps_lock;
+	input->scroll_locked = scroll_lock;
 	input->depressed = depressed;
 	input->latched = latched;
 	input->locked = locked;
@@ -165,6 +174,7 @@ tw_input_device_set_keymap(struct tw_input_device *device,
 {
 	if (device->type != TW_INPUT_TYPE_KEYBOARD)
 		return;
+
 	xkb_state_unref(device->input.keyboard.keystate);
 	xkb_keymap_unref(device->input.keyboard.keymap);
 

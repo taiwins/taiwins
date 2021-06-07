@@ -50,6 +50,19 @@ request_output_device_from_libinput(struct tw_libinput_device *dev)
  * keyboard event
  *****************************************************************************/
 
+static inline void
+handle_device_update_leds(struct tw_libinput_device *dev)
+{
+	uint32_t leds = 0;
+	struct tw_keyboard_input *input = &dev->base.input.keyboard;
+
+	leds |= input->num_locked ? LIBINPUT_LED_NUM_LOCK : 0;
+	leds |= input->caps_locked ? LIBINPUT_LED_CAPS_LOCK : 0;
+	leds |= input->scroll_locked ? LIBINPUT_LED_SCROLL_LOCK : 0;
+
+	libinput_device_led_update(dev->libinput, leds);
+}
+
 static void
 handle_device_keyboard_event(struct tw_libinput_device *dev,
                              struct libinput_event_keyboard *event)
@@ -67,6 +80,8 @@ handle_device_keyboard_event(struct tw_libinput_device *dev,
 	key.time = libinput_event_keyboard_get_time(event);
 
 	tw_input_device_notify_key(&dev->base, &key);
+	handle_device_update_leds(dev);
+
 }
 
 /******************************************************************************
