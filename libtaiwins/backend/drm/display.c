@@ -29,6 +29,7 @@
 #include <wayland-server.h>
 #include <xf86drmMode.h>
 
+#include "output_device.h"
 #include "internal.h"
 
 bool

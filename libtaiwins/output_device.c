@@ -19,7 +19,6 @@
  *
  */
 
-#include "options.h"
 #include <math.h>
 #include <stdint.h>
 #include <time.h>
@@ -31,7 +30,8 @@
 #include <taiwins/objects/logger.h>
 #include <taiwins/output_device.h>
 #include <taiwins/objects/utils.h>
-#include <wayland-util.h>
+
+#include "output_device.h"
 
 static void
 output_device_state_init(struct tw_output_device_state *state,
@@ -47,13 +47,6 @@ output_device_state_init(struct tw_output_device_state *state,
 
         state->gx = 0;
 	state->gy = 0;
-}
-
-static inline bool
-output_device_mode_match(const struct tw_output_device_mode *mode,
-                         int w, int h, int r)
-{
-	return mode->w == w && mode->h == h && mode->refresh == r;
 }
 
 void
@@ -84,6 +77,45 @@ tw_output_device_fini(struct tw_output_device *device)
 	wl_list_remove(&device->link);
 }
 
+/** used by backends to extract potential matched mode
+ *
+ * The algorithm would go through the mode_list searching for the closest mode
+ * available(unless there is no modes at all). We return on finding exact mode
+ * or the closest mode we can get.
+ *
+ */
+struct tw_output_device_mode *
+tw_output_device_match_mode(struct tw_output_device *device,
+                            int w, int h, int r)
+{
+	uint64_t min_diff = UINT64_MAX;
+	struct tw_output_device_mode *matched = NULL, *mode;
+
+	//return preferred if invalid
+	if (!w || !h || !r) {
+		wl_list_for_each(mode, &device->mode_list, link)
+			if (mode->preferred)
+				return mode;
+		return !wl_list_empty(&device->mode_list) ?
+			wl_container_of(device->mode_list.next, mode, link) :
+			NULL;
+	}
+
+	wl_list_for_each(mode, &device->mode_list, link) {
+		uint64_t diff = abs(mode->w-w) * abs(mode->h-h) * 1000 +
+			abs(mode->refresh - r);
+
+		if (tw_output_device_mode_match(mode, w, h, r))
+			return mode;
+
+		if (diff < min_diff) {
+			min_diff = diff;
+			matched = mode;
+		}
+	}
+	return matched;
+}
+
 WL_EXPORT void
 tw_output_device_set_pos(struct tw_output_device *device, int gx, int gy)
 {
@@ -109,45 +141,6 @@ tw_output_device_set_custom_mode(struct tw_output_device *device,
 	device->pending.current_mode.h = height;
 	device->pending.current_mode.preferred = false;
 	device->pending.current_mode.refresh = refresh;
-}
-
-/** used by backends to extract potential matched mode
- *
- * The algorithm would go through the mode_list searching for the closest mode
- * available(unless there is no modes at all). We return on finding exact mode
- * or the closest mode we can get.
- *
- */
-WL_EXPORT struct tw_output_device_mode *
-tw_output_device_match_mode(struct tw_output_device *device,
-                            int w, int h, int r)
-{
-	uint64_t min_diff = UINT64_MAX;
-	struct tw_output_device_mode *matched = NULL, *mode;
-
-	//return preferred if invalid
-	if (!w || !h || !r) {
-		wl_list_for_each(mode, &device->mode_list, link)
-			if (mode->preferred)
-				return mode;
-		return !wl_list_empty(&device->mode_list) ?
-			wl_container_of(device->mode_list.next, mode, link) :
-			NULL;
-	}
-
-	wl_list_for_each(mode, &device->mode_list, link) {
-		uint64_t diff = abs(mode->w-w) * abs(mode->h-h) * 1000 +
-			abs(mode->refresh - r);
-
-		if (output_device_mode_match(mode, w, h, r))
-			return mode;
-
-		if (diff < min_diff) {
-			min_diff = diff;
-			matched = mode;
-		}
-	}
-	return matched;
 }
 
 WL_EXPORT void
@@ -227,23 +220,4 @@ tw_output_device_raw_resolution(const struct tw_output_device *device,
 {
 	*width = device->current.current_mode.w;
 	*height = device->current.current_mode.h;
-}
-
-bool
-tw_output_device_mode_eq(const struct tw_output_device_mode *a,
-                         const struct tw_output_device_mode *b)
-{
-	return output_device_mode_match(a, b->w, b->h, b->refresh);
-}
-
-bool
-tw_output_device_state_eq(const struct tw_output_device_state *a,
-                          const struct tw_output_device_state *b)
-{
-	return a->enabled == b->enabled &&
-		a->scale == b->scale &&
-		a->gx == b->gx &&
-		a->gy == b->gy &&
-		a->transform == b->transform &&
-		tw_output_device_mode_eq(&a->current_mode, &b->current_mode);
 }

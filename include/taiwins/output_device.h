@@ -113,9 +113,6 @@ tw_output_device_set_mode(struct tw_output_device *dev,
 void
 tw_output_device_set_custom_mode(struct tw_output_device *device,
                                  unsigned width, unsigned height, int refresh);
-struct tw_output_device_mode *
-tw_output_device_match_mode(struct tw_output_device *device,
-                            int width, int height, int refresh);
 /**
  * @brief commit the pending state of transform, scale, pos and mode
  *
