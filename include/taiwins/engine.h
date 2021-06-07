@@ -111,7 +111,7 @@ struct tw_engine {
 	bool started;
 
 	/* outputs */
-	struct wl_list heads; /* tw_backend_output:links */
+	struct wl_list heads, pending_heads; /* tw_engine_output:links */
 	uint32_t output_pool;
 	struct tw_engine_output outputs[32];
 

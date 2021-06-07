@@ -87,9 +87,6 @@ struct tw_output_device {
 
 	struct {
 		struct wl_signal destroy;
-		/** emit when general wl_output information is available, or
-		 * when output state changed */
-                struct wl_signal info;
 		/** emit right after applying pending state, backend could
 		 * listen on this for applying the states to the hardware */
 		struct wl_signal commit_state;
@@ -119,6 +116,12 @@ tw_output_device_set_custom_mode(struct tw_output_device *device,
 struct tw_output_device_mode *
 tw_output_device_match_mode(struct tw_output_device *device,
                             int width, int height, int refresh);
+/**
+ * @brief commit the pending state of transform, scale, pos and mode
+ *
+ * Backend will emit the first commit_state, before that the output does not
+ * have a valid state.
+ */
 void
 tw_output_device_commit_state(struct tw_output_device *device);
 

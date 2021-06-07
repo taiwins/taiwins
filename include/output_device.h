@@ -47,7 +47,6 @@ tw_output_device_mode_eq(const struct tw_output_device_mode *a,
 bool
 tw_output_device_state_eq(const struct tw_output_device_state *a,
                           const struct tw_output_device_state *b);
-
 static inline void
 tw_output_device_set_current_mode(struct tw_output_device *device,
                                   unsigned width, unsigned height, int refresh)
@@ -56,7 +55,6 @@ tw_output_device_set_current_mode(struct tw_output_device *device,
 	device->current.current_mode.w = width;
 	device->current.current_mode.refresh = refresh;
 	wl_signal_emit(&device->signals.commit_state, device);
-	wl_signal_emit(&device->signals.info, device);
 }
 
 static inline void
