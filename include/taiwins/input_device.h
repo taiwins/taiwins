@@ -118,7 +118,8 @@ struct tw_input_sink {
 };
 
 struct tw_keyboard_input {
-	xkb_led_mask_t depressed, latched, locked, group;
+	xkb_mod_mask_t depressed, latched, locked, group;
+	bool num_locked, scroll_locked, caps_locked;
 
 	struct xkb_keymap *keymap;
 	struct xkb_state *keystate;
