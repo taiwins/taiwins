@@ -173,6 +173,12 @@ destroy_tw_compositor(struct wl_listener *listener, void *data)
 {
 	struct tw_compositor *compositor =
 		wl_container_of(listener, compositor, destroy_listener);
+	tw_compositor_fini(compositor);
+}
+
+WL_EXPORT void
+tw_compositor_fini(struct tw_compositor *compositor)
+{
 	struct wl_resource *res, *next;
 
 	wl_resource_for_each_safe(res, next, &compositor->clients)
@@ -182,6 +188,8 @@ destroy_tw_compositor(struct wl_listener *listener, void *data)
 
 	wl_global_destroy(compositor->wl_compositor);
 	wl_global_destroy(compositor->wl_subcompositor);
+
+	wl_list_remove(&compositor->destroy_listener.link);
 }
 
 WL_EXPORT bool

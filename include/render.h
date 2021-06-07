@@ -43,6 +43,15 @@ extern "C" {
 /******************************************************************************
  * render_context
  *****************************************************************************/
+bool
+tw_render_context_init(struct tw_render_context *ctx,
+                       struct wl_display *display,
+                       enum tw_renderer_type type,
+                       const struct tw_render_context_impl *impl);
+
+/******************************************************************************
+ * render_presentable
+ *****************************************************************************/
 
 static inline bool
 tw_render_presentable_init_offscreen(struct tw_render_presentable *surface,

@@ -485,6 +485,12 @@ notify_dmabuf_destroy(struct wl_listener *listener, void *data)
 	struct tw_linux_dmabuf *dma =
 		wl_container_of(listener, dma, destroy_listener);
 
+	tw_linux_dmabuf_fini(dma);
+}
+
+WL_EXPORT void
+tw_linux_dmabuf_fini(struct tw_linux_dmabuf *dma)
+{
 	wl_global_destroy(dma->global);
 	wl_list_remove(&dma->destroy_listener.link);
 }
@@ -504,9 +510,9 @@ tw_linux_dmabuf_init(struct tw_linux_dmabuf *dmabuf,
 	dmabuf->impl = NULL;
 	dmabuf->impl_userdata = NULL;
 
-	wl_list_init(&dmabuf->destroy_listener.link);
-	dmabuf->destroy_listener.notify = notify_dmabuf_destroy;
-	wl_display_add_destroy_listener(display, &dmabuf->destroy_listener);
+	tw_set_display_destroy_listener(display,
+	                                &dmabuf->destroy_listener,
+	                                notify_dmabuf_destroy);
 	return true;
 }
 

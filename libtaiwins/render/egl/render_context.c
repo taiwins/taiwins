@@ -37,7 +37,9 @@
 #include <taiwins/render_pipeline.h>
 #include <wayland-util.h>
 
-#include "egl_render_context.h"
+#include "internal.h"
+#include "render.h"
+#include "taiwins/render_context.h"
 
 /******************************************************************************
  * eglsurface presentable implementation
@@ -163,26 +165,6 @@ notify_context_surface_created(struct wl_listener *listener, void *data)
 }
 
 static void
-notify_context_compositor_set(struct wl_listener *listener, void *data)
-{
-	struct tw_compositor *compositor = data;
-	struct tw_egl_render_context *ctx =
-		wl_container_of(listener, ctx, compositor_set);
-
-	tw_signal_setup_listener(&compositor->surface_created,
-	                         &ctx->surface_created,
-	                         notify_context_surface_created);
-}
-
-static void
-notify_context_dma_set(struct wl_listener *listener, void *data)
-{
-	struct tw_egl_render_context *ctx =
-		wl_container_of(listener, ctx, dma_set);
-	tw_egl_impl_linux_dmabuf(&ctx->egl, data);
-}
-
-static void
 notify_context_display_destroy(struct wl_listener *listener, void *display)
 {
 	struct tw_egl_render_context *ctx =
@@ -198,6 +180,8 @@ notify_context_display_destroy(struct wl_listener *listener, void *display)
 
 	wl_list_for_each_safe(pipeline, tmp, &ctx->base.pipelines, link)
 		tw_render_pipeline_destroy(pipeline);
+	tw_linux_dmabuf_fini(&ctx->base.dma_manager);
+	tw_compositor_fini(&ctx->base.compositor_manager);
 
 	free(ctx);
 }
@@ -350,33 +334,23 @@ tw_render_context_create_egl(struct wl_display *display,
 		return NULL;
 	if (!tw_egl_init(&ctx->egl, opts))
 		goto err_init_egl;
-
 	if (!init_gles_externsions(ctx))
 		goto err_init_egl;
+	if (!tw_render_context_init(&ctx->base, display, TW_RENDERER_EGL,
+	                            &egl_context_impl))
+		goto err_init_base;
 
-	ctx->base.type = TW_RENDERER_EGL;
-	ctx->base.display = display;
-	ctx->base.impl = &egl_context_impl;
-	wl_list_init(&ctx->base.pipelines);
-	wl_signal_init(&ctx->base.signals.destroy);
-	wl_signal_init(&ctx->base.signals.dma_set);
-	wl_signal_init(&ctx->base.signals.compositor_set);
-	wl_signal_init(&ctx->base.signals.output_lost);
-	wl_signal_init(&ctx->base.signals.wl_surface_dirty);
-	wl_signal_init(&ctx->base.signals.wl_surface_destroy);
-	wl_list_init(&ctx->base.outputs);
 	init_context_formats(ctx);
 	tw_egl_bind_wl_display(&ctx->egl, display);
 
+	tw_egl_impl_linux_dmabuf(&ctx->egl, &ctx->base.dma_manager);
 	tw_set_display_destroy_listener(display, &ctx->base.display_destroy,
 	                                notify_context_display_destroy);
-	tw_signal_setup_listener(&ctx->base.signals.dma_set, &ctx->dma_set,
-	                         notify_context_dma_set);
-	tw_signal_setup_listener(&ctx->base.signals.compositor_set,
-	                         &ctx->compositor_set,
-	                         notify_context_compositor_set);
-
+	tw_signal_setup_listener(&ctx->base.compositor_manager.surface_created,
+	                         &ctx->surface_created,
+	                         notify_context_surface_created);
 	return &ctx->base;
+err_init_base:
 err_init_egl:
 	free(ctx);
 	return NULL;
