@@ -33,6 +33,7 @@
 #include <taiwins/objects/logger.h>
 #include <wayland-util.h>
 
+#include "render.h"
 #include "utils.h"
 
 /******************************************************************************
@@ -291,10 +292,30 @@ tw_render_context_build_view_list(struct tw_render_context *ctx,
 	SCOPE_PROFILE_END();
 }
 
-
-WL_EXPORT void
-tw_render_context_set_compositor(struct tw_render_context *ctx,
-                                 struct tw_compositor *compositor)
+bool
+tw_render_context_init(struct tw_render_context *ctx,
+                       struct wl_display *display,
+                       enum tw_renderer_type type,
+                       const struct tw_render_context_impl *impl)
 {
-	compositor->obj_alloc = &tw_render_compositor_allocator;
+	if (!tw_linux_dmabuf_init(&ctx->dma_manager, display))
+		return false;
+	if (!tw_compositor_init(&ctx->compositor_manager, display))
+		return false;
+
+	ctx->type = type;
+	ctx->impl = impl;
+	ctx->display = display;
+	ctx->compositor_manager.obj_alloc = &tw_render_compositor_allocator;
+
+	wl_list_init(&ctx->pipelines);
+	wl_list_init(&ctx->outputs);
+
+	wl_signal_init(&ctx->signals.destroy);
+	wl_signal_init(&ctx->signals.destroy);
+	wl_signal_init(&ctx->signals.output_lost);
+	wl_signal_init(&ctx->signals.wl_surface_dirty);
+	wl_signal_init(&ctx->signals.wl_surface_destroy);
+
+	return true;
 }

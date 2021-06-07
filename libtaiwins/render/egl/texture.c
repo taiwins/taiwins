@@ -43,8 +43,7 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/render_context.h>
 
-
-#include "egl_render_context.h"
+#include "internal.h"
 
 static inline bool
 wl_format_supported(struct tw_egl_render_context *ctx,

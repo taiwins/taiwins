@@ -124,9 +124,6 @@ tw_render_context_destroy(struct tw_render_context *ctx);
 void
 tw_render_context_build_view_list(struct tw_render_context *ctx,
                                   struct tw_layers_manager *manager);
-void
-tw_render_context_set_compositor(struct tw_render_context *ctx,
-                                 struct tw_compositor *compositor);
 #ifdef  __cplusplus
 }
 #endif

@@ -1,5 +1,5 @@
 /*
- * egl_render_context.h - taiwins egl render context header
+ * internal.h - taiwins egl render context header
  *
  * Copyright (c) 2020 Xichen Zhou
  *
@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef TW_EGL_RENDER_CONTEXT_H
-#define TW_EGL_RENDER_CONTEXT_H
+#ifndef TW_EGL_RENDER_INTERNAL_H
+#define TW_EGL_RENDER_INTERNAL_H
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
