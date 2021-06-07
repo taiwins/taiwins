@@ -126,8 +126,8 @@ shell_change_desktop_area(void *data)
 	struct tw_shell_output *shell_output = data;
 	struct tw_engine_output *output = shell_output->output;
 	struct tw_shell *shell = shell_output->shell;
-
-	wl_signal_emit(&shell->desktop_area_signal, output);
+	if (output)
+		wl_signal_emit(&shell->desktop_area_signal, output);
 }
 
 static void
@@ -205,16 +205,15 @@ shell_ui_unbind(struct wl_resource *resource)
 
 	if (ui->binded)
 		tw_reset_wl_list(&ui->binded->layer_link);
+	tw_reset_wl_list(&ui->surface_destroy.link);
+	tw_reset_wl_list(&ui->grab_close.link);
 
 	if (output && ui == &output->panel) {
 		output->panel = (struct tw_shell_ui){0};
 		output->panel_height = 0;
-		panel_size_changed(output);
 	} else if (output && ui == &output->background) {
 		output->background = (struct tw_shell_ui){0};
 	}
-	tw_reset_wl_list(&ui->surface_destroy.link);
-	tw_reset_wl_list(&ui->grab_close.link);
 	ui->binded = NULL;
 	ui->layer = NULL;
 	ui->resource = NULL;
