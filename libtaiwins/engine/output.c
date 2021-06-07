@@ -76,38 +76,9 @@ engine_output_get_wl_output(struct tw_engine_output *output,
 	return NULL;
 }
 
-/******************************************************************************
- * listeners
- *****************************************************************************/
-
 static void
-notify_output_destroy(struct wl_listener *listener, void *data)
+engine_output_send_info(struct tw_engine_output *output)
 {
-	struct tw_engine_output *output =
-		wl_container_of(listener, output, listeners.destroy);
-	struct tw_engine *engine = output->engine;
-	uint32_t unset = ~(1 << output->id);
-
-	wl_signal_emit(&engine->signals.output_remove, output);
-
-	output->id = -1;
-	wl_list_remove(&output->link);
-	wl_list_remove(&output->listeners.destroy.link);
-	wl_list_remove(&output->listeners.info.link);
-	wl_list_remove(&output->listeners.present.link);
-	wl_list_remove(&output->listeners.set_mode.link);
-
-	tw_output_destroy(output->tw_output);
-
-	fini_engine_output_state(output);
-	engine->output_pool &= unset;
-}
-
-static void
-notify_output_info(struct wl_listener *listener, void *data)
-{
-	struct tw_engine_output *output =
-		wl_container_of(listener, output, listeners.info);
 	tw_output_set_name(output->tw_output, output->device->name);
 	tw_output_set_scale(output->tw_output, output->device->current.scale);
 	tw_output_set_coord(output->tw_output, output->device->current.gx,
@@ -128,17 +99,52 @@ notify_output_info(struct wl_listener *listener, void *data)
 	tw_output_send_clients(output->tw_output);
 }
 
+/******************************************************************************
+ * listeners
+ *****************************************************************************/
+
+static void
+notify_output_destroy(struct wl_listener *listener, void *data)
+{
+	struct tw_engine_output *output =
+		wl_container_of(listener, output, listeners.destroy);
+	struct tw_engine *engine = output->engine;
+	uint32_t unset = ~(1 << output->id);
+
+	wl_signal_emit(&engine->signals.output_remove, output);
+
+	output->id = -1;
+	wl_list_remove(&output->link);
+	wl_list_remove(&output->listeners.destroy.link);
+	wl_list_remove(&output->listeners.present.link);
+	wl_list_remove(&output->listeners.set_mode.link);
+
+	tw_output_destroy(output->tw_output);
+
+	fini_engine_output_state(output);
+	engine->output_pool &= unset;
+}
+
 static void
 notify_output_new_mode(struct wl_listener *listener, void *data)
 {
 	struct tw_engine_output *output =
 		wl_container_of(listener, output, listeners.set_mode);
+	struct tw_engine *engine = output->engine;
 	pixman_rectangle32_t rect = tw_output_device_geometry(output->device);
 
 	pixman_region32_fini(&output->constrain.region);
 	pixman_region32_init_rect(&output->constrain.region,
 	                          rect.x, rect.y, rect.width, rect.width);
-	wl_signal_emit(&output->engine->signals.output_resized, output);
+	//first state commit
+	if (tw_find_list_elem(&engine->pending_heads, &output->link)) {
+		wl_list_remove(&output->link);
+		wl_list_insert(engine->heads.prev, &output->link);
+		wl_signal_emit(&engine->signals.output_created, output);
+	} else {
+		wl_signal_emit(&engine->signals.output_resized, output);
+	}
+	engine_output_send_info(output);
 }
 
 static void
@@ -190,8 +196,8 @@ tw_engine_new_output(struct tw_engine *engine,
 	output->device = device;
 	output->tw_output = tw_output_create(engine->display);
 	tw_output_device_set_id(device, id);
-
 	wl_list_init(&output->link);
+
 	if (!output->tw_output) {
 		tw_logl_level(TW_LOG_ERRO, "failed to create wl_output");
 		return false;
@@ -199,9 +205,6 @@ tw_engine_new_output(struct tw_engine *engine,
 
 	init_engine_output_state(output);
 
-	tw_signal_setup_listener(&device->signals.info,
-	                         &output->listeners.info,
-	                         notify_output_info);
 	tw_signal_setup_listener(&device->signals.destroy,
 	                         &output->listeners.destroy,
 	                         notify_output_destroy);
@@ -212,11 +215,8 @@ tw_engine_new_output(struct tw_engine *engine,
 	                         &output->listeners.present,
 	                         notify_output_present);
         engine->output_pool |= 1 << id;
-        wl_list_init(&output->link);
-        wl_list_insert(&engine->heads, &output->link);
 
-        wl_signal_emit(&engine->signals.output_created, output);
-
+        wl_list_insert(engine->pending_heads.prev, &output->link);
         return true;
 }
 

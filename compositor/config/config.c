@@ -26,14 +26,11 @@
 #include <stdbool.h>
 #include <string.h>
 #include <sys/types.h>
-#include <wayland-server-core.h>
-#include <wayland-server-protocol.h>
 #include <wayland-server.h>
 #include <wayland-util.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-compose.h>
 #include <xkbcommon/xkbcommon-names.h>
-#include <linux/input.h>
 #include <ctype.h>
 #include <ctypes/sequential.h>
 #include <ctypes/os/file.h>
@@ -43,6 +40,7 @@
 #include <taiwins/objects/logger.h>
 
 #include <taiwins/engine.h>
+#include <taiwins/backend.h>
 #include <taiwins/output_device.h>
 #include <taiwins/shell.h>
 
@@ -167,11 +165,11 @@ tw_config_table_fini(struct tw_config_table *table)
 }
 
 static inline struct tw_config_output *
-tw_config_output_from_backend_output(struct tw_config_table *t,
-                                     struct tw_engine_output *output)
+tw_config_output_from_output_device(struct tw_config_table *t,
+                                     struct tw_output_device *device)
 {
 	for (unsigned i = 0; i < NUMOF(t->outputs); i++) {
-		if (!strcmp(output->device->name, t->outputs[i].name))
+		if (!strcmp(device->name, t->outputs[i].name))
 			return &t->outputs[i];
 	}
 	return NULL;
@@ -179,11 +177,10 @@ tw_config_output_from_backend_output(struct tw_config_table *t,
 
 static void
 tw_config_table_apply_output(struct tw_config_table *t,
-                             struct tw_engine_output *bo)
+                             struct tw_output_device *od)
 {
-	struct tw_output_device *od = bo->device;
 	struct tw_config_output *co =
-		tw_config_output_from_backend_output(t, bo);
+		tw_config_output_from_output_device(t, od);
 
 	if (!co || !od)
 		return;
@@ -226,7 +223,7 @@ tw_config_table_flush(struct tw_config_table *t)
 	//before backend start, the table flush should not touch the
 	//input/output device
 	wl_list_for_each(output, &engine->heads, link) {
-		tw_config_table_apply_output(t, output);
+		tw_config_table_apply_output(t, output->device);
 		tw_output_device_commit_state(output->device);
 	}
 
@@ -457,10 +454,12 @@ void
 tw_config_init(struct tw_config *config, struct tw_engine *engine)
 {
 	//to change
+	struct tw_backend *backend = engine->backend;
+
 	config->engine = engine;
 	tw_config_table_init(&config->config_table, config, NULL);
 	config->current = &config->config_table;
-	tw_signal_setup_listener(&engine->signals.output_created,
+	tw_signal_setup_listener(&backend->signals.new_output,
 	                         &config->output_created_listener,
 	                         notify_config_output_create);
 	tw_signal_setup_listener(&engine->signals.seat_created,

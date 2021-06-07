@@ -276,7 +276,7 @@ tw_x11_backend_add_output(struct tw_backend *backend,
         wl_list_insert(x11->base.inputs.prev, &output->pointer.link);
 
         if (backend->started)
-	        tw_x11_output_start(output);
+	        tw_x11_output_start_maybe(output);
 
 	return true;
 }

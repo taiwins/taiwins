@@ -158,6 +158,7 @@ tw_engine_create_global(struct wl_display *display, struct tw_backend *backend)
 	engine->seat_pool = 0;
 	engine->focused_seat = NULL;
 	wl_list_init(&engine->heads);
+	wl_list_init(&engine->pending_heads);
 	wl_list_init(&engine->inputs);
 
 	if (!backend)

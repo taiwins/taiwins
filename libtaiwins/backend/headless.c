@@ -106,6 +106,8 @@ headless_output_start(struct tw_headless_output *output,
 	tw_signal_setup_listener(&output->output.surface.commit,
 	                         &output->present_listener,
 	                         notify_output_commit);
+	//announce the output.
+	wl_signal_emit(&headless->base.signals.new_output, output);
 
 	//this will give us good resolution
 	tw_render_output_set_context(&output->output, headless->base.ctx);
@@ -116,10 +118,6 @@ headless_output_start(struct tw_headless_output *output,
 	tw_render_presentable_init_offscreen(&output->output.surface,
 	                                     headless->base.ctx,
 	                                     width, height);
-	//announce the output.
-	wl_signal_emit(&headless->base.signals.new_output, output);
-	//the wl_output signals are ready.
-	wl_signal_emit(&output->output.device.signals.info, output);
 
         output->timer = wl_event_loop_add_timer(loop, headless_frame,
                                                   headless);

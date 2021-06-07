@@ -41,12 +41,34 @@ tw_output_device_init(struct tw_output_device *device,
 void
 tw_output_device_fini(struct tw_output_device *device);
 
-bool
+struct tw_output_device_mode *
+tw_output_device_match_mode(struct tw_output_device *device,
+                            int width, int height, int refresh);
+static inline bool
+tw_output_device_mode_match(const struct tw_output_device_mode *mode,
+                         int w, int h, int r)
+{
+	return mode->w == w && mode->h == h && mode->refresh == r;
+}
+
+static inline bool
 tw_output_device_mode_eq(const struct tw_output_device_mode *a,
-                         const struct tw_output_device_mode *b);
-bool
+                         const struct tw_output_device_mode *b)
+{
+	return tw_output_device_mode_match(a, b->w, b->h, b->refresh);
+}
+
+static inline bool
 tw_output_device_state_eq(const struct tw_output_device_state *a,
-                          const struct tw_output_device_state *b);
+                          const struct tw_output_device_state *b)
+{
+	return a->enabled == b->enabled &&
+		a->scale == b->scale &&
+		a->gx == b->gx &&
+		a->gy == b->gy &&
+		a->transform == b->transform &&
+		tw_output_device_mode_eq(&a->current_mode, &b->current_mode);
+}
 
 static inline void
 tw_output_device_set_current_mode(struct tw_output_device *device,
@@ -56,7 +78,6 @@ tw_output_device_set_current_mode(struct tw_output_device *device,
 	device->current.current_mode.w = width;
 	device->current.current_mode.refresh = refresh;
 	wl_signal_emit(&device->signals.commit_state, device);
-	wl_signal_emit(&device->signals.info, device);
 }
 
 static inline void
