@@ -35,15 +35,23 @@ struct tw_xdg_output_manager {
 	struct wl_display *display;
 	struct wl_global *global;
 	struct wl_listener display_destroy_listener;
-	struct wl_signal xdg_output_requested;
+
+	struct wl_list outputs;
+	struct wl_signal new_output;
 };
 
-struct tw_xdg_output_info_event {
+struct tw_event_xdg_output_info {
 	struct wl_resource *wl_output;
 	const char *name, *desription;
 	int32_t x, y;
 	uint32_t width, height;
 };
+
+void
+tw_xdg_output_send_info(struct wl_resource *xdg_output,
+                        struct tw_event_xdg_output_info *event);
+struct wl_resource *
+tw_xdg_output_get_wl_output(struct wl_resource *xdg_output);
 
 bool
 tw_xdg_output_manager_init(struct tw_xdg_output_manager *manager,
