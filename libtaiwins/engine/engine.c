@@ -81,6 +81,14 @@ notify_new_output(struct wl_listener *listener, void *data)
 	tw_engine_new_output(engine, device);
 }
 
+static void
+notify_new_xdg_output(struct wl_listener *listener, void *data)
+{
+	struct wl_resource *xdg_output = data;
+	struct tw_engine *engine =
+		wl_container_of(listener, engine, listeners.new_xdg_output);
+	tw_engine_new_xdg_output(engine, xdg_output);
+}
 
 static void
 notify_engine_release(struct wl_listener *listener, void *data)
@@ -110,6 +118,9 @@ engine_init_globals(struct tw_engine *engine)
 		return false;
 	if (!tw_gestures_manager_init(&engine->gestures_manager,
 	                              engine->display))
+		return false;
+	if (!tw_xdg_output_manager_init(&engine->output_manager,
+	                                engine->display))
 		return false;
 
 	tw_layers_manager_init(&engine->layers_manager, engine->display);
@@ -162,6 +173,9 @@ tw_engine_create_global(struct wl_display *display, struct tw_backend *backend)
 	tw_signal_setup_listener(&backend->signals.new_input,
 	                         &engine->listeners.new_input,
 	                         notify_new_input);
+	tw_signal_setup_listener(&engine->output_manager.new_output,
+	                         &engine->listeners.new_xdg_output,
+	                         notify_new_xdg_output);
 	//signals
 	wl_signal_init(&engine->signals.seat_created);
 	wl_signal_init(&engine->signals.seat_focused);

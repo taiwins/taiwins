@@ -33,6 +33,7 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/output.h>
+#include <taiwins/objects/xdg_output.h>
 #include <taiwins/objects/data_device.h>
 #include <taiwins/objects/compositor.h>
 #include <taiwins/objects/cursor.h>
@@ -133,12 +134,14 @@ struct tw_engine {
 	struct tw_presentation presentation;
 	struct tw_viewporter viewporter;
 	struct tw_gestures_manager gestures_manager;
+	struct tw_xdg_output_manager output_manager;
 
 	/* listeners */
 	struct {
 		struct wl_listener display_destroy;
 		struct wl_listener new_output;
 		struct wl_listener new_input;
+		struct wl_listener new_xdg_output;
 	} listeners;
         /* signals */
 	struct {

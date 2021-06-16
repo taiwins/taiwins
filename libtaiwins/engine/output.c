@@ -77,8 +77,28 @@ engine_output_get_wl_output(struct tw_engine_output *output,
 }
 
 static void
+engine_output_send_xdg_info(struct tw_engine_output *output,
+                            struct wl_resource *xdg_output)
+{
+	pixman_rectangle32_t rect =
+		tw_output_device_geometry(output->device);
+	struct tw_event_xdg_output_info event = {
+		.wl_output = tw_xdg_output_get_wl_output(xdg_output),
+		.name = output->tw_output->name,
+		.x = rect.x,
+		.y = rect.y,
+		.width = rect.width,
+		.height = rect.height
+	};
+	tw_xdg_output_send_info(xdg_output, &event);
+}
+
+static void
 engine_output_send_info(struct tw_engine_output *output)
 {
+	struct wl_resource *xdg_output, *wl_output;
+	struct tw_engine *engine = output->engine;
+
 	tw_output_set_name(output->tw_output, output->device->name);
 	tw_output_set_scale(output->tw_output, output->device->current.scale);
 	tw_output_set_coord(output->tw_output, output->device->current.gx,
@@ -97,6 +117,12 @@ engine_output_send_info(struct tw_engine_output *output)
 	                       output->device->subpixel,
 	                       output->device->current.transform);
 	tw_output_send_clients(output->tw_output);
+
+	wl_resource_for_each(xdg_output, &engine->output_manager.outputs) {
+		wl_output = tw_xdg_output_get_wl_output(xdg_output);
+		if (output->tw_output == tw_output_from_resource(wl_output))
+			engine_output_send_xdg_info(output, xdg_output);
+	}
 }
 
 /******************************************************************************
@@ -177,6 +203,17 @@ notify_output_present(struct wl_listener *listener, void *data)
 /******************************************************************************
  * APIs
  *****************************************************************************/
+
+void
+tw_engine_new_xdg_output(struct tw_engine *engine,
+                         struct wl_resource *resource)
+{
+	struct wl_resource *wl_output =
+		tw_xdg_output_get_wl_output(resource);
+	struct tw_engine_output *output =
+		tw_engine_output_from_resource(engine, wl_output);
+	engine_output_send_xdg_info(output, resource);
+}
 
 bool
 tw_engine_new_output(struct tw_engine *engine,
@@ -278,6 +315,10 @@ tw_engine_output_from_resource(struct tw_engine *engine,
 		if (output->tw_output == tw_output)
 			return output;
 	}
+	wl_list_for_each(output, &engine->pending_heads, link) {
+		if (output->tw_output == tw_output)
+			return output;
+	}
 	return NULL;
 }
 
@@ -287,6 +328,9 @@ tw_engine_output_from_device(struct tw_engine *engine,
 {
 	struct tw_engine_output *output = NULL;
 	wl_list_for_each(output, &engine->heads, link)
+		if (output->device == device)
+			return output;
+	wl_list_for_each(output, &engine->pending_heads, link)
 		if (output->device == device)
 			return output;
 	//this may not be a good idea?
