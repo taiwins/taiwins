@@ -66,7 +66,7 @@ struct tw_engine_output {
 	struct tw_output_device *device;
 	struct tw_output *tw_output;
 
-	int id, cloning;
+	int id;
 	struct wl_list link; /* tw_engine:heads */
 
 	struct tw_cursor_constrain constrain;

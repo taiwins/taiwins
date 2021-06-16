@@ -228,7 +228,6 @@ tw_engine_new_output(struct tw_engine *engine,
 		tw_logl_level(TW_LOG_ERRO, "too many displays");
 	output = &engine->outputs[id];
 	output->id = id;
-	output->cloning = -1;
 	output->engine = engine;
 	output->device = device;
 	output->tw_output = tw_output_create(engine->display);

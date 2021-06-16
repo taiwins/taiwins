@@ -467,8 +467,6 @@ shell_send_default_config(struct tw_shell *shell)
 	struct tw_engine *engine = shell->engine;
 
 	wl_list_for_each(output, &engine->heads, link) {
-		if (output->cloning >= 0)
-			continue;
 		shell_send_output_config(shell, output,
 		                         TAIWINS_SHELL_OUTPUT_MSG_CONNECTED);
 	}
