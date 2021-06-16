@@ -111,7 +111,8 @@ struct tw_engine {
 	bool started;
 
 	/* outputs */
-	struct wl_list heads, pending_heads; /* tw_engine_output:links */
+	struct wl_list heads; /* tw_engine_output:links */
+	struct wl_list pending_heads; /* pending heads are secondary output */
 	uint32_t output_pool;
 	struct tw_engine_output outputs[32];
 
@@ -145,9 +146,11 @@ struct tw_engine {
 	} listeners;
         /* signals */
 	struct {
+		/* output signals work on primary outputs */
 		struct wl_signal output_created;
 		struct wl_signal output_resized;
 		struct wl_signal output_remove;
+		/* seat signals */
 		struct wl_signal seat_created;
 		struct wl_signal seat_focused;
 		struct wl_signal seat_remove;

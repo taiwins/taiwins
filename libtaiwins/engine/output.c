@@ -43,6 +43,13 @@
 #include "output_device.h"
 #include "internal.h"
 
+static inline void
+emit_output_signal(struct tw_engine_output *o, struct wl_signal *signal)
+{
+	if (tw_find_list_elem(&o->engine->heads, &o->link))
+		wl_signal_emit(signal, o);
+}
+
 static void
 init_engine_output_state(struct tw_engine_output *o)
 {
@@ -137,7 +144,8 @@ notify_output_destroy(struct wl_listener *listener, void *data)
 	struct tw_engine *engine = output->engine;
 	uint32_t unset = ~(1 << output->id);
 
-	wl_signal_emit(&engine->signals.output_remove, output);
+	//emit signal only on primary output
+	emit_output_signal(output, &engine->signals.output_remove);
 
 	output->id = -1;
 	wl_list_remove(&output->link);
@@ -156,18 +164,29 @@ notify_output_new_mode(struct wl_listener *listener, void *data)
 {
 	struct tw_engine_output *output =
 		wl_container_of(listener, output, listeners.set_mode);
+	struct tw_output_device *device = data;
 	struct tw_engine *engine = output->engine;
 	pixman_rectangle32_t rect = tw_output_device_geometry(output->device);
 
+	assert(device == output->device);
 	pixman_region32_fini(&output->constrain.region);
 	pixman_region32_init_rect(&output->constrain.region,
 	                          rect.x, rect.y, rect.width, rect.width);
-	//first state commit
-	if (tw_find_list_elem(&engine->pending_heads, &output->link)) {
+	//move output from primary to secondary and vice verse
+	//accordingly. secondary output does not emit any signals
+	if (tw_find_list_elem(&engine->pending_heads, &output->link) &&
+	    device->current.primary) {
 		wl_list_remove(&output->link);
 		wl_list_insert(engine->heads.prev, &output->link);
-		wl_signal_emit(&engine->signals.output_created, output);
-	} else {
+		emit_output_signal(output, &engine->signals.output_created);
+
+	} else if (tw_find_list_elem(&engine->heads, &output->link) &&
+	           !device->current.primary) {
+		emit_output_signal(output, &engine->signals.output_remove);
+		wl_list_remove(&output->link);
+		wl_list_insert(engine->pending_heads.prev, &output->link);
+
+	} else if (tw_find_list_elem(&engine->heads, &output->link)) {
 		wl_signal_emit(&engine->signals.output_resized, output);
 	}
 	engine_output_send_info(output);
