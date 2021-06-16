@@ -45,7 +45,7 @@ struct tw_output_device_mode {
 };
 
 struct tw_output_device_state {
-	bool enabled;
+	bool enabled, primary; /* primary output by default */
 	float scale;
 	int32_t gx, gy; /**< x,y position in global space */
 	enum wl_output_transform transform;
@@ -97,6 +97,9 @@ struct tw_output_device {
 
 void
 tw_output_device_enable(struct tw_output_device *device, bool enable);
+
+void
+tw_output_device_set_primary(struct tw_output_device *device, bool primary);
 
 void
 tw_output_device_set_transform(struct tw_output_device *device,
