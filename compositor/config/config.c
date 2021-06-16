@@ -186,6 +186,8 @@ tw_config_table_apply_output(struct tw_config_table *t,
 		return;
 	if (co->enabled.valid)
 		tw_output_device_enable(od, co->enabled.enable);
+	if (co->primary.valid)
+		tw_output_device_set_primary(od, co->primary.enable);
 	if (co->transform.valid)
 		tw_output_device_set_transform(od, co->transform.transform);
 	if (co->width.valid && co->height.valid)

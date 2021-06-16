@@ -429,9 +429,27 @@ _lua_read_display_enable(lua_State *L, struct tw_config_table *t, int idx)
 }
 
 static int
+_lua_read_display_primary(lua_State *L, struct tw_config_table *t, int idx)
+{
+	bool primary = true;
+	lua_getfield(L, 3, "primary");
+	if (lua_isboolean(L, -1)) {
+		primary = lua_toboolean(L, -1);
+		lua_pop(L, 1);
+	} else if (lua_isnil(L, -1)) {
+		lua_pop(L, 1);
+		return 0;
+	}
+	SET_PENDING(&t->outputs[idx].primary, enable, primary);
+	tw_config_table_dirty(t, true);
+	return 0;
+}
+
+static int
 _lua_read_display(lua_State *L, struct tw_config_table *t, uint32_t idx)
 {
 	_lua_read_display_enable(L, t, idx);
+	_lua_read_display_primary(L, t, idx);
 	_lua_read_display_scale(L, t, idx);
 	_lua_read_display_position(L, t, idx);
 	_lua_read_display_mode(L, t, idx);
