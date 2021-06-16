@@ -37,7 +37,7 @@ extern "C" {
 
 //we shall see how this works
 struct tw_server_output {
-	struct tw_engine_output *output;
+	struct tw_output_device *device;
 
 	struct {
 		/** average frame time in microseconds */

@@ -154,7 +154,7 @@ notify_output_frame(void *data)
 {
 	struct tw_server_output *output = data;
 	struct tw_render_output *render_output =
-		wl_container_of(output->output->device, render_output, device);
+		wl_container_of(output->device, render_output, device);
 	tw_render_output_post_frame(render_output);
 	return 0;
 }
@@ -169,7 +169,7 @@ notify_output_reshedule_frame(struct wl_listener *listener, void *data)
 
 	int frametime = calc_output_max_frametime(output);
 
-	assert(output->output->device == device);
+	assert(output->device == device);
 	if (!device->current.enabled)
 		return;
 
@@ -215,7 +215,7 @@ notify_output_pre_frame(struct wl_listener *listener, void *data)
 {
 	struct tw_server_output *output =
 		wl_container_of(listener, output, listeners.pre_frame);
-	struct tw_output_device *device = output->output->device;
+	struct tw_output_device *device = output->device;
 
 	clock_gettime(device->clk_id, &output->state.ts);
 	PROFILE_BEG("notify_output_repaint");
@@ -227,11 +227,10 @@ notify_output_post_frame(struct wl_listener *listener, void *data)
 	struct timespec now;
 	struct tw_server_output *output =
 		wl_container_of(listener, output, listeners.post_frame);
-	struct tw_output_device *device = output->output->device;
 	struct tw_render_output *render_output =
-		wl_container_of(device, render_output, device);
+		wl_container_of(output->device, render_output, device);
 
-	clock_gettime(device->clk_id, &now);
+	clock_gettime(output->device->clk_id, &now);
 	update_output_frame_time(output, &output->state.ts, &now);
 	tw_render_output_flush_frame(render_output, &now);
 	PROFILE_END("notify_output_repaint");
@@ -276,7 +275,7 @@ tw_server_output_fini(struct tw_server_output *output)
 {
 	wl_event_source_remove(output->state.frame_timer);
 	output->state.frame_timer = NULL;
-	output->output = NULL;
+	output->device = NULL;
 
 	tw_reset_wl_list(&output->listeners.destroy.link);
 	tw_reset_wl_list(&output->listeners.need_frame.link);
@@ -287,16 +286,15 @@ tw_server_output_fini(struct tw_server_output *output)
 
 static void
 tw_server_output_init(struct tw_server_output *output,
-                      struct tw_engine_output *engine_output,
+                      struct tw_output_device *device,
                       struct tw_render_context *ctx)
 {
-	struct tw_output_device *device = engine_output->device;
 	struct tw_render_output *render_output =
 		wl_container_of(device, render_output, device);
-	struct wl_display *display = engine_output->engine->display;
+	struct wl_display *display = ctx->display;
 	struct wl_event_loop *loop = wl_display_get_event_loop(display);
 
-        output->output = engine_output;
+	output->device = device;
         output->state.frame_timer =
 	        wl_event_loop_add_timer(loop, notify_output_frame, output);
 
@@ -356,10 +354,10 @@ notify_mgr_new_output(struct wl_listener *listener, void *data)
 {
 	struct tw_server_output_manager *mgr =
 		wl_container_of(listener, mgr, listeners.new_output);
-	struct tw_engine_output *output = data;
-	unsigned id = output->device->id;
+	struct tw_output_device *device = data;
+	unsigned id = device->id;
 
-	tw_server_output_init(&mgr->outputs[id], output, mgr->ctx);
+	tw_server_output_init(&mgr->outputs[id], device, mgr->ctx);
 }
 
 static void
@@ -382,11 +380,12 @@ tw_server_output_manager_create_global(struct tw_engine *engine,
                                        struct tw_render_context *ctx)
 {
 	static struct tw_server_output_manager mgr = {0};
+	struct tw_backend *backend = engine->backend;
 
 	mgr.engine = engine;
 	mgr.ctx = ctx;
 
-	tw_signal_setup_listener(&engine->signals.output_created,
+	tw_signal_setup_listener(&backend->signals.new_output,
 	                         &mgr.listeners.new_output,
 	                         notify_mgr_new_output);
 	tw_signal_setup_listener(&ctx->signals.wl_surface_dirty,
