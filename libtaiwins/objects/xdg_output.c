@@ -21,7 +21,6 @@
 
 #include <assert.h>
 #include <wayland-server.h>
-#include <wayland-util.h>
 #include <wayland-xdg-output-server-protocol.h>
 
 #include <taiwins/objects/xdg_output.h>
@@ -115,19 +114,19 @@ tw_xdg_output_send_info(struct wl_resource *xdg_output,
 {
 	assert(wl_resource_instance_of(xdg_output, &zxdg_output_v1_interface,
 	                               &xdg_output_impl));
+	assert(tw_xdg_output_get_wl_output(xdg_output) == event->wl_output);
 
-	if (event->name && event->width && event->height) {
-		zxdg_output_v1_send_name(xdg_output, event->name);
-		zxdg_output_v1_send_logical_position(xdg_output,
-		                                     event->x, event->y);
-		zxdg_output_v1_send_logical_size(xdg_output,
-		                                 event->width, event->height);
-		if (event->desription)
-			zxdg_output_v1_send_description(xdg_output,
-			                                event->desription);
-		zxdg_output_v1_send_done(xdg_output);
-	}
-	//TODO send wl_output_done on version 3
+	zxdg_output_v1_send_name(xdg_output, event->name);
+	zxdg_output_v1_send_logical_position(xdg_output,
+	                                     event->x, event->y);
+	zxdg_output_v1_send_logical_size(xdg_output,
+	                                 event->width, event->height);
+	if (event->desription)
+		zxdg_output_v1_send_description(xdg_output,
+		                                event->desription);
+	zxdg_output_v1_send_done(xdg_output);
+	if (wl_resource_get_version(xdg_output) >= 3)
+		wl_output_send_done(event->wl_output);
 }
 
 WL_EXPORT bool
