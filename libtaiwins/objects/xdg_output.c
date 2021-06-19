@@ -19,8 +19,8 @@
  *
  */
 
-#include <wayland-server-core.h>
-#include <wayland-util.h>
+#include <assert.h>
+#include <wayland-server.h>
 #include <wayland-xdg-output-server-protocol.h>
 
 #include <taiwins/objects/xdg_output.h>
@@ -30,10 +30,16 @@
 #define XDG_OUTPUT_MAN_VERSION 1
 #define XDG_OUTPUT_VERSION 3
 
-
 static const struct zxdg_output_v1_interface xdg_output_impl = {
 	.destroy = tw_resource_destroy_common,
 };
+
+static void
+handle_destroy_xdg_output(struct wl_resource *resource)
+{
+	wl_resource_set_user_data(resource, NULL);
+	tw_reset_wl_list(wl_resource_get_link(resource));
+}
 
 static void
 handle_get_xdg_output(struct wl_client *client,
@@ -41,9 +47,6 @@ handle_get_xdg_output(struct wl_client *client,
                       uint32_t id,
                       struct wl_resource *output)
 {
-	struct tw_xdg_output_info_event event = {
-		.wl_output = output,
-	};
 	struct tw_xdg_output_manager *manager =
 		wl_resource_get_user_data(resource);
 	struct wl_resource *output_resource =
@@ -54,20 +57,11 @@ handle_get_xdg_output(struct wl_client *client,
 		return;
 	}
 	wl_resource_set_implementation(output_resource, &xdg_output_impl,
-	                               NULL, NULL);
+	                               output, handle_destroy_xdg_output);
 
-	wl_signal_emit(&manager->xdg_output_requested, &event);
-	if (event.name && event.width && event.height) {
-		zxdg_output_v1_send_name(output_resource, event.name);
-		zxdg_output_v1_send_logical_position(output_resource,
-		                                     event.x, event.y);
-		zxdg_output_v1_send_logical_size(output_resource,
-		                                 event.width, event.height);
-		if (event.desription)
-			zxdg_output_v1_send_description(output_resource,
-			                                event.desription);
-		zxdg_output_v1_send_done(output_resource);
-	}
+	wl_signal_emit(&manager->new_output, output_resource);
+	wl_list_insert(&manager->outputs,
+	               wl_resource_get_link(output_resource));
 }
 
 static const struct zxdg_output_manager_v1_interface xdg_output_man_impl = {
@@ -106,6 +100,35 @@ handle_display_destroy(struct wl_listener *listener, void *data)
 	wl_global_destroy(manager->global);
 }
 
+WL_EXPORT struct wl_resource *
+tw_xdg_output_get_wl_output(struct wl_resource *xdg_output)
+{
+	assert(wl_resource_instance_of(xdg_output, &zxdg_output_v1_interface,
+	                               &xdg_output_impl));
+	return wl_resource_get_user_data(xdg_output);
+}
+
+WL_EXPORT void
+tw_xdg_output_send_info(struct wl_resource *xdg_output,
+                        struct tw_event_xdg_output_info *event)
+{
+	assert(wl_resource_instance_of(xdg_output, &zxdg_output_v1_interface,
+	                               &xdg_output_impl));
+	assert(tw_xdg_output_get_wl_output(xdg_output) == event->wl_output);
+
+	zxdg_output_v1_send_name(xdg_output, event->name);
+	zxdg_output_v1_send_logical_position(xdg_output,
+	                                     event->x, event->y);
+	zxdg_output_v1_send_logical_size(xdg_output,
+	                                 event->width, event->height);
+	if (event->desription)
+		zxdg_output_v1_send_description(xdg_output,
+		                                event->desription);
+	zxdg_output_v1_send_done(xdg_output);
+	if (wl_resource_get_version(xdg_output) >= 3)
+		wl_output_send_done(event->wl_output);
+}
+
 WL_EXPORT bool
 tw_xdg_output_manager_init(struct tw_xdg_output_manager *manager,
                            struct wl_display *display)
@@ -121,7 +144,8 @@ tw_xdg_output_manager_init(struct tw_xdg_output_manager *manager,
 	manager->display_destroy_listener.notify = handle_display_destroy;
 	wl_display_add_destroy_listener(display,
 	                                &manager->display_destroy_listener);
-	wl_signal_init(&manager->xdg_output_requested);
+	wl_signal_init(&manager->new_output);
+	wl_list_init(&manager->outputs);
 	return true;
 }
 

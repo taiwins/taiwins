@@ -38,6 +38,7 @@ output_device_state_init(struct tw_output_device_state *state,
                          struct tw_output_device *device)
 {
 	state->enabled = true;
+	state->primary = true;
 	state->scale = 1.0;
 	state->current_mode.w = 0;
 	state->current_mode.h = 0;
@@ -165,6 +166,12 @@ WL_EXPORT void
 tw_output_device_enable(struct tw_output_device *device, bool enable)
 {
 	device->pending.enabled = enable;
+}
+
+WL_EXPORT void
+tw_output_device_set_primary(struct tw_output_device *device, bool primary)
+{
+	device->pending.primary = primary;
 }
 
 WL_EXPORT void

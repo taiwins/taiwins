@@ -58,7 +58,7 @@ struct tw_config_output {
 	pending_intval_t scale, posx, posy;
 	pending_uintval_t width, height;
 	pending_transform_t transform;
-	pending_boolean_t enabled;
+	pending_boolean_t enabled, primary;
 };
 
 #ifdef __cplusplus

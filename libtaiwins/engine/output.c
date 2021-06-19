@@ -43,6 +43,13 @@
 #include "output_device.h"
 #include "internal.h"
 
+static inline void
+emit_output_signal(struct tw_engine_output *o, struct wl_signal *signal)
+{
+	if (tw_find_list_elem(&o->engine->heads, &o->link))
+		wl_signal_emit(signal, o);
+}
+
 static void
 init_engine_output_state(struct tw_engine_output *o)
 {
@@ -77,8 +84,28 @@ engine_output_get_wl_output(struct tw_engine_output *output,
 }
 
 static void
+engine_output_send_xdg_info(struct tw_engine_output *output,
+                            struct wl_resource *xdg_output)
+{
+	pixman_rectangle32_t rect =
+		tw_output_device_geometry(output->device);
+	struct tw_event_xdg_output_info event = {
+		.wl_output = tw_xdg_output_get_wl_output(xdg_output),
+		.name = output->tw_output->name,
+		.x = rect.x,
+		.y = rect.y,
+		.width = rect.width,
+		.height = rect.height
+	};
+	tw_xdg_output_send_info(xdg_output, &event);
+}
+
+static void
 engine_output_send_info(struct tw_engine_output *output)
 {
+	struct wl_resource *xdg_output, *wl_output;
+	struct tw_engine *engine = output->engine;
+
 	tw_output_set_name(output->tw_output, output->device->name);
 	tw_output_set_scale(output->tw_output, output->device->current.scale);
 	tw_output_set_coord(output->tw_output, output->device->current.gx,
@@ -97,6 +124,12 @@ engine_output_send_info(struct tw_engine_output *output)
 	                       output->device->subpixel,
 	                       output->device->current.transform);
 	tw_output_send_clients(output->tw_output);
+
+	wl_resource_for_each(xdg_output, &engine->output_manager.outputs) {
+		wl_output = tw_xdg_output_get_wl_output(xdg_output);
+		if (output->tw_output == tw_output_from_resource(wl_output))
+			engine_output_send_xdg_info(output, xdg_output);
+	}
 }
 
 /******************************************************************************
@@ -111,7 +144,8 @@ notify_output_destroy(struct wl_listener *listener, void *data)
 	struct tw_engine *engine = output->engine;
 	uint32_t unset = ~(1 << output->id);
 
-	wl_signal_emit(&engine->signals.output_remove, output);
+	//emit signal only on primary output
+	emit_output_signal(output, &engine->signals.output_remove);
 
 	output->id = -1;
 	wl_list_remove(&output->link);
@@ -130,18 +164,29 @@ notify_output_new_mode(struct wl_listener *listener, void *data)
 {
 	struct tw_engine_output *output =
 		wl_container_of(listener, output, listeners.set_mode);
+	struct tw_output_device *device = data;
 	struct tw_engine *engine = output->engine;
 	pixman_rectangle32_t rect = tw_output_device_geometry(output->device);
 
+	assert(device == output->device);
 	pixman_region32_fini(&output->constrain.region);
 	pixman_region32_init_rect(&output->constrain.region,
 	                          rect.x, rect.y, rect.width, rect.width);
-	//first state commit
-	if (tw_find_list_elem(&engine->pending_heads, &output->link)) {
+	//move output from primary to secondary and vice verse
+	//accordingly. secondary output does not emit any signals
+	if (tw_find_list_elem(&engine->pending_heads, &output->link) &&
+	    device->current.primary) {
 		wl_list_remove(&output->link);
 		wl_list_insert(engine->heads.prev, &output->link);
-		wl_signal_emit(&engine->signals.output_created, output);
-	} else {
+		emit_output_signal(output, &engine->signals.output_created);
+
+	} else if (tw_find_list_elem(&engine->heads, &output->link) &&
+	           !device->current.primary) {
+		emit_output_signal(output, &engine->signals.output_remove);
+		wl_list_remove(&output->link);
+		wl_list_insert(engine->pending_heads.prev, &output->link);
+
+	} else if (tw_find_list_elem(&engine->heads, &output->link)) {
 		wl_signal_emit(&engine->signals.output_resized, output);
 	}
 	engine_output_send_info(output);
@@ -178,6 +223,17 @@ notify_output_present(struct wl_listener *listener, void *data)
  * APIs
  *****************************************************************************/
 
+void
+tw_engine_new_xdg_output(struct tw_engine *engine,
+                         struct wl_resource *resource)
+{
+	struct wl_resource *wl_output =
+		tw_xdg_output_get_wl_output(resource);
+	struct tw_engine_output *output =
+		tw_engine_output_from_resource(engine, wl_output);
+	engine_output_send_xdg_info(output, resource);
+}
+
 bool
 tw_engine_new_output(struct tw_engine *engine,
                      struct tw_output_device *device)
@@ -191,7 +247,6 @@ tw_engine_new_output(struct tw_engine *engine,
 		tw_logl_level(TW_LOG_ERRO, "too many displays");
 	output = &engine->outputs[id];
 	output->id = id;
-	output->cloning = -1;
 	output->engine = engine;
 	output->device = device;
 	output->tw_output = tw_output_create(engine->display);
@@ -278,6 +333,10 @@ tw_engine_output_from_resource(struct tw_engine *engine,
 		if (output->tw_output == tw_output)
 			return output;
 	}
+	wl_list_for_each(output, &engine->pending_heads, link) {
+		if (output->tw_output == tw_output)
+			return output;
+	}
 	return NULL;
 }
 
@@ -287,6 +346,9 @@ tw_engine_output_from_device(struct tw_engine *engine,
 {
 	struct tw_engine_output *output = NULL;
 	wl_list_for_each(output, &engine->heads, link)
+		if (output->device == device)
+			return output;
+	wl_list_for_each(output, &engine->pending_heads, link)
 		if (output->device == device)
 			return output;
 	//this may not be a good idea?

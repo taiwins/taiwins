@@ -33,6 +33,7 @@
 #include <taiwins/objects/surface.h>
 #include <taiwins/objects/layers.h>
 #include <taiwins/objects/output.h>
+#include <taiwins/objects/xdg_output.h>
 #include <taiwins/objects/data_device.h>
 #include <taiwins/objects/compositor.h>
 #include <taiwins/objects/cursor.h>
@@ -65,7 +66,7 @@ struct tw_engine_output {
 	struct tw_output_device *device;
 	struct tw_output *tw_output;
 
-	int id, cloning;
+	int id;
 	struct wl_list link; /* tw_engine:heads */
 
 	struct tw_cursor_constrain constrain;
@@ -110,7 +111,8 @@ struct tw_engine {
 	bool started;
 
 	/* outputs */
-	struct wl_list heads, pending_heads; /* tw_engine_output:links */
+	struct wl_list heads; /* tw_engine_output:links */
+	struct wl_list pending_heads; /* pending heads are secondary output */
 	uint32_t output_pool;
 	struct tw_engine_output outputs[32];
 
@@ -133,18 +135,22 @@ struct tw_engine {
 	struct tw_presentation presentation;
 	struct tw_viewporter viewporter;
 	struct tw_gestures_manager gestures_manager;
+	struct tw_xdg_output_manager output_manager;
 
 	/* listeners */
 	struct {
 		struct wl_listener display_destroy;
 		struct wl_listener new_output;
 		struct wl_listener new_input;
+		struct wl_listener new_xdg_output;
 	} listeners;
         /* signals */
 	struct {
+		/* output signals work on primary outputs */
 		struct wl_signal output_created;
 		struct wl_signal output_resized;
 		struct wl_signal output_remove;
+		/* seat signals */
 		struct wl_signal seat_created;
 		struct wl_signal seat_focused;
 		struct wl_signal seat_remove;

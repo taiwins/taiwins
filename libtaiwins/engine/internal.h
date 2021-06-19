@@ -26,6 +26,7 @@
 #include <taiwins/input_device.h>
 #include <taiwins/output_device.h>
 #include <taiwins/render_context.h>
+#include <wayland-server.h>
 
 #ifdef  __cplusplus
 extern "C" {
@@ -37,7 +38,9 @@ tw_engine_seat_find_create(struct tw_engine *engine, unsigned int id);
 bool
 tw_engine_new_output(struct tw_engine *engine,
                      struct tw_output_device *device);
-
+void
+tw_engine_new_xdg_output(struct tw_engine *engine,
+                         struct wl_resource *resource);
 void
 tw_engine_seat_add_input_device(struct tw_engine_seat *seat,
                                 struct tw_input_device *device);
