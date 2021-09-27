@@ -1,4 +1,8 @@
-# Taiwins, a modern wayland window manager
+# Taiwins, a modern wayland window manager (Discontinued)
+
+I no longer actively mantain this project due to personal reasons, anyone is
+free to fork and take control of it or simply take it as a study
+reference as long as you respect the GPL license agreements. Ciao.
 
 [![Gitter](https://img.shields.io/badge/gitter-taiwins--project-purple?logo=gitter-white)](https://gitter.im/taiwins/)
 ![example workflow](https://github.com/taiwins/taiwins/actions/workflows/ccpp.yml/badge.svg)
