@@ -55,6 +55,7 @@ taiwins_obj_srcs = [
   'egl.c',
   'gestures.c',
   'virtual_keyboard.c',
+  'idle_inhibit.c',
 
   wayland_linux_dmabuf_server_protocol_h,
   wayland_linux_dmabuf_private_code_c,
@@ -74,6 +75,8 @@ taiwins_obj_srcs = [
   wayland_text_input_private_code_c,
   wayland_virtual_keyboard_server_protocol_h,
   wayland_virtual_keyboard_private_code_c,
+  wayland_idle_inhibit_server_protocol_h,
+  wayland_idle_inhibit_private_code_c,
 ]
 
 twobjects_deps = [
